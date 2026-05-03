@@ -3,6 +3,7 @@ from discord.ext import commands
 import os
 import random
 import json
+import aiohttp
 from dotenv import load_dotenv
 
 load_dotenv()
