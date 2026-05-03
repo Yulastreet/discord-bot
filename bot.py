@@ -5,6 +5,7 @@ import random
 import json
 import aiohttp
 from dotenv import load_dotenv
+from rank_card import generate_levelup_card, generate_rank_card
 
 load_dotenv()
 
@@ -33,6 +34,15 @@ def save_xp(data):
 
 def get_level(xp):
     return int(xp ** 0.2)
+
+def get_progress(xp):
+    level = get_level(xp)
+    current_level_xp = int(level ** (1 / 0.2))
+    next_level_xp = int((level + 1) ** (1 / 0.2))
+    progress_xp = xp - current_level_xp
+    needed_xp = next_level_xp - current_level_xp
+    percent = min(int((progress_xp / needed_xp) * 100), 100)
+    return level, progress_xp, needed_xp, percent
 
 # ===== BIENVENUE =====
 WELCOME_FILE = "welcome.json"
@@ -101,7 +111,12 @@ async def on_message(message):
         save_xp(xp_data)
 
         if new_level > old_level:
-            await message.channel.send(f"🎉 {message.author.mention} est passé au niveau **{new_level}** !")
+            level, progress_xp, needed_xp, percent = get_progress(xp_data[user_id])
+            image = await generate_levelup_card(message.author, new_level, percent)
+            await message.channel.send(
+                content=f"🎉 {message.author.mention}",
+                file=discord.File(image, filename="levelup.png")
+            )
 
     await bot.process_commands(message)
 
@@ -175,7 +190,6 @@ async def blague(ctx):
                 await ctx.send(f"😂 {data['joke']}")
             else:
                 await ctx.send(f"😂 **{data['setup']}**\n||{data['delivery']}||")
-
 
 # ===== MODÉRATION =====
 
@@ -275,17 +289,15 @@ async def setwelcome_error(ctx, error):
 # ===== NIVEAUX/XP =====
 
 @bot.command()
-async def niveau(ctx, membre: discord.Member = None):
-    membre = membre or ctx.author
+async def niveau(ctx, member: discord.Member = None):
+    member = member or ctx.author
     xp_data = load_xp()
-    user_id = str(membre.id)
+    user_id = str(member.id)
     xp = xp_data.get(user_id, 0)
-    level = get_level(xp)
-    embed = discord.Embed(title=f"📊 Niveau de {membre.name}", color=discord.Color.orange())
-    embed.add_field(name="🏆 Niveau", value=level)
-    embed.add_field(name="⭐ XP", value=xp)
-    embed.set_thumbnail(url=membre.display_avatar.url)
-    await ctx.send(embed=embed)
+    level, progress_xp, needed_xp, percent = get_progress(xp)
+
+    image = await generate_rank_card(member, level, xp, progress_xp, needed_xp, percent)
+    await ctx.send(file=discord.File(image, filename="rank.png"))
 
 @bot.command()
 async def leaderboard(ctx):
@@ -296,7 +308,6 @@ async def leaderboard(ctx):
 
     sorted_users = sorted(xp_data.items(), key=lambda x: x[1], reverse=True)[:10]
     embed = discord.Embed(title="🏆 Classement XP", color=discord.Color.gold())
-
     medals = ["🥇", "🥈", "🥉"]
     description = ""
     for i, (user_id, xp) in enumerate(sorted_users):
