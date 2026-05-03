@@ -296,8 +296,24 @@ async def niveau(ctx, member: discord.Member = None):
     xp = xp_data.get(user_id, 0)
     level, progress_xp, needed_xp, percent = get_progress(xp)
 
-    image = await generate_rank_card(member, level, xp, progress_xp, needed_xp, percent)
-    await ctx.send(file=discord.File(image, filename="rank.png"))
+    # Barre de progression
+    filled = int(percent / 5)
+    bar = "█" * filled + "░" * (20 - filled)
+
+    embed = discord.Embed(
+        title=f"📊 {member.display_name}",
+        color=discord.Color.blurple()
+    )
+    embed.add_field(name="🏆 Niveau", value=f"**{level}**", inline=True)
+    embed.add_field(name="⭐ XP Total", value=f"**{xp}**", inline=True)
+    embed.add_field(
+        name="📈 Progression",
+        value=f"`{bar}` **{percent}%**\n`{progress_xp} / {needed_xp} XP`",
+        inline=False
+    )
+    embed.set_thumbnail(url=member.display_avatar.url)
+
+    await ctx.send(embed=embed)
 
 @bot.command()
 async def leaderboard(ctx):
