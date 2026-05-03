@@ -20,7 +20,10 @@ XP_FILE = "xp.json"
 def load_xp():
     if os.path.exists(XP_FILE):
         with open(XP_FILE, "r") as f:
-            return json.load(f)
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
     return {}
 
 def save_xp(data):
@@ -36,7 +39,10 @@ WELCOME_FILE = "welcome.json"
 def load_welcome():
     if os.path.exists(WELCOME_FILE):
         with open(WELCOME_FILE, "r") as f:
-            return json.load(f)
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
     return {}
 
 def save_welcome(data):
@@ -76,15 +82,13 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    # Réactions automatiques
     if message.author.id in USER_REACTIONS:
         emoji = USER_REACTIONS[message.author.id]
         try:
             await message.add_reaction(emoji)
         except discord.HTTPException as e:
-            print(f"❌ Erreur : {e}")
+            print(f"❌ Erreur réaction : {e}")
 
-    # Système XP
     if not message.author.bot:
         xp_data = load_xp()
         user_id = str(message.author.id)
@@ -146,6 +150,11 @@ async def eight_ball(ctx, *, question):
     embed.add_field(name="Réponse", value=random.choice(reponses), inline=False)
     await ctx.send(embed=embed)
 
+@eight_ball.error
+async def eight_ball_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Usage : `!8ball <ta question>`")
+
 @bot.command(name="dé")
 async def de(ctx, faces: int = 6):
     resultat = random.randint(1, faces)
@@ -189,11 +198,29 @@ async def clear(ctx, nombre: int):
     await msg.delete(delay=3)
 
 @kick.error
-@ban.error
-@clear.error
-async def moderation_error(ctx, error):
+async def kick_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("❌ Tu n'as pas les permissions nécessaires !")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Usage : `!kick @membre <raison>`")
+    elif isinstance(error, commands.MemberNotFound):
+        await ctx.send("❌ Membre introuvable !")
+
+@ban.error
+async def ban_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ Tu n'as pas les permissions nécessaires !")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Usage : `!ban @membre <raison>`")
+    elif isinstance(error, commands.MemberNotFound):
+        await ctx.send("❌ Membre introuvable !")
+
+@clear.error
+async def clear_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ Tu n'as pas les permissions nécessaires !")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Usage : `!clear <nombre>`")
 
 # ===== AUTRE =====
 
@@ -207,7 +234,7 @@ async def avatar(ctx, membre: discord.Member = None):
 @bot.command()
 async def poll(ctx, question, *options):
     if len(options) < 2:
-        await ctx.send("❌ Donne au moins 2 options ! Exemple : `!poll \"Question\" \"Option1\" \"Option2\"`")
+        await ctx.send('❌ Donne au moins 2 options ! Exemple : `!poll "Question" "Option1" "Option2"`')
         return
     if len(options) > 9:
         await ctx.send("❌ Maximum 9 options !")
@@ -222,6 +249,11 @@ async def poll(ctx, question, *options):
 
     for i in range(len(options)):
         await poll_msg.add_reaction(emojis[i])
+
+@poll.error
+async def poll_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send('❌ Usage : `!poll "Question" "Option1" "Option2"`')
 
 # ===== BIENVENUE =====
 
