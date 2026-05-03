@@ -31,7 +31,7 @@ def save_xp(data):
         json.dump(data, f)
 
 def get_level(xp):
-    return int(xp ** 0.4)
+    return int(xp ** 0.2)
 
 # ===== BIENVENUE =====
 WELCOME_FILE = "welcome.json"
@@ -95,7 +95,7 @@ async def on_message(message):
         if user_id not in xp_data:
             xp_data[user_id] = 0
         old_level = get_level(xp_data[user_id])
-        xp_data[user_id] += random.randint(5, 15)
+        xp_data[user_id] += random.randint(1, 5)
         new_level = get_level(xp_data[user_id])
         save_xp(xp_data)
 
@@ -167,14 +167,14 @@ async def coinflip(ctx):
 
 @bot.command()
 async def blague(ctx):
-    blagues = [
-        "Pourquoi les plongeurs plongent-ils toujours en arrière ? Parce que sinon ils tomberaient dans le bateau !",
-        "C'est l'histoire d'un homme qui rentre dans un bar... Aïe.",
-        "Qu'est-ce qu'un canif ? Un petit fien.",
-        "Pourquoi les moutons ne mangent pas d'ordinateurs ? Parce qu'ils ont peur des virus.",
-        "Comment appelle-t-on un chat tombé dans un pot de peinture ? Un chat peint !"
-    ]
-    await ctx.send(f"😂 {random.choice(blagues)}")
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://v2.jokeapi.dev/joke/Any?lang=fr") as response:
+            data = await response.json()
+            if data["type"] == "single":
+                await ctx.send(f"😂 {data['joke']}")
+            else:
+                await ctx.send(f"😂 **{data['setup']}**\n||{data['delivery']}||")
+
 
 # ===== MODÉRATION =====
 
