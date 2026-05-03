@@ -1,47 +1,41 @@
 import discord
+from discord.ext import commands
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuration
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Dictionnaire : ID utilisateur -> emoji de réaction
-# Tu peux ajouter autant d'utilisateurs que tu veux
 USER_REACTIONS = {
-    235079585509801984: "<:67:1500587937300091083>",   # Remplace par le vrai ID utilisateur
-    250304844374605835: "<:lurios:1462973231890698474>",   # Autre exemple
-    # Ajoute d'autres utilisateurs ici
+    235079585509801984: "<:67:1500587937300091083>",
+    250304844374605835: "<:lurios:1462973231890698474>",
 }
 
-# Intents nécessaires
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-@client.event
+@bot.event
 async def on_ready():
-    print(f"✅ Bot connecté en tant que {client.user}")
+    print(f"✅ Bot connecté en tant que {bot.user}")
     print(f"👀 Surveillance de {len(USER_REACTIONS)} utilisateur(s)")
 
-@client.event
+@bot.event
 async def on_message(message):
-    # Ignore les messages du bot lui-même
-    if message.author == client.user:
+    if message.author == bot.user:
         return
 
-    # Vérifie si l'auteur du message est dans la liste
     if message.author.id in USER_REACTIONS:
         emoji = USER_REACTIONS[message.author.id]
         try:
             await message.add_reaction(emoji)
             print(f"✅ Réaction {emoji} ajoutée au message de {message.author.name}")
         except discord.HTTPException as e:
-            print(f"❌ Erreur lors de l'ajout de la réaction : {e}")
+            print(f"❌ Erreur : {e}")
 
-client.run(TOKEN)
+    await bot.process_commands(message)  # ⚠️ IMPORTANT pour que les commandes marchent
 
 # ===== INFOS =====
 
@@ -66,7 +60,7 @@ async def userinfo(ctx, membre: discord.Member = None):
 async def serverinfo(ctx):
     serveur = ctx.guild
     embed = discord.Embed(title=f"Infos de {serveur.name}", color=discord.Color.blue())
-    embed.set_thumbnail(url=serveur.icon.url if serveur.icon else discord.Embed.Empty)
+    embed.set_thumbnail(url=serveur.icon.url if serveur.icon else None)
     embed.add_field(name="👑 Propriétaire", value=serveur.owner)
     embed.add_field(name="👥 Membres", value=serveur.member_count)
     embed.add_field(name="📅 Créé le", value=serveur.created_at.strftime("%d/%m/%Y"))
@@ -74,3 +68,4 @@ async def serverinfo(ctx):
     embed.add_field(name="🎭 Rôles", value=len(serveur.roles))
     await ctx.send(embed=embed)
 
+bot.run(TOKEN)
