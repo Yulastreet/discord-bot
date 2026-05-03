@@ -12,7 +12,6 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 USER_REACTIONS = {
     235079585509801984: "<:67:1500587937300091083>",   # Remplace par le vrai ID utilisateur
     250304844374605835: "<:lurios:1462973231890698474>",   # Autre exemple
-    222737978932461578: ":sacrifice:1306263364095316020",
     # Ajoute d'autres utilisateurs ici
 }
 
