@@ -42,3 +42,35 @@ async def on_message(message):
             print(f"❌ Erreur lors de l'ajout de la réaction : {e}")
 
 client.run(TOKEN)
+
+# ===== INFOS =====
+
+@bot.command()
+async def ping(ctx):
+    latence = round(bot.latency * 1000)
+    await ctx.send(f"🏓 Pong ! Latence : **{latence}ms**")
+
+@bot.command()
+async def userinfo(ctx, membre: discord.Member = None):
+    membre = membre or ctx.author
+    embed = discord.Embed(title=f"Infos de {membre.name}", color=membre.color)
+    embed.set_thumbnail(url=membre.display_avatar.url)
+    embed.add_field(name="📛 Nom", value=membre.name)
+    embed.add_field(name="🆔 ID", value=membre.id)
+    embed.add_field(name="📅 Compte créé le", value=membre.created_at.strftime("%d/%m/%Y"))
+    embed.add_field(name="📥 A rejoint le", value=membre.joined_at.strftime("%d/%m/%Y"))
+    embed.add_field(name="🎖️ Rôle principal", value=membre.top_role.mention)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def serverinfo(ctx):
+    serveur = ctx.guild
+    embed = discord.Embed(title=f"Infos de {serveur.name}", color=discord.Color.blue())
+    embed.set_thumbnail(url=serveur.icon.url if serveur.icon else discord.Embed.Empty)
+    embed.add_field(name="👑 Propriétaire", value=serveur.owner)
+    embed.add_field(name="👥 Membres", value=serveur.member_count)
+    embed.add_field(name="📅 Créé le", value=serveur.created_at.strftime("%d/%m/%Y"))
+    embed.add_field(name="💬 Salons", value=len(serveur.channels))
+    embed.add_field(name="🎭 Rôles", value=len(serveur.roles))
+    await ctx.send(embed=embed)
+
