@@ -134,3 +134,61 @@ def logout():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
+@app.route('/reactions', methods=['GET', 'POST'])
+def reactions_panel():
+    if 'logged_in' not in session:
+        return redirect('/login')
+    
+    # Récupère tous les utilisateurs de la base de données
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT user_id, username FROM users ORDER BY username")
+    users = cursor.fetchall()
+    
+    # Récupère toutes les réactions actuelles
+    cursor.execute("SELECT user_id, emoji FROM reactions")
+    reactions = {row[0]: row[1] for row in cursor.fetchall()}
+    conn.close()
+    
+    return render_template('reactions.html', users=users, reactions=reactions)
+
+@app.route('/api/reactions/add', methods=['POST'])
+def add_reaction():
+    if 'logged_in' not in session:
+        return {'error': 'Non authentifié'}, 401
+    
+    data = request.json
+    user_id = data.get('user_id')
+    emoji = data.get('emoji')
+    
+    if not user_id or not emoji:
+        return {'error': 'user_id et emoji requis'}, 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO reactions (user_id, emoji) VALUES (?, ?)",
+                   (user_id, emoji))
+    conn.commit()
+    conn.close()
+    
+    return {'success': True, 'message': f'Réaction ajoutée pour {user_id}'}
+
+@app.route('/api/reactions/remove', methods=['POST'])
+def remove_reaction():
+    if 'logged_in' not in session:
+        return {'error': 'Non authentifié'}, 401
+    
+    data = request.json
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return {'error': 'user_id requis'}, 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM reactions WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    
+    return {'success': True, 'message': f'Réaction supprimée pour {user_id}'}
