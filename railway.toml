@@ -1,5 +1,7 @@
 [build]
 builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
+startCommand = "python3 bot.py"
 restartPolicyType = "always"
