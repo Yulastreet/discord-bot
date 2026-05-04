@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <style>
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial;
+        }
+        .box {
+            background: #16213e;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        h2 { color: white; }
+        input {
+            padding: 10px;
+            width: 200px;
+            border-radius: 5px;
+            border: none;
+            margin: 10px 0;
+        }
+        button {
+            background: #7289da;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>🤖 Bot Dashboard</h2>
+        {% if error %}<p class="error">{{ error }}</p>{% endif %}
+        <form method="POST">
+            <input type="password" name="password" placeholder="Mot de passe"><br>
+            <button type="submit">Connexion</button>
+        </form>
+    </div>
+</body>
+</html>
