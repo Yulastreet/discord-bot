@@ -1,7 +1,7 @@
 import sqlite3
 
 def get_db():
-    conn = sqlite3.connect("bot_database.db")  # ← change bot.db en bot_database.db
+    conn = sqlite3.connect("bot_database.db")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -9,16 +9,11 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-     # Table users ← À AJOUTER
+    # Table users
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
         username TEXT,
-        level INTEGER DEFAULT 0
-    )''')
-    
-    # Table XP
-    c.execute('''CREATE TABLE IF NOT EXISTS xp (
-        user_id TEXT PRIMARY KEY,
+        level INTEGER DEFAULT 0,
         xp INTEGER DEFAULT 0
     )''')
     
@@ -42,7 +37,7 @@ def init_db():
 def get_xp(user_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT xp FROM xp WHERE user_id = ?", (str(user_id),))
+    c.execute("SELECT xp FROM users WHERE user_id = ?", (str(user_id),))
     row = c.fetchone()
     conn.close()
     return row["xp"] if row else 0
@@ -50,14 +45,14 @@ def get_xp(user_id):
 def set_xp(user_id, xp):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO xp (user_id, xp) VALUES (?, ?)", (str(user_id), xp))
+    c.execute("INSERT OR REPLACE INTO users (user_id, xp) VALUES (?, ?)", (str(user_id), xp))
     conn.commit()
     conn.close()
 
 def get_leaderboard():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT user_id, xp FROM xp ORDER BY xp DESC LIMIT 10")
+    c.execute("SELECT user_id, xp FROM users ORDER BY xp DESC LIMIT 10")
     rows = c.fetchall()
     conn.close()
     return [(row["user_id"], row["xp"]) for row in rows]
