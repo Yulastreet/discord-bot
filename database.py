@@ -42,10 +42,19 @@ def get_xp(user_id):
     conn.close()
     return row["xp"] if row else 0
 
-def set_xp(user_id, xp):
+def set_xp(user_id, xp, username=None):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO users (user_id, xp) VALUES (?, ?)", (str(user_id), xp))
+    from bot import get_level
+    level = int(xp ** 0.2)
+    if username:
+        c.execute("INSERT OR REPLACE INTO users (user_id, username, xp, level) VALUES (?, ?, ?, ?)", 
+                  (str(user_id), username, xp, level))
+    else:
+        c.execute("""
+            INSERT INTO users (user_id, xp, level) VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET xp=excluded.xp, level=excluded.level
+        """, (str(user_id), xp, level))
     conn.commit()
     conn.close()
 
