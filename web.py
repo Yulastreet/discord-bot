@@ -90,14 +90,13 @@ def user_profile(user_id):
         return redirect("/")
     return render_template("user.html")
 
-@app.route('/reactions')
-def reactions():
+@app.route('/reactions', methods=['GET', 'POST'])
+def reactions_panel():
     if 'logged_in' not in session:
-        return redirect('/login')
+        return redirect('/')
     
     conn = get_db()
     cursor = conn.cursor()
-    
     cursor.execute("SELECT DISTINCT user_id, username FROM users ORDER BY username")
     users = cursor.fetchall()
     
@@ -106,7 +105,6 @@ def reactions():
     conn.close()
     
     return render_template('reactions.html', users=users, reactions=reactions)
-
 
 # API Routes
 @app.route("/api/search")
@@ -144,32 +142,6 @@ def api_user(user_id):
     return jsonify({
         "user": dict(user)
     })
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
-@app.route('/reactions', methods=['GET', 'POST'])
-def reactions_panel():
-    if 'logged_in' not in session:
-        return redirect('/login')
-    
-    # Récupère tous les utilisateurs de la base de données
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT user_id, username FROM users ORDER BY username")
-    users = cursor.fetchall()
-    
-    # Récupère toutes les réactions actuelles
-    cursor.execute("SELECT user_id, emoji FROM reactions")
-    reactions = {row[0]: row[1] for row in cursor.fetchall()}
-    conn.close()
-    
-    return render_template('reactions.html', users=users, reactions=reactions)
 
 @app.route('/api/reactions/add', methods=['POST'])
 def add_reaction():
@@ -210,3 +182,11 @@ def remove_reaction():
     conn.close()
     
     return {'success': True, 'message': f'Réaction supprimée pour {user_id}'}
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
