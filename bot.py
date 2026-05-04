@@ -115,20 +115,9 @@ async def on_message(message):
         xp = get_xp(message.author.id)
         old_level = get_level(xp)
         xp += random.randint(1, 5)
-        set_xp(message.author.id, xp)
-        
-        # ✅ Mise à jour de la table users
-        conn = sqlite3.connect("bot.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO users (user_id, username, xp, level)
-            VALUES (?, ?, ?, ?)
-        """, (message.author.id, message.author.name, xp, get_level(xp)))
-        conn.commit()
-        conn.close()
+        set_xp(message.author.id, xp, username=message.author.name)
         
         new_level = get_level(xp)
-
         if new_level > old_level:
             level, progress_xp, needed_xp, percent = get_progress(xp)
             image = await generate_levelup_card(message.author, new_level, percent)
