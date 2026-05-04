@@ -90,6 +90,23 @@ def user_profile(user_id):
         return redirect("/")
     return render_template("user.html")
 
+@app.route('/reactions')
+def reactions():
+    if 'logged_in' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT DISTINCT user_id, username FROM users ORDER BY username")
+    users = cursor.fetchall()
+    
+    cursor.execute("SELECT user_id, emoji FROM reactions")
+    reactions = {row[0]: row[1] for row in cursor.fetchall()}
+    conn.close()
+    
+    return render_template('reactions.html', users=users, reactions=reactions)
+
 # API Routes
 @app.route("/api/search")
 def api_search():
