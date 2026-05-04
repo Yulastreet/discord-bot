@@ -11,10 +11,21 @@ load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-USER_REACTIONS = {
-    235079585509801984: "<>",
-    250304844374605835: "<>",
-}
+# Chargement des réactions
+REACTIONS_FILE = "reactions.json"
+
+def load_reactions():
+    if os.path.exists(REACTIONS_FILE):
+        with open(REACTIONS_FILE, "r") as f:
+            data = json.load(f)
+            return {int(k): v for k, v in data.items()}
+    return {}
+
+def save_reactions():
+    with open(REACTIONS_FILE, "w") as f:
+        json.dump(USER_REACTIONS, f)
+
+USER_REACTIONS = load_reactions()
 
 # ===== XP =====
 XP_FILE = "xp.json"
@@ -251,6 +262,61 @@ async def blague(ctx):
                 await ctx.send(f"😂 {data['joke']}")
             else:
                 await ctx.send(f"😂 **{data['setup']}**\n||{data['delivery']}||")
+
+                # ===== REACTIONS AUTOMATIQUES =====
+
+@bot.group(name='reaction', invoke_without_command=True)
+async def reaction(ctx):
+    embed = discord.Embed(
+        title="😄 Réactions automatiques",
+        description="Gère les réactions automatiques du bot",
+        color=discord.Color.orange()
+    )
+    embed.add_field(
+        name="📋 Commandes",
+        value="""
+`!reaction add <membre> <emoji>` - Ajouter une réaction automatique
+`!reaction remove <membre>` - Supprimer la réaction d'un membre
+`!reaction list` - Voir toutes les réactions actives
+        """,
+        inline=False
+    )
+    await ctx.send(embed=embed)
+
+@reaction.command(name='add')
+@commands.has_permissions(administrator=True)
+async def reaction_add(ctx, membre: discord.Member, emoji: str):
+    USER_REACTIONS[membre.id] = emoji
+    save_reactions()
+    await ctx.send(f"✅ Le bot réagira avec {emoji} aux messages de **{membre.name}**")
+
+@reaction.command(name='remove')
+@commands.has_permissions(administrator=True)
+async def reaction_remove(ctx, membre: discord.Member):
+    if membre.id in USER_REACTIONS:
+        del USER_REACTIONS[membre.id]
+        save_reactions()
+        await ctx.send(f"✅ Réaction supprimée pour **{membre.name}**")
+    else:
+        await ctx.send(f"❌ Aucune réaction configurée pour **{membre.name}**")
+
+@reaction.command(name='list')
+async def reaction_list(ctx):
+    if not USER_REACTIONS:
+        await ctx.send("❌ Aucune réaction automatique configurée")
+        return
+
+    embed = discord.Embed(
+        title="📋 Réactions automatiques actives",
+        color=discord.Color.orange()
+    )
+
+    for user_id, emoji in USER_REACTIONS.items():
+        membre = ctx.guild.get_member(user_id)
+        nom = membre.name if membre else f"Utilisateur inconnu ({user_id})"
+        embed.add_field(name=nom, value=emoji, inline=True)
+
+    await ctx.send(embed=embed)
 
 # ===== MODÉRATION =====
 
