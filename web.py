@@ -10,7 +10,7 @@ app.secret_key = os.urandom(24)
 PASSWORD = os.getenv("WEB_PASSWORD")
 
 def get_db():
-    conn = sqlite3.connect("bot.db")  # ← change ici
+    conn = sqlite3.connect("bot_database.db")  # ← change ici
     conn.row_factory = sqlite3.Row
     return conn
 
