@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
+from flask import Flask, render_template, request, redirect, session, jsonify, url_for
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -93,7 +93,7 @@ def user_profile(user_id):
 @app.route('/reactions')
 def reactions():
     if 'logged_in' not in session:
-        return redirect(url_for('login'))
+        return redirect('/login')
     
     conn = get_db()
     cursor = conn.cursor()
@@ -106,6 +106,7 @@ def reactions():
     conn.close()
     
     return render_template('reactions.html', users=users, reactions=reactions)
+
 
 # API Routes
 @app.route("/api/search")
