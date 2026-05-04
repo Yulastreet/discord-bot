@@ -74,7 +74,7 @@ def get_all_reactions():
     c.execute("SELECT user_id, emoji FROM reactions")
     rows = c.fetchall()
     conn.close()
-    return {row["user_id"]: row["emoji"] for row in rows}
+    return {int(row["user_id"]): row["emoji"] for row in rows}  # ← int() ici
 
 def set_reaction(user_id, emoji):
     conn = get_db()
