@@ -9,6 +9,13 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
+     # Table users ← À AJOUTER
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+        user_id TEXT PRIMARY KEY,
+        username TEXT,
+        level INTEGER DEFAULT 0
+    )''')
+    
     # Table XP
     c.execute('''CREATE TABLE IF NOT EXISTS xp (
         user_id TEXT PRIMARY KEY,
