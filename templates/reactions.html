@@ -270,9 +270,10 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_id: parseInt(userId),
+                    user_id: userId,  // PAS parseInt(userId)
                     emoji: emoji
                 })
+
             })
             .then(res => res.json())
             .then(data => {
@@ -304,7 +305,7 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_id: parseInt(userId)
+                    user_id: userId,  // PAS parseInt(userId)
                 })
             })
             .then(res => res.json())
@@ -330,7 +331,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        user_id: parseInt(userId)
+                        user_id: userId,  // PAS parseInt(userId) dans deleteReaction aussi
                     })
                 })
                 .then(res => res.json())
