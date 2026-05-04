@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify, url_for
+from flask import Flask, render_template, request, redirect, session, jsonify
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -50,8 +50,6 @@ def generate_chart():
     plt.close()
     return base64.b64encode(img.getvalue()).decode()
 
-# ===== PAGES =====
-
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -78,7 +76,7 @@ def search_page():
         return redirect("/")
     return render_template("search.html")
 
-@app.route("/user/<int:user_id>")
+@app.route("/user/<user_id>")
 def user_profile(user_id):
     if not session.get("logged_in"):
         return redirect("/")
@@ -89,11 +87,9 @@ def reactions_panel():
     if not session.get("logged_in"):
         return redirect("/")
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT user_id, username FROM users ORDER BY username")
-    users = cursor.fetchall()
-    cursor.execute("SELECT user_id, emoji FROM reactions")
-    reactions = {str(row[0]): row[1] for row in cursor.fetchall()}
+    users = conn.execute("SELECT DISTINCT user_id, username FROM users ORDER BY username").fetchall()
+    reactions_rows = conn.execute("SELECT user_id, emoji FROM reactions").fetchall()
+    reactions = {str(row[0]): row[1] for row in reactions_rows}
     conn.close()
     return render_template("reactions.html", users=users, reactions=reactions)
 
@@ -101,8 +97,6 @@ def reactions_panel():
 def logout():
     session.clear()
     return redirect("/")
-
-# ===== API =====
 
 @app.route("/api/search")
 def api_search():
@@ -137,11 +131,15 @@ def add_reaction():
     data = request.json
     user_id = str(data.get("user_id"))
     emoji = data.get("emoji")
+    print(f"[DEBUG] Ajout réaction: user_id={user_id}, emoji={emoji}")
     if not user_id or not emoji:
         return jsonify({"error": "user_id et emoji requis"}), 400
     conn = get_db()
     conn.execute("INSERT OR REPLACE INTO reactions (user_id, emoji) VALUES (?, ?)", (user_id, emoji))
     conn.commit()
+    # Vérification immédiate
+    row = conn.execute("SELECT * FROM reactions WHERE user_id = ?", (user_id,)).fetchone()
+    print(f"[DEBUG] Dans DB après insert: {dict(row) if row else 'RIEN'}")
     conn.close()
     return jsonify({"success": True})
 
@@ -151,13 +149,14 @@ def remove_reaction():
         return jsonify({"error": "Non authentifié"}), 401
     data = request.json
     user_id = str(data.get("user_id"))
+    print(f"[DEBUG] Suppression réaction: user_id={user_id}")
     if not user_id:
         return jsonify({"error": "user_id requis"}), 400
     conn = get_db()
     conn.execute("DELETE FROM reactions WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
-    return jsonify({"success": True, "message": f"Réaction supprimée pour {user_id}"})
+    return jsonify({"success": True})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
