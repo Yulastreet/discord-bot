@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
+from flask import Flask, render_template, request, redirect, session, jsonify, url_for
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -78,7 +78,7 @@ def search_page():
         return redirect("/")
     return render_template("search.html")
 
-@app.route("/user/<user_id>")
+@app.route("/user/<int:user_id>")
 def user_profile(user_id):
     if not session.get("logged_in"):
         return redirect("/")
@@ -157,7 +157,7 @@ def remove_reaction():
     conn.execute("DELETE FROM reactions WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "message": f"Réaction supprimée pour {user_id}"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
