@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
 import random
 import aiohttp
@@ -83,6 +83,12 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"✅ Bot connecté en tant que {bot.user}")
     print(f"👀 Surveillance de {len(USER_REACTIONS)} utilisateur(s)")
+    reload_reactions.start()  # ← Lance la tâche de rechargement
+
+@tasks.loop(seconds=5)  # ← Recharge les réactions toutes les 5 secondes
+async def reload_reactions():
+    global USER_REACTIONS
+    USER_REACTIONS = get_all_reactions()
 
 @bot.event
 async def on_member_join(member):
