@@ -47,9 +47,9 @@
             <th>Niveau</th>
             <th>Messages</th>
         </tr>
-        {% for i, user in enumerate(users) %}
+        {% for user in users %}
         <tr>
-            <td>{{ i+1 }}</td>
+            <td>{{ loop.index }}</td>
             <td>{{ user.user_id }}</td>
             <td>{{ user.xp }}</td>
             <td>{{ user.level }}</td>
