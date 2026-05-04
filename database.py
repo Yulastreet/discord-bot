@@ -1,7 +1,7 @@
 import sqlite3
 
 def get_db():
-    conn = sqlite3.connect("bot.db")
+    conn = sqlite3.connect("bot_database.db")  # ← change bot.db en bot_database.db
     conn.row_factory = sqlite3.Row
     return conn
 
