@@ -2,49 +2,24 @@ import discord
 from discord.ext import commands
 import os
 import random
-import json
 import aiohttp
 import yt_dlp
 import asyncio
 from dotenv import load_dotenv
 from rank_card import generate_levelup_card, generate_rank_card
+from database import init_db, get_xp, set_xp, get_leaderboard, get_all_reactions, set_reaction, remove_reaction, get_welcome, set_welcome
 
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Chargement des réactions
-REACTIONS_FILE = "reactions.json"
+# Init DB au démarrage
+init_db()
 
-def load_reactions():
-    if os.path.exists(REACTIONS_FILE):
-        with open(REACTIONS_FILE, "r") as f:
-            data = json.load(f)
-            return {int(k): v for k, v in data.items()}
-    return {}
-
-def save_reactions():
-    with open(REACTIONS_FILE, "w") as f:
-        json.dump(USER_REACTIONS, f)
-
-USER_REACTIONS = load_reactions()
+# Chargement des réactions en mémoire
+USER_REACTIONS = get_all_reactions()
 
 # ===== XP =====
-XP_FILE = "xp.json"
-
-def load_xp():
-    if os.path.exists(XP_FILE):
-        with open(XP_FILE, "r") as f:
-            content = f.read().strip()
-            if not content:
-                return {}
-            return json.loads(content)
-    return {}
-
-def save_xp(data):
-    with open(XP_FILE, "w") as f:
-        json.dump(data, f)
-
 def get_level(xp):
     return int(xp ** 0.2)
 
@@ -57,24 +32,8 @@ def get_progress(xp):
     percent = min(int((progress_xp / needed_xp) * 100), 100)
     return level, progress_xp, needed_xp, percent
 
-# ===== BIENVENUE =====
-WELCOME_FILE = "welcome.json"
-
-def load_welcome():
-    if os.path.exists(WELCOME_FILE):
-        with open(WELCOME_FILE, "r") as f:
-            content = f.read().strip()
-            if not content:
-                return {}
-            return json.loads(content)
-    return {}
-
-def save_welcome(data):
-    with open(WELCOME_FILE, "w") as f:
-        json.dump(data, f)
-
 # ===== MUSIQUE =====
-music_queues = {}  # guild_id -> liste de (url, title)
+music_queues = {}
 
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -126,11 +85,10 @@ async def on_ready():
 
 @bot.event
 async def on_member_join(member):
-    data = load_welcome()
-    channel_id = data.get(str(member.guild.id))
-    if not channel_id:
+    data = get_welcome(member.guild.id)
+    if not data:
         return
-    channel = bot.get_channel(channel_id)
+    channel = bot.get_channel(data)
     if channel:
         embed = discord.Embed(
             title=f"👋 Bienvenue {member.name} !",
@@ -153,17 +111,14 @@ async def on_message(message):
             print(f"❌ Erreur réaction : {e}")
 
     if not message.author.bot:
-        xp_data = load_xp()
-        user_id = str(message.author.id)
-        if user_id not in xp_data:
-            xp_data[user_id] = 0
-        old_level = get_level(xp_data[user_id])
-        xp_data[user_id] += random.randint(1, 5)
-        new_level = get_level(xp_data[user_id])
-        save_xp(xp_data)
+        xp = get_xp(message.author.id)
+        old_level = get_level(xp)
+        xp += random.randint(1, 5)
+        set_xp(message.author.id, xp)
+        new_level = get_level(xp)
 
         if new_level > old_level:
-            level, progress_xp, needed_xp, percent = get_progress(xp_data[user_id])
+            level, progress_xp, needed_xp, percent = get_progress(xp)
             image = await generate_levelup_card(message.author, new_level, percent)
             await message.channel.send(
                 content=f"🎉 {message.author.mention}",
@@ -337,7 +292,7 @@ async def reaction(ctx):
 @commands.has_permissions(administrator=True)
 async def reaction_add(ctx, membre: discord.Member, emoji: str):
     USER_REACTIONS[membre.id] = emoji
-    save_reactions()
+    set_reaction(membre.id, emoji)
     await ctx.send(f"✅ Le bot réagira avec {emoji} aux messages de **{membre.name}**")
 
 @reaction.command(name='remove')
@@ -345,7 +300,7 @@ async def reaction_add(ctx, membre: discord.Member, emoji: str):
 async def reaction_remove(ctx, membre: discord.Member):
     if membre.id in USER_REACTIONS:
         del USER_REACTIONS[membre.id]
-        save_reactions()
+        remove_reaction(membre.id)
         await ctx.send(f"✅ Réaction supprimée pour **{membre.name}**")
     else:
         await ctx.send(f"❌ Aucune réaction configurée pour **{membre.name}**")
@@ -355,7 +310,6 @@ async def reaction_list(ctx):
     if not USER_REACTIONS:
         await ctx.send("❌ Aucune réaction automatique configurée")
         return
-
     embed = discord.Embed(
         title="📋 Réactions automatiques actives",
         color=discord.Color.orange()
@@ -429,7 +383,6 @@ async def poll(ctx, question, *options):
     if len(options) > 9:
         await ctx.send("❌ Maximum 9 options !")
         return
-
     emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"]
     description = "\n".join([f"{emojis[i]} {option}" for i, option in enumerate(options)])
     embed = discord.Embed(title=f"📊 {question}", description=description, color=discord.Color.gold())
@@ -449,9 +402,7 @@ async def poll_error(ctx, error):
 @commands.has_permissions(administrator=True)
 async def setwelcome(ctx, salon: discord.TextChannel = None):
     salon = salon or ctx.channel
-    data = load_welcome()
-    data[str(ctx.guild.id)] = salon.id
-    save_welcome(data)
+    set_welcome(ctx.guild.id, salon.id)
     await ctx.send(f"✅ Salon de bienvenue défini sur {salon.mention} !")
 
 @setwelcome.error
@@ -464,9 +415,7 @@ async def setwelcome_error(ctx, error):
 @bot.command()
 async def niveau(ctx, member: discord.Member = None):
     member = member or ctx.author
-    xp_data = load_xp()
-    user_id = str(member.id)
-    xp = xp_data.get(user_id, 0)
+    xp = get_xp(member.id)
     level, progress_xp, needed_xp, percent = get_progress(xp)
 
     filled = int(percent / 5)
@@ -488,12 +437,11 @@ async def niveau(ctx, member: discord.Member = None):
 
 @bot.command()
 async def leaderboard(ctx):
-    xp_data = load_xp()
-    if not xp_data:
+    sorted_users = get_leaderboard(10)
+    if not sorted_users:
         await ctx.send("Personne n'a encore d'XP !")
         return
 
-    sorted_users = sorted(xp_data.items(), key=lambda x: x[1], reverse=True)[:10]
     embed = discord.Embed(title="🏆 Classement XP", color=discord.Color.gold())
     medals = ["🥇", "🥈", "🥉"]
     description = ""
