@@ -151,6 +151,57 @@ async def serverinfo(ctx):
     embed.add_field(name="🎭 Rôles", value=len(serveur.roles))
     await ctx.send(embed=embed)
 
+@bot.command(name='commandes')
+async def commandes(ctx):
+    embed = discord.Embed(
+        title="📋 Liste des commandes",
+        description="Voici toutes les commandes disponibles !",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(
+        name="🎉 Fun",
+        value="""
+`!8ball <question>` - Pose une question à la boule magique
+`!dé` - Lance un dé 🎲
+`!coinflip` - Pile ou face 🪙
+`!blague` - Une blague aléatoire 😂
+        """,
+        inline=False
+    )
+
+    embed.add_field(
+        name="🛡️ Modération",
+        value="""
+`!kick <membre> [raison]` - Expulser un membre
+`!ban <membre> [raison]` - Bannir un membre
+`!clear <nombre>` - Supprimer des messages
+        """,
+        inline=False
+    )
+
+    embed.add_field(
+        name="⭐ Niveaux & XP",
+        value="""
+`!niveau` - Voir ton niveau et ton XP
+`!leaderboard` - Classement du serveur
+        """,
+        inline=False
+    )
+
+    embed.add_field(
+        name="🔧 Utilitaires",
+        value="""
+`!avatar [membre]` - Afficher un avatar
+`!poll <question> <opt1> <opt2>` - Créer un sondage
+`!commandes` - Afficher ce message
+        """,
+        inline=False
+    )
+
+    embed.set_footer(text="Bot créé par toi 😎")
+    await ctx.send(embed=embed)
+
 # ===== FUN =====
 
 @bot.command(name="8ball")
