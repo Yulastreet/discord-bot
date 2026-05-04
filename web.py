@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, jsonify
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -79,39 +79,53 @@ def dashboard():
     return render_template("dashboard.html", users=users, stats=stats, chart=chart)
 
 @app.route("/search")
-def search():
+def search_page():
     if not session.get("logged_in"):
         return redirect("/")
-    
-    query = request.args.get("q", "").strip()
-    results = []
-    
-    if query:
-        db = get_db()
-        results = db.execute(
-            "SELECT * FROM users WHERE username LIKE ? ORDER BY xp DESC",
-            (f"%{query}%",)
-        ).fetchall()
-        db.close()
-    
-    stats = get_global_stats()
-    chart = generate_chart()
-    
-    return render_template("search.html", results=results, query=query, stats=stats, chart=chart)
+    return render_template("search.html")
 
 @app.route("/user/<int:user_id>")
 def user_profile(user_id):
     if not session.get("logged_in"):
         return redirect("/")
+    return render_template("user.html")
+
+# API Routes
+@app.route("/api/search")
+def api_search():
+    if not session.get("logged_in"):
+        return jsonify({"error": "Non autorisé"}), 401
+    
+    query = request.args.get("q", "").strip().lower()
+    if not query:
+        return jsonify({"users": []})
     
     db = get_db()
-    user = db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+    results = db.execute(
+        "SELECT user_id, username, level, xp FROM users WHERE username LIKE ? ORDER BY xp DESC",
+        (f"%{query}%",)
+    ).fetchall()
+    db.close()
+    
+    return jsonify({
+        "users": [dict(u) for u in results]
+    })
+
+@app.route("/api/user/<int:user_id>")
+def api_user(user_id):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Non autorisé"}), 401
+    
+    db = get_db()
+    user = db.execute("SELECT user_id, username, level, xp FROM users WHERE user_id = ?", (user_id,)).fetchone()
     db.close()
     
     if not user:
-        return "Utilisateur non trouvé", 404
+        return jsonify({"error": "Utilisateur non trouvé"}), 404
     
-    return render_template("user_profile.html", user=dict(user))
+    return jsonify({
+        "user": dict(user)
+    })
 
 @app.route("/logout")
 def logout():
