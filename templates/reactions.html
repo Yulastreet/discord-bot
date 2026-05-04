@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Réactions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-add {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-add:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-remove {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-remove:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.3);
+        }
+        
+        .users-list {
+            margin-top: 40px;
+        }
+        
+        .users-list h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .user-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #667eea;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .username {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .emoji-display {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .emoji-icon {
+            font-size: 24px;
+            margin: 0 15px;
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+        
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Gestion des Réactions</h1>
+        
+        <div id="message" class="message"></div>
+        
+        <div class="form-group">
+            <label for="userSelect">Sélectionne un utilisateur :</label>
+            <select id="userSelect">
+                <option value="">-- Choisir un utilisateur --</option>
+                {% for user in users %}
+                    <option value="{{ user[0] }}" data-username="{{ user[1] }}">
+                        {{ user[1] }} ({{ user[0] }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="emojiInput">Emoji (texte ou personnalisé) :</label>
+            <input 
+                type="text" 
+                id="emojiInput" 
+                placeholder="Ex: 👍 ou &lt;:nom:id&gt;"
+            >
+            <small style="color: #999; margin-top: 5px; display: block;">
+                Exemples: 👍 😀 ou &lt;:custom:123456789&gt;
+            </small>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-add" onclick="addReaction()">➕ Ajouter/Modifier</button>
+            <button class="btn-remove" onclick="removeReaction()">❌ Supprimer</button>
+        </div>
+        
+        <div class="users-list">
+            <h2>📋 Liste des réactions actuelles</h2>
+            <div id="reactionsList"></div>
+        </div>
+    </div>
+    
+    <script>
+        const reactions = JSON.parse('{{ reactions|tojson|safe }}');
+        
+        function showMessage(msg, type = 'success') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = msg;
+            messageDiv.className = `message ${type}`;
+            setTimeout(() => messageDiv.className = 'message', 3000);
+        }
+        
+        function addReaction() {
+            const userId = document.getElementById('userSelect').value;
+            const emoji = document.getElementById('emojiInput').value;
+            
+            if (!userId || !emoji) {
+                showMessage('Veuillez sélectionner un utilisateur et entrer un emoji', 'error');
+                return;
+            }
+            
+            fetch('/api/reactions/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    emoji: emoji
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(`✅ Réaction ajoutée !`);
+                    document.getElementById('emojiInput').value = '';
+                    location.reload();
+                } else {
+                    showMessage(data.error, 'error');
+                }
+            })
+            .catch(err => showMessage('Erreur: ' + err, 'error'));
+        }
+        
+        function removeReaction() {
+            const userId = document.getElementById('userSelect').value;
+            
+            if (!userId) {
+                showMessage('Veuillez sélectionner un utilisateur', 'error');
+                return;
+            }
+            
+            fetch('/api/reactions/remove', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: userId
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(`✅ Réaction supprimée !`);
+                    location.reload();
+                } else {
+                    showMessage(data.error, 'error');
+                }
+            })
+            .catch(err => showMessage('Erreur: ' + err, 'error'));
+        }
+        
+        function deleteReaction(userId) {
+            if (confirm('Supprimer la réaction ?')) {
+                fetch('/api/reactions/remove', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                })
+                .then(res => res.json())
+                .then(() => location.reload());
+            }
+        }
+        
+        function displayReactions() {
+            const list = document.getElementById('reactionsList');
+            
+            if (Object.keys(reactions).length === 0) {
+                list.innerHTML = '<p style="color: #999; text-align: center;">Aucune réaction configurée</p>';
+                return;
+            }
+            
+            // Récupère les usernames depuis le select
+            const userMap = {};
+            document.querySelectorAll('#userSelect option').forEach(opt => {
+                if (opt.value) userMap[opt.value] = opt.dataset.username;
+            });
+            
+            if (!reactions || Object.keys(reactions).length === 0) {
+                list.innerHTML = '<p style="color: #999; text-align: center;">Aucune réaction configurée</p>';
+                return;
+            }
+
+            list.innerHTML = Object.entries(reactions).map(([userId, emoji]) => `
+
+                <div class="user-item">
+                    <div class="user-info">
+                        <div class="username">${userMap[userId] || userId}</div>
+                        <div class="emoji-display">Emoji: ${emoji}</div>
+                    </div>
+                    <div class="emoji-icon">${emoji}</div>
+                    <button class="btn-delete" onclick="deleteReaction('${userId}')">Supprimer</button>
+                </div>
+            `).join('');
+        }
+        
+        displayReactions();
+    </script>
+</body>
+</html>
