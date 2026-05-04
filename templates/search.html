@@ -15,19 +15,16 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
         }
 
         .container {
+            max-width: 900px;
+            margin: 0 auto;
             background: white;
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 600px;
-            width: 100%;
         }
 
         h1 {
@@ -42,17 +39,18 @@
             margin-bottom: 30px;
         }
 
-        input {
+        input[type="text"] {
             flex: 1;
-            padding: 12px;
-            border: 2px solid #667eea;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
             border-radius: 5px;
             font-size: 16px;
+            transition: border-color 0.3s;
         }
 
-        input:focus {
+        input[type="text"]:focus {
             outline: none;
-            border-color: #764ba2;
+            border-color: #667eea;
         }
 
         button {
@@ -61,8 +59,8 @@
             color: white;
             border: none;
             border-radius: 5px;
+            font-size: 16px;
             cursor: pointer;
-            font-weight: bold;
             transition: background 0.3s;
         }
 
@@ -75,16 +73,17 @@
         }
 
         .user-card {
-            background: #f5f5f5;
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
             padding: 20px;
-            border-radius: 5px;
             margin-bottom: 15px;
+            border-radius: 5px;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .user-card:hover {
-            transform: translateY(-2px);
+            transform: translateX(10px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
 
@@ -95,74 +94,134 @@
 
         .user-card p {
             color: #666;
-            font-size: 14px;
             margin: 5px 0;
         }
 
-        .nav-links {
-            margin-top: 30px;
+        .no-results {
             text-align: center;
+            color: #999;
+            padding: 30px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         .nav-links a {
-            color: #667eea;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
             text-decoration: none;
-            margin: 0 15px;
-            font-weight: bold;
+            border-radius: 5px;
+            transition: background 0.3s;
         }
 
         .nav-links a:hover {
-            text-decoration: underline;
+            background: #764ba2;
+        }
+
+        .loading {
+            text-align: center;
+            color: #999;
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Rechercher un Utilisateur</h1>
+        <h1>🔍 Rechercher un utilisateur</h1>
         
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Nom d'utilisateur ou ID...">
-            <button onclick="search()">Chercher</button>
+            <input type="text" id="searchInput" placeholder="Entrez un pseudo ou un ID..." autocomplete="off">
+            <button onclick="search()">Rechercher</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Recherche en cours...</p>
         </div>
 
         <div class="results" id="results"></div>
 
         <div class="nav-links">
-            <a href="/dashboard">← Retour</a>
+            <a href="/dashboard">← Retour au Dashboard</a>
             <a href="/logout">Déconnexion</a>
         </div>
     </div>
 
     <script>
+        const searchInput = document.getElementById('searchInput');
+
+        // Recherche en temps réel
+        searchInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                search();
+            }
+        });
+
         function search() {
-            const query = document.getElementById('searchInput').value.trim();
+            const query = searchInput.value.trim();
+            
             if (!query) {
-                alert('Entrez un nom ou un ID');
+                document.getElementById('results').innerHTML = '<div class="no-results">Entrez un pseudo ou un ID</div>';
                 return;
             }
 
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+
             fetch(`/api/search?q=${encodeURIComponent(query)}`)
-                .then(r => r.json())
+                .then(response => response.json())
                 .then(data => {
-                    const resultsDiv = document.getElementById('results');
+                    document.getElementById('loading').style.display = 'none';
+
                     if (data.users.length === 0) {
-                        resultsDiv.innerHTML = '<p style="text-align: center; color: #999;">Aucun utilisateur trouvé</p>';
+                        document.getElementById('results').innerHTML = '<div class="no-results">❌ Aucun utilisateur trouvé</div>';
                         return;
                     }
 
-                    resultsDiv.innerHTML = data.users.map(user => `
-                        <div class="user-card" onclick="window.location.href='/user/${user.user_id}'">
-                            <h3>${user.username}</h3>
-                            <p>ID: ${user.user_id}</p>
-                            <p>Niveau: ${user.level} | XP: ${user.xp}</p>
-                        </div>
-                    `).join('');
+                    let html = '<div class="results">';
+                    data.users.forEach(user => {
+                        html += `
+                            <div class="user-card" onclick="viewProfile(${user.user_id})">
+                                <h3>${user.username}</h3>
+                                <p><strong>ID:</strong> ${user.user_id}</p>
+                                <p><strong>Niveau:</strong> ${user.level}</p>
+                                <p><strong>XP:</strong> ${user.xp}</p>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    document.getElementById('results').innerHTML = html;
+                })
+                .catch(err => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('results').innerHTML = `<div class="no-results">❌ Erreur: ${err.message}</div>`;
                 });
         }
 
-        document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') search();
-        });
+        function viewProfile(userId) {
+            window.location.href = `/user/${userId}`;
+        }
     </script>
 </body>
 </html>

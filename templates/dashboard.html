@@ -9,7 +9,99 @@
             color: white;
             padding: 20px;
         }
-        h1 { text-align: center; color: #7289da; }
+        h1 { 
+            text-align: center; 
+            color: #7289da;
+            margin-bottom: 30px;
+        }
+        
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-buttons a {
+            background: #7289da;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .nav-buttons a:hover {
+            background: #5a73b8;
+        }
+
+        .logout {
+            background: #f04747;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+
+        .logout:hover {
+            background: #d43535;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 5px;
+            border-left: 4px solid #7289da;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: #7289da;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .chart-container {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .chart-container h2 {
+            color: #7289da;
+            margin-bottom: 20px;
+        }
+
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -23,32 +115,78 @@
             padding: 10px;
             border-bottom: 1px solid #16213e;
             text-align: center;
+            background: #16213e;
         }
-        tr:hover { background: #16213e; }
-        .logout {
-            float: right;
-            background: #f04747;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 5px;
-            text-decoration: none;
+        tr:hover { 
+            background: #0f3460;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .header-controls {
+                flex-direction: column;
+            }
+
+            .nav-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stat-card {
+                min-width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <a href="/logout" class="logout">Déconnexion</a>
-    <h1>🤖 Bot Dashboard</h1>
+    <div class="header-controls">
+        <h1>🤖 Bot Dashboard</h1>
+        <div class="nav-buttons">
+            <a href="/search">🔍 Rechercher</a>
+            <a href="/logout" class="logout">Déconnexion</a>
+        </div>
+    </div>
 
+    {% if stats %}
+    <div class="stats-container">
+        <div class="stat-card">
+            <h3>Utilisateurs Total</h3>
+            <div class="value">{{ stats.total_users }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>XP Total</h3>
+            <div class="value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Niveau Moyen</h3>
+            <div class="value">{{ "%.1f"|format(stats.avg_level) }}</div>
+        </div>
+        {% if stats.top_user %}
+        <div class="stat-card">
+            <h3>Top Utilisateur</h3>
+            <div class="value">{{ stats.top_user.username }}</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if chart %}
+    <div class="chart-container">
+        <h2>📈 Top 10 des Utilisateurs</h2>
+        <img src="data:image/png;base64,{{ chart }}" alt="Chart">
+    </div>
+    {% endif %}
+
+    <h2 style="color: #7289da; margin-top: 30px;">👥 Classement Complet</h2>
     <table>
         <tr>
             <th>#</th>
             <th>Username</th>
             <th>XP</th>
             <th>Niveau</th>
-            <th>Messages</th>
         </tr>
         {% for user in users %}
-        <tr>
+        <tr onclick="window.location.href='/user/{{ user.user_id }}'">
             <td>{{ loop.index }}</td>
             <td>{{ user.username }}</td>
             <td>{{ user.xp }}</td>
