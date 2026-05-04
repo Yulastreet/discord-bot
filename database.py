@@ -34,6 +34,9 @@ def init_db():
     print("✅ Base de données initialisée !")
 
 # ===== XP =====
+def get_level(xp):
+    return int(xp ** 0.2)
+
 def get_xp(user_id):
     conn = get_db()
     c = conn.cursor()
@@ -45,16 +48,14 @@ def get_xp(user_id):
 def set_xp(user_id, xp, username=None):
     conn = get_db()
     c = conn.cursor()
-    from bot import get_level
-    level = int(xp ** 0.2)
+    level = get_level(xp)
     if username:
         c.execute("INSERT OR REPLACE INTO users (user_id, username, xp, level) VALUES (?, ?, ?, ?)", 
                   (str(user_id), username, xp, level))
     else:
         c.execute("""
-            INSERT INTO users (user_id, xp, level) VALUES (?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET xp=excluded.xp, level=excluded.level
-        """, (str(user_id), xp, level))
+            UPDATE users SET xp = ?, level = ? WHERE user_id = ?
+        """, (xp, level, str(user_id)))
     conn.commit()
     conn.close()
 
