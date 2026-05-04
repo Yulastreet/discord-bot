@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <style>
+        body {
+            background: #1a1a2e;
+            font-family: Arial;
+            color: white;
+            padding: 20px;
+        }
+        h1 { text-align: center; color: #7289da; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th {
+            background: #7289da;
+            padding: 10px;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #16213e;
+            text-align: center;
+        }
+        tr:hover { background: #16213e; }
+        .logout {
+            float: right;
+            background: #f04747;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <a href="/logout" class="logout">Déconnexion</a>
+    <h1>🤖 Bot Dashboard</h1>
+
+    <table>
+        <tr>
+            <th>#</th>
+            <th>User ID</th>
+            <th>XP</th>
+            <th>Niveau</th>
+            <th>Messages</th>
+        </tr>
+        {% for i, user in enumerate(users) %}
+        <tr>
+            <td>{{ i+1 }}</td>
+            <td>{{ user.user_id }}</td>
+            <td>{{ user.xp }}</td>
+            <td>{{ user.level }}</td>
+            <td>{{ user.messages }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
