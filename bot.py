@@ -112,7 +112,7 @@ async def on_message(message):
             print(f"❌ Erreur réaction : {e}")
             pass
     await bot.process_commands(message)
-    
+
     if not message.author.bot:
         xp_data = load_xp()
         user_id = str(message.author.id)
@@ -179,6 +179,10 @@ async def commandes(ctx):
 `!kick <membre> [raison]` - Expulser un membre
 `!ban <membre> [raison]` - Bannir un membre
 `!poll <question> <opt1> <opt2>` - Créer un sondage
+`!reaction` - Afficher l'aide des réactions
+`!reaction add <membre> <emoji>` - Ajouter une réaction automatique
+`!reaction remove <membre>` - Supprimer la réaction d'un membre
+`!reaction list` - Voir toutes les réactions actives
         """,
         inline=False
     )
