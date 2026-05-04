@@ -110,7 +110,9 @@ async def on_message(message):
             await message.add_reaction(emoji)
         except discord.HTTPException as e:
             print(f"❌ Erreur réaction : {e}")
-
+            pass
+    await bot.process_commands(message)
+    
     if not message.author.bot:
         xp_data = load_xp()
         user_id = str(message.author.id)
