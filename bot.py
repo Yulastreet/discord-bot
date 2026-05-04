@@ -4,6 +4,8 @@ import os
 import random
 import json
 import aiohttp
+import yt_dlp
+import asyncio
 from dotenv import load_dotenv
 from rank_card import generate_levelup_card, generate_rank_card
 
@@ -71,6 +73,45 @@ def save_welcome(data):
     with open(WELCOME_FILE, "w") as f:
         json.dump(data, f)
 
+# ===== MUSIQUE =====
+music_queues = {}  # guild_id -> liste de (url, title)
+
+YDL_OPTIONS = {
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'quiet': True,
+    'default_search': 'ytsearch',
+    'source_address': '0.0.0.0',
+}
+
+FFMPEG_OPTIONS = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn',
+}
+
+async def get_audio_info(query):
+    loop = asyncio.get_event_loop()
+    with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+        if not query.startswith("http"):
+            query = f"ytsearch:{query}"
+        info = await loop.run_in_executor(None, lambda: ydl.extract_info(query, download=False))
+        if 'entries' in info:
+            info = info['entries'][0]
+        return info['url'], info['title']
+
+async def play_next(ctx):
+    guild_id = ctx.guild.id
+    if guild_id in music_queues and music_queues[guild_id]:
+        url, title = music_queues[guild_id].pop(0)
+        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+        ctx.voice_client.play(
+            source,
+            after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop)
+        )
+        await ctx.send(f"🎵 En cours : **{title}**")
+    else:
+        await ctx.send("✅ File d'attente terminée !")
+
 # ===== BOT =====
 intents = discord.Intents.default()
 intents.message_content = True
@@ -129,7 +170,7 @@ async def on_message(message):
                 file=discord.File(image, filename="levelup.png")
             )
 
-    await bot.process_commands(message)  # ✅ Une seule fois, à la fin
+    await bot.process_commands(message)
 
 # ===== INFOS =====
 
@@ -169,7 +210,6 @@ async def commandes(ctx):
         description="Voici toutes les commandes disponibles !",
         color=discord.Color.blue()
     )
-
     embed.add_field(
         name="🛡️ Modération",
         value="""
@@ -184,9 +224,7 @@ async def commandes(ctx):
         """,
         inline=False
     )
-
-    embed.add_field(name="\u200b", value="\u200b", inline=False)  # Saut de ligne
-
+    embed.add_field(name="\u200b", value="\u200b", inline=False)
     embed.add_field(
         name="🎉 Fun",
         value="""
@@ -197,9 +235,7 @@ async def commandes(ctx):
         """,
         inline=False
     )
-
-    embed.add_field(name="\u200b", value="\u200b", inline=False)  # Saut de ligne
-
+    embed.add_field(name="\u200b", value="\u200b", inline=False)
     embed.add_field(
         name="⭐ Niveaux & XP",
         value="""
@@ -208,9 +244,20 @@ async def commandes(ctx):
         """,
         inline=False
     )
-
-    embed.add_field(name="\u200b", value="\u200b", inline=False)  # Saut de ligne
-
+    embed.add_field(name="\u200b", value="\u200b", inline=False)
+    embed.add_field(
+        name="🎵 Musique",
+        value="""
+`!join` - Rejoindre ton salon vocal
+`!play <titre ou lien>` - Jouer une musique
+`!skip` - Passer à la suivante
+`!queue` - Voir la file d'attente
+`!stop` - Stopper et vider la file
+`!leave` - Quitter le salon vocal
+        """,
+        inline=False
+    )
+    embed.add_field(name="\u200b", value="\u200b", inline=False)
     embed.add_field(
         name="🔧 Utilitaires",
         value="""
@@ -223,7 +270,6 @@ async def commandes(ctx):
         """,
         inline=False
     )
-
     embed.set_footer(text="Bot créé par toi 😎")
     await ctx.send(embed=embed)
 
@@ -267,7 +313,7 @@ async def blague(ctx):
             else:
                 await ctx.send(f"😂 **{data['setup']}**\n||{data['delivery']}||")
 
-                # ===== REACTIONS AUTOMATIQUES =====
+# ===== REACTIONS AUTOMATIQUES =====
 
 @bot.group(name='reaction', invoke_without_command=True)
 async def reaction(ctx):
@@ -314,12 +360,10 @@ async def reaction_list(ctx):
         title="📋 Réactions automatiques actives",
         color=discord.Color.orange()
     )
-
     for user_id, emoji in USER_REACTIONS.items():
         membre = ctx.guild.get_member(user_id)
         nom = membre.name if membre else f"Utilisateur inconnu ({user_id})"
         embed.add_field(name=nom, value=emoji, inline=True)
-
     await ctx.send(embed=embed)
 
 # ===== MODÉRATION =====
@@ -388,11 +432,9 @@ async def poll(ctx, question, *options):
 
     emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"]
     description = "\n".join([f"{emojis[i]} {option}" for i, option in enumerate(options)])
-
     embed = discord.Embed(title=f"📊 {question}", description=description, color=discord.Color.gold())
     embed.set_footer(text=f"Sondage créé par {ctx.author.name}")
     poll_msg = await ctx.send(embed=embed)
-
     for i in range(len(options)):
         await poll_msg.add_reaction(emojis[i])
 
@@ -427,7 +469,6 @@ async def niveau(ctx, member: discord.Member = None):
     xp = xp_data.get(user_id, 0)
     level, progress_xp, needed_xp, percent = get_progress(xp)
 
-    # Barre de progression
     filled = int(percent / 5)
     bar = "█" * filled + "░" * (20 - filled)
 
@@ -443,7 +484,6 @@ async def niveau(ctx, member: discord.Member = None):
         inline=False
     )
     embed.set_thumbnail(url=member.display_avatar.url)
-
     await ctx.send(embed=embed)
 
 @bot.command()
@@ -468,5 +508,88 @@ async def leaderboard(ctx):
 
     embed.description = description
     await ctx.send(embed=embed)
+
+# ===== MUSIQUE =====
+
+@bot.command()
+async def join(ctx):
+    if not ctx.author.voice:
+        await ctx.send("❌ Tu dois être dans un salon vocal !")
+        return
+    channel = ctx.author.voice.channel
+    if ctx.voice_client:
+        await ctx.voice_client.move_to(channel)
+    else:
+        await channel.connect()
+    await ctx.send(f"✅ Connecté à **{channel.name}** !")
+
+@bot.command()
+async def play(ctx, *, query):
+    if not ctx.author.voice:
+        await ctx.send("❌ Tu dois être dans un salon vocal !")
+        return
+
+    if not ctx.voice_client:
+        await ctx.author.voice.channel.connect()
+
+    guild_id = ctx.guild.id
+    if guild_id not in music_queues:
+        music_queues[guild_id] = []
+
+    await ctx.send(f"🔍 Recherche de **{query}**...")
+
+    try:
+        url, title = await get_audio_info(query)
+    except Exception as e:
+        await ctx.send(f"❌ Erreur lors de la recherche : {e}")
+        return
+
+    music_queues[guild_id].append((url, title))
+    await ctx.send(f"✅ Ajouté à la file : **{title}**")
+
+    if not ctx.voice_client.is_playing():
+        await play_next(ctx)
+
+@bot.command()
+async def skip(ctx):
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        await ctx.send("⏭️ Musique passée !")
+    else:
+        await ctx.send("❌ Aucune musique en cours !")
+
+@bot.command()
+async def queue(ctx):
+    guild_id = ctx.guild.id
+    q = music_queues.get(guild_id, [])
+    if not q:
+        await ctx.send("📭 La file d'attente est vide !")
+        return
+    embed = discord.Embed(title="🎵 File d'attente", color=discord.Color.blurple())
+    description = ""
+    for i, (url, title) in enumerate(q):
+        description += f"**{i+1}.** {title}\n"
+    embed.description = description
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def stop(ctx):
+    guild_id = ctx.guild.id
+    if guild_id in music_queues:
+        music_queues[guild_id] = []
+    if ctx.voice_client:
+        ctx.voice_client.stop()
+    await ctx.send("⏹️ Musique stoppée et file vidée !")
+
+@bot.command()
+async def leave(ctx):
+    if ctx.voice_client:
+        guild_id = ctx.guild.id
+        if guild_id in music_queues:
+            music_queues[guild_id] = []
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 Déconnecté du salon vocal !")
+    else:
+        await ctx.send("❌ Je ne suis pas dans un salon vocal !")
 
 bot.run(TOKEN)
