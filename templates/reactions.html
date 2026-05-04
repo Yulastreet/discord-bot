@@ -175,6 +175,25 @@
             border: 1px solid #f5c6cb;
             display: block;
         }
+
+        .nav-links {
+            margin-top: 30px;
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -216,11 +235,19 @@
             <h2>📋 Liste des réactions actuelles</h2>
             <div id="reactionsList"></div>
         </div>
+
+        <div class="nav-links">
+            <a href="/dashboard">← Retour au Dashboard</a>
+            <a href="/logout">Déconnexion</a>
+        </div>
     </div>
     
     <script>
         const reactions = JSON.parse('{{ reactions|tojson|safe }}');
-        
+        if (typeof reactions === 'string') {
+            reactions = JSON.parse(reactions);
+        }
+
         function showMessage(msg, type = 'success') {
             const messageDiv = document.getElementById('message');
             messageDiv.textContent = msg;
@@ -243,21 +270,24 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_id: userId,
+                    user_id: parseInt(userId),
                     emoji: emoji
                 })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    showMessage(`✅ Réaction ajoutée !`);
+                    showMessage('✅ Réaction ajoutée !');
                     document.getElementById('emojiInput').value = '';
-                    location.reload();
+                    setTimeout(() => location.reload(), 500);
                 } else {
-                    showMessage(data.error, 'error');
+                    showMessage(data.error || 'Erreur', 'error');
                 }
             })
-            .catch(err => showMessage('Erreur: ' + err, 'error'));
+            .catch(err => {
+                console.error(err);
+                showMessage('Erreur: ' + err.message, 'error');
+            });
         }
         
         function removeReaction() {
@@ -274,19 +304,22 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_id: userId
+                    user_id: parseInt(userId)
                 })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    showMessage(`✅ Réaction supprimée !`);
-                    location.reload();
+                    showMessage('✅ Réaction supprimée !');
+                    setTimeout(() => location.reload(), 500);
                 } else {
-                    showMessage(data.error, 'error');
+                    showMessage(data.error || 'Erreur', 'error');
                 }
             })
-            .catch(err => showMessage('Erreur: ' + err, 'error'));
+            .catch(err => {
+                console.error(err);
+                showMessage('Erreur: ' + err.message, 'error');
+            });
         }
         
         function deleteReaction(userId) {
@@ -296,34 +329,40 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ user_id: userId })
+                    body: JSON.stringify({
+                        user_id: parseInt(userId)
+                    })
                 })
                 .then(res => res.json())
-                .then(() => location.reload());
+                .then(data => {
+                    if (data.success) {
+                        showMessage('✅ Réaction supprimée !');
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        showMessage(data.error || 'Erreur', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showMessage('Erreur: ' + err.message, 'error');
+                });
             }
         }
         
         function displayReactions() {
             const list = document.getElementById('reactionsList');
             
-            if (Object.keys(reactions).length === 0) {
+            if (!reactions || Object.keys(reactions).length === 0) {
                 list.innerHTML = '<p style="color: #999; text-align: center;">Aucune réaction configurée</p>';
                 return;
             }
             
-            // Récupère les usernames depuis le select
             const userMap = {};
             document.querySelectorAll('#userSelect option').forEach(opt => {
                 if (opt.value) userMap[opt.value] = opt.dataset.username;
             });
             
-            if (!reactions || Object.keys(reactions).length === 0) {
-                list.innerHTML = '<p style="color: #999; text-align: center;">Aucune réaction configurée</p>';
-                return;
-            }
-
             list.innerHTML = Object.entries(reactions).map(([userId, emoji]) => `
-
                 <div class="user-item">
                     <div class="user-info">
                         <div class="username">${userMap[userId] || userId}</div>
