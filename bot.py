@@ -5,6 +5,7 @@ import random
 import aiohttp
 import yt_dlp
 import asyncio
+import sqlite3
 from dotenv import load_dotenv
 from rank_card import generate_levelup_card, generate_rank_card
 from database import init_db, get_xp, set_xp, get_leaderboard, get_all_reactions, set_reaction, remove_reaction, get_welcome, set_welcome
@@ -115,6 +116,17 @@ async def on_message(message):
         old_level = get_level(xp)
         xp += random.randint(1, 5)
         set_xp(message.author.id, xp)
+        
+        # ✅ Mise à jour de la table users
+        conn = sqlite3.connect("bot.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO users (user_id, username, xp, level)
+            VALUES (?, ?, ?, ?)
+        """, (message.author.id, message.author.name, xp, get_level(xp)))
+        conn.commit()
+        conn.close()
+        
         new_level = get_level(xp)
 
         if new_level > old_level:
