@@ -110,8 +110,6 @@ async def on_message(message):
             await message.add_reaction(emoji)
         except discord.HTTPException as e:
             print(f"❌ Erreur réaction : {e}")
-            pass
-    await bot.process_commands(message)
 
     if not message.author.bot:
         xp_data = load_xp()
@@ -131,7 +129,7 @@ async def on_message(message):
                 file=discord.File(image, filename="levelup.png")
             )
 
-    await bot.process_commands(message)
+    await bot.process_commands(message)  # ✅ Une seule fois, à la fin
 
 # ===== INFOS =====
 
