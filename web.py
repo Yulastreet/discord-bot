@@ -28,7 +28,7 @@ def dashboard():
     if not session.get("logged_in"):
         return redirect("/")
     db = get_db()
-    users = db.execute("SELECT * FROM users ORDER BY xp DESC").fetchall()
+    users = db.execute("SELECT user_id, username, xp, level FROM users ORDER BY xp DESC").fetchall()
     return render_template("dashboard.html", users=users)
 
 @app.route("/logout")

@@ -42,7 +42,7 @@
     <table>
         <tr>
             <th>#</th>
-            <th>User ID</th>
+            <th>Username</th>
             <th>XP</th>
             <th>Niveau</th>
             <th>Messages</th>
@@ -50,10 +50,9 @@
         {% for user in users %}
         <tr>
             <td>{{ loop.index }}</td>
-            <td>{{ user.user_id }}</td>
+            <td>{{ user.username }}</td>
             <td>{{ user.xp }}</td>
             <td>{{ user.level }}</td>
-            <td>{{ user.messages }}</td>
         </tr>
         {% endfor %}
     </table>
