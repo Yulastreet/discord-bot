@@ -160,25 +160,30 @@ async def commandes(ctx):
     )
 
     embed.add_field(
-        name="🎉 Fun",
+        name="🛡️ Modération",
         value="""
-`!8ball <question>` - Pose une question à la boule magique
-`!dé` - Lance un dé 🎲
-`!coinflip` - Pile ou face 🪙
-`!blague` - Une blague aléatoire 😂
+`!clear <nombre>` - Supprimer des messages
+`!kick <membre> [raison]` - Expulser un membre
+`!ban <membre> [raison]` - Bannir un membre
+`!poll <question> <opt1> <opt2>` - Créer un sondage
         """,
         inline=False
     )
 
+    embed.add_field(name="\u200b", value="\u200b", inline=False)  # Saut de ligne
+
     embed.add_field(
-        name="🛡️ Modération",
+        name="🎉 Fun",
         value="""
-`!kick <membre> [raison]` - Expulser un membre
-`!ban <membre> [raison]` - Bannir un membre
-`!clear <nombre>` - Supprimer des messages
+`!8ball <question>` - Boule magique 🎱
+`!dé` - Lancer un dé 🎲
+`!coinflip` - Pile ou face 🪙
+`!blague` - Blague aléatoire 😂
         """,
         inline=False
     )
+
+    embed.add_field(name="\u200b", value="\u200b", inline=False)  # Saut de ligne
 
     embed.add_field(
         name="⭐ Niveaux & XP",
@@ -189,11 +194,16 @@ async def commandes(ctx):
         inline=False
     )
 
+    embed.add_field(name="\u200b", value="\u200b", inline=False)  # Saut de ligne
+
     embed.add_field(
         name="🔧 Utilitaires",
         value="""
 `!avatar [membre]` - Afficher un avatar
-`!poll <question> <opt1> <opt2>` - Créer un sondage
+`!userinfo [membre]` - Infos sur un membre
+`!serverinfo` - Infos sur le serveur
+`!ping` - Latence du bot
+`!setwelcome <salon>` - Définir le salon de bienvenue
 `!commandes` - Afficher ce message
         """,
         inline=False
