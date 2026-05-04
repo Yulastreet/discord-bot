@@ -437,11 +437,10 @@ async def niveau(ctx, member: discord.Member = None):
 
 @bot.command()
 async def leaderboard(ctx):
-    sorted_users = get_leaderboard(10)
+    sorted_users = get_leaderboard()
     if not sorted_users:
         await ctx.send("Personne n'a encore d'XP !")
         return
-
     embed = discord.Embed(title="🏆 Classement XP", color=discord.Color.gold())
     medals = ["🥇", "🥈", "🥉"]
     description = ""
@@ -453,7 +452,6 @@ async def leaderboard(ctx):
             name = "Utilisateur inconnu"
         medal = medals[i] if i < 3 else f"**#{i+1}**"
         description += f"{medal} {name} — **{xp} XP** (Niveau {get_level(xp)})\n"
-
     embed.description = description
     await ctx.send(embed=embed)
 
