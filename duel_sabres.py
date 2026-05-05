@@ -1,0 +1,213 @@
+# duel_sabres.py
+
+RARETES = {
+    "C": {"label": "Common", "emoji": "⚪", "bonus_stats": 0},
+    "UC": {"label": "Uncommon", "emoji": "🟢", "bonus_stats": 1},
+    "R": {"label": "Rare", "emoji": "🔵", "bonus_stats": 2},
+    "SR": {"label": "Super Rare", "emoji": "🟣", "bonus_stats": 3},
+    "SSR": {"label": "Super Super Rare", "emoji": "🟡", "bonus_stats": 5},
+}
+
+SABRES = {
+    # ─── SABRES DE BASE (C - Gratuits) ───────────────────────────
+    "bleu": {
+        "id": "bleu",
+        "nom": "Sabre Laser Bleu",
+        "emoji": "🔵",
+        "rarete": "C",
+        "prix": 0,
+        "description": "Le sabre des Gardiens de la Paix.",
+        "speciale": {
+            "nom": "Bouclier de Force",
+            "description": "Absorbe 100% des dégâts du prochain coup adverse.",
+            "emoji": "🛡️",
+            "effet": "absorb_next",
+        }
+    },
+    
+    "vert": {
+        "id": "vert",
+        "nom": "Sabre Laser Vert",
+        "emoji": "🟢",
+        "rarete": "C",
+        "prix": 0,
+        "description": "Le sabre des Consulaires Jedi.",
+        "speciale": {
+            "nom": "Équilibre de la Force",
+            "description": "Récupère 50% des dégâts infligés en HP.",
+            "emoji": "⚖️",
+            "effet": "lifesteal_50",
+        }
+    },
+    
+    "rouge": {
+        "id": "rouge",
+        "nom": "Sabre Laser Rouge",
+        "emoji": "🔴",
+        "rarete": "C",
+        "prix": 0,
+        "description": "Le sabre des Sith.",
+        "speciale": {
+            "nom": "Rage Sith",
+            "description": "Double les dégâts du prochain coup.",
+            "emoji": "😡",
+            "effet": "rage_next",
+        }
+    },
+    
+    # ─── SABRES UC (100 tookcoins) ───────────────────────────
+    "blanc": {
+        "id": "blanc",
+        "nom": "Sabre Laser Blanc",
+        "emoji": "⚪",
+        "rarete": "UC",
+        "prix": 100,
+        "description": "Un sabre unique trouvé par Ahsoka.",
+        "speciale": {
+            "nom": "Dualiste",
+            "description": "Attaque 2 fois d'affilée (2 coups).",
+            "emoji": "⚪⚪",
+            "effet": "double_attaque",
+        }
+    },
+    
+    "violet": {
+        "id": "violet",
+        "nom": "Sabre Laser Violet",
+        "emoji": "🟣",
+        "rarete": "UC",
+        "prix": 100,
+        "description": "Le sabre équilibré de Mace Windu.",
+        "speciale": {
+            "nom": "Vortex de la Force",
+            "description": "Annule la parade adverse et inflige les dégâts.",
+            "emoji": "🌀",
+            "effet": "ignore_defense",
+        }
+    },
+    
+    "orange": {
+        "id": "orange",
+        "nom": "Sabre Laser Orange",
+        "emoji": "🟠",
+        "rarete": "UC",
+        "prix": 100,
+        "description": "Le sabre chaleureux de Depa Billaba.",
+        "speciale": {
+            "nom": "Coup Chargé",
+            "description": "Inflige 50% de dégâts supplémentaires.",
+            "emoji": "⚡",
+            "effet": "charged_attack",
+        }
+    },
+    
+    # ─── SABRES R (500 tookcoins) ───────────────────────────
+    "jaune": {
+        "id": "jaune",
+        "nom": "Sabre Laser Jaune",
+        "emoji": "🟡",
+        "rarete": "R",
+        "prix": 500,
+        "description": "Le sabre des Gardiens du Temple Jedi.",
+        "speciale": {
+            "nom": "Precision Absolue",
+            "description": "Les 2 prochaines attaques ignoreront la défense.",
+            "emoji": "🎯",
+            "effet": "precision_x2",
+        }
+    },
+    
+    "cyan": {
+        "id": "cyan",
+        "nom": "Sabre Laser Cyan",
+        "emoji": "🔷",
+        "rarete": "R",
+        "prix": 500,
+        "description": "Un sabre technologiquement avancé.",
+        "speciale": {
+            "nom": "Surcharge Énergétique",
+            "description": "Inflige 75% de dégâts supplémentaires et ignore la défense.",
+            "emoji": "⚡⚡",
+            "effet": "overcharge",
+        }
+    },
+    
+    "rose": {
+        "id": "rose",
+        "nom": "Sabre Laser Rose",
+        "emoji": "🩷",
+        "rarete": "R",
+        "prix": 500,
+        "description": "Un sabre rare et puissant.",
+        "speciale": {
+            "nom": "Drain de Force",
+            "description": "Récupère 75% des dégâts infligés en HP.",
+            "emoji": "💗",
+            "effet": "lifesteal_75",
+        }
+    },
+    
+    # ─── SABRES SR (1500 tookcoins) ───────────────────────────
+    "noir": {
+        "id": "noir",
+        "nom": "Sabre Laser Noir",
+        "emoji": "⚫",
+        "rarete": "SR",
+        "prix": 1500,
+        "description": "Le Darksaber légendaire.",
+        "speciale": {
+            "nom": "Domination Absolue",
+            "description": "Paralyse l'adversaire pour 1 tour (il ne peut que se défendre).",
+            "emoji": "⛓️",
+            "effet": "paralyze_next",
+        }
+    },
+    
+    "argent": {
+        "id": "argent",
+        "nom": "Sabre Laser Argent",
+        "emoji": "🩶",
+        "rarete": "SR",
+        "prix": 1500,
+        "description": "Un sabre légendaire forgé dans les étoiles.",
+        "speciale": {
+            "nom": "Réflexion Parfaite",
+            "description": "Renvoie 100% des dégâts au prochain coup adverse.",
+            "emoji": "🪞",
+            "effet": "reflect_100",
+        }
+    },
+    
+    # ─── SABRES SSR (5000 tookcoins) ───────────────────────────
+    "arc_en_ciel": {
+        "id": "arc_en_ciel",
+        "nom": "Sabre Laser Arc-en-Ciel",
+        "emoji": "🌈",
+        "rarete": "SSR",
+        "prix": 5000,
+        "description": "Le plus puissant des sabres, aux pouvoirs infinis.",
+        "speciale": {
+            "nom": "Pouvoir Suprême",
+            "description": "Cumule les effets : 100% de dégâts + ignore défense + lifesteal 100%.",
+            "emoji": "👑",
+            "effet": "ultimate",
+        }
+    },
+}
+
+def get_sabre(sabre_id):
+    """Récupère un sabre par ID."""
+    return SABRES.get(sabre_id)
+
+def get_tous_les_sabres():
+    """Retourne la liste de tous les sabres."""
+    return SABRES
+
+def get_sabres_par_rarete(rarete):
+    """Récupère tous les sabres d'une rareté."""
+    return {id: sabre for id, sabre in SABRES.items() if sabre["rarete"] == rarete}
+
+def get_prix_sabre(sabre_id):
+    """Récupère le prix d'un sabre."""
+    sabre = get_sabre(sabre_id)
+    return sabre["prix"] if sabre else 0
