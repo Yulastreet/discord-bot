@@ -8,7 +8,12 @@ import asyncio
 import sqlite3
 from dotenv import load_dotenv
 from rank_card import generate_levelup_card, generate_rank_card
-from database import init_db, get_xp, set_xp, get_leaderboard, get_all_reactions, set_reaction, remove_reaction, get_welcome, set_welcome
+from database import (init_db, get_xp, set_xp, get_leaderboard, 
+                      get_all_reactions, set_reaction, remove_reaction, 
+                      get_welcome, set_welcome,
+                      get_duel_profil, creer_duel_profil, ajouter_tookcoins,
+                      ajouter_victoire, ajouter_defaite, changer_sabre_equipe,
+                      ajouter_sabre, get_collection_sabres, possede_sabre, sauvegarder_duel)
 
 load_dotenv()
 
@@ -19,6 +24,19 @@ init_db()
 
 # Chargement des réactions en mémoire
 USER_REACTIONS = get_all_reactions()
+
+# Duels en cours {user_id: user_id}
+duels_en_cours = {}
+
+# ===== SABRES =====
+SABRES = {
+    "bleu":    {"nom": "Sabre Bleu",    "emoji": "🔵", "degats": (15, 25), "prix": 0},
+    "rouge":   {"nom": "Sabre Rouge",   "emoji": "🔴", "degats": (18, 28), "prix": 500},
+    "vert":    {"nom": "Sabre Vert",    "emoji": "🟢", "degats": (20, 30), "prix": 800},
+    "violet":  {"nom": "Sabre Violet",  "emoji": "🟣", "degats": (22, 32), "prix": 1200},
+    "noir":    {"nom": "Sabre Noir",    "emoji": "⚫", "degats": (25, 40), "prix": 2000},
+    "or":      {"nom": "Sabre Doré",    "emoji": "🟡", "degats": (30, 45), "prix": 5000},
+}
 
 # ===== XP =====
 def get_level(xp):
@@ -83,9 +101,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"✅ Bot connecté en tant que {bot.user}")
     print(f"👀 Surveillance de {len(USER_REACTIONS)} utilisateur(s)")
-    reload_reactions.start()  # ← Lance la tâche de rechargement
+    reload_reactions.start()
 
-@tasks.loop(seconds=5)  # ← Recharge les réactions toutes les 5 secondes
+@tasks.loop(seconds=5)
 async def reload_reactions():
     global USER_REACTIONS
     USER_REACTIONS = get_all_reactions()
@@ -203,6 +221,20 @@ async def commandes(ctx):
         value="""
 `!niveau` - Voir ton niveau et ton XP
 `!leaderboard` - Classement du serveur
+        """,
+        inline=False
+    )
+    embed.add_field(name="\u200b", value="\u200b", inline=False)
+    embed.add_field(
+        name="⚔️ Duel",
+        value="""
+`!duel @membre` - Défier un membre
+`!profil` - Voir ton profil duel
+`!shop` - Voir la boutique de sabres
+`!acheter <sabre>` - Acheter un sabre
+`!equiper <sabre>` - Équiper un sabre
+`!collection` - Voir tes sabres
+`!historique` - Voir tes derniers duels
         """,
         inline=False
     )
@@ -462,6 +494,265 @@ async def leaderboard(ctx):
     embed.description = description
     await ctx.send(embed=embed)
 
+# ===== DUEL =====
+
+def get_or_create_profil(user_id, username):
+    profil = get_duel_profil(user_id)
+    if not profil:
+        creer_duel_profil(user_id, username)
+        ajouter_sabre(user_id, "bleu")
+        profil = get_duel_profil(user_id)
+    return profil
+
+@bot.command()
+async def profil(ctx, membre: discord.Member = None):
+    membre = membre or ctx.author
+    profil = get_or_create_profil(membre.id, membre.name)
+    collection = get_collection_sabres(membre.id)
+    sabre_equipe = profil["sabre_equipe"]
+    sabre_info = SABRES.get(sabre_equipe, SABRES["bleu"])
+
+    total = profil["victoires"] + profil["defaites"]
+    ratio = f"{profil['victoires']}/{total}" if total > 0 else "0/0"
+
+    embed = discord.Embed(
+        title=f"⚔️ Profil de {membre.display_name}",
+        color=discord.Color.red()
+    )
+    embed.set_thumbnail(url=membre.display_avatar.url)
+    embed.add_field(name="💰 TookCoins", value=f"**{profil['tookcoins']}** 🪙", inline=True)
+    embed.add_field(name="🏆 Victoires", value=f"**{profil['victoires']}**", inline=True)
+    embed.add_field(name="💀 Défaites", value=f"**{profil['defaites']}**", inline=True)
+    embed.add_field(name="📊 Ratio", value=ratio, inline=True)
+    embed.add_field(name="⚔️ Sabre équipé", value=f"{sabre_info['emoji']} {sabre_info['nom']}", inline=True)
+    embed.add_field(name="🗂️ Collection", value=f"**{len(collection)}** sabre(s)", inline=True)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def shop(ctx):
+    embed = discord.Embed(
+        title="🛒 Boutique de sabres",
+        description="Achète de nouveaux sabres avec tes TookCoins !",
+        color=discord.Color.gold()
+    )
+    for sabre_id, info in SABRES.items():
+        if info["prix"] == 0:
+            prix_str = "Gratuit (de base)"
+        else:
+            prix_str = f"{info['prix']} 🪙"
+        degats = info["degats"]
+        embed.add_field(
+            name=f"{info['emoji']} {info['nom']} (`{sabre_id}`)",
+            value=f"💥 Dégâts : {degats[0]}-{degats[1]}\n💰 Prix : {prix_str}",
+            inline=True
+        )
+    embed.set_footer(text="Utilise !acheter <nom> pour acheter un sabre")
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def acheter(ctx, sabre_id: str):
+    sabre_id = sabre_id.lower()
+    if sabre_id not in SABRES:
+        await ctx.send(f"❌ Sabre inconnu ! Utilise `!shop` pour voir les sabres disponibles.")
+        return
+
+    profil = get_or_create_profil(ctx.author.id, ctx.author.name)
+    info = SABRES[sabre_id]
+
+    if possede_sabre(ctx.author.id, sabre_id):
+        await ctx.send(f"❌ Tu possèdes déjà le **{info['nom']}** !")
+        return
+
+    if profil["tookcoins"] < info["prix"]:
+        await ctx.send(f"❌ Tu n'as pas assez de TookCoins ! Il te faut **{info['prix']}** 🪙 (tu en as **{profil['tookcoins']}**)")
+        return
+
+    ajouter_tookcoins(ctx.author.id, -info["prix"])
+    ajouter_sabre(ctx.author.id, sabre_id)
+    await ctx.send(f"✅ Tu as acheté le **{info['emoji']} {info['nom']}** pour **{info['prix']}** 🪙 !")
+
+@bot.command()
+async def equiper(ctx, sabre_id: str):
+    sabre_id = sabre_id.lower()
+    if sabre_id not in SABRES:
+        await ctx.send(f"❌ Sabre inconnu ! Utilise `!shop` pour voir les sabres disponibles.")
+        return
+
+    if not possede_sabre(ctx.author.id, sabre_id):
+        await ctx.send(f"❌ Tu ne possèdes pas ce sabre ! Achète-le avec `!acheter {sabre_id}`")
+        return
+
+    changer_sabre_equipe(ctx.author.id, sabre_id)
+    info = SABRES[sabre_id]
+    await ctx.send(f"✅ Tu as équipé le **{info['emoji']} {info['nom']}** !")
+
+@bot.command()
+async def collection(ctx, membre: discord.Member = None):
+    membre = membre or ctx.author
+    sabres = get_collection_sabres(membre.id)
+
+    if not sabres:
+        await ctx.send(f"❌ {membre.display_name} n'a aucun sabre !")
+        return
+
+    profil = get_duel_profil(membre.id)
+    sabre_equipe = profil["sabre_equipe"] if profil else "bleu"
+
+    embed = discord.Embed(
+        title=f"🗡️ Collection de {membre.display_name}",
+        color=discord.Color.blue()
+    )
+    description = ""
+    for sabre_id in sabres:
+        info = SABRES.get(sabre_id, {"nom": sabre_id, "emoji": "⚔️"})
+        equipe = " ← équipé" if sabre_id == sabre_equipe else ""
+        description += f"{info['emoji']} **{info['nom']}**{equipe}\n"
+    embed.description = description
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def historique(ctx, membre: discord.Member = None):
+    from database import get_historique
+    membre = membre or ctx.author
+    duels = get_historique(membre.id, limit=5)
+
+    if not duels:
+        await ctx.send(f"❌ Aucun duel dans l'historique pour {membre.display_name} !")
+        return
+
+    embed = discord.Embed(
+        title=f"📜 Historique de {membre.display_name}",
+        color=discord.Color.blurple()
+    )
+    description = ""
+    for duel in duels:
+        gagne = str(duel["gagnant_id"]) == str(membre.id)
+        result = "✅ Victoire" if gagne else "❌ Défaite"
+        adversaire_id = duel["user_id_2"] if str(duel["user_id_1"]) == str(membre.id) else duel["user_id_1"]
+        try:
+            adversaire = await bot.fetch_user(int(adversaire_id))
+            adversaire_nom = adversaire.name
+        except:
+            adversaire_nom = f"Inconnu ({adversaire_id})"
+        coins = duel["tookcoins_gagnant"] if gagne else duel["tookcoins_perdant"]
+        description += f"{result} vs **{adversaire_nom}** — {coins} 🪙 | {duel['date'][:10]}\n"
+    embed.description = description
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def duel(ctx, adversaire: discord.Member):
+    # Vérifications
+    if adversaire == ctx.author:
+        await ctx.send("❌ Tu ne peux pas te défier toi-même !")
+        return
+    if adversaire.bot:
+        await ctx.send("❌ Tu ne peux pas défier un bot !")
+        return
+    if ctx.author.id in duels_en_cours or adversaire.id in duels_en_cours:
+        await ctx.send("❌ Un joueur est déjà en duel !")
+        return
+
+    # Création des profils si besoin
+    profil_challenger = get_or_create_profil(ctx.author.id, ctx.author.name)
+    profil_adversaire = get_or_create_profil(adversaire.id, adversaire.name)
+
+    # Mise de 50 TookCoins minimum
+    mise = 50
+    if profil_challenger["tookcoins"] < mise:
+        await ctx.send(f"❌ Tu n'as pas assez de TookCoins ! Il te faut au moins **{mise}** 🪙")
+        return
+    if profil_adversaire["tookcoins"] < mise:
+        await ctx.send(f"❌ {adversaire.display_name} n'a pas assez de TookCoins ! Il lui faut au moins **{mise}** 🪙")
+        return
+
+    # Demande d'acceptation
+    embed = discord.Embed(
+        title="⚔️ Défi lancé !",
+        description=f"{ctx.author.mention} défie {adversaire.mention} en duel !\nMise : **{mise}** 🪙\n\n{adversaire.mention}, réagis avec ✅ pour accepter ou ❌ pour refuser !",
+        color=discord.Color.orange()
+    )
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+
+    def check(reaction, user):
+        return user == adversaire and str(reaction.emoji) in ["✅", "❌"] and reaction.message.id == msg.id
+
+    try:
+        reaction, user = await bot.wait_for("reaction_add", timeout=30.0, check=check)
+    except asyncio.TimeoutError:
+        await ctx.send(f"⏰ {adversaire.display_name} n'a pas répondu à temps. Duel annulé !")
+        return
+
+    if str(reaction.emoji) == "❌":
+        await ctx.send(f"❌ {adversaire.display_name} a refusé le duel !")
+        return
+
+    # Marquer les joueurs comme en duel
+    duels_en_cours[ctx.author.id] = adversaire.id
+    duels_en_cours[adversaire.id] = ctx.author.id
+
+    # ===== COMBAT =====
+    sabre_c = SABRES.get(profil_challenger["sabre_equipe"], SABRES["bleu"])
+    sabre_a = SABRES.get(profil_adversaire["sabre_equipe"], SABRES["bleu"])
+
+    hp_c = 100
+    hp_a = 100
+    tour = 1
+    log = ""
+
+    while hp_c > 0 and hp_a > 0 and tour <= 10:
+        dmg_c = random.randint(*sabre_c["degats"])
+        dmg_a = random.randint(*sabre_a["degats"])
+        hp_a -= dmg_c
+        hp_c -= dmg_a
+        log += f"**Tour {tour}** : {ctx.author.display_name} inflige **{dmg_c}** dégâts | {adversaire.display_name} inflige **{dmg_a}** dégâts\n"
+        tour += 1
+
+    # Déterminer le gagnant
+    if hp_c > hp_a:
+        gagnant = ctx.author
+        perdant = adversaire
+        hp_gagnant = max(hp_c, 0)
+    elif hp_a > hp_c:
+        gagnant = adversaire
+        perdant = ctx.author
+        hp_gagnant = max(hp_a, 0)
+    else:
+        # Égalité → personne ne gagne
+        await ctx.send(f"🤝 **Égalité !** Les deux combattants sont à égalité !")
+        del duels_en_cours[ctx.author.id]
+        del duels_en_cours[adversaire.id]
+        return
+
+    # Mise à jour des stats
+    ajouter_victoire(gagnant.id)
+    ajouter_defaite(perdant.id)
+    ajouter_tookcoins(gagnant.id, mise)
+    ajouter_tookcoins(perdant.id, -mise)
+    sauvegarder_duel(ctx.author.id, adversaire.id, gagnant.id, mise, mise)
+
+    # Libérer les joueurs
+    del duels_en_cours[ctx.author.id]
+    del duels_en_cours[adversaire.id]
+
+    # Résultat
+    embed = discord.Embed(
+        title="⚔️ Résultat du duel !",
+        color=discord.Color.green()
+    )
+    embed.add_field(name="📜 Combat", value=log[:1024], inline=False)
+    embed.add_field(name="🏆 Gagnant", value=f"**{gagnant.display_name}** avec **{hp_gagnant} HP** restants !", inline=False)
+    embed.add_field(name="💰 TookCoins", value=f"{gagnant.display_name} gagne **+{mise}** 🪙\n{perdant.display_name} perd **-{mise}** 🪙", inline=False)
+    await ctx.send(embed=embed)
+
+@duel.error
+async def duel_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Usage : `!duel @membre`")
+    elif isinstance(error, commands.MemberNotFound):
+        await ctx.send("❌ Membre introuvable !")
+
 # ===== MUSIQUE =====
 
 @bot.command()
@@ -481,25 +772,19 @@ async def play(ctx, *, query):
     if not ctx.author.voice:
         await ctx.send("❌ Tu dois être dans un salon vocal !")
         return
-
     if not ctx.voice_client:
         await ctx.author.voice.channel.connect()
-
     guild_id = ctx.guild.id
     if guild_id not in music_queues:
         music_queues[guild_id] = []
-
     await ctx.send(f"🔍 Recherche de **{query}**...")
-
     try:
         url, title = await get_audio_info(query)
     except Exception as e:
         await ctx.send(f"❌ Erreur lors de la recherche : {e}")
         return
-
     music_queues[guild_id].append((url, title))
     await ctx.send(f"✅ Ajouté à la file : **{title}**")
-
     if not ctx.voice_client.is_playing():
         await play_next(ctx)
 
