@@ -659,7 +659,7 @@ async def duel(ctx, adversaire: discord.Member):
     # Demande d'acceptation
     embed = discord.Embed(
         title="⚔️ Défi lancé !",
-        description=f"{ctx.author.mention} défie {adversaire.mention} en duel !\nMise : **{mise}** 🪙\n\n{adversaire.mention}, réagis avec ✅ pour accepter ou ❌ pour refuser !",
+        description=f"{ctx.author.mention} défie {adversaire.mention} en duel !\n\n{adversaire.mention}, réagis avec ✅ pour accepter ou ❌ pour refuser !",
         color=discord.Color.orange()
     )
     msg = await ctx.send(embed=embed)
@@ -710,7 +710,6 @@ async def duel(ctx, adversaire: discord.Member):
         perdant = ctx.author
         hp_gagnant = max(hp_a, 0)
     else:
-        # Égalité → personne ne gagne
         await ctx.send(f"🤝 **Égalité !** Les deux combattants sont à égalité !")
         del duels_en_cours[ctx.author.id]
         del duels_en_cours[adversaire.id]
@@ -719,9 +718,7 @@ async def duel(ctx, adversaire: discord.Member):
     # Mise à jour des stats
     ajouter_victoire(gagnant.id)
     ajouter_defaite(perdant.id)
-    ajouter_tookcoins(gagnant.id, mise)
-    ajouter_tookcoins(perdant.id, -mise)
-    sauvegarder_duel(ctx.author.id, adversaire.id, gagnant.id, mise, mise)
+    sauvegarder_duel(ctx.author.id, adversaire.id, gagnant.id, 0, 0)
 
     # Libérer les joueurs
     del duels_en_cours[ctx.author.id]
@@ -734,8 +731,15 @@ async def duel(ctx, adversaire: discord.Member):
     )
     embed.add_field(name="📜 Combat", value=log[:1024], inline=False)
     embed.add_field(name="🏆 Gagnant", value=f"**{gagnant.display_name}** avec **{hp_gagnant} HP** restants !", inline=False)
-    embed.add_field(name="💰 TookCoins", value=f"{gagnant.display_name} gagne **+{mise}** 🪙\n{perdant.display_name} perd **-{mise}** 🪙", inline=False)
     await ctx.send(embed=embed)
+
+@duel.error
+async def duel_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Usage : `!duel @membre`")
+    elif isinstance(error, commands.MemberNotFound):
+        await ctx.send("❌ Membre introuvable !")
+
 
 @duel.error
 async def duel_error(ctx, error):
