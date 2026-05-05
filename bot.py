@@ -656,15 +656,6 @@ async def duel(ctx, adversaire: discord.Member):
     profil_challenger = get_or_create_profil(ctx.author.id, ctx.author.name)
     profil_adversaire = get_or_create_profil(adversaire.id, adversaire.name)
 
-    # Mise de 50 TookCoins minimum
-    mise = 50
-    if profil_challenger["tookcoins"] < mise:
-        await ctx.send(f"❌ Tu n'as pas assez de TookCoins ! Il te faut au moins **{mise}** 🪙")
-        return
-    if profil_adversaire["tookcoins"] < mise:
-        await ctx.send(f"❌ {adversaire.display_name} n'a pas assez de TookCoins ! Il lui faut au moins **{mise}** 🪙")
-        return
-
     # Demande d'acceptation
     embed = discord.Embed(
         title="⚔️ Défi lancé !",
