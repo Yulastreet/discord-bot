@@ -679,176 +679,238 @@ async def duel(ctx, adversaire: discord.Member):
         await ctx.send(f"❌ {adversaire.display_name} a refusé le duel !")
         return
 
-    # Marquer les joueurs comme en duel
+       # Marquer les joueurs comme en duel
     duels_en_cours[ctx.author.id] = adversaire.id
     duels_en_cours[adversaire.id] = ctx.author.id
 
-    # ===== COMBAT =====
-        # Marquer les joueurs comme en duel
-    duels_en_cours[ctx.author.id] = adversaire.id
-    duels_en_cours[adversaire.id] = ctx.author.id
+    # ===== FONCTIONS UTILITAIRES =====
+    def barre_hp(hp, max_hp=100):
+        filled = int((hp / max_hp) * 10)
+        return f"{'🟥' * filled}{'⬛' * (10 - filled)} **{hp}/100**"
 
-    # ===== COMBAT =====
+    # ===== SETUP COMBAT =====
     sabre_c = SABRES.get(profil_challenger["sabre_equipe"], SABRES["bleu"])
     sabre_a = SABRES.get(profil_adversaire["sabre_equipe"], SABRES["bleu"])
 
     joueurs = [
-        {"membre": ctx.author, "sabre": sabre_c, "hp": 100, "parade_active": False, "parade_cooldown": 0},
-        {"membre": adversaire, "sabre": sabre_a, "hp": 100, "parade_active": False, "parade_cooldown": 0}
+        {
+            "membre": ctx.author,
+            "sabre": sabre_c,
+            "hp": 100,
+            "parade_active": False,
+            "parade_cooldown": 0,
+            "defense_active": False,
+            "special_utilise": False
+        },
+        {
+            "membre": adversaire,
+            "sabre": sabre_a,
+            "hp": 100,
+            "parade_active": False,
+            "parade_cooldown": 0,
+            "defense_active": False,
+            "special_utilise": False
+        }
     ]
 
-    ACTIONS = {"⚔️": "attaque", "🛡️": "parade", "👊": "coup_bas"}
+    ACTIONS_EMOJI = {
+        "⚔️": "attaque",
+        "🛡️": "parade",
+        "🔰": "defense",
+        "👊": "coup_bas",
+        "✨": "special"
+    }
 
-    # ===== JET DE DÉ POUR SAVOIR QUI COMMENCE =====
+    # ===== JET DE DÉ INITIAL =====
     while True:
         de1 = random.randint(1, 6)
         de2 = random.randint(1, 6)
-        embed_de = discord.Embed(
-            title="🎲 Jet de dé initial !",
-            description=(
-                f"{ctx.author.mention} : **{de1}** 🎲\n"
-                f"{adversaire.mention} : **{de2}** 🎲\n\n"
-            ),
-            color=discord.Color.blurple()
-        )
         if de1 > de2:
-            embed_de.description += f"➡️ **{ctx.author.display_name} commence !**"
             ordre = [0, 1]
+            premier = ctx.author.display_name
             break
         elif de2 > de1:
-            embed_de.description += f"➡️ **{adversaire.display_name} commence !**"
             ordre = [1, 0]
+            premier = adversaire.display_name
             break
-        else:
-            embed_de.description += "⚖️ **Égalité ! On relance...**"
-            await ctx.send(embed=embed_de)
-            await asyncio.sleep(2)
 
-    await ctx.send(embed=embed_de)
-    await asyncio.sleep(2)
+    embed_principal = discord.Embed(
+        title="🎲 Jet de dé initial !",
+        description=(
+            f"{ctx.author.mention} : **{de1}** 🎲\n"
+            f"{adversaire.mention} : **{de2}** 🎲\n\n"
+            f"➡️ **{premier} commence !**\n\n"
+            f"❤️ {joueurs[0]['membre'].display_name} : {barre_hp(joueurs[0]['hp'])}\n"
+            f"❤️ {joueurs[1]['membre'].display_name} : {barre_hp(joueurs[1]['hp'])}"
+        ),
+        color=discord.Color.blurple()
+    )
+    msg_principal = await ctx.send(embed=embed_principal)
+    await asyncio.sleep(3)
 
     tour = 1
     MAX_TOURS = 20
 
     while joueurs[0]["hp"] > 0 and joueurs[1]["hp"] > 0 and tour <= MAX_TOURS:
-        
-        # ===== PHASE DE CHOIX (à l'aveugle, les deux choisissent) =====
+
         choix = [None, None]
 
-        async def demander_action(idx):
+        # ===== PHASE DE CHOIX À L'AVEUGLE =====
+        # Les deux joueurs choisissent leur action, chacun leur tour sur le même message
+        for idx in [0, 1]:
             j = joueurs[idx]
-            actions_dispo = "⚔️ Attaque | 🛡️ Parade"
-            if j["parade_cooldown"] > 0:
-                actions_dispo = f"⚔️ Attaque | 🛡️ Parade (cooldown {j['parade_cooldown']} tours) | 👊 Coup bas"
-            else:
-                actions_dispo = "⚔️ Attaque | 🛡️ Parade | 👊 Coup bas"
 
-            embed_action = discord.Embed(
-                title=f"⚔️ Tour {tour} — Choisis ton action !",
-                description=(
-                    f"**{j['membre'].display_name}**, que fais-tu ?\n\n"
-                    f"{actions_dispo}\n\n"
-                    f"❤️ Tes HP : **{j['hp']}/100**\n"
-                    f"⏱️ Tu as **15 secondes** !"
-                ),
-                color=discord.Color.orange()
-            )
-            msg_action = await ctx.send(embed=embed_action)
-            await msg_action.add_reaction("⚔️")
+            # Construire liste actions disponibles
+            actions_dispos = ["⚔️"]
             if j["parade_cooldown"] == 0:
-                await msg_action.add_reaction("🛡️")
-            await msg_action.add_reaction("👊")
+                actions_dispos.append("🛡️")
+            actions_dispos.append("🔰")
+            actions_dispos.append("👊")
+            if not j["special_utilise"]:
+                actions_dispos.append("✨")
 
-            def check_action(reaction, user):
+            # Texte des actions
+            lignes_actions = "⚔️ Attaque"
+            if j["parade_cooldown"] == 0:
+                lignes_actions += " | 🛡️ Parade"
+            else:
+                lignes_actions += f" | 🛡️ Parade (cooldown {j['parade_cooldown']})"
+            lignes_actions += " | 🔰 Défense | 👊 Coup bas"
+            if not j["special_utilise"]:
+                lignes_actions += " | ✨ Spéciale"
+            else:
+                lignes_actions += " | ✨ ~~Spéciale (utilisée)~~"
+
+            embed_principal.title = f"⚔️ Tour {tour} — {j['membre'].display_name}, choisis ton action !"
+            embed_principal.description = (
+                f"{lignes_actions}\n\n"
+                f"❤️ {joueurs[0]['membre'].display_name} : {barre_hp(joueurs[0]['hp'])}\n"
+                f"❤️ {joueurs[1]['membre'].display_name} : {barre_hp(joueurs[1]['hp'])}\n\n"
+                f"⏱️ **30 secondes pour choisir !**"
+            )
+            embed_principal.color = discord.Color.orange()
+            await msg_principal.edit(embed=embed_principal)
+            await msg_principal.clear_reactions()
+            for emoji in actions_dispos:
+                await msg_principal.add_reaction(emoji)
+
+            def check_action(reaction, user, joueur=j, dispos=actions_dispos):
                 return (
-                    user == j["membre"]
-                    and str(reaction.emoji) in ACTIONS
-                    and reaction.message.id == msg_action.id
+                    user == joueur["membre"]
+                    and str(reaction.emoji) in dispos
+                    and reaction.message.id == msg_principal.id
                 )
 
             try:
-                reaction, user = await bot.wait_for("reaction_add", timeout=15.0, check=check_action)
-                choix[idx] = ACTIONS[str(reaction.emoji)]
+                reaction, user = await bot.wait_for("reaction_add", timeout=30.0, check=check_action)
+                choix[idx] = ACTIONS_EMOJI[str(reaction.emoji)]
             except asyncio.TimeoutError:
                 choix[idx] = "attaque"
-                await ctx.send(f"⏰ {j['membre'].display_name} n'a pas réagi, attaque automatique !")
 
-        # Demander les deux en parallèle
-        await asyncio.gather(
-            demander_action(ordre[0]),
-            demander_action(ordre[1])
+        # ===== RÉSOLUTION DU TOUR =====
+        description_result = (
+            f"**{joueurs[ordre[0]]['membre'].display_name}** → **{choix[ordre[0]].upper()}**\n"
+            f"**{joueurs[ordre[1]]['membre'].display_name}** → **{choix[ordre[1]].upper()}**\n\n"
         )
 
-        # ===== RÉVÉLATION ET RÉSOLUTION =====
-        embed_reveal = discord.Embed(
-            title=f"⚔️ Tour {tour} — Révélation !",
-            color=discord.Color.red()
-        )
-
-        description = (
-            f"{joueurs[ordre[0]]['membre'].display_name} : **{choix[ordre[0]].upper()}**\n"
-            f"{joueurs[ordre[1]]['membre'].display_name} : **{choix[ordre[1]].upper()}**\n\n"
-        )
-
-        # Résolution dans l'ordre (celui qui a le plus grand dé commence)
         for atk_idx, def_idx in [(ordre[0], ordre[1]), (ordre[1], ordre[0])]:
             attaquant = joueurs[atk_idx]
             defenseur = joueurs[def_idx]
             action_atk = choix[atk_idx]
-            action_def = choix[def_idx]
 
             if joueurs[0]["hp"] <= 0 or joueurs[1]["hp"] <= 0:
                 break
 
             if action_atk == "attaque":
                 dmg = random.randint(*attaquant["sabre"]["degats"])
+                crit = random.random() < 0.25
+                if crit:
+                    dmg = int(dmg * 1.5)
+
                 if defenseur["parade_active"]:
-                    # La parade renvoie les dégâts
                     attaquant["hp"] = max(0, attaquant["hp"] - dmg)
                     defenseur["parade_active"] = False
-                    description += f"🔄 **{attaquant['membre'].display_name}** attaque mais la parade de **{defenseur['membre'].display_name}** renvoie **{dmg}** dégâts !\n"
+                    description_result += f"🔄 La parade de **{defenseur['membre'].display_name}** renvoie **{dmg}** dégâts à **{attaquant['membre'].display_name}** !\n"
+                elif defenseur["defense_active"]:
+                    dmg_reduit = int(dmg * 0.4)
+                    defenseur["hp"] = max(0, defenseur["hp"] - dmg_reduit)
+                    defenseur["defense_active"] = False
+                    description_result += f"🔰 **{defenseur['membre'].display_name}** se défend et réduit les dégâts à **{dmg_reduit}** !\n"
                 else:
                     defenseur["hp"] = max(0, defenseur["hp"] - dmg)
-                    description += f"⚔️ **{attaquant['membre'].display_name}** inflige **{dmg}** dégâts à **{defenseur['membre'].display_name}** !\n"
+                    if crit:
+                        description_result += f"💥 CRITIQUE ! **{attaquant['membre'].display_name}** inflige **{dmg}** dégâts !\n"
+                    else:
+                        description_result += f"⚔️ **{attaquant['membre'].display_name}** inflige **{dmg}** dégâts à **{defenseur['membre'].display_name}** !\n"
 
             elif action_atk == "parade":
                 if attaquant["parade_cooldown"] > 0:
-                    description += f"❌ **{attaquant['membre'].display_name}** essaie de parer mais est en cooldown ! Rien ne se passe.\n"
+                    description_result += f"❌ **{attaquant['membre'].display_name}** est en cooldown de parade !\n"
                 else:
                     attaquant["parade_active"] = True
                     attaquant["parade_cooldown"] = 5
-                    description += f"🛡️ **{attaquant['membre'].display_name}** se met en position de parade !\n"
+                    description_result += f"🛡️ **{attaquant['membre'].display_name}** se met en parade !\n"
+
+            elif action_atk == "defense":
+                attaquant["defense_active"] = True
+                description_result += f"🔰 **{attaquant['membre'].display_name}** prend une posture défensive (-60% dégâts) !\n"
 
             elif action_atk == "coup_bas":
                 if defenseur["parade_active"]:
-                    # Brise la parade + dégâts crit
                     dmg = random.randint(*attaquant["sabre"]["degats"]) * 2
                     defenseur["hp"] = max(0, defenseur["hp"] - dmg)
                     defenseur["parade_active"] = False
-                    description += f"💥 **{attaquant['membre'].display_name}** brise la parade et inflige un CRITIQUE de **{dmg}** dégâts !\n"
+                    description_result += f"💥 **{attaquant['membre'].display_name}** brise la parade ! **{dmg}** dégâts critiques !\n"
                 else:
-                    # Dégâts plus faibles
                     dmg = max(1, random.randint(*attaquant["sabre"]["degats"]) // 2)
                     defenseur["hp"] = max(0, defenseur["hp"] - dmg)
-                    description += f"👊 **{attaquant['membre'].display_name}** fait un coup bas pour **{dmg}** dégâts (faible).\n"
+                    description_result += f"👊 **{attaquant['membre'].display_name}** fait un coup bas pour **{dmg}** dégâts.\n"
 
-            # Réduire les cooldowns
+            elif action_atk == "special":
+                if not attaquant["special_utilise"]:
+                    attaquant["special_utilise"] = True
+                    dmg = random.randint(*attaquant["sabre"]["degats"]) + 15
+                    defenseur["hp"] = max(0, defenseur["hp"] - dmg)
+                    description_result += f"✨ **{attaquant['membre'].display_name}** utilise sa SPÉCIALE pour **{dmg}** dégâts ! (usage unique)\n"
+                else:
+                    description_result += f"❌ **{attaquant['membre'].display_name}** a déjà utilisé sa spéciale !\n"
+
+            # Réduire cooldown parade
             if attaquant["parade_cooldown"] > 0 and action_atk != "parade":
                 attaquant["parade_cooldown"] -= 1
 
-        # Barres de HP
-        def barre_hp(hp, max_hp=100):
-            filled = int((hp / max_hp) * 10)
-            return f"{'🟥' * filled}{'⬛' * (10 - filled)} **{hp}/100**"
-
-        description += (
+        # ===== AFFICHER RÉSULTAT DU TOUR =====
+        description_result += (
             f"\n❤️ {joueurs[0]['membre'].display_name} : {barre_hp(joueurs[0]['hp'])}\n"
-            f"❤️ {joueurs[1]['membre'].display_name} : {barre_hp(joueurs[1]['hp'])}"
+            f"❤️ {joueurs[1]['membre'].display_name} : {barre_hp(joueurs[1]['hp'])}\n\n"
         )
 
-        embed_reveal.description = description
-        await ctx.send(embed=embed_reveal)
-        await asyncio.sleep(2)
+        if joueurs[0]["hp"] > 0 and joueurs[1]["hp"] > 0 and tour < MAX_TOURS:
+            description_result += "*Réagis avec ▶️ pour passer au tour suivant !*"
+
+        embed_principal.title = f"⚔️ Tour {tour} — Résultat"
+        embed_principal.description = description_result
+        embed_principal.color = discord.Color.red()
+        await msg_principal.clear_reactions()
+        await msg_principal.edit(embed=embed_principal)
+
+        if joueurs[0]["hp"] > 0 and joueurs[1]["hp"] > 0 and tour < MAX_TOURS:
+            await msg_principal.add_reaction("▶️")
+
+            def check_next(reaction, user):
+                return (
+                    user in [ctx.author, adversaire]
+                    and str(reaction.emoji) == "▶️"
+                    and reaction.message.id == msg_principal.id
+                )
+
+            try:
+                await bot.wait_for("reaction_add", timeout=60.0, check=check_next)
+            except asyncio.TimeoutError:
+                pass
+
+        if joueurs[0]["hp"] <= 0 or joueurs[1]["hp"] <= 0:
+            break
 
         tour += 1
 
@@ -856,11 +918,17 @@ async def duel(ctx, adversaire: discord.Member):
     if joueurs[0]["hp"] > joueurs[1]["hp"]:
         gagnant = joueurs[0]["membre"]
         perdant = joueurs[1]["membre"]
+        hp_gagnant = joueurs[0]["hp"]
     elif joueurs[1]["hp"] > joueurs[0]["hp"]:
         gagnant = joueurs[1]["membre"]
         perdant = joueurs[0]["membre"]
+        hp_gagnant = joueurs[1]["hp"]
     else:
-        await ctx.send("🤝 **Égalité ! Les deux combattants tombent simultanément !**")
+        embed_principal.title = "🤝 ÉGALITÉ !"
+        embed_principal.description = "Les deux combattants tombent simultanément !"
+        embed_principal.color = discord.Color.greyple()
+        await msg_principal.clear_reactions()
+        await msg_principal.edit(embed=embed_principal)
         del duels_en_cours[ctx.author.id]
         del duels_en_cours[adversaire.id]
         return
@@ -876,16 +944,17 @@ async def duel(ctx, adversaire: discord.Member):
     del duels_en_cours[ctx.author.id]
     del duels_en_cours[adversaire.id]
 
-    embed_fin = discord.Embed(
-        title="🏆 FIN DU DUEL !",
-        description=(
-            f"**{gagnant.display_name}** remporte le duel !\n\n"
-            f"🎖️ +{xp_gain} XP\n"
-            f"🪙 +{coins_gain} TookCoins"
-        ),
-        color=discord.Color.gold()
+    embed_principal.title = "🏆 FIN DU DUEL !"
+    embed_principal.description = (
+        f"**{gagnant.display_name}** remporte le duel avec **{hp_gagnant} HP** restants !\n\n"
+        f"🎖️ +{xp_gain} XP\n"
+        f"🪙 +{coins_gain} TookCoins pour **{gagnant.display_name}**\n\n"
+        f"❤️ {joueurs[0]['membre'].display_name} : {barre_hp(joueurs[0]['hp'])}\n"
+        f"❤️ {joueurs[1]['membre'].display_name} : {barre_hp(joueurs[1]['hp'])}"
     )
-    await ctx.send(embed=embed_fin)
+    embed_principal.color = discord.Color.gold()
+    await msg_principal.clear_reactions()
+    await msg_principal.edit(embed=embed_principal)
 
 @duel.error
 async def duel_error(ctx, error):
