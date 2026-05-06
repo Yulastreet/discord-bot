@@ -8,7 +8,7 @@ def get_db():
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    
+
     # Table users
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
@@ -16,19 +16,19 @@ def init_db():
         level INTEGER DEFAULT 0,
         xp INTEGER DEFAULT 0
     )''')
-    
+
     # Table réactions
     c.execute('''CREATE TABLE IF NOT EXISTS reactions (
         user_id INTEGER PRIMARY KEY,
         emoji TEXT
     )''')
-    
+
     # Table welcome
     c.execute('''CREATE TABLE IF NOT EXISTS welcome (
         guild_id TEXT PRIMARY KEY,
         channel_id INTEGER
     )''')
-    
+
     # Table profil duel
     c.execute('''CREATE TABLE IF NOT EXISTS duel_profil (
         user_id TEXT PRIMARY KEY,
@@ -40,7 +40,7 @@ def init_db():
         sabre_equipe TEXT DEFAULT 'bleu',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-    
+
     # Table collection de sabres
     c.execute('''CREATE TABLE IF NOT EXISTS duel_collection (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +50,7 @@ def init_db():
         UNIQUE(user_id, sabre_id),
         FOREIGN KEY(user_id) REFERENCES duel_profil(user_id)
     )''')
-    
+
     # Table historique des duels
     c.execute('''CREATE TABLE IF NOT EXISTS duel_historique (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,12 +64,30 @@ def init_db():
         FOREIGN KEY(user_id_2) REFERENCES duel_profil(user_id),
         FOREIGN KEY(gagnant_id) REFERENCES duel_profil(user_id)
     )''')
-    
+
+    # Migration : nouvelles colonnes système de combat
+    nouvelles_colonnes = [
+        ("combat_xp",      "INTEGER DEFAULT 0"),
+        ("combat_level",   "INTEGER DEFAULT 1"),
+        ("stat_points",    "INTEGER DEFAULT 0"),
+        ("stat_force",     "INTEGER DEFAULT 0"),
+        ("stat_agilite",   "INTEGER DEFAULT 0"),
+        ("stat_defense",   "INTEGER DEFAULT 0"),
+        ("stat_endurance", "INTEGER DEFAULT 0"),
+        ("stat_chance",    "INTEGER DEFAULT 0"),
+    ]
+    for col, definition in nouvelles_colonnes:
+        try:
+            c.execute(f"ALTER TABLE duel_profil ADD COLUMN {col} {definition}")
+        except Exception:
+            pass  # Colonne déjà existante
+
     conn.commit()
     conn.close()
     print("✅ Base de données initialisée !")
 
-# ===== XP =====
+
+# ===== XP MESSAGES =====
 def get_level(xp):
     return int(xp ** 0.2)
 
@@ -86,7 +104,7 @@ def set_xp(user_id, xp, username=None):
     c = conn.cursor()
     level = get_level(xp)
     if username:
-        c.execute("INSERT OR REPLACE INTO users (user_id, username, xp, level) VALUES (?, ?, ?, ?)", 
+        c.execute("INSERT OR REPLACE INTO users (user_id, username, xp, level) VALUES (?, ?, ?, ?)",
                   (str(user_id), username, xp, level))
     else:
         c.execute("UPDATE users SET xp = ?, level = ? WHERE user_id = ?", (xp, level, str(user_id)))
@@ -100,6 +118,7 @@ def get_leaderboard():
     rows = c.fetchall()
     conn.close()
     return [(row["user_id"], row["xp"]) for row in rows]
+
 
 # ===== REACTIONS =====
 def get_all_reactions():
@@ -124,6 +143,7 @@ def remove_reaction(user_id):
     conn.commit()
     conn.close()
 
+
 # ===== WELCOME =====
 def get_welcome(guild_id):
     conn = get_db()
@@ -140,6 +160,7 @@ def set_welcome(guild_id, channel_id):
     conn.commit()
     conn.close()
 
+
 # ===== DUEL - PROFIL =====
 def get_duel_profil(user_id):
     conn = get_db()
@@ -152,9 +173,11 @@ def get_duel_profil(user_id):
 def creer_duel_profil(user_id, username):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""INSERT OR IGNORE INTO duel_profil 
-                 (user_id, username, level, tookcoins, victoires, defaites, sabre_equipe)
-                 VALUES (?, ?, 1, 0, 0, 0, 'bleu')""",
+    c.execute("""INSERT OR IGNORE INTO duel_profil
+                 (user_id, username, level, tookcoins, victoires, defaites, sabre_equipe,
+                  combat_xp, combat_level, stat_points,
+                  stat_force, stat_agilite, stat_defense, stat_endurance, stat_chance)
+                 VALUES (?, ?, 1, 0, 0, 0, 'bleu', 0, 1, 0, 0, 0, 0, 0, 0)""",
               (str(user_id), username))
     conn.commit()
     conn.close()
@@ -187,6 +210,7 @@ def changer_sabre_equipe(user_id, sabre_id):
     conn.commit()
     conn.close()
 
+
 # ===== DUEL - COLLECTION =====
 def ajouter_sabre(user_id, sabre_id):
     conn = get_db()
@@ -211,11 +235,12 @@ def possede_sabre(user_id, sabre_id):
     conn.close()
     return exists
 
+
 # ===== DUEL - HISTORIQUE =====
 def sauvegarder_duel(user_id_1, user_id_2, gagnant_id, tookcoins_gagnant, tookcoins_perdant):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""INSERT INTO duel_historique 
+    c.execute("""INSERT INTO duel_historique
                  (user_id_1, user_id_2, gagnant_id, tookcoins_gagnant, tookcoins_perdant)
                  VALUES (?, ?, ?, ?, ?)""",
               (str(user_id_1), str(user_id_2), str(gagnant_id), tookcoins_gagnant, tookcoins_perdant))
@@ -225,13 +250,87 @@ def sauvegarder_duel(user_id_1, user_id_2, gagnant_id, tookcoins_gagnant, tookco
 def get_historique(user_id, limit=10):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""SELECT * FROM duel_historique 
-                 WHERE user_id_1 = ? OR user_id_2 = ? 
+    c.execute("""SELECT * FROM duel_historique
+                 WHERE user_id_1 = ? OR user_id_2 = ?
                  ORDER BY date DESC LIMIT ?""",
               (str(user_id), str(user_id), limit))
     rows = c.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+# ===== DUEL - XP DE COMBAT =====
+STAT_COLUMNS = {
+    "force":     "stat_force",
+    "agilite":   "stat_agilite",
+    "defense":   "stat_defense",
+    "endurance": "stat_endurance",
+    "chance":    "stat_chance",
+}
+
+def get_xp_pour_prochain_niveau(level):
+    """XP requis pour passer du niveau `level` au suivant."""
+    return int(100 * (level ** 1.3))
+
+def get_combat_xp_progress(total_xp):
+    """Retourne (level, xp_dans_niveau_actuel, xp_requis_prochain_niveau)."""
+    level = 1
+    remaining = total_xp
+    while True:
+        needed = get_xp_pour_prochain_niveau(level)
+        if remaining < needed:
+            return level, remaining, needed
+        remaining -= needed
+        level += 1
+        if level >= 50:
+            return level, 0, 0
+
+def add_combat_xp_db(user_id, montant):
+    """Ajoute de l'XP de combat. Retourne (nouveau_niveau, a_monte_de_niveau)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT combat_xp, combat_level, stat_points FROM duel_profil WHERE user_id = ?", (str(user_id),))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return 1, False
+
+    old_xp    = row["combat_xp"]    or 0
+    old_level = row["combat_level"] or 1
+    new_xp    = old_xp + montant
+    new_level, _, _ = get_combat_xp_progress(new_xp)
+    leveled_up     = new_level > old_level
+    levels_gained  = max(0, new_level - old_level)
+    new_stat_pts   = (row["stat_points"] or 0) + levels_gained
+
+    c.execute("""UPDATE duel_profil
+                 SET combat_xp = ?, combat_level = ?, stat_points = ?
+                 WHERE user_id = ?""",
+              (new_xp, new_level, new_stat_pts, str(user_id)))
+    conn.commit()
+    conn.close()
+    return new_level, leveled_up
+
+def attribuer_stat_db(user_id, stat):
+    """Attribue 1 point à une stat. Retourne True si succès."""
+    if stat not in STAT_COLUMNS:
+        return False
+    col = STAT_COLUMNS[stat]
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT stat_points FROM duel_profil WHERE user_id = ?", (str(user_id),))
+    row = c.fetchone()
+    if not row or (row["stat_points"] or 0) <= 0:
+        conn.close()
+        return False
+    c.execute(
+        f"UPDATE duel_profil SET stat_points = stat_points - 1, {col} = {col} + 1 WHERE user_id = ?",
+        (str(user_id),)
+    )
+    conn.commit()
+    conn.close()
+    return True
+
 
 if __name__ == "__main__":
     init_db()
