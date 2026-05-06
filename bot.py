@@ -143,7 +143,26 @@ async def on_ready():
     print(f"👀 Surveillance de {len(USER_REACTIONS)} utilisateur(s)")
     reload_reactions.start()
     await bot.tree.sync()
-    print("✅ Slash commands synchronisées")
+    print("✅ Slash commands synchronisées globalement")
+    # Sync par guild pour chaque serveur (instantané)
+    for guild in bot.guilds:
+        try:
+            await bot.tree.sync(guild=guild)
+            print(f"✅ Sync guild : {guild.name}")
+        except Exception as e:
+            print(f"❌ Sync guild échouée ({guild.name}) : {e}")
+
+@bot.command(name="sync")
+@commands.is_owner()
+async def sync_commands(ctx):
+    """Resync les slash commands manuellement (owner uniquement)."""
+    await bot.tree.sync()
+    for guild in bot.guilds:
+        try:
+            await bot.tree.sync(guild=guild)
+        except Exception:
+            pass
+    await ctx.send("✅ Slash commands resynchronisées !")
 
 @tasks.loop(seconds=5)
 async def reload_reactions():
