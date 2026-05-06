@@ -143,7 +143,26 @@ async def on_ready():
     print(f"👀 Surveillance de {len(USER_REACTIONS)} utilisateur(s)")
     reload_reactions.start()
     await bot.tree.sync()
-    print("✅ Slash commands synchronisées")
+    print("✅ Slash commands synchronisées globalement")
+    # Sync par guild pour chaque serveur (instantané)
+    for guild in bot.guilds:
+        try:
+            await bot.tree.sync(guild=guild)
+            print(f"✅ Sync guild : {guild.name}")
+        except Exception as e:
+            print(f"❌ Sync guild échouée ({guild.name}) : {e}")
+
+@bot.tree.command(name="sync", description="sync les slash commands manuellement (owner uniquement)")
+@commands.is_owner()
+async def sync_commands(ctx):
+    """Resync les slash commands manuellement (owner uniquement)."""
+    await bot.tree.sync()
+    for guild in bot.guilds:
+        try:
+            await bot.tree.sync(guild=guild)
+        except Exception:
+            pass
+    await ctx.send("✅ Slash commands resynchronisées !")
 
 @tasks.loop(seconds=5)
 async def reload_reactions():
@@ -191,54 +210,48 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-# ===== RÉACTIONS AUTOMATIQUES (prefix commands — intentionnel) =====
+# ===== RÉACTIONS AUTOMATIQUES =====
 
-@bot.group(name='reaction', invoke_without_command=True)
-async def reaction(ctx):
-    embed = discord.Embed(
-        title="😄 Réactions automatiques",
-        description="Gère les réactions automatiques du bot",
-        color=discord.Color.orange()
-    )
-    embed.add_field(
-        name="📋 Commandes",
-        value=(
-            "`!reaction add <membre> <emoji>` — Ajouter une réaction automatique\n"
-            "`!reaction remove <membre>` — Supprimer la réaction d'un membre\n"
-            "`!reaction list` — Voir toutes les réactions actives"
-        ),
-        inline=False
-    )
-    await ctx.send(embed=embed)
-
-@reaction.command(name='add')
-@commands.has_permissions(administrator=True)
-async def reaction_add(ctx, membre: discord.Member, emoji: str):
+@bot.tree.command(name="reaction_add", description="Ajouter une réaction automatique à un membre")
+@app_commands.describe(membre="Le membre ciblé", emoji="L'emoji à utiliser")
+@app_commands.checks.has_permissions(administrator=True)
+async def reaction_add(interaction: discord.Interaction, membre: discord.Member, emoji: str):
     USER_REACTIONS[membre.id] = emoji
     set_reaction(membre.id, emoji)
-    await ctx.send(f"✅ Le bot réagira avec {emoji} aux messages de **{membre.name}**")
+    await interaction.response.send_message(f"✅ Le bot réagira avec {emoji} aux messages de **{membre.name}**")
 
-@reaction.command(name='remove')
-@commands.has_permissions(administrator=True)
-async def reaction_remove(ctx, membre: discord.Member):
+@reaction_add.error
+async def reaction_add_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message("❌ Permission administrateur requise.", ephemeral=True)
+
+@bot.tree.command(name="reaction_remove", description="Supprimer la réaction automatique d'un membre")
+@app_commands.describe(membre="Le membre dont supprimer la réaction")
+@app_commands.checks.has_permissions(administrator=True)
+async def reaction_remove(interaction: discord.Interaction, membre: discord.Member):
     if membre.id in USER_REACTIONS:
         del USER_REACTIONS[membre.id]
         remove_reaction(membre.id)
-        await ctx.send(f"✅ Réaction supprimée pour **{membre.name}**")
+        await interaction.response.send_message(f"✅ Réaction supprimée pour **{membre.name}**")
     else:
-        await ctx.send(f"❌ Aucune réaction configurée pour **{membre.name}**")
+        await interaction.response.send_message(f"❌ Aucune réaction configurée pour **{membre.name}**", ephemeral=True)
 
-@reaction.command(name='list')
-async def reaction_list(ctx):
+@reaction_remove.error
+async def reaction_remove_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.errors.MissingPermissions):
+        await interaction.response.send_message("❌ Permission administrateur requise.", ephemeral=True)
+
+@bot.tree.command(name="reaction_list", description="Voir toutes les réactions automatiques actives")
+async def reaction_list(interaction: discord.Interaction):
     if not USER_REACTIONS:
-        await ctx.send("❌ Aucune réaction automatique configurée")
+        await interaction.response.send_message("❌ Aucune réaction automatique configurée.", ephemeral=True)
         return
     embed = discord.Embed(title="📋 Réactions automatiques actives", color=discord.Color.orange())
     for user_id, emoji in USER_REACTIONS.items():
-        membre = ctx.guild.get_member(user_id)
-        nom = membre.name if membre else f"Utilisateur inconnu ({user_id})"
+        membre = interaction.guild.get_member(user_id)
+        nom = membre.name if membre else f"Inconnu ({user_id})"
         embed.add_field(name=nom, value=emoji, inline=True)
-    await ctx.send(embed=embed)
+    await interaction.response.send_message(embed=embed)
 
 
 # ===== UTILITAIRES =====
@@ -290,7 +303,7 @@ async def commandes(interaction: discord.Interaction):
     )
     embed.add_field(
         name="🛡️ Modération",
-        value="`/clear` `/kick` `/ban` `/poll` `/setwelcome`\n`!reaction add/remove/list` *(préfixe uniquement)*",
+        value="`/clear` `/kick` `/ban` `/poll` `/setwelcome`\n`/reaction_add` `/reaction_remove` `/reaction_list`",
         inline=False
     )
     embed.add_field(name="​", value="​", inline=False)
