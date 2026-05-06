@@ -18,7 +18,10 @@ def calculer_stats(profil, sabre_data):
         "attaque": attaque,
         "defense": defense,
         "speciale_dispo": True,
-        "effets": {}  # effets actifs
+        "effets": {},
+        "parade_active": False,
+        "parade_cooldown": 0,
+        "defense_active": False,
     }
 
 def appliquer_effet(attaquant_stats, defenseur_stats, effet):

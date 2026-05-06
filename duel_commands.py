@@ -3,42 +3,109 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
+import random
 from database import get_historique
 from duel_sabres import get_sabre, get_tous_les_sabres, RARETES
 from duel_combat import calculer_stats, calculer_degats, barre_hp
 
 
-# ─── VUE : CHOIX D'ACTION EN COMBAT ───────────────────────────
-class CombatView(discord.ui.View):
-    def __init__(self, joueur_id, sabre_data, timeout=30):
-        super().__init__(timeout=timeout)
-        self.joueur_id = joueur_id
-        self.sabre_data = sabre_data
-        self.choix = None
+# ─── EMBED HELPER : PHASE DE CHOIX ───────────────────────────
+def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1):
+    if phase == 1:
+        desc = "Les deux joueurs choisissent chacun leur tour sans voir le choix adverse."
+        footer = f"⌛ {j1.display_name} choisit... · ⏳ {j2.display_name} en attente — 30 secondes !"
+    elif phase == 2:
+        desc = "Les deux joueurs choisissent chacun leur tour sans voir le choix adverse."
+        footer = f"✅ {j1.display_name} a choisi ! · ⌛ {j2.display_name} choisit... — 30 secondes !"
+    else:
+        desc = "⚙️ Résolution en cours..."
+        footer = None
 
-    async def interaction_check(self, interaction):
-        if interaction.user.id != self.joueur_id:
-            await interaction.response.send_message("❌ Ce n'est pas ton tour !", ephemeral=True)
-            return False
-        return True
+    embed = discord.Embed(
+        title=f"⚔️ Tour {tour} — Choisissez votre action !",
+        description=desc,
+        color=0xFFD700
+    )
 
-    @discord.ui.button(label="⚔️ Attaquer", style=discord.ButtonStyle.danger)
-    async def attaquer(self, interaction, button):
-        self.choix = "attaque"
-        self.stop()
-        await interaction.response.defer()
+    # Joueur 1
+    parade1 = "🛡️ Parade dispo" if s1["parade_cooldown"] == 0 else f"🛡️ Cooldown ({s1['parade_cooldown']})"
+    if s1["speciale_dispo"]:
+        spec1 = f"✨ **{sb1['speciale']['nom']}** — _{sb1['speciale']['description']}_"
+    else:
+        spec1 = "✨ ~~Spéciale utilisée~~"
+    embed.add_field(
+        name=f"❤️ {j1.display_name}",
+        value=f"{barre_hp(s1['hp'], s1['hp_max'])}\n{parade1}\n{spec1}",
+        inline=False
+    )
 
-    @discord.ui.button(label="🛡️ Défendre", style=discord.ButtonStyle.primary)
-    async def defendre(self, interaction, button):
-        self.choix = "defense"
-        self.stop()
-        await interaction.response.defer()
+    # Joueur 2
+    parade2 = "🛡️ Parade dispo" if s2["parade_cooldown"] == 0 else f"🛡️ Cooldown ({s2['parade_cooldown']})"
+    if s2["speciale_dispo"]:
+        spec2 = f"✨ **{sb2['speciale']['nom']}** — _{sb2['speciale']['description']}_"
+    else:
+        spec2 = "✨ ~~Spéciale utilisée~~"
+    embed.add_field(
+        name=f"❤️ {j2.display_name}",
+        value=f"{barre_hp(s2['hp'], s2['hp_max'])}\n{parade2}\n{spec2}",
+        inline=False
+    )
 
-    @discord.ui.button(label="✨ Spéciale", style=discord.ButtonStyle.success)
-    async def speciale(self, interaction, button):
-        self.choix = "speciale"
-        self.stop()
-        await interaction.response.defer()
+    if footer:
+        embed.set_footer(text=footer)
+
+    return embed
+
+
+# ─── VUE : BOUTONS DE COMBAT (public, séquentiel) ───────────────────────────
+class TourView(discord.ui.View):
+    ACTIONS = [
+        ("⚔️ Attaquer",  "attaque",  discord.ButtonStyle.danger,    0),
+        ("🛡️ Parade",    "parade",   discord.ButtonStyle.secondary,  0),
+        ("🔰 Défense",   "defense",  discord.ButtonStyle.primary,    0),
+        ("👊 Coup Bas",  "coup_bas", discord.ButtonStyle.secondary,  1),
+        ("✨ Spéciale",  "speciale", discord.ButtonStyle.success,    1),
+    ]
+
+    def __init__(self, joueur_actif, stats_actif, event_choix, choix_state, tour):
+        super().__init__(timeout=35)
+        self.joueur_actif = joueur_actif
+        self.event_choix = event_choix
+        self.choix_state = choix_state
+
+        for label, action, style, row in self.ACTIONS:
+            disabled = False
+            display = label
+            if action == "parade" and stats_actif["parade_cooldown"] > 0:
+                disabled = True
+                display = f"🛡️ Cooldown ({stats_actif['parade_cooldown']})"
+            elif action == "speciale" and not stats_actif["speciale_dispo"]:
+                disabled = True
+                display = "✨ Utilisée"
+
+            btn = discord.ui.Button(
+                label=display,
+                style=style if not disabled else discord.ButtonStyle.secondary,
+                disabled=disabled,
+                custom_id=f"act_{joueur_actif.id}_{tour}_{action}",
+                row=row,
+            )
+
+            async def callback(interaction: discord.Interaction, a=action):
+                if interaction.user.id != self.joueur_actif.id:
+                    await interaction.response.defer()
+                    return
+                if self.joueur_actif.id in self.choix_state:
+                    await interaction.response.defer()
+                    return
+                self.choix_state[self.joueur_actif.id] = a
+                for child in self.children:
+                    child.disabled = True
+                await interaction.response.defer()
+                self.event_choix.set()
+
+            btn.callback = callback
+            self.add_item(btn)
 
 
 # ─── VUE : HISTORIQUE DU COMBAT ───────────────────────────
@@ -52,7 +119,6 @@ class HistoriqueView(discord.ui.View):
         if not self.historique:
             await interaction.response.send_message("Aucune action enregistrée.", ephemeral=True)
             return
-
         pages = []
         chunk = ""
         for ligne in self.historique:
@@ -63,10 +129,9 @@ class HistoriqueView(discord.ui.View):
                 chunk += ligne + "\n"
         if chunk:
             pages.append(chunk)
-
         embed = discord.Embed(title="📜 Historique du combat", description=pages[0], color=0x888888)
         if len(pages) > 1:
-            embed.set_footer(text=f"Page 1/{len(pages)} — trop long pour tout afficher d'un coup")
+            embed.set_footer(text=f"Page 1/{len(pages)}")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
@@ -77,6 +142,7 @@ class DuelInviteView(discord.ui.View):
         self.challenger_id = challenger_id
         self.challenged_id = challenged_id
         self.accepted = None
+        self.accept_interaction = None
 
     async def interaction_check(self, interaction):
         if interaction.user.id != self.challenged_id:
@@ -87,8 +153,9 @@ class DuelInviteView(discord.ui.View):
     @discord.ui.button(label="✅ Accepter", style=discord.ButtonStyle.success)
     async def accepter(self, interaction, button):
         self.accepted = True
+        self.accept_interaction = interaction
         self.stop()
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
     @discord.ui.button(label="❌ Refuser", style=discord.ButtonStyle.danger)
     async def refuser(self, interaction, button):
@@ -97,149 +164,200 @@ class DuelInviteView(discord.ui.View):
         await interaction.response.defer()
 
 
+# ─── RÉSOLUTION D'UNE ACTION ───────────────────────────
+def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sabre, action):
+    desc = ""
+    if action == "attaque":
+        if def_stats["parade_active"]:
+            rapport = calculer_degats(att_stats, def_stats)
+            att_stats["hp"] = max(0, att_stats["hp"] - rapport["degats"])
+            def_stats["parade_active"] = False
+            desc += f"🔄 Parade de **{defenseur.display_name}** → **{rapport['degats']}** dégâts renvoyés à **{attaquant.display_name}** !\n"
+        elif def_stats["defense_active"]:
+            rapport = calculer_degats(att_stats, def_stats)
+            dmg = max(1, int(rapport["degats"] * 0.4))
+            def_stats["hp"] = max(0, def_stats["hp"] - dmg)
+            def_stats["defense_active"] = False
+            desc += f"🔰 **{defenseur.display_name}** réduit à **{dmg}** dégâts !\n"
+        else:
+            rapport = calculer_degats(att_stats, def_stats)
+            def_stats["hp"] = max(0, def_stats["hp"] - rapport["degats"])
+            for m in rapport["messages"]:
+                desc += f"{m}\n"
+            if rapport["degats"] > 0:
+                desc += f"⚔️ **{attaquant.display_name}** inflige **{rapport['degats']}** dégâts !\n"
+
+    elif action == "coup_bas":
+        if def_stats["parade_active"]:
+            rapport = calculer_degats(att_stats, def_stats)
+            dmg = rapport["degats"] * 2
+            def_stats["hp"] = max(0, def_stats["hp"] - dmg)
+            def_stats["parade_active"] = False
+            desc += f"💥 **{attaquant.display_name}** brise la parade ! **{dmg}** dégâts critiques !\n"
+        else:
+            rapport = calculer_degats(att_stats, def_stats)
+            dmg = max(1, rapport["degats"] // 2)
+            def_stats["hp"] = max(0, def_stats["hp"] - dmg)
+            desc += f"👊 **{attaquant.display_name}** coup bas : **{dmg}** dégâts.\n"
+
+    elif action == "speciale" and att_stats["speciale_dispo"]:
+        rapport = calculer_degats(att_stats, def_stats, utilise_speciale=True, sabre_data=att_sabre)
+        def_stats["hp"] = max(0, def_stats["hp"] - rapport["degats"])
+        for m in rapport["messages"]:
+            desc += f"{m}\n"
+        if rapport["degats"] > 0:
+            desc += f"💥 **{rapport['degats']}** dégâts !\n"
+
+    return desc
+
+
 # ─── FONCTION PRINCIPALE DE COMBAT ───────────────────────────
-async def lancer_combat(ctx_or_interaction, joueur1, joueur2, sabre1_id, sabre2_id, db):
-    channel = ctx_or_interaction.channel
+async def lancer_combat(challenger_interaction, accept_interaction, joueur1, joueur2, sabre1_id, sabre2_id, db):
+    channel = challenger_interaction.channel
 
     profil1 = db.ensure_profil(joueur1.id, joueur1.name)
     profil2 = db.ensure_profil(joueur2.id, joueur2.name)
     sabre1 = get_sabre(sabre1_id)
     sabre2 = get_sabre(sabre2_id)
-
     stats1 = calculer_stats(profil1, sabre1)
     stats2 = calculer_stats(profil2, sabre2)
+
+    # Jet de dé initial
+    while True:
+        de1, de2 = random.randint(1, 6), random.randint(1, 6)
+        if de1 != de2:
+            break
+    if de1 > de2:
+        ordre = [(joueur1, stats1, sabre1), (joueur2, stats2, sabre2)]
+        premier = joueur1.display_name
+    else:
+        ordre = [(joueur2, stats2, sabre2), (joueur1, stats1, sabre1)]
+        premier = joueur2.display_name
 
     tour = 1
     MAX_TOURS = 20
     historique = []
 
+    labels_action = {
+        "attaque": "⚔️ Attaque", "parade": "🛡️ Parade",
+        "defense": "🔰 Défense", "coup_bas": "👊 Coup Bas", "speciale": "✨ Spéciale",
+    }
+
     embed_debut = discord.Embed(
         title="⚔️ DUEL DE SABRES LASER",
-        description=f"{joueur1.mention} ({sabre1['emoji']} {sabre1['nom']}) VS {joueur2.mention} ({sabre2['emoji']} {sabre2['nom']})",
+        description=(
+            f"🎲 **{joueur1.display_name}** : {de1}  ·  **{joueur2.display_name}** : {de2}\n"
+            f"➡️ **{premier} commence !**\n\n"
+            f"{joueur1.mention} ({sabre1['emoji']} {sabre1['nom']}) "
+            f"VS {joueur2.mention} ({sabre2['emoji']} {sabre2['nom']})"
+        ),
         color=0xFF0000
     )
     embed_debut.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
     embed_debut.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-    await channel.send(embed=embed_debut)
+    msg = await channel.send(embed=embed_debut)
+
     await asyncio.sleep(2)
 
-    joueurs = [(joueur1, stats1, sabre1), (joueur2, stats2, sabre2)]
-
     while stats1["hp"] > 0 and stats2["hp"] > 0 and tour <= MAX_TOURS:
-        idx_att = (tour - 1) % 2
-        idx_def = 1 - idx_att
+        choix_state = {}
 
-        attaquant, att_stats, att_sabre = joueurs[idx_att]
-        defenseur, def_stats, def_sabre = joueurs[idx_def]
-
-        # Vérif paralysie
-        if "paralyze" in att_stats["effets"]:
-            embed_para = discord.Embed(
-                title=f"⛓️ Tour {tour}",
-                description=f"{attaquant.mention} est paralysé et passe son tour !",
-                color=0x888888
-            )
-            await channel.send(embed=embed_para)
-            historique.append(f"**Tour {tour}** — {attaquant.display_name} est paralysé !")
-            del att_stats["effets"]["paralyze"]
-            tour += 1
-            continue
-
-        view = CombatView(attaquant.id, att_sabre)
-        if not att_stats["speciale_dispo"]:
-            view.speciale.disabled = True
-
-        embed_tour = discord.Embed(
-            title=f"⚔️ Tour {tour} — {attaquant.display_name}, c'est ton tour !",
-            color=0xFFD700
+        # ─── Phase 1 : Joueur 1 choisit ───────────────────────────
+        event_p1 = asyncio.Event()
+        view_p1 = TourView(joueur1, stats1, event_p1, choix_state, tour)
+        await msg.edit(
+            embed=make_tour_embed(tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2, phase=1),
+            view=view_p1
         )
-        embed_tour.add_field(
-            name=f"❤️ {joueur1.display_name}",
-            value=barre_hp(stats1["hp"], stats1["hp_max"]),
-            inline=False
+        try:
+            await asyncio.wait_for(event_p1.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            choix_state[joueur1.id] = "attaque"
+
+        # ─── Phase 2 : Joueur 2 choisit ───────────────────────────
+        event_p2 = asyncio.Event()
+        view_p2 = TourView(joueur2, stats2, event_p2, choix_state, tour)
+        await msg.edit(
+            embed=make_tour_embed(tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2, phase=2),
+            view=view_p2
         )
-        embed_tour.add_field(
-            name=f"❤️ {joueur2.display_name}",
-            value=barre_hp(stats2["hp"], stats2["hp_max"]),
-            inline=False
+        try:
+            await asyncio.wait_for(event_p2.wait(), timeout=30)
+        except asyncio.TimeoutError:
+            choix_state[joueur2.id] = "attaque"
+
+        choix1 = choix_state.get(joueur1.id, "attaque")
+        choix2 = choix_state.get(joueur2.id, "attaque")
+
+        # ─── Application des états réactifs ───────────────────────────
+        desc_result = (
+            f"**{joueur1.display_name}** → {labels_action[choix1]}\n"
+            f"**{joueur2.display_name}** → {labels_action[choix2]}\n\n"
         )
-        embed_tour.set_footer(text="Tu as 30 secondes pour choisir !")
 
-        await channel.send(embed=embed_tour, view=view)
-        await view.wait()
+        for j, stats, choix in [(joueur1, stats1, choix1), (joueur2, stats2, choix2)]:
+            if choix == "parade" and stats["parade_cooldown"] == 0:
+                stats["parade_active"] = True
+                stats["parade_cooldown"] = 5
+                desc_result += f"🛡️ **{j.display_name}** se met en parade !\n"
+            elif choix == "defense":
+                stats["defense_active"] = True
+                desc_result += f"🔰 **{j.display_name}** posture défensive (-60% dégâts) !\n"
 
-        if view.choix is None:
-            view.choix = "attaque"
+        desc_result += "\n"
 
-        rapport = {"degats": 0, "soin": 0, "messages": []}
+        # ─── Résolution dans l'ordre d'initiative ───────────────────────────
+        for (att, att_stats, att_sabre), (def_, def_stats, def_sabre) in [
+            (ordre[0], ordre[1]),
+            (ordre[1], ordre[0]),
+        ]:
+            if stats1["hp"] <= 0 or stats2["hp"] <= 0:
+                break
+            att_choix = choix_state[att.id]
+            if att_choix in ("attaque", "coup_bas", "speciale"):
+                desc_result += resoudre_tour(att, att_stats, att_sabre, def_, def_stats, def_sabre, att_choix)
 
-        if view.choix == "attaque":
-            rapport = calculer_degats(att_stats, def_stats)
-            def_stats["hp"] = max(0, def_stats["hp"] - rapport["degats"])
+        # Mise à jour cooldowns fin de tour
+        for j, stats, choix in [(joueur1, stats1, choix1), (joueur2, stats2, choix2)]:
+            if choix != "parade" and stats["parade_cooldown"] > 0:
+                stats["parade_cooldown"] -= 1
+            if choix != "defense":
+                stats["defense_active"] = False
 
-        elif view.choix == "defense":
-            att_stats["effets"]["defense_active"] = True
-            rapport["messages"].append(f"🛡️ {attaquant.display_name} se met en posture défensive ! (+50% def)")
-            att_stats["defense"] = int(att_stats["defense"] * 1.5)
-
-        elif view.choix == "speciale" and att_stats["speciale_dispo"]:
-            rapport = calculer_degats(att_stats, def_stats, utilise_speciale=True, sabre_data=att_sabre)
-            def_stats["hp"] = max(0, def_stats["hp"] - rapport["degats"])
-
-        # Embed résultat du tour
-        desc = f"**{attaquant.display_name}** choisit : **{view.choix.upper()}**\n"
-        if rapport["degats"] > 0:
-            desc += f"💥 Dégâts infligés : **{rapport['degats']}**\n"
-        for msg_effet in rapport["messages"]:
-            desc += f"{msg_effet}\n"
-
-        # Enregistrement dans l'historique
-        entree = f"**Tour {tour}** — {attaquant.display_name} › {view.choix.upper()}"
-        if rapport["degats"] > 0:
-            entree += f" | 💥 {rapport['degats']} dégâts"
-        for msg_effet in rapport["messages"]:
-            entree += f" | {msg_effet}"
-        entree += f"\n↳ HP : {joueur1.display_name} {stats1['hp']}/{stats1['hp_max']} · {joueur2.display_name} {stats2['hp']}/{stats2['hp_max']}"
-        historique.append(entree)
-
+        # ─── Résultat dans le canal ───────────────────────────
         embed_result = discord.Embed(
-            title=f"Tour {tour} — Résultat",
-            description=desc,
+            title=f"⚔️ Tour {tour} — Résultat",
+            description=desc_result,
             color=0xFF4444
         )
-        embed_result.add_field(
-            name=f"❤️ {joueur1.display_name}",
-            value=barre_hp(stats1["hp"], stats1["hp_max"]),
-            inline=False
+        embed_result.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+        embed_result.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+
+        historique.append(
+            f"**Tour {tour}**\n{desc_result}"
+            f"HP : {joueur1.display_name} {stats1['hp']}/{stats1['hp_max']} · "
+            f"{joueur2.display_name} {stats2['hp']}/{stats2['hp_max']}"
         )
-        embed_result.add_field(
-            name=f"❤️ {joueur2.display_name}",
-            value=barre_hp(stats2["hp"], stats2["hp_max"]),
-            inline=False
-        )
-        await channel.send(embed=embed_result)
-        await asyncio.sleep(1.5)
+
+        await msg.edit(embed=embed_result, view=None)
+        await asyncio.sleep(3)
         tour += 1
 
-    # ─── FIN DU COMBAT ───────────────────────────
+    # ─── Fin du combat ───────────────────────────
     if stats1["hp"] <= 0 and stats2["hp"] <= 0:
         gagnant, perdant = None, None
-        desc_fin = "⚖️ **ÉGALITÉ !** Les deux combattants tombent simultanément !"
+        desc_fin = "⚖️ **ÉGALITÉ !**"
     elif stats1["hp"] <= 0:
         gagnant, perdant = joueur2, joueur1
-        desc_fin = f"🏆 **{joueur2.display_name} GAGNE LE DUEL !**"
+        desc_fin = f"🏆 **{joueur2.display_name} GAGNE !**"
     elif stats2["hp"] <= 0:
         gagnant, perdant = joueur1, joueur2
-        desc_fin = f"🏆 **{joueur1.display_name} GAGNE LE DUEL !**"
+        desc_fin = f"🏆 **{joueur1.display_name} GAGNE !**"
     else:
-        if stats1["hp"] >= stats2["hp"]:
-            gagnant, perdant = joueur1, joueur2
-        else:
-            gagnant, perdant = joueur2, joueur1
+        gagnant, perdant = (joueur1, joueur2) if stats1["hp"] >= stats2["hp"] else (joueur2, joueur1)
         desc_fin = f"⏱️ Temps écoulé ! **{gagnant.display_name} gagne aux points !**"
 
-    xp_gain = 50
-    coins_gain = 100
+    xp_gain, coins_gain = 50, 100
     if gagnant:
         db.add_xp(gagnant.id, xp_gain)
         db.add_tookcoins(gagnant.id, coins_gain)
@@ -248,12 +366,10 @@ async def lancer_combat(ctx_or_interaction, joueur1, joueur2, sabre1_id, sabre2_
         db.sauvegarder(joueur1.id, joueur2.id, gagnant.id, coins_gain, 0)
         desc_fin += f"\n\n🎖️ +{xp_gain} XP | 🪙 +{coins_gain} TookCoins"
 
-    embed_fin = discord.Embed(
-        title="⚔️ FIN DU DUEL",
-        description=desc_fin,
-        color=0xFFD700
-    )
-    await channel.send(embed=embed_fin, view=HistoriqueView(historique))
+    embed_fin = discord.Embed(title="⚔️ FIN DU DUEL", description=desc_fin, color=0xFFD700)
+    embed_fin.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+    embed_fin.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+    await msg.edit(embed=embed_fin, view=HistoriqueView(historique))
 
 
 # ─── COMMANDES ───────────────────────────
@@ -271,7 +387,6 @@ def setup_duel_commands(bot, db):
 
         profil1 = db.ensure_profil(interaction.user.id, interaction.user.name)
         profil2 = db.ensure_profil(adversaire.id, adversaire.name)
-
         sabre1_id = profil1.get("sabre_equipe", "bleu")
         sabre2_id = profil2.get("sabre_equipe", "bleu")
         sabre1 = get_sabre(sabre1_id)
@@ -281,7 +396,7 @@ def setup_duel_commands(bot, db):
         embed = discord.Embed(
             title="⚔️ DÉFI EN DUEL !",
             description=(
-                f"{interaction.user.mention} défie {adversaire.mention} en duel de sabres laser !\n\n"
+                f"{interaction.user.mention} défie {adversaire.mention} en duel !\n\n"
                 f"{interaction.user.display_name} : {sabre1['emoji']} **{sabre1['nom']}** "
                 f"({RARETES[sabre1['rarete']]['emoji']} {RARETES[sabre1['rarete']]['label']})\n"
                 f"{adversaire.display_name} : {sabre2['emoji']} **{sabre2['nom']}** "
@@ -290,7 +405,6 @@ def setup_duel_commands(bot, db):
             color=0xFF0000
         )
         embed.set_footer(text=f"{adversaire.display_name} a 30 secondes pour accepter ou refuser !")
-
         await interaction.response.send_message(embed=embed, view=view)
         await view.wait()
 
@@ -299,8 +413,12 @@ def setup_duel_commands(bot, db):
         elif not view.accepted:
             await interaction.followup.send(f"❌ {adversaire.display_name} a refusé le duel.")
         else:
-            await interaction.followup.send(f"✅ {adversaire.display_name} accepte le duel ! Que le meilleur gagne !")
-            await lancer_combat(interaction, interaction.user, adversaire, sabre1_id, sabre2_id, db)
+            await interaction.followup.send(f"✅ {adversaire.display_name} accepte ! Le combat commence !")
+            await lancer_combat(
+                interaction, view.accept_interaction,
+                interaction.user, adversaire,
+                sabre1_id, sabre2_id, db
+            )
 
     @bot.tree.command(name="profil", description="Voir ton profil de duel")
     @app_commands.describe(membre="Le membre dont tu veux voir le profil")
@@ -348,13 +466,9 @@ def setup_duel_commands(bot, db):
     async def historique_cmd(interaction: discord.Interaction, membre: discord.Member = None):
         membre = membre or interaction.user
         duels = get_historique(membre.id, limit=5)
-
         if not duels:
-            await interaction.response.send_message(
-                f"❌ Aucun duel dans l'historique pour {membre.display_name} !", ephemeral=True
-            )
+            await interaction.response.send_message(f"❌ Aucun duel pour {membre.display_name} !", ephemeral=True)
             return
-
         embed = discord.Embed(title=f"📜 Historique de {membre.display_name}", color=discord.Color.blurple())
         description = ""
         for duel in duels:
@@ -376,9 +490,7 @@ def setup_duel_commands(bot, db):
         sabres = get_tous_les_sabres()
         profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
         inventaire = profil_data.get("sabres", ["bleu"])
-
         embed = discord.Embed(title="🗡️ BOUTIQUE DES SABRES LASER", color=0x00BFFF)
-
         for rarete_id, rarete_info in RARETES.items():
             sabres_rarete = [s for s in sabres.values() if s["rarete"] == rarete_id]
             if not sabres_rarete:
@@ -388,40 +500,29 @@ def setup_duel_commands(bot, db):
                 possede = "✅" if s["id"] in inventaire else ""
                 prix_txt = "**GRATUIT**" if s["prix"] == 0 else f"🪙 {s['prix']}"
                 texte += f"{s['emoji']} **{s['nom']}** {possede}\n{prix_txt} | ✨ {s['speciale']['nom']}\n\n"
-            embed.add_field(
-                name=f"{rarete_info['emoji']} {rarete_info['label']}",
-                value=texte,
-                inline=False
-            )
-
+            embed.add_field(name=f"{rarete_info['emoji']} {rarete_info['label']}", value=texte, inline=False)
         await interaction.response.send_message(embed=embed)
 
     @bot.tree.command(name="acheter_sabre", description="Acheter un sabre laser")
     @app_commands.describe(sabre_id="L'ID du sabre à acheter (ex: rouge, violet, arc_en_ciel...)")
     async def acheter_sabre(interaction: discord.Interaction, sabre_id: str):
         profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
-
         sabre = get_sabre(sabre_id)
         if not sabre:
             await interaction.response.send_message("❌ Sabre introuvable ! Vérifie l'ID avec `/boutique_sabres`", ephemeral=True)
             return
-
         inventaire = profil_data.get("sabres", ["bleu"])
         if sabre_id in inventaire:
             await interaction.response.send_message(f"❌ Tu possèdes déjà le {sabre['nom']} !", ephemeral=True)
             return
-
         coins = profil_data.get("tookcoins", 0)
         if coins < sabre["prix"]:
             await interaction.response.send_message(
-                f"❌ Pas assez de TookCoins ! Il te faut 🪙 {sabre['prix']} (tu as 🪙 {coins})",
-                ephemeral=True
+                f"❌ Pas assez de TookCoins ! Il te faut 🪙 {sabre['prix']} (tu as 🪙 {coins})", ephemeral=True
             )
             return
-
         db.add_tookcoins(interaction.user.id, -sabre["prix"])
         db.update_profil(interaction.user.id, {"sabres": inventaire + [sabre_id]})
-
         embed = discord.Embed(
             title="✅ ACHAT RÉUSSI !",
             description=(
@@ -438,17 +539,12 @@ def setup_duel_commands(bot, db):
     async def equiper_sabre(interaction: discord.Interaction, sabre_id: str):
         profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
         inventaire = profil_data.get("sabres", ["bleu"])
-
         if sabre_id not in inventaire:
             await interaction.response.send_message("❌ Tu ne possèdes pas ce sabre !", ephemeral=True)
             return
-
         sabre = get_sabre(sabre_id)
         db.update_profil(interaction.user.id, {"sabre_equipe": sabre_id})
-
-        await interaction.response.send_message(
-            f"✅ {sabre['emoji']} **{sabre['nom']}** équipé ! Bonne chance au prochain duel !"
-        )
+        await interaction.response.send_message(f"✅ {sabre['emoji']} **{sabre['nom']}** équipé !")
 
     @bot.tree.command(name="mon_sabre", description="Voir ton sabre équipé")
     async def mon_sabre(interaction: discord.Interaction):
@@ -457,12 +553,7 @@ def setup_duel_commands(bot, db):
         sabre = get_sabre(sabre_id)
         rarete = RARETES[sabre["rarete"]]
         inventaire = profil_data.get("sabres", ["bleu"])
-
-        embed = discord.Embed(
-            title=f"{sabre['emoji']} {sabre['nom']}",
-            description=sabre["description"],
-            color=0x00BFFF
-        )
+        embed = discord.Embed(title=f"{sabre['emoji']} {sabre['nom']}", description=sabre["description"], color=0x00BFFF)
         embed.add_field(name="Rareté", value=f"{rarete['emoji']} {rarete['label']}", inline=True)
         embed.add_field(
             name="Capacité Spéciale",
@@ -471,5 +562,4 @@ def setup_duel_commands(bot, db):
         )
         embed.add_field(name="Sabres possédés", value=f"{len(inventaire)} sabre(s)", inline=True)
         embed.set_footer(text="Utilise /equiper_sabre pour changer de sabre")
-
         await interaction.response.send_message(embed=embed)
