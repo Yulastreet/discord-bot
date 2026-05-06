@@ -208,13 +208,20 @@ def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sab
 
 
 # ─── FONCTION PRINCIPALE DE COMBAT ───────────────────────────
-async def lancer_combat(challenger_interaction, accept_interaction, joueur1, joueur2, sabre1_id, sabre2_id, db):
+async def lancer_combat(challenger_interaction, accept_interaction, joueur1, joueur2, sabre1_id, sabre2_id, db, nerf=False):
     channel = challenger_interaction.channel
 
     profil1 = db.ensure_profil(joueur1.id, joueur1.name)
     profil2 = db.ensure_profil(joueur2.id, joueur2.name)
     sabre1  = get_sabre(sabre1_id)
     sabre2  = get_sabre(sabre2_id)
+
+    if nerf:
+        _nerf = {"combat_level": 1, "stat_force": 0, "stat_agilite": 0,
+                 "stat_defense": 0, "stat_endurance": 0, "stat_chance": 0}
+        profil1 = {**profil1, **_nerf}
+        profil2 = {**profil2, **_nerf}
+
     stats1  = calculer_stats(profil1, sabre1)
     stats2  = calculer_stats(profil2, sabre2)
 
@@ -243,15 +250,17 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         "speciale": "✨ Spéciale",
     }
 
+    nerf_label = " 〔MODE NERF〕" if nerf else ""
     embed_debut = discord.Embed(
-        title="⚔️ DUEL DE SABRES LASER",
+        title=f"⚔️ DUEL DE SABRES LASER{nerf_label}",
         description=(
             f"🎲 **{joueur1.display_name}** : {de1}  ·  **{joueur2.display_name}** : {de2}\n"
             f"➡️ **{premier} commence !**\n\n"
             f"{joueur1.mention} ({sabre1['emoji']} {sabre1['nom']}) "
             f"VS {joueur2.mention} ({sabre2['emoji']} {sabre2['nom']})"
+            + (f"\n\n⚖️ *Stats de niveau et points attribués ignorés — terrain égal !*" if nerf else "")
         ),
-        color=0xFF0000,
+        color=0x00AAFF if nerf else 0xFF0000,
     )
     embed_debut.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
     embed_debut.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
@@ -409,8 +418,11 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
 def setup_duel_commands(bot, db):
 
     @bot.tree.command(name="duel", description="Défie un joueur en duel de sabres laser")
-    @app_commands.describe(adversaire="Le joueur que tu veux défier")
-    async def duel(interaction: discord.Interaction, adversaire: discord.Member):
+    @app_commands.describe(
+        adversaire="Le joueur que tu veux défier",
+        nerf="Mode équilibré : ignore les niveaux et stats attribuées (sabres et spéciales conservés)",
+    )
+    async def duel(interaction: discord.Interaction, adversaire: discord.Member, nerf: bool = False):
         if adversaire.id == interaction.user.id:
             await interaction.response.send_message("❌ Tu ne peux pas te défier toi-même !", ephemeral=True)
             return
@@ -426,16 +438,18 @@ def setup_duel_commands(bot, db):
         sabre2    = get_sabre(sabre2_id)
 
         view  = DuelInviteView(interaction.user.id, adversaire.id)
+        nerf_note = "\n\n⚖️ **MODE NERF** — niveaux et stats attribuées ignorés !" if nerf else ""
         embed = discord.Embed(
-            title="⚔️ DÉFI EN DUEL !",
+            title="⚔️ DÉFI EN DUEL !" + (" 〔MODE NERF〕" if nerf else ""),
             description=(
                 f"{interaction.user.mention} défie {adversaire.mention} en duel !\n\n"
                 f"{interaction.user.display_name} : {sabre1['emoji']} **{sabre1['nom']}** "
                 f"({RARETES[sabre1['rarete']]['emoji']} {RARETES[sabre1['rarete']]['label']})\n"
                 f"{adversaire.display_name} : {sabre2['emoji']} **{sabre2['nom']}** "
                 f"({RARETES[sabre2['rarete']]['emoji']} {RARETES[sabre2['rarete']]['label']})"
+                + nerf_note
             ),
-            color=0xFF0000,
+            color=0x00AAFF if nerf else 0xFF0000,
         )
         embed.set_footer(text=f"{adversaire.display_name} a 30 secondes pour accepter ou refuser !")
         await interaction.response.send_message(embed=embed, view=view)
@@ -451,6 +465,7 @@ def setup_duel_commands(bot, db):
                 interaction, view.accept_interaction,
                 interaction.user, adversaire,
                 sabre1_id, sabre2_id, db,
+                nerf=nerf,
             )
 
     @bot.tree.command(name="profil", description="Voir ton profil de duel")
