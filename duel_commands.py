@@ -516,14 +516,14 @@ def setup_duel_commands(bot, db):
 
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="statpoint", description="Attribuer un point de stat gagné en montant de niveau de combat")
-    @app_commands.describe(stat="La statistique à améliorer")
+    @bot.tree.command(name="statpoint", description="Attribuer un point de stat gagne en montant de niveau de combat")
+    @app_commands.describe(stat="La statistique a ameliorer")
     @app_commands.choices(stat=[
-        app_commands.Choice(name="⚔️ Force       (+5 attaque par point)",    value="force"),
-        app_commands.Choice(name="💨 Agilité     (+4% esquive par point)",   value="agilite"),
-        app_commands.Choice(name="🛡️ Défense     (+3 défense par point)",    value="defense"),
-        app_commands.Choice(name="❤️ Endurance   (+25 HP max par point)",    value="endurance"),
-        app_commands.Choice(name="🍀 Chance      (+5% critique par point)",  value="chance"),
+        app_commands.Choice(name="Force (+5 attaque par point)",     value="force"),
+        app_commands.Choice(name="Agilite (+4% esquive par point)",  value="agilite"),
+        app_commands.Choice(name="Defense (+3 defense par point)",   value="defense"),
+        app_commands.Choice(name="Endurance (+25 HP max par point)", value="endurance"),
+        app_commands.Choice(name="Chance (+5% critique par point)",  value="chance"),
     ])
     async def statpoint(interaction: discord.Interaction, stat: str):
         profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
