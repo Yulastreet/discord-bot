@@ -14,7 +14,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       get_duel_profil, creer_duel_profil, ajouter_tookcoins,
                       ajouter_victoire, ajouter_defaite, changer_sabre_equipe,
                       ajouter_sabre, get_collection_sabres, possede_sabre,
-                      sauvegarder_duel, get_historique)
+                      sauvegarder_duel, get_historique,
+                      add_combat_xp_db, attribuer_stat_db)
 from duel_commands import setup_duel_commands
 
 load_dotenv()
@@ -63,6 +64,14 @@ class DuelDB:
             for sabre_id in data["sabres"]:
                 if sabre_id not in existing:
                     ajouter_sabre(user_id, sabre_id)
+
+    def add_combat_xp(self, user_id, amount):
+        """Ajoute de l'XP de combat. Retourne (nouveau_niveau, a_monte_de_niveau)."""
+        return add_combat_xp_db(user_id, amount)
+
+    def attribuer_stat(self, user_id, stat):
+        """Attribue 1 point à une stat. Retourne True si succès."""
+        return attribuer_stat_db(user_id, stat)
 
 
 # ===== XP =====
