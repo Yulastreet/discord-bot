@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .claude/
+
+# SQLite databases — never version, contains live data
+bot_database.db
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
