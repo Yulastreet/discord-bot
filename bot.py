@@ -684,9 +684,9 @@ async def duel(ctx, adversaire: discord.Member):
     duels_en_cours[adversaire.id] = ctx.author.id
 
     # ===== FONCTIONS UTILITAIRES =====
-    def barre_hp(hp, max_hp=100):
+    def barre_hp(hp, max_hp=250):
         filled = int((hp / max_hp) * 10)
-        return f"{'🟥' * filled}{'⬛' * (10 - filled)} **{hp}/100**"
+        return f"{'🟥' * filled}{'⬛' * (10 - filled)} **{hp}/250**"
 
     # ===== SETUP COMBAT =====
     sabre_c = SABRES.get(profil_challenger["sabre_equipe"], SABRES["bleu"])
@@ -696,7 +696,7 @@ async def duel(ctx, adversaire: discord.Member):
         {
             "membre": ctx.author,
             "sabre": sabre_c,
-            "hp": 100,
+            "hp": 250,
             "parade_active": False,
             "parade_cooldown": 0,
             "defense_active": False,
@@ -705,7 +705,7 @@ async def duel(ctx, adversaire: discord.Member):
         {
             "membre": adversaire,
             "sabre": sabre_a,
-            "hp": 100,
+            "hp": 250,
             "parade_active": False,
             "parade_cooldown": 0,
             "defense_active": False,
