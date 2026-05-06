@@ -1,199 +1,79 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Dashboard</title>
-    <style>
-        body {
-            background: #1a1a2e;
-            font-family: Arial;
-            color: white;
-            padding: 20px;
-        }
-        h1 { 
-            text-align: center; 
-            color: #7289da;
-            margin-bottom: 30px;
-        }
-        
-        .header-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 10px;
-        }
-
-        .nav-buttons a {
-            background: #7289da;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            transition: background 0.3s;
-        }
-
-        .nav-buttons a:hover {
-            background: #5a73b8;
-        }
-
-        .logout {
-            background: #f04747;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            transition: background 0.3s;
-        }
-
-        .logout:hover {
-            background: #d43535;
-        }
-
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: #16213e;
-            padding: 20px;
-            border-radius: 5px;
-            border-left: 4px solid #7289da;
-            text-align: center;
-        }
-
-        .stat-card h3 {
-            color: #7289da;
-            font-size: 12px;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-
-        .stat-card .value {
-            font-size: 28px;
-            color: white;
-            font-weight: bold;
-        }
-
-        .chart-container {
-            background: #16213e;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .chart-container h2 {
-            color: #7289da;
-            margin-bottom: 20px;
-        }
-
-        .chart-container img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 5px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th {
-            background: #7289da;
-            padding: 10px;
-        }
-        td {
-            padding: 10px;
-            border-bottom: 1px solid #16213e;
-            text-align: center;
-            background: #16213e;
-        }
-        tr:hover { 
-            background: #0f3460;
-            cursor: pointer;
-        }
-
-        @media (max-width: 768px) {
-            .header-controls {
-                flex-direction: column;
-            }
-
-            .nav-buttons {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .stat-card {
-                min-width: 100%;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  {% include "_styles.html" %}
 </head>
 <body>
-    <div class="header-controls">
-        <h1>🤖 Bot Dashboard</h1>
-        <div class="nav-buttons">
-            <a href="/search">🔍 Rechercher</a>
-            <a href="/logout" class="logout">Déconnexion</a>
-            <a href="/reactions">⚙️ Gestion des Réactions</a>
-        </div>
-    </div>
+<div class="layout">
 
-    {% if stats %}
-    <div class="stats-container">
-        <div class="stat-card">
-            <h3>Utilisateurs Total</h3>
-            <div class="value">{{ stats.total_users }}</div>
-        </div>
-        <div class="stat-card">
-            <h3>XP Total</h3>
-            <div class="value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
-        </div>
-        <div class="stat-card">
-            <h3>Niveau Moyen</h3>
-            <div class="value">{{ "%.1f"|format(stats.avg_level) }}</div>
-        </div>
-        {% if stats.top_user %}
-        <div class="stat-card">
-            <h3>Top Utilisateur</h3>
-            <div class="value">{{ stats.top_user.username }}</div>
-        </div>
-        {% endif %}
+  <div class="topbar">
+    <h1>🤖 Bot Dashboard</h1>
+    <div class="nav-pill">
+      <a href="/dashboard" class="active">Dashboard</a>
+      <a href="/search">Rechercher</a>
+      <a href="/reactions">Réactions</a>
+      <a href="/duels">Duels</a>
+      <a href="/logout">Déconnexion</a>
     </div>
-    {% endif %}
+  </div>
 
-    {% if chart %}
-    <div class="chart-container">
-        <h2>📈 Top 10 des Utilisateurs</h2>
-        <img src="data:image/png;base64,{{ chart }}" alt="Chart">
+  {% if stats %}
+  <div class="grid grid-4 mb-2">
+    <div class="stat-box">
+      <div class="label">Utilisateurs</div>
+      <div class="value">{{ stats.total_users }}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">XP Total</div>
+      <div class="value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
+    </div>
+    <div class="stat-box">
+      <div class="label">Niveau Moyen</div>
+      <div class="value">{{ "%.1f"|format(stats.avg_level) }}</div>
+    </div>
+    {% if stats.top_user %}
+    <div class="stat-box">
+      <div class="label">Top Utilisateur</div>
+      <div class="value" style="font-size:20px;">{{ stats.top_user.username }}</div>
     </div>
     {% endif %}
+  </div>
+  {% endif %}
 
-    <h2 style="color: #7289da; margin-top: 30px;">👥 Classement Complet</h2>
-    <table>
+  {% if chart %}
+  <div class="card mb-2">
+    <h2>📈 Top 10 des Utilisateurs</h2>
+    <img src="data:image/png;base64,{{ chart }}" alt="Chart" style="max-width:100%;border-radius:18px;margin-top:14px;">
+  </div>
+  {% endif %}
+
+  <div class="card-dark mt-2">
+    <h2 style="color: var(--color-primary);">👥 Classement complet</h2>
+    <table class="tbl mt-1">
+      <thead>
         <tr>
-            <th>#</th>
-            <th>Username</th>
-            <th>XP</th>
-            <th>Niveau</th>
+          <th>#</th>
+          <th>Utilisateur</th>
+          <th>XP</th>
+          <th>Niveau</th>
         </tr>
-        {% for user in users %}
+      </thead>
+      <tbody>
+      {% for user in users %}
         <tr onclick="window.location.href='/user/{{ user.user_id }}'">
-            <td>{{ loop.index }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.xp }}</td>
-            <td>{{ user.level }}</td>
+          <td>{{ loop.index }}</td>
+          <td>{{ user.username }}</td>
+          <td>{{ "{:,}".format(user.xp).replace(',', ' ') }}</td>
+          <td>{{ user.level }}</td>
         </tr>
-        {% endfor %}
+      {% endfor %}
+      </tbody>
     </table>
+  </div>
+
+</div>
 </body>
 </html>

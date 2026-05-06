@@ -65,6 +65,20 @@ def init_db():
         FOREIGN KEY(gagnant_id) REFERENCES duel_profil(user_id)
     )''')
 
+    # Table sabres (modifiable via dashboard web)
+    c.execute('''CREATE TABLE IF NOT EXISTS sabres (
+        id TEXT PRIMARY KEY,
+        nom TEXT NOT NULL,
+        emoji TEXT,
+        rarete TEXT NOT NULL,
+        prix INTEGER DEFAULT 0,
+        description TEXT,
+        speciale_nom TEXT,
+        speciale_description TEXT,
+        speciale_emoji TEXT,
+        speciale_effet TEXT
+    )''')
+
     # Migration : nouvelles colonnes système de combat
     nouvelles_colonnes = [
         ("combat_xp",      "INTEGER DEFAULT 0"),
@@ -84,7 +98,204 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("✅ Base de données initialisée !")
+
+    # Seed de la table sabres si vide (depuis duel_sabres.SABRES_DEFAULT)
+    seed_sabres_si_vide()
+    print("[OK] Base de donnees initialisee !")
+
+
+# ===== DUEL - SABRES (DB) =====
+def _row_to_sabre(row):
+    if not row:
+        return None
+    d = dict(row)
+    return {
+        "id":          d["id"],
+        "nom":         d["nom"],
+        "emoji":       d["emoji"],
+        "rarete":      d["rarete"],
+        "prix":        d["prix"],
+        "description": d["description"],
+        "speciale": {
+            "nom":         d["speciale_nom"],
+            "description": d["speciale_description"],
+            "emoji":       d["speciale_emoji"],
+            "effet":       d["speciale_effet"],
+        }
+    }
+
+def db_get_sabre(sabre_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sabres WHERE id = ?", (sabre_id,))
+    row = c.fetchone()
+    conn.close()
+    return _row_to_sabre(row)
+
+def db_get_tous_sabres():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sabres")
+    rows = c.fetchall()
+    conn.close()
+    return {row["id"]: _row_to_sabre(row) for row in rows}
+
+def db_get_sabres_par_rarete(rarete):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM sabres WHERE rarete = ?", (rarete,))
+    rows = c.fetchall()
+    conn.close()
+    return {row["id"]: _row_to_sabre(row) for row in rows}
+
+def db_create_sabre(data):
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute("""INSERT INTO sabres
+            (id, nom, emoji, rarete, prix, description,
+             speciale_nom, speciale_description, speciale_emoji, speciale_effet)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (data["id"], data["nom"], data.get("emoji", ""), data["rarete"],
+             int(data.get("prix", 0)), data.get("description", ""),
+             data.get("speciale_nom", ""), data.get("speciale_description", ""),
+             data.get("speciale_emoji", ""), data.get("speciale_effet", "")))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def db_update_sabre(sabre_id, data):
+    champs = ["nom", "emoji", "rarete", "prix", "description",
+              "speciale_nom", "speciale_description", "speciale_emoji", "speciale_effet"]
+    set_clauses = []
+    valeurs    = []
+    for f in champs:
+        if f in data:
+            set_clauses.append(f"{f} = ?")
+            valeurs.append(int(data[f]) if f == "prix" else data[f])
+    if not set_clauses:
+        return False
+    valeurs.append(sabre_id)
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"UPDATE sabres SET {', '.join(set_clauses)} WHERE id = ?", valeurs)
+    changed = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
+
+def db_delete_sabre(sabre_id):
+    """Supprime un sabre. Nettoie aussi les collections et reset les sabres équipés."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM duel_collection WHERE sabre_id = ?", (sabre_id,))
+    c.execute("UPDATE duel_profil SET sabre_equipe = 'bleu' WHERE sabre_equipe = ?", (sabre_id,))
+    c.execute("DELETE FROM sabres WHERE id = ?", (sabre_id,))
+    deleted = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+def seed_sabres_si_vide():
+    """Importe les sabres par défaut depuis duel_sabres.SABRES_DEFAULT si la table est vide."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) as n FROM sabres")
+    if c.fetchone()["n"] > 0:
+        conn.close()
+        return
+    try:
+        from duel_sabres import SABRES_DEFAULT
+    except ImportError:
+        conn.close()
+        return
+    for sid, s in SABRES_DEFAULT.items():
+        sp = s.get("speciale", {})
+        c.execute("""INSERT INTO sabres
+            (id, nom, emoji, rarete, prix, description,
+             speciale_nom, speciale_description, speciale_emoji, speciale_effet)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (s["id"], s["nom"], s.get("emoji", ""), s["rarete"],
+             int(s.get("prix", 0)), s.get("description", ""),
+             sp.get("nom", ""), sp.get("description", ""),
+             sp.get("emoji", ""), sp.get("effet", "")))
+    conn.commit()
+    conn.close()
+    print(f"[OK] Seed sabres : {len(SABRES_DEFAULT)} sabres importes.")
+
+
+# ===== DUEL - ADMIN (web dashboard) =====
+def admin_update_duel_profil(user_id, data):
+    """Met à jour les champs autorisés du profil duel via le dashboard."""
+    autorises = ["username", "level", "tookcoins", "victoires", "defaites",
+                 "sabre_equipe", "combat_xp", "combat_level", "stat_points",
+                 "stat_force", "stat_agilite", "stat_defense", "stat_endurance", "stat_chance"]
+    set_clauses = []
+    valeurs    = []
+    for f in autorises:
+        if f in data:
+            set_clauses.append(f"{f} = ?")
+            v = data[f]
+            if f not in ("username", "sabre_equipe"):
+                v = int(v)
+            valeurs.append(v)
+    if not set_clauses:
+        return False
+    valeurs.append(str(user_id))
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(f"UPDATE duel_profil SET {', '.join(set_clauses)} WHERE user_id = ?", valeurs)
+    changed = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return changed
+
+def admin_get_full_duel_user(user_id):
+    """Retourne profil + collection + historique pour le dashboard."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM duel_profil WHERE user_id = ?", (str(user_id),))
+    profil = c.fetchone()
+    if not profil:
+        conn.close()
+        return None
+    c.execute("SELECT sabre_id, obtenu_le FROM duel_collection WHERE user_id = ? ORDER BY obtenu_le ASC", (str(user_id),))
+    collection = [dict(r) for r in c.fetchall()]
+    c.execute("""SELECT * FROM duel_historique
+                 WHERE user_id_1 = ? OR user_id_2 = ?
+                 ORDER BY date DESC LIMIT 50""", (str(user_id), str(user_id)))
+    historique = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return {
+        "profil":     dict(profil),
+        "collection": collection,
+        "historique": historique,
+    }
+
+def admin_supprimer_sabre_collection(user_id, sabre_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM duel_collection WHERE user_id = ? AND sabre_id = ?",
+              (str(user_id), sabre_id))
+    deleted = c.rowcount > 0
+    # Si c'était son sabre équipé, reset à bleu
+    c.execute("UPDATE duel_profil SET sabre_equipe = 'bleu' WHERE user_id = ? AND sabre_equipe = ?",
+              (str(user_id), sabre_id))
+    conn.commit()
+    conn.close()
+    return deleted
+
+def admin_lister_duel_users():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT user_id, username, combat_level, tookcoins, victoires, defaites
+                 FROM duel_profil ORDER BY combat_level DESC, tookcoins DESC""")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
 
 
 # ===== XP MESSAGES =====
