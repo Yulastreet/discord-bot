@@ -1,4 +1,8 @@
 # duel_sabres.py
+#
+# La source de vérité des sabres est désormais la table `sabres` en DB.
+# SABRES_DEFAULT sert UNIQUEMENT au seed initial (première création de la DB).
+# Toute lecture/écriture passe par les fonctions DB (db_get_sabre, etc.).
 
 RARETES = {
     "C": {"label": "Common", "emoji": "⚪", "bonus_stats": 0},
@@ -8,7 +12,7 @@ RARETES = {
     "SSR": {"label": "Super Super Rare", "emoji": "🟡", "bonus_stats": 5},
 }
 
-SABRES = {
+SABRES_DEFAULT = {
     # ─── SABRES DE BASE (C - Gratuits) ───────────────────────────
     "bleu": {
         "id": "bleu",
@@ -196,18 +200,29 @@ SABRES = {
 }
 
 def get_sabre(sabre_id):
-    """Récupère un sabre par ID."""
-    return SABRES.get(sabre_id)
+    """Récupère un sabre par ID (DB)."""
+    from database import db_get_sabre
+    sabre = db_get_sabre(sabre_id)
+    if sabre is None:
+        # Fallback sur le defaut pour ne pas casser un duel si le sabre fut supprimé
+        sabre = SABRES_DEFAULT.get(sabre_id) or SABRES_DEFAULT["bleu"]
+    return sabre
 
 def get_tous_les_sabres():
-    """Retourne la liste de tous les sabres."""
-    return SABRES
+    """Retourne tous les sabres (DB)."""
+    from database import db_get_tous_sabres
+    res = db_get_tous_sabres()
+    return res if res else SABRES_DEFAULT
 
 def get_sabres_par_rarete(rarete):
-    """Récupère tous les sabres d'une rareté."""
-    return {id: sabre for id, sabre in SABRES.items() if sabre["rarete"] == rarete}
+    """Récupère tous les sabres d'une rareté (DB)."""
+    from database import db_get_sabres_par_rarete
+    return db_get_sabres_par_rarete(rarete)
 
 def get_prix_sabre(sabre_id):
     """Récupère le prix d'un sabre."""
     sabre = get_sabre(sabre_id)
     return sabre["prix"] if sabre else 0
+
+# Compatibilité ascendante : ancien nom utilisé ailleurs
+SABRES = SABRES_DEFAULT
