@@ -516,54 +516,6 @@ def setup_duel_commands(bot, db):
 
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="attribuer_stat", description="Attribuer un point de stat gagné en montant de niveau de combat")
-    @app_commands.describe(stat="La statistique à améliorer")
-    @app_commands.choices(stat=[
-        app_commands.Choice(name="⚔️ Force       (+5 attaque par point)",    value="force"),
-        app_commands.Choice(name="💨 Agilité     (+4% esquive par point)",   value="agilite"),
-        app_commands.Choice(name="🛡️ Défense     (+3 défense par point)",    value="defense"),
-        app_commands.Choice(name="❤️ Endurance   (+25 HP max par point)",    value="endurance"),
-        app_commands.Choice(name="🍀 Chance      (+5% critique par point)",  value="chance"),
-    ])
-    async def attribuer_stat(interaction: discord.Interaction, stat: str):
-        profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
-        points      = profil_data.get("stat_points", 0)
-        if points <= 0:
-            await interaction.response.send_message(
-                "❌ Tu n'as aucun point de stat disponible ! Gagne des duels pour monter de niveau de combat.",
-                ephemeral=True,
-            )
-            return
-        success = db.attribuer_stat(interaction.user.id, stat)
-        if not success:
-            await interaction.response.send_message("❌ Erreur lors de l'attribution.", ephemeral=True)
-            return
-
-        stat_labels = {
-            "force":     "⚔️ Force",
-            "agilite":   "💨 Agilité",
-            "defense":   "🛡️ Défense",
-            "endurance": "❤️ Endurance",
-            "chance":    "🍀 Chance",
-        }
-        stat_effects = {
-            "force":     "+5 attaque",
-            "agilite":   "+4% chance d'esquive",
-            "defense":   "+3 défense",
-            "endurance": "+25 HP maximum",
-            "chance":    "+5% chance de critique",
-        }
-        embed = discord.Embed(
-            title="📈 Stat améliorée !",
-            description=(
-                f"**{stat_labels[stat]}** augmentée d'un point !\n"
-                f"Effet : _{stat_effects[stat]}_\n\n"
-                f"Il te reste **{points - 1}** point(s) à attribuer."
-            ),
-            color=0x00FF88,
-        )
-        await interaction.response.send_message(embed=embed)
-
     @bot.tree.command(name="statpoint", description="Attribuer un point de stat gagné en montant de niveau de combat")
     @app_commands.describe(stat="La statistique à améliorer")
     @app_commands.choices(stat=[
