@@ -208,8 +208,9 @@
   </div>
 </div>
 
+<script type="application/json" id="raretes-data">{{ raretes|tojson|safe }}</script>
 <script>
-const RARETES = {{ raretes|tojson|safe }};
+const RARETES = JSON.parse(document.getElementById('raretes-data').textContent);
 let SELECTED_USER = null;
 let ALL_USERS = [];
 let ALL_SABRES = {};
