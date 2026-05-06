@@ -308,7 +308,7 @@ async def commandes(interaction: discord.Interaction):
     embed.add_field(name="​", value="​", inline=False)
     embed.add_field(
         name="⚔️ Duel",
-        value="`/duel` `/profil` `/boutique_sabres` `/acheter_sabre` `/equiper_sabre` `/mon_sabre` `/collection` `/historique`",
+        value="`/duel` `/profil` `/statpoint` `/boutique_sabres` `/acheter_sabre` `/equiper_sabre` `/mon_sabre` `/collection` `/historique`",
         inline=False
     )
     embed.add_field(name="​", value="​", inline=False)
