@@ -390,50 +390,93 @@ async def avatar(interaction: discord.Interaction, membre: discord.Member = None
     embed.set_image(url=membre.display_avatar.url)
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="commandes", description="Liste de toutes les commandes")
+@bot.tree.command(name="commandes", description="Recevoir la liste des commandes en MP")
 async def commandes(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📋 Liste des commandes",
-        description="Voici toutes les commandes disponibles !",
+        description="Toutes les commandes disponibles, par catégorie.",
         color=discord.Color.blue()
     )
-    embed.add_field(
-        name="🛡️ Modération",
-        value="`/clear` `/kick` `/ban` `/poll` `/setwelcome`\n`/reaction_add` `/reaction_remove` `/reaction_list`",
-        inline=False
+
+    moderation = (
+        "**/clear <nombre>** (supprime les N derniers messages)\n"
+        "**/kick <membre> [raison]** (expulse un membre du serveur)\n"
+        "**/ban <membre> [raison]** (bannit un membre du serveur)\n"
+        "**/poll <question> <option1> <option2> [option3] [option4]** (crée un sondage avec réactions)\n"
+        "**/setwelcome <salon>** (définit le salon de bienvenue)\n"
+        "**/reaction_add <membre> <emoji>** (ajoute une réaction auto à un membre, ce serveur uniquement)\n"
+        "**/reaction_remove <membre>** (supprime la réaction auto d'un membre)\n"
+        "**/reaction_list** (liste les réactions auto actives sur ce serveur)"
     )
+    embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
     embed.add_field(name="​", value="​", inline=False)
-    embed.add_field(
-        name="🎉 Fun",
-        value="`/8ball` `/dé` `/coinflip` `/blague`",
-        inline=False
+
+    fun = (
+        "**/8ball <question>** (la boule magique répond à ta question)\n"
+        "**/dé [faces]** (lance un dé, 6 faces par défaut)\n"
+        "**/coinflip** (pile ou face)\n"
+        "**/blague** (raconte une blague aléatoire)"
     )
+    embed.add_field(name="🎉 Fun", value=fun, inline=False)
     embed.add_field(name="​", value="​", inline=False)
-    embed.add_field(
-        name="⭐ Niveaux & XP",
-        value="`/niveau` `/leaderboard`",
-        inline=False
+
+    xp = (
+        "**/niveau [membre]** (affiche ton niveau et XP, ou celui d'un membre)\n"
+        "**/leaderboard** (top 10 XP de ce serveur)"
     )
+    embed.add_field(name="⭐ Niveaux & XP", value=xp, inline=False)
     embed.add_field(name="​", value="​", inline=False)
-    embed.add_field(
-        name="⚔️ Duel",
-        value="`/duel` `/duel nerf:True` *(mode équilibré — ignore niveaux & stats)* `/profil` `/statpoint` `/boutique_sabres` `/acheter_sabre` `/equiper_sabre` `/mon_sabre` `/collection` `/historique`",
-        inline=False
+
+    duel = (
+        "**/duel <adversaire>** (défie un membre en duel de sabres)\n"
+        "**/duel <adversaire> nerf:True** (duel équilibré, ignore niveaux et stats)\n"
+        "**/profil [membre]** (affiche le profil duel d'un joueur)\n"
+        "**/statpoint <stat>** (attribue un point de stat : force, agilite, defense, endurance, chance)\n"
+        "**/boutique_sabres** (liste les sabres disponibles à l'achat)\n"
+        "**/acheter_sabre <sabre>** (achète un sabre avec tes TookCoins)\n"
+        "**/equiper_sabre <sabre>** (équipe un sabre de ta collection)\n"
+        "**/mon_sabre** (affiche le sabre actuellement équipé)\n"
+        "**/collection [membre]** (affiche la collection de sabres)\n"
+        "**/historique [membre]** (affiche l'historique des duels)"
     )
+    embed.add_field(name="⚔️ Duel", value=duel, inline=False)
     embed.add_field(name="​", value="​", inline=False)
-    embed.add_field(
-        name="🎵 Musique",
-        value="`/join` `/play` `/skip` `/queue` `/stop` `/leave`",
-        inline=False
+
+    music = (
+        "**/join** (rejoint ton salon vocal actuel)\n"
+        "**/play <titre ou lien>** (joue une musique ou l'ajoute à la file)\n"
+        "**/queue** (affiche la file d'attente musicale)\n"
+        "**/skip** (passe à la musique suivante)\n"
+        "**/stop** (stoppe la lecture et vide la file)\n"
+        "**/leave** (déconnecte le bot du salon vocal)"
     )
+    embed.add_field(name="🎵 Musique", value=music, inline=False)
     embed.add_field(name="​", value="​", inline=False)
-    embed.add_field(
-        name="🔧 Utilitaires",
-        value="`/avatar` `/userinfo` `/serverinfo` `/ping` `/commandes`",
-        inline=False
+
+    utils = (
+        "**/avatar [membre]** (affiche l'avatar d'un membre)\n"
+        "**/userinfo [membre]** (informations détaillées sur un membre)\n"
+        "**/serverinfo** (informations détaillées sur le serveur)\n"
+        "**/ping** (affiche la latence du bot)\n"
+        "**/commandes** (envoie cette liste en message privé)"
     )
-    embed.set_footer(text="Bot créé par toi 😎")
-    await interaction.response.send_message(embed=embed)
+    embed.add_field(name="🔧 Utilitaires", value=utils, inline=False)
+
+    embed.set_footer(text="Tip : tape / dans le chat pour voir l'autocomplete Discord.")
+
+    # Tente l'envoi en MP, fallback ephemere si DMs fermés
+    try:
+        await interaction.user.send(embed=embed)
+        await interaction.response.send_message(
+            "📩 La liste des commandes vient de t'être envoyée en message privé.",
+            ephemeral=True
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ Impossible d'envoyer un MP : tu as peut-être désactivé les MP de ce serveur.\n"
+            "Active-les dans les paramètres Discord puis relance la commande.",
+            ephemeral=True
+        )
 
 
 # ===== FUN =====
