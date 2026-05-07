@@ -29,9 +29,12 @@ def _load_opus():
             continue
         try:
             discord.opus.load_opus(path)
-            print(f"[opus] loaded from {path}")
-            return True
-        except Exception:
+            ok = discord.opus.is_loaded()
+            print(f"[opus] load_opus({path}) -> is_loaded={ok}")
+            if ok:
+                return True
+        except Exception as e:
+            print(f"[opus] load_opus({path}) FAILED: {e}")
             continue
     print("[opus] FAILED to load — install libopus0 (apt) or libopus (brew)")
     return False
@@ -571,6 +574,12 @@ async def leaderboard(interaction: discord.Interaction):
 
 # ===== MUSIQUE =====
 
+def _ensure_opus():
+    """Ensure libopus is loaded. Re-tries load if not. Returns True on success."""
+    if discord.opus.is_loaded():
+        return True
+    return _load_opus()
+
 @bot.tree.command(name="join", description="Rejoindre ton salon vocal")
 async def join(interaction: discord.Interaction):
     if not interaction.user.voice:
@@ -578,6 +587,9 @@ async def join(interaction: discord.Interaction):
         return
     await interaction.response.defer()
     try:
+        if not _ensure_opus():
+            await interaction.followup.send("❌ libopus introuvable sur le serveur. Installe-la (`apt install libopus0`) et redémarre le bot.")
+            return
         channel = interaction.user.voice.channel
         if interaction.guild.voice_client:
             await interaction.guild.voice_client.move_to(channel)
@@ -601,6 +613,9 @@ async def play(interaction: discord.Interaction, query: str):
         return
     await interaction.response.defer()
     try:
+        if not _ensure_opus():
+            await interaction.followup.send("❌ libopus introuvable sur le serveur.")
+            return
         if not interaction.guild.voice_client:
             await interaction.user.voice.channel.connect()
             music_state_set(str(interaction.guild.id),
@@ -700,6 +715,8 @@ async def _dispatch_bot_command(cmd):
 
     if name == "music_play":
         # payload: {query, voice_channel_id (optional)}
+        if not _ensure_opus():
+            raise RuntimeError("libopus pas chargee sur le serveur")
         query = payload.get("query")
         if not query:
             raise ValueError("query manquant")
