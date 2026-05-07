@@ -131,6 +131,16 @@ YDL_OPTIONS = {
     'quiet': True,
     'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
+    # Contourne le check anti-bot de YouTube (sign in to confirm you're not a bot).
+    # Le client Android de YouTube applique pas la verification.
+    'extractor_args': {
+        'youtube': {
+            'player_client': ['android', 'web'],
+        }
+    },
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    },
 }
 
 FFMPEG_OPTIONS = {
