@@ -128,16 +128,19 @@ import datetime as _dt
 _COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
 
 YDL_OPTIONS = {
-    # Format permissif : audio pur, sinon audio dans video, sinon n'importe quel meilleur format avec audio.
-    'format': 'bestaudio[acodec!=none]/best[acodec!=none]/best',
+    # Selecteur ultra-permissif : prend ce qui existe.
+    'format': 'bestaudio/best',
     'noplaylist': True,
-    'quiet': True,
+    'quiet': False,            # passe a False pour voir les details d'erreur dans les logs
+    'no_warnings': False,
     'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
-    # Web en priorite (formats audio purs disponibles), android en fallback (bypass anti-bot si web echoue).
+    'youtube_include_dash_manifest': True,
+    'prefer_free_formats': True,
+    # Cascade large de clients YouTube. ios+android passent souvent quand web echoue.
     'extractor_args': {
         'youtube': {
-            'player_client': ['web', 'mweb', 'android', 'tv_embedded'],
+            'player_client': ['ios', 'android', 'web', 'mweb', 'tv_embedded'],
         }
     },
     'http_headers': {
