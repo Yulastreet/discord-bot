@@ -1,7 +1,13 @@
+import os
+# Nettoyer les env vars Node IPC heritees de pm2 — sinon Deno (utilise par yt-dlp
+# pour resoudre les JS challenges YouTube) crash avec "fd is not from BiPipe".
+for _v in ("NODE_CHANNEL_FD", "NODE_UNIQUE_ID", "NODE_OPTIONS",
+           "PM2_USAGE", "PM2_HOME", "pm_id", "PM2_DISCRETE_MODE"):
+    os.environ.pop(_v, None)
+
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-import os
 import random
 import aiohttp
 import yt_dlp
