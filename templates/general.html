@@ -1,0 +1,132 @@
+{% extends "_base.html" %}
+{% set active_nav = 'general' %}
+
+{% block title %}Vue d'ensemble · Bot Console{% endblock %}
+{% block crumb %}Vue d'ensemble{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="hero-glow" id="heroGlow"></div>
+  <div class="parallax-layer" id="heroParallax">
+    <span class="eyebrow">Cross-serveur</span>
+    <h1>Tous les serveurs, en un coup d'œil.</h1>
+    <p class="hero-sub">Agrégats globaux et répartition par serveur. Pour modifier des données, choisis un serveur dans la liste plus bas.</p>
+  </div>
+</section>
+
+<section class="grid grid-4 mb-6">
+  <div class="stat">
+    <div class="stat-label">Serveurs actifs</div>
+    <div class="stat-value">{{ by_guild|length }}</div>
+    <div class="stat-sub">Bot connecté</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Comptes traçés</div>
+    <div class="stat-value">{{ "{:,}".format(stats.total_users).replace(',', ' ') }}</div>
+    <div class="stat-sub">Tous serveurs confondus</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">XP cumulé</div>
+    <div class="stat-value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
+    <div class="stat-sub">Messagerie</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Niveau moyen</div>
+    <div class="stat-value">{{ "%.1f"|format(stats.avg_level) }}</div>
+    <div class="stat-sub">Sur l'ensemble</div>
+  </div>
+</section>
+
+{% if stats.top10 %}
+<section class="card mb-6">
+  <div class="card-row mb-4">
+    <div>
+      <h2>Top 10 cross-serveur</h2>
+      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Mêmes joueurs peuvent apparaître plusieurs fois (un par serveur).</p>
+    </div>
+  </div>
+  {% set top_xp = stats.top10[0].xp if stats.top10 and stats.top10[0].xp else 1 %}
+  <div class="bar-list">
+    {% for u in stats.top10 %}
+    <div class="bar-row">
+      <span class="bar-label">{{ u.username or '(sans nom)' }}</span>
+      <div class="bar-track"><div class="bar-fill" style="width: {{ (u.xp / top_xp * 100) if top_xp else 0 }}%"></div></div>
+      <span class="bar-value">{{ "{:,}".format(u.xp).replace(',', ' ') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card padless">
+  <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+    <h2>Serveurs</h2>
+    <span class="badge">{{ by_guild|length }} actifs</span>
+  </div>
+
+  {% if by_guild %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Serveur</th>
+        <th class="num">Membres</th>
+        <th class="num">Comptes</th>
+        <th class="num">XP cumulé</th>
+        <th class="num">Niv. moyen</th>
+        <th class="num">Réactions</th>
+        <th style="width: 110px;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for gd in by_guild %}
+      <tr onclick="selectGuild('{{ gd.guild_id }}')">
+        <td>
+          <div class="row gap-2">
+            {% if gd.icon_url %}
+              <img src="{{ gd.icon_url }}" style="width:24px;height:24px;border-radius:6px;object-fit:cover;" alt="">
+            {% else %}
+              <div style="width:24px;height:24px;border-radius:6px;background:var(--bg-2);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--accent);">{{ gd.name[0]|upper if gd.name else '?' }}</div>
+            {% endif %}
+            <strong>{{ gd.name }}</strong>
+          </div>
+        </td>
+        <td class="num">{{ "{:,}".format(gd.member_count).replace(',', ' ') }}</td>
+        <td class="num">{{ gd.users }}</td>
+        <td class="num">{{ "{:,}".format(gd.xp).replace(',', ' ') }}</td>
+        <td class="num">{{ "%.1f"|format(gd.avg_level) }}</td>
+        <td class="num">{{ gd.reactions }}</td>
+        <td><span class="badge badge-accent" onclick="event.stopPropagation(); selectGuild('{{ gd.guild_id }}')" style="cursor:pointer;">Ouvrir →</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">
+    <p>Aucun serveur Discord actif.</p>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Parallax minimal — same as dashboard
+  (function() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const layer = document.getElementById('heroParallax');
+    const glow  = document.getElementById('heroGlow');
+    if (!layer) return;
+    let ticking = false;
+    function update() {
+      const y = window.scrollY;
+      layer.style.transform = `translate3d(0, ${Math.max(-44, -y * 0.08)}px, 0)`;
+      if (glow) glow.style.transform = `translate3d(0, ${y * 0.20}px, 0) scale(${1 + y * 0.0004})`;
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => { if (!ticking) { requestAnimationFrame(update); ticking = true; } }, { passive: true });
+    update();
+  })();
+</script>
+{% endblock %}

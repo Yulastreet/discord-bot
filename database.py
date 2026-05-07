@@ -5,22 +5,92 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def _table_columns(c, table):
+    """Return list of column names for given table (empty if missing)."""
+    try:
+        return [r["name"] for r in c.execute(f"PRAGMA table_info({table})").fetchall()]
+    except Exception:
+        return []
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
 
-    # Table users
+    # ===== MIGRATION users : passage au PK composite (guild_id, user_id) =====
+    # Détection : si la table existe sans colonne guild_id, drop+recreate.
+    users_cols = _table_columns(c, "users")
+    if users_cols and "guild_id" not in users_cols:
+        print("[MIGRATION] users: schema v1 detecte, wipe + reschema (guild_id, user_id).")
+        c.execute("DROP TABLE users")
     c.execute('''CREATE TABLE IF NOT EXISTS users (
-        user_id TEXT PRIMARY KEY,
+        guild_id TEXT NOT NULL,
+        user_id  TEXT NOT NULL,
         username TEXT,
-        level INTEGER DEFAULT 0,
-        xp INTEGER DEFAULT 0
+        level    INTEGER DEFAULT 0,
+        xp       INTEGER DEFAULT 0,
+        PRIMARY KEY (guild_id, user_id)
     )''')
 
-    # Table réactions
+    # ===== MIGRATION reactions : idem =====
+    reactions_cols = _table_columns(c, "reactions")
+    if reactions_cols and "guild_id" not in reactions_cols:
+        print("[MIGRATION] reactions: schema v1 detecte, wipe + reschema (guild_id, user_id).")
+        c.execute("DROP TABLE reactions")
     c.execute('''CREATE TABLE IF NOT EXISTS reactions (
-        user_id INTEGER PRIMARY KEY,
-        emoji TEXT
+        guild_id TEXT NOT NULL,
+        user_id  TEXT NOT NULL,
+        emoji    TEXT NOT NULL,
+        PRIMARY KEY (guild_id, user_id)
+    )''')
+
+    # ===== Table guilds (registre des serveurs Discord vu par le bot) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS guilds (
+        guild_id     TEXT PRIMARY KEY,
+        name         TEXT,
+        icon_url     TEXT,
+        member_count INTEGER DEFAULT 0,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        active       INTEGER DEFAULT 1
+    )''')
+
+    # ===== Tables musique =====
+    c.execute('''CREATE TABLE IF NOT EXISTS music_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id     TEXT NOT NULL,
+        position     INTEGER NOT NULL,
+        title        TEXT NOT NULL,
+        url          TEXT NOT NULL,
+        source_url   TEXT,
+        duration     INTEGER,
+        thumbnail    TEXT,
+        requested_by TEXT,
+        added_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS music_state (
+        guild_id            TEXT PRIMARY KEY,
+        voice_channel_id    TEXT,
+        voice_channel_name  TEXT,
+        current_title       TEXT,
+        current_url         TEXT,
+        current_thumbnail   TEXT,
+        current_duration    INTEGER,
+        is_playing          INTEGER DEFAULT 0,
+        is_paused           INTEGER DEFAULT 0,
+        started_at          TIMESTAMP,
+        updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ===== Table bot_commands (queue web -> bot, polling 1.5s) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS bot_commands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id     TEXT NOT NULL,
+        cmd          TEXT NOT NULL,
+        payload      TEXT,
+        status       TEXT DEFAULT 'pending',
+        result       TEXT,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP
     )''')
 
     # Table welcome
@@ -298,61 +368,304 @@ def admin_lister_duel_users():
     return rows
 
 
-# ===== XP MESSAGES =====
+# ===== XP MESSAGES (per-guild) =====
 def get_level(xp):
     return int(xp ** 0.2)
 
-def get_xp(user_id):
+def get_xp(guild_id, user_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT xp FROM users WHERE user_id = ?", (str(user_id),))
+    c.execute("SELECT xp FROM users WHERE guild_id = ? AND user_id = ?",
+              (str(guild_id), str(user_id)))
     row = c.fetchone()
     conn.close()
     return row["xp"] if row else 0
 
-def set_xp(user_id, xp, username=None):
+def set_xp(guild_id, user_id, xp, username=None):
     conn = get_db()
     c = conn.cursor()
     level = get_level(xp)
     if username:
-        c.execute("INSERT OR REPLACE INTO users (user_id, username, xp, level) VALUES (?, ?, ?, ?)",
-                  (str(user_id), username, xp, level))
+        c.execute("""INSERT INTO users (guild_id, user_id, username, xp, level)
+                     VALUES (?, ?, ?, ?, ?)
+                     ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                       username = excluded.username,
+                       xp       = excluded.xp,
+                       level    = excluded.level""",
+                  (str(guild_id), str(user_id), username, xp, level))
     else:
-        c.execute("UPDATE users SET xp = ?, level = ? WHERE user_id = ?", (xp, level, str(user_id)))
+        c.execute("UPDATE users SET xp = ?, level = ? WHERE guild_id = ? AND user_id = ?",
+                  (xp, level, str(guild_id), str(user_id)))
     conn.commit()
     conn.close()
 
-def get_leaderboard():
+def get_leaderboard(guild_id, limit=10):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT user_id, xp FROM users ORDER BY xp DESC LIMIT 10")
+    c.execute("""SELECT user_id, username, xp, level FROM users
+                 WHERE guild_id = ? ORDER BY xp DESC LIMIT ?""",
+              (str(guild_id), limit))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def get_all_users_for_guild(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE guild_id = ? ORDER BY xp DESC", (str(guild_id),))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+# ===== XP MESSAGES (cross-guild aggregates pour Dashboard general) =====
+def get_global_xp_stats():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) AS n, COALESCE(SUM(xp), 0) AS total_xp, COALESCE(AVG(level), 0) AS avg_level FROM users")
+    g = dict(c.fetchone())
+    c.execute("SELECT username, xp, level, guild_id FROM users ORDER BY xp DESC LIMIT 1")
+    top = c.fetchone()
+    c.execute("SELECT username, xp, level, guild_id FROM users ORDER BY xp DESC LIMIT 10")
+    top10 = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return {
+        "total_users": g["n"],
+        "total_xp":    g["total_xp"] or 0,
+        "avg_level":   round(g["avg_level"] or 0, 2),
+        "top_user":    dict(top) if top else None,
+        "top10":       top10,
+    }
+
+
+# ===== REACTIONS (per-guild) =====
+def get_all_reactions(guild_id):
+    """Retourne {user_id: emoji} pour un serveur."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT user_id, emoji FROM reactions WHERE guild_id = ?", (str(guild_id),))
     rows = c.fetchall()
     conn.close()
-    return [(row["user_id"], row["xp"]) for row in rows]
+    return {int(r["user_id"]): r["emoji"] for r in rows}
 
-
-# ===== REACTIONS =====
-def get_all_reactions():
+def get_all_reactions_index():
+    """Retourne {(guild_id, user_id): emoji} pour le bot (chargement initial)."""
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT user_id, emoji FROM reactions")
+    c.execute("SELECT guild_id, user_id, emoji FROM reactions")
     rows = c.fetchall()
     conn.close()
-    return {int(row["user_id"]): row["emoji"] for row in rows}
+    return {(str(r["guild_id"]), int(r["user_id"])): r["emoji"] for r in rows}
 
-def set_reaction(user_id, emoji):
+def set_reaction(guild_id, user_id, emoji):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO reactions (user_id, emoji) VALUES (?, ?)", (user_id, emoji))
+    c.execute("""INSERT INTO reactions (guild_id, user_id, emoji)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(guild_id, user_id) DO UPDATE SET emoji = excluded.emoji""",
+              (str(guild_id), str(user_id), emoji))
     conn.commit()
     conn.close()
 
-def remove_reaction(user_id):
+def remove_reaction(guild_id, user_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM reactions WHERE user_id = ?", (user_id,))
+    c.execute("DELETE FROM reactions WHERE guild_id = ? AND user_id = ?",
+              (str(guild_id), str(user_id)))
     conn.commit()
     conn.close()
+
+
+# ===== GUILDS (registre Discord) =====
+def upsert_guild(guild_id, name, icon_url=None, member_count=0):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO guilds (guild_id, name, icon_url, member_count, last_seen_at, active)
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 1)
+                 ON CONFLICT(guild_id) DO UPDATE SET
+                   name = excluded.name,
+                   icon_url = excluded.icon_url,
+                   member_count = excluded.member_count,
+                   last_seen_at = CURRENT_TIMESTAMP,
+                   active = 1""",
+              (str(guild_id), name, icon_url, int(member_count or 0)))
+    conn.commit()
+    conn.close()
+
+def mark_guild_left(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE guilds SET active = 0 WHERE guild_id = ?", (str(guild_id),))
+    conn.commit()
+    conn.close()
+
+def list_guilds(active_only=True):
+    conn = get_db()
+    c = conn.cursor()
+    if active_only:
+        c.execute("SELECT * FROM guilds WHERE active = 1 ORDER BY name COLLATE NOCASE")
+    else:
+        c.execute("SELECT * FROM guilds ORDER BY active DESC, name COLLATE NOCASE")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def get_guild(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM guilds WHERE guild_id = ?", (str(guild_id),))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+# ===== MUSIQUE — queue & state (DB = source de verite) =====
+def music_queue_add(guild_id, title, url, source_url=None, duration=None, thumbnail=None, requested_by=None):
+    """Append a track at end of queue. Returns track id."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM music_queue WHERE guild_id = ?", (str(guild_id),))
+    pos = c.fetchone()["next_pos"]
+    c.execute("""INSERT INTO music_queue
+                 (guild_id, position, title, url, source_url, duration, thumbnail, requested_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+              (str(guild_id), pos, title, url, source_url, duration, thumbnail,
+               str(requested_by) if requested_by else None))
+    track_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return track_id
+
+def music_queue_pop_next(guild_id):
+    """Pop the head of queue (lowest position). Returns track dict or None."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM music_queue WHERE guild_id = ? ORDER BY position ASC LIMIT 1", (str(guild_id),))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return None
+    track = dict(row)
+    c.execute("DELETE FROM music_queue WHERE id = ?", (track["id"],))
+    conn.commit()
+    conn.close()
+    return track
+
+def music_queue_list(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM music_queue WHERE guild_id = ? ORDER BY position ASC", (str(guild_id),))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def music_queue_clear(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM music_queue WHERE guild_id = ?", (str(guild_id),))
+    conn.commit()
+    conn.close()
+
+def music_queue_remove(guild_id, track_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM music_queue WHERE guild_id = ? AND id = ?", (str(guild_id), int(track_id)))
+    deleted = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+def music_state_set(guild_id, **kwargs):
+    """Upsert music state. Allowed keys: voice_channel_id, voice_channel_name,
+       current_title, current_url, current_thumbnail, current_duration,
+       is_playing, is_paused, started_at."""
+    allowed = ["voice_channel_id","voice_channel_name","current_title","current_url",
+               "current_thumbnail","current_duration","is_playing","is_paused","started_at"]
+    fields = {k: v for k, v in kwargs.items() if k in allowed}
+    if not fields:
+        return
+    conn = get_db()
+    c = conn.cursor()
+    # Ensure row exists
+    c.execute("INSERT OR IGNORE INTO music_state (guild_id) VALUES (?)", (str(guild_id),))
+    set_clause = ", ".join(f"{k} = ?" for k in fields.keys()) + ", updated_at = CURRENT_TIMESTAMP"
+    values = list(fields.values()) + [str(guild_id)]
+    c.execute(f"UPDATE music_state SET {set_clause} WHERE guild_id = ?", values)
+    conn.commit()
+    conn.close()
+
+def music_state_get(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM music_state WHERE guild_id = ?", (str(guild_id),))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def music_state_clear_current(guild_id):
+    music_state_set(guild_id,
+                    current_title=None, current_url=None, current_thumbnail=None,
+                    current_duration=None, is_playing=0, is_paused=0, started_at=None)
+
+def music_state_disconnect(guild_id):
+    music_state_set(guild_id,
+                    voice_channel_id=None, voice_channel_name=None,
+                    current_title=None, current_url=None, current_thumbnail=None,
+                    current_duration=None, is_playing=0, is_paused=0, started_at=None)
+
+
+# ===== BOT COMMANDS — file d'attente web -> bot =====
+def bot_command_enqueue(guild_id, cmd, payload=None):
+    import json
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO bot_commands (guild_id, cmd, payload, status)
+                 VALUES (?, ?, ?, 'pending')""",
+              (str(guild_id), cmd, json.dumps(payload or {})))
+    cmd_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return cmd_id
+
+def bot_command_fetch_pending(limit=10):
+    """Atomically fetches pending commands and marks them as processing."""
+    import json
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT id, guild_id, cmd, payload FROM bot_commands
+                 WHERE status = 'pending' ORDER BY id ASC LIMIT ?""", (limit,))
+    rows = c.fetchall()
+    if not rows:
+        conn.close()
+        return []
+    ids = [r["id"] for r in rows]
+    c.execute(f"UPDATE bot_commands SET status = 'processing' WHERE id IN ({','.join('?'*len(ids))})", ids)
+    conn.commit()
+    conn.close()
+    out = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["payload"] = json.loads(d["payload"]) if d["payload"] else {}
+        except Exception:
+            d["payload"] = {}
+        out.append(d)
+    return out
+
+def bot_command_finish(cmd_id, status="done", result=None):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""UPDATE bot_commands SET status = ?, result = ?, processed_at = CURRENT_TIMESTAMP
+                 WHERE id = ?""", (status, result, cmd_id))
+    conn.commit()
+    conn.close()
+
+def bot_command_get(cmd_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM bot_commands WHERE id = ?", (cmd_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 
 # ===== WELCOME =====

@@ -9,20 +9,25 @@ import asyncio
 from dotenv import load_dotenv
 from rank_card import generate_levelup_card, generate_rank_card
 from database import (init_db, get_xp, set_xp, get_leaderboard,
-                      get_all_reactions, set_reaction, remove_reaction,
+                      get_all_reactions_index, set_reaction, remove_reaction, get_all_reactions,
                       get_welcome, set_welcome,
                       get_duel_profil, creer_duel_profil, ajouter_tookcoins,
                       ajouter_victoire, ajouter_defaite, changer_sabre_equipe,
                       ajouter_sabre, get_collection_sabres, possede_sabre,
                       sauvegarder_duel, get_historique,
-                      add_combat_xp_db, attribuer_stat_db)
+                      add_combat_xp_db, attribuer_stat_db,
+                      upsert_guild, mark_guild_left,
+                      music_queue_add, music_queue_pop_next, music_queue_list, music_queue_clear,
+                      music_state_set, music_state_get, music_state_clear_current, music_state_disconnect,
+                      bot_command_fetch_pending, bot_command_finish)
 from duel_commands import setup_duel_commands
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 init_db()
-USER_REACTIONS = get_all_reactions()
+# Index reactions par (guild_id_str, user_id_int)
+USER_REACTIONS = get_all_reactions_index()
 
 
 # ===== DB WRAPPER POUR DUEL_COMMANDS =====
@@ -39,10 +44,6 @@ class DuelDB:
             creer_duel_profil(user_id, username)
             ajouter_sabre(user_id, "bleu")
         return self.get_profil(user_id)
-
-    def add_xp(self, user_id, amount):
-        xp = get_xp(user_id)
-        set_xp(user_id, xp + amount)
 
     def add_tookcoins(self, user_id, amount):
         ajouter_tookcoins(user_id, amount)
@@ -88,8 +89,8 @@ def get_progress(xp):
     return level, progress_xp, needed_xp, percent
 
 
-# ===== MUSIQUE =====
-music_queues = {}
+# ===== MUSIQUE (DB-backed) =====
+import datetime as _dt
 
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -105,6 +106,7 @@ FFMPEG_OPTIONS = {
 }
 
 async def get_audio_info(query):
+    """Retourne dict {url, title, duration, thumbnail, source_url} depuis yt-dlp."""
     loop = asyncio.get_event_loop()
     with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
         if not query.startswith("http"):
@@ -112,21 +114,45 @@ async def get_audio_info(query):
         info = await loop.run_in_executor(None, lambda: ydl.extract_info(query, download=False))
         if 'entries' in info:
             info = info['entries'][0]
-        return info['url'], info['title']
+        return {
+            "url":        info.get("url"),
+            "title":      info.get("title") or "(sans titre)",
+            "duration":   info.get("duration"),
+            "thumbnail":  info.get("thumbnail"),
+            "source_url": info.get("webpage_url") or info.get("original_url"),
+        }
 
 async def play_next(voice_client, channel, guild_id):
-    if guild_id in music_queues and music_queues[guild_id]:
-        url, title = music_queues[guild_id].pop(0)
-        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+    """Pop next track from DB queue and play. channel optional (for chat notif)."""
+    track = music_queue_pop_next(str(guild_id))
+    if not track:
+        music_state_clear_current(str(guild_id))
+        if channel:
+            try: await channel.send("✅ File d'attente terminée !")
+            except Exception: pass
+        return
+
+    try:
+        source = discord.FFmpegPCMAudio(track["url"], **FFMPEG_OPTIONS)
         voice_client.play(
             source,
             after=lambda e: asyncio.run_coroutine_threadsafe(
                 play_next(voice_client, channel, guild_id), bot.loop
             )
         )
-        await channel.send(f"🎵 En cours : **{title}**")
-    else:
-        await channel.send("✅ File d'attente terminée !")
+        music_state_set(str(guild_id),
+            current_title=track["title"],
+            current_url=track["url"],
+            current_thumbnail=track.get("thumbnail"),
+            current_duration=track.get("duration"),
+            is_playing=1, is_paused=0,
+            started_at=_dt.datetime.utcnow().isoformat(timespec="seconds"))
+        if channel:
+            try: await channel.send(f"🎵 En cours : **{track['title']}**")
+            except Exception: pass
+    except Exception as e:
+        print(f"[music] play_next error: {e}")
+        music_state_clear_current(str(guild_id))
 
 
 # ===== BOT =====
@@ -140,17 +166,40 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"✅ Bot connecté en tant que {bot.user}")
-    print(f"👀 Surveillance de {len(USER_REACTIONS)} utilisateur(s)")
-    reload_reactions.start()
+    # Enregistrer chaque guild où le bot est présent
+    for guild in bot.guilds:
+        upsert_guild(
+            guild.id, guild.name,
+            icon_url=str(guild.icon.url) if guild.icon else None,
+            member_count=guild.member_count or 0
+        )
+    print(f"👀 {len(USER_REACTIONS)} réaction(s) chargée(s) sur {len(bot.guilds)} serveur(s)")
+    if not reload_reactions.is_running():
+        reload_reactions.start()
+    if not process_bot_commands.is_running():
+        process_bot_commands.start()
     await bot.tree.sync()
     print("✅ Slash commands synchronisées globalement")
-    # Sync par guild pour chaque serveur (instantané)
     for guild in bot.guilds:
         try:
             await bot.tree.sync(guild=guild)
             print(f"✅ Sync guild : {guild.name}")
         except Exception as e:
             print(f"❌ Sync guild échouée ({guild.name}) : {e}")
+
+@bot.event
+async def on_guild_join(guild):
+    upsert_guild(guild.id, guild.name,
+                 icon_url=str(guild.icon.url) if guild.icon else None,
+                 member_count=guild.member_count or 0)
+    try:
+        await bot.tree.sync(guild=guild)
+    except Exception:
+        pass
+
+@bot.event
+async def on_guild_remove(guild):
+    mark_guild_left(guild.id)
 
 @bot.tree.command(name="sync", description="sync les slash commands manuellement (owner uniquement)")
 @commands.is_owner()
@@ -167,7 +216,7 @@ async def sync_commands(ctx):
 @tasks.loop(seconds=5)
 async def reload_reactions():
     global USER_REACTIONS
-    USER_REACTIONS = get_all_reactions()
+    USER_REACTIONS = get_all_reactions_index()
 
 @bot.event
 async def on_member_join(member):
@@ -188,17 +237,26 @@ async def on_member_join(member):
 async def on_message(message):
     if message.author == bot.user:
         return
-    if message.author.id in USER_REACTIONS:
-        emoji = USER_REACTIONS[message.author.id]
+    if message.guild is None:
+        # DM, on ignore (pas de scope guild)
+        await bot.process_commands(message)
+        return
+    guild_id_str = str(message.guild.id)
+
+    # Réactions automatiques per-guild
+    key = (guild_id_str, message.author.id)
+    if key in USER_REACTIONS:
         try:
-            await message.add_reaction(emoji)
+            await message.add_reaction(USER_REACTIONS[key])
         except discord.HTTPException as e:
             print(f"❌ Erreur réaction : {e}")
+
+    # XP per-guild
     if not message.author.bot:
-        xp = get_xp(message.author.id)
+        xp = get_xp(guild_id_str, message.author.id)
         old_level = get_level(xp)
         xp += random.randint(1, 5)
-        set_xp(message.author.id, xp, username=message.author.name)
+        set_xp(guild_id_str, message.author.id, xp, username=message.author.name)
         new_level = get_level(xp)
         if new_level > old_level:
             level, progress_xp, needed_xp, percent = get_progress(xp)
@@ -212,42 +270,47 @@ async def on_message(message):
 
 # ===== RÉACTIONS AUTOMATIQUES =====
 
-@bot.tree.command(name="reaction_add", description="Ajouter une réaction automatique à un membre")
+@bot.tree.command(name="reaction_add", description="Ajouter une réaction automatique à un membre (sur ce serveur)")
 @app_commands.describe(membre="Le membre ciblé", emoji="L'emoji à utiliser")
 @app_commands.checks.has_permissions(administrator=True)
 async def reaction_add(interaction: discord.Interaction, membre: discord.Member, emoji: str):
-    USER_REACTIONS[membre.id] = emoji
-    set_reaction(membre.id, emoji)
-    await interaction.response.send_message(f"✅ Le bot réagira avec {emoji} aux messages de **{membre.name}**")
+    gid = str(interaction.guild.id)
+    USER_REACTIONS[(gid, membre.id)] = emoji
+    set_reaction(gid, membre.id, emoji)
+    await interaction.response.send_message(f"✅ Le bot réagira avec {emoji} aux messages de **{membre.name}** (sur ce serveur).")
 
 @reaction_add.error
 async def reaction_add_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message("❌ Permission administrateur requise.", ephemeral=True)
 
-@bot.tree.command(name="reaction_remove", description="Supprimer la réaction automatique d'un membre")
+@bot.tree.command(name="reaction_remove", description="Supprimer la réaction automatique d'un membre (sur ce serveur)")
 @app_commands.describe(membre="Le membre dont supprimer la réaction")
 @app_commands.checks.has_permissions(administrator=True)
 async def reaction_remove(interaction: discord.Interaction, membre: discord.Member):
-    if membre.id in USER_REACTIONS:
-        del USER_REACTIONS[membre.id]
-        remove_reaction(membre.id)
-        await interaction.response.send_message(f"✅ Réaction supprimée pour **{membre.name}**")
+    gid = str(interaction.guild.id)
+    key = (gid, membre.id)
+    if key in USER_REACTIONS:
+        del USER_REACTIONS[key]
+        remove_reaction(gid, membre.id)
+        await interaction.response.send_message(f"✅ Réaction supprimée pour **{membre.name}** (sur ce serveur).")
     else:
-        await interaction.response.send_message(f"❌ Aucune réaction configurée pour **{membre.name}**", ephemeral=True)
+        await interaction.response.send_message(f"❌ Aucune réaction configurée pour **{membre.name}** sur ce serveur.", ephemeral=True)
 
 @reaction_remove.error
 async def reaction_remove_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.errors.MissingPermissions):
         await interaction.response.send_message("❌ Permission administrateur requise.", ephemeral=True)
 
-@bot.tree.command(name="reaction_list", description="Voir toutes les réactions automatiques actives")
+@bot.tree.command(name="reaction_list", description="Voir les réactions automatiques actives sur ce serveur")
 async def reaction_list(interaction: discord.Interaction):
-    if not USER_REACTIONS:
-        await interaction.response.send_message("❌ Aucune réaction automatique configurée.", ephemeral=True)
+    gid = str(interaction.guild.id)
+    guild_reactions = {uid: emo for (g, uid), emo in USER_REACTIONS.items() if g == gid}
+    if not guild_reactions:
+        await interaction.response.send_message("❌ Aucune réaction automatique configurée sur ce serveur.", ephemeral=True)
         return
     embed = discord.Embed(title="📋 Réactions automatiques actives", color=discord.Color.orange())
-    for user_id, emoji in USER_REACTIONS.items():
+    for user_id, emoji in guild_reactions.items():
         membre = interaction.guild.get_member(user_id)
         nom = membre.name if membre else f"Inconnu ({user_id})"
         embed.add_field(name=nom, value=emoji, inline=True)
@@ -433,11 +496,12 @@ async def setwelcome(interaction: discord.Interaction, salon: discord.TextChanne
 
 # ===== NIVEAUX / XP =====
 
-@bot.tree.command(name="niveau", description="Voir ton niveau et XP")
+@bot.tree.command(name="niveau", description="Voir ton niveau et XP (sur ce serveur)")
 @app_commands.describe(membre="Le membre dont tu veux voir le niveau")
 async def niveau(interaction: discord.Interaction, membre: discord.Member = None):
     membre = membre or interaction.user
-    xp = get_xp(membre.id)
+    gid = str(interaction.guild.id)
+    xp = get_xp(gid, membre.id)
     level, progress_xp, needed_xp, percent = get_progress(xp)
     filled = int(percent / 5)
     bar = "█" * filled + "░" * (20 - filled)
@@ -452,24 +516,25 @@ async def niveau(interaction: discord.Interaction, membre: discord.Member = None
     embed.set_thumbnail(url=membre.display_avatar.url)
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="leaderboard", description="Classement XP du serveur")
+@bot.tree.command(name="leaderboard", description="Classement XP de ce serveur")
 async def leaderboard(interaction: discord.Interaction):
     await interaction.response.defer()
-    sorted_users = get_leaderboard()
+    gid = str(interaction.guild.id)
+    sorted_users = get_leaderboard(gid, limit=10)
     if not sorted_users:
-        await interaction.followup.send("Personne n'a encore d'XP !")
+        await interaction.followup.send("Personne n'a encore d'XP sur ce serveur.")
         return
-    embed = discord.Embed(title="🏆 Classement XP", color=discord.Color.gold())
+    embed = discord.Embed(title=f"🏆 Classement XP — {interaction.guild.name}", color=discord.Color.gold())
     medals = ["🥇", "🥈", "🥉"]
     description = ""
-    for i, (user_id, xp) in enumerate(sorted_users):
+    for i, row in enumerate(sorted_users):
         try:
-            user = await bot.fetch_user(int(user_id))
+            user = await bot.fetch_user(int(row["user_id"]))
             name = user.name
         except Exception:
-            name = "Utilisateur inconnu"
+            name = row.get("username") or "Utilisateur inconnu"
         medal = medals[i] if i < 3 else f"**#{i+1}**"
-        description += f"{medal} {name} — **{xp} XP** (Niveau {get_level(xp)})\n"
+        description += f"{medal} {name} — **{row['xp']} XP** (Niveau {row['level']})\n"
     embed.description = description
     await interaction.followup.send(embed=embed)
 
@@ -486,6 +551,9 @@ async def join(interaction: discord.Interaction):
         await interaction.guild.voice_client.move_to(channel)
     else:
         await channel.connect()
+    music_state_set(str(interaction.guild.id),
+                    voice_channel_id=str(channel.id),
+                    voice_channel_name=channel.name)
     await interaction.response.send_message(f"✅ Connecté à **{channel.name}** !")
 
 @bot.tree.command(name="play", description="Jouer une musique")
@@ -497,19 +565,25 @@ async def play(interaction: discord.Interaction, query: str):
     await interaction.response.defer()
     if not interaction.guild.voice_client:
         await interaction.user.voice.channel.connect()
-    guild_id = interaction.guild.id
-    if guild_id not in music_queues:
-        music_queues[guild_id] = []
+        music_state_set(str(interaction.guild.id),
+                        voice_channel_id=str(interaction.user.voice.channel.id),
+                        voice_channel_name=interaction.user.voice.channel.name)
+    gid = str(interaction.guild.id)
     await interaction.followup.send(f"🔍 Recherche de **{query}**...")
     try:
-        url, title = await get_audio_info(query)
+        info = await get_audio_info(query)
     except Exception as e:
         await interaction.followup.send(f"❌ Erreur lors de la recherche : {e}")
         return
-    music_queues[guild_id].append((url, title))
-    await interaction.followup.send(f"✅ Ajouté à la file : **{title}**")
+    music_queue_add(gid,
+                    title=info["title"], url=info["url"],
+                    source_url=info.get("source_url"),
+                    duration=info.get("duration"),
+                    thumbnail=info.get("thumbnail"),
+                    requested_by=interaction.user.id)
+    await interaction.followup.send(f"✅ Ajouté à la file : **{info['title']}**")
     if not interaction.guild.voice_client.is_playing():
-        await play_next(interaction.guild.voice_client, interaction.channel, guild_id)
+        await play_next(interaction.guild.voice_client, interaction.channel, interaction.guild.id)
 
 @bot.tree.command(name="skip", description="Passer à la musique suivante")
 async def skip(interaction: discord.Interaction):
@@ -520,38 +594,144 @@ async def skip(interaction: discord.Interaction):
         await interaction.response.send_message("❌ Aucune musique en cours !", ephemeral=True)
 
 @bot.tree.command(name="queue", description="Voir la file d'attente musicale")
-async def queue(interaction: discord.Interaction):
-    guild_id = interaction.guild.id
-    q = music_queues.get(guild_id, [])
+async def queue_cmd(interaction: discord.Interaction):
+    gid = str(interaction.guild.id)
+    q = music_queue_list(gid)
     if not q:
         await interaction.response.send_message("📭 La file d'attente est vide !")
         return
     embed = discord.Embed(title="🎵 File d'attente", color=discord.Color.blurple())
     description = ""
-    for i, (url, title) in enumerate(q):
-        description += f"**{i+1}.** {title}\n"
+    for i, t in enumerate(q):
+        description += f"**{i+1}.** {t['title']}\n"
     embed.description = description
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="stop", description="Stopper la musique et vider la file")
 async def stop(interaction: discord.Interaction):
-    guild_id = interaction.guild.id
-    if guild_id in music_queues:
-        music_queues[guild_id] = []
+    gid = str(interaction.guild.id)
+    music_queue_clear(gid)
     if interaction.guild.voice_client:
         interaction.guild.voice_client.stop()
+    music_state_clear_current(gid)
     await interaction.response.send_message("⏹️ Musique stoppée et file vidée !")
 
 @bot.tree.command(name="leave", description="Quitter le salon vocal")
 async def leave(interaction: discord.Interaction):
     if interaction.guild.voice_client:
-        guild_id = interaction.guild.id
-        if guild_id in music_queues:
-            music_queues[guild_id] = []
+        gid = str(interaction.guild.id)
+        music_queue_clear(gid)
         await interaction.guild.voice_client.disconnect()
+        music_state_disconnect(gid)
         await interaction.response.send_message("👋 Déconnecté du salon vocal !")
     else:
         await interaction.response.send_message("❌ Je ne suis pas dans un salon vocal !", ephemeral=True)
+
+
+# ===== WORKER : commandes web -> bot (polling 1.5s) =====
+@tasks.loop(seconds=1.5)
+async def process_bot_commands():
+    pending = bot_command_fetch_pending(limit=10)
+    if not pending:
+        return
+    for cmd in pending:
+        try:
+            await _dispatch_bot_command(cmd)
+            bot_command_finish(cmd["id"], "done")
+        except Exception as e:
+            print(f"[bot_commands] error on {cmd['cmd']}: {e}")
+            bot_command_finish(cmd["id"], "error", str(e)[:300])
+
+async def _dispatch_bot_command(cmd):
+    gid = cmd["guild_id"]
+    name = cmd["cmd"]
+    payload = cmd.get("payload") or {}
+    guild = bot.get_guild(int(gid))
+    if not guild:
+        raise RuntimeError(f"guild {gid} introuvable (bot pas dans ce serveur ?)")
+    vc = guild.voice_client
+
+    if name == "music_play":
+        # payload: {query, voice_channel_id (optional)}
+        query = payload.get("query")
+        if not query:
+            raise ValueError("query manquant")
+        if not vc:
+            ch_id = payload.get("voice_channel_id")
+            if ch_id:
+                channel = guild.get_channel(int(ch_id))
+                if channel and isinstance(channel, discord.VoiceChannel):
+                    vc = await channel.connect()
+                    music_state_set(gid, voice_channel_id=str(channel.id), voice_channel_name=channel.name)
+                else:
+                    raise ValueError("salon vocal introuvable")
+            else:
+                # Premier salon vocal disponible
+                vchan = next((c for c in guild.voice_channels), None)
+                if not vchan:
+                    raise ValueError("aucun salon vocal disponible")
+                vc = await vchan.connect()
+                music_state_set(gid, voice_channel_id=str(vchan.id), voice_channel_name=vchan.name)
+        info = await get_audio_info(query)
+        music_queue_add(gid,
+                        title=info["title"], url=info["url"],
+                        source_url=info.get("source_url"),
+                        duration=info.get("duration"),
+                        thumbnail=info.get("thumbnail"),
+                        requested_by="web")
+        if not vc.is_playing():
+            await play_next(vc, None, int(gid))
+
+    elif name == "music_skip":
+        if vc and vc.is_playing():
+            vc.stop()  # triggers play_next via after callback
+
+    elif name == "music_stop":
+        music_queue_clear(gid)
+        if vc:
+            vc.stop()
+        music_state_clear_current(gid)
+
+    elif name == "music_pause":
+        if vc and vc.is_playing():
+            vc.pause()
+            music_state_set(gid, is_paused=1, is_playing=0)
+
+    elif name == "music_resume":
+        if vc and vc.is_paused():
+            vc.resume()
+            music_state_set(gid, is_paused=0, is_playing=1)
+
+    elif name == "music_join":
+        ch_id = payload.get("voice_channel_id")
+        if not ch_id:
+            raise ValueError("voice_channel_id manquant")
+        channel = guild.get_channel(int(ch_id))
+        if not channel:
+            raise ValueError("salon vocal introuvable")
+        if vc:
+            await vc.move_to(channel)
+        else:
+            await channel.connect()
+        music_state_set(gid, voice_channel_id=str(channel.id), voice_channel_name=channel.name)
+
+    elif name == "music_leave":
+        if vc:
+            music_queue_clear(gid)
+            await vc.disconnect()
+            music_state_disconnect(gid)
+
+    elif name == "music_remove_track":
+        from database import music_queue_remove
+        track_id = payload.get("track_id")
+        if track_id is not None:
+            music_queue_remove(gid, track_id)
+
+    elif name == "music_clear":
+        music_queue_clear(gid)
+
+    else:
+        raise ValueError(f"commande inconnue: {name}")
 
 
 # ===== LANCEMENT =====

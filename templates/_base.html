@@ -19,6 +19,52 @@
     })();
   </script>
   {% include "_styles.html" %}
+  <style>
+    /* Guild switcher in topbar */
+    .guild-switcher { position: relative; }
+    .guild-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 12px;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-2);
+      color: var(--text);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: var(--t-sm);
+      font-weight: 500;
+      transition: border-color 120ms var(--ease-out), background 120ms var(--ease-out);
+      max-width: 240px;
+    }
+    .guild-btn:hover { border-color: var(--border-strong); background: var(--bg-2); }
+    .guild-btn .guild-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .guild-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px); right: 0;
+      min-width: 280px;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-2);
+      padding: 6px;
+      box-shadow: var(--shadow-2);
+      z-index: 100;
+    }
+    .guild-menu[data-open="true"] { display: block; animation: gm-in 160ms var(--ease-out); }
+    @keyframes gm-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .guild-menu-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--r-1);
+      color: var(--text);
+      font-size: var(--t-sm);
+      transition: background 100ms var(--ease-out);
+    }
+    .guild-menu-item:hover { background: var(--bg-2); color: var(--text); }
+    .guild-menu-item.selected { background: var(--accent-soft); }
+    .guild-menu-divider { height: 1px; background: var(--border-soft); margin: 6px 0; }
+    .guild-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -81,6 +127,34 @@
     <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
     </symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>
+    </symbol>
+    <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 4v16l14-8z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 4h3v16H7z" fill="currentColor"/><path d="M14 4h3v16h-3z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-skip-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 4v16l12-8z" fill="currentColor"/><path d="M19 4v16"/>
+    </symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="5" width="14" height="14" rx="1" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-caret-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6"/>
+    </symbol>
+    <symbol id="i-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/>
+      <path d="M7 7h.01"/><path d="M7 17h.01"/>
+    </symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -94,20 +168,28 @@
     </div>
 
     <nav>
-      <div class="nav-section">Vue d'ensemble</div>
+      <div class="nav-section">Vue globale</div>
+      <a href="/general" class="nav-item {{ 'active' if active_nav == 'general' }}">
+        <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
+      </a>
+
+      <div class="nav-section">Ce serveur</div>
       <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
         <svg class="ic"><use href="#i-grid"/></svg> Dashboard
       </a>
       <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
         <svg class="ic"><use href="#i-search"/></svg> Rechercher
       </a>
-
-      <div class="nav-section">Gestion</div>
-      <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
-        <svg class="ic"><use href="#i-swords"/></svg> Duels
-      </a>
       <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
         <svg class="ic"><use href="#i-react"/></svg> Réactions
+      </a>
+      <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
+        <svg class="ic"><use href="#i-music"/></svg> Musique
+      </a>
+
+      <div class="nav-section">Global (cross-serveur)</div>
+      <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
+        <svg class="ic"><use href="#i-swords"/></svg> Duels
       </a>
     </nav>
 
@@ -126,13 +208,41 @@
   <!-- ============ MAIN ============ -->
   <main class="main">
     <header class="topbar">
-      <div class="row gap-3">
+      <div class="row gap-3" style="min-width:0;">
         <button class="icon-btn drawer-toggle" id="drawerToggle" aria-label="Menu" onclick="openDrawer()">
           <svg class="ic"><use href="#i-menu"/></svg>
         </button>
         <div class="crumb">{% block crumb %}{% endblock %}</div>
       </div>
-      <div class="actions">{% block actions %}{% endblock %}</div>
+      <div class="actions">
+        {% if current_guild %}
+        <div class="guild-switcher" id="guildSwitcher">
+          <button class="guild-btn" id="guildBtn" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleGuildMenu(event)">
+            <svg class="ic" style="color: var(--accent);"><use href="#i-server"/></svg>
+            <span class="guild-name">{{ current_guild.name }}</span>
+            <svg class="ic"><use href="#i-caret-down"/></svg>
+          </button>
+          <div class="guild-menu" id="guildMenu" role="listbox">
+            {% for gd in current_guilds %}
+            <a href="#" class="guild-menu-item {{ 'selected' if gd.guild_id == current_guild.guild_id }}"
+               onclick="event.preventDefault(); selectGuild('{{ gd.guild_id }}')">
+              <span class="guild-dot"></span>
+              <div class="col" style="gap:0;">
+                <span style="font-size: var(--t-sm); font-weight: 500;">{{ gd.name }}</span>
+                <span class="faint" style="font-size: 11px;">{{ gd.member_count }} membres</span>
+              </div>
+              {% if gd.guild_id == current_guild.guild_id %}<svg class="ic" style="margin-left:auto;color:var(--accent);"><use href="#i-check"/></svg>{% endif %}
+            </a>
+            {% endfor %}
+            <div class="guild-menu-divider"></div>
+            <a href="/select-guild" class="guild-menu-item" style="color: var(--text-2);">
+              <svg class="ic"><use href="#i-grid"/></svg> Tous les serveurs
+            </a>
+          </div>
+        </div>
+        {% endif %}
+        {% block actions %}{% endblock %}
+      </div>
     </header>
 
     <div class="content">
@@ -194,6 +304,38 @@
 
   // ─── Number formatting (FR thin space) ───────────────────
   window.fmtNum = n => (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' ');
+
+  // ─── Guild switcher ───────────────────────────────────────
+  function toggleGuildMenu(e) {
+    e?.stopPropagation();
+    const menu = document.getElementById('guildMenu');
+    const btn = document.getElementById('guildBtn');
+    if (!menu) return;
+    const isOpen = menu.dataset.open === 'true';
+    menu.dataset.open = isOpen ? 'false' : 'true';
+    btn?.setAttribute('aria-expanded', String(!isOpen));
+  }
+  document.addEventListener('click', e => {
+    const sw = document.getElementById('guildSwitcher');
+    if (sw && !sw.contains(e.target)) {
+      const menu = document.getElementById('guildMenu');
+      if (menu) menu.dataset.open = 'false';
+      document.getElementById('guildBtn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+  async function selectGuild(guildId) {
+    try {
+      const res = await fetch('/api/select-guild', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guild_id: guildId })
+      });
+      if (res.ok) location.reload();
+      else toast('Erreur de sélection', 'error');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+  window.selectGuild = selectGuild;
+  window.toggleGuildMenu = toggleGuildMenu;
 </script>
 
 {% block scripts %}{% endblock %}

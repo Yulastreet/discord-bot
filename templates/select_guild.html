@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choisir un serveur · Bot Console</title>
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('theme') || 'auto';
+        var resolved = t === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : t;
+        document.documentElement.setAttribute('data-theme', resolved);
+      } catch(_) {}
+    })();
+  </script>
+  {% include "_styles.html" %}
+  <style>
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: var(--s-7);
+      position: relative;
+      overflow: hidden;
+    }
+    .picker-bg {
+      position: absolute;
+      pointer-events: none;
+      width: 720px; height: 720px;
+      background: radial-gradient(closest-side, var(--accent-soft), transparent 70%);
+      top: -260px; left: 50%;
+      transform: translateX(-50%);
+      opacity: 0.5;
+      z-index: -1;
+    }
+    .picker {
+      width: 100%;
+      max-width: 720px;
+    }
+    .picker-head {
+      margin-bottom: var(--s-7);
+    }
+    .picker-head .eyebrow { color: var(--accent); }
+    .picker-head h1 { font-size: var(--t-2xl); margin: 8px 0 6px; }
+    .picker-head p { color: var(--text-2); max-width: 56ch; font-size: var(--t-md); }
+
+    .guild-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--s-3);
+    }
+    .guild-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s-3);
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-3);
+      padding: var(--s-5);
+      cursor: pointer;
+      transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 160ms var(--ease-out);
+      text-align: left;
+      color: var(--text);
+      font-family: var(--font-sans);
+    }
+    .guild-card:hover {
+      border-color: var(--accent);
+      background: var(--bg-2);
+      transform: translateY(-2px);
+    }
+    .guild-card .gc-head {
+      display: flex; align-items: center; gap: var(--s-3);
+    }
+    .guild-card .gc-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--r-2);
+      object-fit: cover;
+      background: var(--bg-2);
+      display: grid; place-items: center;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+    }
+    .guild-card .gc-name { font-weight: 600; font-size: var(--t-md); }
+    .guild-card .gc-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+    .guild-card .gc-meta { font-size: var(--t-sm); color: var(--text-2); }
+    .guild-empty {
+      padding: var(--s-9);
+      text-align: center;
+      background: var(--bg-1);
+      border: 1px dashed var(--border);
+      border-radius: var(--r-3);
+    }
+  </style>
+</head>
+<body>
+  <div class="picker-bg"></div>
+  <div class="picker">
+    <div class="picker-head">
+      <span class="eyebrow">Bot Console</span>
+      <h1>Choisis un serveur</h1>
+      <p>Le tableau de bord est cadré sur un serveur Discord à la fois (sauf la vue d'ensemble cross-serveur). Sélectionne celui que tu veux monitorer.</p>
+    </div>
+
+    {% if guilds %}
+    <form method="POST" id="pickerForm">
+      <input type="hidden" name="guild_id" id="pickerInput">
+      <div class="guild-grid">
+        {% for gd in guilds %}
+        <button type="button" class="guild-card" onclick="pick('{{ gd.guild_id }}')">
+          <div class="gc-head">
+            {% if gd.icon_url %}
+              <img class="gc-icon" src="{{ gd.icon_url }}" alt="">
+            {% else %}
+              <div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>
+            {% endif %}
+            <div class="col" style="gap: 2px; min-width: 0; flex: 1;">
+              <span class="gc-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ gd.name }}</span>
+              <span class="gc-id">{{ gd.guild_id }}</span>
+            </div>
+          </div>
+          <div class="gc-meta">{{ gd.member_count }} membres</div>
+        </button>
+        {% endfor %}
+      </div>
+    </form>
+    {% else %}
+    <div class="guild-empty">
+      <h3 style="margin-bottom: 8px;">Aucun serveur détecté</h3>
+      <p class="muted">Le bot n'est pas encore connecté à un serveur Discord, ou il n'a pas encore terminé son démarrage. Démarre <code>bot.py</code> et recharge cette page.</p>
+    </div>
+    {% endif %}
+
+    <div class="row mt-8" style="justify-content: space-between; gap: 8px;">
+      <a href="/general" class="btn btn-ghost">
+        <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble (tous serveurs)
+      </a>
+      <a href="/logout" class="btn btn-ghost">Déconnexion</a>
+    </div>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <script>
+    function pick(guildId) {
+      document.getElementById('pickerInput').value = guildId;
+      document.getElementById('pickerForm').submit();
+    }
+  </script>
+</body>
+</html>
