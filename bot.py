@@ -128,19 +128,20 @@ import datetime as _dt
 _COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
 
 YDL_OPTIONS = {
-    'format': 'bestaudio/best',
+    # Format permissif : audio pur, sinon audio dans video, sinon n'importe quel meilleur format avec audio.
+    'format': 'bestaudio[acodec!=none]/best[acodec!=none]/best',
     'noplaylist': True,
     'quiet': True,
     'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
-    # Tente plusieurs clients YouTube en cascade pour contourner l'anti-bot.
+    # Web en priorite (formats audio purs disponibles), android en fallback (bypass anti-bot si web echoue).
     'extractor_args': {
         'youtube': {
-            'player_client': ['android', 'mweb', 'tv_embedded', 'web'],
+            'player_client': ['web', 'mweb', 'android', 'tv_embedded'],
         }
     },
     'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
 }
 
