@@ -422,7 +422,8 @@ async def commandes(interaction: discord.Interaction):
         "**/qui <question>** (le bot désigne un membre du serveur au hasard)\n"
         "**/clap <texte>** (insère 👏 entre 👏 chaque 👏 mot)\n"
         "**/rate <truc>** (le bot note quelque chose sur 10)\n"
-        "**/citation** (affiche une citation au hasard)"
+        "**/citation** (affiche une citation au hasard)\n"
+        "**/zgeg** (mesure ton zgeg, réaction selon le résultat)"
     )
     embed.add_field(name="🎉 Fun", value=fun, inline=False)
     embed.add_field(name="​", value="​", inline=False)
@@ -650,6 +651,27 @@ async def citation(interaction: discord.Interaction):
     embed = discord.Embed(description=f"_« {texte} »_", color=discord.Color.dark_grey())
     embed.set_footer(text=f"— {auteur}")
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="zgeg", description="Mesure ton zgeg")
+async def zgeg(interaction: discord.Interaction):
+    taille = random.randint(1, 25)
+    if taille >= 23:
+        reaction = "Wow ! Impressionnant !! 🍆🔥 Une légende vivante."
+    elif taille >= 19:
+        reaction = "Pas mal du tout, monsieur. 😏"
+    elif taille >= 15:
+        reaction = "Honnête. Solide même. 👍"
+    elif taille >= 11:
+        reaction = "Dans la moyenne. Rien à signaler. 🤷"
+    elif taille >= 7:
+        reaction = "Bon... ça reste utilisable. 😬"
+    elif taille >= 4:
+        reaction = "Ahah... seulement... 😅"
+    else:
+        reaction = "Mes condoléances. 💀"
+    await interaction.response.send_message(
+        f"📏 Ton zgeg mesure **{taille} cm**. {reaction}"
+    )
 
 
 # ===== MODÉRATION =====
