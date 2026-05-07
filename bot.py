@@ -546,15 +546,22 @@ async def join(interaction: discord.Interaction):
     if not interaction.user.voice:
         await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
         return
-    channel = interaction.user.voice.channel
-    if interaction.guild.voice_client:
-        await interaction.guild.voice_client.move_to(channel)
-    else:
-        await channel.connect()
-    music_state_set(str(interaction.guild.id),
-                    voice_channel_id=str(channel.id),
-                    voice_channel_name=channel.name)
-    await interaction.response.send_message(f"✅ Connecté à **{channel.name}** !")
+    await interaction.response.defer()
+    try:
+        channel = interaction.user.voice.channel
+        if interaction.guild.voice_client:
+            await interaction.guild.voice_client.move_to(channel)
+        else:
+            await channel.connect()
+        music_state_set(str(interaction.guild.id),
+                        voice_channel_id=str(channel.id),
+                        voice_channel_name=channel.name)
+        await interaction.followup.send(f"✅ Connecté à **{channel.name}** !")
+    except Exception as e:
+        import traceback
+        print(f"[music /join] error: {e}")
+        traceback.print_exc()
+        await interaction.followup.send(f"❌ Erreur connexion vocal : {type(e).__name__} — {e}")
 
 @bot.tree.command(name="play", description="Jouer une musique")
 @app_commands.describe(query="Titre ou lien YouTube")
@@ -563,27 +570,37 @@ async def play(interaction: discord.Interaction, query: str):
         await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
         return
     await interaction.response.defer()
-    if not interaction.guild.voice_client:
-        await interaction.user.voice.channel.connect()
-        music_state_set(str(interaction.guild.id),
-                        voice_channel_id=str(interaction.user.voice.channel.id),
-                        voice_channel_name=interaction.user.voice.channel.name)
-    gid = str(interaction.guild.id)
-    await interaction.followup.send(f"🔍 Recherche de **{query}**...")
     try:
-        info = await get_audio_info(query)
+        if not interaction.guild.voice_client:
+            await interaction.user.voice.channel.connect()
+            music_state_set(str(interaction.guild.id),
+                            voice_channel_id=str(interaction.user.voice.channel.id),
+                            voice_channel_name=interaction.user.voice.channel.name)
+        gid = str(interaction.guild.id)
+        await interaction.followup.send(f"🔍 Recherche de **{query}**...")
+        try:
+            info = await get_audio_info(query)
+        except Exception as e:
+            print(f"[music] yt-dlp error: {e}")
+            await interaction.followup.send(f"❌ Erreur lors de la recherche : {e}")
+            return
+        music_queue_add(gid,
+                        title=info["title"], url=info["url"],
+                        source_url=info.get("source_url"),
+                        duration=info.get("duration"),
+                        thumbnail=info.get("thumbnail"),
+                        requested_by=interaction.user.id)
+        await interaction.followup.send(f"✅ Ajouté à la file : **{info['title']}**")
+        if not interaction.guild.voice_client.is_playing():
+            await play_next(interaction.guild.voice_client, interaction.channel, interaction.guild.id)
     except Exception as e:
-        await interaction.followup.send(f"❌ Erreur lors de la recherche : {e}")
-        return
-    music_queue_add(gid,
-                    title=info["title"], url=info["url"],
-                    source_url=info.get("source_url"),
-                    duration=info.get("duration"),
-                    thumbnail=info.get("thumbnail"),
-                    requested_by=interaction.user.id)
-    await interaction.followup.send(f"✅ Ajouté à la file : **{info['title']}**")
-    if not interaction.guild.voice_client.is_playing():
-        await play_next(interaction.guild.voice_client, interaction.channel, interaction.guild.id)
+        import traceback
+        print(f"[music /play] error: {e}")
+        traceback.print_exc()
+        try:
+            await interaction.followup.send(f"❌ Erreur interne : {type(e).__name__} — {e}")
+        except Exception:
+            pass
 
 @bot.tree.command(name="skip", description="Passer à la musique suivante")
 async def skip(interaction: discord.Interaction):
