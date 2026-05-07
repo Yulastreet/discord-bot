@@ -125,23 +125,31 @@ def get_progress(xp):
 # ===== MUSIQUE (DB-backed) =====
 import datetime as _dt
 
+_COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': True,
     'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
-    # Contourne le check anti-bot de YouTube (sign in to confirm you're not a bot).
-    # Le client Android de YouTube applique pas la verification.
+    # Tente plusieurs clients YouTube en cascade pour contourner l'anti-bot.
     'extractor_args': {
         'youtube': {
-            'player_client': ['android', 'web'],
+            'player_client': ['android', 'mweb', 'tv_embedded', 'web'],
         }
     },
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     },
 }
+
+# Si un fichier cookies.txt existe a cote de bot.py, l'utiliser pour by-pass anti-bot YouTube.
+if os.path.exists(_COOKIES_PATH):
+    YDL_OPTIONS['cookiefile'] = _COOKIES_PATH
+    print(f"[yt-dlp] cookies loaded from {_COOKIES_PATH}")
+else:
+    print(f"[yt-dlp] aucun cookies.txt detecte ({_COOKIES_PATH}). Si YouTube bloque, voir README cookies.")
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',

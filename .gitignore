@@ -3,6 +3,9 @@ __pycache__/
 *.pyc
 .claude/
 
+# YouTube cookies — sensitive (contient session login)
+cookies.txt
+
 # SQLite databases — never version, contains live data
 bot_database.db
 *.db
