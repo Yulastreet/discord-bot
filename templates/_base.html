@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1f1a17">
+  <title>{% block title %}Dashboard{% endblock %}</title>
+  <script>
+    // Theme bootstrap (avoid FOUC)
+    (function(){
+      try {
+        var t = localStorage.getItem('theme') || 'auto';
+        var resolved = t === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : t;
+        document.documentElement.setAttribute('data-theme', resolved);
+        document.documentElement.setAttribute('data-theme-pref', t);
+      } catch(_) {}
+    })();
+  </script>
+  {% include "_styles.html" %}
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ============ ICONS (sprite) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+    </symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z"/>
+    </symbol>
+    <symbol id="i-swords" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/>
+      <path d="m19 21 2-2"/><path d="M9.5 6.5 21 18"/>
+    </symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/>
+    </symbol>
+    <symbol id="i-react" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="0.6" fill="currentColor"/><circle cx="15" cy="10" r="0.6" fill="currentColor"/>
+      <path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8"/>
+    </symbol>
+    <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4v8"/><path d="M7.5 7.5a7 7 0 1 0 9 0"/>
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/><path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/>
+      <path d="m5.6 5.6 1.4 1.4"/><path d="m17 17 1.4 1.4"/><path d="m5.6 18.4 1.4-1.4"/><path d="m17 7 1.4-1.4"/>
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 14.5A8 8 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>
+    </symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="13" rx="2"/><path d="M9 21h6"/><path d="M12 17v4"/>
+    </symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 6 12 12"/><path d="m18 6-12 12"/>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 5v14"/><path d="M5 12h14"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+    </symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m5 12 5 5L20 7"/>
+    </symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="app-shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">⌬</div>
+      <span class="brand-name">Bot Console</span>
+    </div>
+
+    <nav>
+      <div class="nav-section">Vue d'ensemble</div>
+      <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
+        <svg class="ic"><use href="#i-grid"/></svg> Dashboard
+      </a>
+      <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
+        <svg class="ic"><use href="#i-search"/></svg> Rechercher
+      </a>
+
+      <div class="nav-section">Gestion</div>
+      <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
+        <svg class="ic"><use href="#i-swords"/></svg> Duels
+      </a>
+      <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
+        <svg class="ic"><use href="#i-react"/></svg> Réactions
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <button class="theme-cycle" id="themeCycle" aria-label="Changer le thème" title="Cycler le thème">
+        <svg class="ic" id="themeIcon"><use href="#i-monitor"/></svg>
+      </button>
+      <a href="/logout" class="icon-btn" aria-label="Déconnexion" title="Déconnexion">
+        <svg class="ic"><use href="#i-power"/></svg>
+      </a>
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <header class="topbar">
+      <div class="row gap-3">
+        <button class="icon-btn drawer-toggle" id="drawerToggle" aria-label="Menu" onclick="openDrawer()">
+          <svg class="ic"><use href="#i-menu"/></svg>
+        </button>
+        <div class="crumb">{% block crumb %}{% endblock %}</div>
+      </div>
+      <div class="actions">{% block actions %}{% endblock %}</div>
+    </header>
+
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<!-- ============ TOAST STACK ============ -->
+<div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+<script>
+  // ─── Theme cycle: auto → light → dark → auto ─────────────
+  const THEME_ORDER = ['auto', 'light', 'dark'];
+  function applyTheme(pref) {
+    const resolved = pref === 'auto'
+      ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+      : pref;
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-pref', pref);
+    const ic = document.getElementById('themeIcon');
+    if (ic) {
+      const map = { auto: 'i-monitor', light: 'i-sun', dark: 'i-moon' };
+      ic.firstElementChild.setAttribute('href', '#' + map[pref]);
+    }
+  }
+  document.getElementById('themeCycle')?.addEventListener('click', () => {
+    const cur = localStorage.getItem('theme') || 'auto';
+    const next = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
+    localStorage.setItem('theme', next);
+    applyTheme(next);
+  });
+  applyTheme(localStorage.getItem('theme') || 'auto');
+
+  // Sync if system theme changes (only when in auto mode)
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if ((localStorage.getItem('theme') || 'auto') === 'auto') applyTheme('auto');
+  });
+
+  // ─── Drawer (mobile sidebar) ──────────────────────────────
+  function openDrawer()  { document.getElementById('sidebar').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; }
+  function closeDrawer() { document.getElementById('sidebar').dataset.open = 'false'; document.getElementById('scrim').dataset.open = 'false'; }
+
+  // ─── Toast notifications ──────────────────────────────────
+  function toast(message, type = 'success', duration = 2800) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    const iconId = type === 'error' ? 'i-x' : 'i-check';
+    el.innerHTML = `<svg class="ic" style="width:16px;height:16px"><use href="#${iconId}"/></svg> <span>${message}</span>`;
+    document.getElementById('toastStack').appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(8px)';
+      el.style.transition = 'opacity 200ms, transform 200ms';
+      setTimeout(() => el.remove(), 220);
+    }, duration);
+  }
+  window.toast = toast;
+
+  // ─── Number formatting (FR thin space) ───────────────────
+  window.fmtNum = n => (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' ');
+</script>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

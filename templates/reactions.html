@@ -1,166 +1,135 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestion des Réactions</title>
-  {% include "_styles.html" %}
-  <style>
-    .reaction-row {
-      display: flex; align-items: center; gap: 12px;
-      background: var(--color-bg-card); color: var(--color-text);
-      padding: 14px 18px; border-radius: 18px; margin-bottom: 10px;
-      border-left: 5px solid var(--color-secondary);
-    }
-    .reaction-row .uname { font-weight: 700; flex: 1; }
-    .reaction-row .emo   { font-size: 26px; }
-    .reaction-row .raw   { color: #777; font-size: 13px; margin-left: 12px; }
-  </style>
-</head>
-<body>
-<div class="layout">
+{% extends "_base.html" %}
+{% set active_nav = 'reactions' %}
 
-  <div class="topbar">
-    <h1>⚙️ Gestion des Réactions</h1>
-    <div class="nav-pill">
-      <a href="/dashboard">Dashboard</a>
-      <a href="/search">Rechercher</a>
-      <a href="/reactions" class="active">Réactions</a>
-      <a href="/duels">Duels</a>
-      <a href="/logout">Déconnexion</a>
+{% block title %}Réactions · Bot Console{% endblock %}
+{% block crumb %}Réactions automatiques{% endblock %}
+
+{% block content %}
+
+<div class="col gap-7">
+
+  <div class="row between" style="align-items: flex-end;">
+    <div>
+      <h1>Réactions automatiques</h1>
+      <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">Le bot ajoute automatiquement l'emoji choisi à chaque message du membre sélectionné.</p>
     </div>
   </div>
 
-  <div id="message" class="alert"></div>
-
-  <div class="card mb-2">
+  <div class="card">
     <div class="grid grid-2">
       <div class="field">
         <label for="userSelect">Utilisateur</label>
         <select id="userSelect">
-          <option value="">-- Choisir un utilisateur --</option>
+          <option value="">Choisir un utilisateur</option>
           {% for user in users %}
-            <option value="{{ user[0] }}" data-username="{{ user[1] }}">
-              {{ user[1] }} ({{ user[0] }})
-            </option>
+            <option value="{{ user[0] }}" data-username="{{ user[1] }}">{{ user[1] }} · {{ user[0] }}</option>
           {% endfor %}
         </select>
       </div>
-
       <div class="field">
         <label for="emojiInput">Emoji</label>
-        <input type="text" id="emojiInput" placeholder="Ex: 👍 ou &lt;:nom:id&gt;">
-        <small style="color: #777; margin-top: 4px; display: block;">
-          Exemples : 👍 😀 ou &lt;:custom:123456789&gt;
-        </small>
+        <input type="text" id="emojiInput" placeholder="ex. 👍 ou <:nom:id>">
       </div>
     </div>
 
-    <div class="row mt-2">
-      <button class="btn btn-primary" onclick="addReaction()">➕ Ajouter / Modifier</button>
-      <button class="btn btn-danger"  onclick="removeReaction()">❌ Supprimer</button>
+    <div class="row mt-4 gap-2">
+      <button class="btn btn-primary" onclick="addReaction()">
+        <svg class="ic"><use href="#i-plus"/></svg> Ajouter / Modifier
+      </button>
+      <button class="btn btn-danger" onclick="removeReaction()">
+        <svg class="ic"><use href="#i-trash"/></svg> Supprimer
+      </button>
+      <span class="faint" style="font-size:var(--t-xs);margin-left:auto;">
+        Pour un emoji custom, copie son code complet : <code>&lt;:nom:id&gt;</code>
+      </span>
     </div>
   </div>
 
-  <div class="card-dark">
-    <h2 style="color: var(--color-primary);">📋 Réactions actives</h2>
-    <div id="reactionsList" class="mt-1"></div>
+  <div class="card padless">
+    <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+      <h2>Réactions actives</h2>
+      <span class="badge" id="reactionCount">0</span>
+    </div>
+    <div id="reactionsList"></div>
   </div>
 
 </div>
 
-<script>
-  let reactions = JSON.parse('{{ reactions|tojson|safe }}');
-  if (typeof reactions === 'string') {
-    reactions = JSON.parse(reactions);
-  }
+<script type="application/json" id="reactions-data">{{ reactions|tojson|safe }}</script>
+{% endblock %}
 
-  function showMessage(msg, type = 'success') {
-    const el = document.getElementById('message');
-    el.textContent = msg;
-    el.className = 'alert ' + type;
-    setTimeout(() => el.className = 'alert', 3000);
-  }
+{% block scripts %}
+<script>
+  let reactions = JSON.parse(document.getElementById('reactions-data').textContent);
+  if (typeof reactions === 'string') reactions = JSON.parse(reactions);
 
   function addReaction() {
     const userId = document.getElementById('userSelect').value;
-    const emoji = document.getElementById('emojiInput').value;
-    if (!userId || !emoji) {
-      showMessage('Veuillez sélectionner un utilisateur et entrer un emoji', 'error');
-      return;
-    }
+    const emoji  = document.getElementById('emojiInput').value;
+    if (!userId || !emoji) { toast('Choisis un utilisateur et un emoji.', 'error'); return; }
     fetch('/api/reactions/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, emoji: emoji })
+      body: JSON.stringify({ user_id: userId, emoji })
     })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        showMessage('✅ Réaction ajoutée !');
-        document.getElementById('emojiInput').value = '';
-        setTimeout(() => location.reload(), 500);
-      } else {
-        showMessage(data.error || 'Erreur', 'error');
-      }
-    })
-    .catch(err => { console.error(err); showMessage('Erreur: ' + err.message, 'error'); });
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) { toast('Réaction enregistrée.'); document.getElementById('emojiInput').value = ''; setTimeout(() => location.reload(), 350); }
+        else toast(d.error || 'Erreur', 'error');
+      })
+      .catch(err => toast(err.message, 'error'));
   }
 
   function removeReaction() {
     const userId = document.getElementById('userSelect').value;
-    if (!userId) { showMessage('Veuillez sélectionner un utilisateur', 'error'); return; }
-    fetch('/api/reactions/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        showMessage('✅ Réaction supprimée !');
-        setTimeout(() => location.reload(), 500);
-      } else {
-        showMessage(data.error || 'Erreur', 'error');
-      }
-    })
-    .catch(err => { console.error(err); showMessage('Erreur: ' + err.message, 'error'); });
+    if (!userId) { toast('Choisis un utilisateur.', 'error'); return; }
+    deleteReaction(userId);
   }
 
   function deleteReaction(userId) {
-    if (!confirm('Supprimer la réaction ?')) return;
+    if (!confirm('Supprimer cette réaction ?')) return;
     fetch('/api/reactions/remove', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId })
     })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) { showMessage('✅ Réaction supprimée !'); setTimeout(() => location.reload(), 500); }
-      else showMessage(data.error || 'Erreur', 'error');
-    })
-    .catch(err => { console.error(err); showMessage('Erreur: ' + err.message, 'error'); });
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) { toast('Réaction supprimée.'); setTimeout(() => location.reload(), 350); }
+        else toast(d.error || 'Erreur', 'error');
+      })
+      .catch(err => toast(err.message, 'error'));
   }
 
-  function displayReactions() {
+  function display() {
     const list = document.getElementById('reactionsList');
+    const count = document.getElementById('reactionCount');
     if (!reactions || Object.keys(reactions).length === 0) {
-      list.innerHTML = '<p class="muted">Aucune réaction configurée.</p>';
+      list.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);"><p>Aucune réaction configurée.</p></div>';
+      count.textContent = '0';
       return;
     }
     const userMap = {};
     document.querySelectorAll('#userSelect option').forEach(o => { if (o.value) userMap[o.value] = o.dataset.username; });
-    list.innerHTML = Object.entries(reactions).map(([uid, emoji]) => `
-      <div class="reaction-row">
-        <span class="emo">${emoji}</span>
-        <span class="uname">${userMap[uid] || uid}</span>
-        <span class="raw">${emoji}</span>
-        <button class="btn btn-danger btn-sm" onclick="deleteReaction('${uid}')">Supprimer</button>
-      </div>
-    `).join('');
+    const entries = Object.entries(reactions);
+    count.textContent = entries.length;
+    list.innerHTML = `
+      <table class="tbl">
+        <thead>
+          <tr><th style="width:60px;">Emoji</th><th>Utilisateur</th><th class="mono">ID</th><th style="width:120px;text-align:right;">Action</th></tr>
+        </thead>
+        <tbody>
+          ${entries.map(([uid, emo]) => `
+            <tr style="cursor:default;">
+              <td style="font-size:22px;">${emo}</td>
+              <td><strong>${userMap[uid] || '(inconnu)'}</strong></td>
+              <td class="mono">${uid}</td>
+              <td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="deleteReaction('${uid}')"><svg class="ic"><use href="#i-trash"/></svg></button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
   }
-
-  displayReactions();
+  display();
 </script>
-</body>
-</html>
+{% endblock %}

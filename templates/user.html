@@ -1,123 +1,86 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Profil utilisateur</title>
-  {% include "_styles.html" %}
-  <style>
-    .progress-bar { background: rgba(255,255,255,0.1); height: 12px; border-radius: var(--radius-pill); overflow: hidden; margin-top: 12px; }
-    .progress-fill { background: linear-gradient(90deg, var(--color-primary), var(--color-accent)); height: 100%; transition: width .4s; }
-    .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .detail-row:last-child { border-bottom: none; }
-    .detail-label { color: var(--color-accent); font-weight: 600; }
-    .detail-value { color: #FFF; font-weight: 700; }
-    .spinner {
-      border: 4px solid rgba(255,255,255,0.1);
-      border-top: 4px solid var(--color-primary);
-      border-radius: 50%;
-      width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 30px auto;
-    }
-    @keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-<div class="layout">
+{% extends "_base.html" %}
+{% set active_nav = 'search' %}
 
-  <div class="topbar">
-    <h1>👤 Profil</h1>
-    <div class="nav-pill">
-      <a href="/dashboard">Dashboard</a>
-      <a href="/search">Rechercher</a>
-      <a href="/reactions">Réactions</a>
-      <a href="/duels">Duels</a>
-      <a href="/logout">Déconnexion</a>
+{% block title %}Profil · Bot Console{% endblock %}
+{% block crumb %}<a href="/search" style="color:var(--text-3);">Rechercher</a> <span class="sep">/</span> Profil{% endblock %}
+
+{% block content %}
+
+<div id="loadingState" class="muted" style="padding: var(--s-7) 0;">Chargement du profil...</div>
+
+<div id="profileContent" class="hidden col gap-7">
+  <div class="row between">
+    <div class="col gap-2">
+      <span class="eyebrow">Profil utilisateur</span>
+      <h1 id="username"></h1>
+      <span class="badge badge-mono" id="userId"></span>
     </div>
+    <a href="/duels" class="btn btn-secondary">
+      <svg class="ic"><use href="#i-swords"/></svg> Voir profil duel
+    </a>
   </div>
 
-  <div id="loadingState" class="card-dark center">
-    <div class="spinner"></div>
-    <p class="muted">Chargement du profil...</p>
-  </div>
-
-  <div id="profileContent" class="hidden">
-    <div class="card-dark mb-2">
-      <h2 id="username" style="color: var(--color-primary);"></h2>
-      <p class="muted">ID: <span id="userId"></span></p>
+  <div class="grid grid-3">
+    <div class="stat">
+      <div class="stat-label">Niveau</div>
+      <div class="stat-value" id="level">-</div>
+      <div class="stat-sub" id="progressText">Progression</div>
     </div>
-
-    <div class="grid grid-2 mb-2">
-      <div class="stat-box"><div class="label">Niveau</div><div class="value" id="level">-</div></div>
-      <div class="stat-box"><div class="label">XP Total</div><div class="value" id="xp">-</div></div>
+    <div class="stat">
+      <div class="stat-label">XP cumulé</div>
+      <div class="stat-value" id="xp">-</div>
+      <div class="stat-sub">Messages enregistrés</div>
     </div>
-
-    <div class="card-dark mb-2">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-      <div class="muted center mt-1" id="progressText">Progression vers le prochain niveau</div>
-    </div>
-
-    <div class="card-dark">
-      <h3 style="color: var(--color-primary);">📋 Détails</h3>
-      <div class="mt-1">
-        <div class="detail-row"><span class="detail-label">ID Discord</span><span class="detail-value" id="discordId">-</span></div>
-        <div class="detail-row"><span class="detail-label">Niveau actuel</span><span class="detail-value" id="levelDetail">-</span></div>
-        <div class="detail-row"><span class="detail-label">XP accumulé</span><span class="detail-value" id="xpDetail">-</span></div>
-      </div>
-      <div class="row mt-2">
-        <a href="/duels" class="btn btn-accent">⚔️ Voir profil duel</a>
-      </div>
+    <div class="stat">
+      <div class="stat-label">Avant le prochain niveau</div>
+      <div class="stat-value" id="xpToNext">-</div>
+      <div class="bar-track" style="margin-top:10px;"><div class="bar-fill" id="progressFill" style="width:0%"></div></div>
     </div>
   </div>
-
-  <div id="errorState" class="card-dark hidden center">
-    <h2>❌ Erreur</h2>
-    <p id="errorMessage" class="muted mt-1"></p>
-    <a href="/search" class="btn btn-primary mt-2">← Retour à la recherche</a>
-  </div>
-
 </div>
 
+<div id="errorState" class="hidden card" style="text-align:center;">
+  <h2>Profil introuvable</h2>
+  <p class="muted mt-2" id="errorMessage" style="font-size:var(--t-sm);"></p>
+  <div class="mt-6"><a href="/search" class="btn btn-secondary">Retour à la recherche</a></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
   const userId = window.location.pathname.split('/').pop();
 
-  window.addEventListener('DOMContentLoaded', loadUserProfile);
+  fetch(`/api/user/${userId}`)
+    .then(r => { if (!r.ok) throw new Error('Cet utilisateur n\'a pas de stats messages.'); return r.json(); })
+    .then(data => display(data.user))
+    .catch(err => showError(err.message));
 
-  function loadUserProfile() {
-    fetch(`/api/user/${userId}`)
-      .then(r => { if (!r.ok) throw new Error('Utilisateur non trouvé'); return r.json(); })
-      .then(data => displayProfile(data.user))
-      .catch(err => showError(err.message));
-  }
+  function display(u) {
+    document.getElementById('username').textContent = u.username;
+    document.getElementById('userId').textContent  = u.user_id;
+    document.getElementById('level').textContent   = u.level;
+    document.getElementById('xp').textContent      = fmtNum(u.xp);
 
-  function displayProfile(user) {
-    document.getElementById('username').textContent = user.username;
-    document.getElementById('userId').textContent = user.user_id;
-    document.getElementById('level').textContent = user.level;
-    document.getElementById('xp').textContent = user.xp.toLocaleString('fr-FR');
-    document.getElementById('discordId').textContent = user.user_id;
-    document.getElementById('levelDetail').textContent = user.level;
-    document.getElementById('xpDetail').textContent = user.xp.toLocaleString('fr-FR');
+    const xpForNext = u.level * 1000;
+    const xpAtBase  = (u.level - 1) * 1000;
+    const inLevel   = u.xp - xpAtBase;
+    const needed    = xpForNext - xpAtBase;
+    const progress  = Math.min((inLevel / needed) * 100, 100);
+    const remaining = Math.max(0, xpForNext - u.xp);
 
-    const xpForNextLevel = user.level * 1000;
-    const currentLevelXp = (user.level - 1) * 1000;
-    const xpInCurrentLevel = user.xp - currentLevelXp;
-    const xpNeeded = xpForNextLevel - currentLevelXp;
-    const progress = Math.min((xpInCurrentLevel / xpNeeded) * 100, 100);
-
+    document.getElementById('xpToNext').textContent = fmtNum(remaining);
     document.getElementById('progressFill').style.width = progress + '%';
-    document.getElementById('progressText').textContent = `${Math.round(progress)}% vers le niveau ${user.level + 1}`;
+    document.getElementById('progressText').textContent = `${Math.round(progress)}% vers niv. ${u.level + 1}`;
 
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('profileContent').classList.remove('hidden');
   }
 
-  function showError(message) {
-    document.getElementById('errorMessage').textContent = message;
+  function showError(msg) {
+    document.getElementById('errorMessage').textContent = msg;
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('errorState').classList.remove('hidden');
   }
 </script>
-</body>
-</html>
+{% endblock %}

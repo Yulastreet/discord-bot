@@ -1,79 +1,133 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard</title>
-  {% include "_styles.html" %}
-</head>
-<body>
-<div class="layout">
+{% extends "_base.html" %}
+{% set active_nav = 'dashboard' %}
 
-  <div class="topbar">
-    <h1>🤖 Bot Dashboard</h1>
-    <div class="nav-pill">
-      <a href="/dashboard" class="active">Dashboard</a>
-      <a href="/search">Rechercher</a>
-      <a href="/reactions">Réactions</a>
-      <a href="/duels">Duels</a>
-      <a href="/logout">Déconnexion</a>
-    </div>
+{% block title %}Dashboard · Bot Console{% endblock %}
+{% block crumb %}Dashboard{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="hero-glow" id="heroGlow"></div>
+  <div class="parallax-layer" id="heroParallax">
+    <span class="eyebrow">Aperçu</span>
+    <h1>Le bot, en chiffres.</h1>
+    <p class="hero-sub">Activité globale, classement messages, et accès rapide à la gestion des duels et des réactions.</p>
   </div>
+</section>
 
-  {% if stats %}
-  <div class="grid grid-4 mb-2">
-    <div class="stat-box">
-      <div class="label">Utilisateurs</div>
-      <div class="value">{{ stats.total_users }}</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">XP Total</div>
-      <div class="value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
-    </div>
-    <div class="stat-box">
-      <div class="label">Niveau Moyen</div>
-      <div class="value">{{ "%.1f"|format(stats.avg_level) }}</div>
-    </div>
-    {% if stats.top_user %}
-    <div class="stat-box">
-      <div class="label">Top Utilisateur</div>
-      <div class="value" style="font-size:20px;">{{ stats.top_user.username }}</div>
-    </div>
-    {% endif %}
+{% if stats %}
+<section class="grid grid-4 mb-6">
+  <div class="stat">
+    <div class="stat-label">Utilisateurs</div>
+    <div class="stat-value">{{ "{:,}".format(stats.total_users).replace(',', ' ') }}</div>
+    <div class="stat-sub">Comptes traçés</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">XP cumulé</div>
+    <div class="stat-value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
+    <div class="stat-sub">Tous comptes confondus</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Niveau moyen</div>
+    <div class="stat-value">{{ "%.1f"|format(stats.avg_level) }}</div>
+    <div class="stat-sub">Sur la communauté entière</div>
+  </div>
+  {% if stats.top_user %}
+  <div class="stat">
+    <div class="stat-label">Tête de classement</div>
+    <div class="stat-value" style="font-size:var(--t-md);">{{ stats.top_user.username }}</div>
+    <div class="stat-sub">Niv. {{ stats.top_user.level }} · {{ "{:,}".format(stats.top_user.xp).replace(',', ' ') }} XP</div>
   </div>
   {% endif %}
+</section>
+{% endif %}
 
-  {% if chart %}
-  <div class="card mb-2">
-    <h2>📈 Top 10 des Utilisateurs</h2>
-    <img src="data:image/png;base64,{{ chart }}" alt="Chart" style="max-width:100%;border-radius:18px;margin-top:14px;">
+{% if top10 %}
+<section class="card mb-6">
+  <div class="card-row mb-4">
+    <div>
+      <h2>Top 10 messages</h2>
+      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Classé par XP de messagerie cumulé.</p>
+    </div>
+    <a class="btn btn-secondary btn-sm" href="/search">
+      <svg class="ic"><use href="#i-search"/></svg> Rechercher un joueur
+    </a>
   </div>
-  {% endif %}
 
-  <div class="card-dark mt-2">
-    <h2 style="color: var(--color-primary);">👥 Classement complet</h2>
-    <table class="tbl mt-1">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Utilisateur</th>
-          <th>XP</th>
-          <th>Niveau</th>
-        </tr>
-      </thead>
-      <tbody>
+  <div class="bar-list">
+    {% for u in top10 %}
+    <div class="bar-row">
+      <span class="bar-label">{{ u.username }}</span>
+      <div class="bar-track"><div class="bar-fill" style="width: {{ (u.xp / top10[0].xp * 100) if top10[0].xp else 0 }}%"></div></div>
+      <span class="bar-value">{{ "{:,}".format(u.xp).replace(',', ' ') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card padless">
+  <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+    <h2>Classement complet</h2>
+    <span class="badge">{{ users|length }} comptes</span>
+  </div>
+
+  {% if users %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th style="width:60px;">#</th>
+        <th>Utilisateur</th>
+        <th class="num">XP</th>
+        <th class="num" style="width:120px;">Niveau</th>
+      </tr>
+    </thead>
+    <tbody>
       {% for user in users %}
-        <tr onclick="window.location.href='/user/{{ user.user_id }}'">
-          <td>{{ loop.index }}</td>
-          <td>{{ user.username }}</td>
-          <td>{{ "{:,}".format(user.xp).replace(',', ' ') }}</td>
-          <td>{{ user.level }}</td>
-        </tr>
+      <tr onclick="window.location.href='/user/{{ user.user_id }}'">
+        <td class="mono">{{ "%02d"|format(loop.index) }}</td>
+        <td>
+          <div class="row gap-2">
+            <strong>{{ user.username }}</strong>
+            {% if loop.index <= 3 %}<span class="badge badge-accent"><span class="dot"></span> Top {{ loop.index }}</span>{% endif %}
+          </div>
+        </td>
+        <td class="num">{{ "{:,}".format(user.xp).replace(',', ' ') }}</td>
+        <td class="num">{{ user.level }}</td>
+      </tr>
       {% endfor %}
-      </tbody>
-    </table>
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">
+    <p>Aucun compte enregistré pour l'instant.</p>
   </div>
+  {% endif %}
+</section>
 
-</div>
-</body>
-</html>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Parallax minimal — hero only, prefers-reduced-motion respected
+  (function() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const layer = document.getElementById('heroParallax');
+    const glow  = document.getElementById('heroGlow');
+    if (!layer) return;
+
+    let ticking = false;
+    function update() {
+      const y = window.scrollY;
+      const t = Math.max(-44, -y * 0.08);
+      layer.style.transform = `translate3d(0, ${t}px, 0)`;
+      if (glow) glow.style.transform = `translate3d(0, ${y * 0.20}px, 0) scale(${1 + y * 0.0004})`;
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!ticking) { requestAnimationFrame(update); ticking = true; }
+    }, { passive: true });
+    update();
+  })();
+</script>
+{% endblock %}

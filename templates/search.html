@@ -1,97 +1,85 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recherche</title>
-  {% include "_styles.html" %}
-  <style>
-    .user-card {
-      background: var(--color-bg-card);
-      color: var(--color-text);
-      border-radius: 18px;
-      padding: 18px 22px;
-      cursor: pointer;
-      transition: transform .15s, box-shadow .15s;
-      border-left: 5px solid var(--color-primary);
-    }
-    .user-card:hover { transform: translateX(6px); box-shadow: 0 8px 20px rgba(0,0,0,0.18); }
-    .user-card h3 { color: var(--color-text); margin-bottom: 4px; }
-    .user-card p { color: #555; font-size: 14px; margin: 2px 0; }
-    .spinner {
-      border: 4px solid rgba(255,255,255,0.1);
-      border-top: 4px solid var(--color-primary);
-      border-radius: 50%;
-      width: 36px; height: 36px;
-      animation: spin 1s linear infinite;
-      margin: 24px auto;
-    }
-    @keyframes spin { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-<div class="layout">
+{% extends "_base.html" %}
+{% set active_nav = 'search' %}
 
-  <div class="topbar">
-    <h1>🔍 Rechercher</h1>
-    <div class="nav-pill">
-      <a href="/dashboard">Dashboard</a>
-      <a href="/search" class="active">Rechercher</a>
-      <a href="/reactions">Réactions</a>
-      <a href="/duels">Duels</a>
-      <a href="/logout">Déconnexion</a>
-    </div>
+{% block title %}Rechercher · Bot Console{% endblock %}
+{% block crumb %}Rechercher{% endblock %}
+
+{% block content %}
+
+<div class="col gap-7">
+  <div>
+    <h1>Rechercher un utilisateur</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">Tape un pseudo Discord ou un ID pour ouvrir le profil correspondant. La recherche est insensible à la casse.</p>
   </div>
 
-  <div class="card mb-2">
-    <div class="row" style="gap:12px;">
-      <input type="text" id="searchInput" placeholder="Pseudo ou ID..." autocomplete="off" autofocus>
-      <button class="btn btn-primary" onclick="search()">Rechercher</button>
-    </div>
+  <div class="input-search" style="max-width: 640px;">
+    <svg class="ic"><use href="#i-search"/></svg>
+    <input type="text" id="searchInput" placeholder="ex: alice, 12345678..." autocomplete="off" autofocus>
   </div>
 
-  <div id="loading" class="hidden center">
-    <div class="spinner"></div>
-    <p class="muted">Recherche en cours...</p>
-  </div>
+  <div id="loading" class="hidden muted" style="font-size:var(--t-sm);">Recherche en cours...</div>
 
-  <div id="results" class="grid grid-2"></div>
-
+  <div id="results"></div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
   const searchInput = document.getElementById('searchInput');
-  searchInput.addEventListener('keyup', e => { if (e.key === 'Enter') search(); });
+  let currentQuery = '';
 
-  function search() {
-    const query = searchInput.value.trim();
-    if (!query) {
-      document.getElementById('results').innerHTML = '<p class="muted">Entre un pseudo ou un ID.</p>';
-      return;
-    }
+  function debounce(fn, ms) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  const runSearch = debounce(() => {
+    const q = searchInput.value.trim();
+    if (q === currentQuery) return;
+    currentQuery = q;
+
+    const out = document.getElementById('results');
+    if (!q) { out.innerHTML = ''; return; }
+
     document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('results').innerHTML = '';
-    fetch('/api/search?q=' + encodeURIComponent(query))
+    fetch('/api/search?q=' + encodeURIComponent(q))
       .then(r => r.json())
       .then(data => {
         document.getElementById('loading').classList.add('hidden');
         if (!data.users || data.users.length === 0) {
-          document.getElementById('results').innerHTML = '<p class="muted">❌ Aucun utilisateur trouvé.</p>';
+          out.innerHTML = '<p class="muted" style="font-size:var(--t-sm);">Aucun utilisateur ne correspond.</p>';
           return;
         }
-        document.getElementById('results').innerHTML = data.users.map(u => `
-          <div class="user-card" onclick="location.href='/user/${u.user_id}'">
-            <h3>${u.username}</h3>
-            <p><strong>ID:</strong> ${u.user_id}</p>
-            <p><strong>Niveau:</strong> ${u.level} · <strong>XP:</strong> ${u.xp}</p>
-          </div>
-        `).join('');
+        out.innerHTML = `
+          <div class="card padless">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th class="num">XP</th>
+                  <th class="num" style="width:90px;">Niveau</th>
+                  <th style="width:140px;">ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.users.map(u => `
+                  <tr onclick="location.href='/user/${u.user_id}'">
+                    <td><strong>${u.username}</strong></td>
+                    <td class="num">${fmtNum(u.xp)}</td>
+                    <td class="num">${u.level}</td>
+                    <td class="mono">${u.user_id}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
       })
       .catch(err => {
         document.getElementById('loading').classList.add('hidden');
-        document.getElementById('results').innerHTML = `<p class="muted">❌ Erreur: ${err.message}</p>`;
+        out.innerHTML = `<p style="color:var(--danger);font-size:var(--t-sm);">${err.message}</p>`;
       });
-  }
+  }, 220);
+
+  searchInput.addEventListener('input', runSearch);
 </script>
-</body>
-</html>
+{% endblock %}

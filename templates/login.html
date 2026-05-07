@@ -1,36 +1,103 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <title>Connexion — Bot Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion · Bot Console</title>
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('theme') || 'auto';
+        var resolved = t === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : t;
+        document.documentElement.setAttribute('data-theme', resolved);
+      } catch(_) {}
+    })();
+  </script>
   {% include "_styles.html" %}
   <style>
-    body { display: flex; align-items: center; justify-content: center; }
-    .login-card {
-      max-width: 420px;
-      width: 100%;
-      background: var(--color-bg-card);
-      color: var(--color-text);
-      border-radius: var(--radius-card);
-      padding: 44px 36px;
-      box-shadow: var(--shadow-card);
-      text-align: center;
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: var(--s-5);
+      position: relative;
+      overflow: hidden;
     }
-    .login-card h1 { color: var(--color-text); font-size: 36px; margin-bottom: 8px; }
-    .login-card .sub { color: #777; margin-bottom: 28px; font-size: 14px; }
-    .login-card input { margin-bottom: 16px; }
-    .login-card .err { color: var(--color-danger); margin-bottom: 12px; font-weight: 600; font-size: 14px; }
+    .login-bg {
+      position: absolute;
+      pointer-events: none;
+      width: 720px; height: 720px;
+      background: radial-gradient(closest-side, var(--accent-soft), transparent 70%);
+      top: -260px; left: 50%;
+      transform: translateX(-50%);
+      opacity: 0.6;
+      z-index: -1;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-3);
+      padding: var(--s-9) var(--s-7) var(--s-7);
+    }
+    .login-card .brand-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s-3);
+      margin-bottom: var(--s-7);
+    }
+    .login-card .brand-mark {
+      width: 32px; height: 32px;
+      border-radius: var(--r-1);
+      background: var(--accent);
+      color: var(--accent-text);
+      display: grid; place-items: center;
+      font-weight: 700;
+      font-size: 17px;
+    }
+    .login-card h1 { font-size: var(--t-lg); margin-bottom: 4px; }
+    .login-card .sub { color: var(--text-2); font-size: var(--t-sm); margin-bottom: var(--s-7); }
+    .login-card .err { color: var(--danger); font-size: var(--t-sm); margin-bottom: var(--s-3); }
+    .login-card form { display: flex; flex-direction: column; gap: var(--s-4); }
   </style>
 </head>
 <body>
+  <div class="login-bg"></div>
   <div class="login-card">
-    <h1>🤖 Bot Dashboard</h1>
-    <div class="sub">Espace de gestion privé</div>
+    <div class="brand-row">
+      <div class="brand-mark">⌬</div>
+      <div>
+        <div style="font-weight:600;font-size:var(--t-base);">Bot Console</div>
+        <div class="faint" style="font-size:11px;letter-spacing:0.04em;text-transform:uppercase;">Espace privé</div>
+      </div>
+    </div>
+
+    <h1>Connexion</h1>
+    <p class="sub">Entre le mot de passe pour accéder au tableau de bord.</p>
+
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
     <form method="POST">
-      <input type="password" name="password" placeholder="Mot de passe" autofocus>
-      <button class="btn btn-primary" style="width:100%;" type="submit">Connexion</button>
+      <div class="field">
+        <label for="pw">Mot de passe</label>
+        <input id="pw" type="password" name="password" autofocus autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">
+        Se connecter
+        <svg class="ic"><use href="#i-arrow-right"/></svg>
+      </button>
     </form>
   </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+      </symbol>
+    </defs>
+  </svg>
 </body>
 </html>
