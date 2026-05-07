@@ -415,7 +415,14 @@ async def commandes(interaction: discord.Interaction):
         "**/8ball <question>** (la boule magique répond à ta question)\n"
         "**/dé [faces]** (lance un dé, 6 faces par défaut)\n"
         "**/coinflip** (pile ou face)\n"
-        "**/blague** (raconte une blague aléatoire)"
+        "**/blague** (raconte une blague aléatoire)\n"
+        "**/ship <membre1> <membre2>** (calcule le taux de compatibilité entre deux membres)\n"
+        "**/choix <options>** (le bot choisit une option parmi celles que tu donnes, séparées par |)\n"
+        "**/random <min> <max>** (tire un nombre aléatoire entre deux bornes)\n"
+        "**/qui <question>** (le bot désigne un membre du serveur au hasard)\n"
+        "**/clap <texte>** (insère 👏 entre 👏 chaque 👏 mot)\n"
+        "**/rate <truc>** (le bot note quelque chose sur 10)\n"
+        "**/citation** (affiche une citation au hasard)"
     )
     embed.add_field(name="🎉 Fun", value=fun, inline=False)
     embed.add_field(name="​", value="​", inline=False)
@@ -516,6 +523,133 @@ async def blague(interaction: discord.Interaction):
                 await interaction.followup.send(f"😂 {data['joke']}")
             else:
                 await interaction.followup.send(f"😂 **{data['setup']}**\n||{data['delivery']}||")
+
+
+@bot.tree.command(name="ship", description="Calcule le taux de compatibilité entre deux membres")
+@app_commands.describe(membre1="Premier membre", membre2="Deuxième membre")
+async def ship(interaction: discord.Interaction, membre1: discord.Member, membre2: discord.Member):
+    if membre1.id == membre2.id:
+        await interaction.response.send_message("❌ Tu ne peux pas ship quelqu'un avec lui-même !", ephemeral=True)
+        return
+    # Deterministic : meme couple = meme score, ordre indifferent
+    import hashlib
+    pair = tuple(sorted([str(membre1.id), str(membre2.id)]))
+    seed = int(hashlib.sha256(f"{pair[0]}:{pair[1]}".encode()).hexdigest(), 16)
+    pct = seed % 101
+    # Nom fusion
+    n1, n2 = membre1.display_name, membre2.display_name
+    fused = n1[:max(2, len(n1)//2)] + n2[max(1, len(n2)//2):]
+    # Verdict + couleur
+    if   pct >= 90: verdict, col = "Âmes sœurs.", discord.Color.from_rgb(220, 50, 80)
+    elif pct >= 70: verdict, col = "Belle alchimie.", discord.Color.from_rgb(230, 100, 130)
+    elif pct >= 50: verdict, col = "Ça pourrait marcher.", discord.Color.from_rgb(200, 140, 160)
+    elif pct >= 25: verdict, col = "Mouais.", discord.Color.from_rgb(150, 150, 150)
+    else:           verdict, col = "Catastrophe.", discord.Color.from_rgb(120, 120, 120)
+    bar_len = 20
+    filled = int(pct / 100 * bar_len)
+    bar = "█" * filled + "░" * (bar_len - filled)
+    embed = discord.Embed(title=f"💘 {n1} × {n2}", color=col)
+    embed.add_field(name="Compatibilité", value=f"`{bar}` **{pct}%**", inline=False)
+    embed.add_field(name="Nom fusion", value=f"**{fused}**", inline=True)
+    embed.add_field(name="Verdict", value=verdict, inline=True)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="choix", description="Le bot choisit pour toi entre plusieurs options")
+@app_commands.describe(options="Tes options séparées par des | (ex: pizza | sushi | burger)")
+async def choix(interaction: discord.Interaction, options: str):
+    items = [o.strip() for o in options.split("|") if o.strip()]
+    if len(items) < 2:
+        await interaction.response.send_message("❌ Donne au moins 2 options séparées par `|` (ex: `option1 | option2`).", ephemeral=True)
+        return
+    if len(items) > 20:
+        await interaction.response.send_message("❌ Maximum 20 options.", ephemeral=True)
+        return
+    pick = random.choice(items)
+    embed = discord.Embed(title="🎯 Le bot a choisi", color=discord.Color.teal())
+    embed.add_field(name="Options", value=" · ".join(f"`{o}`" for o in items), inline=False)
+    embed.add_field(name="→ Choix", value=f"**{pick}**", inline=False)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="random", description="Tire un nombre aléatoire entre deux bornes")
+@app_commands.describe(min="Borne min (inclus)", max="Borne max (inclus)")
+async def random_cmd(interaction: discord.Interaction, min: int, max: int):
+    if min > max:
+        min, max = max, min
+    if max - min > 1_000_000_000:
+        await interaction.response.send_message("❌ Plage trop grande (max 1 milliard).", ephemeral=True)
+        return
+    n = random.randint(min, max)
+    await interaction.response.send_message(f"🎲 Entre **{min}** et **{max}** → **{n}**")
+
+@bot.tree.command(name="qui", description="Le bot désigne un membre du serveur au hasard")
+@app_commands.describe(question="La question (ex: qui paie le café ?)")
+async def qui(interaction: discord.Interaction, question: str):
+    members = [m for m in interaction.guild.members if not m.bot]
+    if not members:
+        await interaction.response.send_message("❌ Aucun membre humain trouvé sur ce serveur.", ephemeral=True)
+        return
+    pick = random.choice(members)
+    embed = discord.Embed(color=discord.Color.gold())
+    embed.add_field(name="Question", value=question, inline=False)
+    embed.add_field(name="→ Désigné", value=pick.mention, inline=False)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="clap", description="Met 👏 entre 👏 chaque 👏 mot")
+@app_commands.describe(texte="Le texte à transformer")
+async def clap(interaction: discord.Interaction, texte: str):
+    if len(texte) > 800:
+        await interaction.response.send_message("❌ Texte trop long (max 800 caractères).", ephemeral=True)
+        return
+    out = " 👏 ".join(texte.split())
+    if not out:
+        await interaction.response.send_message("❌ Texte vide.", ephemeral=True)
+        return
+    await interaction.response.send_message(out)
+
+@bot.tree.command(name="rate", description="Le bot note quelque chose sur 10")
+@app_commands.describe(truc="Ce que tu veux noter")
+async def rate(interaction: discord.Interaction, truc: str):
+    import hashlib
+    seed = int(hashlib.sha256(truc.lower().strip().encode()).hexdigest(), 16)
+    note = seed % 11  # 0 a 10
+    if   note >= 9: avis = "Chef-d'œuvre."
+    elif note >= 7: avis = "Solide."
+    elif note >= 5: avis = "Honnête."
+    elif note >= 3: avis = "Mitigé."
+    else:           avis = "Bof."
+    bar = "★" * note + "☆" * (10 - note)
+    embed = discord.Embed(title=f"📊 Évaluation : {truc[:80]}", color=discord.Color.blue())
+    embed.add_field(name="Note", value=f"{bar}\n**{note}/10** — {avis}", inline=False)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="citation", description="Affiche une citation au hasard")
+async def citation(interaction: discord.Interaction):
+    citations = [
+        ("Le doute est le commencement de la sagesse.", "Aristote"),
+        ("Connais-toi toi-même.", "Socrate"),
+        ("Ce qui ne nous tue pas nous rend plus forts.", "Friedrich Nietzsche"),
+        ("La vie est un mystère qu'il faut vivre, et non un problème à résoudre.", "Gandhi"),
+        ("Sois le changement que tu veux voir dans le monde.", "Gandhi"),
+        ("Je pense, donc je suis.", "René Descartes"),
+        ("L'imagination est plus importante que le savoir.", "Albert Einstein"),
+        ("La simplicité est la sophistication suprême.", "Léonard de Vinci"),
+        ("On ne voit bien qu'avec le cœur. L'essentiel est invisible pour les yeux.", "Saint-Exupéry"),
+        ("Faites de votre vie un rêve, et d'un rêve, une réalité.", "Saint-Exupéry"),
+        ("Le succès, c'est aller d'échec en échec sans perdre son enthousiasme.", "Winston Churchill"),
+        ("Celui qui déplace une montagne commence par déplacer les petites pierres.", "Confucius"),
+        ("Choisis un travail que tu aimes et tu n'auras pas à travailler un seul jour.", "Confucius"),
+        ("La meilleure façon de prédire l'avenir, c'est de le créer.", "Peter Drucker"),
+        ("Le voyage de mille lieues commence par un seul pas.", "Lao Tseu"),
+        ("Tout ce qui ne tue pas une idée la rend plus forte.", "Anonyme"),
+        ("Ne demande pas ce que ton pays peut faire pour toi, demande ce que tu peux faire pour ton pays.", "John F. Kennedy"),
+        ("La folie, c'est de faire toujours la même chose et d'attendre un résultat différent.", "Albert Einstein"),
+        ("Vivre, c'est naître à chaque instant.", "Erich Fromm"),
+        ("L'échec est le fondement de la réussite.", "Lao Tseu"),
+    ]
+    texte, auteur = random.choice(citations)
+    embed = discord.Embed(description=f"_« {texte} »_", color=discord.Color.dark_grey())
+    embed.set_footer(text=f"— {auteur}")
+    await interaction.response.send_message(embed=embed)
 
 
 # ===== MODÉRATION =====
