@@ -2,9 +2,6 @@ from flask import Flask, render_template, request, redirect, session, jsonify
 import sqlite3
 import os
 from dotenv import load_dotenv
-import matplotlib.pyplot as plt
-import io
-import base64
 
 from database import (
     init_db,
@@ -44,27 +41,11 @@ def get_global_stats():
         "top_user": dict(top_user) if top_user else None
     }
 
-def generate_chart():
+def get_top10_users():
     db = get_db()
-    users = db.execute("SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10").fetchall()
+    rows = db.execute("SELECT user_id, username, xp, level FROM users ORDER BY xp DESC LIMIT 10").fetchall()
     db.close()
-    if not users:
-        return None
-    usernames = [user["username"] for user in users]
-    xp_values = [user["xp"] for user in users]
-    fig, ax = plt.subplots(figsize=(10, 6), facecolor='#FFFFFF')
-    ax.barh(usernames, xp_values, color='#FBE863', edgecolor='#2F2521', linewidth=1.2)
-    ax.set_xlabel('XP', color='#2F2521')
-    ax.set_title('Top 10 des utilisateurs', color='#2F2521', fontsize=14, fontweight='bold')
-    ax.tick_params(colors='#2F2521')
-    for spine in ax.spines.values():
-        spine.set_color('#2F2521')
-    plt.tight_layout()
-    img = io.BytesIO()
-    plt.savefig(img, format='png')
-    img.seek(0)
-    plt.close()
-    return base64.b64encode(img.getvalue()).decode()
+    return [dict(r) for r in rows]
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -83,8 +64,8 @@ def dashboard():
     users = db.execute("SELECT * FROM users ORDER BY xp DESC").fetchall()
     db.close()
     stats = get_global_stats()
-    chart = generate_chart()
-    return render_template("dashboard.html", users=users, stats=stats, chart=chart)
+    top10 = get_top10_users()
+    return render_template("dashboard.html", users=users, stats=stats, top10=top10)
 
 @app.route("/search")
 def search_page():
