@@ -321,6 +321,12 @@ p { margin: 0; }
 
 /* Mobile drawer */
 .drawer-toggle { display: none; }
+.scrim {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--bg-overlay);
+  z-index: 40;
+}
 @media (max-width: 880px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar {
@@ -335,12 +341,6 @@ p { margin: 0; }
   .drawer-toggle { display: inline-flex; }
   .topbar { padding: 0 var(--s-4); }
   .content { padding: var(--s-5) var(--s-4) var(--s-9); }
-  .scrim {
-    display: none;
-    position: fixed; inset: 0;
-    background: var(--bg-overlay);
-    z-index: 40;
-  }
   .scrim[data-open="true"] { display: block; }
 }
 
