@@ -6,7 +6,37 @@ import random
 import aiohttp
 import yt_dlp
 import asyncio
+import ctypes.util
 from dotenv import load_dotenv
+
+# ===== Charger libopus pour le voice =====
+def _load_opus():
+    if discord.opus.is_loaded():
+        return True
+    # Tentatives de paths courants Linux + macOS + auto-detect
+    candidates = [
+        ctypes.util.find_library("opus"),
+        "libopus.so.0",
+        "libopus.so",
+        "/usr/lib/x86_64-linux-gnu/libopus.so.0",
+        "/usr/lib/aarch64-linux-gnu/libopus.so.0",
+        "/usr/local/lib/libopus.so.0",
+        "/opt/homebrew/lib/libopus.dylib",
+        "/usr/local/lib/libopus.dylib",
+    ]
+    for path in candidates:
+        if not path:
+            continue
+        try:
+            discord.opus.load_opus(path)
+            print(f"[opus] loaded from {path}")
+            return True
+        except Exception:
+            continue
+    print("[opus] FAILED to load — install libopus0 (apt) or libopus (brew)")
+    return False
+
+_load_opus()
 from rank_card import generate_levelup_card, generate_rank_card
 from database import (init_db, get_xp, set_xp, get_leaderboard,
                       get_all_reactions_index, set_reaction, remove_reaction, get_all_reactions,
