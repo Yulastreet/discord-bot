@@ -29,8 +29,12 @@ init_db()
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET", os.urandom(24))
+# Cle de session fixe en prod (sinon les sessions sautent a chaque restart).
+# Met FLASK_SECRET dans le .env, sinon clef ephemere.
+app.secret_key = os.getenv("FLASK_SECRET") or os.urandom(24)
 PASSWORD = os.getenv("WEB_PASSWORD")
+if not PASSWORD:
+    print("[WARN] WEB_PASSWORD non defini dans .env — login impossible.")
 
 
 # =====================================================================
@@ -458,4 +462,5 @@ def api_music_command_status(cmd_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=5000, debug=debug, use_reloader=False)
