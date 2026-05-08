@@ -105,6 +105,40 @@ class TourView(discord.ui.View):
 
 
 # ─── VUE : HISTORIQUE DU COMBAT ───────────────────────────
+class NextTurnView(discord.ui.View):
+    """Bouton 'Tour suivant' entre deux tours, cliquable par les deux duellistes."""
+
+    def __init__(self, joueur1, joueur2, event_next, tour, label="Tour suivant ⚔️"):
+        super().__init__(timeout=120)
+        self.joueur1   = joueur1
+        self.joueur2   = joueur2
+        self.event     = event_next
+
+        btn = discord.ui.Button(
+            label=label,
+            style=discord.ButtonStyle.primary,
+            custom_id=f"next_tour_{tour}",
+        )
+        async def cb(interaction: discord.Interaction):
+            if interaction.user.id not in (self.joueur1.id, self.joueur2.id):
+                try:
+                    await interaction.response.send_message(
+                        "❌ Seuls les duellistes peuvent passer au tour suivant.", ephemeral=True)
+                except Exception:
+                    pass
+                return
+            for child in self.children:
+                child.disabled = True
+                child.label    = f"⏩ Suivant — {interaction.user.display_name}"
+            try:
+                await interaction.response.edit_message(view=self)
+            except Exception:
+                pass
+            self.event.set()
+        btn.callback = cb
+        self.add_item(btn)
+
+
 class HistoriqueView(discord.ui.View):
     def __init__(self, historique: list):
         super().__init__(timeout=120)
@@ -286,8 +320,15 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             )
             resume.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
             resume.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-            await msg.edit(embed=resume, view=None)
-            await asyncio.sleep(2)
+            resume.set_footer(text="📖 Lisez le récap du mini-jeu puis cliquez sur Tour suivant.")
+
+            event_next = asyncio.Event()
+            view_next  = NextTurnView(joueur1, joueur2, event_next, tour, label="Tour suivant ⚔️")
+            await msg.edit(embed=resume, view=view_next)
+            try:
+                await asyncio.wait_for(event_next.wait(), timeout=120)
+            except asyncio.TimeoutError:
+                pass
             tour += 1
             continue
 
@@ -369,8 +410,22 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             f"{joueur2.display_name} {stats2['hp']}/{stats2['hp_max']}"
         )
 
-        await msg.edit(embed=embed_result, view=None)
-        await asyncio.sleep(3)
+        # Si le combat est fini, on skip le bouton et on laisse la boucle sortir
+        if stats1["hp"] <= 0 or stats2["hp"] <= 0 or tour >= MAX_TOURS:
+            await msg.edit(embed=embed_result, view=None)
+            await asyncio.sleep(1)
+            tour += 1
+            continue
+
+        # Bouton "Tour suivant" — l'un ou l'autre duelliste clique pour avancer
+        embed_result.set_footer(text="📖 Lisez le récap puis cliquez sur Tour suivant pour continuer.")
+        event_next = asyncio.Event()
+        view_next  = NextTurnView(joueur1, joueur2, event_next, tour)
+        await msg.edit(embed=embed_result, view=view_next)
+        try:
+            await asyncio.wait_for(event_next.wait(), timeout=120)
+        except asyncio.TimeoutError:
+            pass  # avance auto après 2 min d'inactivité
         tour += 1
 
     # ─── Fin du combat ───────────────────────────────────────────────
