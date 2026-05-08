@@ -24,6 +24,10 @@ from database import (
     # Stats (temporelles + heatmap + top)
     get_activity_by_day, get_xp_by_day, get_activity_heatmap,
     get_top_commands, get_top_active_users,
+    # Settings (config dynamique)
+    get_all_settings, get_setting, set_setting, DEFAULT_SETTINGS,
+    # Members (cache pour modération + picker)
+    list_members,
     # DMs (global)
     list_dm_conversations, get_dm_conversation, mark_dm_read, count_unread_dms,
     delete_dm_conversation,
@@ -100,9 +104,9 @@ def _record_login(ip, success, username=None):
 PUBLIC_PATHS = {"/", "/static"}        # tout le reste exige login
 GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild sélectionné
     "/", "/select-guild", "/general", "/logout",
-    "/dms", "/status",
+    "/dms", "/status", "/settings",
     "/api/guilds", "/api/select-guild",
-    "/api/dms", "/api/status",
+    "/api/dms", "/api/status", "/api/settings",
 }
 
 def needs_guild(path):
@@ -113,8 +117,8 @@ def needs_guild(path):
             return False
     if path.startswith("/api/duels") or path.startswith("/api/sabres"):
         return False  # duels/sabres = global
-    if path.startswith("/api/dms") or path.startswith("/api/status"):
-        return False  # DMs et status = global
+    if path.startswith("/api/dms") or path.startswith("/api/status") or path.startswith("/api/settings"):
+        return False  # DMs / status / settings = global
     return True
 
 @app.before_request
@@ -680,16 +684,92 @@ def api_bottalk_send():
     data = request.json or {}
     channel_id = (data.get("channel_id") or "").strip()
     content    = (data.get("content") or "").strip()
+    embed      = data.get("embed")
     if not channel_id:
         return jsonify({"error": "channel_id requis"}), 400
-    if not content:
-        return jsonify({"error": "content vide"}), 400
+    if not content and not embed:
+        return jsonify({"error": "content ou embed requis"}), 400
     if len(content) > 2000:
         return jsonify({"error": "content trop long (max 2000 chars)"}), 400
-    cid = bot_command_enqueue(g_id, "bot_say", {
-        "channel_id": channel_id,
-        "content":    content,
-    })
+    payload = {"channel_id": channel_id, "content": content}
+    if embed and isinstance(embed, dict):
+        # Sanitize : on ne forwarde que les clés attendues
+        allowed = {"title","description","url","color","author_name","author_url","author_icon",
+                   "footer_text","footer_icon","image","thumbnail","fields","timestamp"}
+        clean = {k: v for k, v in embed.items() if k in allowed}
+        # Trim fields
+        if isinstance(clean.get("fields"), list):
+            clean["fields"] = [
+                {"name": str(f.get("name", ""))[:256],
+                 "value": str(f.get("value", ""))[:1024],
+                 "inline": bool(f.get("inline"))}
+                for f in clean["fields"][:25]
+            ]
+        payload["embed"] = clean
+    cid = bot_command_enqueue(g_id, "bot_say", payload)
+    return jsonify({"success": True, "command_id": cid})
+
+
+# =====================================================================
+# SETTINGS (global)
+# =====================================================================
+
+@app.route("/settings")
+def settings_page():
+    return render_template("settings.html",
+                           settings=get_all_settings(),
+                           defaults=DEFAULT_SETTINGS)
+
+@app.route("/api/settings", methods=["GET"])
+def api_settings_get():
+    return jsonify({"settings": get_all_settings(), "defaults": DEFAULT_SETTINGS})
+
+@app.route("/api/settings", methods=["POST"])
+def api_settings_set():
+    data = request.json or {}
+    allowed = set(DEFAULT_SETTINGS.keys())
+    updated = []
+    for k, v in data.items():
+        if k in allowed:
+            set_setting(k, v)
+            updated.append(k)
+    return jsonify({"success": True, "updated": updated})
+
+
+# =====================================================================
+# MODERATION (per-guild) — list members + kick/ban/timeout/unban
+# =====================================================================
+
+@app.route("/moderation")
+def moderation_page():
+    return render_template("moderation.html")
+
+@app.route("/api/members")
+def api_members():
+    g_id = gid()
+    search = (request.args.get("q") or "").strip() or None
+    include_bots = request.args.get("bots") == "1"
+    rows = list_members(g_id, include_bots=include_bots, search=search, limit=300)
+    return jsonify({"members": rows})
+
+@app.route("/api/moderation/<action>", methods=["POST"])
+def api_moderation(action):
+    if action not in ("kick", "ban", "timeout", "unban"):
+        return jsonify({"error": "action invalide"}), 400
+    g_id = gid()
+    data = request.json or {}
+    user_id = (data.get("user_id") or "").strip()
+    if not user_id:
+        return jsonify({"error": "user_id requis"}), 400
+    payload = {
+        "user_id":          user_id,
+        "reason":           (data.get("reason") or "").strip() or None,
+    }
+    if action == "ban":
+        payload["delete_seconds"] = int(data.get("delete_seconds", 0) or 0)
+    if action == "timeout":
+        payload["duration_minutes"] = int(data.get("duration_minutes", 10) or 10)
+    cid = bot_command_enqueue(g_id, f"mod_{action}", payload)
     return jsonify({"success": True, "command_id": cid})
 
 

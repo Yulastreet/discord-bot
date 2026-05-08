@@ -120,6 +120,25 @@ def init_db():
         PRIMARY KEY (guild_id, channel_id)
     )''')
 
+    # ===== Table settings (config dynamique) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ===== Table guild_members (cache members par serveur) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
+        guild_id    TEXT NOT NULL,
+        user_id     TEXT NOT NULL,
+        username    TEXT,
+        avatar_url  TEXT,
+        is_bot      INTEGER DEFAULT 0,
+        joined_at   TIMESTAMP,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, user_id)
+    )''')
+
     # ===== Table dm_messages (DM entre users et le bot, global cross-guild) =====
     c.execute('''CREATE TABLE IF NOT EXISTS dm_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1028,6 +1047,107 @@ def delete_dm_conversation(user_id):
     conn.commit()
     conn.close()
     return n
+
+
+# ===== SETTINGS (config dynamique) =====
+DEFAULT_SETTINGS = {
+    "xp_min":               "1",
+    "xp_max":               "5",
+    "xp_cooldown_seconds":  "0",
+    "log_retention_days":   "90",
+    "log_keep_per_guild":   "5000",
+    "welcome_template":     "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
+}
+
+def get_setting(key, default=None):
+    if default is None:
+        default = DEFAULT_SETTINGS.get(key)
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = c.fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+def set_setting(key, value):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO settings (key, value, updated_at)
+                 VALUES (?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
+              (key, str(value)))
+    conn.commit()
+    conn.close()
+
+def get_all_settings():
+    """Retourne dict : key -> value (avec defaults appliques)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT key, value FROM settings")
+    db = {r["key"]: r["value"] for r in c.fetchall()}
+    conn.close()
+    out = dict(DEFAULT_SETTINGS)
+    out.update(db)
+    return out
+
+
+# ===== GUILD MEMBERS (cache) =====
+def upsert_member(guild_id, user_id, username, avatar_url=None, is_bot=False, joined_at=None):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO guild_members (guild_id, user_id, username, avatar_url, is_bot, joined_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                   username = excluded.username,
+                   avatar_url = excluded.avatar_url,
+                   is_bot = excluded.is_bot,
+                   joined_at = COALESCE(excluded.joined_at, guild_members.joined_at),
+                   updated_at = CURRENT_TIMESTAMP""",
+              (str(guild_id), str(user_id), username, avatar_url, 1 if is_bot else 0,
+               joined_at.isoformat() if joined_at else None))
+    conn.commit()
+    conn.close()
+
+def remove_member(guild_id, user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM guild_members WHERE guild_id = ? AND user_id = ?",
+              (str(guild_id), str(user_id)))
+    conn.commit()
+    conn.close()
+
+def list_members(guild_id, include_bots=False, search=None, limit=200):
+    conn = get_db()
+    c = conn.cursor()
+    where = ["guild_id = ?"]
+    args  = [str(guild_id)]
+    if not include_bots:
+        where.append("is_bot = 0")
+    if search:
+        where.append("(LOWER(username) LIKE ? OR user_id LIKE ?)")
+        like = f"%{search.lower()}%"
+        args += [like, like]
+    args.append(int(limit))
+    sql = f"""SELECT * FROM guild_members WHERE {' AND '.join(where)}
+              ORDER BY username COLLATE NOCASE LIMIT ?"""
+    c.execute(sql, args)
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def replace_guild_members(guild_id, members):
+    """Bulk replace. members = list of dicts {user_id, username, avatar_url, is_bot, joined_at}."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM guild_members WHERE guild_id = ?", (str(guild_id),))
+    for m in members:
+        c.execute("""INSERT INTO guild_members (guild_id, user_id, username, avatar_url, is_bot, joined_at)
+                     VALUES (?, ?, ?, ?, ?, ?)""",
+                  (str(guild_id), str(m["user_id"]), m.get("username"),
+                   m.get("avatar_url"), 1 if m.get("is_bot") else 0,
+                   m["joined_at"].isoformat() if m.get("joined_at") else None))
+    conn.commit()
+    conn.close()
 
 
 def replace_guild_channels(guild_id, channels):

@@ -190,6 +190,22 @@
     <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 12h4l3-9 4 18 3-9h4"/>
     </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z"/>
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.06a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.27.55.78.94 1.39 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+    </symbol>
+    <symbol id="i-foot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 18 15 12 9 6"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -227,6 +243,9 @@
       <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
         <svg class="ic"><use href="#i-quote"/></svg> BotTalk
       </a>
+      <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
+        <svg class="ic"><use href="#i-shield"/></svg> Modération
+      </a>
 
       <div class="nav-section">Global (cross-serveur)</div>
       <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
@@ -237,6 +256,9 @@
       </a>
       <a href="/status" class="nav-item {{ 'active' if active_nav == 'status' }}">
         <svg class="ic"><use href="#i-pulse"/></svg> Status
+      </a>
+      <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
+        <svg class="ic"><use href="#i-gear"/></svg> Réglages
       </a>
     </nav>
 

@@ -1,0 +1,188 @@
+{% extends "_base.html" %}
+{% set active_nav = 'moderation' %}
+
+{% block title %}Modération · Bot Console{% endblock %}
+{% block crumb %}Modération{% endblock %}
+
+{% block content %}
+
+<div class="col gap-7">
+  <div>
+    <h1>Modération</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
+      Kick, ban, timeout des membres du serveur. Le bot doit avoir les permissions
+      Discord correspondantes pour que l'action passe.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="grid grid-2 gap-3">
+      <div class="field">
+        <label>Membre</label>
+        <div class="input-search">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="text" id="memberSearch" placeholder="Pseudo ou ID Discord..." autocomplete="off">
+        </div>
+        <div id="memberList" class="member-list"></div>
+      </div>
+      <div class="col gap-3">
+        <div class="field">
+          <label>Membre sélectionné</label>
+          <div id="selectedMember" class="card-dark" style="background:var(--bg-2);padding:14px;border-radius:var(--r-2);min-height:60px;display:flex;align-items:center;color:var(--text-3);font-size:var(--t-sm);">
+            Aucun membre sélectionné.
+          </div>
+        </div>
+        <div class="field">
+          <label>Raison (optionnelle)</label>
+          <input type="text" id="reason" placeholder="Spam excessif...">
+        </div>
+        <div class="field" id="timeoutFields" style="display:none;">
+          <label>Durée du timeout (minutes)</label>
+          <input type="number" id="durationMinutes" value="10" min="1" max="40320">
+          <small class="faint" style="font-size:11px;">Max 28 jours = 40320 min.</small>
+        </div>
+        <div class="field" id="banFields" style="display:none;">
+          <label>Supprimer messages des dernières X heures</label>
+          <select id="deleteHours">
+            <option value="0">Aucun</option>
+            <option value="3600">1 heure</option>
+            <option value="21600">6 heures</option>
+            <option value="86400">1 jour</option>
+            <option value="604800">7 jours (max)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-6 gap-2">
+      <button class="btn btn-secondary" id="btnKick"    onclick="exec('kick')">      <svg class="ic"><use href="#i-foot"/></svg> Kick</button>
+      <button class="btn btn-secondary" id="btnTimeout" onclick="exec('timeout')">   <svg class="ic"><use href="#i-clock"/></svg> Timeout</button>
+      <button class="btn btn-danger"    id="btnBan"     onclick="exec('ban')">       <svg class="ic"><use href="#i-ban"/></svg> Ban</button>
+      <button class="btn btn-ghost"     id="btnUnban"   onclick="exec('unban')">     Unban (par ID)</button>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .member-list {
+    margin-top: var(--s-3);
+    max-height: 360px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    background: var(--bg-1);
+  }
+  .member-row {
+    display: flex; align-items: center; gap: var(--s-3);
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-soft);
+    transition: background 100ms var(--ease-out);
+  }
+  .member-row:last-child { border-bottom: none; }
+  .member-row:hover    { background: var(--bg-2); }
+  .member-row.selected { background: var(--accent-soft); }
+  .member-row .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--bg-3);
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    flex-shrink: 0;
+  }
+  .member-row .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+  .member-row .nm { font-size: var(--t-sm); font-weight: 500; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .member-row .uid { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let SELECTED = null;
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+async function loadMembers(q='') {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  try {
+    const res = await fetch('/api/members?' + params.toString());
+    const data = await res.json();
+    renderMembers(data.members || []);
+  } catch (e) {}
+}
+function renderMembers(rows) {
+  const el = document.getElementById('memberList');
+  if (!rows.length) {
+    el.innerHTML = '<div style="padding:var(--s-5);text-align:center;color:var(--text-3);font-size:var(--t-sm);">Aucun membre.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(m => {
+    const sel = SELECTED && SELECTED.user_id === m.user_id ? 'selected' : '';
+    const av = m.avatar_url
+      ? `<div class="av"><img src="${escapeAttr(m.avatar_url)}" alt=""></div>`
+      : `<div class="av">${escapeHtml((m.username || '?').slice(0,1).toUpperCase())}</div>`;
+    return `<div class="member-row ${sel}" onclick='selectMember(${JSON.stringify(m).replace(/'/g, "&#39;")})'>
+      ${av}
+      <div class="nm">${escapeHtml(m.username || '(inconnu)')}</div>
+      <div class="uid">${m.user_id}</div>
+    </div>`;
+  }).join('');
+}
+function selectMember(m) {
+  SELECTED = m;
+  loadMembers(document.getElementById('memberSearch').value.trim());
+  const el = document.getElementById('selectedMember');
+  const av = m.avatar_url
+    ? `<img src="${escapeAttr(m.avatar_url)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`
+    : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg-3);display:grid;place-items:center;font-weight:700;color:var(--accent);">${escapeHtml((m.username||'?').slice(0,1).toUpperCase())}</div>`;
+  el.style.color = 'var(--text)';
+  el.innerHTML = `<div class="row gap-3" style="margin:0;">${av}
+    <div><div style="font-weight:600;">${escapeHtml(m.username || '(inconnu)')}</div>
+    <div class="faint" style="font-family:var(--font-mono);font-size:11px;">${m.user_id}</div></div></div>`;
+}
+window.selectMember = selectMember;
+
+document.getElementById('memberSearch').addEventListener('input', debounce(e => loadMembers(e.target.value.trim()), 220));
+
+async function exec(action) {
+  let user_id;
+  if (action === 'unban') {
+    user_id = (prompt('ID Discord du membre à débannir :') || '').trim();
+    if (!user_id) return;
+  } else {
+    if (!SELECTED) { toast('Sélectionne un membre dans la liste.', 'error'); return; }
+    user_id = SELECTED.user_id;
+  }
+  const reason = document.getElementById('reason').value.trim();
+  const labels = { kick: 'kick', ban: 'BAN', timeout: 'timeout', unban: 'unban' };
+  if (!confirm(`Confirmer : ${labels[action].toUpperCase()} pour ${SELECTED ? SELECTED.username : user_id} ?\nRaison : ${reason || '(aucune)'}`)) return;
+
+  const payload = { user_id, reason };
+  if (action === 'timeout') payload.duration_minutes = parseInt(document.getElementById('durationMinutes').value || '10', 10);
+  if (action === 'ban')     payload.delete_seconds   = parseInt(document.getElementById('deleteHours').value || '0', 10);
+
+  try {
+    const res = await fetch(`/api/moderation/${action}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.success) toast(`Action ${action} envoyée. (~1.5s)`);
+    else toast(data.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.exec = exec;
+
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return String(s).replaceAll('"', '&quot;'); }
+
+// Toggle champs selon action survolée (UX hint)
+document.getElementById('btnTimeout').addEventListener('mouseenter', () => document.getElementById('timeoutFields').style.display = '');
+document.getElementById('btnBan').addEventListener('mouseenter', () => document.getElementById('banFields').style.display = '');
+
+loadMembers();
+</script>
+{% endblock %}

@@ -61,7 +61,9 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       bot_command_fetch_pending, bot_command_finish,
                       add_log, replace_guild_channels, upsert_channel, remove_channel,
                       save_dm,
-                      prune_logs_global)
+                      prune_logs_global,
+                      get_setting, get_all_settings,
+                      replace_guild_members, upsert_member, remove_member)
 from duel_commands import setup_duel_commands
 
 load_dotenv()
@@ -291,6 +293,10 @@ async def on_ready():
             _sync_guild_channels(guild)
         except Exception as e:
             print(f"[channels] sync {guild.name} échoué : {e}")
+        try:
+            _sync_guild_members(guild)
+        except Exception as e:
+            print(f"[members] sync {guild.name} échoué : {e}")
     print(f"👀 {len(USER_REACTIONS)} réaction(s) chargée(s) sur {len(bot.guilds)} serveur(s)")
     if not reload_reactions.is_running():
         reload_reactions.start()
@@ -312,6 +318,18 @@ async def on_ready():
             print(f"✅ Sync guild : {guild.name}")
         except Exception as e:
             print(f"❌ Sync guild échouée ({guild.name}) : {e}")
+
+def _sync_guild_members(guild):
+    members = []
+    for m in guild.members:
+        members.append({
+            "user_id":    m.id,
+            "username":   str(m),
+            "avatar_url": str(m.display_avatar.url) if m.display_avatar else None,
+            "is_bot":     m.bot,
+            "joined_at":  m.joined_at,
+        })
+    replace_guild_members(guild.id, members)
 
 def _sync_guild_channels(guild):
     """Pousse les salons d'un guild dans la table guild_channels."""
@@ -459,6 +477,21 @@ async def on_member_remove(member):
     add_log(member.guild.id, "action_member_leave",
             user_id=member.id, username=str(member),
             content=f"a quitté **{member.guild.name}**")
+    try:
+        remove_member(member.guild.id, member.id)
+    except Exception:
+        pass
+
+@bot.event
+async def on_member_update(before, after):
+    if not after.guild:
+        return
+    try:
+        upsert_member(after.guild.id, after.id, str(after),
+                      avatar_url=str(after.display_avatar.url) if after.display_avatar else None,
+                      is_bot=after.bot, joined_at=after.joined_at)
+    except Exception:
+        pass
 
 @bot.tree.command(name="sync", description="sync les slash commands manuellement (owner uniquement)")
 @commands.is_owner()
@@ -498,16 +531,35 @@ async def on_member_join(member):
     add_log(member.guild.id, "action_member_join",
             user_id=member.id, username=str(member),
             content=f"a rejoint **{member.guild.name}**")
+    # Update member cache
+    try:
+        upsert_member(member.guild.id, member.id, str(member),
+                      avatar_url=str(member.display_avatar.url) if member.display_avatar else None,
+                      is_bot=member.bot, joined_at=member.joined_at)
+    except Exception:
+        pass
+
     data = get_welcome(member.guild.id)
     if not data:
         return
     channel = bot.get_channel(data)
     if channel:
-        embed = discord.Embed(
-            title=f"👋 Bienvenue {member.name} !",
-            description=f"Bienvenue sur **{member.guild.name}** ! Tu es le membre numéro **{member.guild.member_count}**.",
-            color=discord.Color.green()
-        )
+        # Welcome template configurable via settings
+        template = get_setting("welcome_template",
+                               "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.")
+        try:
+            description = template.format(
+                user=member.mention, username=member.name,
+                guild=member.guild.name, count=member.guild.member_count or 0,
+            )
+        except Exception:
+            description = f"👋 Bienvenue {member.mention} !"
+        # Si template contient un titre dans la 1ere ligne, sinon on garde tout en description
+        title = f"👋 Bienvenue {member.name} !" if "{user}" not in template else None
+        if title:
+            embed = discord.Embed(title=title, description=description, color=discord.Color.green())
+        else:
+            embed = discord.Embed(description=description, color=discord.Color.green())
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
 
@@ -550,7 +602,12 @@ async def on_message(message):
     if not message.author.bot:
         xp = get_xp(guild_id_str, message.author.id)
         old_level = get_level(xp)
-        xp += random.randint(1, 5)
+        try:
+            xp_min = max(0, int(get_setting("xp_min", "1")))
+            xp_max = max(xp_min, int(get_setting("xp_max", "5")))
+        except (TypeError, ValueError):
+            xp_min, xp_max = 1, 5
+        xp += random.randint(xp_min, xp_max)
         set_xp(guild_id_str, message.author.id, xp, username=message.author.name)
         new_level = get_level(xp)
         if new_level > old_level:
@@ -1398,21 +1455,100 @@ async def _dispatch_bot_command(cmd):
     elif name == "music_clear":
         music_queue_clear(gid)
 
+    elif name in ("mod_kick", "mod_ban", "mod_timeout", "mod_unban"):
+        target_id = payload.get("user_id")
+        reason    = (payload.get("reason") or "Action depuis le dashboard").strip()
+        if not target_id:
+            raise ValueError("user_id requis")
+        if name == "mod_unban":
+            try:
+                user = await bot.fetch_user(int(target_id))
+                await guild.unban(user, reason=reason)
+            except discord.NotFound:
+                raise RuntimeError("user non banni ou inconnu")
+            return
+        member = guild.get_member(int(target_id))
+        if not member:
+            try:
+                member = await guild.fetch_member(int(target_id))
+            except Exception:
+                raise RuntimeError("membre introuvable sur ce serveur")
+        if name == "mod_kick":
+            await member.kick(reason=reason)
+        elif name == "mod_ban":
+            delete_seconds = int(payload.get("delete_seconds", 0) or 0)
+            await guild.ban(member, reason=reason, delete_message_seconds=delete_seconds)
+        elif name == "mod_timeout":
+            duration_min = int(payload.get("duration_minutes", 10) or 10)
+            until = discord.utils.utcnow() + _dt.timedelta(minutes=duration_min)
+            await member.timeout(until, reason=reason)
+        # Log côté bot
+        add_log(guild.id, f"action_{name}",
+                user_id=target_id, username=str(member) if 'member' in dir() and member else target_id,
+                content=reason,
+                meta={"by": "dashboard"})
+        return
+
     elif name == "bot_say":
-        # payload: {channel_id, content}
+        # payload: {channel_id, content, embed?}
         ch_id = payload.get("channel_id")
         content = (payload.get("content") or "").strip()
-        if not ch_id or not content:
-            raise ValueError("channel_id et content requis")
+        embed_data = payload.get("embed")
+        if not ch_id:
+            raise ValueError("channel_id requis")
+        if not content and not embed_data:
+            raise ValueError("content ou embed requis")
         channel = guild.get_channel(int(ch_id))
         if not channel:
             raise ValueError("salon introuvable")
         if not isinstance(channel, (discord.TextChannel, discord.Thread)):
             raise ValueError("le salon n'est pas textuel")
-        # Discord limit 2000 chars par message
         if len(content) > 2000:
             content = content[:1997] + "..."
-        await channel.send(content)
+
+        embed_obj = None
+        if embed_data and isinstance(embed_data, dict):
+            try:
+                color_hex = (embed_data.get("color") or "").lstrip("#")
+                color_int = int(color_hex, 16) if color_hex else None
+            except ValueError:
+                color_int = None
+            embed_obj = discord.Embed(
+                title=(embed_data.get("title") or None),
+                description=(embed_data.get("description") or None),
+                url=(embed_data.get("url") or None),
+                color=color_int,
+            )
+            author_name = embed_data.get("author_name")
+            if author_name:
+                embed_obj.set_author(
+                    name=author_name,
+                    url=embed_data.get("author_url") or None,
+                    icon_url=embed_data.get("author_icon") or None,
+                )
+            footer_text = embed_data.get("footer_text")
+            if footer_text:
+                embed_obj.set_footer(
+                    text=footer_text,
+                    icon_url=embed_data.get("footer_icon") or None,
+                )
+            if embed_data.get("image"):
+                embed_obj.set_image(url=embed_data["image"])
+            if embed_data.get("thumbnail"):
+                embed_obj.set_thumbnail(url=embed_data["thumbnail"])
+            for f in (embed_data.get("fields") or [])[:25]:
+                fname  = (f.get("name")  or "").strip()
+                fvalue = (f.get("value") or "").strip()
+                if fname and fvalue:
+                    embed_obj.add_field(
+                        name=fname[:256],
+                        value=fvalue[:1024],
+                        inline=bool(f.get("inline")),
+                    )
+            if embed_data.get("timestamp"):
+                embed_obj.timestamp = discord.utils.utcnow()
+
+        await channel.send(content=content or None, embed=embed_obj)
 
     else:
         raise ValueError(f"commande inconnue: {name}")
