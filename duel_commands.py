@@ -200,12 +200,18 @@ def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sab
     if action == "attaque":
         if def_stats["parade_active"]:
             rapport = calculer_degats(att_stats, def_stats)
+            # rapport["degats"] inclut deja tous les bonus (mini-jeu +30%, rage, overcharge, crit, etc.)
+            # → on renvoie 100% des degats bonus inclus a l'attaquant
+            for m in rapport["messages"]:
+                desc += f"{m}\n"
             att_stats["hp"] = max(0, att_stats["hp"] - rapport["degats"])
             def_stats["parade_active"] = False
-            desc += f"🔄 Parade de **{defenseur.display_name}** → **{rapport['degats']}** dégâts renvoyés à **{attaquant.display_name}** !\n"
+            desc += f"🔄 Parade de **{defenseur.display_name}** → **{rapport['degats']}** dégâts renvoyés à **{attaquant.display_name}** (bonus inclus) !\n"
         elif def_stats["defense_active"]:
             rapport = calculer_degats(att_stats, def_stats)
             dmg     = max(1, int(rapport["degats"] * 0.4))
+            for m in rapport["messages"]:
+                desc += f"{m}\n"
             def_stats["hp"]            = max(0, def_stats["hp"] - dmg)
             def_stats["defense_active"] = False
             desc += f"🔰 **{defenseur.display_name}** réduit à **{dmg}** dégâts !\n"
@@ -221,22 +227,39 @@ def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sab
         if def_stats["parade_active"]:
             rapport = calculer_degats(att_stats, def_stats)
             dmg     = rapport["degats"] * 2
+            for m in rapport["messages"]:
+                desc += f"{m}\n"
             def_stats["hp"]            = max(0, def_stats["hp"] - dmg)
             def_stats["parade_active"] = False
             desc += f"💥 **{attaquant.display_name}** brise la parade ! **{dmg}** dégâts critiques !\n"
         else:
             rapport = calculer_degats(att_stats, def_stats)
             dmg     = max(1, rapport["degats"] // 2)
+            for m in rapport["messages"]:
+                desc += f"{m}\n"
             def_stats["hp"] = max(0, def_stats["hp"] - dmg)
             desc += f"👊 **{attaquant.display_name}** coup bas : **{dmg}** dégâts.\n"
 
     elif action == "speciale" and att_stats["speciale_dispo"]:
         rapport = calculer_degats(att_stats, def_stats, utilise_speciale=True, sabre_data=att_sabre)
-        def_stats["hp"] = max(0, def_stats["hp"] - rapport["degats"])
         for m in rapport["messages"]:
             desc += f"{m}\n"
-        if rapport["degats"] > 0:
-            desc += f"💥 **{rapport['degats']}** dégâts !\n"
+        if def_stats["parade_active"]:
+            # Parade vs speciale : seulement 50% renvoyes a l'attaquant, l'autre 50% subi par le defenseur
+            reflected = rapport["degats"] // 2
+            taken     = rapport["degats"] - reflected
+            att_stats["hp"] = max(0, att_stats["hp"] - reflected)
+            def_stats["hp"] = max(0, def_stats["hp"] - taken)
+            def_stats["parade_active"] = False
+            desc += (
+                f"🔄 Parade vs spéciale : **{reflected}** dégâts renvoyés à "
+                f"**{attaquant.display_name}**, **{taken}** subis par "
+                f"**{defenseur.display_name}**.\n"
+            )
+        else:
+            def_stats["hp"] = max(0, def_stats["hp"] - rapport["degats"])
+            if rapport["degats"] > 0:
+                desc += f"💥 **{rapport['degats']}** dégâts !\n"
 
     return desc
 
@@ -394,6 +417,10 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
                 stats["parade_cooldown"] -= 1
             if choix != "defense":
                 stats["defense_active"] = False
+            # Parade non consommée par une attaque adverse : on la coupe.
+            # Seule la défense persistait avant, la parade fait pareil maintenant.
+            if stats.get("parade_active"):
+                stats["parade_active"] = False
 
         # ─── Résultat ────────────────────────────────────────────────
         embed_result = discord.Embed(
