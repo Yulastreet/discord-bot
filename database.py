@@ -880,6 +880,16 @@ def count_unread_dms():
     conn.close()
     return n
 
+def delete_dm_conversation(user_id):
+    """Supprime tous les messages echanges avec un user donne. Retourne le nombre supprime."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM dm_messages WHERE user_id = ?", (str(user_id),))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
 
 def replace_guild_channels(guild_id, channels):
     """Remplace en bulk la liste des channels d'un guild. channels = list of dicts."""

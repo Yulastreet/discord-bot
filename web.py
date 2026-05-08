@@ -18,6 +18,7 @@ from database import (
     get_logs, list_channels,
     # DMs (global)
     list_dm_conversations, get_dm_conversation, mark_dm_read, count_unread_dms,
+    delete_dm_conversation,
     # Duels (global)
     admin_lister_duel_users, admin_get_full_duel_user, admin_update_duel_profil,
     admin_supprimer_sabre_collection,
@@ -548,6 +549,11 @@ def api_dms_send():
 def api_dms_mark_read(user_id):
     mark_dm_read(user_id)
     return jsonify({"success": True})
+
+@app.route("/api/dms/conversation/<user_id>", methods=["DELETE"])
+def api_dms_delete(user_id):
+    n = delete_dm_conversation(user_id)
+    return jsonify({"success": True, "deleted": n})
 
 
 @app.route("/api/bottalk/send", methods=["POST"])

@@ -101,6 +101,19 @@
   }
   .dm-row .dm-preview .dir-out { color: var(--text-2); }
   .dm-row .dm-time { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+  .dm-row .dm-row-trash {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-3);
+    padding: 4px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 100ms var(--ease-out), background 100ms var(--ease-out);
+  }
+  .dm-row .dm-row-trash:hover { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+  .dm-row:hover .dm-row-trash { display: inline-flex; }
+  .dm-row .dm-row-trash .ic { width: 12px; height: 12px; }
   .dm-row .dm-unread {
     display: inline-flex;
     align-items: center; justify-content: center;
@@ -304,9 +317,12 @@ function renderList(q = '') {
           <div class="dm-name">${escapeHtml(c.username || '(inconnu)')}</div>
           <div class="dm-preview">${preview}</div>
         </div>
-        <div style="text-align:right;">
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <div class="dm-time">${fmtRelative(c.last_ts)}</div>
           ${unread ? `<div class="dm-unread">${c.unread}</div>` : ''}
+          <button class="dm-row-trash" onclick="event.stopPropagation(); deleteConversation('${c.user_id}')" title="Supprimer">
+            <svg class="ic"><use href="#i-trash"/></svg>
+          </button>
         </div>
       </div>`;
   }).join('');
@@ -370,10 +386,14 @@ function renderThread(uid, msgs) {
   thread.innerHTML = `
     <header class="dm-thread-head">
       ${avatarHtml(conv, 40)}
-      <div>
+      <div style="flex:1;">
         <div class="name">${escapeHtml(conv.username || '(inconnu)')}</div>
         <div class="uid">${escapeHtml(uid)}</div>
       </div>
+      <button class="btn btn-ghost btn-sm" onclick="deleteConversation('${uid}')" title="Supprimer cette conversation">
+        <svg class="ic"><use href="#i-trash"/></svg>
+        Supprimer
+      </button>
     </header>
     <div class="dm-messages" id="dmMessages">
       ${lines.join('') || '<div class="dm-empty">Aucun message.</div>'}
@@ -425,6 +445,32 @@ async function sendDM() {
   finally { ta.disabled = false; ta.focus(); }
 }
 window.sendDM = sendDM;
+
+async function deleteConversation(uid) {
+  const conv = CONVERSATIONS.find(c => c.user_id === uid);
+  const name = conv ? (conv.username || uid) : uid;
+  if (!confirm(`Supprimer toute la conversation avec ${name} ?\nCette action est irréversible.`)) return;
+  try {
+    const res = await fetch(`/api/dms/conversation/${uid}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      toast(`Conversation supprimée (${data.deleted} message${data.deleted > 1 ? 's' : ''}).`);
+      // Reset thread si la conv supprimee etait selectionnee
+      if (SELECTED_UID === uid) {
+        SELECTED_UID = null;
+        document.getElementById('dmThread').innerHTML = `
+          <div class="dm-empty">
+            <span class="eyebrow">Conversation supprimée</span>
+            <p>Choisis une autre conversation dans la liste.</p>
+          </div>`;
+      }
+      loadConversations();
+    } else {
+      toast(data.error || 'Erreur', 'error');
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.deleteConversation = deleteConversation;
 
 // Polling
 loadConversations();
