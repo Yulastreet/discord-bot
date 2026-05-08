@@ -11,13 +11,18 @@ from duel_minigames import run_minigame
 
 
 # ─── EMBED HELPER : PHASE DE CHOIX ───────────────────────────
-def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1):
+def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
+                    phase_actif=None, phase_attente=None):
+    """phase_actif / phase_attente permettent de customiser le footer selon
+    qui joue en premier ce tour (initiative variable selon le jet de dé)."""
+    actif   = phase_actif   or j1
+    attente = phase_attente or j2
     if phase == 1:
         desc   = "Les deux joueurs choisissent chacun leur tour sans voir le choix adverse."
-        footer = f"⌛ {j1.display_name} choisit... · ⏳ {j2.display_name} en attente — 30 secondes !"
+        footer = f"⌛ {actif.display_name} choisit... · ⏳ {attente.display_name} en attente — 30 secondes !"
     elif phase == 2:
         desc   = "Les deux joueurs choisissent chacun leur tour sans voir le choix adverse."
-        footer = f"✅ {j1.display_name} a choisi ! · ⌛ {j2.display_name} choisit... — 30 secondes !"
+        footer = f"✅ {attente.display_name} a choisi ! · ⌛ {actif.display_name} choisit... — 30 secondes !"
     else:
         desc   = "⚙️ Résolution en cours..."
         footer = None
@@ -282,17 +287,59 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
     stats1  = calculer_stats(profil1, sabre1)
     stats2  = calculer_stats(profil2, sabre2)
 
-    # Jet de dé initial
+    # ─── Jet de dé d'initiative (message dédié, suspense) ──────────
+    nerf_label = " 〔MODE NERF〕" if nerf else ""
+
+    dice_embed = discord.Embed(
+        title="🎲 Jet de dé d'initiative",
+        description=(
+            f"**{joueur1.display_name}** {sabre1['emoji']}  vs  "
+            f"**{joueur2.display_name}** {sabre2['emoji']}\n\n"
+            f"_Lancement des dés..._"
+        ),
+        color=0xFFD700,
+    )
+    dice_msg = await channel.send(embed=dice_embed)
+    await asyncio.sleep(1.5)
+
     while True:
         de1, de2 = random.randint(1, 6), random.randint(1, 6)
         if de1 != de2:
             break
     if de1 > de2:
-        ordre  = [(joueur1, stats1, sabre1), (joueur2, stats2, sabre2)]
-        premier = joueur1.display_name
+        ordre   = [(joueur1, stats1, sabre1), (joueur2, stats2, sabre2)]
+        premier_obj = joueur1
     else:
-        ordre  = [(joueur2, stats2, sabre2), (joueur1, stats1, sabre1)]
-        premier = joueur2.display_name
+        ordre   = [(joueur2, stats2, sabre2), (joueur1, stats1, sabre1)]
+        premier_obj = joueur2
+
+    dice_result = discord.Embed(
+        title="🎲 Initiative",
+        description=(
+            f"🎲 **{joueur1.display_name}** : `{de1}`\n"
+            f"🎲 **{joueur2.display_name}** : `{de2}`\n\n"
+            f"➡️ **{premier_obj.display_name}** prend l'initiative et joue en premier !"
+        ),
+        color=0x00FF88,
+    )
+    await dice_msg.edit(embed=dice_result)
+    await asyncio.sleep(2.5)
+
+    # ─── Embed de début de combat (message séparé) ─────────────────
+    embed_debut = discord.Embed(
+        title=f"⚔️ DUEL DE SABRES LASER{nerf_label}",
+        description=(
+            f"{joueur1.mention} ({sabre1['emoji']} {sabre1['nom']}) "
+            f"VS {joueur2.mention} ({sabre2['emoji']} {sabre2['nom']})\n\n"
+            f"⚡ **{premier_obj.display_name}** commence."
+            + (f"\n\n⚖️ *Stats de niveau et points attribués ignorés — terrain égal !*" if nerf else "")
+        ),
+        color=0x00AAFF if nerf else 0xFF0000,
+    )
+    embed_debut.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+    embed_debut.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+    msg = await channel.send(embed=embed_debut)
+    await asyncio.sleep(2)
 
     tour         = 1
     MAX_TOURS    = 20
@@ -306,24 +353,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         "coup_bas": "👊 Coup Bas",
         "speciale": "✨ Spéciale",
     }
-
-    nerf_label = " 〔MODE NERF〕" if nerf else ""
-    embed_debut = discord.Embed(
-        title=f"⚔️ DUEL DE SABRES LASER{nerf_label}",
-        description=(
-            f"🎲 **{joueur1.display_name}** : {de1}  ·  **{joueur2.display_name}** : {de2}\n"
-            f"➡️ **{premier} commence !**\n\n"
-            f"{joueur1.mention} ({sabre1['emoji']} {sabre1['nom']}) "
-            f"VS {joueur2.mention} ({sabre2['emoji']} {sabre2['nom']})"
-            + (f"\n\n⚖️ *Stats de niveau et points attribués ignorés — terrain égal !*" if nerf else "")
-        ),
-        color=0x00AAFF if nerf else 0xFF0000,
-    )
-    embed_debut.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
-    embed_debut.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-    msg = await channel.send(embed=embed_debut)
-
-    await asyncio.sleep(2)
 
     while stats1["hp"] > 0 and stats2["hp"] > 0 and tour <= MAX_TOURS:
 
@@ -355,30 +384,40 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             tour += 1
             continue
 
-        # ─── Phase 1 : Joueur 1 choisit ──────────────────────────────
+        # ─── Phase 1 : c'est le gagnant du jet de dé qui choisit en premier
+        # ordre[0] = qui a remporté l'initiative (peut être joueur1 OU joueur2)
+        joueur_p1, stats_p1, _ = ordre[0]
+        joueur_p2, stats_p2, _ = ordre[1]
+
         choix_state = {}
         event_p1    = asyncio.Event()
-        view_p1     = TourView(joueur1, stats1, event_p1, choix_state, tour)
+        view_p1     = TourView(joueur_p1, stats_p1, event_p1, choix_state, tour)
         await msg.edit(
-            embed=make_tour_embed(tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2, phase=1),
+            embed=make_tour_embed(
+                tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2,
+                phase=1, phase_actif=joueur_p1, phase_attente=joueur_p2,
+            ),
             view=view_p1,
         )
         try:
             await asyncio.wait_for(event_p1.wait(), timeout=30)
         except asyncio.TimeoutError:
-            choix_state[joueur1.id] = "attaque"
+            choix_state[joueur_p1.id] = "attaque"
 
-        # ─── Phase 2 : Joueur 2 choisit ──────────────────────────────
+        # ─── Phase 2 : le second joue ────────────────────────────────
         event_p2 = asyncio.Event()
-        view_p2  = TourView(joueur2, stats2, event_p2, choix_state, tour)
+        view_p2  = TourView(joueur_p2, stats_p2, event_p2, choix_state, tour)
         await msg.edit(
-            embed=make_tour_embed(tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2, phase=2),
+            embed=make_tour_embed(
+                tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2,
+                phase=2, phase_actif=joueur_p2, phase_attente=joueur_p1,
+            ),
             view=view_p2,
         )
         try:
             await asyncio.wait_for(event_p2.wait(), timeout=30)
         except asyncio.TimeoutError:
-            choix_state[joueur2.id] = "attaque"
+            choix_state[joueur_p2.id] = "attaque"
 
         choix1 = choix_state.get(joueur1.id, "attaque")
         choix2 = choix_state.get(joueur2.id, "attaque")
