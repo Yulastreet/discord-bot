@@ -308,6 +308,8 @@ async def on_ready():
         anti_spam_cleanup.start()
     if not status_writer.is_running():
         status_writer.start()
+    if not rotate_presence.is_running():
+        rotate_presence.start()
     # Resume music: rejoindre les vocals où on était + remettre la queue en lecture
     await _resume_music()
     await bot.tree.sync()
@@ -1273,6 +1275,30 @@ async def _global_rate_limit(interaction: discord.Interaction) -> bool:
 
 # Hook global rate-limit sur l'arbre des slash commands
 bot.tree.interaction_check = _global_rate_limit
+
+@tasks.loop(seconds=30)
+async def rotate_presence():
+    """Cycle Discord Activity through 4 messages."""
+    statuses = [
+        (discord.ActivityType.listening, "/play 🎵"),
+        (discord.ActivityType.playing,   "/commandes pour la liste"),
+        (discord.ActivityType.watching,  f"{len(bot.guilds)} serveur(s)"),
+        (discord.ActivityType.playing,   "tookbot.click"),
+    ]
+    idx = (rotate_presence.current_loop or 0) % len(statuses)
+    a_type, a_name = statuses[idx]
+    try:
+        await bot.change_presence(
+            status=discord.Status.online,
+            activity=discord.Activity(type=a_type, name=a_name),
+        )
+    except Exception as e:
+        print(f"[presence] error: {e}")
+
+@rotate_presence.before_loop
+async def _before_presence():
+    await bot.wait_until_ready()
+
 
 @tasks.loop(seconds=15)
 async def status_writer():
