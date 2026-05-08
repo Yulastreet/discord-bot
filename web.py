@@ -14,6 +14,8 @@ from database import (
     music_queue_list, music_queue_clear, music_state_get, music_queue_add,
     # Bot command queue
     bot_command_enqueue, bot_command_get,
+    # Logs + channels
+    get_logs, list_channels,
     # Duels (global)
     admin_lister_duel_users, admin_get_full_duel_user, admin_update_duel_profil,
     admin_supprimer_sabre_collection,
@@ -459,6 +461,61 @@ def api_music_command_status(cmd_id):
     if not row:
         return jsonify({"error": "Commande introuvable"}), 404
     return jsonify(row)
+
+
+# =====================================================================
+# LOGS (per-guild)
+# =====================================================================
+
+@app.route("/logs")
+def logs_page():
+    return render_template("logs.html")
+
+@app.route("/api/logs")
+def api_logs():
+    g_id = gid()
+    type_filter = request.args.get("type") or None  # commands | actions | None
+    search = (request.args.get("q") or "").strip() or None
+    try:
+        limit = max(1, min(int(request.args.get("limit", 200)), 1000))
+    except ValueError:
+        limit = 200
+    rows = get_logs(g_id, type_filter=type_filter, search=search, limit=limit)
+    return jsonify({"logs": rows})
+
+
+# =====================================================================
+# BOTTALK (per-guild)
+# =====================================================================
+
+@app.route("/bottalk")
+def bottalk_page():
+    return render_template("bottalk.html")
+
+@app.route("/api/channels")
+def api_channels():
+    g_id = gid()
+    type_filter = request.args.get("type")  # 'text' | 'voice' | None
+    rows = list_channels(g_id, type_filter=type_filter)
+    return jsonify({"channels": rows})
+
+@app.route("/api/bottalk/send", methods=["POST"])
+def api_bottalk_send():
+    g_id = gid()
+    data = request.json or {}
+    channel_id = (data.get("channel_id") or "").strip()
+    content    = (data.get("content") or "").strip()
+    if not channel_id:
+        return jsonify({"error": "channel_id requis"}), 400
+    if not content:
+        return jsonify({"error": "content vide"}), 400
+    if len(content) > 2000:
+        return jsonify({"error": "content trop long (max 2000 chars)"}), 400
+    cid = bot_command_enqueue(g_id, "bot_say", {
+        "channel_id": channel_id,
+        "content":    content,
+    })
+    return jsonify({"success": True, "command_id": cid})
 
 
 if __name__ == "__main__":

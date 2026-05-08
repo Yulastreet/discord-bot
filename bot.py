@@ -58,7 +58,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       upsert_guild, mark_guild_left,
                       music_queue_add, music_queue_pop_next, music_queue_list, music_queue_clear,
                       music_state_set, music_state_get, music_state_clear_current, music_state_disconnect,
-                      bot_command_fetch_pending, bot_command_finish)
+                      bot_command_fetch_pending, bot_command_finish,
+                      add_log, replace_guild_channels, upsert_channel, remove_channel)
 from duel_commands import setup_duel_commands
 
 load_dotenv()
@@ -236,13 +237,17 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"✅ Bot connecté en tant que {bot.user}")
-    # Enregistrer chaque guild où le bot est présent
+    # Enregistrer chaque guild où le bot est présent + sync ses channels
     for guild in bot.guilds:
         upsert_guild(
             guild.id, guild.name,
             icon_url=str(guild.icon.url) if guild.icon else None,
             member_count=guild.member_count or 0
         )
+        try:
+            _sync_guild_channels(guild)
+        except Exception as e:
+            print(f"[channels] sync {guild.name} échoué : {e}")
     print(f"👀 {len(USER_REACTIONS)} réaction(s) chargée(s) sur {len(bot.guilds)} serveur(s)")
     if not reload_reactions.is_running():
         reload_reactions.start()
@@ -257,11 +262,36 @@ async def on_ready():
         except Exception as e:
             print(f"❌ Sync guild échouée ({guild.name}) : {e}")
 
+def _sync_guild_channels(guild):
+    """Pousse les salons d'un guild dans la table guild_channels."""
+    rows = []
+    for ch in guild.channels:
+        if isinstance(ch, discord.CategoryChannel):
+            ctype = "category"
+        elif isinstance(ch, discord.VoiceChannel):
+            ctype = "voice"
+        elif isinstance(ch, discord.StageChannel):
+            ctype = "stage"
+        elif isinstance(ch, (discord.TextChannel,)):
+            ctype = "text"
+        else:
+            # forum, news, etc.
+            ctype = getattr(ch, "type", "text")
+            ctype = str(ctype) if ctype else "text"
+        rows.append({
+            "channel_id": ch.id,
+            "name":       ch.name,
+            "type":       ctype,
+            "position":   getattr(ch, "position", 0) or 0,
+        })
+    replace_guild_channels(guild.id, rows)
+
 @bot.event
 async def on_guild_join(guild):
     upsert_guild(guild.id, guild.name,
                  icon_url=str(guild.icon.url) if guild.icon else None,
                  member_count=guild.member_count or 0)
+    _sync_guild_channels(guild)
     try:
         await bot.tree.sync(guild=guild)
     except Exception:
@@ -270,6 +300,114 @@ async def on_guild_join(guild):
 @bot.event
 async def on_guild_remove(guild):
     mark_guild_left(guild.id)
+
+@bot.event
+async def on_guild_channel_create(channel):
+    if not channel.guild: return
+    ctype = "voice" if isinstance(channel, discord.VoiceChannel) else \
+            "category" if isinstance(channel, discord.CategoryChannel) else \
+            "text"
+    upsert_channel(channel.guild.id, channel.id, channel.name, ctype, getattr(channel, "position", 0))
+
+@bot.event
+async def on_guild_channel_update(before, after):
+    if not after.guild: return
+    ctype = "voice" if isinstance(after, discord.VoiceChannel) else \
+            "category" if isinstance(after, discord.CategoryChannel) else \
+            "text"
+    upsert_channel(after.guild.id, after.id, after.name, ctype, getattr(after, "position", 0))
+
+@bot.event
+async def on_guild_channel_delete(channel):
+    if not channel.guild: return
+    remove_channel(channel.guild.id, channel.id)
+
+
+# ===== LOGS — capture des events =====
+@bot.event
+async def on_app_command_completion(interaction: discord.Interaction, command):
+    if not interaction.guild:
+        return
+    # Reconstruire la liste d'arguments lisibles
+    args_str = ""
+    try:
+        opts = (interaction.data or {}).get("options") or []
+        parts = []
+        for o in opts:
+            if "value" in o:
+                parts.append(f"{o['name']}={o['value']}")
+            elif "options" in o:
+                # subcommand
+                parts.append(o.get("name", ""))
+                for sub in o["options"]:
+                    if "value" in sub:
+                        parts.append(f"{sub['name']}={sub['value']}")
+        args_str = " ".join(parts)
+    except Exception:
+        pass
+    add_log(
+        interaction.guild.id, "command",
+        user_id=interaction.user.id, username=str(interaction.user),
+        channel_id=interaction.channel.id if interaction.channel else None,
+        channel_name=getattr(interaction.channel, "name", None),
+        content=f"/{command.qualified_name}" + (f" {args_str}" if args_str else ""),
+    )
+
+@bot.event
+async def on_message_delete(message: discord.Message):
+    if not message.guild or message.author.bot:
+        return
+    add_log(
+        message.guild.id, "action_message_delete",
+        user_id=message.author.id, username=str(message.author),
+        channel_id=message.channel.id, channel_name=getattr(message.channel, "name", None),
+        content=message.content or "(message vide ou attachement seul)",
+    )
+
+@bot.event
+async def on_message_edit(before: discord.Message, after: discord.Message):
+    if not after.guild or after.author.bot:
+        return
+    if (before.content or "") == (after.content or ""):
+        return  # juste un embed/preview qui se met a jour
+    add_log(
+        after.guild.id, "action_message_edit",
+        user_id=after.author.id, username=str(after.author),
+        channel_id=after.channel.id, channel_name=getattr(after.channel, "name", None),
+        content=(after.content or "")[:1000],
+        meta={"before": (before.content or "")[:1000]},
+    )
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if not member.guild:
+        return
+    if before.channel == after.channel:
+        return  # mute/deaf etc., pas de move
+    if before.channel is None and after.channel is not None:
+        # join
+        add_log(member.guild.id, "action_voice_join",
+                user_id=member.id, username=str(member),
+                channel_id=after.channel.id, channel_name=after.channel.name)
+    elif before.channel is not None and after.channel is None:
+        # leave
+        add_log(member.guild.id, "action_voice_leave",
+                user_id=member.id, username=str(member),
+                channel_id=before.channel.id, channel_name=before.channel.name)
+    else:
+        # move
+        add_log(member.guild.id, "action_voice_move",
+                user_id=member.id, username=str(member),
+                channel_id=after.channel.id, channel_name=after.channel.name,
+                meta={"from": before.channel.name, "to": after.channel.name})
+
+@bot.event
+async def on_member_remove(member):
+    if not member.guild:
+        return
+    add_log(member.guild.id, "action_member_leave",
+            user_id=member.id, username=str(member),
+            content=f"a quitté **{member.guild.name}**")
 
 @bot.tree.command(name="sync", description="sync les slash commands manuellement (owner uniquement)")
 @commands.is_owner()
@@ -290,6 +428,9 @@ async def reload_reactions():
 
 @bot.event
 async def on_member_join(member):
+    add_log(member.guild.id, "action_member_join",
+            user_id=member.id, username=str(member),
+            content=f"a rejoint **{member.guild.name}**")
     data = get_welcome(member.guild.id)
     if not data:
         return
@@ -1025,6 +1166,22 @@ async def _dispatch_bot_command(cmd):
 
     elif name == "music_clear":
         music_queue_clear(gid)
+
+    elif name == "bot_say":
+        # payload: {channel_id, content}
+        ch_id = payload.get("channel_id")
+        content = (payload.get("content") or "").strip()
+        if not ch_id or not content:
+            raise ValueError("channel_id et content requis")
+        channel = guild.get_channel(int(ch_id))
+        if not channel:
+            raise ValueError("salon introuvable")
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            raise ValueError("le salon n'est pas textuel")
+        # Discord limit 2000 chars par message
+        if len(content) > 2000:
+            content = content[:1997] + "..."
+        await channel.send(content)
 
     else:
         raise ValueError(f"commande inconnue: {name}")

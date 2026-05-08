@@ -93,6 +93,33 @@ def init_db():
         processed_at TIMESTAMP
     )''')
 
+    # ===== Table logs (commandes + actions par serveur) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id     TEXT NOT NULL,
+        type         TEXT NOT NULL,
+        ts           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_id      TEXT,
+        username     TEXT,
+        channel_id   TEXT,
+        channel_name TEXT,
+        content      TEXT,
+        meta         TEXT
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_logs_guild_ts   ON logs(guild_id, ts DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_logs_guild_type ON logs(guild_id, type, ts DESC)")
+
+    # ===== Table guild_channels (cache des salons par serveur) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_channels (
+        guild_id   TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        name       TEXT,
+        type       TEXT,
+        position   INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, channel_id)
+    )''')
+
     # Table welcome
     c.execute('''CREATE TABLE IF NOT EXISTS welcome (
         guild_id TEXT PRIMARY KEY,
@@ -683,6 +710,109 @@ def bot_command_get(cmd_id):
     row = c.fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+# ===== LOGS =====
+def add_log(guild_id, type_, user_id=None, username=None,
+            channel_id=None, channel_name=None, content=None, meta=None):
+    import json
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO logs (guild_id, type, user_id, username, channel_id, channel_name, content, meta)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+              (str(guild_id), type_,
+               str(user_id) if user_id is not None else None,
+               username,
+               str(channel_id) if channel_id is not None else None,
+               channel_name, content,
+               json.dumps(meta) if meta else None))
+    conn.commit()
+    conn.close()
+
+def get_logs(guild_id, type_filter=None, search=None, limit=200):
+    """type_filter: 'command' OR 'action_*' OR 'commands' (alias) OR 'actions' (alias) OR None=all."""
+    conn = get_db()
+    c = conn.cursor()
+    where = ["guild_id = ?"]
+    args  = [str(guild_id)]
+    if type_filter == "commands":
+        where.append("type = 'command'")
+    elif type_filter == "actions":
+        where.append("type LIKE 'action_%'")
+    elif type_filter:
+        where.append("type = ?")
+        args.append(type_filter)
+    if search:
+        where.append("(LOWER(username) LIKE ? OR LOWER(content) LIKE ? OR LOWER(channel_name) LIKE ?)")
+        like = f"%{search.lower()}%"
+        args += [like, like, like]
+    args.append(int(limit))
+    sql = f"SELECT * FROM logs WHERE {' AND '.join(where)} ORDER BY ts DESC LIMIT ?"
+    c.execute(sql, args)
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def prune_old_logs(guild_id, keep=5000):
+    """Limite la table logs a `keep` dernieres entrees par guild (anti-explosion DB)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""DELETE FROM logs WHERE id IN (
+                   SELECT id FROM logs WHERE guild_id = ?
+                   ORDER BY ts DESC LIMIT -1 OFFSET ?
+                 )""", (str(guild_id), keep))
+    conn.commit()
+    conn.close()
+
+
+# ===== GUILD CHANNELS (cache pour BotTalk + logs lisibles) =====
+def upsert_channel(guild_id, channel_id, name, type_, position=0):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO guild_channels (guild_id, channel_id, name, type, position, updated_at)
+                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(guild_id, channel_id) DO UPDATE SET
+                   name = excluded.name, type = excluded.type,
+                   position = excluded.position, updated_at = CURRENT_TIMESTAMP""",
+              (str(guild_id), str(channel_id), name, type_, int(position or 0)))
+    conn.commit()
+    conn.close()
+
+def remove_channel(guild_id, channel_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM guild_channels WHERE guild_id = ? AND channel_id = ?",
+              (str(guild_id), str(channel_id)))
+    conn.commit()
+    conn.close()
+
+def list_channels(guild_id, type_filter=None):
+    conn = get_db()
+    c = conn.cursor()
+    if type_filter:
+        c.execute("""SELECT * FROM guild_channels WHERE guild_id = ? AND type = ?
+                     ORDER BY position ASC, name COLLATE NOCASE""",
+                  (str(guild_id), type_filter))
+    else:
+        c.execute("""SELECT * FROM guild_channels WHERE guild_id = ?
+                     ORDER BY type, position ASC, name COLLATE NOCASE""",
+                  (str(guild_id),))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def replace_guild_channels(guild_id, channels):
+    """Remplace en bulk la liste des channels d'un guild. channels = list of dicts."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM guild_channels WHERE guild_id = ?", (str(guild_id),))
+    for ch in channels:
+        c.execute("""INSERT INTO guild_channels (guild_id, channel_id, name, type, position)
+                     VALUES (?, ?, ?, ?, ?)""",
+                  (str(guild_id), str(ch["channel_id"]), ch.get("name"),
+                   ch.get("type", "text"), int(ch.get("position", 0) or 0)))
+    conn.commit()
+    conn.close()
 
 
 # ===== WELCOME =====

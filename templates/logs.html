@@ -1,0 +1,300 @@
+{% extends "_base.html" %}
+{% set active_nav = 'logs' %}
+
+{% block title %}Logs · Bot Console{% endblock %}
+{% block crumb %}Logs{% endblock %}
+{% block actions %}
+  <button class="btn btn-secondary btn-sm" onclick="refresh()">Rafraîchir</button>
+{% endblock %}
+
+{% block content %}
+
+<div class="col gap-7">
+
+  <div>
+    <h1>Logs du serveur</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
+      Trace des slash commands exécutées et des actions des membres (vocal, suppression, édition, join/leave).
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="grid grid-3" style="gap: var(--s-3);">
+      <div class="field">
+        <label>Type</label>
+        <select id="filterType">
+          <option value="">Tous les logs</option>
+          <option value="commands">Commandes uniquement</option>
+          <option value="actions">Actions uniquement</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Limite</label>
+        <select id="filterLimit">
+          <option value="100">100 entrées</option>
+          <option value="200" selected>200 entrées</option>
+          <option value="500">500 entrées</option>
+          <option value="1000">1000 entrées</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Recherche</label>
+        <div class="input-search">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="text" id="filterSearch" placeholder="Pseudo, salon, contenu...">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="logsView" class="card padless"></div>
+
+</div>
+
+<style>
+  /* Style terminal pour les commandes */
+  .term {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.55;
+    background: oklch(0.12 0.005 60);
+    color: oklch(0.94 0.005 60);
+    border-radius: var(--r-2);
+    padding: 16px 20px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  [data-theme="light"] .term {
+    background: oklch(0.16 0.005 60);
+    color: oklch(0.95 0.005 60);
+  }
+  .term-line { display: block; padding: 1px 0; }
+  .term-ts   { color: oklch(0.55 0.05 200); }
+  .term-arrow{ color: oklch(0.55 0.005 60); }
+  .term-user { color: oklch(0.78 0.18 50); font-weight: 600; }
+  .term-cmd  { color: oklch(0.85 0.20 130); font-weight: 600; }
+  .term-arg-key { color: oklch(0.72 0.16 230); }
+  .term-arg-val { color: oklch(0.86 0.10 50); }
+  .term-channel { color: oklch(0.72 0.10 280); }
+  .term-prompt { color: oklch(0.82 0.20 80); }
+
+  /* Style actions */
+  .actions-list { display: flex; flex-direction: column; }
+  .action-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: var(--s-4);
+    padding: 12px var(--s-6);
+    border-bottom: 1px solid var(--border-soft);
+    font-size: var(--t-sm);
+    align-items: baseline;
+  }
+  .action-row:last-child { border-bottom: none; }
+  .action-row .ar-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-3);
+    white-space: nowrap;
+  }
+  .action-row .ar-content {
+    color: var(--text);
+    word-break: break-word;
+  }
+  .action-row .ar-user { font-weight: 600; }
+  .action-row .ar-channel { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+  .action-row .ar-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .ar-tag-join    { background: oklch(0.45 0.16 145 / 0.20); color: oklch(0.78 0.16 145); }
+  .ar-tag-leave   { background: oklch(0.45 0.18 25  / 0.20); color: oklch(0.74 0.20 25); }
+  .ar-tag-move    { background: oklch(0.45 0.10 230 / 0.20); color: oklch(0.78 0.10 230); }
+  .ar-tag-delete  { background: oklch(0.45 0.18 25  / 0.20); color: oklch(0.74 0.20 25); }
+  .ar-tag-edit    { background: oklch(0.45 0.16 75  / 0.20); color: oklch(0.80 0.16 75); }
+  .ar-tag-mjoin   { background: oklch(0.45 0.16 145 / 0.20); color: oklch(0.78 0.16 145); }
+  .ar-tag-mleave  { background: oklch(0.45 0.18 25  / 0.20); color: oklch(0.74 0.20 25); }
+  .action-row .ar-original {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--bg-2);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .action-row .ar-original .lbl { color: var(--text-3); margin-right: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .empty-logs { padding: var(--s-9); text-align: center; color: var(--text-3); font-size: var(--t-sm); }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let lastQuery = '';
+let polling = null;
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+async function refresh() {
+  const type   = document.getElementById('filterType').value;
+  const limit  = document.getElementById('filterLimit').value;
+  const search = document.getElementById('filterSearch').value.trim();
+  const params = new URLSearchParams();
+  if (type)   params.set('type', type);
+  if (limit)  params.set('limit', limit);
+  if (search) params.set('q', search);
+  const key = params.toString();
+  try {
+    const res = await fetch('/api/logs?' + key);
+    const data = await res.json();
+    render(data.logs || [], type);
+  } catch (e) {
+    document.getElementById('logsView').innerHTML = `<div class="empty-logs">Erreur : ${e.message}</div>`;
+  }
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T') + 'Z');
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+function fmtTimeShort(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T') + 'Z');
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function highlightCommand(content) {
+  // content = "/cmd arg1=foo arg2=bar"
+  if (!content) return '';
+  const m = content.match(/^(\/[\w\-]+)(.*)$/);
+  if (!m) return escapeHtml(content);
+  const cmd = m[1];
+  const rest = m[2];
+  // tokenize args : key=value
+  const pieces = rest.trim().split(/\s+/).filter(Boolean).map(tok => {
+    const eq = tok.indexOf('=');
+    if (eq > 0) {
+      return `<span class="term-arg-key">${escapeHtml(tok.slice(0, eq))}</span>=<span class="term-arg-val">${escapeHtml(tok.slice(eq+1))}</span>`;
+    }
+    return `<span class="term-arg-val">${escapeHtml(tok)}</span>`;
+  });
+  return `<span class="term-cmd">${escapeHtml(cmd)}</span>${pieces.length ? ' ' + pieces.join(' ') : ''}`;
+}
+
+function renderCommandsTerm(rows) {
+  const lines = rows.map(r => {
+    return `<span class="term-line">`
+      + `<span class="term-ts">[${fmtTime(r.ts)}]</span> `
+      + `<span class="term-user">@${escapeHtml(r.username || '?')}</span>`
+      + (r.channel_name ? ` <span class="term-channel">#${escapeHtml(r.channel_name)}</span>` : '')
+      + ` <span class="term-arrow">$</span> `
+      + highlightCommand(r.content || '')
+      + `</span>`;
+  });
+  return `<div class="term">` + (lines.length ? lines.join('\n') : '<span class="term-arrow">aucune commande...</span>') + `</div>`;
+}
+
+function actionLine(r) {
+  const t = r.type;
+  const time = fmtTimeShort(r.ts);
+  const date = (() => { const d = new Date(r.ts.replace(' ','T')+'Z'); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}); })();
+  const user = `<span class="ar-user">@${escapeHtml(r.username || '?')}</span>`;
+  const ch   = r.channel_name ? `<span class="ar-channel">#${escapeHtml(r.channel_name)}</span>` : '';
+  let body, tagClass, tagLabel;
+
+  if (t === 'action_voice_join') {
+    tagClass = 'join'; tagLabel = 'voice';
+    body = `${user} a rejoint le vocal ${ch}`;
+  } else if (t === 'action_voice_leave') {
+    tagClass = 'leave'; tagLabel = 'voice';
+    body = `${user} a quitté le vocal ${ch}`;
+  } else if (t === 'action_voice_move') {
+    tagClass = 'move'; tagLabel = 'voice';
+    let meta = {}; try { meta = r.meta ? JSON.parse(r.meta) : {}; } catch(_) {}
+    body = `${user} a changé de salon vocal : <code>#${escapeHtml(meta.from||'?')}</code> → <code>#${escapeHtml(meta.to||'?')}</code>`;
+  } else if (t === 'action_message_delete') {
+    tagClass = 'delete'; tagLabel = 'msg';
+    body = `${user} a supprimé un message dans ${ch}`;
+    if (r.content) body += `<div class="ar-original"><span class="lbl">Contenu :</span>${escapeHtml(r.content)}</div>`;
+  } else if (t === 'action_message_edit') {
+    tagClass = 'edit'; tagLabel = 'msg';
+    let meta = {}; try { meta = r.meta ? JSON.parse(r.meta) : {}; } catch(_) {}
+    body = `${user} a édité un message dans ${ch}`;
+    if (meta.before) body += `<div class="ar-original"><span class="lbl">Avant :</span>${escapeHtml(meta.before)}</div>`;
+    if (r.content)   body += `<div class="ar-original"><span class="lbl">Après :</span>${escapeHtml(r.content)}</div>`;
+  } else if (t === 'action_member_join') {
+    tagClass = 'mjoin'; tagLabel = 'member';
+    body = `${user} a rejoint le serveur`;
+  } else if (t === 'action_member_leave') {
+    tagClass = 'mleave'; tagLabel = 'member';
+    body = `${user} a quitté le serveur`;
+  } else {
+    tagClass = ''; tagLabel = t.replace('action_', '');
+    body = `${user} ${ch} ${escapeHtml(r.content || '')}`;
+  }
+  return `
+    <div class="action-row">
+      <div class="ar-time">${date}<br>${time}</div>
+      <div class="ar-content"><span class="ar-tag ar-tag-${tagClass}">${tagLabel}</span>${body}</div>
+    </div>`;
+}
+
+function render(rows, typeFilter) {
+  const view = document.getElementById('logsView');
+  if (!rows.length) {
+    view.innerHTML = '<div class="empty-logs">Aucun log à afficher.</div>';
+    return;
+  }
+  // Si filtre = commands → terminal full. Si actions → liste. Sinon mixte → mode actions avec commandes incluses.
+  if (typeFilter === 'commands') {
+    view.innerHTML = renderCommandsTerm(rows);
+    return;
+  }
+  if (typeFilter === 'actions') {
+    view.innerHTML = '<div class="actions-list">' + rows.map(actionLine).join('') + '</div>';
+    return;
+  }
+  // Mixte : on rend tout en mode actions et on traite "command" comme un cas spécial
+  view.innerHTML = '<div class="actions-list">' + rows.map(r => {
+    if (r.type === 'command') {
+      const time = fmtTimeShort(r.ts);
+      const date = (() => { const d = new Date(r.ts.replace(' ','T')+'Z'); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}); })();
+      const user = `<span class="ar-user">@${escapeHtml(r.username || '?')}</span>`;
+      const ch   = r.channel_name ? `<span class="ar-channel">#${escapeHtml(r.channel_name)}</span>` : '';
+      return `<div class="action-row">
+        <div class="ar-time">${date}<br>${time}</div>
+        <div class="ar-content"><span class="ar-tag" style="background:oklch(0.45 0.20 130 / 0.20);color:oklch(0.86 0.20 130);">cmd</span>${user} ${ch} <code style="background:var(--bg-2);padding:1px 6px;border-radius:4px;">${highlightCommand(r.content)}</code></div>
+      </div>`;
+    }
+    return actionLine(r);
+  }).join('') + '</div>';
+}
+
+const refreshDebounced = debounce(refresh, 250);
+['filterType','filterLimit','filterSearch'].forEach(id => {
+  document.getElementById(id).addEventListener('input', refreshDebounced);
+  document.getElementById(id).addEventListener('change', refreshDebounced);
+});
+
+refresh();
+polling = setInterval(refresh, 6000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && polling) { clearInterval(polling); polling = null; }
+  else if (!polling) { refresh(); polling = setInterval(refresh, 6000); }
+});
+</script>
+{% endblock %}
