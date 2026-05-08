@@ -1,5 +1,5 @@
 {% extends "_base.html" %}
-{% from "_charts.html" import sparkline, heatmap, bar_h %}
+{% from "_charts.html" import sparkline, heatmap as heatmap_chart, bar_h %}
 {% set active_nav = 'dashboard' %}
 
 {% block title %}Dashboard · Bot Console{% endblock %}
@@ -65,7 +65,7 @@
   <div class="card">
     <h2 style="margin-bottom: var(--s-3);">Heatmap d'activité</h2>
     <p class="muted" style="font-size:var(--t-sm);margin-bottom: var(--s-4);">Sur 4 semaines, par jour × heure.</p>
-    {{ heatmap(heatmap, cell_size=12) }}
+    {{ heatmap_chart(heatmap, cell_size=12) }}
   </div>
   {% endif %}
 
