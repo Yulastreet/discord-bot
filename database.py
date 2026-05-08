@@ -779,6 +779,119 @@ def prune_old_logs(guild_id, keep=5000):
     conn.commit()
     conn.close()
 
+def get_activity_by_day(guild_id=None, days=14):
+    """Compte les logs par jour sur les `days` derniers jours.
+       guild_id=None -> cross-server. Retourne [{date, count}, ...] (ASC, dates en string YYYY-MM-DD).
+       Inclut les jours sans activite (count=0)."""
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute("""SELECT DATE(ts) AS day, COUNT(*) AS n
+                     FROM logs WHERE guild_id = ? AND ts >= datetime('now', ?)
+                     GROUP BY day""", (str(guild_id), f"-{int(days)} days"))
+    else:
+        c.execute("""SELECT DATE(ts) AS day, COUNT(*) AS n
+                     FROM logs WHERE ts >= datetime('now', ?)
+                     GROUP BY day""", (f"-{int(days)} days",))
+    by_day = {r["day"]: r["n"] for r in c.fetchall()}
+    conn.close()
+    # Generer la liste complete
+    import datetime as _dt
+    today = _dt.date.today()
+    out = []
+    for i in range(int(days) - 1, -1, -1):
+        d = today - _dt.timedelta(days=i)
+        ds = d.isoformat()
+        out.append({"date": ds, "count": by_day.get(ds, 0)})
+    return out
+
+def get_xp_by_day(guild_id=None, days=14):
+    """Approximation : on n'a pas de log XP par event, mais on peut deduire l'activite via les logs de type 'command' + actions message.
+       Pour l'instant on renvoie le COUNT de logs de type action_message_* + command par jour comme proxy d'activite."""
+    conn = get_db()
+    c = conn.cursor()
+    where = "type IN ('command', 'action_message_delete', 'action_message_edit', 'action_voice_join', 'action_member_join')"
+    if guild_id:
+        c.execute(f"""SELECT DATE(ts) AS day, COUNT(*) AS n
+                      FROM logs WHERE guild_id = ? AND {where} AND ts >= datetime('now', ?)
+                      GROUP BY day""", (str(guild_id), f"-{int(days)} days"))
+    else:
+        c.execute(f"""SELECT DATE(ts) AS day, COUNT(*) AS n
+                      FROM logs WHERE {where} AND ts >= datetime('now', ?)
+                      GROUP BY day""", (f"-{int(days)} days",))
+    by_day = {r["day"]: r["n"] for r in c.fetchall()}
+    conn.close()
+    import datetime as _dt
+    today = _dt.date.today()
+    out = []
+    for i in range(int(days) - 1, -1, -1):
+        d = today - _dt.timedelta(days=i)
+        ds = d.isoformat()
+        out.append({"date": ds, "count": by_day.get(ds, 0)})
+    return out
+
+def get_activity_heatmap(guild_id=None, weeks=4):
+    """Heatmap 7 jours x 24h sur les `weeks` dernieres semaines.
+       Retourne [[count_mon_h0, count_mon_h1, ...], [count_tue_h0, ...], ...] (7 lignes x 24 cols)."""
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute("""SELECT
+                       CAST(strftime('%w', ts) AS INTEGER) AS dow,
+                       CAST(strftime('%H', ts) AS INTEGER) AS hour,
+                       COUNT(*) AS n
+                     FROM logs WHERE guild_id = ? AND ts >= datetime('now', ?)
+                     GROUP BY dow, hour""", (str(guild_id), f"-{int(weeks*7)} days"))
+    else:
+        c.execute("""SELECT
+                       CAST(strftime('%w', ts) AS INTEGER) AS dow,
+                       CAST(strftime('%H', ts) AS INTEGER) AS hour,
+                       COUNT(*) AS n
+                     FROM logs WHERE ts >= datetime('now', ?)
+                     GROUP BY dow, hour""", (f"-{int(weeks*7)} days",))
+    matrix = [[0]*24 for _ in range(7)]
+    for r in c.fetchall():
+        # SQLite : strftime %w => 0=Dimanche..6=Samedi. On reorganise en 0=Lundi..6=Dimanche
+        dow = (r["dow"] - 1) % 7
+        matrix[dow][r["hour"]] = r["n"]
+    conn.close()
+    return matrix
+
+def get_top_commands(guild_id=None, days=30, limit=10):
+    """Top des commandes les plus utilisees."""
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute("""SELECT
+                       SUBSTR(content, 1, INSTR(content || ' ', ' ') - 1) AS cmd,
+                       COUNT(*) AS n
+                     FROM logs WHERE guild_id = ? AND type = 'command' AND ts >= datetime('now', ?)
+                     GROUP BY cmd ORDER BY n DESC LIMIT ?""",
+                  (str(guild_id), f"-{int(days)} days", int(limit)))
+    else:
+        c.execute("""SELECT
+                       SUBSTR(content, 1, INSTR(content || ' ', ' ') - 1) AS cmd,
+                       COUNT(*) AS n
+                     FROM logs WHERE type = 'command' AND ts >= datetime('now', ?)
+                     GROUP BY cmd ORDER BY n DESC LIMIT ?""",
+                  (f"-{int(days)} days", int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def get_top_active_users(guild_id, days=30, limit=10):
+    """Users les plus actifs (envois de commandes + messages edit/delete) sur N jours."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT user_id, MAX(username) AS username, COUNT(*) AS n
+                 FROM logs WHERE guild_id = ? AND ts >= datetime('now', ?) AND user_id IS NOT NULL
+                 GROUP BY user_id ORDER BY n DESC LIMIT ?""",
+              (str(guild_id), f"-{int(days)} days", int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
 def prune_logs_global(keep_per_guild=5000, max_age_days=90):
     """Purge globale logs : limite N par guild + supprime > max_age_days. Retourne dict counts."""
     conn = get_db()

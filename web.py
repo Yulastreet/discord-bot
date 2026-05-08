@@ -21,6 +21,9 @@ from database import (
     bot_command_enqueue, bot_command_get,
     # Logs + channels
     get_logs, list_channels,
+    # Stats (temporelles + heatmap + top)
+    get_activity_by_day, get_xp_by_day, get_activity_heatmap,
+    get_top_commands, get_top_active_users,
     # DMs (global)
     list_dm_conversations, get_dm_conversation, mark_dm_read, count_unread_dms,
     delete_dm_conversation,
@@ -255,7 +258,13 @@ def general_page():
         })
     db.close()
     by_guild.sort(key=lambda r: r["xp"], reverse=True)
-    return render_template("general.html", stats=stats, by_guild=by_guild)
+    # Activité 14 jours cross-server
+    activity = get_activity_by_day(guild_id=None, days=14)
+    heatmap  = get_activity_heatmap(guild_id=None, weeks=4)
+    top_cmds = get_top_commands(guild_id=None, days=30, limit=10)
+    return render_template("general.html",
+                           stats=stats, by_guild=by_guild,
+                           activity=activity, heatmap=heatmap, top_cmds=top_cmds)
 
 
 # =====================================================================
@@ -271,7 +280,14 @@ def dashboard():
     db.close()
     stats = get_global_stats()
     top10 = users[:10]
-    return render_template("dashboard.html", users=users, stats=stats, top10=top10)
+    activity   = get_activity_by_day(guild_id=g_id, days=14)
+    heatmap    = get_activity_heatmap(guild_id=g_id, weeks=4)
+    top_cmds   = get_top_commands(guild_id=g_id, days=30, limit=8)
+    top_active = get_top_active_users(guild_id=g_id, days=30, limit=10)
+    return render_template("dashboard.html",
+                           users=users, stats=stats, top10=top10,
+                           activity=activity, heatmap=heatmap,
+                           top_cmds=top_cmds, top_active=top_active)
 
 
 # =====================================================================
@@ -307,10 +323,51 @@ def api_user(user_id):
     user = db.execute(
         "SELECT user_id, username, level, xp FROM users WHERE guild_id = ? AND user_id = ?",
         (g_id, str(user_id))).fetchone()
-    db.close()
     if not user:
+        db.close()
         return jsonify({"error": "Utilisateur non trouvé sur ce serveur"}), 404
-    return jsonify({"user": dict(user)})
+
+    # Activité 14 derniers jours
+    rows = db.execute("""SELECT DATE(ts) AS day, COUNT(*) AS n
+                         FROM logs WHERE guild_id = ? AND user_id = ?
+                           AND ts >= datetime('now', '-14 days')
+                         GROUP BY day""", (g_id, str(user_id))).fetchall()
+    by_day = {r["day"]: r["n"] for r in rows}
+    import datetime as _dt
+    today = _dt.date.today()
+    activity = []
+    for i in range(13, -1, -1):
+        d = today - _dt.timedelta(days=i)
+        ds = d.isoformat()
+        activity.append({"date": ds, "count": by_day.get(ds, 0)})
+
+    # Channels favoris (par count messages edit/delete + voice join + commandes)
+    chans = db.execute("""SELECT channel_id, MAX(channel_name) AS name, COUNT(*) AS n
+                          FROM logs WHERE guild_id = ? AND user_id = ? AND channel_id IS NOT NULL
+                            AND ts >= datetime('now', '-30 days')
+                          GROUP BY channel_id ORDER BY n DESC LIMIT 5""",
+                       (g_id, str(user_id))).fetchall()
+    fav_channels = [dict(r) for r in chans]
+
+    # Compte par type d'event
+    by_type = db.execute("""SELECT type, COUNT(*) AS n FROM logs
+                            WHERE guild_id = ? AND user_id = ? AND ts >= datetime('now', '-30 days')
+                            GROUP BY type ORDER BY n DESC""",
+                         (g_id, str(user_id))).fetchall()
+    types = [dict(r) for r in by_type]
+
+    # Profil duel global s'il existe
+    duel = db.execute("SELECT * FROM duel_profil WHERE user_id = ?", (str(user_id),)).fetchone()
+    duel_data = dict(duel) if duel else None
+
+    db.close()
+    return jsonify({
+        "user":         dict(user),
+        "activity":     activity,
+        "fav_channels": fav_channels,
+        "type_counts":  types,
+        "duel":         duel_data,
+    })
 
 
 # =====================================================================

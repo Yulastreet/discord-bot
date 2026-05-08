@@ -352,6 +352,78 @@
   // ─── Number formatting (FR thin space) ───────────────────
   window.fmtNum = n => (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' ');
 
+  // ─── DM notification watcher (global) ─────────────────────
+  // Polling léger toutes les 30s, alerte si unread augmente.
+  // Affiche notif système si autorisé + son discret + badge dans favicon.
+  (function dmWatcher() {
+    if (location.pathname.startsWith('/login') || location.pathname === '/') return;
+    let lastUnread = parseInt(sessionStorage.getItem('dmLastUnread') || '0', 10);
+
+    // Demande autorisation au premier load
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Discret : ne demande pas spontanément, attend interaction utilisateur
+      document.addEventListener('click', function ask() {
+        Notification.requestPermission();
+        document.removeEventListener('click', ask);
+      }, { once: true });
+    }
+
+    function chime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.36);
+      } catch (_) {}
+    }
+
+    async function tick() {
+      try {
+        const res = await fetch('/api/dms/conversations');
+        if (!res.ok) return;
+        const data = await res.json();
+        const unread = data.unread || 0;
+        const conv = (data.conversations || []).find(c => c.unread > 0);
+
+        // Title badge
+        if (unread > 0) {
+          if (!document.title.startsWith('(')) {
+            document.title = `(${unread}) ${document.title}`;
+          } else {
+            document.title = document.title.replace(/^\(\d+\)/, `(${unread})`);
+          }
+        } else {
+          document.title = document.title.replace(/^\(\d+\)\s*/, '');
+        }
+
+        // New message arrived
+        if (unread > lastUnread && conv) {
+          chime();
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const n = new Notification(`Nouveau MP de ${conv.username || 'inconnu'}`, {
+              body:  (conv.last_content || '').slice(0, 140),
+              icon:  conv.avatar_url || '/favicon.ico',
+              tag:   'dm-' + conv.user_id,
+            });
+            n.onclick = () => { window.focus(); location.href = '/dms'; n.close(); };
+          }
+        }
+        lastUnread = unread;
+        sessionStorage.setItem('dmLastUnread', String(unread));
+      } catch (_) {}
+    }
+
+    tick();
+    setInterval(tick, 30000);
+  })();
+
   // ─── Guild switcher ───────────────────────────────────────
   function toggleGuildMenu(e) {
     e?.stopPropagation();

@@ -9,7 +9,8 @@
 <div id="loadingState" class="muted" style="padding: var(--s-7) 0;">Chargement du profil...</div>
 
 <div id="profileContent" class="hidden col gap-7">
-  <div class="row between">
+
+  <div class="row between" style="align-items:flex-start;flex-wrap:wrap;gap:var(--s-4);">
     <div class="col gap-2">
       <span class="eyebrow">Profil utilisateur</span>
       <h1 id="username"></h1>
@@ -22,14 +23,14 @@
 
   <div class="grid grid-3">
     <div class="stat">
-      <div class="stat-label">Niveau</div>
+      <div class="stat-label">Niveau message</div>
       <div class="stat-value" id="level">-</div>
       <div class="stat-sub" id="progressText">Progression</div>
     </div>
     <div class="stat">
       <div class="stat-label">XP cumulé</div>
       <div class="stat-value" id="xp">-</div>
-      <div class="stat-sub">Messages enregistrés</div>
+      <div class="stat-sub">Sur ce serveur</div>
     </div>
     <div class="stat">
       <div class="stat-label">Avant le prochain niveau</div>
@@ -37,6 +38,34 @@
       <div class="bar-track" style="margin-top:10px;"><div class="bar-fill" id="progressFill" style="width:0%"></div></div>
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-row mb-4">
+      <div>
+        <h2>Activité — 14 derniers jours</h2>
+        <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Évènements traçés sur ce serveur.</p>
+      </div>
+      <span class="badge" id="activityTotal">—</span>
+    </div>
+    <div id="activityChart"></div>
+  </div>
+
+  <div class="grid grid-2 gap-5">
+    <div class="card">
+      <h2 style="margin-bottom: var(--s-3);">Salons favoris (30 j)</h2>
+      <div id="favChannels"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom: var(--s-3);">Type d'évènements (30 j)</h2>
+      <div id="typeBreakdown"></div>
+    </div>
+  </div>
+
+  <div id="duelCard" class="card hidden">
+    <h2 style="margin-bottom: var(--s-3);">Profil duel</h2>
+    <div class="grid grid-4" id="duelStats"></div>
+  </div>
+
 </div>
 
 <div id="errorState" class="hidden card" style="text-align:center;">
@@ -49,38 +78,135 @@
 
 {% block scripts %}
 <script>
-  const userId = window.location.pathname.split('/').pop();
+const userId = window.location.pathname.split('/').pop();
 
+const TYPE_LABELS = {
+  'command':                'Commandes',
+  'action_voice_join':      'Voice join',
+  'action_voice_leave':     'Voice leave',
+  'action_voice_move':      'Voice move',
+  'action_message_delete':  'Messages supprimés',
+  'action_message_edit':    'Messages édités',
+  'action_member_join':     'A rejoint le serveur',
+  'action_member_leave':    'A quitté le serveur',
+};
+
+window.addEventListener('DOMContentLoaded', loadProfile);
+
+function loadProfile() {
   fetch(`/api/user/${userId}`)
-    .then(r => { if (!r.ok) throw new Error('Cet utilisateur n\'a pas de stats messages.'); return r.json(); })
-    .then(data => display(data.user))
+    .then(r => { if (!r.ok) throw new Error('Cet utilisateur n\'a pas de stats sur ce serveur.'); return r.json(); })
+    .then(data => display(data))
     .catch(err => showError(err.message));
+}
 
-  function display(u) {
-    document.getElementById('username').textContent = u.username;
-    document.getElementById('userId').textContent  = u.user_id;
-    document.getElementById('level').textContent   = u.level;
-    document.getElementById('xp').textContent      = fmtNum(u.xp);
+function display(data) {
+  const u = data.user;
+  document.getElementById('username').textContent = u.username || '(sans nom)';
+  document.getElementById('userId').textContent = u.user_id;
+  document.getElementById('level').textContent = u.level;
+  document.getElementById('xp').textContent = fmtNum(u.xp);
 
-    const xpForNext = u.level * 1000;
-    const xpAtBase  = (u.level - 1) * 1000;
-    const inLevel   = u.xp - xpAtBase;
-    const needed    = xpForNext - xpAtBase;
-    const progress  = Math.min((inLevel / needed) * 100, 100);
-    const remaining = Math.max(0, xpForNext - u.xp);
+  const xpForNext = u.level * 1000;
+  const xpAtBase  = (u.level - 1) * 1000;
+  const inLevel   = u.xp - xpAtBase;
+  const needed    = xpForNext - xpAtBase;
+  const progress  = Math.min((inLevel / needed) * 100, 100);
+  const remaining = Math.max(0, xpForNext - u.xp);
 
-    document.getElementById('xpToNext').textContent = fmtNum(remaining);
-    document.getElementById('progressFill').style.width = progress + '%';
-    document.getElementById('progressText').textContent = `${Math.round(progress)}% vers niv. ${u.level + 1}`;
+  document.getElementById('xpToNext').textContent = fmtNum(remaining);
+  document.getElementById('progressFill').style.width = progress + '%';
+  document.getElementById('progressText').textContent = `${Math.round(progress)}% vers niv. ${u.level + 1}`;
 
-    document.getElementById('loadingState').classList.add('hidden');
-    document.getElementById('profileContent').classList.remove('hidden');
+  // Activité sparkline
+  renderSparkline(data.activity || []);
+  const total = (data.activity || []).reduce((s, a) => s + a.count, 0);
+  document.getElementById('activityTotal').textContent = `total : ${total}`;
+
+  // Salons favoris
+  renderFavChannels(data.fav_channels || []);
+
+  // Types
+  renderTypes(data.type_counts || []);
+
+  // Duel
+  if (data.duel) renderDuel(data.duel);
+
+  document.getElementById('loadingState').classList.add('hidden');
+  document.getElementById('profileContent').classList.remove('hidden');
+}
+
+function renderSparkline(activity) {
+  if (!activity.length) {
+    document.getElementById('activityChart').innerHTML = '<p class="muted">Aucune activité.</p>';
+    return;
   }
+  const w = 900, h = 110;
+  const values = activity.map(a => a.count);
+  const max = Math.max(...values);
+  const step = (w - 16) / (values.length - 1 || 1);
+  const pts = values.map((v, i) => [
+    8 + i * step,
+    h - 8 - (max > 0 ? (v / max) * (h - 16) : 0),
+  ]);
+  const pathStr = `M${pts[0][0]},${h} ` + pts.map(p => `L${p[0]},${p[1]}`).join(' ') + ` L${pts[pts.length-1][0]},${h} Z`;
+  const polyStr = pts.map(p => `${p[0]},${p[1]}`).join(' ');
+  document.getElementById('activityChart').innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block;">
+      <line x1="0" y1="${h-1}" x2="${w}" y2="${h-1}" stroke="var(--border-soft)" stroke-width="1"/>
+      <path d="${pathStr}" fill="var(--accent)" fill-opacity="0.12"/>
+      <polyline points="${polyStr}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="3" fill="var(--accent)"/>
+    </svg>
+    <div class="row between mt-2 faint" style="font-size:11px;font-family:var(--font-mono);">
+      <span>${activity[0].date}</span>
+      <span>${activity[activity.length-1].date}</span>
+    </div>`;
+}
 
-  function showError(msg) {
-    document.getElementById('errorMessage').textContent = msg;
-    document.getElementById('loadingState').classList.add('hidden');
-    document.getElementById('errorState').classList.remove('hidden');
-  }
+function renderFavChannels(chans) {
+  const el = document.getElementById('favChannels');
+  if (!chans.length) { el.innerHTML = '<p class="muted">Aucune activité dans un salon.</p>'; return; }
+  const max = chans[0].n;
+  el.innerHTML = '<div class="bar-list">' + chans.map(c => `
+    <div class="bar-row" style="grid-template-columns: 200px 1fr 60px;">
+      <span class="bar-label">#${c.name || '(salon)'}</span>
+      <div class="bar-track"><div class="bar-fill" style="width: ${(c.n/max*100).toFixed(0)}%"></div></div>
+      <span class="bar-value">${c.n}</span>
+    </div>
+  `).join('') + '</div>';
+}
+
+function renderTypes(types) {
+  const el = document.getElementById('typeBreakdown');
+  if (!types.length) { el.innerHTML = '<p class="muted">Aucun évènement.</p>'; return; }
+  const max = types[0].n;
+  el.innerHTML = '<div class="bar-list">' + types.map(t => `
+    <div class="bar-row" style="grid-template-columns: 220px 1fr 50px;">
+      <span class="bar-label">${TYPE_LABELS[t.type] || t.type}</span>
+      <div class="bar-track"><div class="bar-fill" style="width: ${(t.n/max*100).toFixed(0)}%"></div></div>
+      <span class="bar-value">${t.n}</span>
+    </div>
+  `).join('') + '</div>';
+}
+
+function renderDuel(d) {
+  const el = document.getElementById('duelCard');
+  el.classList.remove('hidden');
+  const ratio = d.victoires && d.defaites ? (d.victoires / d.defaites).toFixed(2) : (d.victoires ? d.victoires.toFixed(2) : '0');
+  document.getElementById('duelStats').innerHTML = `
+    <div class="stat"><div class="stat-label">Niveau combat</div><div class="stat-value">${d.combat_level || 1}</div></div>
+    <div class="stat"><div class="stat-label">TookCoins</div><div class="stat-value">${fmtNum(d.tookcoins)}</div></div>
+    <div class="stat"><div class="stat-label">Victoires</div><div class="stat-value">${d.victoires || 0}</div></div>
+    <div class="stat"><div class="stat-label">Défaites</div><div class="stat-value">${d.defaites || 0}</div></div>
+    <div class="stat"><div class="stat-label">Ratio V/D</div><div class="stat-value">${ratio}</div></div>
+    <div class="stat"><div class="stat-label">Sabre équipé</div><div class="stat-value" style="font-size:var(--t-md);">${d.sabre_equipe || 'bleu'}</div></div>`;
+}
+
+function showError(msg) {
+  document.getElementById('errorMessage').textContent = msg;
+  document.getElementById('loadingState').classList.add('hidden');
+  document.getElementById('errorState').classList.remove('hidden');
+}
 </script>
 {% endblock %}

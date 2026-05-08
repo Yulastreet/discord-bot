@@ -1,0 +1,75 @@
+{# ============================================================================
+   _charts.html — composants SVG inline (sparkline, bar chart, heatmap).
+   Pas de lib externe, 100% serveur-rendu.
+   ============================================================================ #}
+
+{% macro sparkline(points, w=720, h=80, stroke="var(--accent)") %}
+  {# points = list of {date, count} OR list of ints #}
+  {% set values = points if (points and points|first is number) else (points|map(attribute='count')|list) %}
+  {% set labels = points if (points and points|first is number) else (points|map(attribute='date')|list) %}
+  {% set vmax = (values|max) if values else 0 %}
+  {% set vmin = 0 %}
+  {% set step = (w - 16) / ((values|length - 1) if values|length > 1 else 1) %}
+  <svg viewBox="0 0 {{ w }} {{ h }}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="width:100%;height:{{ h }}px;display:block;">
+    {# Gridlines horizontaux discrets #}
+    <line x1="0" y1="{{ h - 1 }}" x2="{{ w }}" y2="{{ h - 1 }}" stroke="var(--border-soft)" stroke-width="1"/>
+    {# Aire sous la courbe #}
+    {% if values and vmax > 0 %}
+      {% set path_pts = [] %}
+      {% for v in values %}
+        {% set x = 8 + (loop.index0 * step) %}
+        {% set y = h - 8 - ((v - vmin) / (vmax - vmin) * (h - 16)) if vmax > vmin else h - 8 %}
+        {% set _ = path_pts.append([x, y]) %}
+      {% endfor %}
+      <path d="M{{ path_pts[0][0] }},{{ h }} {% for p in path_pts %}L{{ p[0] }},{{ p[1] }} {% endfor %}L{{ path_pts[-1][0] }},{{ h }} Z"
+            fill="{{ stroke }}" fill-opacity="0.12"/>
+      <polyline points="{% for p in path_pts %}{{ p[0] }},{{ p[1] }} {% endfor %}"
+                fill="none" stroke="{{ stroke }}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      {# Dernier point en surbrillance #}
+      <circle cx="{{ path_pts[-1][0] }}" cy="{{ path_pts[-1][1] }}" r="3" fill="{{ stroke }}"/>
+    {% else %}
+      <text x="{{ w / 2 }}" y="{{ h / 2 }}" text-anchor="middle" dominant-baseline="middle"
+            fill="var(--text-3)" font-size="11" font-family="var(--font-mono)">aucune activité</text>
+    {% endif %}
+  </svg>
+{% endmacro %}
+
+
+{% macro heatmap(matrix, cell_size=14, gap=2) %}
+  {# matrix = 7 rows (Lun..Dim) x 24 cols (heures). cell_size = px par cellule. #}
+  {% set days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
+  {% set max_v = namespace(v=0) %}
+  {% for row in matrix %}{% for v in row %}{% if v > max_v.v %}{% set max_v.v = v %}{% endif %}{% endfor %}{% endfor %}
+  <div class="heatmap-wrap">
+    <div class="heatmap-grid" style="grid-template-columns: 28px repeat(24, {{ cell_size }}px); gap: {{ gap }}px;">
+      <div></div>
+      {# Header heures (00, 04, 08, ...) #}
+      {% for h in range(24) %}
+        <div class="hm-hour-label">{% if h % 4 == 0 %}{{ "%02d"|format(h) }}{% endif %}</div>
+      {% endfor %}
+      {% for d in range(7) %}
+        <div class="hm-day-label">{{ days[d] }}</div>
+        {% for h in range(24) %}
+          {% set v = matrix[d][h] %}
+          {% set intensity = (v / max_v.v) if max_v.v > 0 else 0 %}
+          <div class="hm-cell" style="opacity: {{ 0.08 + intensity * 0.92 if v > 0 else 0.05 }};" title="{{ days[d] }} {{ '%02d'|format(h) }}h : {{ v }} évènement(s)"></div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+{% endmacro %}
+
+
+{% macro bar_h(items, label_key='cmd', value_key='n', max_items=10) %}
+  {# Liste horizontale {label, value} #}
+  {% set vmax = (items|map(attribute=value_key)|max) if items else 0 %}
+  <div class="bar-list">
+    {% for item in items[:max_items] %}
+    <div class="bar-row" style="grid-template-columns: 220px 1fr 80px;">
+      <span class="bar-label" title="{{ item[label_key] }}">{{ item[label_key] }}</span>
+      <div class="bar-track"><div class="bar-fill" style="width: {{ (item[value_key] / vmax * 100) if vmax else 0 }}%"></div></div>
+      <span class="bar-value">{{ "{:,}".format(item[value_key]).replace(',', ' ') }}</span>
+    </div>
+    {% endfor %}
+  </div>
+{% endmacro %}

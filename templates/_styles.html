@@ -754,6 +754,28 @@ select {
 
 ::selection { background: var(--accent-soft); color: var(--text); }
 
+/* ========================================================================
+   Heatmap (24h x 7 jours)
+   ======================================================================== */
+.heatmap-wrap { overflow-x: auto; padding: 4px 0; }
+.heatmap-grid {
+  display: grid;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+}
+.hm-day-label  { display: flex; align-items: center; padding-right: 4px; color: var(--text-2); }
+.hm-hour-label { display: flex; align-items: center; justify-content: center; height: 16px; }
+.hm-cell {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: transform 100ms var(--ease-out);
+  cursor: pointer;
+}
+.hm-cell:hover { transform: scale(1.4); z-index: 1; outline: 1px solid var(--accent); }
+
 /* Reduced motion: kill all decorative motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

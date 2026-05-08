@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_charts.html" import sparkline, heatmap, bar_h %}
 {% set active_nav = 'general' %}
 
 {% block title %}Vue d'ensemble · Bot Console{% endblock %}
@@ -38,12 +39,46 @@
   </div>
 </section>
 
+{% if activity %}
+<section class="card mb-6">
+  <div class="card-row mb-4">
+    <div>
+      <h2>Activité globale — 14 derniers jours</h2>
+      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Tous serveurs confondus.</p>
+    </div>
+    <span class="badge">total : {{ activity|sum(attribute='count') }}</span>
+  </div>
+  {{ sparkline(activity, w=900, h=120) }}
+  <div class="row between mt-2 faint" style="font-size:11px;font-family:var(--font-mono);">
+    <span>{{ activity[0].date }}</span>
+    <span>{{ activity[-1].date }}</span>
+  </div>
+</section>
+{% endif %}
+
+<div class="grid grid-2 gap-5 mb-6">
+  {% if heatmap %}
+  <div class="card">
+    <h2 style="margin-bottom: var(--s-3);">Heatmap d'activité</h2>
+    <p class="muted" style="font-size:var(--t-sm);margin-bottom: var(--s-4);">4 dernières semaines, par jour × heure.</p>
+    {{ heatmap(heatmap, cell_size=12) }}
+  </div>
+  {% endif %}
+
+  {% if top_cmds %}
+  <div class="card">
+    <h2 style="margin-bottom: var(--s-3);">Top commandes (30 j)</h2>
+    {{ bar_h(top_cmds, label_key='cmd', value_key='n', max_items=10) }}
+  </div>
+  {% endif %}
+</div>
+
 {% if stats.top10 %}
 <section class="card mb-6">
   <div class="card-row mb-4">
     <div>
       <h2>Top 10 cross-serveur</h2>
-      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Mêmes joueurs peuvent apparaître plusieurs fois (un par serveur).</p>
+      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Agrégé par utilisateur (XP cumulé toutes guildes).</p>
     </div>
   </div>
   {% set top_xp = stats.top10[0].xp if stats.top10 and stats.top10[0].xp else 1 %}
