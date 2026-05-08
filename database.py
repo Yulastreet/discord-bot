@@ -120,6 +120,21 @@ def init_db():
         PRIMARY KEY (guild_id, channel_id)
     )''')
 
+    # ===== Table dm_messages (DM entre users et le bot, global cross-guild) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS dm_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     TEXT NOT NULL,
+        username    TEXT,
+        avatar_url  TEXT,
+        direction   TEXT NOT NULL,
+        content     TEXT,
+        attachments TEXT,
+        ts          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        read_at     TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_dm_user_ts ON dm_messages(user_id, ts DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_dm_unread  ON dm_messages(direction, read_at)")
+
     # Table welcome
     c.execute('''CREATE TABLE IF NOT EXISTS welcome (
         guild_id TEXT PRIMARY KEY,
@@ -800,6 +815,71 @@ def list_channels(guild_id, type_filter=None):
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
     return rows
+
+# ===== DM MESSAGES (global cross-guild) =====
+def save_dm(user_id, username, direction, content=None, attachments=None, avatar_url=None):
+    """direction = 'in' (user -> bot) ou 'out' (bot -> user via dashboard)."""
+    import json
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO dm_messages
+                 (user_id, username, avatar_url, direction, content, attachments)
+                 VALUES (?, ?, ?, ?, ?, ?)""",
+              (str(user_id), username, avatar_url, direction, content,
+               json.dumps(attachments) if attachments else None))
+    msg_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    return msg_id
+
+def list_dm_conversations():
+    """Liste des users avec qui le bot a echange en DM, dernier message + count unread."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        SELECT
+            user_id,
+            (SELECT username   FROM dm_messages d2 WHERE d2.user_id = d1.user_id AND d2.username   IS NOT NULL ORDER BY ts DESC LIMIT 1) AS username,
+            (SELECT avatar_url FROM dm_messages d2 WHERE d2.user_id = d1.user_id AND d2.avatar_url IS NOT NULL ORDER BY ts DESC LIMIT 1) AS avatar_url,
+            (SELECT content   FROM dm_messages d2 WHERE d2.user_id = d1.user_id ORDER BY ts DESC LIMIT 1) AS last_content,
+            (SELECT direction FROM dm_messages d2 WHERE d2.user_id = d1.user_id ORDER BY ts DESC LIMIT 1) AS last_direction,
+            MAX(ts) AS last_ts,
+            SUM(CASE WHEN direction = 'in' AND read_at IS NULL THEN 1 ELSE 0 END) AS unread
+        FROM dm_messages d1
+        GROUP BY user_id
+        ORDER BY last_ts DESC
+    """)
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def get_dm_conversation(user_id, limit=200):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT * FROM dm_messages WHERE user_id = ?
+                 ORDER BY ts DESC LIMIT ?""", (str(user_id), int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    rows.reverse()  # plus ancien -> plus recent
+    return rows
+
+def mark_dm_read(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""UPDATE dm_messages SET read_at = CURRENT_TIMESTAMP
+                 WHERE user_id = ? AND direction = 'in' AND read_at IS NULL""",
+              (str(user_id),))
+    conn.commit()
+    conn.close()
+
+def count_unread_dms():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) AS n FROM dm_messages WHERE direction = 'in' AND read_at IS NULL")
+    n = c.fetchone()["n"]
+    conn.close()
+    return n
+
 
 def replace_guild_channels(guild_id, channels):
     """Remplace en bulk la liste des channels d'un guild. channels = list of dicts."""

@@ -16,6 +16,8 @@ from database import (
     bot_command_enqueue, bot_command_get,
     # Logs + channels
     get_logs, list_channels,
+    # DMs (global)
+    list_dm_conversations, get_dm_conversation, mark_dm_read, count_unread_dms,
     # Duels (global)
     admin_lister_duel_users, admin_get_full_duel_user, admin_update_duel_profil,
     admin_supprimer_sabre_collection,
@@ -46,7 +48,9 @@ if not PASSWORD:
 PUBLIC_PATHS = {"/", "/static"}        # tout le reste exige login
 GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild sélectionné
     "/", "/select-guild", "/general", "/logout",
+    "/dms",
     "/api/guilds", "/api/select-guild",
+    "/api/dms",
 }
 
 def needs_guild(path):
@@ -57,6 +61,8 @@ def needs_guild(path):
             return False
     if path.startswith("/api/duels") or path.startswith("/api/sabres"):
         return False  # duels/sabres = global
+    if path.startswith("/api/dms"):
+        return False  # DMs = global
     return True
 
 @app.before_request
@@ -498,6 +504,51 @@ def api_channels():
     type_filter = request.args.get("type")  # 'text' | 'voice' | None
     rows = list_channels(g_id, type_filter=type_filter)
     return jsonify({"channels": rows})
+
+# =====================================================================
+# DMs (global, cross-guild)
+# =====================================================================
+
+@app.route("/dms")
+def dms_page():
+    return render_template("dms.html")
+
+@app.route("/api/dms/conversations")
+def api_dms_conversations():
+    return jsonify({
+        "conversations": list_dm_conversations(),
+        "unread": count_unread_dms(),
+    })
+
+@app.route("/api/dms/conversation/<user_id>")
+def api_dms_conversation(user_id):
+    msgs = get_dm_conversation(user_id, limit=500)
+    mark_dm_read(user_id)  # auto-marquer comme lu a la consultation
+    return jsonify({"messages": msgs})
+
+@app.route("/api/dms/send", methods=["POST"])
+def api_dms_send():
+    data = request.json or {}
+    user_id = (data.get("user_id") or "").strip()
+    content = (data.get("content") or "").strip()
+    if not user_id:
+        return jsonify({"error": "user_id requis"}), 400
+    if not content:
+        return jsonify({"error": "content vide"}), 400
+    if len(content) > 2000:
+        return jsonify({"error": "content trop long (max 2000 chars)"}), 400
+    # DM est global : pas de guild_id, on stocke '0'
+    cid = bot_command_enqueue("0", "dm_send", {
+        "user_id": user_id,
+        "content": content,
+    })
+    return jsonify({"success": True, "command_id": cid})
+
+@app.route("/api/dms/mark-read/<user_id>", methods=["POST"])
+def api_dms_mark_read(user_id):
+    mark_dm_read(user_id)
+    return jsonify({"success": True})
+
 
 @app.route("/api/bottalk/send", methods=["POST"])
 def api_bottalk_send():

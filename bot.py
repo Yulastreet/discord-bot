@@ -59,7 +59,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       music_queue_add, music_queue_pop_next, music_queue_list, music_queue_clear,
                       music_state_set, music_state_get, music_state_clear_current, music_state_disconnect,
                       bot_command_fetch_pending, bot_command_finish,
-                      add_log, replace_guild_channels, upsert_channel, remove_channel)
+                      add_log, replace_guild_channels, upsert_channel, remove_channel,
+                      save_dm)
 from duel_commands import setup_duel_commands
 
 load_dotenv()
@@ -449,7 +450,24 @@ async def on_message(message):
     if message.author == bot.user:
         return
     if message.guild is None:
-        # DM, on ignore (pas de scope guild)
+        # DM (user -> bot) : sauvegarder + laisser process_commands au cas ou
+        if not message.author.bot:
+            try:
+                attachments = [
+                    {"url": a.url, "filename": a.filename, "size": a.size,
+                     "content_type": getattr(a, "content_type", None)}
+                    for a in message.attachments
+                ] if message.attachments else None
+                save_dm(
+                    user_id=message.author.id,
+                    username=str(message.author),
+                    direction="in",
+                    content=message.content or "",
+                    attachments=attachments,
+                    avatar_url=str(message.author.display_avatar.url) if message.author.display_avatar else None,
+                )
+            except Exception as e:
+                print(f"[dm] save_dm error: {e}")
         await bot.process_commands(message)
         return
     guild_id_str = str(message.guild.id)
@@ -1081,6 +1099,35 @@ async def _dispatch_bot_command(cmd):
     gid = cmd["guild_id"]
     name = cmd["cmd"]
     payload = cmd.get("payload") or {}
+
+    # Commandes globales (sans guild requis)
+    if name == "dm_send":
+        # payload: {user_id, content}
+        user_id = payload.get("user_id")
+        content = (payload.get("content") or "").strip()
+        if not user_id or not content:
+            raise ValueError("user_id et content requis")
+        if len(content) > 2000:
+            content = content[:1997] + "..."
+        try:
+            user = bot.get_user(int(user_id)) or await bot.fetch_user(int(user_id))
+        except Exception as e:
+            raise RuntimeError(f"user introuvable: {e}")
+        if not user:
+            raise RuntimeError("user introuvable")
+        try:
+            await user.send(content)
+        except discord.Forbidden:
+            raise RuntimeError("user a ferme ses DMs ou n'a pas de serveur en commun")
+        save_dm(
+            user_id=user.id,
+            username=str(user),
+            direction="out",
+            content=content,
+            avatar_url=str(user.display_avatar.url) if user.display_avatar else None,
+        )
+        return
+
     guild = bot.get_guild(int(gid))
     if not guild:
         raise RuntimeError(f"guild {gid} introuvable (bot pas dans ce serveur ?)")
