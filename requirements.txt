@@ -4,3 +4,5 @@ aiohttp==3.9.5
 Pillow==10.3.0
 yt-dlp
 PyNaCl
+flask
+requests

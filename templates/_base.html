@@ -66,6 +66,40 @@
     .guild-menu-item.selected { background: var(--accent-soft); }
     .guild-menu-divider { height: 1px; background: var(--border-soft); margin: 6px 0; }
     .guild-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+    /* User card in sidebar */
+    .user-card-mini {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      margin-top: var(--s-3);
+      background: var(--bg-2);
+      border-radius: var(--r-2);
+    }
+    .user-card-mini .uc-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .user-card-mini .uc-avatar-fallback {
+      background: var(--accent);
+      color: var(--accent-text);
+      display: grid; place-items: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .user-card-mini .uc-meta { min-width: 0; flex: 1; }
+    .user-card-mini .uc-name {
+      font-size: var(--t-sm);
+      font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .user-card-mini .uc-role {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
@@ -219,10 +253,12 @@
     </div>
 
     <nav>
+      {% if is_owner %}
       <div class="nav-section">Vue globale</div>
       <a href="/general" class="nav-item {{ 'active' if active_nav == 'general' }}">
         <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
       </a>
+      {% endif %}
 
       <div class="nav-section">Ce serveur</div>
       <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
@@ -240,13 +276,16 @@
       <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
         <svg class="ic"><use href="#i-terminal"/></svg> Logs
       </a>
+      {% if is_owner %}
       <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
         <svg class="ic"><use href="#i-quote"/></svg> BotTalk
       </a>
+      {% endif %}
       <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
         <svg class="ic"><use href="#i-shield"/></svg> Modération
       </a>
 
+      {% if is_owner %}
       <div class="nav-section">Global (cross-serveur)</div>
       <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
         <svg class="ic"><use href="#i-swords"/></svg> Duels
@@ -260,7 +299,22 @@
       <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
         <svg class="ic"><use href="#i-gear"/></svg> Réglages
       </a>
+      {% endif %}
     </nav>
+
+    {% if discord_user and discord_user.user_id %}
+    <div class="user-card-mini">
+      {% if discord_user.avatar %}
+        <img src="{{ discord_user.avatar }}" alt="" class="uc-avatar">
+      {% else %}
+        <div class="uc-avatar uc-avatar-fallback">{{ (discord_user.username or '?')[0]|upper }}</div>
+      {% endif %}
+      <div class="uc-meta">
+        <div class="uc-name">{{ discord_user.username }}</div>
+        <div class="uc-role">{{ 'Owner' if is_owner else 'Modérateur' }}</div>
+      </div>
+    </div>
+    {% endif %}
 
     <div class="sidebar-foot">
       <button class="theme-cycle" id="themeCycle" aria-label="Changer le thème" title="Cycler le thème">

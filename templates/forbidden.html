@@ -1,0 +1,17 @@
+{% extends "_base.html" %}
+{% set active_nav = '' %}
+
+{% block title %}Accès refusé · Bot Console{% endblock %}
+{% block crumb %}Accès refusé{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align:center;padding:var(--s-12) var(--s-7);max-width:600px;margin:var(--s-9) auto;">
+  <div style="font-size:48px;margin-bottom:var(--s-3);">🔒</div>
+  <h1 style="font-size:var(--t-xl);margin-bottom:var(--s-3);">Accès refusé</h1>
+  <p class="muted" style="font-size:var(--t-sm);max-width:50ch;margin:0 auto var(--s-5);">
+    Tu n'as pas les permissions nécessaires pour accéder à cette page.
+    Les modérateurs ne voient que : Dashboard, Recherche, Réactions, Musique, Logs, Modération.
+  </p>
+  <a href="/dashboard" class="btn btn-primary">Retour au dashboard</a>
+</div>
+{% endblock %}
