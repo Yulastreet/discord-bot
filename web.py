@@ -165,6 +165,15 @@ def _user_can_access_page(endpoint, path):
     """Vérifie que l'user peut accéder à cette page/route."""
     if _is_owner_session():
         return True
+
+    # Pages essentielles toujours accessibles (auth + selection guild + statique)
+    if path in ("/select-guild", "/logout", "/oauth/logout"):
+        return True
+    if path.startswith("/oauth/") or path.startswith("/static"):
+        return True
+    if path in ("/api/select-guild", "/api/guilds"):
+        return True
+
     # Mods : checks par endpoint et par path
     if path in MOD_BLOCKED_PAGES:
         return False
