@@ -1,0 +1,225 @@
+{% extends "_base.html" %}
+{% set active_nav = 'status' %}
+
+{% block title %}Status · Bot Console{% endblock %}
+{% block crumb %}Status système{% endblock %}
+{% block actions %}
+  <button class="btn btn-secondary btn-sm" onclick="refresh()">Rafraîchir</button>
+{% endblock %}
+
+{% block content %}
+
+<div class="col gap-7">
+  <div>
+    <h1>Santé du bot</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
+      Uptime, latence Discord, taille de la DB, dernières erreurs, tentatives de connexion.
+    </p>
+  </div>
+
+  <div class="grid grid-4">
+    <div class="stat">
+      <div class="stat-label">Statut bot</div>
+      <div class="stat-value" id="botStatus">—</div>
+      <div class="stat-sub" id="botStatusSub">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Uptime</div>
+      <div class="stat-value" id="uptime">—</div>
+      <div class="stat-sub">Depuis le dernier boot</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Latence Discord</div>
+      <div class="stat-value" id="latency">—</div>
+      <div class="stat-sub">Heartbeat WebSocket</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Serveurs / vocaux</div>
+      <div class="stat-value" id="guildCounts">—</div>
+      <div class="stat-sub">Connectés en ce moment</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2 gap-5">
+    <div class="card">
+      <h2>Versions</h2>
+      <div id="versions" class="mt-2"></div>
+    </div>
+    <div class="card">
+      <h2>Base de données</h2>
+      <div id="dbInfo" class="mt-2"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-row mb-4">
+      <h2>Dernière erreur bot</h2>
+      <span class="badge" id="lastErrorTime">—</span>
+    </div>
+    <pre id="lastError" class="term" style="max-height: 200px; overflow-y: auto;">—</pre>
+  </div>
+
+  <div class="card padless">
+    <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+      <h2>Tentatives de connexion (20 dernières)</h2>
+      <span class="badge" id="loginCount">0</span>
+    </div>
+    <div id="loginLog"></div>
+  </div>
+
+</div>
+
+<style>
+  .term {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: oklch(0.12 0.005 60);
+    color: oklch(0.94 0.005 60);
+    border-radius: var(--r-2);
+    padding: 14px 18px;
+    line-height: 1.45;
+  }
+  [data-theme="light"] .term { background: oklch(0.16 0.005 60); }
+  .kv-row { display: grid; grid-template-columns: 200px 1fr; gap: var(--s-3); padding: 6px 0; border-bottom: 1px solid var(--border-soft); font-size: var(--t-sm); }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .kv-key { color: var(--text-2); }
+  .kv-row .kv-val { font-family: var(--font-mono); color: var(--text); }
+  .login-row {
+    display: grid;
+    grid-template-columns: 100px 60px 140px 1fr;
+    gap: var(--s-3);
+    padding: 9px var(--s-6);
+    border-bottom: 1px solid var(--border-soft);
+    font-size: var(--t-sm);
+    align-items: center;
+  }
+  .login-row:last-child { border-bottom: none; }
+  .login-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+  .login-tag.ok   { background: oklch(0.45 0.16 145 / 0.20); color: oklch(0.78 0.16 145); }
+  .login-tag.fail { background: oklch(0.45 0.18 25  / 0.20); color: oklch(0.74 0.20 25); }
+  .login-row .ip   { font-family: var(--font-mono); color: var(--text-2); font-size: 12px; }
+  .login-row .when { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmtUptime(seconds) {
+  if (!seconds || seconds < 0) return '—';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (d > 0) return `${d}j ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+function fmtBytes(b) {
+  if (!b) return '—';
+  if (b < 1024) return `${b} B`;
+  if (b < 1024**2) return `${(b/1024).toFixed(1)} KB`;
+  if (b < 1024**3) return `${(b/(1024**2)).toFixed(1)} MB`;
+  return `${(b/(1024**3)).toFixed(2)} GB`;
+}
+function fmtTimeAgo(ts) {
+  if (!ts) return '—';
+  const diff = (Date.now()/1000 - ts);
+  if (diff < 60)    return `il y a ${Math.floor(diff)}s`;
+  if (diff < 3600)  return `il y a ${Math.floor(diff/60)}m`;
+  if (diff < 86400) return `il y a ${Math.floor(diff/3600)}h`;
+  return new Date(ts*1000).toLocaleString('fr-FR');
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    document.getElementById('botStatus').textContent = 'Erreur';
+  }
+}
+
+function render(d) {
+  const bot = d.bot || {};
+  const now = d.now || Date.now()/1000;
+
+  // Bot status
+  const fresh = bot.updated_at && (now - bot.updated_at) < 60;
+  const statusEl = document.getElementById('botStatus');
+  if (!bot.updated_at) {
+    statusEl.textContent = 'Hors ligne';
+    statusEl.style.color = 'var(--danger)';
+    document.getElementById('botStatusSub').textContent = 'bot_state.json absent — bot pas démarré ?';
+  } else if (!fresh) {
+    statusEl.textContent = 'Stale';
+    statusEl.style.color = 'var(--warn)';
+    document.getElementById('botStatusSub').textContent = `Heartbeat ${fmtTimeAgo(bot.updated_at)}`;
+  } else {
+    statusEl.textContent = 'En ligne';
+    statusEl.style.color = 'var(--accent)';
+    document.getElementById('botStatusSub').textContent = `MAJ ${fmtTimeAgo(bot.updated_at)}`;
+  }
+
+  // Uptime
+  document.getElementById('uptime').textContent = bot.started_at ? fmtUptime(now - bot.started_at) : '—';
+
+  // Latence
+  if (bot.latency_ms != null) {
+    const l = bot.latency_ms;
+    const el = document.getElementById('latency');
+    el.textContent = `${l} ms`;
+    el.style.color = l > 300 ? 'var(--danger)' : (l > 150 ? 'var(--warn)' : 'var(--accent)');
+  }
+
+  // Guilds
+  document.getElementById('guildCounts').textContent = `${bot.guild_count ?? '—'} / ${bot.voice_count ?? 0}`;
+
+  // Versions
+  const v = document.getElementById('versions');
+  v.innerHTML = `
+    <div class="kv-row"><span class="kv-key">discord.py</span><span class="kv-val">${bot.discordpy_version || '—'}</span></div>
+    <div class="kv-row"><span class="kv-key">yt-dlp</span><span class="kv-val">${bot.ytdlp_version || '—'}</span></div>
+    <div class="kv-row"><span class="kv-key">PID bot</span><span class="kv-val">${bot.pid ?? '—'}</span></div>
+  `;
+
+  // DB
+  const counts = (d.db && d.db.counts) || {};
+  const dbi = document.getElementById('dbInfo');
+  dbi.innerHTML = `
+    <div class="kv-row"><span class="kv-key">Taille fichier</span><span class="kv-val">${fmtBytes(d.db?.size_bytes)}</span></div>
+    ${Object.entries(counts).map(([k,v]) => `<div class="kv-row"><span class="kv-key">${k}</span><span class="kv-val">${v ?? '—'}</span></div>`).join('')}
+  `;
+
+  // Last error
+  if (bot.last_error) {
+    document.getElementById('lastError').textContent = bot.last_error;
+    document.getElementById('lastErrorTime').textContent = fmtTimeAgo(bot.last_error_at);
+  } else {
+    document.getElementById('lastError').textContent = 'Aucune erreur enregistrée. ✓';
+    document.getElementById('lastErrorTime').textContent = '—';
+  }
+
+  // Login log
+  const log = d.login_log || [];
+  document.getElementById('loginCount').textContent = log.length;
+  const lEl = document.getElementById('loginLog');
+  if (!log.length) {
+    lEl.innerHTML = '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">Aucune tentative récente.</div>';
+  } else {
+    lEl.innerHTML = log.map(r => `
+      <div class="login-row">
+        <span class="login-tag ${r.ok ? 'ok' : 'fail'}">${r.ok ? 'success' : 'fail'}</span>
+        <span></span>
+        <span class="when">${fmtTimeAgo(r.ts)}</span>
+        <span class="ip">${r.ip || '?'}</span>
+      </div>`).join('');
+  }
+}
+
+refresh();
+setInterval(refresh, 8000);
+</script>
+{% endblock %}

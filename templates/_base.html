@@ -187,6 +187,9 @@
     <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>
     </symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12h4l3-9 4 18 3-9h4"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -231,6 +234,9 @@
       </a>
       <a href="/dms" class="nav-item {{ 'active' if active_nav == 'dms' }}">
         <svg class="ic"><use href="#i-mail"/></svg> Messages privés
+      </a>
+      <a href="/status" class="nav-item {{ 'active' if active_nav == 'status' }}">
+        <svg class="ic"><use href="#i-pulse"/></svg> Status
       </a>
     </nav>
 

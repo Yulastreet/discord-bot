@@ -60,7 +60,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       music_state_set, music_state_get, music_state_clear_current, music_state_disconnect,
                       bot_command_fetch_pending, bot_command_finish,
                       add_log, replace_guild_channels, upsert_channel, remove_channel,
-                      save_dm)
+                      save_dm,
+                      prune_logs_global)
 from duel_commands import setup_duel_commands
 
 load_dotenv()
@@ -69,6 +70,47 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 init_db()
 # Index reactions par (guild_id_str, user_id_int)
 USER_REACTIONS = get_all_reactions_index()
+
+# ===== Etat runtime exposé pour /api/status =====
+import time as _time
+import json as _json
+BOT_STATE = {
+    "started_at":     _time.time(),
+    "pid":            os.getpid(),
+    "last_error":     None,
+    "last_error_at":  None,
+    "ytdlp_version":  None,
+    "discordpy_version": None,
+    "guild_count":    0,
+    "voice_count":    0,
+    "latency_ms":     None,
+    "updated_at":     _time.time(),
+}
+try:
+    import yt_dlp as _ytdlp_mod
+    BOT_STATE["ytdlp_version"] = getattr(_ytdlp_mod.version, "__version__", None) or str(getattr(_ytdlp_mod, "version", ""))
+except Exception:
+    pass
+try:
+    BOT_STATE["discordpy_version"] = discord.__version__
+except Exception:
+    pass
+
+_BOT_STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_state.json")
+
+def _write_bot_state():
+    try:
+        BOT_STATE["updated_at"]  = _time.time()
+        BOT_STATE["guild_count"] = len(bot.guilds) if bot.is_ready() else 0
+        BOT_STATE["voice_count"] = sum(1 for g in bot.guilds if g.voice_client) if bot.is_ready() else 0
+        BOT_STATE["latency_ms"]  = round(bot.latency * 1000) if bot.is_ready() else None
+        with open(_BOT_STATE_FILE, "w", encoding="utf-8") as f:
+            _json.dump(BOT_STATE, f)
+    except Exception as e:
+        print(f"[bot_state] write error: {e}")
+
+# Ecrit l'etat initial des le module charge
+_write_bot_state()
 
 
 # ===== DB WRAPPER POUR DUEL_COMMANDS =====
@@ -254,6 +296,14 @@ async def on_ready():
         reload_reactions.start()
     if not process_bot_commands.is_running():
         process_bot_commands.start()
+    if not daily_logs_purge.is_running():
+        daily_logs_purge.start()
+    if not anti_spam_cleanup.is_running():
+        anti_spam_cleanup.start()
+    if not status_writer.is_running():
+        status_writer.start()
+    # Resume music: rejoindre les vocals où on était + remettre la queue en lecture
+    await _resume_music()
     await bot.tree.sync()
     print("✅ Slash commands synchronisées globalement")
     for guild in bot.guilds:
@@ -426,6 +476,22 @@ async def sync_commands(ctx):
 async def reload_reactions():
     global USER_REACTIONS
     USER_REACTIONS = get_all_reactions_index()
+
+@tasks.loop(hours=24)
+async def daily_logs_purge():
+    """Purge quotidienne: > 90 jours OU > 5000 logs par guild. Recupere espace disque via VACUUM."""
+    try:
+        res = prune_logs_global(keep_per_guild=5000, max_age_days=90)
+        if res["by_age"] or res["by_count"]:
+            print(f"[purge] logs : -{res['by_age']} (age) -{res['by_count']} (count) + VACUUM")
+    except Exception as e:
+        print(f"[purge] error: {e}")
+        BOT_STATE["last_error"]    = f"purge: {e}"
+        BOT_STATE["last_error_at"] = _time.time()
+
+@daily_logs_purge.before_loop
+async def _before_purge():
+    await bot.wait_until_ready()
 
 @bot.event
 async def on_member_join(member):
@@ -1079,6 +1145,124 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("👋 Déconnecté du salon vocal !")
     else:
         await interaction.response.send_message("❌ Je ne suis pas dans un salon vocal !", ephemeral=True)
+
+
+async def _resume_music():
+    """Au boot, rejoindre les vocals connus + relancer la queue si elle n'est pas vide.
+    Lit music_state pour chaque guild où le bot est présent."""
+    from database import music_state_get, music_state_disconnect, music_queue_list
+    for guild in bot.guilds:
+        gid = str(guild.id)
+        st = music_state_get(gid)
+        if not st:
+            continue
+        ch_id = st.get("voice_channel_id")
+        if not ch_id:
+            continue
+        # Le voice channel existe-t-il toujours ?
+        channel = guild.get_channel(int(ch_id))
+        if not channel or not isinstance(channel, discord.VoiceChannel):
+            music_state_disconnect(gid)
+            continue
+        try:
+            vc = await channel.connect()
+            print(f"[resume] {guild.name} : reconnecté à {channel.name}")
+            # Relancer la queue si non vide
+            if music_queue_list(gid):
+                await play_next(vc, None, guild.id)
+        except Exception as e:
+            print(f"[resume] {guild.name} : échec reconnexion {channel.name}: {e}")
+            music_state_disconnect(gid)
+
+
+# ===== ANTI-SPAM SLASH COMMANDS =====
+# Limite : max N commandes par user dans une fenetre glissante
+import collections as _col
+_USER_CMD_TIMES = _col.defaultdict(list)  # user_id -> [timestamp, ...]
+_RATE_LIMIT_N      = 6        # 6 commandes
+_RATE_LIMIT_WINDOW = 30.0     # par 30 secondes
+
+def _is_rate_limited(user_id):
+    now = _time.time()
+    bucket = _USER_CMD_TIMES[user_id]
+    # purge entries hors fenetre
+    cutoff = now - _RATE_LIMIT_WINDOW
+    while bucket and bucket[0] < cutoff:
+        bucket.pop(0)
+    if len(bucket) >= _RATE_LIMIT_N:
+        return True, _RATE_LIMIT_WINDOW - (now - bucket[0])
+    bucket.append(now)
+    return False, 0.0
+
+async def _global_rate_limit(interaction: discord.Interaction) -> bool:
+    """Refuse les interactions si l'user spam les slash commands."""
+    # Bypass pour le proprietaire (toujours autorise)
+    try:
+        if await bot.is_owner(interaction.user):
+            return True
+    except Exception:
+        pass
+    limited, retry = _is_rate_limited(interaction.user.id)
+    if limited:
+        try:
+            await interaction.response.send_message(
+                f"⏱️ Tu envoies des commandes trop vite. Réessaie dans **{int(retry) + 1}s**.",
+                ephemeral=True,
+            )
+        except Exception:
+            pass
+        return False
+    return True
+
+# Hook global rate-limit sur l'arbre des slash commands
+bot.tree.interaction_check = _global_rate_limit
+
+@tasks.loop(seconds=15)
+async def status_writer():
+    _write_bot_state()
+
+@status_writer.before_loop
+async def _before_status_writer():
+    await bot.wait_until_ready()
+
+@tasks.loop(minutes=10)
+async def anti_spam_cleanup():
+    """Purge les buckets vides toutes les 10 min (sinon dict grossit indefiniment)."""
+    now = _time.time()
+    cutoff = now - _RATE_LIMIT_WINDOW
+    to_del = [uid for uid, ts in _USER_CMD_TIMES.items() if not ts or ts[-1] < cutoff]
+    for uid in to_del:
+        _USER_CMD_TIMES.pop(uid, None)
+
+@anti_spam_cleanup.before_loop
+async def _before_spam_cleanup():
+    await bot.wait_until_ready()
+
+
+# ===== ERROR CAPTURE GLOBAL =====
+@bot.event
+async def on_error(event_method, *args, **kwargs):
+    import traceback
+    tb = traceback.format_exc()
+    print(f"[on_error] event={event_method}\n{tb}")
+    BOT_STATE["last_error"]    = f"{event_method}: {tb.splitlines()[-1] if tb else 'unknown'}"[:200]
+    BOT_STATE["last_error_at"] = _time.time()
+
+@bot.tree.error
+async def _slash_cmd_error(interaction: discord.Interaction, error):
+    import traceback
+    tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+    print(f"[slash error] {tb_str}")
+    BOT_STATE["last_error"]    = f"slash: {type(error).__name__}: {error}"[:200]
+    BOT_STATE["last_error_at"] = _time.time()
+    try:
+        msg = f"❌ Erreur : {type(error).__name__}"
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
+    except Exception:
+        pass
 
 
 # ===== WORKER : commandes web -> bot (polling 1.5s) =====

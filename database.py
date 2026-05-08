@@ -779,6 +779,32 @@ def prune_old_logs(guild_id, keep=5000):
     conn.commit()
     conn.close()
 
+def prune_logs_global(keep_per_guild=5000, max_age_days=90):
+    """Purge globale logs : limite N par guild + supprime > max_age_days. Retourne dict counts."""
+    conn = get_db()
+    c = conn.cursor()
+    # 1. Purge par age
+    c.execute("DELETE FROM logs WHERE ts < datetime('now', ?)", (f"-{int(max_age_days)} days",))
+    by_age = c.rowcount
+    # 2. Purge par guild (garde les N plus recents)
+    c.execute("SELECT DISTINCT guild_id FROM logs")
+    guilds = [r["guild_id"] for r in c.fetchall()]
+    by_count = 0
+    for gid in guilds:
+        c.execute("""DELETE FROM logs WHERE id IN (
+                       SELECT id FROM logs WHERE guild_id = ?
+                       ORDER BY ts DESC LIMIT -1 OFFSET ?
+                     )""", (str(gid), int(keep_per_guild)))
+        by_count += c.rowcount
+    conn.commit()
+    # VACUUM pour récupérer l'espace disque
+    try:
+        c.execute("VACUUM")
+    except Exception:
+        pass
+    conn.close()
+    return {"by_age": by_age, "by_count": by_count}
+
 
 # ===== GUILD CHANNELS (cache pour BotTalk + logs lisibles) =====
 def upsert_channel(guild_id, channel_id, name, type_, position=0):

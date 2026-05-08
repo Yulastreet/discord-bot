@@ -1,5 +1,10 @@
 from flask import Flask, render_template, request, redirect, session, jsonify, g, url_for
 import os
+import time
+import json
+import secrets
+from collections import deque
+from datetime import timedelta
 from dotenv import load_dotenv
 
 from database import (
@@ -41,6 +46,49 @@ PASSWORD = os.getenv("WEB_PASSWORD")
 if not PASSWORD:
     print("[WARN] WEB_PASSWORD non defini dans .env — login impossible.")
 
+# ===== Sécurité dashboard =====
+SESSION_LIFETIME_HOURS = int(os.getenv("SESSION_LIFETIME_HOURS", "24"))
+app.permanent_session_lifetime = timedelta(hours=SESSION_LIFETIME_HOURS)
+app.config["SESSION_COOKIE_HTTPONLY"]   = True
+app.config["SESSION_COOKIE_SAMESITE"]   = "Lax"
+# Cookie secure activé seulement si HTTPS (proxy nginx). Active via HTTPS_ENABLED=1 dans .env
+if os.getenv("HTTPS_ENABLED", "0") == "1":
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["PREFERRED_URL_SCHEME"]  = "https"
+
+# Login attempts (anti brute-force, en mémoire)
+_LOGIN_FAIL = {}                 # ip -> [timestamps...]
+_LOGIN_LOG  = deque(maxlen=200)  # historique succès/échec pour /status
+
+LOGIN_RATE_WINDOW = 300          # 5 min
+LOGIN_RATE_MAX    = 5            # 5 tentatives ratées en 5 min -> bannit 15 min
+LOGIN_BAN_SECONDS = 900
+
+def _client_ip():
+    return (request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            or request.remote_addr or "?")
+
+def _check_login_rate(ip):
+    now = time.time()
+    fails = _LOGIN_FAIL.get(ip, [])
+    fails = [t for t in fails if t > now - LOGIN_BAN_SECONDS]
+    _LOGIN_FAIL[ip] = fails
+    if len(fails) >= LOGIN_RATE_MAX:
+        oldest = min(fails)
+        retry_in = int(LOGIN_BAN_SECONDS - (now - oldest))
+        return False, max(retry_in, 1)
+    return True, 0
+
+def _record_login(ip, success, username=None):
+    if not success:
+        _LOGIN_FAIL.setdefault(ip, []).append(time.time())
+    _LOGIN_LOG.appendleft({
+        "ts": time.time(),
+        "ip": ip,
+        "ok": bool(success),
+        "user": username,
+    })
+
 
 # =====================================================================
 # AUTH + GUILD CONTEXT MIDDLEWARE
@@ -49,9 +97,9 @@ if not PASSWORD:
 PUBLIC_PATHS = {"/", "/static"}        # tout le reste exige login
 GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild sélectionné
     "/", "/select-guild", "/general", "/logout",
-    "/dms",
+    "/dms", "/status",
     "/api/guilds", "/api/select-guild",
-    "/api/dms",
+    "/api/dms", "/api/status",
 }
 
 def needs_guild(path):
@@ -62,8 +110,8 @@ def needs_guild(path):
             return False
     if path.startswith("/api/duels") or path.startswith("/api/sabres"):
         return False  # duels/sabres = global
-    if path.startswith("/api/dms"):
-        return False  # DMs = global
+    if path.startswith("/api/dms") or path.startswith("/api/status"):
+        return False  # DMs et status = global
     return True
 
 @app.before_request
@@ -128,10 +176,23 @@ def get_global_stats():
 
 @app.route("/", methods=["GET", "POST"])
 def login():
+    ip = _client_ip()
     if request.method == "POST":
-        if request.form.get("password") == PASSWORD:
-            session["logged_in"] = True
+        ok, retry_in = _check_login_rate(ip)
+        if not ok:
+            return render_template(
+                "login.html",
+                error=f"Trop de tentatives. Réessaie dans {retry_in // 60}m {retry_in % 60}s.",
+            ), 429
+        submitted = request.form.get("password") or ""
+        if PASSWORD and secrets.compare_digest(submitted, PASSWORD):
+            session.permanent       = True
+            session["logged_in"]    = True
+            session["login_ts"]     = time.time()
+            session["login_ip"]     = ip
+            _record_login(ip, True)
             return redirect("/select-guild")
+        _record_login(ip, False)
         return render_template("login.html", error="Mot de passe incorrect")
     if session.get("logged_in"):
         return redirect("/dashboard" if session.get("guild_id") else "/select-guild")
@@ -573,6 +634,68 @@ def api_bottalk_send():
         "content":    content,
     })
     return jsonify({"success": True, "command_id": cid})
+
+
+# =====================================================================
+# STATUS / HEALTH (public-after-login, global)
+# =====================================================================
+
+# On lit l'etat du bot via la DB (process séparé). Le bot persiste son etat
+# dans une mini-table 'kv' qu'on cree a la volee. Plus simple : on stocke
+# le pid + boot ts dans bot_state.json a cote.
+
+import os as _os
+_BOT_STATE_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "bot_state.json")
+
+def _read_bot_state():
+    try:
+        with open(_BOT_STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+@app.route("/status")
+def status_page():
+    return render_template("status.html")
+
+@app.route("/api/status")
+def api_status():
+    # DB stats
+    db = get_db()
+    counts = {}
+    for tbl in ("users", "reactions", "logs", "dm_messages", "music_queue", "guilds", "sabres", "duel_profil", "duel_collection"):
+        try:
+            counts[tbl] = db.execute(f"SELECT COUNT(*) AS n FROM {tbl}").fetchone()["n"]
+        except Exception:
+            counts[tbl] = None
+    db_size_bytes = None
+    try:
+        db_size_bytes = _os.path.getsize("bot_database.db")
+    except Exception:
+        pass
+    db.close()
+
+    # Bot state via fichier partagé
+    bot_state = _read_bot_state() or {}
+    now = time.time()
+
+    # Login attempts récents
+    login_log = list(_LOGIN_LOG)[:20]
+
+    return jsonify({
+        "now": now,
+        "bot": bot_state,
+        "db": {
+            "counts":    counts,
+            "size_bytes": db_size_bytes,
+        },
+        "login_log": login_log,
+        "session": {
+            "logged_in": bool(session.get("logged_in")),
+            "login_ts":  session.get("login_ts"),
+            "login_ip":  session.get("login_ip"),
+        },
+    })
 
 
 if __name__ == "__main__":

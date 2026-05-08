@@ -6,6 +6,12 @@ __pycache__/
 # YouTube cookies — sensitive (contient session login)
 cookies.txt
 
+# Etat runtime du bot (généré par le bot, lu par web.py)
+bot_state.json
+
+# Backups locaux
+backups/
+
 # SQLite databases — never version, contains live data
 bot_database.db
 *.db
