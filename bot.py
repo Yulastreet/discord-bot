@@ -162,8 +162,17 @@ else:
     print(f"[yt-dlp] aucun cookies.txt detecte ({_COOKIES_PATH}). Si YouTube bloque, voir README cookies.")
 
 FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn',
+    # before_options : passe en CLI a ffmpeg AVANT -i (input)
+    # - reconnect : auto-reconnect sur drop
+    # - thread_queue_size : tampon paquets entrants (defaut 8 = trop petit)
+    # - probesize/analyzeduration : reduit la latence de demarrage sans nuire a l'audio
+    'before_options': (
+        '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
+        '-thread_queue_size 1024 '
+        '-probesize 1M -analyzeduration 0'
+    ),
+    # options : -vn = pas de video. -bufsize = tampon de sortie plus gros, evite sous-tampons.
+    'options': '-vn -bufsize 1024k',
 }
 
 async def get_audio_info(query):
@@ -468,11 +477,7 @@ async def commandes(interaction: discord.Interaction):
         "**/duel <adversaire> nerf:True** (duel équilibré, ignore niveaux et stats)\n"
         "**/profil [membre]** (affiche le profil duel d'un joueur)\n"
         "**/statpoint <stat>** (attribue un point de stat : force, agilite, defense, endurance, chance)\n"
-        "**/boutique_sabres** (liste les sabres disponibles à l'achat)\n"
-        "**/acheter_sabre <sabre>** (achète un sabre avec tes TookCoins)\n"
-        "**/equiper_sabre <sabre>** (équipe un sabre de ta collection)\n"
-        "**/mon_sabre** (affiche le sabre actuellement équipé)\n"
-        "**/collection [membre]** (affiche la collection de sabres)\n"
+        "**/sabre** (menu unifié : sabre équipé, collection, boutique avec navigation par boutons)\n"
         "**/historique [membre]** (affiche l'historique des duels)"
     )
     embed.add_field(name="⚔️ Duel", value=duel, inline=False)

@@ -623,81 +623,245 @@ def setup_duel_commands(bot, db):
         embed.description = description
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="boutique_sabres", description="Voir la boutique des sabres laser")
-    async def boutique_sabres(interaction: discord.Interaction):
+    # =====================================================================
+    # /sabre — menu unifie : equipe / collection / boutique avec navigation
+    # =====================================================================
+    RARETE_ORDER = ["C", "UC", "R", "SR", "SSR"]
+
+    def _build_equipped_embed(profil_data):
+        sabre_id   = profil_data.get("sabre_equipe", "bleu")
+        sabre      = get_sabre(sabre_id)
+        rarete     = RARETES[sabre["rarete"]]
+        inventaire = profil_data.get("sabres", ["bleu"])
+        coins      = profil_data.get("tookcoins", 0)
+        embed = discord.Embed(
+            title=f"{sabre['emoji']} {sabre['nom']}",
+            description=sabre["description"],
+            color=0x00BFFF,
+        )
+        embed.add_field(name="Rareté", value=f"{rarete['emoji']} {rarete['label']}", inline=True)
+        embed.add_field(name="TookCoins", value=f"🪙 {coins}", inline=True)
+        embed.add_field(name="Sabres possédés", value=f"{len(inventaire)} sabre(s)", inline=True)
+        embed.add_field(
+            name="✨ Capacité spéciale",
+            value=f"**{sabre['speciale']['nom']}**\n_{sabre['speciale']['description']}_",
+            inline=False,
+        )
+        embed.set_footer(text="🗡️ Sabre équipé · utilise les boutons pour ouvrir Collection ou Boutique")
+        return embed
+
+    def _build_collection_embed(profil_data, member_name):
+        sabres_ids   = profil_data.get("sabres", ["bleu"])
+        sabre_equipe = profil_data.get("sabre_equipe", "bleu")
+        embed = discord.Embed(title=f"🗂️ Collection de {member_name}", color=0x9B59B6)
+        # Grouper par rareté
+        for rarete_id in RARETE_ORDER:
+            rarete_info = RARETES[rarete_id]
+            ligne = []
+            for sid in sabres_ids:
+                s = get_sabre(sid)
+                if not s or s["rarete"] != rarete_id:
+                    continue
+                tag = " ← **équipé**" if sid == sabre_equipe else ""
+                ligne.append(f"{s['emoji']} **{s['nom']}**{tag}")
+            if ligne:
+                embed.add_field(
+                    name=f"{rarete_info['emoji']} {rarete_info['label']}",
+                    value="\n".join(ligne),
+                    inline=False,
+                )
+        if not embed.fields:
+            embed.description = "Aucun sabre dans ta collection."
+        embed.set_footer(text=f"🗂️ {len(sabres_ids)} sabre(s) · sélectionne ci-dessous pour équiper")
+        return embed
+
+    def _build_shop_embed(profil_data):
         sabres      = get_tous_les_sabres()
-        profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
         inventaire  = profil_data.get("sabres", ["bleu"])
-        embed       = discord.Embed(title="🗡️ BOUTIQUE DES SABRES LASER", color=0x00BFFF)
-        for rarete_id, rarete_info in RARETES.items():
+        coins       = profil_data.get("tookcoins", 0)
+        embed = discord.Embed(
+            title="🛒 Boutique des sabres laser",
+            description=f"💰 Tu possèdes **🪙 {coins}** TookCoins.",
+            color=0x00BFFF,
+        )
+        for rarete_id in RARETE_ORDER:
+            rarete_info = RARETES[rarete_id]
             sabres_rarete = [s for s in sabres.values() if s["rarete"] == rarete_id]
             if not sabres_rarete:
                 continue
-            texte = ""
+            texte = []
             for s in sabres_rarete:
-                possede  = "✅" if s["id"] in inventaire else ""
+                possede  = " ✅" if s["id"] in inventaire else ""
                 prix_txt = "**GRATUIT**" if s["prix"] == 0 else f"🪙 {s['prix']}"
-                texte   += f"{s['emoji']} **{s['nom']}** {possede}\n{prix_txt} | ✨ {s['speciale']['nom']}\n\n"
-            embed.add_field(name=f"{rarete_info['emoji']} {rarete_info['label']}", value=texte, inline=False)
-        await interaction.response.send_message(embed=embed)
-
-    @bot.tree.command(name="acheter_sabre", description="Acheter un sabre laser")
-    @app_commands.describe(sabre_id="L'ID du sabre à acheter (ex: rouge, violet, arc_en_ciel...)")
-    async def acheter_sabre(interaction: discord.Interaction, sabre_id: str):
-        profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
-        sabre       = get_sabre(sabre_id)
-        if not sabre:
-            await interaction.response.send_message("❌ Sabre introuvable ! Vérifie l'ID avec `/boutique_sabres`", ephemeral=True)
-            return
-        inventaire = profil_data.get("sabres", ["bleu"])
-        if sabre_id in inventaire:
-            await interaction.response.send_message(f"❌ Tu possèdes déjà le {sabre['nom']} !", ephemeral=True)
-            return
-        coins = profil_data.get("tookcoins", 0)
-        if coins < sabre["prix"]:
-            await interaction.response.send_message(
-                f"❌ Pas assez de TookCoins ! Il te faut 🪙 {sabre['prix']} (tu as 🪙 {coins})", ephemeral=True
+                texte.append(
+                    f"{s['emoji']} **{s['nom']}**{possede} · {prix_txt}\n"
+                    f"   ✨ {s['speciale']['nom']}"
+                )
+            embed.add_field(
+                name=f"{rarete_info['emoji']} {rarete_info['label']}",
+                value="\n".join(texte),
+                inline=False,
             )
-            return
-        db.add_tookcoins(interaction.user.id, -sabre["prix"])
-        db.update_profil(interaction.user.id, {"sabres": inventaire + [sabre_id]})
-        embed = discord.Embed(
-            title="✅ ACHAT RÉUSSI !",
-            description=(
-                f"Tu as acheté le {sabre['emoji']} **{sabre['nom']}** !\n\n"
-                f"💫 Capacité spéciale : **{sabre['speciale']['nom']}**\n"
-                f"_{sabre['speciale']['description']}_"
-            ),
-            color=0x00FF00,
-        )
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text="🛒 Sélectionne un sabre ci-dessous pour l'acheter")
+        return embed
 
-    @bot.tree.command(name="equiper_sabre", description="Équiper un sabre laser")
-    @app_commands.describe(sabre_id="L'ID du sabre à équiper")
-    async def equiper_sabre(interaction: discord.Interaction, sabre_id: str):
-        profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
-        inventaire  = profil_data.get("sabres", ["bleu"])
-        if sabre_id not in inventaire:
-            await interaction.response.send_message("❌ Tu ne possèdes pas ce sabre !", ephemeral=True)
-            return
-        sabre = get_sabre(sabre_id)
-        db.update_profil(interaction.user.id, {"sabre_equipe": sabre_id})
-        await interaction.response.send_message(f"✅ {sabre['emoji']} **{sabre['nom']}** équipé !")
+    class SabreMenuView(discord.ui.View):
+        """Vue interactive unifiee : un seul message, 3 modes (equipped / collection / shop)."""
 
-    @bot.tree.command(name="mon_sabre", description="Voir ton sabre équipé")
-    async def mon_sabre(interaction: discord.Interaction):
+        def __init__(self, user_id, user_name, mode="equipped"):
+            super().__init__(timeout=180)
+            self.user_id   = user_id
+            self.user_name = user_name
+            self.mode      = mode
+            self._rebuild()
+
+        async def interaction_check(self, interaction: discord.Interaction) -> bool:
+            if interaction.user.id != self.user_id:
+                await interaction.response.send_message(
+                    "❌ Ce menu n'est pas le tien. Lance `/sabre` pour ouvrir le tien.",
+                    ephemeral=True,
+                )
+                return False
+            return True
+
+        def _rebuild(self):
+            self.clear_items()
+            # Boutons de navigation (row 0)
+            if self.mode != "equipped":
+                self.add_item(self._make_nav_btn("⚔️ Sabre équipé", "equipped", discord.ButtonStyle.primary))
+            if self.mode != "collection":
+                self.add_item(self._make_nav_btn("🗂️ Collection", "collection", discord.ButtonStyle.secondary))
+            if self.mode != "shop":
+                self.add_item(self._make_nav_btn("🛒 Boutique", "shop", discord.ButtonStyle.success))
+
+            # Selects contextuels (row 1+)
+            profil_data = db.ensure_profil(self.user_id, self.user_name)
+            if self.mode == "collection":
+                sel = self._make_equip_select(profil_data)
+                if sel:
+                    self.add_item(sel)
+            elif self.mode == "shop":
+                sel = self._make_buy_select(profil_data)
+                if sel:
+                    self.add_item(sel)
+
+        def _make_nav_btn(self, label, mode, style):
+            btn = discord.ui.Button(label=label, style=style, row=0)
+            async def cb(interaction: discord.Interaction):
+                self.mode = mode
+                self._rebuild()
+                profil_data = db.ensure_profil(self.user_id, self.user_name)
+                if mode == "equipped":
+                    embed = _build_equipped_embed(profil_data)
+                elif mode == "collection":
+                    embed = _build_collection_embed(profil_data, self.user_name)
+                else:
+                    embed = _build_shop_embed(profil_data)
+                await interaction.response.edit_message(embed=embed, view=self)
+            btn.callback = cb
+            return btn
+
+        def _make_equip_select(self, profil_data):
+            inventaire   = profil_data.get("sabres", ["bleu"])
+            sabre_equipe = profil_data.get("sabre_equipe", "bleu")
+            options = []
+            for sid in inventaire:
+                s = get_sabre(sid)
+                if not s:
+                    continue
+                if sid == sabre_equipe:
+                    continue  # on n'inclut pas le sabre deja equipe
+                rarete = RARETES[s["rarete"]]
+                options.append(discord.SelectOption(
+                    label=s["nom"][:100],
+                    value=sid,
+                    description=f"{rarete['label']} · {s['speciale']['nom']}"[:100],
+                    emoji=s["emoji"] if s["emoji"] else None,
+                ))
+            if not options:
+                return None
+            sel = discord.ui.Select(
+                placeholder="🗡️ Équiper un sabre de ta collection...",
+                options=options[:25],
+                row=1,
+            )
+            async def cb(interaction: discord.Interaction):
+                sid = sel.values[0]
+                sabre = get_sabre(sid)
+                db.update_profil(self.user_id, {"sabre_equipe": sid})
+                # Refresh la vue (reste en collection mode)
+                self._rebuild()
+                profil_data = db.ensure_profil(self.user_id, self.user_name)
+                embed = _build_collection_embed(profil_data, self.user_name)
+                await interaction.response.edit_message(
+                    content=f"✅ {sabre['emoji']} **{sabre['nom']}** équipé !",
+                    embed=embed, view=self,
+                )
+            sel.callback = cb
+            return sel
+
+        def _make_buy_select(self, profil_data):
+            sabres     = get_tous_les_sabres()
+            inventaire = profil_data.get("sabres", ["bleu"])
+            options = []
+            for s in sorted(sabres.values(),
+                            key=lambda x: (RARETE_ORDER.index(x["rarete"]) if x["rarete"] in RARETE_ORDER else 99,
+                                           x["prix"])):
+                if s["id"] in inventaire:
+                    continue
+                rarete = RARETES[s["rarete"]]
+                prix_txt = "GRATUIT" if s["prix"] == 0 else f"{s['prix']} TookCoins"
+                options.append(discord.SelectOption(
+                    label=s["nom"][:100],
+                    value=s["id"],
+                    description=f"{rarete['label']} · {prix_txt}"[:100],
+                    emoji=s["emoji"] if s["emoji"] else None,
+                ))
+            if not options:
+                return None
+            sel = discord.ui.Select(
+                placeholder="💰 Acheter un sabre...",
+                options=options[:25],
+                row=1,
+            )
+            async def cb(interaction: discord.Interaction):
+                sid = sel.values[0]
+                profil_now = db.ensure_profil(self.user_id, self.user_name)
+                sabre = get_sabre(sid)
+                if not sabre:
+                    await interaction.response.send_message("❌ Sabre introuvable.", ephemeral=True)
+                    return
+                inventaire = profil_now.get("sabres", ["bleu"])
+                if sid in inventaire:
+                    await interaction.response.send_message(f"❌ Tu possèdes déjà **{sabre['nom']}**.", ephemeral=True)
+                    return
+                coins = profil_now.get("tookcoins", 0)
+                if coins < sabre["prix"]:
+                    await interaction.response.send_message(
+                        f"❌ Pas assez de TookCoins. Il te faut 🪙 {sabre['prix']} (tu as 🪙 {coins}).",
+                        ephemeral=True,
+                    )
+                    return
+                # Achat
+                db.add_tookcoins(self.user_id, -sabre["prix"])
+                db.update_profil(self.user_id, {"sabres": inventaire + [sid]})
+                # Refresh shop view
+                self._rebuild()
+                profil_data = db.ensure_profil(self.user_id, self.user_name)
+                embed = _build_shop_embed(profil_data)
+                await interaction.response.edit_message(
+                    content=(
+                        f"✅ Tu as acheté **{sabre['nom']}** {sabre['emoji']} !\n"
+                        f"✨ Spéciale : **{sabre['speciale']['nom']}** — _{sabre['speciale']['description']}_"
+                    ),
+                    embed=embed, view=self,
+                )
+            sel.callback = cb
+            return sel
+
+    @bot.tree.command(name="sabre", description="Ouvre le menu sabre (équipé, collection, boutique)")
+    async def sabre_menu(interaction: discord.Interaction):
         profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
-        sabre_id    = profil_data.get("sabre_equipe", "bleu")
-        sabre       = get_sabre(sabre_id)
-        rarete      = RARETES[sabre["rarete"]]
-        inventaire  = profil_data.get("sabres", ["bleu"])
-        embed = discord.Embed(title=f"{sabre['emoji']} {sabre['nom']}", description=sabre["description"], color=0x00BFFF)
-        embed.add_field(name="Rareté", value=f"{rarete['emoji']} {rarete['label']}", inline=True)
-        embed.add_field(
-            name="Capacité Spéciale",
-            value=f"✨ **{sabre['speciale']['nom']}**\n_{sabre['speciale']['description']}_",
-            inline=False,
-        )
-        embed.add_field(name="Sabres possédés", value=f"{len(inventaire)} sabre(s)", inline=True)
-        embed.set_footer(text="Utilise /equiper_sabre pour changer de sabre")
-        await interaction.response.send_message(embed=embed)
+        embed = _build_equipped_embed(profil_data)
+        view  = SabreMenuView(interaction.user.id, interaction.user.name, mode="equipped")
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)

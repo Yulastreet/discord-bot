@@ -419,20 +419,37 @@ def get_all_users_for_guild(guild_id):
 
 # ===== XP MESSAGES (cross-guild aggregates pour Dashboard general) =====
 def get_global_xp_stats():
+    """Aggregats cross-guild dedoublonnes par user_id (un meme user dans plusieurs serveurs compte une fois)."""
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) AS n, COALESCE(SUM(xp), 0) AS total_xp, COALESCE(AVG(level), 0) AS avg_level FROM users")
-    g = dict(c.fetchone())
-    c.execute("SELECT username, xp, level, guild_id FROM users ORDER BY xp DESC LIMIT 1")
-    top = c.fetchone()
-    c.execute("SELECT username, xp, level, guild_id FROM users ORDER BY xp DESC LIMIT 10")
+    # Total comptes uniques (un user_id distinct = 1 personne, peu importe combien de serveurs)
+    c.execute("SELECT COUNT(DISTINCT user_id) AS n FROM users")
+    total_users = c.fetchone()["n"]
+    # XP cumule = somme totale (un user actif sur 3 serveurs cumule reellement plus d'XP)
+    c.execute("SELECT COALESCE(SUM(xp), 0) AS total_xp FROM users")
+    total_xp = c.fetchone()["total_xp"]
+    # Niveau moyen calcule sur les XP agreges par user, pas par ligne
+    c.execute("""SELECT AVG(lvl_per_user) AS avg_level FROM (
+                   SELECT user_id, MAX(level) AS lvl_per_user
+                   FROM users GROUP BY user_id
+                 )""")
+    avg_level = c.fetchone()["avg_level"] or 0
+    # Top 10 dedoublonne : on agrege par user_id (somme XP, max niveau, dernier username vu)
+    c.execute("""SELECT user_id,
+                        MAX(username) AS username,
+                        SUM(xp)       AS xp,
+                        MAX(level)    AS level
+                 FROM users
+                 GROUP BY user_id
+                 ORDER BY xp DESC LIMIT 10""")
     top10 = [dict(r) for r in c.fetchall()]
+    top_user = top10[0] if top10 else None
     conn.close()
     return {
-        "total_users": g["n"],
-        "total_xp":    g["total_xp"] or 0,
-        "avg_level":   round(g["avg_level"] or 0, 2),
-        "top_user":    dict(top) if top else None,
+        "total_users": total_users,
+        "total_xp":    total_xp or 0,
+        "avg_level":   round(avg_level, 2),
+        "top_user":    top_user,
         "top10":       top10,
     }
 
