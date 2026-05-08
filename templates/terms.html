@@ -1,0 +1,128 @@
+{% extends "_legal_base.html" %}
+
+{% block title %}Conditions d'utilisation{% endblock %}
+{% block heading %}Conditions d'utilisation{% endblock %}
+{% block meta %}TookBot · Discord bot · Dernière mise à jour : 8 mai 2026{% endblock %}
+
+{% block content %}
+
+<p>
+En invitant et/ou en utilisant <strong>TookBot</strong> (« le bot »), tu acceptes
+les présentes conditions. Si tu n'es pas d'accord, n'invite pas le bot ou retire-le
+de ton serveur.
+</p>
+
+<h2>1. Description du service</h2>
+<p>
+TookBot est un bot Discord personnel offrant des fonctionnalités de musique,
+duels, système d'XP, réactions automatiques, modération et utilitaires. Il est
+fourni <strong>tel quel</strong>, gratuitement, sans garantie de disponibilité.
+</p>
+
+<h2>2. Utilisation acceptable</h2>
+<p>En utilisant TookBot, tu t'engages à <strong>ne pas</strong> :</p>
+<ul>
+  <li>Utiliser le bot pour spammer, harceler ou nuire à d'autres utilisateurs</li>
+  <li>Tenter de contourner les rate-limits, exploiter des failles, ou abuser du système</li>
+  <li>Utiliser le bot à des fins commerciales sans accord préalable de l'administrateur</li>
+  <li>Diffuser via le bot du contenu illégal, haineux, pornographique, ou en violation des
+      <a href="https://discord.com/terms" target="_blank">CGU Discord</a></li>
+  <li>Reverse-engineer, cloner ou redistribuer le code sans autorisation</li>
+</ul>
+<p>
+Tout abus peut entraîner un bannissement immédiat du bot sur le serveur concerné,
+voire un bannissement global de l'utilisateur.
+</p>
+
+<h2>3. Slash commands</h2>
+<p>
+Toutes les fonctionnalités du bot s'utilisent via les <strong>slash commands</strong>
+(préfixe <code>/</code>). La commande <code>/commandes</code> envoie en MP la liste
+détaillée. Aucun préfixe texte (<code>!</code>, <code>?</code>, etc.) n'est supporté
+côté utilisateur final.
+</p>
+
+<h2>4. Musique et droits d'auteur</h2>
+<p>
+La fonctionnalité musique utilise <strong>yt-dlp</strong> pour extraire des flux
+audio depuis YouTube et autres plateformes publiques. Tu es seul responsable du
+respect des droits d'auteur du contenu que tu joues. TookBot n'héberge pas de
+musique, ne stocke pas de fichiers audio et n'agit que comme un relais transitoire
+vers Discord. Tout abus reporté entraîne la coupure du flux.
+</p>
+
+<h2>5. Économie virtuelle (TookCoins, sabres)</h2>
+<p>
+Les TookCoins, sabres laser, niveaux de combat et autres éléments du système de
+duel sont des <strong>biens virtuels sans valeur monétaire</strong>. Ils ne sont
+pas échangeables contre de l'argent ni transférables hors du bot. L'administrateur
+se réserve le droit de modifier, supprimer ou reset ces éléments à tout moment.
+</p>
+
+<h2>6. Modération</h2>
+<p>
+Les modérateurs du serveur où tu te trouves peuvent utiliser le bot pour kick,
+ban ou timeout des membres. Ces actions respectent le système de permissions
+Discord. TookBot journalise ces actions à des fins d'audit ; les logs sont
+visibles uniquement par l'admin du bot et les modérateurs du serveur concerné.
+</p>
+
+<h2>7. Disponibilité et limitations</h2>
+<ul>
+  <li>Le bot peut être indisponible à tout moment (maintenance, panne VPS, mise à jour Discord, etc.).</li>
+  <li>Aucun engagement de temps de service (SLA).</li>
+  <li>Les fonctionnalités peuvent évoluer, être ajoutées ou retirées sans préavis.</li>
+  <li>Les rate-limits anti-spam (6 commandes / 30 secondes par utilisateur) s'appliquent.</li>
+</ul>
+
+<h2>8. Limitation de responsabilité</h2>
+<p>
+TookBot est fourni « tel quel », sans garantie d'aucune sorte. L'administrateur
+ne peut être tenu responsable :
+</p>
+<ul>
+  <li>de la perte ou corruption de données stockées par le bot</li>
+  <li>des dommages directs ou indirects résultant de l'utilisation du bot</li>
+  <li>du contenu généré par les utilisateurs via le bot</li>
+  <li>des interruptions de service ou de l'inexactitude de certaines fonctionnalités (résultats yt-dlp, traductions, statistiques)</li>
+</ul>
+
+<h2>9. Données personnelles</h2>
+<p>
+La gestion de tes données personnelles est détaillée dans la
+<a href="/privacy">politique de confidentialité</a>.
+</p>
+
+<h2>10. Résiliation</h2>
+<p>
+Tu peux à tout moment :
+</p>
+<ul>
+  <li><strong>Retirer le bot</strong> de ton serveur (Membres → clic droit sur le bot → Expulser)</li>
+  <li><strong>Effacer tes données</strong> en envoyant <code>DELETE ME</code> en MP au bot</li>
+</ul>
+<p>
+L'administrateur peut, sans préavis, suspendre l'accès au bot pour un utilisateur,
+un rôle ou un serveur entier en cas de violation de ces conditions.
+</p>
+
+<h2>11. Droit applicable</h2>
+<p>
+Les présentes conditions sont soumises au droit français. Tout litige relève des
+juridictions compétentes du ressort du domicile de l'administrateur.
+</p>
+
+<h2>12. Modifications</h2>
+<p>
+Ces conditions peuvent être modifiées. La date de dernière mise à jour figure en
+tête de page. L'utilisation continue du bot après modification vaut acceptation
+des nouvelles conditions.
+</p>
+
+<h2>13. Contact</h2>
+<p>
+Pour toute question concernant ces conditions, contacte l'administrateur via un
+MP au bot ou directement sur Discord.
+</p>
+
+{% endblock %}

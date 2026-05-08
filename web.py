@@ -224,6 +224,8 @@ def needs_guild(path):
         return False  # DMs / status / settings = global
     return True
 
+PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms"}
+
 @app.before_request
 def _ctx():
     g.logged_in = bool(session.get("logged_in"))
@@ -246,7 +248,9 @@ def _ctx():
 
     path = request.path
     # Auth gate
-    if not g.logged_in and path not in ("/",) and not path.startswith("/static") \
+    if not g.logged_in \
+            and path not in PUBLIC_NO_AUTH_PATHS \
+            and not path.startswith("/static") \
             and not path.startswith("/oauth/"):
         if path.startswith("/api/"):
             return jsonify({"error": "Non authentifié"}), 401
@@ -349,6 +353,19 @@ def login():
 def logout():
     session.clear()
     return redirect("/")
+
+
+# =====================================================================
+# PUBLIC LEGAL PAGES (sans auth, accessible a tous)
+# =====================================================================
+
+@app.route("/privacy")
+def privacy_page():
+    return render_template("privacy.html")
+
+@app.route("/terms")
+def terms_page():
+    return render_template("terms.html")
 
 
 # =====================================================================

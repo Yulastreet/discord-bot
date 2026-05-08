@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{% endblock %} · Bot Console</title>
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('theme') || 'auto';
+        var resolved = t === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : t;
+        document.documentElement.setAttribute('data-theme', resolved);
+      } catch(_) {}
+    })();
+  </script>
+  {% include "_styles.html" %}
+  <style>
+    body { padding: var(--s-7) var(--s-5); }
+    .legal-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: var(--s-9) 0;
+    }
+    .legal-head { margin-bottom: var(--s-9); }
+    .legal-head .brand-row {
+      display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-7);
+    }
+    .legal-head .brand-mark {
+      width: 32px; height: 32px;
+      border-radius: var(--r-1);
+      background: var(--accent);
+      color: var(--accent-text);
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 17px;
+    }
+    .legal-head .brand-name { font-weight: 600; font-size: var(--t-base); }
+    .legal-head .brand-link { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); }
+    .legal-head h1 { font-size: var(--t-2xl); margin-bottom: var(--s-3); }
+    .legal-head .meta { font-size: var(--t-sm); color: var(--text-2); }
+    article h2 {
+      font-size: var(--t-md);
+      margin-top: var(--s-9);
+      margin-bottom: var(--s-3);
+      color: var(--accent);
+      letter-spacing: 0;
+    }
+    article h3 {
+      font-size: var(--t-base);
+      margin-top: var(--s-6);
+      margin-bottom: var(--s-2);
+    }
+    article p, article li {
+      font-size: var(--t-sm);
+      line-height: 1.6;
+      color: var(--text-2);
+      margin-bottom: var(--s-3);
+    }
+    article p { color: var(--text); }
+    article ul { padding-left: var(--s-5); margin-bottom: var(--s-4); }
+    article li { margin-bottom: 6px; }
+    article strong { color: var(--text); }
+    article code {
+      background: var(--bg-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .legal-foot {
+      margin-top: var(--s-12);
+      padding-top: var(--s-5);
+      border-top: 1px solid var(--border-soft);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--s-3);
+      font-size: var(--t-xs);
+      color: var(--text-3);
+    }
+    .legal-foot a { color: var(--text-2); }
+  </style>
+</head>
+<body>
+  <div class="legal-wrap">
+    <header class="legal-head">
+      <a href="/" style="text-decoration:none;color:inherit;">
+        <div class="brand-row">
+          <div class="brand-mark">⌬</div>
+          <div>
+            <div class="brand-name">TookBot</div>
+            <div class="brand-link">tookbot.click</div>
+          </div>
+        </div>
+      </a>
+      <h1>{% block heading %}{% endblock %}</h1>
+      <div class="meta">{% block meta %}{% endblock %}</div>
+    </header>
+
+    <article>
+      {% block content %}{% endblock %}
+    </article>
+
+    <footer class="legal-foot">
+      <span>© TookBot · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
+      <span><a href="/">Accueil</a></span>
+    </footer>
+  </div>
+</body>
+</html>
