@@ -12,9 +12,11 @@ Renvoie un BytesIO PNG, prêt à être passé à `discord.File`.
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import math
 import os
+import time
 from typing import Optional
 
 import aiohttp
@@ -72,12 +74,47 @@ def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 # Avatar
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Session HTTP partagee (TLS reuse + connection pool).
+_HTTP_SESSION: Optional[aiohttp.ClientSession] = None
+_HTTP_SESSION_LOCK = asyncio.Lock()
+
+# Cache avatar bytes : { url: (expires_ts, bytes) }. TTL court car les avatars
+# Discord changent peu mais on veut suivre les renames; 10 min suffisent.
+_AVATAR_CACHE: dict[str, tuple[float, bytes]] = {}
+_AVATAR_TTL = 600  # secondes
+_AVATAR_CACHE_MAX = 256
+
+
+async def _get_http_session() -> aiohttp.ClientSession:
+    global _HTTP_SESSION
+    if _HTTP_SESSION and not _HTTP_SESSION.closed:
+        return _HTTP_SESSION
+    async with _HTTP_SESSION_LOCK:
+        if _HTTP_SESSION and not _HTTP_SESSION.closed:
+            return _HTTP_SESSION
+        timeout = aiohttp.ClientTimeout(total=8, connect=4)
+        _HTTP_SESSION = aiohttp.ClientSession(timeout=timeout)
+        return _HTTP_SESSION
+
+
 async def _fetch_avatar_bytes(url: str) -> Optional[bytes]:
+    if not url:
+        return None
+    now = time.monotonic()
+    cached = _AVATAR_CACHE.get(url)
+    if cached and cached[0] > now:
+        return cached[1]
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
-                if resp.status == 200:
-                    return await resp.read()
+        session = await _get_http_session()
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.read()
+                if len(_AVATAR_CACHE) >= _AVATAR_CACHE_MAX:
+                    # purge oldest
+                    oldest = min(_AVATAR_CACHE, key=lambda k: _AVATAR_CACHE[k][0])
+                    _AVATAR_CACHE.pop(oldest, None)
+                _AVATAR_CACHE[url] = (now + _AVATAR_TTL, data)
+                return data
     except Exception:
         pass
     return None
@@ -109,20 +146,48 @@ def _placeholder_avatar(size: int) -> Image.Image:
 # Background
 # ──────────────────────────────────────────────────────────────────────────────
 
+# Cache backgrounds en RAM : { id: Image RGB pre-redimensionnee }.
+# Pillow Image est immutable cote nous (on .copy() avant compositer).
+_BG_CACHE: dict[str, Image.Image] = {}
+
+
 def _load_background(bg_id: str) -> Image.Image:
-    """Charge le BG demandé, fallback sur 'default' puis sur un gradient noir."""
+    """Charge le BG demandé (mis en cache RAM), fallback default puis gradient.
+
+    Renvoie une COPIE pour que les operations suivantes (alpha_composite, draw)
+    ne mutent pas l'image cachee.
+    """
     candidates = [bg_id, "default"]
     for name in candidates:
+        if name in _BG_CACHE:
+            return _BG_CACHE[name].copy()
         path = os.path.join(BG_DIR, f"{name}.png")
         if os.path.exists(path):
             try:
                 img = Image.open(path).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
-                return img
+                _BG_CACHE[name] = img
+                return img.copy()
             except Exception:
                 continue
     # Fallback procédural si aucun fichier
-    img = Image.new("RGB", (CARD_W, CARD_H), (22, 24, 30))
-    return img
+    return Image.new("RGB", (CARD_W, CARD_H), (22, 24, 30))
+
+
+def preload_backgrounds():
+    """A appeler au boot pour eviter la 1ere latence de decode disque."""
+    if not os.path.isdir(BG_DIR):
+        return
+    for fn in os.listdir(BG_DIR):
+        if not fn.lower().endswith(".png"):
+            continue
+        bg_id = os.path.splitext(fn)[0]
+        if bg_id in _BG_CACHE:
+            continue
+        try:
+            img = Image.open(os.path.join(BG_DIR, fn)).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
+            _BG_CACHE[bg_id] = img
+        except Exception:
+            pass
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -177,7 +242,21 @@ async def render_niveau_card(
     background: str = "default",
     rank: Optional[int] = None,
 ) -> io.BytesIO:
-    """Génère la carte et retourne un BytesIO PNG."""
+    """Génère la carte et retourne un BytesIO PNG.
+
+    L'IO reseau (avatar) est async. Le travail Pillow est offload sur un
+    thread pour ne pas bloquer le event loop du bot.
+    """
+    raw_avatar = await _fetch_avatar_bytes(avatar_url) if avatar_url else None
+    return await asyncio.to_thread(
+        _render_niveau_sync,
+        username, raw_avatar, level, xp_total, xp_in_level, xp_needed,
+        background, rank,
+    )
+
+
+def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
+                         xp_needed, background, rank) -> io.BytesIO:
     base = _load_background(background).convert("RGBA")
 
     # Voile foncé sous le texte (gauche zone avatar->droite)
@@ -190,13 +269,11 @@ async def render_niveau_card(
 
     # ── Avatar ───────────────────────────────────────────────────────────
     avatar_img: Optional[Image.Image] = None
-    if avatar_url:
-        raw = await _fetch_avatar_bytes(avatar_url)
-        if raw:
-            try:
-                avatar_img = _make_round_avatar(raw, AVATAR_SIZE)
-            except Exception:
-                avatar_img = None
+    if raw_avatar:
+        try:
+            avatar_img = _make_round_avatar(raw_avatar, AVATAR_SIZE)
+        except Exception:
+            avatar_img = None
     if avatar_img is None:
         avatar_img = _placeholder_avatar(AVATAR_SIZE)
     base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
@@ -254,9 +331,9 @@ async def render_niveau_card(
     draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
               fill=(200, 215, 180, 130), anchor="rb")
 
-    # Output
+    # Output (optimize=False pour vitesse, fichier reste petit)
     buf = io.BytesIO()
-    base.convert("RGB").save(buf, "PNG", optimize=True)
+    base.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
     buf.seek(0)
     return buf
 
@@ -269,8 +346,14 @@ async def render_levelup_card_premium(
     percent: float = 0,
     background: str = "default",
 ) -> io.BytesIO:
-    """Carte LEVEL UP premium : meme look que la carte /niveau, avec accent sur
-    le passage de niveau et un effet "sparkle" decoratif."""
+    """Carte LEVEL UP premium : avatar fetch async + Pillow dans thread."""
+    raw_avatar = await _fetch_avatar_bytes(avatar_url) if avatar_url else None
+    return await asyncio.to_thread(
+        _render_levelup_sync, username, raw_avatar, new_level, percent, background,
+    )
+
+
+def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -> io.BytesIO:
     base = _load_background(background).convert("RGBA")
 
     # Voile pour lisibilite
@@ -291,13 +374,11 @@ async def render_levelup_card_premium(
 
     # ── Avatar ───────────────────────────────────────────────────────────
     avatar_img: Optional[Image.Image] = None
-    if avatar_url:
-        raw = await _fetch_avatar_bytes(avatar_url)
-        if raw:
-            try:
-                avatar_img = _make_round_avatar(raw, AVATAR_SIZE)
-            except Exception:
-                avatar_img = None
+    if raw_avatar:
+        try:
+            avatar_img = _make_round_avatar(raw_avatar, AVATAR_SIZE)
+        except Exception:
+            avatar_img = None
     if avatar_img is None:
         avatar_img = _placeholder_avatar(AVATAR_SIZE)
     base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
@@ -362,7 +443,7 @@ async def render_levelup_card_premium(
               fill=(200, 215, 180, 130), anchor="rb")
 
     buf = io.BytesIO()
-    base.convert("RGB").save(buf, "PNG", optimize=True)
+    base.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
     buf.seek(0)
     return buf
 

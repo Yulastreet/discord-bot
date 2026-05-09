@@ -68,7 +68,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       user_has_active_entitlement, get_premium_settings,
                       user_is_premium as _db_user_is_premium)
 from duel_commands import setup_duel_commands
-from niveau_card import render_niveau_card, render_levelup_card_premium
+from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -89,6 +89,12 @@ def is_premium_user(user_id, feature="all") -> bool:
     return _db_user_is_premium(user_id, feature=feature, owner_id=DISCORD_OWNER_ID)
 
 init_db()
+# Preload backgrounds /niveau premium en RAM (~3MB total) pour eliminer
+# la latence de decode disque au premier appel.
+try:
+    preload_backgrounds()
+except Exception as _e:
+    print(f"[niveau_card] preload error: {_e!r}")
 # Index reactions par (guild_id_str, user_id_int)
 USER_REACTIONS = get_all_reactions_index()
 
