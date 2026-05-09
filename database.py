@@ -252,6 +252,17 @@ def init_db():
         updated_at        TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Grants premium manuels (owner offre la feature gratuitement, comptes test, etc.).
+    # feature='all' = pack complet, ou cle specifique pour granularite future.
+    c.execute('''CREATE TABLE IF NOT EXISTS premium_grants (
+        user_id    TEXT NOT NULL,
+        feature    TEXT NOT NULL DEFAULT 'all',
+        granted_by TEXT,
+        granted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        note       TEXT,
+        PRIMARY KEY (user_id, feature)
+    )''')
+
     conn.commit()
     conn.close()
 
@@ -1488,6 +1499,79 @@ def get_premium_settings(user_id) -> dict:
     if row:
         return dict(row)
     return {"user_id": str(user_id), "niveau_background": "default"}
+
+
+def add_premium_grant(user_id, feature="all", granted_by=None, note=None):
+    """Accorde manuellement la feature premium a un utilisateur."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+        ON CONFLICT(user_id, feature) DO UPDATE SET
+            granted_by = excluded.granted_by,
+            granted_at = CURRENT_TIMESTAMP,
+            note       = excluded.note
+    ''', (str(user_id), feature, str(granted_by) if granted_by else None, note))
+    conn.commit()
+    conn.close()
+
+
+def remove_premium_grant(user_id, feature="all"):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "DELETE FROM premium_grants WHERE user_id = ? AND feature = ?",
+        (str(user_id), feature),
+    )
+    conn.commit()
+    conn.close()
+
+
+def has_premium_grant(user_id, feature="all") -> bool:
+    """True si l'user a un grant manuel pour cette feature OU pour 'all'."""
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT 1 FROM premium_grants WHERE user_id = ? AND feature IN (?, 'all') LIMIT 1",
+        (str(user_id), feature),
+    ).fetchone()
+    conn.close()
+    return bool(row)
+
+
+def list_premium_grants(user_id=None):
+    conn = get_db()
+    c = conn.cursor()
+    if user_id:
+        rows = c.execute(
+            "SELECT * FROM premium_grants WHERE user_id = ? ORDER BY granted_at DESC",
+            (str(user_id),),
+        ).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT * FROM premium_grants ORDER BY granted_at DESC",
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def user_is_premium(user_id, feature="all", owner_id=None) -> bool:
+    """Combinaison unifiee : entitlement Discord OU grant manuel OU owner ENV.
+
+    `owner_id` (str) est lu depuis DISCORD_OWNER_ID a l'appel ; le passer
+    explicitement evite l'import os ici.
+    """
+    if not user_id:
+        return False
+    uid = str(user_id)
+    if owner_id and uid == str(owner_id):
+        return True
+    if has_premium_grant(uid, feature):
+        return True
+    if user_has_active_entitlement(uid):
+        return True
+    return False
 
 
 def set_premium_setting(user_id, key: str, value):

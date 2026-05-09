@@ -47,6 +47,8 @@ from database import (
     # Monetization
     user_has_active_entitlement, get_premium_settings, set_premium_setting,
     list_user_entitlements,
+    user_is_premium as _db_user_is_premium,
+    add_premium_grant, remove_premium_grant, list_premium_grants,
 )
 from niveau_card import list_available_backgrounds, render_niveau_card
 from duel_sabres import RARETES
@@ -1145,12 +1147,17 @@ def _current_user_id():
     return (session.get("discord") or {}).get("user_id")
 
 
+def _is_premium(uid, feature="all") -> bool:
+    """Wrapper unifie : entitlement Discord OU grant manuel OU owner ENV."""
+    return _db_user_is_premium(uid, feature=feature, owner_id=DISCORD_OWNER_ID)
+
+
 def _require_premium_user():
     """Retourne user_id si user connecte ET premium actif, sinon None."""
     uid = _current_user_id()
     if not uid:
         return None
-    if not user_has_active_entitlement(uid):
+    if not _is_premium(uid):
         return None
     return uid
 
@@ -1160,10 +1167,10 @@ def premium_page():
     uid = _current_user_id()
     if not uid:
         return redirect(url_for("oauth_login"))
-    is_premium = user_has_active_entitlement(uid)
+    is_premium = _is_premium(uid)
     settings_p = get_premium_settings(uid) if is_premium else {}
     backgrounds = list_available_backgrounds()
-    user = session.get("user") or {}
+    user = session.get("discord") or {}
     return render_template(
         "premium.html",
         is_premium=is_premium,
@@ -1180,10 +1187,11 @@ def api_premium_status():
     if not uid:
         return jsonify({"ok": False, "error": "not_logged_in"}), 401
     return jsonify({
-        "ok":         True,
-        "is_premium": user_has_active_entitlement(uid),
+        "ok":           True,
+        "is_premium":   _is_premium(uid),
         "entitlements": list_user_entitlements(uid),
-        "settings":   get_premium_settings(uid),
+        "grants":       list_premium_grants(uid),
+        "settings":     get_premium_settings(uid),
     })
 
 
@@ -1214,15 +1222,14 @@ def api_premium_niveau_preview():
         # afin qu'ils voient un apercu, mais on bloque les anonymes.
         if not _current_user_id():
             return ("", 403)
-    user = session.get("user") or {}
+    user = session.get("discord") or {}
     bg = request.args.get("bg") or get_premium_settings(uid or _current_user_id()).get("niveau_background", "default")
     if bg not in list_available_backgrounds():
         bg = "default"
 
     # XP fictifs pour preview (vrais XP necessitent un guild_id selectionne).
-    avatar_url = None
-    if user.get("avatar"):
-        avatar_url = f"https://cdn.discordapp.com/avatars/{user.get('id')}/{user.get('avatar')}.png?size=256"
+    # session["discord"]["avatar"] est deja une URL CDN complete (cf oauth_callback).
+    avatar_url = user.get("avatar") or None
     import asyncio
     buf = asyncio.run(render_niveau_card(
         username=user.get("username") or "Toi",
@@ -1234,6 +1241,42 @@ def api_premium_niveau_preview():
         background=bg,
     ))
     return send_file(buf, mimetype="image/png")
+
+
+# ===== Owner-only : grant/revoke premium manuel =====
+
+@app.route("/api/user/<user_id>/premium", methods=["GET"])
+def api_user_premium_status(user_id):
+    """Statut premium d'un user vu par l'owner depuis le dashboard."""
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    return jsonify({
+        "user_id":      str(user_id),
+        "is_premium":   _is_premium(user_id),
+        "is_owner":     bool(DISCORD_OWNER_ID) and str(user_id) == str(DISCORD_OWNER_ID),
+        "grants":       list_premium_grants(user_id),
+        "entitlements": list_user_entitlements(user_id),
+    })
+
+
+@app.route("/api/user/<user_id>/premium", methods=["POST"])
+def api_user_premium_grant(user_id):
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    data = request.get_json(silent=True) or {}
+    feature = data.get("feature") or "all"
+    note    = data.get("note")
+    add_premium_grant(user_id, feature=feature, granted_by=_current_user_id(), note=note)
+    return jsonify({"ok": True, "user_id": str(user_id), "feature": feature})
+
+
+@app.route("/api/user/<user_id>/premium", methods=["DELETE"])
+def api_user_premium_revoke(user_id):
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    feature = (request.args.get("feature") or "all").strip()
+    remove_premium_grant(user_id, feature=feature)
+    return jsonify({"ok": True, "user_id": str(user_id), "feature": feature, "revoked": True})
 
 
 if __name__ == "__main__":

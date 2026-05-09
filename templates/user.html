@@ -16,10 +16,29 @@
       <h1 id="username"></h1>
       <span class="badge badge-mono" id="userId"></span>
     </div>
-    <a href="/duels" class="btn btn-secondary">
-      <svg class="ic"><use href="#i-swords"/></svg> Voir profil duel
-    </a>
+    <div class="row" style="gap:var(--s-2);flex-wrap:wrap;">
+      <a href="/duels" class="btn btn-secondary">
+        <svg class="ic"><use href="#i-swords"/></svg> Voir profil duel
+      </a>
+      {% if is_owner %}
+        <button id="premiumToggleBtn" class="btn btn-secondary" type="button" disabled>
+          <svg class="ic"><use href="#i-bolt"/></svg> <span id="premiumToggleLabel">Premium…</span>
+        </button>
+      {% endif %}
+    </div>
   </div>
+
+  {% if is_owner %}
+  <div class="card" id="premiumPanel" style="border-color: oklch(0.86 0.20 130 / .35);">
+    <div class="row between" style="align-items:center;">
+      <div>
+        <div class="eyebrow">Premium</div>
+        <div id="premiumPanelLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+      </div>
+      <div id="premiumPanelBadge"></div>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="grid grid-3">
     <div class="stat">
@@ -91,7 +110,78 @@ const TYPE_LABELS = {
   'action_member_leave':    'A quitté le serveur',
 };
 
-window.addEventListener('DOMContentLoaded', loadProfile);
+window.addEventListener('DOMContentLoaded', () => {
+  loadProfile();
+  loadPremiumStatus();
+});
+
+// ===== PREMIUM (owner-only) =====
+const _premBtn   = document.getElementById('premiumToggleBtn');
+const _premLabel = document.getElementById('premiumToggleLabel');
+const _premPanelLabel = document.getElementById('premiumPanelLabel');
+const _premPanelBadge = document.getElementById('premiumPanelBadge');
+let _premIsActive = false;
+
+async function loadPremiumStatus() {
+  if (!_premBtn) return; // Pas owner
+  try {
+    const r = await fetch(`/api/user/${userId}/premium`);
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    _renderPremium(d);
+  } catch (e) {
+    if (_premPanelLabel) _premPanelLabel.textContent = 'Erreur de chargement.';
+  }
+}
+
+function _renderPremium(d) {
+  _premIsActive = !!d.is_premium;
+  const hasGrant = (d.grants || []).length > 0;
+  const hasEnt   = (d.entitlements || []).filter(e => !e.deleted).length > 0;
+
+  _premBtn.disabled = false;
+  _premBtn.classList.toggle('btn-primary', !_premIsActive);
+  _premBtn.classList.toggle('btn-secondary', _premIsActive);
+  _premLabel.textContent = _premIsActive
+    ? (hasGrant ? 'Retirer Premium (offert)' : 'Premium (achat Discord)')
+    : 'Offrir Premium ✨';
+  _premBtn.disabled = _premIsActive && !hasGrant;  // Pas retirer un vrai achat
+
+  // Panel descriptif
+  if (_premPanelLabel) {
+    if (d.is_owner)        _premPanelLabel.textContent = 'Owner du bot — accès complet automatique.';
+    else if (hasGrant && hasEnt) _premPanelLabel.textContent = 'Premium via achat Discord + grant manuel.';
+    else if (hasGrant)     _premPanelLabel.textContent = `Premium offert (${d.grants[0].feature || 'all'}).`;
+    else if (hasEnt)       _premPanelLabel.textContent = 'Premium via achat Discord.';
+    else                   _premPanelLabel.textContent = 'Pas de premium actuellement.';
+  }
+  if (_premPanelBadge) {
+    _premPanelBadge.innerHTML = _premIsActive
+      ? '<span class="badge" style="background:oklch(0.86 0.20 130);color:#1a1a1a;font-weight:700;">★ ACTIF</span>'
+      : '<span class="badge badge-mono" style="opacity:.7;">inactif</span>';
+  }
+
+  _premBtn.onclick = async () => {
+    _premBtn.disabled = true;
+    try {
+      if (_premIsActive) {
+        const r = await fetch(`/api/user/${userId}/premium?feature=all`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(r.status);
+      } else {
+        const r = await fetch(`/api/user/${userId}/premium`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ feature: 'all', note: 'Offert depuis le dashboard' }),
+        });
+        if (!r.ok) throw new Error(r.status);
+      }
+      await loadPremiumStatus();
+    } catch (e) {
+      alert('Erreur : ' + e.message);
+      _premBtn.disabled = false;
+    }
+  };
+}
 
 function loadProfile() {
   fetch(`/api/user/${userId}`)

@@ -65,7 +65,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       get_setting, get_all_settings,
                       replace_guild_members, upsert_member, remove_member,
                       upsert_entitlement, mark_entitlement_deleted,
-                      user_has_active_entitlement, get_premium_settings)
+                      user_has_active_entitlement, get_premium_settings,
+                      user_is_premium as _db_user_is_premium)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card
 
@@ -76,12 +77,16 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # SKU "/niveau Premium" (achat unique). ID a remplir une fois le SKU publie
 # dans le Developer Portal Discord. Peut etre surcharge via env.
 SKU_NIVEAU_PREMIUM = os.getenv("SKU_NIVEAU_PREMIUM", "")
+DISCORD_OWNER_ID = os.getenv("DISCORD_OWNER_ID", "").strip() or None
 
 
-def is_premium_user(user_id) -> bool:
-    """Retourne True si l'utilisateur a un entitlement actif sur n'importe quel
-    SKU premium du bot. Accepte snowflake int ou str."""
-    return user_has_active_entitlement(user_id)
+def is_premium_user(user_id, feature="all") -> bool:
+    """Retourne True si l'utilisateur a la feature premium :
+    - via entitlement Discord (achat reel)
+    - via grant manuel offert (table premium_grants)
+    - via DISCORD_OWNER_ID (toujours premium gratuit)
+    """
+    return _db_user_is_premium(user_id, feature=feature, owner_id=DISCORD_OWNER_ID)
 
 init_db()
 # Index reactions par (guild_id_str, user_id_int)
