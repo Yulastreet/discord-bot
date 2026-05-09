@@ -253,7 +253,7 @@ def init_db():
     )''')
 
     # Grants premium manuels (owner offre la feature gratuitement, comptes test, etc.).
-    # feature='all' = pack complet, ou cle specifique pour granularite future.
+    # feature='all' = pack complet, 'pass' = Battle Pass, ou cle specifique.
     c.execute('''CREATE TABLE IF NOT EXISTS premium_grants (
         user_id    TEXT NOT NULL,
         feature    TEXT NOT NULL DEFAULT 'all',
@@ -262,6 +262,76 @@ def init_db():
         note       TEXT,
         PRIMARY KEY (user_id, feature)
     )''')
+
+    # ===== BATTLE PASS =====
+    # Une saison = 1 mois calendaire. month_key au format 'YYYY-MM'.
+    c.execute('''CREATE TABLE IF NOT EXISTS pass_seasons (
+        season_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+        month_key   TEXT UNIQUE NOT NULL,
+        name        TEXT,
+        started_at  TEXT NOT NULL,
+        ends_at     TEXT NOT NULL,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # Definition des recompenses par palier (1..30) et par saison.
+    c.execute('''CREATE TABLE IF NOT EXISTS pass_rewards (
+        season_id   INTEGER NOT NULL,
+        tier        INTEGER NOT NULL,
+        type        TEXT NOT NULL,            -- 'bg' | 'sabre' | 'title' | 'emoji' | 'boost_xp' | 'tookcoins'
+        payload     TEXT,                     -- JSON: {bg_id} ou {sabre_id} ou {title} etc.
+        label       TEXT,
+        PRIMARY KEY (season_id, tier),
+        FOREIGN KEY (season_id) REFERENCES pass_seasons(season_id) ON DELETE CASCADE
+    )''')
+
+    # Pool de templates de quetes ; on tire dedans au reset daily/weekly.
+    c.execute('''CREATE TABLE IF NOT EXISTS pass_quest_templates (
+        template_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type        TEXT NOT NULL,            -- 'send_messages' | 'play_duels' | 'earn_xp' | 'use_commands'
+        period      TEXT NOT NULL,            -- 'daily' | 'weekly'
+        target      INTEGER NOT NULL,
+        label       TEXT NOT NULL,
+        xp_reward   INTEGER NOT NULL DEFAULT 50
+    )''')
+
+    # Quetes actives d'un user pour la periode courante.
+    c.execute('''CREATE TABLE IF NOT EXISTS pass_user_quests (
+        user_id      TEXT NOT NULL,
+        period       TEXT NOT NULL,           -- 'daily' | 'weekly'
+        slot         INTEGER NOT NULL,        -- 0..N pour distinguer plusieurs quetes meme periode
+        template_id  INTEGER,
+        type         TEXT NOT NULL,
+        target       INTEGER NOT NULL,
+        progress     INTEGER NOT NULL DEFAULT 0,
+        period_start TEXT NOT NULL,           -- ISO date debut periode (YYYY-MM-DD pour daily, YYYY-Www pour weekly)
+        claimed      INTEGER NOT NULL DEFAULT 0,
+        xp_reward    INTEGER NOT NULL DEFAULT 50,
+        PRIMARY KEY (user_id, period, slot, period_start)
+    )''')
+
+    # Progression du user dans la saison (XP du Pass != XP message).
+    c.execute('''CREATE TABLE IF NOT EXISTS pass_progress (
+        user_id          TEXT NOT NULL,
+        season_id        INTEGER NOT NULL,
+        xp               INTEGER NOT NULL DEFAULT 0,
+        claimed_max_tier INTEGER NOT NULL DEFAULT 0,
+        updated_at       TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, season_id)
+    )''')
+
+    # Recompenses debloquees par un user. expires_at NULL = permanent
+    # (sabres, titres). Sinon date d'expiration (BG saisonniers = fin du mois suivant).
+    c.execute('''CREATE TABLE IF NOT EXISTS pass_unlocks (
+        unlock_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      TEXT NOT NULL,
+        season_id    INTEGER,
+        type         TEXT NOT NULL,
+        payload      TEXT,                    -- JSON
+        unlocked_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        expires_at   TEXT
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_pass_unlocks_user ON pass_unlocks(user_id)')
 
     conn.commit()
     conn.close()
@@ -1593,6 +1663,177 @@ def set_premium_setting(user_id, key: str, value):
     )
     conn.commit()
     conn.close()
+
+
+# =====================================================================
+# BATTLE PASS HELPERS
+# =====================================================================
+
+def _current_month_key(now=None):
+    now = now or _dt.datetime.utcnow()
+    return now.strftime("%Y-%m")
+
+
+def _month_bounds(month_key: str) -> tuple[str, str]:
+    """Retourne (start_iso, end_iso) du mois donne 'YYYY-MM'."""
+    y, m = map(int, month_key.split("-"))
+    start = _dt.datetime(y, m, 1)
+    if m == 12:
+        end = _dt.datetime(y + 1, 1, 1) - _dt.timedelta(seconds=1)
+    else:
+        end = _dt.datetime(y, m + 1, 1) - _dt.timedelta(seconds=1)
+    return start.isoformat(), end.isoformat()
+
+
+def _seasonal_bg_expiry(unlocked_at: _dt.datetime) -> str:
+    """BG saisonnier : expire fin du mois SUIVANT le mois de deblocage.
+
+    Exemple : deblocage 28 mai 2026 -> expire 30 juin 2026 23:59:59.
+    """
+    y, m = unlocked_at.year, unlocked_at.month
+    if m == 12:
+        ey, em = y + 1, 12
+        # Mois suivant decembre = janvier annee+2
+        if em == 12:
+            ny, nm = ey, 12  # decembre meme annee
+        ny, nm = y + 2, 1
+        end = _dt.datetime(y + 2, 1, 1) - _dt.timedelta(seconds=1)
+    else:
+        # Mois suivant
+        nm = m + 1
+        ny = y
+        if nm == 12:
+            end = _dt.datetime(ny + 1, 1, 1) - _dt.timedelta(seconds=1)
+        else:
+            end = _dt.datetime(ny, nm + 1, 1) - _dt.timedelta(seconds=1)
+    return end.isoformat()
+
+
+def get_or_create_current_season(name: str = None) -> dict:
+    """Retourne la saison du mois courant, en la creant si elle n'existe pas."""
+    mk = _current_month_key()
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM pass_seasons WHERE month_key = ?", (mk,)).fetchone()
+    if row:
+        conn.close()
+        return dict(row)
+    start_iso, end_iso = _month_bounds(mk)
+    season_name = name or f"Saison {mk}"
+    c.execute(
+        "INSERT INTO pass_seasons (month_key, name, started_at, ends_at) VALUES (?, ?, ?, ?)",
+        (mk, season_name, start_iso, end_iso),
+    )
+    conn.commit()
+    sid = c.lastrowid
+    row = c.execute("SELECT * FROM pass_seasons WHERE season_id = ?", (sid,)).fetchone()
+    conn.close()
+    return dict(row)
+
+
+def user_has_active_pass(user_id) -> bool:
+    """Pass actif : grant manuel feature='pass' OU feature='all' OU entitlement
+    Discord sur le futur SKU 'pass'. Owner gere via user_is_premium global.
+
+    Le SKU subscription du Pass n'existe pas encore ; pour l'instant, on
+    retourne True si:
+    - grant feature='pass' OU 'all'
+    """
+    if not user_id:
+        return False
+    return has_premium_grant(user_id, feature="pass") or has_premium_grant(user_id, feature="all")
+
+
+def get_pass_progress(user_id, season_id: int) -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT * FROM pass_progress WHERE user_id = ? AND season_id = ?",
+        (str(user_id), int(season_id)),
+    ).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {"user_id": str(user_id), "season_id": int(season_id), "xp": 0, "claimed_max_tier": 0}
+
+
+def add_pass_xp(user_id, season_id: int, amount: int) -> int:
+    """Incremente l'XP du Pass et retourne le nouveau total."""
+    if amount <= 0:
+        cur = get_pass_progress(user_id, season_id)
+        return cur.get("xp", 0)
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO pass_progress (user_id, season_id, xp, claimed_max_tier, updated_at)
+        VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, season_id) DO UPDATE SET
+            xp         = pass_progress.xp + excluded.xp,
+            updated_at = CURRENT_TIMESTAMP
+    ''', (str(user_id), int(season_id), int(amount)))
+    conn.commit()
+    new_total = c.execute(
+        "SELECT xp FROM pass_progress WHERE user_id = ? AND season_id = ?",
+        (str(user_id), int(season_id)),
+    ).fetchone()["xp"]
+    conn.close()
+    return new_total
+
+
+def set_pass_claimed_tier(user_id, season_id: int, tier: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO pass_progress (user_id, season_id, xp, claimed_max_tier, updated_at)
+        VALUES (?, ?, 0, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, season_id) DO UPDATE SET
+            claimed_max_tier = MAX(pass_progress.claimed_max_tier, excluded.claimed_max_tier),
+            updated_at = CURRENT_TIMESTAMP
+    ''', (str(user_id), int(season_id), int(tier)))
+    conn.commit()
+    conn.close()
+
+
+def add_pass_unlock(user_id, type_: str, payload: dict, season_id: int = None,
+                    expires_at: str = None) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO pass_unlocks (user_id, season_id, type, payload, expires_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (str(user_id), season_id, type_, _json.dumps(payload or {}), expires_at))
+    conn.commit()
+    uid = c.lastrowid
+    conn.close()
+    return uid
+
+
+def list_user_pass_unlocks(user_id, type_: str = None, include_expired=False) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    now = _dt.datetime.utcnow().isoformat()
+    if type_:
+        rows = c.execute(
+            "SELECT * FROM pass_unlocks WHERE user_id = ? AND type = ? ORDER BY unlocked_at DESC",
+            (str(user_id), type_),
+        ).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT * FROM pass_unlocks WHERE user_id = ? ORDER BY unlocked_at DESC",
+            (str(user_id),),
+        ).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["payload"] = _json.loads(d.get("payload") or "{}")
+        except Exception:
+            d["payload"] = {}
+        if not include_expired and d.get("expires_at") and d["expires_at"] < now:
+            continue
+        out.append(d)
+    return out
 
 
 if __name__ == "__main__":

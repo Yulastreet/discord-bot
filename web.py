@@ -49,8 +49,14 @@ from database import (
     list_user_entitlements,
     user_is_premium as _db_user_is_premium,
     add_premium_grant, remove_premium_grant, list_premium_grants,
+    has_premium_grant, user_has_active_pass, get_or_create_current_season,
+    get_pass_progress, list_user_pass_unlocks,
 )
-from niveau_card import list_available_backgrounds, render_niveau_card
+from niveau_card import (
+    list_available_backgrounds, render_niveau_card,
+    has_owner_custom_bg, save_owner_custom_bg, remove_owner_custom_bg,
+    CARD_W as NIVEAU_CARD_W, CARD_H as NIVEAU_CARD_H,
+)
 from duel_sabres import RARETES
 
 # Init DB + seed
@@ -225,6 +231,8 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/api/guilds", "/api/select-guild",
     "/api/dms", "/api/status", "/api/settings",
     "/premium", "/api/premium",
+    "/owner", "/api/owner",
+    "/search-global", "/api/search-global",
 }
 
 def needs_guild(path):
@@ -1220,9 +1228,26 @@ def _is_admin_of_current_guild() -> bool:
     return False
 
 
+def _has_pass(uid) -> bool:
+    """Pass actif : owner OU grant feature='pass'/'all' OU (futur) entitlement subscription."""
+    if not uid:
+        return False
+    if DISCORD_OWNER_ID and str(uid) == str(DISCORD_OWNER_ID):
+        return True
+    return user_has_active_pass(uid)
+
+
 def _is_premium(uid, feature="all") -> bool:
-    """Wrapper unifie : entitlement Discord OU grant manuel OU owner ENV."""
-    return _db_user_is_premium(uid, feature=feature, owner_id=DISCORD_OWNER_ID)
+    """Wrapper unifie : entitlement Discord OU grant manuel OU owner ENV.
+
+    Si feature='all', on accepte aussi 'pass' (les abonnés Pass ont automatiquement
+    le pack /niveau Premium).
+    """
+    if _db_user_is_premium(uid, feature=feature, owner_id=DISCORD_OWNER_ID):
+        return True
+    if feature == "all" and _has_pass(uid):
+        return True
+    return False
 
 
 def _require_premium_user():
@@ -1242,7 +1267,8 @@ def premium_page():
         return redirect(url_for("oauth_login"))
     is_premium = _is_premium(uid)
     settings_p = get_premium_settings(uid) if is_premium else {}
-    backgrounds = list_available_backgrounds()
+    # On passe user_id pour que le BG custom owner apparaisse pour lui seul.
+    backgrounds = list_available_backgrounds(user_id=uid)
     user = session.get("discord") or {}
     return render_template(
         "premium.html",
@@ -1277,7 +1303,7 @@ def api_premium_niveau_update():
     bg = data.get("background")
     if not bg:
         return jsonify({"ok": False, "error": "missing_background"}), 400
-    if bg not in list_available_backgrounds():
+    if bg not in list_available_backgrounds(user_id=uid):
         return jsonify({"ok": False, "error": "unknown_background"}), 400
     set_premium_setting(uid, "niveau_background", bg)
     return jsonify({"ok": True, "settings": get_premium_settings(uid)})
@@ -1296,8 +1322,10 @@ def api_premium_niveau_preview():
         if not _current_user_id():
             return ("", 403)
     user = session.get("discord") or {}
-    bg = request.args.get("bg") or get_premium_settings(uid or _current_user_id()).get("niveau_background", "default")
-    if bg not in list_available_backgrounds():
+    requested_uid = uid or _current_user_id()
+    bg = request.args.get("bg") or get_premium_settings(requested_uid).get("niveau_background", "default")
+    allowed_bgs = list_available_backgrounds(user_id=requested_uid)
+    if bg not in allowed_bgs:
         bg = "default"
 
     # XP fictifs pour preview (vrais XP necessitent un guild_id selectionne).
@@ -1314,6 +1342,71 @@ def api_premium_niveau_preview():
         background=bg,
     ))
     return send_file(buf, mimetype="image/png")
+
+
+# ===== Owner : page de paramètres avancée (custom BG, etc.) =====
+
+@app.route("/owner/settings")
+def owner_settings_page():
+    if not _is_owner_session():
+        abort(403)
+    uid = _current_user_id()
+    has_custom = has_owner_custom_bg(uid) if uid else False
+    return render_template(
+        "owner_settings.html",
+        active_nav="owner_settings",
+        has_custom=has_custom,
+        owner_id=uid,
+    )
+
+
+@app.route("/api/owner/niveau-bg", methods=["POST"])
+def api_owner_niveau_bg_upload():
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    uid = _current_user_id()
+    if not uid:
+        return jsonify({"error": "no_user"}), 400
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "missing_file"}), 400
+
+    allowed_ext = {".png", ".jpg", ".jpeg", ".webp"}
+    ext = os.path.splitext(f.filename.lower())[1]
+    if ext not in allowed_ext:
+        return jsonify({"error": "unsupported_format", "allowed": list(allowed_ext)}), 400
+
+    # Limite 10 Mo
+    f.stream.seek(0, os.SEEK_END)
+    size = f.stream.tell()
+    f.stream.seek(0)
+    if size > 10 * 1024 * 1024:
+        return jsonify({"error": "file_too_large", "max_bytes": 10 * 1024 * 1024}), 400
+
+    # Charger via Pillow + redimensionner cote serveur
+    try:
+        from PIL import Image as _PIL
+        img = _PIL.open(f.stream)
+        save_owner_custom_bg(uid, img)
+    except Exception as e:
+        return jsonify({"error": "cannot_decode", "detail": str(e)}), 400
+
+    return jsonify({"ok": True, "bg_id": f"owner:{uid}"})
+
+
+@app.route("/api/owner/niveau-bg", methods=["DELETE"])
+def api_owner_niveau_bg_delete():
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    uid = _current_user_id()
+    if not uid:
+        return jsonify({"error": "no_user"}), 400
+    remove_owner_custom_bg(uid)
+    # Reset le BG selectionne si c'etait celui-la
+    cur = get_premium_settings(uid).get("niveau_background")
+    if cur == f"owner:{uid}":
+        set_premium_setting(uid, "niveau_background", "default")
+    return jsonify({"ok": True})
 
 
 # ===== Admin (owner ou admin Discord du serveur) : edit XP/niveau d'un membre =====
@@ -1374,6 +1467,43 @@ def api_user_xp_set(user_id):
         "xp":       new_xp,
         "level":    new_level,
     })
+
+
+# ===== Owner-only : Pass grant/revoke + status =====
+
+@app.route("/api/user/<user_id>/pass", methods=["GET"])
+def api_user_pass_status(user_id):
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    has_pass = _has_pass(user_id)
+    season = get_or_create_current_season()
+    progress = get_pass_progress(user_id, season["season_id"])
+    unlocks = list_user_pass_unlocks(user_id)
+    return jsonify({
+        "user_id":  str(user_id),
+        "has_pass": has_pass,
+        "season":   season,
+        "progress": progress,
+        "unlocks":  unlocks,
+    })
+
+
+@app.route("/api/user/<user_id>/pass", methods=["POST"])
+def api_user_pass_grant(user_id):
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    data = request.get_json(silent=True) or {}
+    note = data.get("note")
+    add_premium_grant(user_id, feature="pass", granted_by=_current_user_id(), note=note)
+    return jsonify({"ok": True, "user_id": str(user_id), "feature": "pass"})
+
+
+@app.route("/api/user/<user_id>/pass", methods=["DELETE"])
+def api_user_pass_revoke(user_id):
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    remove_premium_grant(user_id, feature="pass")
+    return jsonify({"ok": True, "user_id": str(user_id), "feature": "pass", "revoked": True})
 
 
 # ===== Owner-only : grant/revoke premium manuel =====

@@ -24,6 +24,9 @@
         <button id="premiumToggleBtn" class="btn btn-secondary" type="button" disabled>
           <svg class="ic"><use href="#i-bolt"/></svg> <span id="premiumToggleLabel">Premium…</span>
         </button>
+        <button id="passToggleBtn" class="btn btn-secondary" type="button" disabled>
+          <svg class="ic"><use href="#i-swords"/></svg> <span id="passToggleLabel">Pass…</span>
+        </button>
       {% endif %}
     </div>
   </div>
@@ -136,8 +139,52 @@ const TYPE_LABELS = {
 window.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadPremiumStatus();
+  setupPassToggle();
   setupXpEdit();
 });
+
+// ===== PASS TOGGLE (owner-only) =====
+function setupPassToggle() {
+  const btn = document.getElementById('passToggleBtn');
+  const lbl = document.getElementById('passToggleLabel');
+  if (!btn) return;
+  let active = false;
+
+  async function refresh() {
+    try {
+      const r = await fetch(`/api/user/${userId}/pass`);
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      active = !!d.has_pass;
+      btn.disabled = false;
+      btn.classList.toggle('btn-primary', !active);
+      btn.classList.toggle('btn-secondary', active);
+      lbl.textContent = active ? 'Retirer le Pass' : 'Offrir le Pass';
+    } catch (_) {
+      lbl.textContent = 'Pass (erreur)';
+    }
+  }
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      if (active) {
+        await fetch(`/api/user/${userId}/pass`, { method: 'DELETE' });
+      } else {
+        await fetch(`/api/user/${userId}/pass`, { method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ note: 'Offert depuis dashboard' }),
+        });
+      }
+      await refresh();
+    } catch (e) {
+      alert('Erreur : ' + e.message);
+      btn.disabled = false;
+    }
+  });
+
+  refresh();
+}
 
 // ===== EDIT XP / NIVEAU (admin du serveur courant) =====
 function setupXpEdit() {

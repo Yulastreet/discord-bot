@@ -66,7 +66,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       replace_guild_members, upsert_member, remove_member,
                       upsert_entitlement, mark_entitlement_deleted,
                       user_has_active_entitlement, get_premium_settings,
-                      user_is_premium as _db_user_is_premium)
+                      user_is_premium as _db_user_is_premium,
+                      user_has_active_pass)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -85,8 +86,15 @@ def is_premium_user(user_id, feature="all") -> bool:
     - via entitlement Discord (achat reel)
     - via grant manuel offert (table premium_grants)
     - via DISCORD_OWNER_ID (toujours premium gratuit)
+    - via Pass actif (les abonnes Pass ont automatiquement le pack premium)
     """
-    return _db_user_is_premium(user_id, feature=feature, owner_id=DISCORD_OWNER_ID)
+    if _db_user_is_premium(user_id, feature=feature, owner_id=DISCORD_OWNER_ID):
+        return True
+    if feature == "all" and user_id and user_has_active_pass(user_id):
+        return True
+    if DISCORD_OWNER_ID and user_id and str(user_id) == str(DISCORD_OWNER_ID):
+        return True  # Owner couvert pour toute feature
+    return False
 
 init_db()
 # Preload backgrounds /niveau premium en RAM (~3MB total) pour eliminer

@@ -1,0 +1,127 @@
+{% extends "_base.html" %}
+{% block title %}Paramètres owner · TookBot{% endblock %}
+{% block crumb %}Paramètres owner{% endblock %}
+
+{% block content %}
+<style>
+  .own-grid { display: grid; gap: 24px; max-width: 920px; }
+  .own-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 24px;
+  }
+  .own-card h2 { margin: 0 0 6px; font-size: 18px; }
+  .own-card .sub { color: var(--text-muted); font-size: 13px; margin-bottom: 14px; }
+  .preview-bg {
+    width: 100%; max-width: 720px; aspect-ratio: 1024 / 320;
+    background: #1c1f22 center/cover no-repeat;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .upload-row {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin-top: 14px;
+  }
+  .upload-row input[type=file] { font-size: 13px; }
+  .hint { color: var(--text-muted); font-size: 12px; margin-top: 6px; }
+  .danger { color: oklch(0.7 0.18 25); }
+</style>
+
+<h1 style="margin-bottom: 6px;">Paramètres owner</h1>
+<p class="muted" style="font-size:14px;max-width:60ch;margin-bottom:24px;">
+  Cette section n'est visible que par toi. Réglages avancés réservés au propriétaire du bot.
+</p>
+
+<div class="own-grid">
+  <div class="own-card">
+    <h2>Background /niveau personnalisé</h2>
+    <div class="sub">
+      Upload une image pour remplacer ton background <code>/niveau</code>.
+      Format : PNG / JPG / WEBP, max 10 Mo. L'image sera redimensionnée à
+      {{ NIVEAU_CARD_W or 1024 }}×{{ NIVEAU_CARD_H or 320 }} (ratio 3.2:1 idéal).
+    </div>
+
+    <div id="previewWrap">
+      {% if has_custom %}
+        <div class="preview-bg" id="previewBg"
+             style="background-image:url('/api/premium/niveau/preview.png?bg=owner:{{ owner_id }}&t={{ range(1,9999)|random }}')"></div>
+      {% else %}
+        <div class="preview-bg" id="previewBg">Aucun background personnalisé</div>
+      {% endif %}
+    </div>
+
+    <div class="upload-row">
+      <input type="file" id="bgFile" accept="image/png,image/jpeg,image/webp">
+      <button id="bgUploadBtn" class="btn btn-primary" type="button" disabled>Uploader</button>
+      <button id="bgDeleteBtn" class="btn btn-secondary" type="button"
+              {% if not has_custom %}disabled{% endif %}>Supprimer</button>
+      <span id="bgHint" class="hint" style="margin-left:auto;"></span>
+    </div>
+    <div class="hint">
+      Une fois uploadé, va sur <a href="/premium">/premium</a> et choisis ton background « owner:moi ».
+      Il n'apparaît que pour toi dans la grille.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const fileInput = document.getElementById('bgFile');
+  const uploadBtn = document.getElementById('bgUploadBtn');
+  const deleteBtn = document.getElementById('bgDeleteBtn');
+  const hint      = document.getElementById('bgHint');
+  const previewBg = document.getElementById('previewBg');
+  const ownerId   = "{{ owner_id }}";
+
+  fileInput.addEventListener('change', () => {
+    uploadBtn.disabled = !fileInput.files.length;
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!fileInput.files.length) return;
+    uploadBtn.disabled = true;
+    hint.textContent = 'Upload…';
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    try {
+      const r = await fetch('/api/owner/niveau-bg', { method: 'POST', body: fd });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || r.status);
+      hint.textContent = '✓ Uploadé';
+      // Refresh preview avec cache-buster
+      previewBg.style.backgroundImage =
+        `url('/api/premium/niveau/preview.png?bg=owner:${ownerId}&t=${Date.now()}')`;
+      previewBg.textContent = '';
+      deleteBtn.disabled = false;
+      fileInput.value = '';
+      setTimeout(() => hint.textContent = '', 2000);
+    } catch (e) {
+      hint.textContent = '✗ ' + e.message;
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    if (!confirm('Supprimer ton background personnalisé ?')) return;
+    deleteBtn.disabled = true;
+    hint.textContent = 'Suppression…';
+    try {
+      const r = await fetch('/api/owner/niveau-bg', { method: 'DELETE' });
+      if (!r.ok) throw new Error(r.status);
+      previewBg.style.backgroundImage = 'none';
+      previewBg.textContent = 'Aucun background personnalisé';
+      hint.textContent = '✓ Supprimé';
+      setTimeout(() => hint.textContent = '', 2000);
+    } catch (e) {
+      hint.textContent = '✗ ' + e.message;
+      deleteBtn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

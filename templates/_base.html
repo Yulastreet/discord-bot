@@ -313,6 +313,11 @@
       <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
         <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
       </a>
+      {% if is_owner %}
+      <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
+        <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
+      </a>
+      {% endif %}
       {% endif %}
     </nav>
 

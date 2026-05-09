@@ -28,6 +28,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 CARD_W, CARD_H = 1024, 320
 BG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "niveau_bg")
+# BG custom owner : 1 par owner_id (perso, jamais expose aux autres).
+BG_OWNER_DIR = os.path.join(BG_DIR, "owner")
+os.makedirs(BG_OWNER_DIR, exist_ok=True)
 AVATAR_SIZE = 200
 AVATAR_X, AVATAR_Y = 60, (CARD_H - AVATAR_SIZE) // 2
 
@@ -151,6 +154,31 @@ def _placeholder_avatar(size: int) -> Image.Image:
 _BG_CACHE: dict[str, Image.Image] = {}
 
 
+def _resolve_bg_path(bg_id: str) -> Optional[str]:
+    """Resout l'ID du BG vers un chemin disque.
+
+    Supporte :
+    - 'owner:<owner_id>' -> assets/niveau_bg/owner/<owner_id>.png  (owner uniquement)
+    - 'seasonal:<YYYY-MM>:<name>' -> assets/niveau_bg/seasonal/<YYYY-MM>/<name>.png
+    - '<name>' simple -> assets/niveau_bg/<name>.png  (BG permanent)
+    """
+    if not bg_id:
+        return None
+    if bg_id.startswith("owner:"):
+        owner_id = bg_id.split(":", 1)[1]
+        path = os.path.join(BG_OWNER_DIR, f"{owner_id}.png")
+        return path if os.path.exists(path) else None
+    if bg_id.startswith("seasonal:"):
+        parts = bg_id.split(":", 2)
+        if len(parts) == 3:
+            mk, name = parts[1], parts[2]
+            path = os.path.join(BG_DIR, "seasonal", mk, f"{name}.png")
+            return path if os.path.exists(path) else None
+        return None
+    path = os.path.join(BG_DIR, f"{bg_id}.png")
+    return path if os.path.exists(path) else None
+
+
 def _load_background(bg_id: str) -> Image.Image:
     """Charge le BG demandé (mis en cache RAM), fallback default puis gradient.
 
@@ -161,8 +189,8 @@ def _load_background(bg_id: str) -> Image.Image:
     for name in candidates:
         if name in _BG_CACHE:
             return _BG_CACHE[name].copy()
-        path = os.path.join(BG_DIR, f"{name}.png")
-        if os.path.exists(path):
+        path = _resolve_bg_path(name)
+        if path:
             try:
                 img = Image.open(path).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
                 _BG_CACHE[name] = img
@@ -171,6 +199,14 @@ def _load_background(bg_id: str) -> Image.Image:
                 continue
     # Fallback procédural si aucun fichier
     return Image.new("RGB", (CARD_W, CARD_H), (22, 24, 30))
+
+
+def invalidate_bg_cache(bg_id: str = None):
+    """A appeler apres upload/replacement d'un BG pour purger le cache RAM."""
+    if bg_id is None:
+        _BG_CACHE.clear()
+    else:
+        _BG_CACHE.pop(bg_id, None)
 
 
 def preload_backgrounds():
@@ -448,12 +484,48 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     return buf
 
 
-def list_available_backgrounds() -> list[str]:
-    """Retourne la liste des IDs de backgrounds disponibles (sans extension)."""
-    if not os.path.isdir(BG_DIR):
-        return []
-    out = []
-    for fn in sorted(os.listdir(BG_DIR)):
-        if fn.lower().endswith(".png"):
-            out.append(os.path.splitext(fn)[0])
+def list_available_backgrounds(user_id: str = None) -> list[str]:
+    """Retourne la liste des IDs de backgrounds disponibles pour cet utilisateur.
+
+    - Tout le monde voit les BG permanents (assets/niveau_bg/*.png)
+    - Si `user_id` correspond a un BG custom owner uploade, l'ID 'owner:<id>'
+      est ajoute en debut de liste pour ce user uniquement.
+    """
+    out: list[str] = []
+    # BG owner (perso) — affiche uniquement a son owner
+    if user_id:
+        owner_path = os.path.join(BG_OWNER_DIR, f"{user_id}.png")
+        if os.path.exists(owner_path):
+            out.append(f"owner:{user_id}")
+    # BG permanents
+    if os.path.isdir(BG_DIR):
+        for fn in sorted(os.listdir(BG_DIR)):
+            if not fn.lower().endswith(".png"):
+                continue
+            full = os.path.join(BG_DIR, fn)
+            # ignore les sous-dossiers
+            if os.path.isfile(full):
+                out.append(os.path.splitext(fn)[0])
     return out
+
+
+def has_owner_custom_bg(user_id: str) -> bool:
+    return os.path.exists(os.path.join(BG_OWNER_DIR, f"{user_id}.png"))
+
+
+def save_owner_custom_bg(user_id: str, source_image: Image.Image):
+    """Sauvegarde un BG custom owner (1024x320, redimensionne si besoin)."""
+    if source_image.size != (CARD_W, CARD_H):
+        source_image = source_image.convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
+    else:
+        source_image = source_image.convert("RGB")
+    path = os.path.join(BG_OWNER_DIR, f"{user_id}.png")
+    source_image.save(path, "PNG", optimize=False, compress_level=6)
+    invalidate_bg_cache(f"owner:{user_id}")
+
+
+def remove_owner_custom_bg(user_id: str):
+    path = os.path.join(BG_OWNER_DIR, f"{user_id}.png")
+    if os.path.exists(path):
+        os.remove(path)
+    invalidate_bg_cache(f"owner:{user_id}")
