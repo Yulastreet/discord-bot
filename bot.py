@@ -189,7 +189,6 @@ YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': False,            # passe a False pour voir les details d'erreur dans les logs
     'no_warnings': False,
-    'verbose': True,           # DEBUG TEMP — voir si bgutil pot provider est appele
     'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
     'youtube_include_dash_manifest': True,
