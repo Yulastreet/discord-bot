@@ -178,6 +178,14 @@ def _user_can_access_page(endpoint, path):
     if path in ("/api/select-guild", "/api/guilds"):
         return True
 
+    # Pages "Mon compte" (premium, gestion d'achats) : tout user connecte y accede
+    if path == "/premium" or path.startswith("/premium/") or path.startswith("/api/premium"):
+        return True
+
+    # Pages user-perso non scopees a un serveur
+    if path == "/logout" or path == "/forbidden":
+        return True
+
     # Mods : checks par endpoint et par path
     if path in MOD_BLOCKED_PAGES:
         return False
@@ -465,11 +473,9 @@ def oauth_callback():
                 "is_mod":     is_kick,
             })
 
-    # Owner sans guild commune : on autorise quand meme (il voit tout via _accessible_guild_ids)
-    if not is_owner and not accessible:
-        return render_template("login.html",
-            error="Aucun serveur en commun avec le bot où tu es admin/modo."), 403
-
+    # On autorise tous les utilisateurs Discord a se connecter (acces page /premium,
+    # gestion de leurs achats, etc.). Sans guild commune mod/admin, ils ne verront
+    # juste pas le dashboard de moderation — geres par le middleware d'acces.
     avatar_url = None
     if u.get("avatar"):
         avatar_url = f"https://cdn.discordapp.com/avatars/{user_id}/{u['avatar']}.png?size=128"
@@ -492,7 +498,10 @@ def oauth_callback():
     }
     session.pop("oauth_state", None)
     _record_login(_client_ip(), True, username=session["discord"]["username"])
-    return redirect("/select-guild")
+    # Owner / mod -> selection de guild ; user "regular" -> page premium directement.
+    if is_owner or accessible:
+        return redirect("/select-guild")
+    return redirect("/premium")
 
 
 @app.route("/oauth/logout")
@@ -1131,7 +1140,9 @@ def api_status():
 
 def _current_user_id():
     """Snowflake Discord de l'utilisateur connecte (str), ou None."""
-    return (session.get("user") or {}).get("id")
+    if not session.get("logged_in"):
+        return None
+    return (session.get("discord") or {}).get("user_id")
 
 
 def _require_premium_user():
