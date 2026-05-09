@@ -67,7 +67,10 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       upsert_entitlement, mark_entitlement_deleted,
                       user_has_active_entitlement, get_premium_settings,
                       user_is_premium as _db_user_is_premium,
-                      user_has_active_pass)
+                      user_has_active_pass,
+                      get_or_create_current_season, get_pass_progress,
+                      list_user_active_quests, increment_quest_progress,
+                      claim_quest_reward, add_pass_xp, set_pass_claimed_tier)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -79,6 +82,50 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # dans le Developer Portal Discord. Peut etre surcharge via env.
 SKU_NIVEAU_PREMIUM = os.getenv("SKU_NIVEAU_PREMIUM", "")
 DISCORD_OWNER_ID = os.getenv("DISCORD_OWNER_ID", "").strip() or None
+
+
+# Constantes Pass : XP par palier, total paliers
+PASS_TIERS = 30
+PASS_XP_PER_TIER = 250
+PASS_XP_TOTAL = PASS_TIERS * PASS_XP_PER_TIER  # 7500
+
+
+def pass_tier_from_xp(xp: int) -> int:
+    """Renvoie le palier debloque par cet XP (cap a PASS_TIERS)."""
+    if xp <= 0:
+        return 0
+    return min(PASS_TIERS, xp // PASS_XP_PER_TIER)
+
+
+def _track_pass_quest(user_id, quest_type: str, amount: int = 1):
+    """Helper : incremente progress + claim auto + add XP au Pass.
+
+    Silencieux si l'user n'a pas de Pass actif (no-op).
+    """
+    if not user_id:
+        return
+    has_pass = user_has_active_pass(user_id) or (
+        DISCORD_OWNER_ID and str(user_id) == str(DISCORD_OWNER_ID)
+    )
+    if not has_pass:
+        return
+    try:
+        # S'assure que les quetes de la periode courante existent (lazy generate).
+        from database import list_user_active_quests as _lq
+        _lq(user_id)
+        completed = increment_quest_progress(user_id, quest_type, amount)
+        if not completed:
+            return
+        # Auto-claim + credit XP saison courante
+        season = get_or_create_current_season()
+        sid = season["season_id"]
+        for q in completed:
+            claim = claim_quest_reward(user_id, q["period"], q["slot"])
+            if claim:
+                add_pass_xp(user_id, sid, claim["xp_reward"])
+                print(f"[pass] user={user_id} clear quest {q['type']} +{claim['xp_reward']} XP")
+    except Exception as e:
+        print(f"[pass] track error: {e!r}")
 
 
 def is_premium_user(user_id, feature="all") -> bool:
@@ -646,6 +693,16 @@ def _entitlement_to_dict(ent) -> dict:
 
 
 @bot.event
+async def on_app_command_completion(interaction: discord.Interaction, command: app_commands.Command):
+    """Slash command terminee avec succes -> +1 use_commands quete Pass."""
+    try:
+        if interaction.user and not interaction.user.bot:
+            _track_pass_quest(interaction.user.id, "use_commands", 1)
+    except Exception:
+        pass
+
+
+@bot.event
 async def on_entitlement_create(entitlement):
     try:
         d = _entitlement_to_dict(entitlement)
@@ -720,9 +777,17 @@ async def on_message(message):
             xp_max = max(xp_min, int(get_setting("xp_max", "5")))
         except (TypeError, ValueError):
             xp_min, xp_max = 1, 5
-        xp += random.randint(xp_min, xp_max)
+        xp_gain = random.randint(xp_min, xp_max)
+        xp += xp_gain
         set_xp(guild_id_str, message.author.id, xp, username=message.author.name)
         new_level = get_level(xp)
+        # ── Battle Pass tracking (silencieux si pas de pass actif) ──
+        try:
+            _track_pass_quest(message.author.id, "send_messages", 1)
+            _track_pass_quest(message.author.id, "earn_xp", xp_gain)
+        except Exception:
+            pass
+
         if new_level > old_level:
             level, progress_xp, needed_xp, percent = get_progress(xp)
             # Premium ? Carte HD avec son background choisi
@@ -1240,6 +1305,86 @@ async def leaderboard(interaction: discord.Interaction):
         description += f"{medal} {name} — **{row['xp']} XP** (Niveau {row['level']})\n"
     embed.description = description
     await interaction.followup.send(embed=embed)
+
+
+# ===== BATTLE PASS =====
+
+_QUEST_TYPE_LABELS = {
+    "send_messages": "💬 Messages envoyés",
+    "play_duels":    "⚔️ Duels joués",
+    "earn_xp":       "✨ XP gagné",
+    "use_commands":  "🔧 Commandes utilisées",
+}
+
+
+def _quest_progress_bar(progress: int, target: int, width: int = 12) -> str:
+    pct = min(1.0, progress / target if target else 0)
+    filled = int(pct * width)
+    return "▰" * filled + "▱" * (width - filled)
+
+
+@bot.tree.command(name="pass", description="Voir ta progression dans le Battle Pass")
+async def pass_status(interaction: discord.Interaction):
+    user = interaction.user
+    has_pass = user_has_active_pass(user.id) or (DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID))
+
+    if not has_pass:
+        embed = discord.Embed(
+            title="🎟️ TookBot Battle Pass",
+            description=(
+                "Tu n'as pas encore de Pass actif sur cette saison.\n\n"
+                "Le Pass se prend dans la **boutique** du bot (clique sur le profil "
+                "de TookBot → Boutique). 30 paliers de récompenses chaque mois : "
+                "backgrounds exclusifs, sabres cosmétiques, titres, boosts XP, et plus."
+            ),
+            color=0x9CB94A,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    season = get_or_create_current_season()
+    progress = get_pass_progress(user.id, season["season_id"])
+    quests = list_user_active_quests(user.id)
+    xp_total = progress.get("xp", 0)
+    tier = pass_tier_from_xp(xp_total)
+    next_tier_xp = (tier + 1) * PASS_XP_PER_TIER if tier < PASS_TIERS else PASS_XP_TOTAL
+    xp_in_tier = xp_total - tier * PASS_XP_PER_TIER if tier < PASS_TIERS else PASS_XP_PER_TIER
+    xp_needed = PASS_XP_PER_TIER if tier < PASS_TIERS else 0
+
+    bar = _quest_progress_bar(min(xp_in_tier, xp_needed), max(1, xp_needed), width=20)
+    embed = discord.Embed(
+        title=f"🎟️ {season.get('name') or 'Battle Pass'}",
+        description=(
+            f"**Palier {tier} / {PASS_TIERS}**\n"
+            f"`{bar}`  {xp_in_tier}/{xp_needed} XP du palier suivant\n"
+            f"Total saison : **{xp_total} XP**"
+        ),
+        color=0x9CB94A,
+    )
+
+    daily = [q for q in quests if q["period"] == "daily"]
+    weekly = [q for q in quests if q["period"] == "weekly"]
+
+    if daily:
+        lines = []
+        for q in daily:
+            lbl = _QUEST_TYPE_LABELS.get(q["type"], q["type"])
+            done = "✅" if q["progress"] >= q["target"] else "🔸"
+            bar_q = _quest_progress_bar(q["progress"], q["target"])
+            lines.append(f"{done} {lbl} : `{bar_q}` {q['progress']}/{q['target']} (+{q['xp_reward']} XP)")
+        embed.add_field(name="📅 Quêtes du jour", value="\n".join(lines), inline=False)
+
+    if weekly:
+        lines = []
+        for q in weekly:
+            lbl = _QUEST_TYPE_LABELS.get(q["type"], q["type"])
+            done = "✅" if q["progress"] >= q["target"] else "🔸"
+            bar_q = _quest_progress_bar(q["progress"], q["target"])
+            lines.append(f"{done} {lbl} : `{bar_q}` {q['progress']}/{q['target']} (+{q['xp_reward']} XP)")
+        embed.add_field(name="🗓️ Quêtes de la semaine", value="\n".join(lines), inline=False)
+
+    embed.set_footer(text=f"Saison se termine le {season.get('ends_at', '?')[:10]}")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 # ===== MUSIQUE =====

@@ -518,6 +518,13 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         db.add_defaite(perdant.id)
         db.sauvegarder(joueur1.id, joueur2.id, gagnant.id, tookcoins_gain, 0)
         desc_fin += f"\n\n🪙 +{tookcoins_gain} TookCoins"
+        # Battle Pass : +1 play_duels pour les deux joueurs
+        try:
+            from bot import _track_pass_quest as _pq
+            _pq(joueur1.id, "play_duels", 1)
+            _pq(joueur2.id, "play_duels", 1)
+        except Exception:
+            pass
 
         # XP de combat
         new_lvl_g, lvl_up_g = db.add_combat_xp(gagnant.id, xp_combat_win)

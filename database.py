@@ -338,6 +338,7 @@ def init_db():
 
     # Seed de la table sabres si vide (depuis duel_sabres.SABRES_DEFAULT)
     seed_sabres_si_vide()
+    seed_pass_quest_templates_si_vide()
     print("[OK] Base de donnees initialisee !")
 
 
@@ -1707,6 +1708,171 @@ def _seasonal_bg_expiry(unlocked_at: _dt.datetime) -> str:
         else:
             end = _dt.datetime(ny, nm + 1, 1) - _dt.timedelta(seconds=1)
     return end.isoformat()
+
+
+_PASS_QUEST_TEMPLATES_DEFAULT = [
+    # type, period, target, label, xp_reward
+    # ── DAILY (50 XP) ──
+    ("send_messages", "daily",  10,  "Envoie 10 messages",                50),
+    ("send_messages", "daily",  30,  "Envoie 30 messages",                50),
+    ("send_messages", "daily",  50,  "Envoie 50 messages",                50),
+    ("play_duels",    "daily",  1,   "Joue 1 duel",                       50),
+    ("play_duels",    "daily",  3,   "Joue 3 duels",                      50),
+    ("earn_xp",       "daily",  200, "Gagne 200 XP message",              50),
+    ("earn_xp",       "daily",  500, "Gagne 500 XP message",              50),
+    ("use_commands",  "daily",  3,   "Utilise 3 slash commands",          50),
+    ("use_commands",  "daily",  8,   "Utilise 8 slash commands",          50),
+    # ── WEEKLY (250 XP) ──
+    ("send_messages", "weekly", 200,  "Envoie 200 messages cette semaine", 250),
+    ("send_messages", "weekly", 500,  "Envoie 500 messages cette semaine", 250),
+    ("play_duels",    "weekly", 10,   "Joue 10 duels cette semaine",       250),
+    ("play_duels",    "weekly", 25,   "Joue 25 duels cette semaine",       250),
+    ("earn_xp",       "weekly", 1500, "Gagne 1500 XP cette semaine",       250),
+    ("earn_xp",       "weekly", 3000, "Gagne 3000 XP cette semaine",       250),
+    ("use_commands",  "weekly", 25,   "Utilise 25 slash commands",         250),
+    ("use_commands",  "weekly", 60,   "Utilise 60 slash commands",         250),
+]
+
+
+def seed_pass_quest_templates_si_vide():
+    conn = get_db()
+    c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM pass_quest_templates").fetchone()["n"]
+    if n == 0:
+        c.executemany(
+            "INSERT INTO pass_quest_templates (type, period, target, label, xp_reward) VALUES (?, ?, ?, ?, ?)",
+            _PASS_QUEST_TEMPLATES_DEFAULT,
+        )
+        conn.commit()
+        print(f"[seed] {len(_PASS_QUEST_TEMPLATES_DEFAULT)} pass_quest_templates")
+    conn.close()
+
+
+def _current_period_start(period: str, now: _dt.datetime = None) -> str:
+    """Renvoie le marqueur de debut de periode :
+    - daily  -> 'YYYY-MM-DD' UTC
+    - weekly -> 'YYYY-Www' ISO week
+    """
+    now = now or _dt.datetime.utcnow()
+    if period == "daily":
+        return now.strftime("%Y-%m-%d")
+    if period == "weekly":
+        iso_year, iso_week, _ = now.isocalendar()
+        return f"{iso_year}-W{iso_week:02d}"
+    return now.strftime("%Y-%m-%d")
+
+
+def ensure_user_quests(user_id, period: str, slots: int = 3, now: _dt.datetime = None) -> list[dict]:
+    """Assure que l'user a `slots` quetes pour la periode courante.
+
+    Si la periode a change ou aucune quete n'existe, on tire `slots` templates
+    aleatoires distincts dans le pool et on les insere. Sinon retourne tel quel.
+    """
+    import random as _random
+    period_start = _current_period_start(period, now)
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM pass_user_quests WHERE user_id = ? AND period = ? AND period_start = ? ORDER BY slot",
+        (str(user_id), period, period_start),
+    ).fetchall()
+    if rows:
+        conn.close()
+        return [dict(r) for r in rows]
+
+    # Tire `slots` templates differents pour cette periode
+    templates = c.execute(
+        "SELECT * FROM pass_quest_templates WHERE period = ?", (period,)
+    ).fetchall()
+    if not templates:
+        conn.close()
+        return []
+    chosen = _random.sample(templates, k=min(slots, len(templates)))
+    for slot, t in enumerate(chosen):
+        c.execute(
+            '''INSERT OR IGNORE INTO pass_user_quests
+               (user_id, period, slot, template_id, type, target, progress, period_start, claimed, xp_reward)
+               VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, ?)''',
+            (str(user_id), period, slot, t["template_id"], t["type"], t["target"],
+             period_start, t["xp_reward"]),
+        )
+    conn.commit()
+    rows = c.execute(
+        "SELECT * FROM pass_user_quests WHERE user_id = ? AND period = ? AND period_start = ? ORDER BY slot",
+        (str(user_id), period, period_start),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def list_user_active_quests(user_id) -> list[dict]:
+    """Retourne les quetes daily + weekly de la periode courante (les genere si besoin)."""
+    quests = []
+    quests += ensure_user_quests(user_id, "daily",  slots=3)
+    quests += ensure_user_quests(user_id, "weekly", slots=3)
+    return quests
+
+
+def increment_quest_progress(user_id, quest_type: str, amount: int = 1) -> list[dict]:
+    """Incremente le progress de TOUTES les quetes actives matchant ce type.
+
+    Retourne la liste des quetes nouvellement completees (target atteint sur
+    cet appel) — utile pour creditter l'XP du Pass et notifier l'utilisateur.
+    """
+    if not user_id or amount <= 0:
+        return []
+    completed_now = []
+    for period in ("daily", "weekly"):
+        period_start = _current_period_start(period)
+        conn = get_db()
+        c = conn.cursor()
+        rows = c.execute(
+            '''SELECT * FROM pass_user_quests
+               WHERE user_id = ? AND period = ? AND period_start = ? AND type = ?''',
+            (str(user_id), period, period_start, quest_type),
+        ).fetchall()
+        for r in rows:
+            old_progress = r["progress"]
+            target = r["target"]
+            if old_progress >= target:
+                continue  # deja complete
+            new_progress = min(target, old_progress + amount)
+            c.execute(
+                '''UPDATE pass_user_quests SET progress = ?
+                   WHERE user_id = ? AND period = ? AND slot = ? AND period_start = ?''',
+                (new_progress, str(user_id), period, r["slot"], period_start),
+            )
+            if new_progress >= target and old_progress < target:
+                completed_now.append(dict(r) | {"progress": new_progress})
+        conn.commit()
+        conn.close()
+    return completed_now
+
+
+def claim_quest_reward(user_id, period: str, slot: int) -> dict | None:
+    """Marque la quete claimed et retourne {xp_reward, ...} si OK, sinon None."""
+    period_start = _current_period_start(period)
+    conn = get_db()
+    c = conn.cursor()
+    r = c.execute(
+        '''SELECT * FROM pass_user_quests
+           WHERE user_id = ? AND period = ? AND slot = ? AND period_start = ?''',
+        (str(user_id), period, slot, period_start),
+    ).fetchone()
+    if not r:
+        conn.close()
+        return None
+    if r["claimed"] or r["progress"] < r["target"]:
+        conn.close()
+        return None
+    c.execute(
+        '''UPDATE pass_user_quests SET claimed = 1
+           WHERE user_id = ? AND period = ? AND slot = ? AND period_start = ?''',
+        (str(user_id), period, slot, period_start),
+    )
+    conn.commit()
+    conn.close()
+    return dict(r)
 
 
 def get_or_create_current_season(name: str = None) -> dict:
