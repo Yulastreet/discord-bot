@@ -179,6 +179,10 @@ import datetime as _dt
 
 _COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
 
+# PO Token provider (bgutil) — bypass anti-bot YouTube sans cookies.
+# Endpoint configurable via env BGUTIL_POT_URL (defaut: container Docker local).
+_BGUTIL_POT_URL = os.getenv("BGUTIL_POT_URL", "http://127.0.0.1:4416")
+
 YDL_OPTIONS = {
     # Selecteur ultra-permissif : prend ce qui existe.
     'format': 'bestaudio/best',
@@ -189,23 +193,30 @@ YDL_OPTIONS = {
     'source_address': '0.0.0.0',
     'youtube_include_dash_manifest': True,
     'prefer_free_formats': True,
-    # Cascade large de clients YouTube. ios+android passent souvent quand web echoue.
+    # Clients YouTube : web/mweb consomment le po_token fourni par bgutil.
+    # Fallbacks ios/android/tv pour cas ou web echoue.
     'extractor_args': {
         'youtube': {
-            'player_client': ['ios', 'android', 'web', 'mweb', 'tv_embedded'],
-        }
+            'player_client': ['web', 'mweb', 'tv', 'ios', 'android'],
+        },
+        'youtubepot-bgutilhttp': {
+            'base_url': [_BGUTIL_POT_URL],
+        },
     },
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
 }
 
-# Si un fichier cookies.txt existe a cote de bot.py, l'utiliser pour by-pass anti-bot YouTube.
+# Si un fichier cookies.txt existe a cote de bot.py, l'utiliser en fallback (optionnel
+# avec bgutil, mais ne fait pas de mal).
 if os.path.exists(_COOKIES_PATH):
     YDL_OPTIONS['cookiefile'] = _COOKIES_PATH
     print(f"[yt-dlp] cookies loaded from {_COOKIES_PATH}")
 else:
-    print(f"[yt-dlp] aucun cookies.txt detecte ({_COOKIES_PATH}). Si YouTube bloque, voir README cookies.")
+    print(f"[yt-dlp] aucun cookies.txt detecte ({_COOKIES_PATH}) — bgutil pot provider doit suffire.")
+
+print(f"[yt-dlp] bgutil pot provider endpoint: {_BGUTIL_POT_URL}")
 
 FFMPEG_OPTIONS = {
     # before_options : passe en CLI a ffmpeg AVANT -i (input)
