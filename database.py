@@ -227,6 +227,31 @@ def init_db():
         except Exception:
             pass  # Colonne déjà existante
 
+    # ===== MONETIZATION (Discord SKU / entitlements) =====
+    # Stocke chaque entitlement Discord recu (achat utilisateur).
+    # Pour SKU "durable" (achat unique), starts_at est rempli, ends_at NULL et deleted=0
+    # signifient un premium permanent. Pour "subscription", ends_at borne la periode active.
+    c.execute('''CREATE TABLE IF NOT EXISTS entitlements (
+        entitlement_id TEXT PRIMARY KEY,
+        user_id        TEXT NOT NULL,
+        sku_id         TEXT NOT NULL,
+        type           INTEGER,
+        starts_at      TEXT,
+        ends_at        TEXT,
+        consumed       INTEGER DEFAULT 0,
+        deleted        INTEGER DEFAULT 0,
+        raw_json       TEXT,
+        updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id)')
+
+    # Reglages premium par utilisateur (carte /niveau personnalisee, etc.).
+    c.execute('''CREATE TABLE IF NOT EXISTS premium_settings (
+        user_id           TEXT PRIMARY KEY,
+        niveau_background TEXT DEFAULT 'default',
+        updated_at        TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     conn.commit()
     conn.close()
 
@@ -1350,6 +1375,140 @@ def attribuer_stat_db(user_id, stat):
     conn.commit()
     conn.close()
     return True
+
+
+# ===== MONETIZATION HELPERS =====
+
+import json as _json
+import datetime as _dt
+
+
+def upsert_entitlement(entitlement: dict):
+    """Insert or update an entitlement received from Discord.
+
+    `entitlement` is the raw dict from discord.py's Entitlement.to_dict() or
+    equivalent. Required keys: id, user_id, sku_id. Optional: type,
+    starts_at, ends_at, consumed, deleted.
+    """
+    if not entitlement:
+        return
+    eid = str(entitlement.get("id") or "")
+    if not eid:
+        return
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO entitlements (entitlement_id, user_id, sku_id, type,
+                                  starts_at, ends_at, consumed, deleted,
+                                  raw_json, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(entitlement_id) DO UPDATE SET
+            user_id    = excluded.user_id,
+            sku_id     = excluded.sku_id,
+            type       = excluded.type,
+            starts_at  = excluded.starts_at,
+            ends_at    = excluded.ends_at,
+            consumed   = excluded.consumed,
+            deleted    = excluded.deleted,
+            raw_json   = excluded.raw_json,
+            updated_at = CURRENT_TIMESTAMP
+    ''', (
+        eid,
+        str(entitlement.get("user_id") or ""),
+        str(entitlement.get("sku_id") or ""),
+        int(entitlement.get("type") or 0),
+        entitlement.get("starts_at"),
+        entitlement.get("ends_at"),
+        int(bool(entitlement.get("consumed"))),
+        int(bool(entitlement.get("deleted"))),
+        _json.dumps(entitlement, default=str),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def mark_entitlement_deleted(entitlement_id: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "UPDATE entitlements SET deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE entitlement_id = ?",
+        (str(entitlement_id),),
+    )
+    conn.commit()
+    conn.close()
+
+
+def user_has_active_entitlement(user_id, sku_id=None) -> bool:
+    """Return True if user has at least one non-deleted, non-expired entitlement.
+
+    If sku_id is given, restricts to that SKU.
+    """
+    conn = get_db()
+    c = conn.cursor()
+    now = _dt.datetime.utcnow().isoformat()
+    if sku_id:
+        rows = c.execute(
+            "SELECT ends_at FROM entitlements WHERE user_id = ? AND sku_id = ? AND deleted = 0",
+            (str(user_id), str(sku_id)),
+        ).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT ends_at FROM entitlements WHERE user_id = ? AND deleted = 0",
+            (str(user_id),),
+        ).fetchall()
+    conn.close()
+    for r in rows:
+        end = r["ends_at"]
+        if not end:
+            return True  # achat unique permanent
+        if end > now:
+            return True
+    return False
+
+
+def list_user_entitlements(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM entitlements WHERE user_id = ? ORDER BY updated_at DESC",
+        (str(user_id),),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_premium_settings(user_id) -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT * FROM premium_settings WHERE user_id = ?",
+        (str(user_id),),
+    ).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {"user_id": str(user_id), "niveau_background": "default"}
+
+
+def set_premium_setting(user_id, key: str, value):
+    """Update a single premium setting column for the user."""
+    allowed = {"niveau_background"}
+    if key not in allowed:
+        raise ValueError(f"Unknown premium setting: {key}")
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        f'''
+        INSERT INTO premium_settings (user_id, {key}, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET
+            {key}      = excluded.{key},
+            updated_at = CURRENT_TIMESTAMP
+        ''',
+        (str(user_id), value),
+    )
+    conn.commit()
+    conn.close()
 
 
 if __name__ == "__main__":

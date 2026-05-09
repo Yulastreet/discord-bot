@@ -300,6 +300,13 @@
         <svg class="ic"><use href="#i-gear"/></svg> Réglages
       </a>
       {% endif %}
+
+      {% if discord_user and discord_user.user_id %}
+      <div class="nav-section">Mon compte</div>
+      <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
+        <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
+      </a>
+      {% endif %}
     </nav>
 
     {% if discord_user and discord_user.user_id %}

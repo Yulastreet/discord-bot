@@ -1,0 +1,170 @@
+{% extends "_base.html" %}
+{% block title %}Premium · TookBot{% endblock %}
+
+{% block content %}
+<style>
+  .premium-hero {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px; padding: 28px 32px;
+    background: linear-gradient(120deg, oklch(0.32 0.10 130 / .25), oklch(0.24 0.04 80 / .15));
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    margin-bottom: 28px;
+  }
+  .premium-hero h1 {
+    margin: 0 0 8px; font-size: 28px;
+    background: linear-gradient(120deg, oklch(0.86 0.20 130), oklch(0.82 0.16 90));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .premium-hero .sub { color: var(--text-muted); font-size: 14px; }
+  .badge-active {
+    padding: 6px 14px; border-radius: 999px;
+    background: oklch(0.86 0.20 130);
+    color: #1a1a1a; font-weight: 700; font-size: 13px;
+    box-shadow: 0 0 0 4px oklch(0.86 0.20 130 / .12);
+  }
+  .badge-locked {
+    padding: 6px 14px; border-radius: 999px;
+    background: var(--bg-1); border: 1px dashed var(--border);
+    color: var(--text-muted); font-size: 13px;
+  }
+
+  .preview-wrap {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 18px;
+    margin-bottom: 28px;
+  }
+  .preview-wrap img {
+    width: 100%; max-width: 760px; height: auto; border-radius: 12px;
+    display: block; margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,.35);
+  }
+  .preview-wrap .help { color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 10px; }
+
+  .bg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .bg-card {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: var(--r-2);
+    padding: 6px;
+    background: var(--bg-1);
+    transition: border-color 120ms, transform 120ms;
+  }
+  .bg-card:hover { transform: translateY(-2px); border-color: oklch(0.86 0.20 130 / .4); }
+  .bg-card.selected { border-color: oklch(0.86 0.20 130); box-shadow: 0 0 0 3px oklch(0.86 0.20 130 / .18); }
+  .bg-card img { width: 100%; aspect-ratio: 1024 / 320; object-fit: cover; border-radius: 8px; display: block; }
+  .bg-card .name { padding: 6px 4px 2px; font-size: 12px; color: var(--text); text-transform: capitalize; }
+
+  .locked-overlay {
+    text-align: center; padding: 60px 32px;
+    background: var(--bg-1); border: 1px dashed var(--border); border-radius: var(--r-2);
+  }
+  .locked-overlay h2 { margin: 0 0 12px; }
+  .locked-overlay p { color: var(--text-muted); max-width: 520px; margin: 0 auto 20px; }
+  .locked-overlay .price { font-size: 28px; font-weight: 700; color: oklch(0.86 0.20 130); }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: oklch(0.86 0.20 130);
+    color: #1a1a1a; font-weight: 600;
+    padding: 12px 18px; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 180ms, transform 180ms;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+
+<div class="premium-hero">
+  <div>
+    <h1>✨ TookBot Premium</h1>
+    <div class="sub">Personnalise ta carte <code>/niveau</code> et débloque les backgrounds exclusifs.</div>
+  </div>
+  <div>
+    {% if is_premium %}
+      <span class="badge-active">★ PREMIUM ACTIF</span>
+    {% else %}
+      <span class="badge-locked">Non débloqué</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if not is_premium %}
+  <div class="locked-overlay">
+    <h2>Débloque la personnalisation</h2>
+    <p>L'achat <strong>/niveau Premium</strong> sur Discord te donne accès à 15 backgrounds, un rendu image HD, et le badge ⭐ sur ta carte. Achat unique, à vie.</p>
+    <div class="price">1,99 $US</div>
+    <p style="margin-top:12px;font-size:12px;">Tape <code>/niveau Premium</code> sur n'importe quel serveur où TookBot est présent pour acheter via Discord.</p>
+  </div>
+{% else %}
+  <div class="preview-wrap">
+    <img id="preview" src="/api/premium/niveau/preview.png?bg={{ settings_p.niveau_background or 'default' }}" alt="Aperçu carte /niveau">
+    <div class="help">Aperçu live — sélectionne un background ci-dessous.</div>
+  </div>
+
+  <h3 style="margin: 24px 0 6px;">Background</h3>
+  <div class="bg-grid" id="bgGrid">
+    {% for bg in backgrounds %}
+      <div class="bg-card {% if settings_p.niveau_background == bg %}selected{% endif %}" data-bg="{{ bg }}">
+        <img src="/api/premium/niveau/preview.png?bg={{ bg }}" alt="{{ bg }}">
+        <div class="name">{{ bg.replace('_', ' ') }}</div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div class="toast" id="toast">Sauvegardé ✓</div>
+
+{% if is_premium %}
+<script>
+(function(){
+  const grid    = document.getElementById('bgGrid');
+  const preview = document.getElementById('preview');
+  const toast   = document.getElementById('toast');
+  let saving = false;
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 1600);
+  }
+
+  grid.addEventListener('click', async (e) => {
+    const card = e.target.closest('.bg-card');
+    if (!card || saving) return;
+    const bg = card.dataset.bg;
+
+    // Selection visuelle immediate
+    grid.querySelectorAll('.bg-card.selected').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    preview.src = '/api/premium/niveau/preview.png?bg=' + encodeURIComponent(bg) + '&t=' + Date.now();
+
+    // Save
+    saving = true;
+    try {
+      const r = await fetch('/api/premium/niveau', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ background: bg }),
+      });
+      if (r.ok) showToast('Sauvegardé ✓');
+      else      showToast('Erreur de sauvegarde');
+    } catch (_) {
+      showToast('Erreur réseau');
+    } finally {
+      saving = false;
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

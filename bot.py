@@ -63,11 +63,25 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       save_dm,
                       prune_logs_global,
                       get_setting, get_all_settings,
-                      replace_guild_members, upsert_member, remove_member)
+                      replace_guild_members, upsert_member, remove_member,
+                      upsert_entitlement, mark_entitlement_deleted,
+                      user_has_active_entitlement, get_premium_settings)
 from duel_commands import setup_duel_commands
+from niveau_card import render_niveau_card
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
+
+# ===== MONETIZATION =====
+# SKU "/niveau Premium" (achat unique). ID a remplir une fois le SKU publie
+# dans le Developer Portal Discord. Peut etre surcharge via env.
+SKU_NIVEAU_PREMIUM = os.getenv("SKU_NIVEAU_PREMIUM", "")
+
+
+def is_premium_user(user_id) -> bool:
+    """Retourne True si l'utilisateur a un entitlement actif sur n'importe quel
+    SKU premium du bot. Accepte snowflake int ou str."""
+    return user_has_active_entitlement(user_id)
 
 init_db()
 # Index reactions par (guild_id_str, user_id_int)
@@ -328,6 +342,15 @@ async def on_ready():
         rotate_presence.start()
     # Resume music: rejoindre les vocals où on était + remettre la queue en lecture
     await _resume_music()
+    # Sync entitlements existants (achats faits avant que le bot soit en ligne)
+    try:
+        count = 0
+        async for ent in bot.entitlements(exclude_ended=True):
+            upsert_entitlement(_entitlement_to_dict(ent))
+            count += 1
+        print(f"[entitlement] sync boot : {count} actif(s) charge(s)")
+    except Exception as e:
+        print(f"[entitlement] sync boot error : {e!r}")
     await bot.tree.sync()
     print("✅ Slash commands synchronisées globalement")
     for guild in bot.guilds:
@@ -580,6 +603,59 @@ async def on_member_join(member):
             embed = discord.Embed(description=description, color=discord.Color.green())
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
+
+# ===== MONETIZATION : entitlements Discord =====
+
+def _entitlement_to_dict(ent) -> dict:
+    """Convertit un objet Entitlement (discord.py) en dict propre pour la DB."""
+    try:
+        d = ent.to_dict()  # discord.py 2.4+
+        if isinstance(d, dict):
+            return d
+    except Exception:
+        pass
+    return {
+        "id":        getattr(ent, "id", None),
+        "user_id":   getattr(ent, "user_id", None),
+        "sku_id":    getattr(ent, "sku_id", None),
+        "type":      int(getattr(getattr(ent, "type", 0), "value", getattr(ent, "type", 0)) or 0),
+        "starts_at": str(getattr(ent, "starts_at", "") or "") or None,
+        "ends_at":   str(getattr(ent, "ends_at", "") or "") or None,
+        "consumed":  bool(getattr(ent, "consumed", False)),
+        "deleted":   bool(getattr(ent, "deleted", False)),
+    }
+
+
+@bot.event
+async def on_entitlement_create(entitlement):
+    try:
+        d = _entitlement_to_dict(entitlement)
+        upsert_entitlement(d)
+        print(f"[entitlement] CREATE user={d.get('user_id')} sku={d.get('sku_id')}")
+    except Exception as e:
+        print(f"[entitlement] create error: {e!r}")
+
+
+@bot.event
+async def on_entitlement_update(entitlement):
+    try:
+        d = _entitlement_to_dict(entitlement)
+        upsert_entitlement(d)
+        print(f"[entitlement] UPDATE user={d.get('user_id')} sku={d.get('sku_id')}")
+    except Exception as e:
+        print(f"[entitlement] update error: {e!r}")
+
+
+@bot.event
+async def on_entitlement_delete(entitlement):
+    try:
+        eid = getattr(entitlement, "id", None) or _entitlement_to_dict(entitlement).get("id")
+        if eid:
+            mark_entitlement_deleted(str(eid))
+            print(f"[entitlement] DELETE id={eid}")
+    except Exception as e:
+        print(f"[entitlement] delete error: {e!r}")
+
 
 @bot.event
 async def on_message(message):
@@ -1068,6 +1144,31 @@ async def niveau(interaction: discord.Interaction, membre: discord.Member = None
     gid = str(interaction.guild.id)
     xp = get_xp(gid, membre.id)
     level, progress_xp, needed_xp, percent = get_progress(xp)
+
+    # ── Carte premium si l'utilisateur a achete /niveau Premium ─────────
+    # On regarde les entitlements du *membre affiche*, pas de l'auteur,
+    # afin que tout le monde puisse voir la jolie carte du premium.
+    if is_premium_user(membre.id):
+        try:
+            await interaction.response.defer()
+            settings = get_premium_settings(membre.id)
+            buf = await render_niveau_card(
+                username=membre.display_name,
+                avatar_url=membre.display_avatar.url,
+                level=level,
+                xp_total=xp,
+                xp_in_level=progress_xp,
+                xp_needed=needed_xp,
+                background=settings.get("niveau_background") or "default",
+            )
+            file = discord.File(buf, filename="niveau.png")
+            await interaction.followup.send(file=file)
+            return
+        except Exception as e:
+            print(f"[niveau premium] render error: {e!r} — fallback embed")
+            # Fallback embed ci-dessous
+
+    # ── Embed classique (gratuit) ───────────────────────────────────────
     filled = int(percent / 5)
     bar = "█" * filled + "░" * (20 - filled)
     embed = discord.Embed(title=f"📊 {membre.display_name}", color=discord.Color.blurple())
@@ -1079,7 +1180,10 @@ async def niveau(interaction: discord.Interaction, membre: discord.Member = None
         inline=False
     )
     embed.set_thumbnail(url=membre.display_avatar.url)
-    await interaction.response.send_message(embed=embed)
+    if interaction.response.is_done():
+        await interaction.followup.send(embed=embed)
+    else:
+        await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="leaderboard", description="Classement XP de ce serveur")
 async def leaderboard(interaction: discord.Interaction):

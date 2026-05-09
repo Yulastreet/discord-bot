@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, jsonify, g, url_for, abort
+from flask import Flask, render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
 import os
 import time
 import json
@@ -44,7 +44,11 @@ from database import (
     db_get_tous_sabres, db_get_sabre, db_create_sabre, db_update_sabre, db_delete_sabre,
     ajouter_sabre as db_ajouter_sabre_collection,
     get_combat_xp_progress,
+    # Monetization
+    user_has_active_entitlement, get_premium_settings, set_premium_setting,
+    list_user_entitlements,
 )
+from niveau_card import list_available_backgrounds, render_niveau_card
 from duel_sabres import RARETES
 
 # Init DB + seed
@@ -210,6 +214,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/oauth/login", "/oauth/callback", "/oauth/logout",
     "/api/guilds", "/api/select-guild",
     "/api/dms", "/api/status", "/api/settings",
+    "/premium", "/api/premium",
 }
 
 def needs_guild(path):
@@ -1118,6 +1123,106 @@ def api_status():
             "login_ip":  session.get("login_ip"),
         },
     })
+
+
+# =====================================================================
+# PREMIUM (achats Discord SKU integres)
+# =====================================================================
+
+def _current_user_id():
+    """Snowflake Discord de l'utilisateur connecte (str), ou None."""
+    return (session.get("user") or {}).get("id")
+
+
+def _require_premium_user():
+    """Retourne user_id si user connecte ET premium actif, sinon None."""
+    uid = _current_user_id()
+    if not uid:
+        return None
+    if not user_has_active_entitlement(uid):
+        return None
+    return uid
+
+
+@app.route("/premium")
+def premium_page():
+    uid = _current_user_id()
+    if not uid:
+        return redirect(url_for("oauth_login"))
+    is_premium = user_has_active_entitlement(uid)
+    settings_p = get_premium_settings(uid) if is_premium else {}
+    backgrounds = list_available_backgrounds()
+    user = session.get("user") or {}
+    return render_template(
+        "premium.html",
+        is_premium=is_premium,
+        settings_p=settings_p,
+        backgrounds=backgrounds,
+        user=user,
+        active_nav="premium",
+    )
+
+
+@app.route("/api/premium/status", methods=["GET"])
+def api_premium_status():
+    uid = _current_user_id()
+    if not uid:
+        return jsonify({"ok": False, "error": "not_logged_in"}), 401
+    return jsonify({
+        "ok":         True,
+        "is_premium": user_has_active_entitlement(uid),
+        "entitlements": list_user_entitlements(uid),
+        "settings":   get_premium_settings(uid),
+    })
+
+
+@app.route("/api/premium/niveau", methods=["POST"])
+def api_premium_niveau_update():
+    uid = _require_premium_user()
+    if not uid:
+        return jsonify({"ok": False, "error": "premium_required"}), 403
+    data = request.get_json(silent=True) or {}
+    bg = data.get("background")
+    if not bg:
+        return jsonify({"ok": False, "error": "missing_background"}), 400
+    if bg not in list_available_backgrounds():
+        return jsonify({"ok": False, "error": "unknown_background"}), 400
+    set_premium_setting(uid, "niveau_background", bg)
+    return jsonify({"ok": True, "settings": get_premium_settings(uid)})
+
+
+@app.route("/api/premium/niveau/preview.png")
+def api_premium_niveau_preview():
+    """Genere une carte preview avec les infos OAuth + bg passe en query.
+
+    Utilise pour preview live sur le dashboard sans avoir a sauvegarder d'abord.
+    """
+    uid = _require_premium_user()
+    if not uid:
+        # Pour preview on autorise les utilisateurs connectes meme non-premium
+        # afin qu'ils voient un apercu, mais on bloque les anonymes.
+        if not _current_user_id():
+            return ("", 403)
+    user = session.get("user") or {}
+    bg = request.args.get("bg") or get_premium_settings(uid or _current_user_id()).get("niveau_background", "default")
+    if bg not in list_available_backgrounds():
+        bg = "default"
+
+    # XP fictifs pour preview (vrais XP necessitent un guild_id selectionne).
+    avatar_url = None
+    if user.get("avatar"):
+        avatar_url = f"https://cdn.discordapp.com/avatars/{user.get('id')}/{user.get('avatar')}.png?size=256"
+    import asyncio
+    buf = asyncio.run(render_niveau_card(
+        username=user.get("username") or "Toi",
+        avatar_url=avatar_url,
+        level=12,
+        xp_total=8420,
+        xp_in_level=320,
+        xp_needed=900,
+        background=bg,
+    ))
+    return send_file(buf, mimetype="image/png")
 
 
 if __name__ == "__main__":
