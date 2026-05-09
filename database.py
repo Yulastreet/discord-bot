@@ -339,6 +339,9 @@ def init_db():
     # Seed de la table sabres si vide (depuis duel_sabres.SABRES_DEFAULT)
     seed_sabres_si_vide()
     seed_pass_quest_templates_si_vide()
+    # Migration : re-seed sabres saisonniers + pass_rewards pour saisons existantes
+    # (utile lorsque le mapping change entre versions du code)
+    _migrate_pass_rewards_and_sabres()
     print("[OK] Base de donnees initialisee !")
 
 
@@ -1915,43 +1918,69 @@ def get_or_create_current_season(name: str = None) -> dict:
 
 
 # ─── Mapping des 30 paliers (constant) ─────────────────────────────────────
-# Format : (tier, type, payload_dict_with_keys_per_type, label)
+# Aucun TookCoin pour eviter le P2W (TookCoins servent aux duels/sabres).
+# Recompenses purement cosmetiques + boosts XP message (limites dans le temps).
+# Format : (tier, type, payload_dict, label)
 _PASS_TIER_MAP = [
-    (1,  "tookcoins", {"amount": 200},                  "200 TookCoins"),
-    (2,  "title",     {"title": "Adepte"},              "Titre : Adepte"),
-    (3,  "tookcoins", {"amount": 300},                  "300 TookCoins"),
-    (4,  "bg",        {"index": 0},                     "Background saisonnier #1"),
-    (5,  "emoji",     {"emoji": "🌱"},                  "Emoji 🌱"),
-    (6,  "tookcoins", {"amount": 400},                  "400 TookCoins"),
-    (7,  "boost_xp",  {"hours": 1, "multiplier": 2.0},  "Boost XP ×2 pendant 1h"),
-    (8,  "tookcoins", {"amount": 500},                  "500 TookCoins"),
-    (9,  "bg",        {"index": 1},                     "Background saisonnier #2"),
-    (10, "sabre",     {"rarete": "rare"},               "Sabre cosmétique rare"),
-    (11, "tookcoins", {"amount": 500},                  "500 TookCoins"),
-    (12, "boost_xp",  {"hours": 2, "multiplier": 2.0},  "Boost XP ×2 pendant 2h"),
-    (13, "title",     {"title": "Vétéran"},             "Titre : Vétéran"),
-    (14, "tookcoins", {"amount": 600},                  "600 TookCoins"),
-    (15, "bg",        {"index": 2},                     "Background saisonnier #3"),
-    (16, "emoji",     {"emoji": "⚡"},                  "Emoji ⚡"),
-    (17, "tookcoins", {"amount": 700},                  "700 TookCoins"),
-    (18, "boost_xp",  {"hours": 2, "multiplier": 2.0},  "Boost XP ×2 pendant 2h"),
-    (19, "tookcoins", {"amount": 800},                  "800 TookCoins"),
-    (20, "sabre",     {"rarete": "epique"},             "Sabre cosmétique épique"),
-    (21, "tookcoins", {"amount": 800},                  "800 TookCoins"),
-    (22, "boost_xp",  {"hours": 3, "multiplier": 2.0},  "Boost XP ×2 pendant 3h"),
-    (23, "bg",        {"index": 3},                     "Background saisonnier #4"),
-    (24, "tookcoins", {"amount": 900},                  "900 TookCoins"),
-    (25, "title",     {"title": "Maître"},              "Titre : Maître"),
-    (26, "boost_xp",  {"hours": 3, "multiplier": 2.0},  "Boost XP ×2 pendant 3h"),
-    (27, "tookcoins", {"amount": 1000},                 "1000 TookCoins"),
-    (28, "emoji",     {"emoji": "🌟"},                  "Emoji 🌟"),
-    (29, "bg",        {"index": 4},                     "Background saisonnier #5"),
-    (30, "sabre",     {"rarete": "legendaire"},         "Sabre cosmétique légendaire"),
+    (1,  "boost_xp",  {"hours": 0.5, "multiplier": 2.0}, "Boost XP ×2 pendant 30min"),
+    (2,  "title",     {"title": "Initié"},               "Titre : Initié"),
+    (3,  "boost_xp",  {"hours": 1, "multiplier": 2.0},   "Boost XP ×2 pendant 1h"),
+    (4,  "bg",        {"index": 0},                      "Background saisonnier #1"),
+    (5,  "emoji",     {"emoji": "🌱"},                   "Emoji 🌱"),
+    (6,  "title",     {"title": "Adepte"},               "Titre : Adepte"),
+    (7,  "boost_xp",  {"hours": 1, "multiplier": 2.0},   "Boost XP ×2 pendant 1h"),
+    (8,  "emoji",     {"emoji": "🔥"},                   "Emoji 🔥"),
+    (9,  "bg",        {"index": 1},                      "Background saisonnier #2"),
+    (10, "sabre",     {"rarete": "rare"},                "Sabre cosmétique rare"),
+    (11, "emoji",     {"emoji": "⚡"},                   "Emoji ⚡"),
+    (12, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
+    (13, "title",     {"title": "Vétéran"},              "Titre : Vétéran"),
+    (14, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
+    (15, "bg",        {"index": 2},                      "Background saisonnier #3"),
+    (16, "emoji",     {"emoji": "💎"},                   "Emoji 💎"),
+    (17, "title",     {"title": "Élu"},                  "Titre : Élu"),
+    (18, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
+    (19, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
+    (20, "sabre",     {"rarete": "epique"},              "Sabre cosmétique épique"),
+    (21, "emoji",     {"emoji": "🌊"},                   "Emoji 🌊"),
+    (22, "boost_xp",  {"hours": 3, "multiplier": 2.0},   "Boost XP ×2 pendant 3h"),
+    (23, "bg",        {"index": 3},                      "Background saisonnier #4"),
+    (24, "emoji",     {"emoji": "🎯"},                   "Emoji 🎯"),
+    (25, "title",     {"title": "Maître"},               "Titre : Maître"),
+    (26, "boost_xp",  {"hours": 3, "multiplier": 2.0},   "Boost XP ×2 pendant 3h"),
+    (27, "title",     {"title": "Légende"},              "Titre : Légende"),
+    (28, "emoji",     {"emoji": "🌟"},                   "Emoji 🌟"),
+    (29, "bg",        {"index": 4},                      "Background saisonnier #5"),
+    (30, "sabre",     {"rarete": "legendaire"},          "Sabre cosmétique légendaire"),
 ]
 
 _SEASONAL_BG_NAMES = [
     "crystal_cave", "liquid_chrome", "neon_tokyo", "stained_glass", "cosmic_vortex",
 ]
+
+
+def _migrate_pass_rewards_and_sabres():
+    """A chaque demarrage : assure que toutes les saisons existantes ont
+    leurs sabres saisonniers + leur pass_rewards a jour avec le _PASS_TIER_MAP
+    courant. Les unlocks deja accordes ne sont PAS revoques."""
+    conn = get_db()
+    c = conn.cursor()
+    seasons = c.execute("SELECT season_id, month_key FROM pass_seasons").fetchall()
+    conn.close()
+    for s in seasons:
+        try:
+            seed_seasonal_sabres(s["month_key"])
+        except Exception as e:
+            print(f"[migrate] seasonal sabres {s['month_key']} error: {e!r}")
+        try:
+            # Re-seed pass_rewards : drop + insert pour appliquer le nouveau mapping
+            conn = get_db(); c = conn.cursor()
+            c.execute("DELETE FROM pass_rewards WHERE season_id = ?", (s["season_id"],))
+            conn.commit()
+            conn.close()
+            seed_pass_rewards_for_season(s["season_id"], s["month_key"])
+        except Exception as e:
+            print(f"[migrate] pass_rewards season {s['season_id']} error: {e!r}")
 
 
 def seed_pass_rewards_for_season(season_id: int, month_key: str):

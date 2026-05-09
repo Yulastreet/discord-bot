@@ -1395,6 +1395,65 @@ def api_owner_niveau_bg_upload():
     return jsonify({"ok": True, "bg_id": f"owner:{uid}"})
 
 
+# ─── Live console (tail pm2 logs) ─────────────────────────────────────────
+
+_PM2_LOG_PATHS = {
+    "bot": {
+        "out": os.path.expanduser("~/.pm2/logs/discord-bot-out.log"),
+        "err": os.path.expanduser("~/.pm2/logs/discord-bot-error.log"),
+    },
+    "web": {
+        "out": os.path.expanduser("~/.pm2/logs/web-dashboard-out.log"),
+        "err": os.path.expanduser("~/.pm2/logs/web-dashboard-error.log"),
+    },
+}
+_LOG_INITIAL_TAIL = 32 * 1024  # 32 KB de l'historique a la 1ere connexion
+_LOG_MAX_CHUNK    = 256 * 1024  # cap par requete (eviter mega payload)
+
+
+@app.route("/api/owner/logs", methods=["GET"])
+def api_owner_logs():
+    """Polling tail des logs pm2.
+
+    Params:
+        proc:   'bot' | 'web'
+        stream: 'out' | 'err'
+        offset: position en bytes (envoyee par la reponse precedente)
+
+    Reponse: { offset: <new_size>, text: "<delta>" }
+    """
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    proc   = request.args.get("proc", "bot")
+    stream = request.args.get("stream", "out")
+    try:
+        offset = int(request.args.get("offset", 0))
+    except (TypeError, ValueError):
+        offset = 0
+    path = _PM2_LOG_PATHS.get(proc, {}).get(stream)
+    if not path or not os.path.exists(path):
+        return jsonify({"offset": 0, "text": "", "missing": True, "path": path})
+    try:
+        size = os.path.getsize(path)
+        # Premiere connexion (offset=0) -> on saute au derniere portion du fichier
+        if offset == 0 and size > _LOG_INITIAL_TAIL:
+            offset = size - _LOG_INITIAL_TAIL
+        # Si l'ancienne offset est plus grande que la taille (rotation pm2 logs),
+        # on repart du debut du nouveau fichier.
+        if offset > size:
+            offset = max(0, size - _LOG_INITIAL_TAIL)
+        chunk_size = min(_LOG_MAX_CHUNK, size - offset)
+        if chunk_size <= 0:
+            return jsonify({"offset": size, "text": ""})
+        with open(path, "rb") as f:
+            f.seek(offset)
+            data = f.read(chunk_size)
+        text = data.decode("utf-8", errors="replace")
+        return jsonify({"offset": offset + len(data), "text": text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/owner/seasonal-sabres", methods=["GET"])
 def api_owner_seasonal_sabres():
     """Liste tous les sabres saisonniers (id LIKE 'season_%') pour visu owner."""

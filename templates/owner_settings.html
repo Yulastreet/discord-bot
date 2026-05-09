@@ -87,6 +87,33 @@
   </div>
 
   <div class="own-card">
+    <h2>Console live (logs pm2)</h2>
+    <div class="sub">
+      Tail en direct des logs <code>pm2</code> du bot et du web. Polling 2s.
+      Auto-scroll si tu es déjà en bas. Pause avec le bouton.
+    </div>
+    <div class="row gap-2" style="margin:10px 0;flex-wrap:wrap;align-items:center;">
+      <select id="logProc"   class="input" style="width:130px;">
+        <option value="bot">discord-bot</option>
+        <option value="web">web-dashboard</option>
+      </select>
+      <select id="logStream" class="input" style="width:130px;">
+        <option value="out">stdout</option>
+        <option value="err">stderr</option>
+      </select>
+      <button id="logPauseBtn" class="btn btn-secondary" type="button">⏸️ Pause</button>
+      <button id="logClearBtn" class="btn btn-secondary" type="button">Vider</button>
+      <button id="logScrollBtn" class="btn btn-secondary" type="button">↓ Bas</button>
+      <span id="logStatus" class="muted" style="font-size:12px;margin-left:auto;"></span>
+    </div>
+    <pre id="logView"
+         style="background:#0a0c0e;color:#d8e3c7;border:1px solid var(--border);
+                border-radius:8px;padding:12px;height:380px;overflow:auto;
+                font-family:var(--font-mono);font-size:12px;line-height:1.5;
+                white-space:pre-wrap;word-break:break-word;"></pre>
+  </div>
+
+  <div class="own-card">
     <h2>Sabres saisonniers (Battle Pass)</h2>
     <div class="sub">
       Tous les sabres cosmétiques générés à chaque saison du Pass. IDs au format
@@ -101,6 +128,80 @@
 
 <script>
 (function(){
+  // ===== LIVE CONSOLE =====
+  const view  = document.getElementById('logView');
+  const proc  = document.getElementById('logProc');
+  const stream= document.getElementById('logStream');
+  const pause = document.getElementById('logPauseBtn');
+  const clear = document.getElementById('logClearBtn');
+  const scroll= document.getElementById('logScrollBtn');
+  const status= document.getElementById('logStatus');
+
+  let offset  = 0;
+  let paused  = false;
+  let timer   = null;
+  let lastKey = null;
+
+  function isAtBottom() {
+    return view.scrollTop + view.clientHeight >= view.scrollHeight - 30;
+  }
+  function autoScroll() { view.scrollTop = view.scrollHeight; }
+
+  async function tick() {
+    if (paused) return;
+    const key = `${proc.value}:${stream.value}`;
+    if (key !== lastKey) {
+      // changement de stream -> reset
+      offset = 0;
+      view.textContent = '';
+      lastKey = key;
+    }
+    try {
+      const r = await fetch(`/api/owner/logs?proc=${proc.value}&stream=${stream.value}&offset=${offset}`);
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      if (d.missing) {
+        status.textContent = 'fichier absent : ' + (d.path || '?');
+        return;
+      }
+      if (typeof d.offset === 'number') offset = d.offset;
+      if (d.text) {
+        const stickToBottom = isAtBottom();
+        view.textContent += d.text;
+        // Cap pour ne pas exploser le DOM (~ 200KB)
+        if (view.textContent.length > 200000) {
+          view.textContent = view.textContent.slice(-160000);
+        }
+        if (stickToBottom) autoScroll();
+        status.textContent = `last update: ${new Date().toLocaleTimeString()}`;
+      }
+    } catch (e) {
+      status.textContent = 'erreur : ' + e.message;
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    timer = setInterval(tick, 2000);
+    tick();
+  }
+  function stopTimer() {
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  pause.addEventListener('click', () => {
+    paused = !paused;
+    pause.textContent = paused ? '▶️ Reprendre' : '⏸️ Pause';
+    if (!paused) tick();
+  });
+  clear.addEventListener('click', () => { view.textContent = ''; });
+  scroll.addEventListener('click', autoScroll);
+  proc.addEventListener('change',   () => { offset = 0; tick(); });
+  stream.addEventListener('change', () => { offset = 0; tick(); });
+
+  startTimer();
+
+  // ===== SABRES SAISONNIERS =====
   fetch('/api/owner/seasonal-sabres')
     .then(r => r.ok ? r.json() : null)
     .then(d => {
