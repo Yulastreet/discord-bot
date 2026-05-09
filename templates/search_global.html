@@ -1,0 +1,120 @@
+{% extends "_base.html" %}
+{% set active_nav = 'search_global' %}
+
+{% block title %}Recherche globale · Bot Console{% endblock %}
+{% block crumb %}Recherche globale{% endblock %}
+
+{% block content %}
+<div class="col gap-7">
+  <div>
+    <h1>Rechercher un utilisateur (cross-serveur)</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
+      Réservé à l'owner. Cherche dans <strong>tous les serveurs</strong> où le bot est présent.
+      L'XP affichée est la somme cross-serveur. Clique sur une ligne pour voir le détail par serveur.
+    </p>
+  </div>
+
+  <div class="input-search" style="max-width: 640px;">
+    <svg class="ic"><use href="#i-search"/></svg>
+    <input type="text" id="searchInput" placeholder="ex: alice, 12345678..." autocomplete="off" autofocus>
+  </div>
+
+  <div id="loading" class="hidden muted" style="font-size:var(--t-sm);">Recherche en cours...</div>
+  <div id="results"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const searchInput = document.getElementById('searchInput');
+  let currentQuery = '';
+
+  function debounce(fn, ms) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  function fmtNum(n) {
+    return (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' ');
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function toggleDetail(uid) {
+    const r = document.getElementById('detail-' + uid);
+    if (r) r.classList.toggle('hidden');
+  }
+
+  const runSearch = debounce(() => {
+    const q = searchInput.value.trim();
+    if (q === currentQuery) return;
+    currentQuery = q;
+
+    const out = document.getElementById('results');
+    if (!q) { out.innerHTML = ''; return; }
+
+    document.getElementById('loading').classList.remove('hidden');
+    fetch('/api/search-global?q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('loading').classList.add('hidden');
+        if (!data.users || data.users.length === 0) {
+          out.innerHTML = '<p class="muted" style="font-size:var(--t-sm);">Aucun utilisateur ne correspond.</p>';
+          return;
+        }
+        out.innerHTML = `
+          <div class="card padless">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th class="num">XP total</th>
+                  <th class="num" style="width:80px;">Niv. max</th>
+                  <th class="num" style="width:90px;">Serveurs</th>
+                  <th style="width:160px;">ID</th>
+                  <th style="width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.users.map(u => `
+                  <tr style="cursor:pointer;" onclick="toggleDetail('${u.user_id}')">
+                    <td><strong>${escapeHtml(u.username)}</strong></td>
+                    <td class="num">${fmtNum(u.xp_total)}</td>
+                    <td class="num">${u.level_max}</td>
+                    <td class="num">${u.guild_count}</td>
+                    <td class="mono">${u.user_id}</td>
+                    <td><a class="btn btn-secondary" href="/user/${u.user_id}" onclick="event.stopPropagation()">Profil</a></td>
+                  </tr>
+                  <tr id="detail-${u.user_id}" class="hidden">
+                    <td colspan="6" style="padding:14px 18px;background:var(--bg-1);">
+                      <div class="muted" style="font-size:var(--t-xs);margin-bottom:6px;">Détail par serveur :</div>
+                      <table class="tbl">
+                        <thead><tr><th>Serveur</th><th class="num">XP</th><th class="num">Niveau</th></tr></thead>
+                        <tbody>
+                          ${u.guilds.map(g => `
+                            <tr>
+                              <td>${escapeHtml(g.guild_name || g.guild_id)}</td>
+                              <td class="num">${fmtNum(g.xp)}</td>
+                              <td class="num">${g.level}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      })
+      .catch(err => {
+        document.getElementById('loading').classList.add('hidden');
+        out.innerHTML = `<p style="color:var(--danger);font-size:var(--t-sm);">${err.message}</p>`;
+      });
+  }, 220);
+
+  searchInput.addEventListener('input', runSearch);
+</script>
+{% endblock %}

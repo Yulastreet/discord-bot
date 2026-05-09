@@ -260,6 +260,7 @@
       </a>
       {% endif %}
 
+      {% if has_server_access %}
       <div class="nav-section">Ce serveur</div>
       <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
         <svg class="ic"><use href="#i-grid"/></svg> Dashboard
@@ -267,6 +268,11 @@
       <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
         <svg class="ic"><use href="#i-search"/></svg> Rechercher
       </a>
+      {% if is_owner %}
+      <a href="/search-global" class="nav-item {{ 'active' if active_nav == 'search_global' }}">
+        <svg class="ic"><use href="#i-globe"/></svg> Rechercher (global)
+      </a>
+      {% endif %}
       <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
         <svg class="ic"><use href="#i-react"/></svg> Réactions
       </a>
@@ -284,6 +290,7 @@
       <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
         <svg class="ic"><use href="#i-shield"/></svg> Modération
       </a>
+      {% endif %}
 
       {% if is_owner %}
       <div class="nav-section">Global (cross-serveur)</div>
@@ -318,7 +325,11 @@
       {% endif %}
       <div class="uc-meta">
         <div class="uc-name">{{ discord_user.username }}</div>
-        <div class="uc-role">{{ 'Owner' if is_owner else 'Modérateur' }}</div>
+        <div class="uc-role">
+          {% if is_owner %}Owner
+          {% elif has_mod_access %}Modérateur
+          {% else %}Utilisateur{% endif %}
+        </div>
       </div>
     </div>
     {% endif %}

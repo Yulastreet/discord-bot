@@ -6,17 +6,20 @@
   .premium-hero {
     display: flex; align-items: center; justify-content: space-between;
     gap: 24px; padding: 28px 32px;
-    background: linear-gradient(120deg, oklch(0.32 0.10 130 / .25), oklch(0.24 0.04 80 / .15));
-    border: 1px solid var(--border);
+    background: linear-gradient(120deg, #1b1f15, #0f1410);
+    border: 1px solid oklch(0.86 0.20 130 / .35);
     border-radius: var(--r-3);
     margin-bottom: 28px;
+    color: #f4f8e8;
+    box-shadow: 0 1px 0 oklch(0.86 0.20 130 / .15) inset;
   }
   .premium-hero h1 {
     margin: 0 0 8px; font-size: 28px;
     background: linear-gradient(120deg, oklch(0.86 0.20 130), oklch(0.82 0.16 90));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .premium-hero .sub { color: var(--text-muted); font-size: 14px; }
+  .premium-hero .sub  { color: #b6c2a6; font-size: 14px; }
+  .premium-hero code  { background: oklch(0.86 0.20 130 / .15); color: #d4f08a; padding: 1px 6px; border-radius: 4px; }
   .badge-active {
     padding: 6px 14px; border-radius: 999px;
     background: oklch(0.86 0.20 130);
@@ -107,11 +110,20 @@
 {% else %}
   <div class="preview-wrap">
     <img id="preview" src="/api/premium/niveau/preview.png?bg={{ settings_p.niveau_background or 'default' }}" alt="Aperçu carte /niveau">
-    <div class="help">Aperçu live — sélectionne un background ci-dessous.</div>
+    <div class="help">Aperçu live — sélectionne un background puis clique « Sauvegarder ».</div>
   </div>
 
-  <h3 style="margin: 24px 0 6px;">Background</h3>
-  <div class="bg-grid" id="bgGrid">
+  <div class="row between" style="align-items:center; margin: 16px 0 8px;">
+    <h3 style="margin:0;">Background</h3>
+    <div class="row" style="gap: 10px; align-items: center;">
+      <span id="dirtyHint" class="muted" style="font-size: 12px; opacity: 0; transition: opacity 150ms;">Modifications non enregistrées</span>
+      <button id="saveBtn" class="btn btn-primary" type="button" disabled>
+        <svg class="ic"><use href="#i-bolt"/></svg> Sauvegarder
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-grid" id="bgGrid" data-current="{{ settings_p.niveau_background or 'default' }}">
     {% for bg in backgrounds %}
       <div class="bg-card {% if settings_p.niveau_background == bg %}selected{% endif %}" data-bg="{{ bg }}">
         <img src="/api/premium/niveau/preview.png?bg={{ bg }}" alt="{{ bg }}">
@@ -126,10 +138,15 @@
 {% if is_premium %}
 <script>
 (function(){
-  const grid    = document.getElementById('bgGrid');
-  const preview = document.getElementById('preview');
-  const toast   = document.getElementById('toast');
-  let saving = false;
+  const grid      = document.getElementById('bgGrid');
+  const preview   = document.getElementById('preview');
+  const toast     = document.getElementById('toast');
+  const saveBtn   = document.getElementById('saveBtn');
+  const dirtyHint = document.getElementById('dirtyHint');
+
+  let savedBg    = grid.dataset.current || 'default';
+  let selectedBg = savedBg;
+  let saving     = false;
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -138,30 +155,52 @@
     showToast._t = setTimeout(() => toast.classList.remove('show'), 1600);
   }
 
-  grid.addEventListener('click', async (e) => {
-    const card = e.target.closest('.bg-card');
-    if (!card || saving) return;
-    const bg = card.dataset.bg;
+  function refreshDirty() {
+    const dirty = selectedBg !== savedBg;
+    saveBtn.disabled = !dirty || saving;
+    dirtyHint.style.opacity = dirty ? '1' : '0';
+  }
 
-    // Selection visuelle immediate
+  grid.addEventListener('click', (e) => {
+    const card = e.target.closest('.bg-card');
+    if (!card) return;
+    selectedBg = card.dataset.bg;
     grid.querySelectorAll('.bg-card.selected').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
-    preview.src = '/api/premium/niveau/preview.png?bg=' + encodeURIComponent(bg) + '&t=' + Date.now();
+    preview.src = '/api/premium/niveau/preview.png?bg=' + encodeURIComponent(selectedBg) + '&t=' + Date.now();
+    refreshDirty();
+  });
 
-    // Save
+  saveBtn.addEventListener('click', async () => {
+    if (saving || selectedBg === savedBg) return;
     saving = true;
+    saveBtn.disabled = true;
     try {
       const r = await fetch('/api/premium/niveau', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ background: bg }),
+        body: JSON.stringify({ background: selectedBg }),
       });
-      if (r.ok) showToast('Sauvegardé ✓');
-      else      showToast('Erreur de sauvegarde');
+      if (r.ok) {
+        savedBg = selectedBg;
+        grid.dataset.current = savedBg;
+        showToast('Sauvegardé ✓');
+      } else {
+        showToast('Erreur de sauvegarde');
+      }
     } catch (_) {
       showToast('Erreur réseau');
     } finally {
       saving = false;
+      refreshDirty();
+    }
+  });
+
+  // Avertir si l'user quitte la page avec des changements non sauvegardes
+  window.addEventListener('beforeunload', (e) => {
+    if (selectedBg !== savedBg) {
+      e.preventDefault();
+      e.returnValue = '';
     }
   });
 })();

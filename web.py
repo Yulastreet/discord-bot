@@ -285,10 +285,17 @@ def _ctx():
 
 @app.context_processor
 def _inject_ctx():
+    is_owner = getattr(g, "is_owner", False)
+    guilds   = getattr(g, "guilds", []) or []
+    # Mod = a au moins une guild commune avec perms moderation/admin (mais pas owner).
+    has_mod_access = bool(guilds) and not is_owner
     return {
         "current_guild":  getattr(g, "guild", None),
-        "current_guilds": getattr(g, "guilds", []),
-        "is_owner":       getattr(g, "is_owner", False),
+        "current_guilds": guilds,
+        "is_owner":       is_owner,
+        "has_mod_access": has_mod_access,
+        # True pour owner OU mod ; sert a afficher la section "Ce serveur".
+        "has_server_access": is_owner or has_mod_access,
         "discord_user":   getattr(g, "discord_user", {}),
         "oauth_enabled":  OAUTH_ENABLED,
     }
@@ -616,6 +623,55 @@ def api_search():
         (g_id, f"%{query}%", f"%{query}%")).fetchall()
     db.close()
     return jsonify({"users": [dict(u) for u in results]})
+
+
+@app.route("/search-global")
+def search_global_page():
+    if not _is_owner_session():
+        abort(403)
+    return render_template("search_global.html", active_nav="search_global")
+
+
+@app.route("/api/search-global")
+def api_search_global():
+    """Recherche cross-serveur (owner uniquement). Agrege par user_id, somme XP."""
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    query = request.args.get("q", "").strip().lower()
+    if not query:
+        return jsonify({"users": []})
+    db = get_db()
+    rows = db.execute(
+        """SELECT u.user_id,
+                  MAX(u.username)                   AS username,
+                  COUNT(DISTINCT u.guild_id)        AS guild_count,
+                  SUM(u.xp)                         AS xp_total,
+                  MAX(u.level)                      AS level_max
+             FROM users u
+             WHERE LOWER(u.username) LIKE ? OR u.user_id LIKE ?
+             GROUP BY u.user_id
+             ORDER BY xp_total DESC
+             LIMIT 100""",
+        (f"%{query}%", f"%{query}%"),
+    ).fetchall()
+    out = []
+    for r in rows:
+        guilds_rows = db.execute(
+            """SELECT u.guild_id, g.name AS guild_name, u.xp, u.level
+                 FROM users u LEFT JOIN guilds g ON g.guild_id = u.guild_id
+                 WHERE u.user_id = ? ORDER BY u.xp DESC""",
+            (r["user_id"],),
+        ).fetchall()
+        out.append({
+            "user_id":     r["user_id"],
+            "username":    r["username"],
+            "xp_total":    r["xp_total"] or 0,
+            "level_max":   r["level_max"] or 0,
+            "guild_count": r["guild_count"] or 0,
+            "guilds":      [dict(g) for g in guilds_rows],
+        })
+    db.close()
+    return jsonify({"users": out})
 
 @app.route("/user/<user_id>")
 def user_profile(user_id):
