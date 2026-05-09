@@ -209,9 +209,14 @@ YDL_OPTIONS = {
     },
 }
 
-# Si un fichier cookies.txt existe a cote de bot.py, l'utiliser en fallback (optionnel
-# avec bgutil, mais ne fait pas de mal).
-if os.path.exists(_COOKIES_PATH):
+# Cookies : priorite Firefox live (auto-rotation par le browser sur le VPS),
+# fallback cookies.txt manuel.
+_USE_FIREFOX_COOKIES = os.getenv("YT_USE_FIREFOX_COOKIES", "1") == "1"
+if _USE_FIREFOX_COOKIES:
+    # yt-dlp lit cookies.sqlite live du profil par defaut.
+    YDL_OPTIONS['cookiesfrombrowser'] = ('firefox',)
+    print("[yt-dlp] cookies-from-browser: firefox (profil par defaut)")
+elif os.path.exists(_COOKIES_PATH):
     YDL_OPTIONS['cookiefile'] = _COOKIES_PATH
     print(f"[yt-dlp] cookies loaded from {_COOKIES_PATH}")
 else:
