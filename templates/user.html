@@ -40,6 +40,29 @@
   </div>
   {% endif %}
 
+  {% if is_guild_admin %}
+  <div class="card" id="xpEditPanel">
+    <div class="eyebrow">Édition XP / Niveau (ce serveur)</div>
+    <p class="muted" style="font-size:var(--t-xs);margin-top:6px;">
+      Modifier l'un des deux champs met l'autre à jour automatiquement après sauvegarde.
+      L'XP est la valeur autoritaire — le niveau est recalculé.
+    </p>
+    <div class="row gap-3" style="margin-top:12px;flex-wrap:wrap;align-items:flex-end;">
+      <label style="display:flex;flex-direction:column;gap:4px;">
+        <span class="muted" style="font-size:var(--t-xs);">XP total</span>
+        <input id="editXp" type="number" min="0" step="1" class="input" style="width:160px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;">
+        <span class="muted" style="font-size:var(--t-xs);">Niveau</span>
+        <input id="editLevel" type="number" min="0" step="1" class="input" style="width:120px;">
+      </label>
+      <button id="xpSaveBtn"   class="btn btn-primary" type="button">Sauvegarder</button>
+      <button id="xpResetBtn"  class="btn btn-secondary" type="button">Réinitialiser à 0</button>
+      <span id="xpHint" class="muted" style="font-size:var(--t-xs);margin-left:auto;"></span>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="grid grid-3">
     <div class="stat">
       <div class="stat-label">Niveau message</div>
@@ -113,7 +136,73 @@ const TYPE_LABELS = {
 window.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadPremiumStatus();
+  setupXpEdit();
 });
+
+// ===== EDIT XP / NIVEAU (admin du serveur courant) =====
+function setupXpEdit() {
+  const xpIn    = document.getElementById('editXp');
+  const lvIn    = document.getElementById('editLevel');
+  const saveBtn = document.getElementById('xpSaveBtn');
+  const resetBtn= document.getElementById('xpResetBtn');
+  const hint    = document.getElementById('xpHint');
+  if (!xpIn) return; // Pas admin du serveur
+
+  // Pre-remplir depuis l'API user (charge en parallele)
+  fetch(`/api/user/${userId}`).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d) return;
+    xpIn.value = d.xp ?? 0;
+    lvIn.value = d.level ?? 0;
+  });
+
+  function lvFromXp(xp) { return Math.floor(Math.pow(Math.max(0, xp), 0.2)); }
+  function xpFromLv(lv) { return Math.max(0, lv) ** 5; }
+
+  xpIn.addEventListener('input', () => {
+    const xp = parseInt(xpIn.value || '0', 10);
+    lvIn.value = isFinite(xp) ? lvFromXp(xp) : 0;
+  });
+  lvIn.addEventListener('input', () => {
+    const lv = parseInt(lvIn.value || '0', 10);
+    xpIn.value = isFinite(lv) ? xpFromLv(lv) : 0;
+  });
+
+  async function save(xp) {
+    saveBtn.disabled = true;
+    resetBtn.disabled = true;
+    hint.textContent  = 'Enregistrement…';
+    try {
+      const r = await fetch(`/api/user/${userId}/xp`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ xp }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.status);
+      const d = await r.json();
+      xpIn.value = d.xp;
+      lvIn.value = d.level;
+      hint.textContent = '✓ Sauvegardé';
+      // Refresh profile data for the rest of the page
+      if (typeof loadProfile === 'function') loadProfile();
+      setTimeout(() => hint.textContent = '', 2500);
+    } catch (e) {
+      hint.textContent = '✗ Erreur : ' + e.message;
+    } finally {
+      saveBtn.disabled = false;
+      resetBtn.disabled = false;
+    }
+  }
+
+  saveBtn.addEventListener('click', () => {
+    const xp = parseInt(xpIn.value || '0', 10);
+    if (!isFinite(xp) || xp < 0) { hint.textContent = '✗ XP invalide'; return; }
+    save(xp);
+  });
+  resetBtn.addEventListener('click', () => {
+    if (!confirm('Remettre l\'XP de cet utilisateur à 0 sur ce serveur ?')) return;
+    save(0);
+  });
+}
 
 // ===== PREMIUM (owner-only) =====
 const _premBtn   = document.getElementById('premiumToggleBtn');

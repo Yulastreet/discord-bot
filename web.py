@@ -17,7 +17,7 @@ except ImportError:
 from database import (
     init_db, get_db,
     # XP per-guild
-    get_xp, get_leaderboard, get_all_users_for_guild, get_global_xp_stats,
+    get_xp, set_xp, get_leaderboard, get_all_users_for_guild, get_global_xp_stats,
     # Reactions per-guild
     get_all_reactions,
     # Guilds
@@ -296,6 +296,9 @@ def _inject_ctx():
         "has_mod_access": has_mod_access,
         # True pour owner OU mod ; sert a afficher la section "Ce serveur".
         "has_server_access": is_owner or has_mod_access,
+        # True si l'user peut editer les data d'un membre du serveur courant
+        # (owner partout, admin Discord pour le serveur selectionne).
+        "is_guild_admin": _is_admin_of_current_guild(),
         "discord_user":   getattr(g, "discord_user", {}),
         "oauth_enabled":  OAUTH_ENABLED,
     }
@@ -1203,6 +1206,20 @@ def _current_user_id():
     return (session.get("discord") or {}).get("user_id")
 
 
+def _is_admin_of_current_guild() -> bool:
+    """True si owner OU admin du serveur actuellement selectionne."""
+    if _is_owner_session():
+        return True
+    cg = session.get("guild_id")
+    if not cg:
+        return False
+    metas = (session.get("discord") or {}).get("guilds_meta") or []
+    for m in metas:
+        if str(m.get("guild_id")) == str(cg) and m.get("is_admin"):
+            return True
+    return False
+
+
 def _is_premium(uid, feature="all") -> bool:
     """Wrapper unifie : entitlement Discord OU grant manuel OU owner ENV."""
     return _db_user_is_premium(uid, feature=feature, owner_id=DISCORD_OWNER_ID)
@@ -1297,6 +1314,66 @@ def api_premium_niveau_preview():
         background=bg,
     ))
     return send_file(buf, mimetype="image/png")
+
+
+# ===== Admin (owner ou admin Discord du serveur) : edit XP/niveau d'un membre =====
+
+def _level_to_min_xp(level: int) -> int:
+    """Inverse de get_level (xp -> level = int(xp**0.2))."""
+    if level <= 0:
+        return 0
+    # Plus petit xp tel que int(xp**0.2) == level => xp = level**5
+    return level ** 5
+
+
+@app.route("/api/user/<user_id>/xp", methods=["POST"])
+def api_user_xp_set(user_id):
+    """Modifie XP (ou niveau) d'un membre sur le serveur courant.
+
+    Accepte JSON {xp: int} OU {level: int}. Si level fourni, on calcule
+    le minimum d'XP requis pour ce niveau. Recalcule level depuis xp via
+    set_xp() qui applique la formule canonique.
+    """
+    if not _is_admin_of_current_guild():
+        return jsonify({"error": "admin_only"}), 403
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild_selected"}), 400
+    db = get_db()
+    row = db.execute(
+        "SELECT username, xp, level FROM users WHERE guild_id = ? AND user_id = ?",
+        (g_id, str(user_id)),
+    ).fetchone()
+    db.close()
+    if not row:
+        return jsonify({"error": "user_not_found_on_guild"}), 404
+
+    data = request.get_json(silent=True) or {}
+    new_xp = None
+    if "xp" in data and data["xp"] is not None:
+        try:
+            new_xp = max(0, int(data["xp"]))
+        except (TypeError, ValueError):
+            return jsonify({"error": "bad_xp"}), 400
+    elif "level" in data and data["level"] is not None:
+        try:
+            target_level = max(0, int(data["level"]))
+        except (TypeError, ValueError):
+            return jsonify({"error": "bad_level"}), 400
+        new_xp = _level_to_min_xp(target_level)
+    else:
+        return jsonify({"error": "missing_xp_or_level"}), 400
+
+    set_xp(g_id, user_id, new_xp, username=row["username"])
+    # Recompute pour reponse (formule int(xp**0.2))
+    new_level = int(new_xp ** 0.2) if new_xp > 0 else 0
+    return jsonify({
+        "ok":       True,
+        "user_id":  str(user_id),
+        "guild_id": g_id,
+        "xp":       new_xp,
+        "level":    new_level,
+    })
 
 
 # ===== Owner-only : grant/revoke premium manuel =====
