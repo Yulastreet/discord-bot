@@ -98,9 +98,10 @@ def _make_round_avatar(raw: bytes, size: int) -> Image.Image:
 
 
 def _placeholder_avatar(size: int) -> Image.Image:
-    img = Image.new("RGBA", (size, size), (50, 60, 80, 255))
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.ellipse((0, 0, size, size), fill=(60, 70, 90, 255))
+    d.ellipse((2, 2, size - 2, size - 2), outline=ACCENT + (255,), width=4)
     return img
 
 
@@ -254,6 +255,112 @@ async def render_niveau_card(
               fill=(200, 215, 180, 130), anchor="rb")
 
     # Output
+    buf = io.BytesIO()
+    base.convert("RGB").save(buf, "PNG", optimize=True)
+    buf.seek(0)
+    return buf
+
+
+async def render_levelup_card_premium(
+    *,
+    username: str,
+    avatar_url: Optional[str],
+    new_level: int,
+    percent: float = 0,
+    background: str = "default",
+) -> io.BytesIO:
+    """Carte LEVEL UP premium : meme look que la carte /niveau, avec accent sur
+    le passage de niveau et un effet "sparkle" decoratif."""
+    base = _load_background(background).convert("RGBA")
+
+    # Voile pour lisibilite
+    veil = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    ImageDraw.Draw(veil).rectangle((0, 0, CARD_W, CARD_H), fill=(0, 0, 0, 90))
+    base.alpha_composite(veil)
+
+    # Aura accent autour du centre
+    aura = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    ImageDraw.Draw(aura).ellipse(
+        (CARD_W * 0.15, -120, CARD_W * 0.75, CARD_H + 120),
+        fill=ACCENT + (40,),
+    )
+    aura = aura.filter(ImageFilter.GaussianBlur(80))
+    base.alpha_composite(aura)
+
+    draw = ImageDraw.Draw(base)
+
+    # ── Avatar ───────────────────────────────────────────────────────────
+    avatar_img: Optional[Image.Image] = None
+    if avatar_url:
+        raw = await _fetch_avatar_bytes(avatar_url)
+        if raw:
+            try:
+                avatar_img = _make_round_avatar(raw, AVATAR_SIZE)
+            except Exception:
+                avatar_img = None
+    if avatar_img is None:
+        avatar_img = _placeholder_avatar(AVATAR_SIZE)
+    base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
+
+    # ── Titre LEVEL UP avec gradient + glow ───────────────────────────────
+    text_x = AVATAR_X + AVATAR_SIZE + 40
+    f_title = _font(58, bold=True)
+    title = "LEVEL UP !"
+    # Glow (texte derriere flouté)
+    glow_layer = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    ImageDraw.Draw(glow_layer).text((text_x, 30), title, font=f_title,
+                                    fill=ACCENT + (180,))
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(8))
+    base.alpha_composite(glow_layer)
+    # Texte net par-dessus
+    draw.text((text_x, 30), title, font=f_title, fill=(250, 255, 230, 255))
+
+    # ── Pseudo + Niveau ──────────────────────────────────────────────────
+    f_user  = _font(28, bold=True)
+    f_label = _font(20, bold=True)
+    f_value = _font(48, bold=True)
+
+    # Pseudo (sous le titre)
+    name_y = 100
+    display = username
+    while draw.textlength(display, font=f_user) > CARD_W - text_x - 40 and len(display) > 1:
+        display = display[:-1]
+    if display != username:
+        display = display[:-1] + "…"
+    draw.text((text_x, name_y), display, font=f_user, fill=TEXT_SECONDARY)
+
+    # "NIVEAU" + valeur enorme
+    draw.text((text_x, name_y + 42), "NIVEAU", font=f_label, fill=ACCENT)
+    draw.text((text_x + 110, name_y + 30), str(new_level), font=f_value, fill=TEXT_PRIMARY)
+
+    # ── Barre XP ─────────────────────────────────────────────────────────
+    bar_x = text_x
+    bar_y = 230
+    bar_w = CARD_W - bar_x - 60
+    bar_h = 18
+    _draw_xp_bar(draw, bar_x, bar_y, bar_w, bar_h, percent)
+    f_xp = _font(14, bold=False)
+    draw.text((bar_x, bar_y + bar_h + 6), f"{percent:.0f}% du prochain niveau",
+              font=f_xp, fill=TEXT_MUTED)
+
+    # ── Badge premium ────────────────────────────────────────────────────
+    _draw_premium_badge(draw, x=CARD_W - 180, y=24)
+
+    # ── Sparkles decoratifs ──────────────────────────────────────────────
+    sparkles = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(sparkles)
+    for cx, cy, sz in [(CARD_W - 60, 130, 6), (CARD_W - 110, 170, 4),
+                       (text_x - 18, 60, 5), (text_x - 26, 95, 3),
+                       (CARD_W - 230, 250, 4)]:
+        sd.regular_polygon((cx, cy, sz), n_sides=4, rotation=45, fill=ACCENT + (240,))
+    base.alpha_composite(sparkles)
+
+    # ── Mention discrète ────────────────────────────────────────────────
+    f_mention = _font(11, bold=False)
+    mention = "Rendu possible grâce à un achat intégré"
+    draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
+              fill=(200, 215, 180, 130), anchor="rb")
+
     buf = io.BytesIO()
     base.convert("RGB").save(buf, "PNG", optimize=True)
     buf.seek(0)

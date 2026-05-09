@@ -68,7 +68,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       user_has_active_entitlement, get_premium_settings,
                       user_is_premium as _db_user_is_premium)
 from duel_commands import setup_duel_commands
-from niveau_card import render_niveau_card
+from niveau_card import render_niveau_card, render_levelup_card_premium
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -711,7 +711,22 @@ async def on_message(message):
         new_level = get_level(xp)
         if new_level > old_level:
             level, progress_xp, needed_xp, percent = get_progress(xp)
-            image = await generate_levelup_card(message.author, new_level, percent)
+            # Premium ? Carte HD avec son background choisi
+            if is_premium_user(message.author.id):
+                try:
+                    bg = (get_premium_settings(message.author.id) or {}).get("niveau_background") or "default"
+                    image = await render_levelup_card_premium(
+                        username=message.author.display_name,
+                        avatar_url=str(message.author.display_avatar.url),
+                        new_level=new_level,
+                        percent=percent,
+                        background=bg,
+                    )
+                except Exception as e:
+                    print(f"[levelup premium] render error: {e!r} — fallback")
+                    image = await generate_levelup_card(message.author, new_level, percent)
+            else:
+                image = await generate_levelup_card(message.author, new_level, percent)
             await message.channel.send(
                 content=f"🎉 {message.author.mention}",
                 file=discord.File(image, filename="levelup.png")
