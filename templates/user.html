@@ -41,6 +41,33 @@
       <div id="premiumPanelBadge"></div>
     </div>
   </div>
+
+  <div class="card" id="passAdminPanel" style="border-color: oklch(0.62 0.22 30 / .35);">
+    <div class="row between" style="align-items:center;margin-bottom:14px;">
+      <div>
+        <div class="eyebrow">Battle Pass — admin</div>
+        <div id="passAdminLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+      </div>
+      <div id="passAdminBadge"></div>
+    </div>
+    <div id="passAdminBody" class="hidden">
+      <div class="row gap-3" style="flex-wrap:wrap;align-items:flex-end;">
+        <label style="display:flex;flex-direction:column;gap:4px;">
+          <span class="muted" style="font-size:var(--t-xs);">XP saison</span>
+          <input id="passEditXp" type="number" min="0" step="50" class="input" style="width:140px;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;">
+          <span class="muted" style="font-size:var(--t-xs);">Palier (auto)</span>
+          <input id="passEditTier" type="number" min="0" step="1" class="input" style="width:120px;">
+        </label>
+        <button id="passSaveBtn"   class="btn btn-primary"   type="button">Sauvegarder</button>
+        <button id="passResetBtn"  class="btn btn-secondary" type="button">Réinitialiser</button>
+        <button id="passQuestRoll" class="btn btn-secondary" type="button">Re-roll quêtes</button>
+        <span id="passEditHint" class="muted" style="font-size:var(--t-xs);margin-left:auto;"></span>
+      </div>
+      <div id="passQuestList" style="margin-top:14px;display:flex;flex-direction:column;gap:6px;font-size:var(--t-sm);"></div>
+    </div>
+  </div>
   {% endif %}
 
   {% if is_guild_admin %}
@@ -140,8 +167,142 @@ window.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadPremiumStatus();
   setupPassToggle();
+  setupPassAdmin();
   setupXpEdit();
 });
+
+// ===== PASS ADMIN PANEL (owner only) =====
+const PASS_XP_PER_TIER = 250;
+const PASS_TIERS_MAX   = 30;
+
+function setupPassAdmin() {
+  const panel = document.getElementById('passAdminPanel');
+  if (!panel) return;
+  const lbl   = document.getElementById('passAdminLabel');
+  const body  = document.getElementById('passAdminBody');
+  const badge = document.getElementById('passAdminBadge');
+  const xpIn  = document.getElementById('passEditXp');
+  const tIn   = document.getElementById('passEditTier');
+  const save  = document.getElementById('passSaveBtn');
+  const reset = document.getElementById('passResetBtn');
+  const reroll= document.getElementById('passQuestRoll');
+  const hint  = document.getElementById('passEditHint');
+  const ql    = document.getElementById('passQuestList');
+
+  let active = false;
+  let seasonId = null;
+
+  async function refresh() {
+    try {
+      const r = await fetch(`/api/user/${userId}/pass`);
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      active   = !!d.has_pass;
+      seasonId = d.season?.season_id;
+      lbl.textContent = d.season?.name ? d.season.name : 'Aucune saison';
+      badge.innerHTML = active
+        ? '<span class="badge" style="background:oklch(0.86 0.20 130);color:#1a1a1a;font-weight:700;">★ ACTIF</span>'
+        : '<span class="badge badge-mono" style="opacity:.7;">inactif</span>';
+
+      if (!active) {
+        body.classList.add('hidden');
+        return;
+      }
+      body.classList.remove('hidden');
+      const xp = d.progress?.xp ?? 0;
+      xpIn.value = xp;
+      tIn.value  = Math.min(PASS_TIERS_MAX, Math.floor(xp / PASS_XP_PER_TIER));
+
+      // Quetes actives
+      const r2 = await fetch(`/api/user/${userId}/pass/quests`);
+      if (r2.ok) {
+        const dd = await r2.json();
+        ql.innerHTML = (dd.quests || []).map(q => {
+          const pct = Math.min(100, (q.progress / q.target) * 100);
+          const done = q.progress >= q.target;
+          return `<div class="row between" style="align-items:center;">
+            <div>
+              <span style="font-size:var(--t-xs);color:var(--text-muted);">${q.period}</span>
+              · ${escapeHtml(q.type)}
+              <strong>${q.progress}/${q.target}</strong>
+              · +${q.xp_reward} XP
+              ${done ? '<span style="color:oklch(0.86 0.20 130);">✓</span>' : ''}
+            </div>
+          </div>`;
+        }).join('') || '<div class="muted" style="font-size:var(--t-xs);">Aucune quête active.</div>';
+      }
+    } catch (e) {
+      lbl.textContent = 'Erreur de chargement.';
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  xpIn.addEventListener('input', () => {
+    const xp = parseInt(xpIn.value || '0', 10);
+    tIn.value = Math.min(PASS_TIERS_MAX, Math.max(0, Math.floor(xp / PASS_XP_PER_TIER)));
+  });
+  tIn.addEventListener('input', () => {
+    const t = parseInt(tIn.value || '0', 10);
+    xpIn.value = Math.max(0, Math.min(PASS_TIERS_MAX, t)) * PASS_XP_PER_TIER;
+  });
+
+  async function saveXp(xp) {
+    save.disabled = true;
+    reset.disabled = true;
+    hint.textContent = '…';
+    try {
+      const r = await fetch(`/api/user/${userId}/pass`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ xp }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.status);
+      hint.textContent = '✓ Sauvegardé';
+      await refresh();
+      setTimeout(() => hint.textContent = '', 2000);
+    } catch (e) {
+      hint.textContent = '✗ ' + e.message;
+    } finally {
+      save.disabled = false;
+      reset.disabled = false;
+    }
+  }
+
+  save.addEventListener('click', () => {
+    const xp = parseInt(xpIn.value || '0', 10);
+    if (!isFinite(xp) || xp < 0) { hint.textContent = '✗ XP invalide'; return; }
+    saveXp(xp);
+  });
+  reset.addEventListener('click', () => {
+    if (!confirm('Remettre la progression du Pass à 0 pour cet utilisateur ?')) return;
+    saveXp(0);
+  });
+  reroll.addEventListener('click', async () => {
+    if (!confirm('Re-générer les quêtes daily/weekly de cet utilisateur ?')) return;
+    reroll.disabled = true;
+    hint.textContent = '…';
+    try {
+      const r = await fetch(`/api/user/${userId}/pass/quests`, { method: 'DELETE' });
+      if (!r.ok) throw new Error(r.status);
+      hint.textContent = '✓ Quêtes re-rollées';
+      await refresh();
+      setTimeout(() => hint.textContent = '', 2000);
+    } catch (e) {
+      hint.textContent = '✗ ' + e.message;
+    } finally {
+      reroll.disabled = false;
+    }
+  });
+
+  refresh();
+  // Aussi refresh quand le toggle Pass change
+  const passBtn = document.getElementById('passToggleBtn');
+  if (passBtn) passBtn.addEventListener('click', () => setTimeout(refresh, 400));
+}
 
 // ===== PASS TOGGLE (owner-only) =====
 function setupPassToggle() {

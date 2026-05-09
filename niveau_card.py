@@ -490,20 +490,31 @@ def list_available_backgrounds(user_id: str = None) -> list[str]:
     - Tout le monde voit les BG permanents (assets/niveau_bg/*.png)
     - Si `user_id` correspond a un BG custom owner uploade, l'ID 'owner:<id>'
       est ajoute en debut de liste pour ce user uniquement.
+    - Si l'user a debloque des BG saisonniers via le Battle Pass, ils sont
+      ajoutes (tant que non expires).
     """
     out: list[str] = []
-    # BG owner (perso) — affiche uniquement a son owner
+    # BG owner (perso)
     if user_id:
         owner_path = os.path.join(BG_OWNER_DIR, f"{user_id}.png")
         if os.path.exists(owner_path):
             out.append(f"owner:{user_id}")
+    # BG saisonniers debloques via Pass
+    if user_id:
+        try:
+            from database import list_user_pass_unlocks as _ul
+            for u in _ul(user_id, type_="bg", include_expired=False):
+                bg_id = (u.get("payload") or {}).get("bg_id")
+                if bg_id and bg_id not in out:
+                    out.append(bg_id)
+        except Exception:
+            pass
     # BG permanents
     if os.path.isdir(BG_DIR):
         for fn in sorted(os.listdir(BG_DIR)):
             if not fn.lower().endswith(".png"):
                 continue
             full = os.path.join(BG_DIR, fn)
-            # ignore les sous-dossiers
             if os.path.isfile(full):
                 out.append(os.path.splitext(fn)[0])
     return out

@@ -70,7 +70,9 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       user_has_active_pass,
                       get_or_create_current_season, get_pass_progress,
                       list_user_active_quests, increment_quest_progress,
-                      claim_quest_reward, add_pass_xp, set_pass_claimed_tier)
+                      claim_quest_reward, add_pass_xp, set_pass_claimed_tier,
+                      auto_claim_pass_tiers, get_active_xp_boost_multiplier,
+                      list_user_pass_unlocks)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -116,14 +118,22 @@ def _track_pass_quest(user_id, quest_type: str, amount: int = 1):
         completed = increment_quest_progress(user_id, quest_type, amount)
         if not completed:
             return
-        # Auto-claim + credit XP saison courante
+        # Auto-claim + credit XP saison courante + auto-claim paliers
         season = get_or_create_current_season()
         sid = season["season_id"]
+        new_total_xp = None
         for q in completed:
             claim = claim_quest_reward(user_id, q["period"], q["slot"])
             if claim:
-                add_pass_xp(user_id, sid, claim["xp_reward"])
+                new_total_xp = add_pass_xp(user_id, sid, claim["xp_reward"])
                 print(f"[pass] user={user_id} clear quest {q['type']} +{claim['xp_reward']} XP")
+        if new_total_xp is not None:
+            delivered = auto_claim_pass_tiers(
+                user_id, sid, new_total_xp,
+                tier_xp=PASS_XP_PER_TIER, max_tier=PASS_TIERS,
+            )
+            for d in delivered:
+                print(f"[pass] user={user_id} unlock tier {d['tier']} ({d['type']}: {d.get('label')})")
     except Exception as e:
         print(f"[pass] track error: {e!r}")
 
@@ -778,6 +788,13 @@ async def on_message(message):
         except (TypeError, ValueError):
             xp_min, xp_max = 1, 5
         xp_gain = random.randint(xp_min, xp_max)
+        # Boost XP Pass (recompense palier) — multiplicateur s'applique sur le gain
+        try:
+            boost = get_active_xp_boost_multiplier(message.author.id)
+            if boost > 1.0:
+                xp_gain = int(xp_gain * boost)
+        except Exception:
+            pass
         xp += xp_gain
         set_xp(guild_id_str, message.author.id, xp, username=message.author.name)
         new_level = get_level(xp)

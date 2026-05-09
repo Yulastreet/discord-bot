@@ -1718,8 +1718,8 @@ _PASS_QUEST_TEMPLATES_DEFAULT = [
     ("send_messages", "daily",  50,  "Envoie 50 messages",                50),
     ("play_duels",    "daily",  1,   "Joue 1 duel",                       50),
     ("play_duels",    "daily",  3,   "Joue 3 duels",                      50),
-    ("earn_xp",       "daily",  200, "Gagne 200 XP message",              50),
-    ("earn_xp",       "daily",  500, "Gagne 500 XP message",              50),
+    ("earn_xp",       "daily",  100, "Gagne 100 XP message",              50),
+    ("earn_xp",       "daily",  250, "Gagne 250 XP message",              50),
     ("use_commands",  "daily",  3,   "Utilise 3 slash commands",          50),
     ("use_commands",  "daily",  8,   "Utilise 8 slash commands",          50),
     # ── WEEKLY (250 XP) ──
@@ -1745,6 +1745,17 @@ def seed_pass_quest_templates_si_vide():
         )
         conn.commit()
         print(f"[seed] {len(_PASS_QUEST_TEMPLATES_DEFAULT)} pass_quest_templates")
+    else:
+        # Migration : rebalance daily earn_xp 200/500 -> 100/250 (anciennes versions trop hardcore).
+        c.execute(
+            "UPDATE pass_quest_templates SET target = 100, label = 'Gagne 100 XP message' WHERE type='earn_xp' AND period='daily' AND target = 200"
+        )
+        c.execute(
+            "UPDATE pass_quest_templates SET target = 250, label = 'Gagne 250 XP message' WHERE type='earn_xp' AND period='daily' AND target = 500"
+        )
+        if c.rowcount:
+            print("[migration] pass_quest_templates earn_xp daily rebalance")
+        conn.commit()
     conn.close()
 
 
@@ -1876,7 +1887,11 @@ def claim_quest_reward(user_id, period: str, slot: int) -> dict | None:
 
 
 def get_or_create_current_season(name: str = None) -> dict:
-    """Retourne la saison du mois courant, en la creant si elle n'existe pas."""
+    """Retourne la saison du mois courant, en la creant si elle n'existe pas.
+
+    A la creation, on seed automatiquement les 30 paliers de recompenses et
+    les 3 sabres cosmetiques de la saison.
+    """
     mk = _current_month_key()
     conn = get_db()
     c = conn.cursor()
@@ -1894,7 +1909,217 @@ def get_or_create_current_season(name: str = None) -> dict:
     sid = c.lastrowid
     row = c.execute("SELECT * FROM pass_seasons WHERE season_id = ?", (sid,)).fetchone()
     conn.close()
+    seed_pass_rewards_for_season(sid, mk)
+    seed_seasonal_sabres(mk)
     return dict(row)
+
+
+# ─── Mapping des 30 paliers (constant) ─────────────────────────────────────
+# Format : (tier, type, payload_dict_with_keys_per_type, label)
+_PASS_TIER_MAP = [
+    (1,  "tookcoins", {"amount": 200},                  "200 TookCoins"),
+    (2,  "title",     {"title": "Adepte"},              "Titre : Adepte"),
+    (3,  "tookcoins", {"amount": 300},                  "300 TookCoins"),
+    (4,  "bg",        {"index": 0},                     "Background saisonnier #1"),
+    (5,  "emoji",     {"emoji": "🌱"},                  "Emoji 🌱"),
+    (6,  "tookcoins", {"amount": 400},                  "400 TookCoins"),
+    (7,  "boost_xp",  {"hours": 1, "multiplier": 2.0},  "Boost XP ×2 pendant 1h"),
+    (8,  "tookcoins", {"amount": 500},                  "500 TookCoins"),
+    (9,  "bg",        {"index": 1},                     "Background saisonnier #2"),
+    (10, "sabre",     {"rarete": "rare"},               "Sabre cosmétique rare"),
+    (11, "tookcoins", {"amount": 500},                  "500 TookCoins"),
+    (12, "boost_xp",  {"hours": 2, "multiplier": 2.0},  "Boost XP ×2 pendant 2h"),
+    (13, "title",     {"title": "Vétéran"},             "Titre : Vétéran"),
+    (14, "tookcoins", {"amount": 600},                  "600 TookCoins"),
+    (15, "bg",        {"index": 2},                     "Background saisonnier #3"),
+    (16, "emoji",     {"emoji": "⚡"},                  "Emoji ⚡"),
+    (17, "tookcoins", {"amount": 700},                  "700 TookCoins"),
+    (18, "boost_xp",  {"hours": 2, "multiplier": 2.0},  "Boost XP ×2 pendant 2h"),
+    (19, "tookcoins", {"amount": 800},                  "800 TookCoins"),
+    (20, "sabre",     {"rarete": "epique"},             "Sabre cosmétique épique"),
+    (21, "tookcoins", {"amount": 800},                  "800 TookCoins"),
+    (22, "boost_xp",  {"hours": 3, "multiplier": 2.0},  "Boost XP ×2 pendant 3h"),
+    (23, "bg",        {"index": 3},                     "Background saisonnier #4"),
+    (24, "tookcoins", {"amount": 900},                  "900 TookCoins"),
+    (25, "title",     {"title": "Maître"},              "Titre : Maître"),
+    (26, "boost_xp",  {"hours": 3, "multiplier": 2.0},  "Boost XP ×2 pendant 3h"),
+    (27, "tookcoins", {"amount": 1000},                 "1000 TookCoins"),
+    (28, "emoji",     {"emoji": "🌟"},                  "Emoji 🌟"),
+    (29, "bg",        {"index": 4},                     "Background saisonnier #5"),
+    (30, "sabre",     {"rarete": "legendaire"},         "Sabre cosmétique légendaire"),
+]
+
+_SEASONAL_BG_NAMES = [
+    "crystal_cave", "liquid_chrome", "neon_tokyo", "stained_glass", "cosmic_vortex",
+]
+
+
+def seed_pass_rewards_for_season(season_id: int, month_key: str):
+    """Insere les 30 lignes pass_rewards pour une saison. Idempotent."""
+    conn = get_db()
+    c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM pass_rewards WHERE season_id = ?", (season_id,)).fetchone()["n"]
+    if n > 0:
+        conn.close()
+        return
+    rows = []
+    for tier, rtype, payload, label in _PASS_TIER_MAP:
+        # Pour les BG, resoudre le nom saisonnier
+        if rtype == "bg":
+            bg_name = _SEASONAL_BG_NAMES[payload["index"]]
+            payload = {"bg_id": f"seasonal:{month_key}:{bg_name}", "bg_name": bg_name}
+        rows.append((season_id, tier, rtype, _json.dumps(payload), label))
+    c.executemany(
+        "INSERT INTO pass_rewards (season_id, tier, type, payload, label) VALUES (?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+    conn.close()
+    print(f"[seed] pass_rewards x{len(rows)} for season {season_id} ({month_key})")
+
+
+def seed_seasonal_sabres(month_key: str):
+    """Cree 3 sabres cosmetiques (rare/epique/legendaire) avec stats=normales pour
+    la saison donnee. IDs : season_<YYYY-MM>_rare/epique/legendaire."""
+    conn = get_db()
+    c = conn.cursor()
+    sabres_data = [
+        (f"season_{month_key}_rare",
+         f"Lame Saisonnière {month_key}", "🌒", "rare", 0,
+         "Sabre cosmétique du Battle Pass — saison " + month_key,
+         "Frappe Saisonnière", "Bonus dégâts +30%", "✨", "rage_next"),
+        (f"season_{month_key}_epique",
+         f"Croissant Saisonnier {month_key}", "🌘", "epique", 0,
+         "Sabre cosmétique du Battle Pass — saison " + month_key,
+         "Drain Saisonnier", "Drain 50% des dégâts", "💜", "lifesteal_50"),
+        (f"season_{month_key}_legendaire",
+         f"Étoile Saisonnière {month_key}", "🌟", "legendaire", 0,
+         "Sabre cosmétique légendaire du Battle Pass — saison " + month_key,
+         "Suprématie Saisonnière", "Dégâts doublés ce tour", "💫", "rage_next"),
+    ]
+    for s in sabres_data:
+        try:
+            c.execute('''INSERT OR IGNORE INTO sabres
+                        (id, nom, emoji, rarete, prix, description,
+                         speciale_nom, speciale_description, speciale_emoji, speciale_effet)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', s)
+        except Exception as e:
+            print(f"[seed sabres saisonniers] error: {e!r}")
+    conn.commit()
+    conn.close()
+
+
+def get_pass_rewards_for_season(season_id: int) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM pass_rewards WHERE season_id = ? ORDER BY tier",
+        (int(season_id),),
+    ).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["payload"] = _json.loads(d.get("payload") or "{}")
+        except Exception:
+            d["payload"] = {}
+        out.append(d)
+    return out
+
+
+def auto_claim_pass_tiers(user_id, season_id: int, current_xp: int,
+                           tier_xp: int = 250, max_tier: int = 30) -> list[dict]:
+    """Compare XP du user au seuil de chaque palier non encore reclame ; declenche
+    les rewards correspondants. Retourne la liste des rewards delivres.
+
+    Les rewards instantanes (tookcoins) sont appliques directement.
+    Les autres (bg, title, emoji, boost_xp, sabre) creent des entrees pass_unlocks
+    avec expires_at adapte.
+    """
+    progress = get_pass_progress(user_id, season_id)
+    claimed_max = progress.get("claimed_max_tier", 0)
+    new_tier = min(max_tier, current_xp // tier_xp)
+    if new_tier <= claimed_max:
+        return []
+
+    rewards_def = {r["tier"]: r for r in get_pass_rewards_for_season(season_id)}
+    delivered = []
+    season = None
+    for t in range(claimed_max + 1, new_tier + 1):
+        rdef = rewards_def.get(t)
+        if not rdef:
+            continue
+        rtype = rdef["type"]
+        payload = rdef.get("payload") or {}
+        # Resolution selon type
+        if rtype == "tookcoins":
+            try:
+                # S'assure que le profil duel existe (sinon UPDATE no-op)
+                if get_duel_profil(user_id) is None:
+                    creer_duel_profil(user_id, str(user_id))
+                ajouter_tookcoins(user_id, int(payload.get("amount") or 0))
+            except Exception as e:
+                print(f"[auto_claim] tookcoins error: {e!r}")
+        elif rtype == "sabre":
+            # Ajoute le sabre saisonnier de la rarete a la collection
+            mk = season["month_key"] if season else None
+            if not mk:
+                conn = get_db(); c = conn.cursor()
+                row = c.execute("SELECT month_key FROM pass_seasons WHERE season_id = ?",
+                                (season_id,)).fetchone()
+                conn.close()
+                if row:
+                    mk = row["month_key"]
+            sabre_id = f"season_{mk}_{payload.get('rarete')}"
+            try:
+                if get_duel_profil(user_id) is None:
+                    creer_duel_profil(user_id, str(user_id))
+                ajouter_sabre(user_id, sabre_id)
+            except Exception as e:
+                print(f"[auto_claim] sabre add error: {e!r}")
+            # Aussi enregistrer dans pass_unlocks pour visibilite
+            add_pass_unlock(user_id, "sabre", {"sabre_id": sabre_id, **payload}, season_id=season_id)
+        elif rtype == "bg":
+            # BG saisonnier : expire fin du mois SUIVANT
+            now = _dt.datetime.utcnow()
+            exp = _seasonal_bg_expiry(now)
+            add_pass_unlock(user_id, "bg", payload, season_id=season_id, expires_at=exp)
+        elif rtype == "boost_xp":
+            # Active immediatement, expire dans N heures
+            hours = float(payload.get("hours") or 1)
+            exp = (_dt.datetime.utcnow() + _dt.timedelta(hours=hours)).isoformat()
+            add_pass_unlock(user_id, "boost_xp", payload, season_id=season_id, expires_at=exp)
+        elif rtype == "title":
+            add_pass_unlock(user_id, "title", payload, season_id=season_id)  # permanent
+        elif rtype == "emoji":
+            add_pass_unlock(user_id, "emoji", payload, season_id=season_id)  # permanent
+        else:
+            print(f"[auto_claim] unknown reward type: {rtype}")
+
+        delivered.append({
+            "tier":    t,
+            "type":    rtype,
+            "payload": payload,
+            "label":   rdef.get("label"),
+        })
+
+    # Update claimed_max_tier
+    set_pass_claimed_tier(user_id, season_id, new_tier)
+    return delivered
+
+
+def get_active_xp_boost_multiplier(user_id) -> float:
+    """Retourne le plus haut multiplicateur boost_xp encore actif, sinon 1.0."""
+    unlocks = list_user_pass_unlocks(user_id, type_="boost_xp", include_expired=False)
+    best = 1.0
+    for u in unlocks:
+        try:
+            m = float((u.get("payload") or {}).get("multiplier") or 1.0)
+            best = max(best, m)
+        except Exception:
+            pass
+    return best
 
 
 def user_has_active_pass(user_id) -> bool:

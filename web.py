@@ -51,6 +51,7 @@ from database import (
     add_premium_grant, remove_premium_grant, list_premium_grants,
     has_premium_grant, user_has_active_pass, get_or_create_current_season,
     get_pass_progress, list_user_pass_unlocks,
+    list_user_active_quests,
 )
 from niveau_card import (
     list_available_backgrounds, render_niveau_card,
@@ -1504,6 +1505,68 @@ def api_user_pass_revoke(user_id):
         return jsonify({"error": "owner_only"}), 403
     remove_premium_grant(user_id, feature="pass")
     return jsonify({"ok": True, "user_id": str(user_id), "feature": "pass", "revoked": True})
+
+
+@app.route("/api/user/<user_id>/pass", methods=["PATCH"])
+def api_user_pass_set_xp(user_id):
+    """Reglage manuel de l'XP de saison (owner). Reset claimed_max_tier en
+    consequence pour ne pas garder un palier > xp_actuel."""
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    season = get_or_create_current_season()
+    sid = season["season_id"]
+    data = request.get_json(silent=True) or {}
+    if "xp" not in data:
+        return jsonify({"error": "missing_xp"}), 400
+    try:
+        new_xp = max(0, int(data["xp"]))
+    except (TypeError, ValueError):
+        return jsonify({"error": "bad_xp"}), 400
+
+    db = get_db()
+    c = db.cursor()
+    c.execute('''
+        INSERT INTO pass_progress (user_id, season_id, xp, claimed_max_tier, updated_at)
+        VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, season_id) DO UPDATE SET
+            xp = excluded.xp,
+            updated_at = CURRENT_TIMESTAMP
+    ''', (str(user_id), sid, new_xp))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True, "user_id": str(user_id), "season_id": sid, "xp": new_xp})
+
+
+@app.route("/api/user/<user_id>/pass/quests", methods=["GET"])
+def api_user_pass_quests_list(user_id):
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    quests = list_user_active_quests(user_id)
+    return jsonify({"quests": quests})
+
+
+@app.route("/api/user/<user_id>/pass/quests", methods=["DELETE"])
+def api_user_pass_quests_reroll(user_id):
+    """Supprime les quetes de la periode courante -> seront re-tirees au prochain
+    appel de list_user_active_quests."""
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    import datetime as _dt
+    now = _dt.datetime.utcnow()
+    daily_ps  = now.strftime("%Y-%m-%d")
+    weekly_ps = f"{now.isocalendar()[0]}-W{now.isocalendar()[1]:02d}"
+    db = get_db()
+    c = db.cursor()
+    c.execute(
+        "DELETE FROM pass_user_quests WHERE user_id = ? AND ((period='daily' AND period_start=?) OR (period='weekly' AND period_start=?))",
+        (str(user_id), daily_ps, weekly_ps),
+    )
+    deleted = c.rowcount
+    db.commit()
+    db.close()
+    # Re-genere immediat
+    quests = list_user_active_quests(user_id)
+    return jsonify({"ok": True, "deleted": deleted, "quests": quests})
 
 
 # ===== Owner-only : grant/revoke premium manuel =====
