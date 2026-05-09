@@ -36,6 +36,25 @@
   Cette section n'est visible que par toi. Réglages avancés réservés au propriétaire du bot.
 </p>
 
+<style>
+  .sabre-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); margin-top: 12px; }
+  .sabre-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .sabre-card .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .sabre-card .nom { font-weight: 700; font-size: 14px; }
+  .sabre-card .emoji { font-size: 22px; }
+  .sabre-card .rar-rare       { color: oklch(0.78 0.15 230); }
+  .sabre-card .rar-epique     { color: oklch(0.74 0.20 310); }
+  .sabre-card .rar-legendaire { color: oklch(0.86 0.20 90); }
+  .sabre-card .id { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+  .sabre-card .spec { font-size: 12px; color: var(--text-muted); }
+</style>
+
 <div class="own-grid">
   <div class="own-card">
     <h2>Background /niveau personnalisé</h2>
@@ -66,7 +85,49 @@
       Il n'apparaît que pour toi dans la grille.
     </div>
   </div>
+
+  <div class="own-card">
+    <h2>Sabres saisonniers (Battle Pass)</h2>
+    <div class="sub">
+      Tous les sabres cosmétiques générés à chaque saison du Pass. IDs au format
+      <code>season_&lt;YYYY-MM&gt;_&lt;rareté&gt;</code>. Stats égales aux sabres f2p
+      de même rareté (anti-P2W).
+    </div>
+    <div id="sabreGrid" class="sabre-grid">
+      <div class="muted" style="font-size:13px;">Chargement…</div>
+    </div>
+  </div>
 </div>
+
+<script>
+(function(){
+  fetch('/api/owner/seasonal-sabres')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      const grid = document.getElementById('sabreGrid');
+      if (!d || !d.sabres || d.sabres.length === 0) {
+        grid.innerHTML = '<div class="muted" style="font-size:13px;">Aucun sabre saisonnier généré pour le moment. Une nouvelle saison crée 3 sabres (rare / épique / légendaire) automatiquement.</div>';
+        return;
+      }
+      grid.innerHTML = d.sabres.map(s => `
+        <div class="sabre-card">
+          <div class="top">
+            <span class="emoji">${s.emoji || '⚔️'}</span>
+            <span class="rar-${s.rarete}" style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;">${s.rarete}</span>
+          </div>
+          <div class="nom">${escapeHtml(s.nom)}</div>
+          <div class="id">${s.id}</div>
+          <div class="spec">${s.speciale_emoji || ''} <strong>${escapeHtml(s.speciale_nom || '—')}</strong> · ${escapeHtml(s.speciale_description || '')}</div>
+        </div>
+      `).join('');
+    });
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+})();
+</script>
 
 <script>
 (function(){

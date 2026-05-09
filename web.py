@@ -51,7 +51,7 @@ from database import (
     add_premium_grant, remove_premium_grant, list_premium_grants,
     has_premium_grant, user_has_active_pass, get_or_create_current_season,
     get_pass_progress, list_user_pass_unlocks,
-    list_user_active_quests,
+    list_user_active_quests, auto_claim_pass_tiers,
 )
 from niveau_card import (
     list_available_backgrounds, render_niveau_card,
@@ -1395,6 +1395,23 @@ def api_owner_niveau_bg_upload():
     return jsonify({"ok": True, "bg_id": f"owner:{uid}"})
 
 
+@app.route("/api/owner/seasonal-sabres", methods=["GET"])
+def api_owner_seasonal_sabres():
+    """Liste tous les sabres saisonniers (id LIKE 'season_%') pour visu owner."""
+    if not _is_owner_session():
+        return jsonify({"error": "owner_only"}), 403
+    db = get_db()
+    rows = db.execute(
+        '''SELECT id, nom, emoji, rarete, description, speciale_nom,
+                  speciale_description, speciale_emoji, speciale_effet
+           FROM sabres
+           WHERE id LIKE 'season_%'
+           ORDER BY id DESC'''
+    ).fetchall()
+    db.close()
+    return jsonify({"sabres": [dict(r) for r in rows]})
+
+
 @app.route("/api/owner/niveau-bg", methods=["DELETE"])
 def api_owner_niveau_bg_delete():
     if not _is_owner_session():
@@ -1523,18 +1540,42 @@ def api_user_pass_set_xp(user_id):
     except (TypeError, ValueError):
         return jsonify({"error": "bad_xp"}), 400
 
+    # Si on baisse l'XP, on reset claimed_max_tier sinon les paliers superieurs
+    # restent debloques. Si on monte, on garde claimed_max_tier (autoclaim suit).
     db = get_db()
     c = db.cursor()
-    c.execute('''
-        INSERT INTO pass_progress (user_id, season_id, xp, claimed_max_tier, updated_at)
-        VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id, season_id) DO UPDATE SET
-            xp = excluded.xp,
-            updated_at = CURRENT_TIMESTAMP
-    ''', (str(user_id), sid, new_xp))
+    if new_xp == 0:
+        c.execute('''
+            INSERT INTO pass_progress (user_id, season_id, xp, claimed_max_tier, updated_at)
+            VALUES (?, ?, 0, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id, season_id) DO UPDATE SET
+                xp = 0, claimed_max_tier = 0, updated_at = CURRENT_TIMESTAMP
+        ''', (str(user_id), sid))
+    else:
+        c.execute('''
+            INSERT INTO pass_progress (user_id, season_id, xp, claimed_max_tier, updated_at)
+            VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT(user_id, season_id) DO UPDATE SET
+                xp = excluded.xp,
+                updated_at = CURRENT_TIMESTAMP
+        ''', (str(user_id), sid, new_xp))
     db.commit()
     db.close()
-    return jsonify({"ok": True, "user_id": str(user_id), "season_id": sid, "xp": new_xp})
+
+    # Auto-claim des paliers franchis par cette modif
+    delivered = []
+    if new_xp > 0:
+        try:
+            delivered = auto_claim_pass_tiers(user_id, sid, new_xp)
+            for d in delivered:
+                print(f"[pass admin] user={user_id} unlock tier {d['tier']} ({d['type']}: {d.get('label')})")
+        except Exception as e:
+            print(f"[pass admin] auto_claim error: {e!r}")
+
+    return jsonify({
+        "ok": True, "user_id": str(user_id), "season_id": sid, "xp": new_xp,
+        "delivered": delivered,
+    })
 
 
 @app.route("/api/user/<user_id>/pass/quests", methods=["GET"])
