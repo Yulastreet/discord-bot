@@ -198,7 +198,7 @@ YDL_OPTIONS = {
     # Fallbacks ios/android/tv pour cas ou web echoue.
     'extractor_args': {
         'youtube': {
-            'player_client': ['web', 'mweb', 'tv', 'ios', 'android'],
+            'player_client': ['mediaconnect', 'web', 'mweb', 'tv', 'ios', 'android'],
         },
         'youtubepot-bgutilhttp': {
             'base_url': [_BGUTIL_POT_URL],
