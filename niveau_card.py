@@ -158,9 +158,11 @@ def _placeholder_avatar(size: int) -> Image.Image:
 # Background
 # ──────────────────────────────────────────────────────────────────────────────
 
-# Cache backgrounds en RAM : { id: Image RGB pre-redimensionnee }.
-# Pillow Image est immutable cote nous (on .copy() avant compositer).
-_BG_CACHE: dict[str, Image.Image] = {}
+# Cache backgrounds en RAM : { id: (mtime_disk, Image RGB) }.
+# La cle inclut le mtime du fichier source ; quand le fichier est modifie
+# (upload owner, regeneration saisonniere) on invalide automatiquement, ce
+# qui rend le cache transparent entre les processus pm2 (bot et web).
+_BG_CACHE: dict[str, tuple[float, Image.Image]] = {}
 
 
 def _resolve_bg_path(bg_id: str) -> Optional[str]:
@@ -189,20 +191,27 @@ def _resolve_bg_path(bg_id: str) -> Optional[str]:
 
 
 def _load_background(bg_id: str) -> Image.Image:
-    """Charge le BG demandé (mis en cache RAM), fallback default puis gradient.
+    """Charge le BG demandé (cache RAM mtime-aware), fallback default puis gradient.
+
+    Le cache stocke (mtime_disk, Image). Si le fichier sur disque a un mtime
+    plus recent que celui en cache, on recharge automatiquement — utile pour
+    propager un upload owner BG ou la regeneration des BG saisonniers entre
+    les processus pm2 (bot + web ont chacun leur cache).
 
     Renvoie une COPIE pour que les operations suivantes (alpha_composite, draw)
     ne mutent pas l'image cachee.
     """
     candidates = [bg_id, "default"]
     for name in candidates:
-        if name in _BG_CACHE:
-            return _BG_CACHE[name].copy()
         path = _resolve_bg_path(name)
         if path:
             try:
+                disk_mtime = os.path.getmtime(path)
+                cached = _BG_CACHE.get(name)
+                if cached and cached[0] >= disk_mtime:
+                    return cached[1].copy()
                 img = Image.open(path).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
-                _BG_CACHE[name] = img
+                _BG_CACHE[name] = (disk_mtime, img)
                 return img.copy()
             except Exception:
                 continue
@@ -228,9 +237,11 @@ def preload_backgrounds():
         bg_id = os.path.splitext(fn)[0]
         if bg_id in _BG_CACHE:
             continue
+        path = os.path.join(BG_DIR, fn)
         try:
-            img = Image.open(os.path.join(BG_DIR, fn)).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
-            _BG_CACHE[bg_id] = img
+            mtime = os.path.getmtime(path)
+            img = Image.open(path).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
+            _BG_CACHE[bg_id] = (mtime, img)
         except Exception:
             pass
 
