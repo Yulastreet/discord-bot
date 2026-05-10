@@ -815,26 +815,23 @@ def setup_duel_commands(bot, db):
             else:
                 per_rarete.setdefault(s["rarete"], []).append(s)
 
-        embed = discord.Embed(
-            title=f"🗂️  Collection de {member_name}",
-            color=0x9B59B6,
-        )
         equipped = get_sabre(sabre_equipe) if sabre_equipe else None
+        parts = []
+
+        # Bloc "Sabre equipe" en haut
         if equipped:
             equipped_rar = RARETES.get(equipped["rarete"], {})
-            equipped_line = (
-                f"{equipped['emoji']} **{equipped['nom']}**\n"
-                f"╰─ {equipped_rar.get('emoji','')} {equipped_rar.get('label','')}"
+            parts.append(
+                f"⚔️  **Sabre équipé :**  {equipped['emoji']}  **{equipped['nom']}**  "
+                f"·  {equipped_rar.get('emoji','')} {equipped_rar.get('label','')}"
             )
         else:
-            equipped_line = "_aucun_"
-        embed.description = (
-            f"⚔️ **Sabre équipé**\n{equipped_line}\n\n"
-            f"🪙 **{profil_data.get('tookcoins', 0)}** TookCoins  ·  "
-            f"📦 **{len(sabres_ids)}** sabre(s) au total"
+            parts.append("⚔️  **Sabre équipé :**  _aucun_")
+        parts.append(
+            f"🪙  **{profil_data.get('tookcoins', 0)}** TookCoins  ·  "
+            f"📦  **{len(sabres_ids)}** sabre(s) au total"
         )
 
-        # Bloc par rarete avec separator visuel + line skip entre sabres
         for rarete_id in RARETE_ORDER:
             sabres_rar = per_rarete.get(rarete_id) or []
             if not sabres_rar:
@@ -842,7 +839,14 @@ def setup_duel_commands(bot, db):
             rarete_info = RARETES[rarete_id]
             sabres_rar.sort(key=lambda x: (x["id"] != sabre_equipe, x["nom"].lower()))
 
-            blocs = []
+            parts.append("")
+            parts.append(SEPARATOR)
+            parts.append(
+                f"{rarete_info['emoji']}  ·  **{rarete_info['label']}**  ·  {len(sabres_rar)} sabre(s)"
+            )
+            parts.append(SEPARATOR)
+            parts.append("")
+
             for s in sabres_rar:
                 is_equipped = (s["id"] == sabre_equipe)
                 can, _ = _can_equip_seasonal(profil_data, s)
@@ -857,37 +861,37 @@ def setup_duel_commands(bot, db):
                 spec_emoji = special.get("emoji", "✨")
                 spec_nom   = special.get("nom", "")
 
-                bloc = (
-                    f"{s['emoji']}  **{s['nom']}**  ·  {status}\n"
-                    f"╰─  {spec_emoji}  _{spec_nom}_"
-                )
-                blocs.append(bloc)
+                parts.append(f"{s['emoji']}  **{s['nom']}**  ·  {status}")
+                parts.append(f"╰─  {spec_emoji}  _{spec_nom}_")
+                parts.append("")
 
-            # Separateur entre sabres = ligne vide (zero-width space)
-            value = "\n​\n".join(blocs)
+        if len(per_rarete) == 0 or all(not v for v in per_rarete.values()):
+            parts.append("")
+            parts.append("_Aucun sabre dans ta collection._")
 
-            embed.add_field(
-                name=f"{rarete_info['emoji']}  ·  **{rarete_info['label']}**  ·  {len(sabres_rar)} sabre(s)",
-                value=value,
-                inline=False,
-            )
+        description = "\n".join(parts)
+        if len(description) > 4000:
+            description = description[:3990] + "\n…"
 
-        if not embed.fields:
-            embed.description += "\n\n_Aucun sabre dans ta collection._"
+        embed = discord.Embed(
+            title=f"🗂️  Collection de {member_name}",
+            description=description,
+            color=0x9B59B6,
+        )
         embed.set_footer(
             text="Sélectionne un sabre dans le menu ci-dessous pour l'équiper  ·  🔒 sabre saisonnier verrouillé"
         )
         return embed
 
+    SEPARATOR = "─" * 30
+
     def _build_shop_embed(profil_data):
         sabres      = get_tous_les_sabres()
         inventaire  = profil_data.get("sabres", ["bleu"])
         coins       = profil_data.get("tookcoins", 0)
-        embed = discord.Embed(
-            title="🛒  Boutique des sabres laser",
-            description=f"🪙  **Solde :** {coins} TookCoins",
-            color=0x00BFFF,
-        )
+
+        parts = [f"🪙  **Solde :** {coins} TookCoins"]
+
         for rarete_id in RARETE_ORDER:
             rarete_info = RARETES[rarete_id]
             sabres_rarete = [
@@ -897,7 +901,14 @@ def setup_duel_commands(bot, db):
             if not sabres_rarete:
                 continue
 
-            blocs = []
+            # Header de section avec separateurs
+            parts.append("")
+            parts.append(SEPARATOR)
+            parts.append(f"{rarete_info['emoji']}  ·  **{rarete_info['label']}**")
+            parts.append(SEPARATOR)
+            parts.append("")
+
+            # Sabres
             for s in sabres_rarete:
                 possede = s["id"] in inventaire
                 if s["prix"] == 0:
@@ -907,32 +918,29 @@ def setup_duel_commands(bot, db):
                     prix_line = f"💰  **{s['prix']}** TookCoins" + (
                         "" if affordable else "  ·  *fonds insuffisants*"
                     )
-
-                if possede:
-                    status = "✅ **DÉJÀ POSSÉDÉ**"
-                else:
-                    status = prix_line
+                status = "✅ **DÉJÀ POSSÉDÉ**" if possede else prix_line
 
                 spec = s.get("speciale") or {}
                 spec_emoji = spec.get("emoji", "✨")
                 spec_nom   = spec.get("nom", "")
                 spec_desc  = spec.get("description", "")
-                # Tronque description si trop longue
                 if len(spec_desc) > 70:
                     spec_desc = spec_desc[:67] + "…"
 
-                bloc = (
-                    f"{s['emoji']}  **{s['nom']}**  ·  {status}\n"
-                    f"╰─  {spec_emoji}  *{spec_nom}*  —  {spec_desc}"
-                )
-                blocs.append(bloc)
+                parts.append(f"{s['emoji']}  **{s['nom']}**  ·  {status}")
+                parts.append(f"╰─  {spec_emoji}  *{spec_nom}*  —  {spec_desc}")
+                parts.append("")  # blank entre sabres
 
-            value = "\n​\n".join(blocs)
-            embed.add_field(
-                name=f"{rarete_info['emoji']}  ·  **{rarete_info['label']}**",
-                value=value,
-                inline=False,
-            )
+        # Limite 4096 chars (description discord)
+        description = "\n".join(parts)
+        if len(description) > 4000:
+            description = description[:3990] + "\n…"
+
+        embed = discord.Embed(
+            title="🛒  Boutique des sabres laser",
+            description=description,
+            color=0x00BFFF,
+        )
         embed.set_footer(text="Sélectionne un sabre dans le menu ci-dessous pour l'acheter")
         return embed
 
