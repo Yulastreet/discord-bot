@@ -227,6 +227,20 @@ def init_db():
         except Exception:
             pass  # Colonne déjà existante
 
+    # ===== Cache des roles par guild (pour pickers dashboard) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_roles (
+        guild_id    TEXT NOT NULL,
+        role_id     TEXT NOT NULL,
+        name        TEXT NOT NULL,
+        color       INTEGER DEFAULT 0,
+        position    INTEGER DEFAULT 0,
+        managed     INTEGER DEFAULT 0,
+        is_everyone INTEGER DEFAULT 0,
+        updated_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, role_id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_groles_guild ON guild_roles(guild_id)')
+
     # ===== REACTION ROLES =====
     # Mapping (guild, message, emoji) -> role. mode='toggle' = ajout/retrait
     # standard, 'add_only' = retire pas le role quand l'user enleve la reaction,
@@ -2385,6 +2399,44 @@ def list_user_pass_unlocks(user_id, type_: str = None, include_expired=False) ->
         except Exception:
             d["payload"] = {}
         if not include_expired and d.get("expires_at") and d["expires_at"] < now:
+            continue
+        out.append(d)
+    return out
+
+
+# =====================================================================
+# GUILD ROLES (cache)
+# =====================================================================
+
+def replace_guild_roles(guild_id, roles: list[dict]):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM guild_roles WHERE guild_id = ?", (str(guild_id),))
+    for r in roles:
+        c.execute('''INSERT INTO guild_roles
+            (guild_id, role_id, name, color, position, managed, is_everyone)
+            VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (str(guild_id), str(r["role_id"]), r["name"],
+             int(r.get("color", 0) or 0), int(r.get("position", 0) or 0),
+             int(bool(r.get("managed"))), int(bool(r.get("is_everyone")))))
+    conn.commit()
+    conn.close()
+
+
+def list_roles(guild_id, exclude_everyone=True, exclude_managed=True) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM guild_roles WHERE guild_id = ? ORDER BY position DESC",
+        (str(guild_id),),
+    ).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        d = dict(r)
+        if exclude_everyone and d.get("is_everyone"):
+            continue
+        if exclude_managed and d.get("managed"):
             continue
         out.append(d)
     return out

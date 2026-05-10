@@ -53,6 +53,8 @@ from database import (
     get_pass_progress, list_user_pass_unlocks,
     list_user_active_quests, auto_claim_pass_tiers,
     get_user_cosmetic, list_user_owned_cosmetics,
+    list_roles,
+    reaction_role_list, reaction_role_remove, reaction_role_remove_message,
 )
 from niveau_card import (
     list_available_backgrounds, render_niveau_card,
@@ -98,12 +100,14 @@ MOD_ALLOWED_PAGES = {
     "dashboard", "search", "user_profile",
     "reactions_panel", "reactions_panel_post",
     "music_page", "logs_page", "moderation_page",
+    "reactionroles_page",
 }
 MOD_ALLOWED_API_PREFIXES = (
     "/api/search", "/api/user/",
     "/api/reactions/", "/api/music/", "/api/logs",
     "/api/members", "/api/moderation/", "/api/channels",
     "/api/select-guild", "/api/guilds",
+    "/api/rolereactions",
 )
 MOD_BLOCKED_PAGES = {
     # Pages global ou owner-only
@@ -1600,6 +1604,93 @@ def api_public_stats():
     resp.headers["Access-Control-Allow-Methods"] = "GET"
     resp.headers["Cache-Control"]                = "public, max-age=3600"
     return resp
+
+
+# ===== Reaction Roles dashboard =====
+
+@app.route("/reactionroles")
+def reactionroles_page():
+    return render_template("reactionroles.html", active_nav="reactionroles")
+
+
+@app.route("/api/rolereactions", methods=["GET"])
+def api_rolereactions_list():
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    rows = reaction_role_list(g_id)
+    # Group by message
+    by_msg: dict[str, list] = {}
+    for r in rows:
+        by_msg.setdefault(r["message_id"], []).append(r)
+    out = []
+    for msg_id, items in by_msg.items():
+        out.append({
+            "message_id": msg_id,
+            "channel_id": items[0]["channel_id"],
+            "mode":       items[0]["mode"],
+            "mappings":   items,
+        })
+    out.sort(key=lambda x: int(x["message_id"]), reverse=True)
+    return jsonify({"messages": out})
+
+
+@app.route("/api/rolereactions/roles", methods=["GET"])
+def api_rolereactions_roles():
+    g_id = gid()
+    if not g_id:
+        return jsonify({"roles": []})
+    return jsonify({"roles": list_roles(g_id)})
+
+
+@app.route("/api/rolereactions/post", methods=["POST"])
+def api_rolereactions_post():
+    """Enqueue une commande bot pour poster un message role-reaction."""
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    data = request.get_json(silent=True) or {}
+    channel_id  = data.get("channel_id")
+    titre       = (data.get("titre") or "").strip() or "Choisis ton rôle"
+    description = (data.get("description") or "").strip()
+    mode        = data.get("mode") or "toggle"
+    mappings    = data.get("mappings") or []
+    if not channel_id or not mappings:
+        return jsonify({"error": "channel_id et mappings requis"}), 400
+    if mode not in ("toggle", "add_only", "unique"):
+        return jsonify({"error": "mode invalide"}), 400
+    # Sanity: chaque mapping doit avoir emoji_key + role_id
+    for m in mappings:
+        if not m.get("emoji_key") or not m.get("role_id"):
+            return jsonify({"error": "mapping incomplet"}), 400
+
+    cmd_id = bot_command_enqueue(g_id, "rolereaction_post", {
+        "channel_id":  str(channel_id),
+        "titre":       titre,
+        "description": description,
+        "mode":        mode,
+        "mappings":    mappings,
+        "by":          _current_user_id(),
+    })
+    return jsonify({"ok": True, "cmd_id": cmd_id})
+
+
+@app.route("/api/rolereactions/<message_id>", methods=["DELETE"])
+def api_rolereactions_delete(message_id):
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    n = reaction_role_remove_message(g_id, message_id)
+    return jsonify({"ok": True, "deleted": n})
+
+
+@app.route("/api/rolereactions/<message_id>/<emoji>", methods=["DELETE"])
+def api_rolereactions_delete_emoji(message_id, emoji):
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    n = reaction_role_remove(g_id, message_id, emoji)
+    return jsonify({"ok": True, "deleted": n})
 
 
 # ===== Pass : page utilisateur "Mon Pass" =====

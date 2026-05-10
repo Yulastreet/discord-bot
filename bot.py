@@ -78,7 +78,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       reaction_role_remove_message as db_rr_remove_msg,
                       reaction_role_get as db_rr_get,
                       reaction_role_list as db_rr_list,
-                      reaction_role_list_unique_group as db_rr_list_unique)
+                      reaction_role_list_unique_group as db_rr_list_unique,
+                      replace_guild_roles)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -408,6 +409,10 @@ async def on_ready():
         except Exception as e:
             print(f"[channels] sync {guild.name} échoué : {e}")
         try:
+            _sync_guild_roles(guild)
+        except Exception as e:
+            print(f"[roles] sync {guild.name} échoué : {e}")
+        try:
             _sync_guild_members(guild)
         except Exception as e:
             print(f"[members] sync {guild.name} échoué : {e}")
@@ -445,6 +450,22 @@ async def on_ready():
             print(f"✅ Sync guild : {guild.name}")
         except Exception as e:
             print(f"❌ Sync guild échouée ({guild.name}) : {e}")
+
+def _sync_guild_roles(guild):
+    """Pousse les roles d'une guild dans la table guild_roles (cache pour
+    les pickers du dashboard)."""
+    rows = []
+    for r in guild.roles:
+        rows.append({
+            "role_id":     r.id,
+            "name":        r.name,
+            "color":       r.color.value if r.color else 0,
+            "position":    r.position,
+            "managed":     r.managed,
+            "is_everyone": r.is_default(),
+        })
+    replace_guild_roles(guild.id, rows)
+
 
 def _sync_guild_members(guild):
     members = []
@@ -517,6 +538,30 @@ async def on_guild_channel_update(before, after):
 async def on_guild_channel_delete(channel):
     if not channel.guild: return
     remove_channel(channel.guild.id, channel.id)
+
+
+@bot.event
+async def on_guild_role_create(role):
+    try:
+        _sync_guild_roles(role.guild)
+    except Exception as e:
+        print(f"[roles] sync on create : {e}")
+
+
+@bot.event
+async def on_guild_role_update(before, after):
+    try:
+        _sync_guild_roles(after.guild)
+    except Exception as e:
+        print(f"[roles] sync on update : {e}")
+
+
+@bot.event
+async def on_guild_role_delete(role):
+    try:
+        _sync_guild_roles(role.guild)
+    except Exception as e:
+        print(f"[roles] sync on delete : {e}")
 
 
 # ===== LOGS — capture des events =====
@@ -2521,6 +2566,73 @@ async def _dispatch_bot_command(cmd):
                 embed_obj.timestamp = discord.utils.utcnow()
 
         await channel.send(content=content or None, embed=embed_obj)
+
+    elif name == "rolereaction_post":
+        # payload: {channel_id, titre, description, mode, mappings:[{emoji_key, role_id}]}
+        ch_id   = payload.get("channel_id")
+        titre   = (payload.get("titre") or "Choisis ton rôle").strip()
+        descp   = (payload.get("description") or "").strip()
+        mode    = payload.get("mode") or "toggle"
+        mapps   = payload.get("mappings") or []
+        if not ch_id:
+            raise ValueError("channel_id requis")
+        if mode not in ("toggle", "add_only", "unique"):
+            raise ValueError("mode invalide")
+        if not mapps:
+            raise ValueError("au moins 1 mapping requis")
+        channel = guild.get_channel(int(ch_id))
+        if not channel or not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            raise ValueError("salon textuel introuvable")
+
+        # Verif hierarchie sur tous les roles
+        me = guild.me
+        for m in mapps:
+            r = guild.get_role(int(m["role_id"]))
+            if not r:
+                raise ValueError(f"role {m['role_id']} introuvable")
+            if r >= me.top_role:
+                raise ValueError(f"mon role est en dessous de '{r.name}'")
+
+        embed = discord.Embed(title=titre, description=descp, color=0xC8F050)
+        lines = []
+        for m in mapps:
+            ek = m["emoji_key"]
+            lines.append(f"{ek if not ek.startswith('<') else ek} → <@&{m['role_id']}>")
+        embed.add_field(name="Réactions disponibles", value="\n".join(lines), inline=False)
+        embed.set_footer(text=(
+            "Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
+            if mode == "unique" else
+            "Réagis pour recevoir le rôle correspondant."
+        ))
+
+        msg = await channel.send(embed=embed)
+        # Reactions avec retry VS-16
+        async def _try_add(emoji_str):
+            if emoji_str.startswith("<"):
+                await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
+                return None
+            base = emoji_str.replace("️", "")
+            for v in [emoji_str, base, base + "️"]:
+                try:
+                    await msg.add_reaction(v)
+                    return None
+                except discord.HTTPException as e:
+                    last = e
+            return last
+        for m in mapps:
+            try:
+                await _try_add(m["emoji_key"])
+            except Exception as e:
+                print(f"[rolereaction] dispatch add_reaction err: {e!r}")
+            await asyncio.sleep(0.35)
+
+        group_key = f"msg_{msg.id}" if mode == "unique" else None
+        for m in mapps:
+            db_rr_add(
+                guild.id, msg.id, channel.id, m["emoji_key"], m["role_id"],
+                mode=mode, group_key=group_key, created_by=payload.get("by"),
+            )
+        return
 
     else:
         raise ValueError(f"commande inconnue: {name}")
