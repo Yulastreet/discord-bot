@@ -71,12 +71,38 @@
     .guild-menu-divider { height: 1px; background: var(--border-soft); margin: 6px 0; }
     .guild-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-    /* Bigger brand image */
+    /* Bigger brand image with lime glow */
+    .sidebar .brand {
+      position: relative;
+      isolation: isolate;
+    }
     .sidebar .brand-img {
-      width: 44px; height: 44px;
-      border-radius: 10px;
+      position: relative;
+      width: 64px; height: 64px;
+      border-radius: 14px;
       object-fit: cover;
       flex-shrink: 0;
+      z-index: 1;
+    }
+    .sidebar .brand-img::before,
+    .sidebar .brand::before {
+      content: "";
+      position: absolute;
+      left: -10px; top: -10px;
+      width: 84px; height: 84px;
+      border-radius: 50%;
+      background: radial-gradient(circle,
+        oklch(0.86 0.20 130 / .55) 0%,
+        oklch(0.86 0.20 130 / .25) 40%,
+        oklch(0.86 0.20 130 / 0) 70%);
+      filter: blur(14px);
+      z-index: 0;
+      pointer-events: none;
+      animation: brand-pulse 4s ease-in-out infinite;
+    }
+    @keyframes brand-pulse {
+      0%, 100% { opacity: .8; transform: scale(1); }
+      50%      { opacity: 1;  transform: scale(1.08); }
     }
 
     /* Support server button (header center) */
