@@ -1,0 +1,171 @@
+{% extends "_base.html" %}
+{% block title %}Tickets · TookBot{% endblock %}
+{% block crumb %}Tickets{% endblock %}
+
+{% block content %}
+<style>
+  .tk-panel-card, .tk-ticket-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .tk-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: oklch(0.86 0.20 130 / .15);
+    display: grid; place-items: center; font-size: 20px; flex-shrink: 0;
+  }
+  .tk-meta { flex: 1; min-width: 0; }
+  .tk-title { font-weight: 600; font-size: 14px; }
+  .tk-sub { font-size: 12px; color: var(--text-muted); }
+  .tk-actions { display: flex; gap: 6px; }
+  .help-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 18px 22px;
+    margin-bottom: 28px;
+  }
+  .help-card code { background: var(--bg-2); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: oklch(0.86 0.20 130); color: #1a1a1a; font-weight: 600;
+    padding: 12px 18px; border-radius: 10px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 180ms, transform 180ms;
+    pointer-events: none; z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .pill { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill-open    { background: oklch(0.78 0.20 145 / .25); color: oklch(0.78 0.20 145); }
+  .pill-closed  { background: oklch(0.65 0.10 0 / .15); color: var(--text-muted); }
+  .pill-deleted { background: oklch(0.65 0.20 25 / .2); color: oklch(0.78 0.18 25); }
+</style>
+
+<h1 style="margin:0 0 8px;">🎫 Tickets</h1>
+<p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:20px;">
+  Gestion des tickets de support style MEE6. Crée des panneaux avec un bouton « Ouvrir un ticket »
+  qui génère un salon privé entre l'utilisateur et ton équipe support.
+</p>
+
+<div class="help-card">
+  <strong>📌 Comment créer un panneau ?</strong><br>
+  <span style="font-size:13px;color:var(--text-muted);">
+    Va sur Discord et lance <code>/ticket setup salon:#support titre:"Support" support_role:@Support catégorie:Catégorie-Tickets</code>
+    — le panneau sera posté avec un bouton et apparaîtra ici.
+  </span>
+</div>
+
+<h2 style="margin: 24px 0 10px;">📋 Panneaux configurés</h2>
+<div id="panelList">
+  <div class="muted" style="font-size:13px;">Chargement…</div>
+</div>
+
+<h2 style="margin: 32px 0 10px;">🎫 Tickets ouverts</h2>
+<div id="ticketList">
+  <div class="muted" style="font-size:13px;">Chargement…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? 'oklch(0.86 0.20 130)' : 'oklch(0.65 0.20 25)';
+  t.style.color = ok ? '#1a1a1a' : '#fff';
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+async function loadPanels() {
+  const list = document.getElementById('panelList');
+  try {
+    const r = await fetch('/api/tickets/panels');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    const panels = d.panels || [];
+    if (panels.length === 0) {
+      list.innerHTML = '<div class="muted" style="font-size:13px;">Aucun panneau configuré. Lance <code>/ticket setup</code> dans Discord.</div>';
+      return;
+    }
+    list.innerHTML = panels.map(p => `
+      <div class="tk-panel-card">
+        <div class="tk-icon">${escapeHtml(p.button_emoji || '🎫')}</div>
+        <div class="tk-meta">
+          <div class="tk-title">${escapeHtml(p.panel_title || 'Sans titre')}</div>
+          <div class="tk-sub">
+            <#${p.channel_id}> · <code>id #${p.id}</code>
+            ${p.support_role_id ? '· support : <@&' + p.support_role_id + '>' : ''}
+            ${p.category_id ? '· catégorie : <#' + p.category_id + '>' : ''}
+          </div>
+        </div>
+        <div class="tk-actions">
+          <button class="btn btn-secondary del-panel" data-id="${p.id}" type="button">🗑️</button>
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('.del-panel').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Supprimer ce panneau ? (le message Discord ne sera pas supprimé automatiquement)')) return;
+        const r = await fetch(`/api/tickets/panels/${btn.dataset.id}`, { method: 'DELETE' });
+        if (r.ok) { showToast('Panneau supprimé'); loadPanels(); }
+        else showToast('Erreur', false);
+      });
+    });
+  } catch (e) {
+    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+  }
+}
+
+async function loadTickets() {
+  const list = document.getElementById('ticketList');
+  try {
+    const r = await fetch('/api/tickets?status=open');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    const tickets = d.tickets || [];
+    if (tickets.length === 0) {
+      list.innerHTML = '<div class="muted" style="font-size:13px;">Aucun ticket ouvert.</div>';
+      return;
+    }
+    list.innerHTML = tickets.map(t => `
+      <div class="tk-ticket-card">
+        <div class="tk-icon">🎫</div>
+        <div class="tk-meta">
+          <div class="tk-title">Ticket #${t.id} · <#${t.channel_id}></div>
+          <div class="tk-sub">
+            ouvert par <@${t.opener_id}>
+            ${t.claimed_by ? '· réclamé par <@' + t.claimed_by + '>' : ''}
+            · <span class="pill pill-${t.status}">${t.status}</span>
+          </div>
+        </div>
+        <div class="tk-actions">
+          <button class="btn btn-secondary close-tk" data-id="${t.id}" type="button">🔒 Fermer</button>
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('.close-tk').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Fermer ce ticket côté DB ? (le salon Discord reste, le membre ne pourra plus écrire au prochain restart bot)')) return;
+        const r = await fetch(`/api/tickets/${btn.dataset.id}/close`, { method: 'POST' });
+        if (r.ok) { showToast('Ticket marqué fermé'); loadTickets(); }
+        else showToast('Erreur', false);
+      });
+    });
+  } catch (e) {
+    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadPanels();
+  loadTickets();
+});
+</script>
+{% endblock %}

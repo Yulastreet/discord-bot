@@ -57,6 +57,8 @@ from database import (
     reaction_role_list, reaction_role_remove, reaction_role_remove_message,
     social_alert_create, social_alert_delete, social_alert_set_enabled,
     social_alerts_list,
+    ticket_panels_list, ticket_panel_delete, ticket_panel_get,
+    tickets_list, ticket_set_status,
 )
 import social_integrations as social
 from niveau_card import (
@@ -103,7 +105,7 @@ MOD_ALLOWED_PAGES = {
     "dashboard", "search", "user_profile",
     "reactions_panel", "reactions_panel_post",
     "music_page", "logs_page", "moderation_page",
-    "reactionroles_page", "social_alerts_page",
+    "reactionroles_page", "social_alerts_page", "tickets_page",
 }
 MOD_ALLOWED_API_PREFIXES = (
     "/api/search", "/api/user/",
@@ -112,6 +114,7 @@ MOD_ALLOWED_API_PREFIXES = (
     "/api/select-guild", "/api/guilds",
     "/api/rolereactions",
     "/api/social-alerts",
+    "/api/tickets",
 )
 MOD_BLOCKED_PAGES = {
     # Pages global ou owner-only
@@ -1608,6 +1611,51 @@ def api_public_stats():
     resp.headers["Access-Control-Allow-Methods"] = "GET"
     resp.headers["Cache-Control"]                = "public, max-age=3600"
     return resp
+
+
+# ===== Tickets dashboard =====
+
+@app.route("/tickets")
+def tickets_page():
+    return render_template("tickets.html", active_nav="tickets")
+
+
+@app.route("/api/tickets/panels", methods=["GET"])
+def api_tickets_panels_list():
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    return jsonify({"panels": ticket_panels_list(g_id)})
+
+
+@app.route("/api/tickets/panels/<int:pid>", methods=["DELETE"])
+def api_tickets_panel_delete(pid):
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    panel = ticket_panel_get(pid)
+    if not panel or str(panel["guild_id"]) != str(g_id):
+        return jsonify({"error": "not_found"}), 404
+    n = ticket_panel_delete(pid, guild_id=g_id)
+    return jsonify({"ok": True, "deleted": n})
+
+
+@app.route("/api/tickets", methods=["GET"])
+def api_tickets_list():
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    status = request.args.get("status") or None
+    return jsonify({"tickets": tickets_list(g_id, status=status, limit=100)})
+
+
+@app.route("/api/tickets/<int:ticket_id>/close", methods=["POST"])
+def api_tickets_close(ticket_id):
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    ticket_set_status(ticket_id, "closed", closed_by=_current_user_id())
+    return jsonify({"ok": True})
 
 
 # ===== Social Alerts dashboard =====

@@ -241,6 +241,45 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_groles_guild ON guild_roles(guild_id)')
 
+    # ===== TICKETS =====
+    # Panneau "Ouvrir un ticket" : message avec bouton dans un salon public.
+    c.execute('''CREATE TABLE IF NOT EXISTS ticket_panels (
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id           TEXT NOT NULL,
+        channel_id         TEXT NOT NULL,
+        message_id         TEXT,
+        panel_title        TEXT,
+        panel_description  TEXT,
+        button_label       TEXT DEFAULT 'Ouvrir un ticket',
+        button_emoji       TEXT DEFAULT '🎫',
+        button_style       TEXT DEFAULT 'primary',
+        support_role_id    TEXT,
+        category_id        TEXT,
+        welcome_message    TEXT,
+        enabled            INTEGER NOT NULL DEFAULT 1,
+        created_by         TEXT,
+        created_at         TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tp_guild ON ticket_panels(guild_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tp_msg   ON ticket_panels(message_id)')
+
+    # Tickets ouverts par les membres
+    c.execute('''CREATE TABLE IF NOT EXISTS tickets (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id    TEXT NOT NULL,
+        panel_id    INTEGER,
+        opener_id   TEXT NOT NULL,
+        channel_id  TEXT NOT NULL UNIQUE,
+        status      TEXT DEFAULT 'open',
+        claimed_by  TEXT,
+        opened_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+        closed_at   TEXT,
+        closed_by   TEXT
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tk_guild  ON tickets(guild_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tk_opener ON tickets(opener_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_tk_status ON tickets(status)')
+
     # ===== SOCIAL ALERTS =====
     # Notifie un salon Discord quand un createur publie sur une plateforme.
     # platform : 'twitch' (live) | 'youtube' (nouvelle video) | 'reddit' (nouveau post)
@@ -2552,6 +2591,166 @@ def reaction_role_list_unique_group(guild_id, message_id, group_key: str) -> lis
            WHERE guild_id = ? AND message_id = ? AND group_key = ? AND mode = 'unique' ''',
         (str(guild_id), str(message_id), group_key),
     ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# =====================================================================
+# TICKETS HELPERS
+# =====================================================================
+
+def ticket_panel_create(guild_id, channel_id, panel_title=None, panel_description=None,
+                        button_label="Ouvrir un ticket", button_emoji="🎫",
+                        button_style="primary", support_role_id=None, category_id=None,
+                        welcome_message=None, created_by=None) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''INSERT INTO ticket_panels
+        (guild_id, channel_id, panel_title, panel_description,
+         button_label, button_emoji, button_style,
+         support_role_id, category_id, welcome_message, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (str(guild_id), str(channel_id), panel_title, panel_description,
+         button_label, button_emoji, button_style,
+         str(support_role_id) if support_role_id else None,
+         str(category_id) if category_id else None,
+         welcome_message, str(created_by) if created_by else None))
+    conn.commit()
+    pid = c.lastrowid
+    conn.close()
+    return pid
+
+
+def ticket_panel_set_message(panel_id, message_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE ticket_panels SET message_id = ? WHERE id = ?",
+              (str(message_id), int(panel_id)))
+    conn.commit()
+    conn.close()
+
+
+def ticket_panel_get(panel_id) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM ticket_panels WHERE id = ?", (int(panel_id),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def ticket_panel_get_by_message(guild_id, message_id) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT * FROM ticket_panels WHERE guild_id = ? AND message_id = ?",
+        (str(guild_id), str(message_id)),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def ticket_panels_list(guild_id) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM ticket_panels WHERE guild_id = ? ORDER BY id DESC",
+        (str(guild_id),),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def ticket_panel_delete(panel_id, guild_id=None) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute("DELETE FROM ticket_panels WHERE id = ? AND guild_id = ?",
+                  (int(panel_id), str(guild_id)))
+    else:
+        c.execute("DELETE FROM ticket_panels WHERE id = ?", (int(panel_id),))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
+def ticket_create(guild_id, panel_id, opener_id, channel_id) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''INSERT INTO tickets (guild_id, panel_id, opener_id, channel_id)
+                 VALUES (?, ?, ?, ?)''',
+              (str(guild_id), int(panel_id) if panel_id else None,
+               str(opener_id), str(channel_id)))
+    conn.commit()
+    tid = c.lastrowid
+    conn.close()
+    return tid
+
+
+def ticket_get_by_channel(channel_id) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM tickets WHERE channel_id = ?",
+                    (str(channel_id),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def ticket_get_open_by_user(guild_id, opener_id, panel_id=None) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    if panel_id:
+        row = c.execute(
+            '''SELECT * FROM tickets WHERE guild_id = ? AND opener_id = ?
+                 AND panel_id = ? AND status = 'open' LIMIT 1''',
+            (str(guild_id), str(opener_id), int(panel_id)),
+        ).fetchone()
+    else:
+        row = c.execute(
+            '''SELECT * FROM tickets WHERE guild_id = ? AND opener_id = ?
+                 AND status = 'open' LIMIT 1''',
+            (str(guild_id), str(opener_id)),
+        ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def ticket_set_claimed(ticket_id, claimed_by):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE tickets SET claimed_by = ? WHERE id = ?",
+              (str(claimed_by), int(ticket_id)))
+    conn.commit()
+    conn.close()
+
+
+def ticket_set_status(ticket_id, status: str, closed_by=None):
+    conn = get_db()
+    c = conn.cursor()
+    if status in ("closed", "deleted"):
+        c.execute('''UPDATE tickets SET status = ?, closed_at = CURRENT_TIMESTAMP,
+                                          closed_by = ? WHERE id = ?''',
+                  (status, str(closed_by) if closed_by else None, int(ticket_id)))
+    else:
+        c.execute("UPDATE tickets SET status = ?, closed_at = NULL, closed_by = NULL WHERE id = ?",
+                  (status, int(ticket_id)))
+    conn.commit()
+    conn.close()
+
+
+def tickets_list(guild_id, status=None, limit=200) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    if status:
+        rows = c.execute(
+            "SELECT * FROM tickets WHERE guild_id = ? AND status = ? ORDER BY id DESC LIMIT ?",
+            (str(guild_id), status, int(limit)),
+        ).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT * FROM tickets WHERE guild_id = ? ORDER BY id DESC LIMIT ?",
+            (str(guild_id), int(limit)),
+        ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
