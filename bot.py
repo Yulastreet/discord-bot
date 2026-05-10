@@ -1534,9 +1534,13 @@ rolereaction_group = app_commands.Group(
 def _parse_emoji_input(s: str, guild: discord.Guild) -> str | None:
     """Accepte un emoji unicode ou un custom emoji (forme '<:name:id>' ou
     juste l'emoji utilise dans le serveur). Renvoie la cle canonique."""
+    import unicodedata as _ud
     if not s:
         return None
     s = s.strip()
+    # Normalisation NFC : certains OS (notamment macOS) envoient l'emoji en
+    # forme decomposee qui n'est pas reconnue par l'API Discord.
+    s = _ud.normalize("NFC", s)
     # Strip zero-width chars qui peuvent etre colles par certains claviers
     for zw in ("​", "‌", "‍", "⁠", "﻿"):
         s = s.replace(zw, "")
@@ -2574,6 +2578,13 @@ async def _dispatch_bot_command(cmd):
         descp   = (payload.get("description") or "").strip()
         mode    = payload.get("mode") or "toggle"
         mapps   = payload.get("mappings") or []
+        # Normalise les emojis recus du web : strip zero-width + reroute
+        # via _parse_emoji_input pour gerer aussi ":name:" -> custom emoji.
+        for m in mapps:
+            ek = m.get("emoji_key", "")
+            ek_clean = _parse_emoji_input(ek, guild) if guild else ek.strip()
+            if ek_clean:
+                m["emoji_key"] = ek_clean
         if not ch_id:
             raise ValueError("channel_id requis")
         if mode not in ("toggle", "add_only", "unique"):
