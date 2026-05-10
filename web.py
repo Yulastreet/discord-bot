@@ -850,8 +850,11 @@ def api_duels_user_sabre_remove(user_id):
 
 @app.route("/api/sabres")
 def api_sabres_list():
+    """Liste publique des sabres : exclut les sabres saisonniers du Battle Pass
+    (qui ont leur propre endpoint owner /api/owner/seasonal-sabres)."""
     sabres = db_get_tous_sabres()
-    return jsonify({"sabres": list(sabres.values()), "raretes": RARETES})
+    filtered = [s for s in sabres.values() if not s["id"].startswith("season_")]
+    return jsonify({"sabres": filtered, "raretes": RARETES})
 
 @app.route("/api/sabres/create", methods=["POST"])
 def api_sabres_create():

@@ -339,8 +339,9 @@ def init_db():
     # Seed de la table sabres si vide (depuis duel_sabres.SABRES_DEFAULT)
     seed_sabres_si_vide()
     seed_pass_quest_templates_si_vide()
-    # Migration : re-seed sabres saisonniers + pass_rewards pour saisons existantes
-    # (utile lorsque le mapping change entre versions du code)
+    # Migration : nettoie d'abord les sabres saisonniers casses (raretes invalides)
+    cleanup_legacy_seasonal_sabres()
+    # Re-seed sabres saisonniers + pass_rewards pour saisons existantes
     _migrate_pass_rewards_and_sabres()
     print("[OK] Base de donnees initialisee !")
 
@@ -1931,7 +1932,7 @@ _PASS_TIER_MAP = [
     (7,  "boost_xp",  {"hours": 1, "multiplier": 2.0},   "Boost XP ×2 pendant 1h"),
     (8,  "emoji",     {"emoji": "🔥"},                   "Emoji 🔥"),
     (9,  "bg",        {"index": 1},                      "Background saisonnier #2"),
-    (10, "sabre",     {"rarete": "rare"},                "Sabre cosmétique rare"),
+    (10, "sabre",     {"rarete": "R"},                   "Sabre cosmétique R (Rare)"),
     (11, "emoji",     {"emoji": "⚡"},                   "Emoji ⚡"),
     (12, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
     (13, "title",     {"title": "Vétéran"},              "Titre : Vétéran"),
@@ -1941,7 +1942,7 @@ _PASS_TIER_MAP = [
     (17, "title",     {"title": "Élu"},                  "Titre : Élu"),
     (18, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
     (19, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
-    (20, "sabre",     {"rarete": "epique"},              "Sabre cosmétique épique"),
+    (20, "sabre",     {"rarete": "SR"},                  "Sabre cosmétique SR (Super Rare)"),
     (21, "emoji",     {"emoji": "🌊"},                   "Emoji 🌊"),
     (22, "boost_xp",  {"hours": 3, "multiplier": 2.0},   "Boost XP ×2 pendant 3h"),
     (23, "bg",        {"index": 3},                      "Background saisonnier #4"),
@@ -1951,7 +1952,7 @@ _PASS_TIER_MAP = [
     (27, "title",     {"title": "Légende"},              "Titre : Légende"),
     (28, "emoji",     {"emoji": "🌟"},                   "Emoji 🌟"),
     (29, "bg",        {"index": 4},                      "Background saisonnier #5"),
-    (30, "sabre",     {"rarete": "legendaire"},          "Sabre cosmétique légendaire"),
+    (30, "sabre",     {"rarete": "SSR"},                 "Sabre cosmétique SSR (Super Super Rare)"),
 ]
 
 _SEASONAL_BG_NAMES = [
@@ -2008,23 +2009,36 @@ def seed_pass_rewards_for_season(season_id: int, month_key: str):
 
 
 def seed_seasonal_sabres(month_key: str):
-    """Cree 3 sabres cosmetiques (rare/epique/legendaire) avec stats=normales pour
-    la saison donnee. IDs : season_<YYYY-MM>_rare/epique/legendaire."""
+    """Cree 3 sabres cosmetiques (R/SR/SSR) avec stats ET effets equivalents
+    aux sabres f2p de meme rarete (anti-P2W). Seuls le visuel (nom, emoji,
+    description) change.
+
+    R   -> overcharge   (75% degats sup + ignore defense, comme Sabre Cyan)
+    SR  -> reflect_100  (renvoie 100% degats, comme Sabre Argent)
+    SSR -> ultimate     (combo supreme, comme Sabre Arc-en-Ciel)
+
+    IDs : season_<YYYY-MM>_<R|SR|SSR>"""
     conn = get_db()
     c = conn.cursor()
     sabres_data = [
-        (f"season_{month_key}_rare",
-         f"Lame Saisonnière {month_key}", "🌒", "rare", 0,
-         "Sabre cosmétique du Battle Pass — saison " + month_key,
-         "Frappe Saisonnière", "Bonus dégâts +30%", "✨", "rage_next"),
-        (f"season_{month_key}_epique",
-         f"Croissant Saisonnier {month_key}", "🌘", "epique", 0,
-         "Sabre cosmétique du Battle Pass — saison " + month_key,
-         "Drain Saisonnier", "Drain 50% des dégâts", "💜", "lifesteal_50"),
-        (f"season_{month_key}_legendaire",
-         f"Étoile Saisonnière {month_key}", "🌟", "legendaire", 0,
-         "Sabre cosmétique légendaire du Battle Pass — saison " + month_key,
-         "Suprématie Saisonnière", "Dégâts doublés ce tour", "💫", "rage_next"),
+        (f"season_{month_key}_R",
+         f"Lame Saisonnière {month_key}", "🌒", "R", 0,
+         "Skin saisonnier du Battle Pass · stats identiques aux sabres R classiques.",
+         "Surcharge Saisonnière",
+         "Inflige 75% de dégâts supplémentaires et ignore la défense.",
+         "🌙", "overcharge"),
+        (f"season_{month_key}_SR",
+         f"Croissant Saisonnier {month_key}", "🌘", "SR", 0,
+         "Skin saisonnier du Battle Pass · stats identiques aux sabres SR classiques.",
+         "Réflexion Saisonnière",
+         "Renvoie 100% des dégâts au prochain coup adverse.",
+         "🪞", "reflect_100"),
+        (f"season_{month_key}_SSR",
+         f"Étoile Saisonnière {month_key}", "🌟", "SSR", 0,
+         "Skin saisonnier légendaire du Battle Pass · stats identiques aux sabres SSR classiques.",
+         "Apothéose Saisonnière",
+         "Cumule les effets : 100% de dégâts + ignore défense + lifesteal 100%.",
+         "👑", "ultimate"),
     ]
     for s in sabres_data:
         try:
@@ -2036,6 +2050,40 @@ def seed_seasonal_sabres(month_key: str):
             print(f"[seed sabres saisonniers] error: {e!r}")
     conn.commit()
     conn.close()
+
+
+def cleanup_legacy_seasonal_sabres():
+    """Migration : supprime les anciens sabres saisonniers crees avec des
+    raretes invalides (rare/epique/legendaire). Nettoie aussi duel_collection
+    et reset sabre_equipe sur 'bleu' pour les profils qui les avaient equipes."""
+    conn = get_db()
+    c = conn.cursor()
+    bad = c.execute(
+        "SELECT id FROM sabres WHERE id LIKE 'season_%_rare' OR id LIKE 'season_%_epique' OR id LIKE 'season_%_legendaire'"
+    ).fetchall()
+    if not bad:
+        conn.close()
+        return
+    ids = [r["id"] for r in bad]
+    # Reset sabre_equipe sur 'bleu' si l'user avait un sabre legacy equipe
+    c.execute(
+        f"UPDATE duel_profil SET sabre_equipe = 'bleu' WHERE sabre_equipe IN ({','.join(['?'] * len(ids))})",
+        ids,
+    )
+    # Vire les sabres legacy de duel_collection
+    c.execute(
+        f"DELETE FROM duel_collection WHERE sabre_id IN ({','.join(['?'] * len(ids))})",
+        ids,
+    )
+    # Supprime les sabres eux-memes
+    c.executemany("DELETE FROM sabres WHERE id = ?", [(i,) for i in ids])
+    # Supprime les pass_unlocks qui pointaient sur ces sabres legacy
+    c.execute(
+        "DELETE FROM pass_unlocks WHERE type = 'sabre' AND payload LIKE '%season_%_rare%' OR payload LIKE '%season_%_epique%' OR payload LIKE '%season_%_legendaire%'"
+    )
+    conn.commit()
+    conn.close()
+    print(f"[migrate] cleanup legacy seasonal sabres: removed {len(ids)} ({ids})")
 
 
 def get_pass_rewards_for_season(season_id: int) -> list[dict]:

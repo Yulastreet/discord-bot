@@ -814,7 +814,11 @@ def setup_duel_commands(bot, db):
         )
         for rarete_id in RARETE_ORDER:
             rarete_info = RARETES[rarete_id]
-            sabres_rarete = [s for s in sabres.values() if s["rarete"] == rarete_id]
+            # Exclut les sabres saisonniers (debloques uniquement via Battle Pass)
+            sabres_rarete = [
+                s for s in sabres.values()
+                if s["rarete"] == rarete_id and not s["id"].startswith("season_")
+            ]
             if not sabres_rarete:
                 continue
             texte = []
@@ -936,6 +940,9 @@ def setup_duel_commands(bot, db):
                             key=lambda x: (RARETE_ORDER.index(x["rarete"]) if x["rarete"] in RARETE_ORDER else 99,
                                            x["prix"])):
                 if s["id"] in inventaire:
+                    continue
+                # Exclut les sabres saisonniers de la boutique
+                if s["id"].startswith("season_"):
                     continue
                 rarete = RARETES[s["rarete"]]
                 prix_txt = "GRATUIT" if s["prix"] == 0 else f"{s['prix']} TookCoins"
