@@ -2650,11 +2650,15 @@ async def _dispatch_bot_command(cmd):
 
         failed_dispatch = []
         for m in mapps:
+            ek = m["emoji_key"]
+            # Log codepoints pour diagnostic 'Unknown Emoji'
+            cps = " ".join(f"U+{ord(c):04X}" for c in ek)
+            print(f"[rolereaction] add_reaction emoji={ek!r} codepoints=[{cps}]")
             try:
-                await _try_add(m["emoji_key"])
+                await _try_add(ek)
             except Exception as e:
-                print(f"[rolereaction] dispatch add_reaction {m['emoji_key']!r} err: {e!r}")
-                failed_dispatch.append((m["emoji_key"], str(e)))
+                print(f"[rolereaction] dispatch add_reaction {ek!r} err: {e!r}")
+                failed_dispatch.append((ek, str(e)))
             await asyncio.sleep(0.35)
 
         group_key = f"msg_{msg.id}" if mode == "unique" else None
