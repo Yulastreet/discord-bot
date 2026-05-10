@@ -1489,6 +1489,12 @@ rolereaction_group = app_commands.Group(
 def _parse_emoji_input(s: str, guild: discord.Guild) -> str | None:
     """Accepte un emoji unicode ou un custom emoji (forme '<:name:id>' ou
     juste l'emoji utilise dans le serveur). Renvoie la cle canonique."""
+    if not s:
+        return None
+    s = s.strip()
+    # Strip zero-width chars qui peuvent etre colles par certains claviers
+    for zw in ("​", "‌", "‍", "⁠", "﻿"):
+        s = s.replace(zw, "")
     s = s.strip()
     if not s:
         return None
@@ -1757,16 +1763,40 @@ class _RoleReactionBuilder(discord.ui.View):
 
         # Ajout des reactions une par une avec petite pause anti-rate-limit
         # (Discord cap a ~5 reactions/5s). Les echecs sont collectes et reportes.
+        async def _try_add(emoji_str):
+            """Tente d'ajouter une reaction avec plusieurs variantes du meme
+            emoji unicode (avec/sans selecteur de variation U+FE0F) ; certains
+            clients Discord rejettent une variante mais acceptent l'autre."""
+            if emoji_str.startswith("<"):
+                # Custom emoji — pas de variantes a essayer
+                await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
+                return None
+            # Variantes : strip VS-16, sans, avec
+            base = emoji_str.replace("️", "")
+            variants = [emoji_str, base, base + "️"]
+            seen = set()
+            last_err = None
+            for v in variants:
+                if v in seen or not v:
+                    continue
+                seen.add(v)
+                try:
+                    await msg.add_reaction(v)
+                    return None
+                except discord.HTTPException as e:
+                    last_err = e
+                    continue
+            return last_err
+
         failed = []
         for m in self.mappings:
             ek = m["emoji_key"]
             try:
-                if ek.startswith("<"):
-                    await msg.add_reaction(discord.PartialEmoji.from_str(ek))
-                else:
-                    await msg.add_reaction(ek)
+                err = await _try_add(ek)
+                if err:
+                    raise err
             except Exception as e:
-                print(f"[rolereaction] add_reaction {ek} err: {e!r}")
+                print(f"[rolereaction] add_reaction {ek!r} err: {e!r}")
                 failed.append((m["emoji_display"], str(e)))
             await asyncio.sleep(0.35)
 
