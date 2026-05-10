@@ -52,6 +52,7 @@ from database import (
     has_premium_grant, user_has_active_pass, get_or_create_current_season,
     get_pass_progress, list_user_pass_unlocks,
     list_user_active_quests, auto_claim_pass_tiers,
+    get_user_cosmetic, list_user_owned_cosmetics,
 )
 from niveau_card import (
     list_available_backgrounds, render_niveau_card,
@@ -1577,6 +1578,8 @@ def api_my_pass():
     quests   = list_user_active_quests(uid)
     unlocks  = list_user_pass_unlocks(uid)
     has_pass = _has_pass(uid)
+    cosmetics_owned = list_user_owned_cosmetics(uid)
+    cosmetics_active = get_user_cosmetic(uid)
     # Roadmap des paliers (rewards definis pour la saison)
     db = get_db()
     rows = db.execute(
@@ -1592,7 +1595,35 @@ def api_my_pass():
         "quests":     quests,
         "unlocks":    unlocks,
         "rewards":    rewards,
+        "cosmetics_owned":  cosmetics_owned,
+        "cosmetics_active": cosmetics_active,
     })
+
+
+@app.route("/api/my/cosmetic", methods=["POST"])
+def api_my_cosmetic_set():
+    """Selectionne un titre/emoji parmi ceux possedes via Pass."""
+    from database import set_premium_setting as _set_setting
+    uid = _current_user_id()
+    if not uid:
+        return jsonify({"error": "not_logged_in"}), 401
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind")  # 'title' | 'emoji'
+    value = data.get("value")  # str ou None pour reset
+
+    if kind not in ("title", "emoji"):
+        return jsonify({"error": "bad_kind"}), 400
+
+    # Verif possession si valeur fournie
+    if value:
+        owned = list_user_owned_cosmetics(uid)
+        pool = owned["titles"] if kind == "title" else owned["emojis"]
+        if value not in pool:
+            return jsonify({"error": "not_owned"}), 400
+
+    setting_key = f"pass_selected_{kind}"
+    _set_setting(uid, setting_key, value or None)
+    return jsonify({"ok": True, "kind": kind, "value": value})
 
 
 # ===== Owner-only : Pass grant/revoke + status =====

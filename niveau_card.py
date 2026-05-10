@@ -277,22 +277,25 @@ async def render_niveau_card(
     xp_needed: int,
     background: str = "default",
     rank: Optional[int] = None,
+    title: Optional[str] = None,
+    emoji_prefix: Optional[str] = None,
 ) -> io.BytesIO:
     """Génère la carte et retourne un BytesIO PNG.
 
-    L'IO reseau (avatar) est async. Le travail Pillow est offload sur un
-    thread pour ne pas bloquer le event loop du bot.
+    `title` (str) : titre Pass affiche sous le pseudo (ex: "Maître").
+    `emoji_prefix` (str) : emoji Pass affiche devant le pseudo (ex: "🌟").
     """
     raw_avatar = await _fetch_avatar_bytes(avatar_url) if avatar_url else None
     return await asyncio.to_thread(
         _render_niveau_sync,
         username, raw_avatar, level, xp_total, xp_in_level, xp_needed,
-        background, rank,
+        background, rank, title, emoji_prefix,
     )
 
 
 def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
-                         xp_needed, background, rank) -> io.BytesIO:
+                         xp_needed, background, rank, title=None,
+                         emoji_prefix=None) -> io.BytesIO:
     base = _load_background(background).convert("RGBA")
 
     # Voile foncé sous le texte (gauche zone avatar->droite)
@@ -316,20 +319,28 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
 
     # ── Bloc texte droite ────────────────────────────────────────────────
     text_x = AVATAR_X + AVATAR_SIZE + 40
-    # Pseudo
+    # Pseudo (avec emoji prefix si Pass cosmetic actif)
     name_font = _font(46, bold=True)
-    # Truncate si nécessaire
-    display = username
+    full_name = (f"{emoji_prefix} {username}" if emoji_prefix else username)
+    display = full_name
     while draw.textlength(display, font=name_font) > CARD_W - text_x - 40 and len(display) > 1:
         display = display[:-1]
-    if display != username:
+    if display != full_name:
         display = display[:-1] + "…"
-    draw.text((text_x, 38), display, font=name_font, fill=TEXT_PRIMARY)
+    draw.text((text_x, 28), display, font=name_font, fill=TEXT_PRIMARY)
+
+    # Titre Pass (sous le pseudo) si actif
+    if title:
+        f_title = _font(18, bold=False)
+        title_text = f"« {title} »"
+        draw.text((text_x, 78), title_text, font=f_title, fill=ACCENT)
+        sub_y = 108
+    else:
+        sub_y = 100
 
     # Niveau / XP
     f_label = _font(20, bold=True)
     f_value = _font(28, bold=True)
-    sub_y = 100
     # Niveau
     draw.text((text_x, sub_y), "NIVEAU", font=f_label, fill=ACCENT)
     draw.text((text_x, sub_y + 26), str(level), font=f_value, fill=TEXT_PRIMARY)

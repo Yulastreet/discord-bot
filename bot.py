@@ -72,7 +72,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       list_user_active_quests, increment_quest_progress,
                       claim_quest_reward, add_pass_xp, set_pass_claimed_tier,
                       auto_claim_pass_tiers, get_active_xp_boost_multiplier,
-                      list_user_pass_unlocks)
+                      list_user_pass_unlocks, get_user_cosmetic)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -1321,6 +1321,7 @@ async def niveau(interaction: discord.Interaction, membre: discord.Member = None
         try:
             await interaction.response.defer()
             settings = get_premium_settings(membre.id)
+            cosmetic = get_user_cosmetic(membre.id)
             buf = await render_niveau_card(
                 username=membre.display_name,
                 avatar_url=membre.display_avatar.url,
@@ -1329,6 +1330,8 @@ async def niveau(interaction: discord.Interaction, membre: discord.Member = None
                 xp_in_level=progress_xp,
                 xp_needed=needed_xp,
                 background=settings.get("niveau_background") or "default",
+                title=cosmetic.get("title"),
+                emoji_prefix=cosmetic.get("emoji"),
             )
             file = discord.File(buf, filename="niveau.png")
             await interaction.followup.send(file=file)

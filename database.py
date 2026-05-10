@@ -251,6 +251,15 @@ def init_db():
         niveau_background TEXT DEFAULT 'default',
         updated_at        TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
+    # Migration : nouvelles colonnes cosmetiques Pass (titre + emoji selectionnes)
+    for col, ddl in [
+        ("pass_selected_title", "TEXT DEFAULT NULL"),
+        ("pass_selected_emoji", "TEXT DEFAULT NULL"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE premium_settings ADD COLUMN {col} {ddl}")
+        except Exception:
+            pass
 
     # Grants premium manuels (owner offre la feature gratuitement, comptes test, etc.).
     # feature='all' = pack complet, 'pass' = Battle Pass, ou cle specifique.
@@ -1663,7 +1672,7 @@ def user_is_premium(user_id, feature="all", owner_id=None) -> bool:
 
 def set_premium_setting(user_id, key: str, value):
     """Update a single premium setting column for the user."""
-    allowed = {"niveau_background"}
+    allowed = {"niveau_background", "pass_selected_title", "pass_selected_emoji"}
     if key not in allowed:
         raise ValueError(f"Unknown premium setting: {key}")
     conn = get_db()
@@ -2196,6 +2205,47 @@ def auto_claim_pass_tiers(user_id, season_id: int, current_xp: int,
     # Update claimed_max_tier
     set_pass_claimed_tier(user_id, season_id, new_tier)
     return delivered
+
+
+def get_user_cosmetic(user_id) -> dict:
+    """Retourne le titre et l'emoji actifs (verifies dans les unlocks) pour cet user.
+
+    Renvoie {'title': str|None, 'emoji': str|None}. Si l'user a selectionne un
+    titre/emoji qu'il ne possede plus (cas rare : revoke), on renvoie None.
+    """
+    settings = get_premium_settings(user_id)
+    sel_title = settings.get("pass_selected_title")
+    sel_emoji = settings.get("pass_selected_emoji")
+    out = {"title": None, "emoji": None}
+    if not (sel_title or sel_emoji):
+        return out
+    unlocks = list_user_pass_unlocks(user_id, include_expired=False)
+    titles_owned = set()
+    emojis_owned = set()
+    for u in unlocks:
+        p = u.get("payload") or {}
+        if u["type"] == "title" and p.get("title"):
+            titles_owned.add(p["title"])
+        elif u["type"] == "emoji" and p.get("emoji"):
+            emojis_owned.add(p["emoji"])
+    if sel_title and sel_title in titles_owned:
+        out["title"] = sel_title
+    if sel_emoji and sel_emoji in emojis_owned:
+        out["emoji"] = sel_emoji
+    return out
+
+
+def list_user_owned_cosmetics(user_id) -> dict:
+    """Retourne les listes 'titles' et 'emojis' que l'user possede via Pass."""
+    unlocks = list_user_pass_unlocks(user_id, include_expired=False)
+    titles, emojis = [], []
+    for u in unlocks:
+        p = u.get("payload") or {}
+        if u["type"] == "title" and p.get("title") and p["title"] not in titles:
+            titles.append(p["title"])
+        elif u["type"] == "emoji" and p.get("emoji") and p["emoji"] not in emojis:
+            emojis.append(p["emoji"])
+    return {"titles": titles, "emojis": emojis}
 
 
 def get_active_xp_boost_multiplier(user_id) -> float:

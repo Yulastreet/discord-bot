@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 import random
-from database import get_historique, get_combat_xp_progress, get_xp_pour_prochain_niveau
+from database import get_historique, get_combat_xp_progress, get_xp_pour_prochain_niveau, get_user_cosmetic
 from duel_sabres import get_sabre, get_tous_les_sabres, RARETES
 from duel_combat import calculer_stats, calculer_degats, barre_hp
 from duel_minigames import run_minigame
@@ -612,8 +612,16 @@ def setup_duel_commands(bot, db):
         clvl, xp_in, xp_needed = get_combat_xp_progress(combat_xp)
         stat_points = profil_data.get("stat_points", 0)
 
-        embed = discord.Embed(title=f"⚔️ Profil de {membre.display_name}", color=discord.Color.red())
+        # Cosmetiques Pass (emoji prefix + titre)
+        cosmetic = get_user_cosmetic(membre.id)
+        emoji_prefix = cosmetic.get("emoji") or ""
+        pass_title   = cosmetic.get("title")
+        display_name = f"{emoji_prefix} {membre.display_name}".strip()
+
+        embed = discord.Embed(title=f"⚔️ Profil de {display_name}", color=discord.Color.red())
         embed.set_thumbnail(url=membre.display_avatar.url)
+        if pass_title:
+            embed.description = f"🏷️ *« {pass_title} »*"
 
         # Stats de base
         embed.add_field(name="💰 TookCoins",  value=f"**{profil_data['tookcoins']}** 🪙", inline=True)
