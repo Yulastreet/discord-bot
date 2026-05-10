@@ -80,10 +80,12 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 # ===== MONETIZATION =====
-# SKU "/niveau Premium" (achat unique). ID a remplir une fois le SKU publie
-# dans le Developer Portal Discord. Peut etre surcharge via env.
-SKU_NIVEAU_PREMIUM = os.getenv("SKU_NIVEAU_PREMIUM", "")
-DISCORD_OWNER_ID = os.getenv("DISCORD_OWNER_ID", "").strip() or None
+# SKUs Discord. Remplis ces env apres avoir cree les SKU dans le Dev Portal :
+#   SKU_NIVEAU_PREMIUM = SKU "Durable" (achat unique 1.99 USD) /niveau Premium
+#   SKU_PASS           = SKU "Subscription" (recurrent 3.99 EUR / mois) Battle Pass
+SKU_NIVEAU_PREMIUM = os.getenv("SKU_NIVEAU_PREMIUM", "").strip() or None
+SKU_PASS           = os.getenv("SKU_PASS", "").strip() or None
+DISCORD_OWNER_ID   = os.getenv("DISCORD_OWNER_ID", "").strip() or None
 
 
 # Constantes Pass : XP par palier, total paliers
@@ -106,7 +108,7 @@ def _track_pass_quest(user_id, quest_type: str, amount: int = 1):
     """
     if not user_id:
         return
-    has_pass = user_has_active_pass(user_id) or (
+    has_pass = user_has_active_pass(user_id, sku_pass_id=SKU_PASS) or (
         DISCORD_OWNER_ID and str(user_id) == str(DISCORD_OWNER_ID)
     )
     if not has_pass:
@@ -140,17 +142,17 @@ def _track_pass_quest(user_id, quest_type: str, amount: int = 1):
 
 def is_premium_user(user_id, feature="all") -> bool:
     """Retourne True si l'utilisateur a la feature premium :
-    - via entitlement Discord (achat reel)
+    - via entitlement Discord (achat reel : /niveau Premium ou Pass)
     - via grant manuel offert (table premium_grants)
     - via DISCORD_OWNER_ID (toujours premium gratuit)
     - via Pass actif (les abonnes Pass ont automatiquement le pack premium)
     """
+    if DISCORD_OWNER_ID and user_id and str(user_id) == str(DISCORD_OWNER_ID):
+        return True
     if _db_user_is_premium(user_id, feature=feature, owner_id=DISCORD_OWNER_ID):
         return True
-    if feature == "all" and user_id and user_has_active_pass(user_id):
+    if feature == "all" and user_id and user_has_active_pass(user_id, sku_pass_id=SKU_PASS):
         return True
-    if DISCORD_OWNER_ID and user_id and str(user_id) == str(DISCORD_OWNER_ID):
-        return True  # Owner couvert pour toute feature
     return False
 
 init_db()
@@ -1394,7 +1396,7 @@ def _quest_progress_bar(progress: int, target: int, width: int = 12) -> str:
 @bot.tree.command(name="pass", description="Voir ta progression dans le Battle Pass")
 async def pass_status(interaction: discord.Interaction):
     user = interaction.user
-    has_pass = user_has_active_pass(user.id) or (DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID))
+    has_pass = user_has_active_pass(user.id, sku_pass_id=SKU_PASS) or (DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID))
 
     if not has_pass:
         embed = discord.Embed(

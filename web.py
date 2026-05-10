@@ -75,6 +75,9 @@ PASSWORD = os.getenv("WEB_PASSWORD")  # Fallback si OAuth pas configure (dev)
 DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 DISCORD_OWNER_ID      = os.getenv("DISCORD_OWNER_ID", "").strip()
+# SKUs Discord pour la monetisation (renseigner apres creation dans le Dev Portal)
+SKU_NIVEAU_PREMIUM    = os.getenv("SKU_NIVEAU_PREMIUM", "").strip() or None
+SKU_PASS              = os.getenv("SKU_PASS", "").strip() or None
 OAUTH_REDIRECT_URI    = os.getenv("OAUTH_REDIRECT_URI", "").strip()
 
 OAUTH_ENABLED = bool(DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET and OAUTH_REDIRECT_URI and _requests)
@@ -1236,12 +1239,12 @@ def _is_admin_of_current_guild() -> bool:
 
 
 def _has_pass(uid) -> bool:
-    """Pass actif : owner OU grant feature='pass'/'all' OU (futur) entitlement subscription."""
+    """Pass actif : owner OU grant manuel feature='pass' OU entitlement subscription."""
     if not uid:
         return False
     if DISCORD_OWNER_ID and str(uid) == str(DISCORD_OWNER_ID):
         return True
-    return user_has_active_pass(uid)
+    return user_has_active_pass(uid, sku_pass_id=SKU_PASS)
 
 
 def _is_premium(uid, feature="all") -> bool:

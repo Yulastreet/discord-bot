@@ -2211,16 +2211,22 @@ def get_active_xp_boost_multiplier(user_id) -> float:
     return best
 
 
-def user_has_active_pass(user_id) -> bool:
-    """Pass actif : grant manuel feature='pass' STRICTEMENT.
+def user_has_active_pass(user_id, sku_pass_id: str = None) -> bool:
+    """Pass actif : grant manuel feature='pass' OU entitlement Discord
+    sur le SKU subscription Pass.
 
     Le Battle Pass est un produit independant du /niveau Premium. Un grant
     feature='all' (Premium pack) ne deverrouille PAS le Pass automatiquement.
+    Pour activer le check via SKU subscription Discord, passer `sku_pass_id`.
     L'owner gere son acces via _has_pass dans web.py / is_premium_user dans bot.py.
     """
     if not user_id:
         return False
-    return has_premium_grant(user_id, feature="pass", inherit_all=False)
+    if has_premium_grant(user_id, feature="pass", inherit_all=False):
+        return True
+    if sku_pass_id and user_has_active_entitlement(user_id, sku_id=sku_pass_id):
+        return True
+    return False
 
 
 def get_pass_progress(user_id, season_id: int) -> dict:
