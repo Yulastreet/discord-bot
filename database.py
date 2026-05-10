@@ -1603,14 +1603,26 @@ def remove_premium_grant(user_id, feature="all"):
     conn.close()
 
 
-def has_premium_grant(user_id, feature="all") -> bool:
-    """True si l'user a un grant manuel pour cette feature OU pour 'all'."""
+def has_premium_grant(user_id, feature="all", inherit_all: bool = True) -> bool:
+    """True si l'user a un grant manuel pour cette feature.
+
+    Par defaut, un grant feature='all' compte aussi (master pack premium).
+    Passer `inherit_all=False` pour exiger un grant strictement sur la feature
+    demandee. Utile pour les abonnements distincts (ex. Battle Pass) qui ne
+    doivent PAS etre auto-debloques par le grant 'all' du /niveau Premium.
+    """
     conn = get_db()
     c = conn.cursor()
-    row = c.execute(
-        "SELECT 1 FROM premium_grants WHERE user_id = ? AND feature IN (?, 'all') LIMIT 1",
-        (str(user_id), feature),
-    ).fetchone()
+    if inherit_all:
+        row = c.execute(
+            "SELECT 1 FROM premium_grants WHERE user_id = ? AND feature IN (?, 'all') LIMIT 1",
+            (str(user_id), feature),
+        ).fetchone()
+    else:
+        row = c.execute(
+            "SELECT 1 FROM premium_grants WHERE user_id = ? AND feature = ? LIMIT 1",
+            (str(user_id), feature),
+        ).fetchone()
     conn.close()
     return bool(row)
 
@@ -2200,16 +2212,15 @@ def get_active_xp_boost_multiplier(user_id) -> float:
 
 
 def user_has_active_pass(user_id) -> bool:
-    """Pass actif : grant manuel feature='pass' OU feature='all' OU entitlement
-    Discord sur le futur SKU 'pass'. Owner gere via user_is_premium global.
+    """Pass actif : grant manuel feature='pass' STRICTEMENT.
 
-    Le SKU subscription du Pass n'existe pas encore ; pour l'instant, on
-    retourne True si:
-    - grant feature='pass' OU 'all'
+    Le Battle Pass est un produit independant du /niveau Premium. Un grant
+    feature='all' (Premium pack) ne deverrouille PAS le Pass automatiquement.
+    L'owner gere son acces via _has_pass dans web.py / is_premium_user dans bot.py.
     """
     if not user_id:
         return False
-    return has_premium_grant(user_id, feature="pass") or has_premium_grant(user_id, feature="all")
+    return has_premium_grant(user_id, feature="pass", inherit_all=False)
 
 
 def get_pass_progress(user_id, season_id: int) -> dict:

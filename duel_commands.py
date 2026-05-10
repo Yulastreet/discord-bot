@@ -805,7 +805,6 @@ def setup_duel_commands(bot, db):
         sabres_ids   = profil_data.get("sabres", ["bleu"])
         sabre_equipe = profil_data.get("sabre_equipe", "bleu")
 
-        # Compte total + par rarete
         per_rarete: dict[str, list] = {r: [] for r in RARETE_ORDER}
         for sid in sabres_ids:
             s = get_sabre(sid)
@@ -817,63 +816,66 @@ def setup_duel_commands(bot, db):
                 per_rarete.setdefault(s["rarete"], []).append(s)
 
         embed = discord.Embed(
-            title=f"🗂️ Collection de {member_name}",
+            title=f"🗂️  Collection de {member_name}",
             color=0x9B59B6,
         )
-        # Stats compact en haut
         equipped = get_sabre(sabre_equipe) if sabre_equipe else None
         if equipped:
             equipped_rar = RARETES.get(equipped["rarete"], {})
             equipped_line = (
-                f"{equipped['emoji']} **{equipped['nom']}** "
-                f"· {equipped_rar.get('emoji','')} {equipped_rar.get('label','')}"
+                f"{equipped['emoji']} **{equipped['nom']}**\n"
+                f"╰─ {equipped_rar.get('emoji','')} {equipped_rar.get('label','')}"
             )
         else:
             equipped_line = "_aucun_"
         embed.description = (
-            f"⚔️ **Équipé** : {equipped_line}\n"
-            f"🪙 **TookCoins** : {profil_data.get('tookcoins', 0)}\n"
-            f"📦 **Total possédé** : {len(sabres_ids)} sabre(s)\n"
-            f"​"  # blank line
+            f"⚔️ **Sabre équipé**\n{equipped_line}\n\n"
+            f"🪙 **{profil_data.get('tookcoins', 0)}** TookCoins  ·  "
+            f"📦 **{len(sabres_ids)}** sabre(s) au total"
         )
 
-        # Sabres groupes par rarete avec bloc visuel propre
+        # Bloc par rarete avec separator visuel + line skip entre sabres
         for rarete_id in RARETE_ORDER:
             sabres_rar = per_rarete.get(rarete_id) or []
             if not sabres_rar:
                 continue
             rarete_info = RARETES[rarete_id]
-            # Sabres tries : equipe d'abord, puis alphabetique
             sabres_rar.sort(key=lambda x: (x["id"] != sabre_equipe, x["nom"].lower()))
-            lignes = []
+
+            blocs = []
             for s in sabres_rar:
                 is_equipped = (s["id"] == sabre_equipe)
                 can, _ = _can_equip_seasonal(profil_data, s)
                 if is_equipped:
-                    prefix = "  🟢"  # marqueur visuel actif
-                    suffix = "  **·  ÉQUIPÉ**"
+                    status = "🟢 **ÉQUIPÉ**"
                 elif not can:
-                    prefix = "  🔒"
-                    suffix = ""
+                    status = "🔒 *Verrouillé*"
                 else:
-                    prefix = "  ▫️"
-                    suffix = ""
+                    status = "▫️ *Possédé*"
+
                 special = s.get("speciale") or {}
                 spec_emoji = special.get("emoji", "✨")
                 spec_nom   = special.get("nom", "")
-                lignes.append(
-                    f"{prefix} {s['emoji']} **{s['nom']}**{suffix}\n"
-                    f"      {spec_emoji} _{spec_nom}_"
+
+                bloc = (
+                    f"{s['emoji']}  **{s['nom']}**  ·  {status}\n"
+                    f"╰─  {spec_emoji}  _{spec_nom}_"
                 )
+                blocs.append(bloc)
+
+            # Separateur entre sabres = ligne vide (zero-width space)
+            value = "\n​\n".join(blocs)
+
             embed.add_field(
-                name=f"{rarete_info['emoji']}   {rarete_info['label']}   ·   {len(sabres_rar)}",
-                value="\n".join(lignes),
+                name=f"{rarete_info['emoji']}  ·  **{rarete_info['label']}**  ·  {len(sabres_rar)} sabre(s)",
+                value=value,
                 inline=False,
             )
+
         if not embed.fields:
-            embed.description += "\n_Aucun sabre dans ta collection._"
+            embed.description += "\n\n_Aucun sabre dans ta collection._"
         embed.set_footer(
-            text="🗂️ Collection · sélectionne un sabre ci-dessous pour l'équiper · 🔒 = sabre saisonnier verrouillé"
+            text="Sélectionne un sabre dans le menu ci-dessous pour l'équiper  ·  🔒 sabre saisonnier verrouillé"
         )
         return embed
 
@@ -882,33 +884,56 @@ def setup_duel_commands(bot, db):
         inventaire  = profil_data.get("sabres", ["bleu"])
         coins       = profil_data.get("tookcoins", 0)
         embed = discord.Embed(
-            title="🛒 Boutique des sabres laser",
-            description=f"💰 Tu possèdes **🪙 {coins}** TookCoins.",
+            title="🛒  Boutique des sabres laser",
+            description=f"🪙  **Solde :** {coins} TookCoins",
             color=0x00BFFF,
         )
         for rarete_id in RARETE_ORDER:
             rarete_info = RARETES[rarete_id]
-            # Exclut les sabres saisonniers (debloques uniquement via Battle Pass)
             sabres_rarete = [
                 s for s in sabres.values()
                 if s["rarete"] == rarete_id and not s["id"].startswith("season_")
             ]
             if not sabres_rarete:
                 continue
-            texte = []
+
+            blocs = []
             for s in sabres_rarete:
-                possede  = " ✅" if s["id"] in inventaire else ""
-                prix_txt = "**GRATUIT**" if s["prix"] == 0 else f"🪙 {s['prix']}"
-                texte.append(
-                    f"{s['emoji']} **{s['nom']}**{possede} · {prix_txt}\n"
-                    f"   ✨ {s['speciale']['nom']}"
+                possede = s["id"] in inventaire
+                if s["prix"] == 0:
+                    prix_line = "🎁  **GRATUIT**"
+                else:
+                    affordable = coins >= s["prix"]
+                    prix_line = f"💰  **{s['prix']}** TookCoins" + (
+                        "" if affordable else "  ·  *fonds insuffisants*"
+                    )
+
+                if possede:
+                    status = "✅ **DÉJÀ POSSÉDÉ**"
+                else:
+                    status = prix_line
+
+                spec = s.get("speciale") or {}
+                spec_emoji = spec.get("emoji", "✨")
+                spec_nom   = spec.get("nom", "")
+                spec_desc  = spec.get("description", "")
+                # Tronque description si trop longue
+                if len(spec_desc) > 70:
+                    spec_desc = spec_desc[:67] + "…"
+
+                bloc = (
+                    f"{s['emoji']}  **{s['nom']}**  ·  {status}\n"
+                    f"╰─  {spec_emoji}  *{spec_nom}*  —  {spec_desc}"
                 )
+                blocs.append(bloc)
+
+            value = "\n​\n".join(blocs)
             embed.add_field(
-                name=f"{rarete_info['emoji']} {rarete_info['label']}",
-                value="\n".join(texte),
+                name=f"{rarete_info['emoji']}  ·  **{rarete_info['label']}**",
+                value=value,
                 inline=False,
             )
-        embed.set_footer(text="🛒 Sélectionne un sabre ci-dessous pour l'acheter")
+        embed.set_footer(text="Sélectionne un sabre dans le menu ci-dessous pour l'acheter")
         return embed
 
     class SabreMenuView(discord.ui.View):
