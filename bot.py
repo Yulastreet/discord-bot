@@ -72,7 +72,13 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       list_user_active_quests, increment_quest_progress,
                       claim_quest_reward, add_pass_xp, set_pass_claimed_tier,
                       auto_claim_pass_tiers, get_active_xp_boost_multiplier,
-                      list_user_pass_unlocks, get_user_cosmetic)
+                      list_user_pass_unlocks, get_user_cosmetic,
+                      reaction_role_add as db_rr_add,
+                      reaction_role_remove as db_rr_remove,
+                      reaction_role_remove_message as db_rr_remove_msg,
+                      reaction_role_get as db_rr_get,
+                      reaction_role_list as db_rr_list,
+                      reaction_role_list_unique_group as db_rr_list_unique)
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -755,6 +761,93 @@ def _entitlement_to_dict(ent) -> dict:
     }
 
 
+# ========== REACTION ROLES ==========
+
+def _format_emoji_key(payload_emoji) -> str:
+    """Convertit un emoji de RawReactionActionEvent en string canonique :
+    - Unicode emoji  -> caractere brut (ex: '🟢')
+    - Custom emoji   -> '<:name:id>' ou '<a:name:id>' si anime
+    """
+    e = payload_emoji
+    if e.id:
+        prefix = "a" if e.animated else ""
+        return f"<{prefix}:{e.name}:{e.id}>"
+    return e.name
+
+
+@bot.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    if payload.guild_id is None or payload.user_id == bot.user.id:
+        return
+    emoji_key = _format_emoji_key(payload.emoji)
+    mapping = db_rr_get(payload.guild_id, payload.message_id, emoji_key)
+    if not mapping:
+        return
+    guild = bot.get_guild(payload.guild_id)
+    if not guild:
+        return
+    member = guild.get_member(payload.user_id) or await guild.fetch_member(payload.user_id)
+    if not member or member.bot:
+        return
+    role = guild.get_role(int(mapping["role_id"]))
+    if not role:
+        return
+    try:
+        # Mode 'unique' : on retire les autres roles du meme group_key avant
+        if mapping.get("mode") == "unique" and mapping.get("group_key"):
+            others = db_rr_list_unique(payload.guild_id, payload.message_id, mapping["group_key"])
+            for o in others:
+                if o["emoji"] == emoji_key:
+                    continue
+                other_role = guild.get_role(int(o["role_id"]))
+                if other_role and other_role in member.roles:
+                    await member.remove_roles(other_role, reason="ReactionRole unique group")
+                # Retire aussi sa reaction sur le msg
+                try:
+                    channel = guild.get_channel(payload.channel_id)
+                    msg = await channel.fetch_message(payload.message_id)
+                    await msg.remove_reaction(o["emoji"], member)
+                except Exception:
+                    pass
+        if role not in member.roles:
+            await member.add_roles(role, reason=f"ReactionRole {emoji_key}")
+    except discord.Forbidden:
+        print(f"[rolereaction] Forbidden : pas la perm pour role {role.id} sur {guild.id}")
+    except Exception as e:
+        print(f"[rolereaction] add error: {e!r}")
+
+
+@bot.event
+async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
+    if payload.guild_id is None or payload.user_id == bot.user.id:
+        return
+    emoji_key = _format_emoji_key(payload.emoji)
+    mapping = db_rr_get(payload.guild_id, payload.message_id, emoji_key)
+    if not mapping:
+        return
+    if mapping.get("mode") == "add_only":
+        return
+    guild = bot.get_guild(payload.guild_id)
+    if not guild:
+        return
+    try:
+        member = guild.get_member(payload.user_id) or await guild.fetch_member(payload.user_id)
+    except Exception:
+        return
+    if not member or member.bot:
+        return
+    role = guild.get_role(int(mapping["role_id"]))
+    if not role:
+        return
+    try:
+        if role in member.roles:
+            await member.remove_roles(role, reason=f"ReactionRole - {emoji_key}")
+    except discord.Forbidden:
+        print(f"[rolereaction] Forbidden : pas la perm pour role {role.id} sur {guild.id}")
+    except Exception as e:
+        print(f"[rolereaction] remove error: {e!r}")
+
+
 @bot.event
 async def on_app_command_completion(interaction: discord.Interaction, command: app_commands.Command):
     """Slash command terminee avec succes -> +1 use_commands quete Pass."""
@@ -988,7 +1081,11 @@ async def commandes(interaction: discord.Interaction):
         "**/setwelcome <salon>** (définit le salon de bienvenue)\n"
         "**/reaction_add <membre> <emoji>** (ajoute une réaction auto à un membre, ce serveur uniquement)\n"
         "**/reaction_remove <membre>** (supprime la réaction auto d'un membre)\n"
-        "**/reaction_list** (liste les réactions auto actives sur ce serveur)"
+        "**/reaction_list** (liste les réactions auto actives sur ce serveur)\n"
+        "**/rolereaction create <salon> <titre> <description> <emoji> <rôle> [mode]** (crée un message rôle-réaction)\n"
+        "**/rolereaction add <message_id> <salon> <emoji> <rôle> [mode]** (ajoute un mapping à un message existant)\n"
+        "**/rolereaction remove <message_id> [emoji]** (supprime un ou tous les mappings)\n"
+        "**/rolereaction list** (liste les rôles-réaction du serveur)"
     )
     embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
     embed.add_field(name="​", value="​", inline=False)
@@ -1378,6 +1475,229 @@ async def leaderboard(interaction: discord.Interaction):
         description += f"{medal} {name} — **{row['xp']} XP** (Niveau {row['level']})\n"
     embed.description = description
     await interaction.followup.send(embed=embed)
+
+
+# ===== REACTION ROLES (commande slash) =====
+
+rolereaction_group = app_commands.Group(
+    name="rolereaction",
+    description="Gérer les rôles-réaction (admin/modo uniquement)",
+    default_permissions=discord.Permissions(manage_roles=True),
+)
+
+
+def _parse_emoji_input(s: str, guild: discord.Guild) -> str | None:
+    """Accepte un emoji unicode ou un custom emoji (forme '<:name:id>' ou
+    juste l'emoji utilise dans le serveur). Renvoie la cle canonique."""
+    s = s.strip()
+    if not s:
+        return None
+    # Custom emoji format Discord deja correct
+    if s.startswith("<") and s.endswith(">"):
+        return s
+    # Custom emoji par nom (ex: ":foo:") -> resoudre via guild
+    if s.startswith(":") and s.endswith(":") and len(s) > 2:
+        name = s[1:-1]
+        for e in guild.emojis:
+            if e.name == name:
+                return f"<{'a' if e.animated else ''}:{e.name}:{e.id}>"
+        return None
+    # Sinon : emoji unicode (1+ caracteres)
+    return s
+
+
+@rolereaction_group.command(name="create", description="Créer un message rôle-réaction avec un embed et un mapping")
+@app_commands.describe(
+    salon="Salon où poster le message",
+    titre="Titre de l'embed",
+    description="Description de l'embed (markdown OK)",
+    emoji="Emoji déclencheur",
+    role="Rôle attribué quand l'utilisateur réagit",
+    mode="toggle (défaut) : ajout/retrait · add_only : ajout seulement · unique : exclusif dans un groupe",
+)
+@app_commands.choices(mode=[
+    app_commands.Choice(name="toggle (ajout + retrait)",     value="toggle"),
+    app_commands.Choice(name="add_only (ajout seulement)",   value="add_only"),
+    app_commands.Choice(name="unique (1 seul rôle du groupe)", value="unique"),
+])
+@app_commands.checks.has_permissions(manage_roles=True)
+async def rr_create(
+    interaction: discord.Interaction,
+    salon: discord.TextChannel,
+    titre: str,
+    description: str,
+    emoji: str,
+    role: discord.Role,
+    mode: app_commands.Choice[str] = None,
+):
+    await interaction.response.defer(ephemeral=True)
+    mode_value = (mode.value if mode else "toggle")
+    emoji_key = _parse_emoji_input(emoji, interaction.guild)
+    if not emoji_key:
+        await interaction.followup.send("❌ Emoji invalide.", ephemeral=True)
+        return
+
+    # Verif hierarchie : le bot doit avoir un role plus haut
+    me = interaction.guild.me
+    if role >= me.top_role:
+        await interaction.followup.send(
+            f"❌ Je ne peux pas attribuer **{role.name}** : mon plus haut rôle est en dessous.",
+            ephemeral=True,
+        )
+        return
+
+    embed = discord.Embed(
+        title=titre,
+        description=description,
+        color=0xC8F050,
+    )
+    embed.add_field(
+        name="​",
+        value=f"{emoji_key} → <@&{role.id}>",
+        inline=False,
+    )
+    embed.set_footer(text=f"Réagis avec {emoji} pour obtenir le rôle")
+
+    try:
+        msg = await salon.send(embed=embed)
+        await msg.add_reaction(emoji_key if not emoji_key.startswith("<") else discord.PartialEmoji.from_str(emoji_key))
+    except discord.Forbidden:
+        await interaction.followup.send("❌ Permissions manquantes (envoyer messages / ajouter réactions).", ephemeral=True)
+        return
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur : {e!r}", ephemeral=True)
+        return
+
+    group_key = f"msg_{msg.id}" if mode_value == "unique" else None
+    db_rr_add(
+        interaction.guild.id, msg.id, salon.id, emoji_key, role.id,
+        mode=mode_value, group_key=group_key, created_by=interaction.user.id,
+    )
+    await interaction.followup.send(
+        f"✅ Message rôle-réaction créé dans {salon.mention} (id `{msg.id}`).",
+        ephemeral=True,
+    )
+
+
+@rolereaction_group.command(name="add", description="Ajouter un mapping rôle-réaction à un message existant")
+@app_commands.describe(
+    message_id="ID du message rôle-réaction (active mode dev pour copier l'ID)",
+    salon="Salon contenant ce message",
+    emoji="Emoji déclencheur",
+    role="Rôle à attribuer",
+    mode="toggle / add_only / unique",
+)
+@app_commands.choices(mode=[
+    app_commands.Choice(name="toggle",   value="toggle"),
+    app_commands.Choice(name="add_only", value="add_only"),
+    app_commands.Choice(name="unique",   value="unique"),
+])
+@app_commands.checks.has_permissions(manage_roles=True)
+async def rr_add(
+    interaction: discord.Interaction,
+    message_id: str,
+    salon: discord.TextChannel,
+    emoji: str,
+    role: discord.Role,
+    mode: app_commands.Choice[str] = None,
+):
+    await interaction.response.defer(ephemeral=True)
+    try:
+        msg_id_int = int(message_id)
+    except ValueError:
+        await interaction.followup.send("❌ ID de message invalide.", ephemeral=True)
+        return
+    emoji_key = _parse_emoji_input(emoji, interaction.guild)
+    if not emoji_key:
+        await interaction.followup.send("❌ Emoji invalide.", ephemeral=True)
+        return
+    mode_value = (mode.value if mode else "toggle")
+    me = interaction.guild.me
+    if role >= me.top_role:
+        await interaction.followup.send(
+            f"❌ Mon rôle est en dessous de **{role.name}**.", ephemeral=True,
+        )
+        return
+    try:
+        msg = await salon.fetch_message(msg_id_int)
+        await msg.add_reaction(emoji_key if not emoji_key.startswith("<") else discord.PartialEmoji.from_str(emoji_key))
+    except discord.NotFound:
+        await interaction.followup.send("❌ Message introuvable dans ce salon.", ephemeral=True)
+        return
+    except Exception as e:
+        await interaction.followup.send(f"❌ Erreur : {e!r}", ephemeral=True)
+        return
+    group_key = f"msg_{msg_id_int}" if mode_value == "unique" else None
+    db_rr_add(
+        interaction.guild.id, msg_id_int, salon.id, emoji_key, role.id,
+        mode=mode_value, group_key=group_key, created_by=interaction.user.id,
+    )
+    await interaction.followup.send(
+        f"✅ Mapping ajouté : {emoji} → {role.mention} sur message `{msg_id_int}`.",
+        ephemeral=True,
+    )
+
+
+@rolereaction_group.command(name="remove", description="Retirer un mapping rôle-réaction")
+@app_commands.describe(
+    message_id="ID du message",
+    emoji="Emoji à retirer (laisse vide pour retirer TOUS les mappings du message)",
+)
+@app_commands.checks.has_permissions(manage_roles=True)
+async def rr_remove(
+    interaction: discord.Interaction,
+    message_id: str,
+    emoji: str = None,
+):
+    try:
+        msg_id_int = int(message_id)
+    except ValueError:
+        await interaction.response.send_message("❌ ID invalide.", ephemeral=True)
+        return
+    if emoji:
+        ek = _parse_emoji_input(emoji, interaction.guild)
+        n = db_rr_remove(interaction.guild.id, msg_id_int, ek)
+        await interaction.response.send_message(
+            f"🗑️ {n} mapping(s) retiré(s).", ephemeral=True,
+        )
+    else:
+        n = db_rr_remove_msg(interaction.guild.id, msg_id_int)
+        await interaction.response.send_message(
+            f"🗑️ {n} mapping(s) retiré(s) (tous les emojis du message).", ephemeral=True,
+        )
+
+
+@rolereaction_group.command(name="list", description="Lister les rôles-réaction de ce serveur")
+async def rr_list(interaction: discord.Interaction):
+    rows = db_rr_list(interaction.guild.id)
+    if not rows:
+        await interaction.response.send_message(
+            "_Aucun rôle-réaction configuré sur ce serveur._", ephemeral=True,
+        )
+        return
+    # Group by message
+    by_msg = {}
+    for r in rows:
+        by_msg.setdefault(r["message_id"], []).append(r)
+    parts = []
+    for msg_id, mappings in list(by_msg.items())[:10]:  # cap 10 messages
+        chan_id = mappings[0]["channel_id"]
+        parts.append(f"**Message [`{msg_id}`](https://discord.com/channels/{interaction.guild.id}/{chan_id}/{msg_id})**")
+        for m in mappings:
+            mode_tag = f" *({m['mode']})*" if m['mode'] != "toggle" else ""
+            parts.append(f"  · {m['emoji']} → <@&{m['role_id']}>{mode_tag}")
+        parts.append("")
+    embed = discord.Embed(
+        title="🎭 Rôles-Réaction",
+        description="\n".join(parts) or "—",
+        color=0xC8F050,
+    )
+    if len(by_msg) > 10:
+        embed.set_footer(text=f"…et {len(by_msg)-10} autre(s) message(s)")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+bot.tree.add_command(rolereaction_group)
 
 
 # ===== BATTLE PASS =====

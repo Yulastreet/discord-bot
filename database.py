@@ -227,6 +227,25 @@ def init_db():
         except Exception:
             pass  # Colonne déjà existante
 
+    # ===== REACTION ROLES =====
+    # Mapping (guild, message, emoji) -> role. mode='toggle' = ajout/retrait
+    # standard, 'add_only' = retire pas le role quand l'user enleve la reaction,
+    # 'unique' = au sein d'un meme group_key, un seul role actif (radio).
+    c.execute('''CREATE TABLE IF NOT EXISTS reaction_roles (
+        guild_id    TEXT NOT NULL,
+        message_id  TEXT NOT NULL,
+        channel_id  TEXT NOT NULL,
+        emoji       TEXT NOT NULL,
+        role_id     TEXT NOT NULL,
+        mode        TEXT DEFAULT 'toggle',
+        group_key   TEXT,
+        created_by  TEXT,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, message_id, emoji)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
+
     # ===== MONETIZATION (Discord SKU / entitlements) =====
     # Stocke chaque entitlement Discord recu (achat utilisateur).
     # Pour SKU "durable" (achat unique), starts_at est rempli, ends_at NULL et deleted=0
@@ -2369,6 +2388,98 @@ def list_user_pass_unlocks(user_id, type_: str = None, include_expired=False) ->
             continue
         out.append(d)
     return out
+
+
+# =====================================================================
+# REACTION ROLES HELPERS
+# =====================================================================
+
+def reaction_role_add(guild_id, message_id, channel_id, emoji: str,
+                       role_id, mode: str = "toggle", group_key: str = None,
+                       created_by=None):
+    """Insere un mapping reaction-role. UPSERT sur (guild, message, emoji)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO reaction_roles
+            (guild_id, message_id, channel_id, emoji, role_id, mode, group_key, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(guild_id, message_id, emoji) DO UPDATE SET
+            channel_id = excluded.channel_id,
+            role_id    = excluded.role_id,
+            mode       = excluded.mode,
+            group_key  = excluded.group_key
+    ''', (str(guild_id), str(message_id), str(channel_id), emoji,
+          str(role_id), mode, group_key, str(created_by) if created_by else None))
+    conn.commit()
+    conn.close()
+
+
+def reaction_role_remove(guild_id, message_id, emoji: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "DELETE FROM reaction_roles WHERE guild_id = ? AND message_id = ? AND emoji = ?",
+        (str(guild_id), str(message_id), emoji),
+    )
+    deleted = c.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def reaction_role_remove_message(guild_id, message_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "DELETE FROM reaction_roles WHERE guild_id = ? AND message_id = ?",
+        (str(guild_id), str(message_id)),
+    )
+    deleted = c.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def reaction_role_get(guild_id, message_id, emoji: str) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT * FROM reaction_roles WHERE guild_id = ? AND message_id = ? AND emoji = ?",
+        (str(guild_id), str(message_id), emoji),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def reaction_role_list(guild_id, message_id=None) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    if message_id:
+        rows = c.execute(
+            "SELECT * FROM reaction_roles WHERE guild_id = ? AND message_id = ? ORDER BY rowid",
+            (str(guild_id), str(message_id)),
+        ).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT * FROM reaction_roles WHERE guild_id = ? ORDER BY message_id, rowid",
+            (str(guild_id),),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def reaction_role_list_unique_group(guild_id, message_id, group_key: str) -> list[dict]:
+    """Retourne tous les mappings d'un meme groupe 'unique' sur ce message."""
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        '''SELECT * FROM reaction_roles
+           WHERE guild_id = ? AND message_id = ? AND group_key = ? AND mode = 'unique' ''',
+        (str(guild_id), str(message_id), group_key),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 if __name__ == "__main__":
