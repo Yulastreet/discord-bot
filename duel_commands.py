@@ -756,6 +756,29 @@ def setup_duel_commands(bot, db):
     # =====================================================================
     RARETE_ORDER = ["C", "UC", "R", "SR", "SSR"]
 
+    def _can_equip_seasonal(profil_data, sabre):
+        """Anti-P2W : un sabre saisonnier (id 'season_*') ne peut etre equipe
+        que si l'user possede au moins un sabre NON-saisonnier de la meme rarete.
+
+        Retourne (True, None) si OK, sinon (False, message d'erreur).
+        """
+        sid = sabre.get("id", "")
+        if not sid.startswith("season_"):
+            return True, None
+        rarete = sabre.get("rarete")
+        inventaire = profil_data.get("sabres", ["bleu"])
+        for owned_id in inventaire:
+            if owned_id.startswith("season_"):
+                continue
+            owned = get_sabre(owned_id)
+            if owned and owned.get("rarete") == rarete:
+                return True, None
+        rar_label = RARETES.get(rarete, {}).get("label", rarete)
+        return False, (
+            f"🔒 Tu dois d'abord posséder un sabre **{rar_label}** classique "
+            f"(via la boutique) pour pouvoir équiper ce skin saisonnier."
+        )
+
     def _build_equipped_embed(profil_data):
         sabre_id   = profil_data.get("sabre_equipe", "bleu")
         sabre      = get_sabre(sabre_id)
@@ -791,7 +814,10 @@ def setup_duel_commands(bot, db):
                 if not s or s["rarete"] != rarete_id:
                     continue
                 tag = " ← **équipé**" if sid == sabre_equipe else ""
-                ligne.append(f"{s['emoji']} **{s['nom']}**{tag}")
+                # Marqueur 🔒 si saisonnier non equipable (manque sabre classique de la rarete)
+                can, _ = _can_equip_seasonal(profil_data, s)
+                lock = " 🔒" if not can else ""
+                ligne.append(f"{s['emoji']} **{s['nom']}**{tag}{lock}")
             if ligne:
                 embed.add_field(
                     name=f"{rarete_info['emoji']} {rarete_info['label']}",
@@ -902,12 +928,17 @@ def setup_duel_commands(bot, db):
                 if not s:
                     continue
                 if sid == sabre_equipe:
-                    continue  # on n'inclut pas le sabre deja equipe
+                    continue
                 rarete = RARETES[s["rarete"]]
+                # Marqueur visuel "verrouille" pour les sabres saisonniers
+                # tant que l'user n'a pas le sabre classique de meme rarete.
+                can, _ = _can_equip_seasonal(profil_data, s)
+                lock = "" if can else "🔒 "
+                desc = f"{lock}{rarete['label']} · {s['speciale']['nom']}"
                 options.append(discord.SelectOption(
                     label=s["nom"][:100],
                     value=sid,
-                    description=f"{rarete['label']} · {s['speciale']['nom']}"[:100],
+                    description=desc[:100],
                     emoji=s["emoji"] if s["emoji"] else None,
                 ))
             if not options:
@@ -920,8 +951,13 @@ def setup_duel_commands(bot, db):
             async def cb(interaction: discord.Interaction):
                 sid = sel.values[0]
                 sabre = get_sabre(sid)
+                # Anti-P2W : refuse l'equip d'un sabre saisonnier sans equivalent classique.
+                profil_now = db.ensure_profil(self.user_id, self.user_name)
+                can, err = _can_equip_seasonal(profil_now, sabre)
+                if not can:
+                    await interaction.response.send_message(err, ephemeral=True)
+                    return
                 db.update_profil(self.user_id, {"sabre_equipe": sid})
-                # Refresh la vue (reste en collection mode)
                 self._rebuild()
                 profil_data = db.ensure_profil(self.user_id, self.user_name)
                 embed = _build_collection_embed(profil_data, self.user_name)
