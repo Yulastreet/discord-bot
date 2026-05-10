@@ -205,13 +205,20 @@ async def check_reddit(target_id: str, last_seen_id: Optional[str]) -> list[dict
 #   - 'live'    -> stream actif au dernier check
 #   - 'offline' -> stream pas actif au dernier check
 
-_TWITCH_CLIENT_ID     = os.getenv("TWITCH_CLIENT_ID", "").strip() or None
-_TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET", "").strip() or None
 _TWITCH_TOKEN_CACHE   = {"access_token": None, "expires_at": 0}
 
 
+def _twitch_creds() -> tuple[Optional[str], Optional[str]]:
+    """Lit creds a chaque appel pour eviter le piege import-time vs .env tardif."""
+    cid = (os.getenv("TWITCH_CLIENT_ID") or "").strip() or None
+    sec = (os.getenv("TWITCH_CLIENT_SECRET") or "").strip() or None
+    return cid, sec
+
+
 async def _twitch_get_token() -> Optional[str]:
-    if not (_TWITCH_CLIENT_ID and _TWITCH_CLIENT_SECRET):
+    cid, sec = _twitch_creds()
+    if not (cid and sec):
+        print("[social/twitch] no creds in env")
         return None
     now = time.time()
     if _TWITCH_TOKEN_CACHE["access_token"] and _TWITCH_TOKEN_CACHE["expires_at"] > now + 60:
@@ -221,28 +228,34 @@ async def _twitch_get_token() -> Optional[str]:
         async with s.post(
             "https://id.twitch.tv/oauth2/token",
             data={
-                "client_id":     _TWITCH_CLIENT_ID,
-                "client_secret": _TWITCH_CLIENT_SECRET,
+                "client_id":     cid,
+                "client_secret": sec,
                 "grant_type":    "client_credentials",
             },
         ) as resp:
+            body = await resp.text()
             if resp.status != 200:
+                print(f"[social/twitch] token endpoint status={resp.status} body={body[:200]}")
                 return None
-            j = await resp.json()
+            import json as _json
+            j = _json.loads(body)
             tok = j.get("access_token")
             ttl = int(j.get("expires_in") or 0)
             if tok:
                 _TWITCH_TOKEN_CACHE["access_token"] = tok
                 _TWITCH_TOKEN_CACHE["expires_at"]   = now + ttl
                 return tok
-    except Exception:
+            print(f"[social/twitch] token response missing access_token: {body[:200]}")
+    except Exception as e:
+        print(f"[social/twitch] token exception: {e!r}")
         return None
     return None
 
 
 async def check_twitch(target_id: str, last_seen_id: Optional[str]) -> list[dict]:
     """target_id = login Twitch (ex: 'pokimane'). last_seen_id 'live' ou 'offline'."""
-    if not (_TWITCH_CLIENT_ID and _TWITCH_CLIENT_SECRET):
+    cid, sec = _twitch_creds()
+    if not (cid and sec):
         return []
     token = await _twitch_get_token()
     if not token:
@@ -250,18 +263,23 @@ async def check_twitch(target_id: str, last_seen_id: Optional[str]) -> list[dict
     s = await _get_session()
     headers = {
         "Authorization": f"Bearer {token}",
-        "Client-Id":     _TWITCH_CLIENT_ID,
+        "Client-Id":     cid,
     }
     try:
         async with s.get(
             f"https://api.twitch.tv/helix/streams?user_login={target_id}",
             headers=headers,
         ) as resp:
+            body = await resp.text()
             if resp.status != 200:
+                print(f"[social/twitch] helix/streams status={resp.status} login={target_id} body={body[:200]}")
                 return []
-            j = await resp.json()
+            import json as _json
+            j = _json.loads(body)
             data = j.get("data") or []
-    except Exception:
+            print(f"[social/twitch] helix/streams login={target_id} data_count={len(data)} last_seen={last_seen_id!r}")
+    except Exception as e:
+        print(f"[social/twitch] helix exception login={target_id}: {e!r}")
         return []
 
     is_live = bool(data)
