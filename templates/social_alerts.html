@@ -1,0 +1,236 @@
+{% extends "_base.html" %}
+{% block title %}Alertes Twitch / YouTube · TookBot{% endblock %}
+{% block crumb %}Alertes Twitch / YouTube{% endblock %}
+
+{% block content %}
+<style>
+  .sa-builder {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 24px;
+    margin-bottom: 28px;
+  }
+  .sa-builder h2 { margin: 0 0 12px; font-size: 18px; }
+  .sa-help { color: var(--text-muted); font-size: 12px; margin-bottom: 14px; }
+  .row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .field label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .field input, .field select, .field textarea {
+    padding: 8px 10px; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: inherit; font-size: 13px;
+  }
+  .field textarea { min-height: 56px; resize: vertical; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+
+  .sa-list { display: grid; gap: 12px; }
+  .sa-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .sa-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: grid; place-items: center; font-size: 20px; flex-shrink: 0;
+  }
+  .sa-twitch  { background: oklch(0.55 0.22 305 / .25); }
+  .sa-youtube { background: oklch(0.6 0.22 25 / .2); }
+  .sa-reddit  { background: oklch(0.65 0.22 40 / .2); }
+  .sa-meta { flex: 1; min-width: 0; }
+  .sa-title { font-weight: 600; font-size: 14px; }
+  .sa-sub { font-size: 12px; color: var(--text-muted); }
+  .sa-actions-inline { display: flex; gap: 6px; }
+  .sa-disabled { opacity: 0.5; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: oklch(0.86 0.20 130); color: #1a1a1a; font-weight: 600;
+    padding: 12px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 180ms, transform 180ms;
+    pointer-events: none; z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+
+<h1 style="margin:0 0 8px;">🔔 Alertes Twitch / YouTube / Reddit</h1>
+<p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:24px;">
+  Le bot poste un message dans le salon de ton choix dès qu'un créateur passe en live (Twitch),
+  publie une nouvelle vidéo (YouTube) ou poste sur Reddit. Vérifié toutes les 5 minutes.
+</p>
+
+<div class="sa-builder">
+  <h2>➕ Nouvelle alerte</h2>
+  <div class="row-2col">
+    <div class="field">
+      <label>Plateforme</label>
+      <select id="saPlatform">
+        <option value="twitch">🟣 Twitch (passage en live)</option>
+        <option value="youtube">🔴 YouTube (nouvelle vidéo)</option>
+        <option value="reddit">🟠 Reddit (nouveau post)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Salon Discord</label>
+      <select id="saChannel"></select>
+    </div>
+  </div>
+
+  <div class="row-2col">
+    <div class="field">
+      <label>Pseudo / ID du créateur</label>
+      <input id="saTarget" type="text" placeholder="ex: pokimane, @MrBeast, UCxxxxxx, r/france">
+    </div>
+    <div class="field">
+      <label>Format Twitch (live), @handle ou ID UCxxx (YouTube), pseudo ou r/sub (Reddit)</label>
+      <input disabled value="" style="background:transparent;border-color:transparent;color:var(--text-muted);">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Message custom (optionnel — placeholders : {target} {title} {url} {author} {game} {viewers})</label>
+    <textarea id="saMessage" placeholder="Laisse vide pour utiliser le message par défaut."></textarea>
+  </div>
+
+  <div class="actions">
+    <button id="saAddBtn" class="btn btn-primary" type="button">✅ Créer l'alerte</button>
+    <span id="saHint" class="muted" style="font-size:12px;"></span>
+  </div>
+</div>
+
+<h2 style="margin: 24px 0 12px;">📋 Alertes actives</h2>
+<div id="saList" class="sa-list">
+  <div class="muted" style="font-size:13px;">Chargement…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let CHANNELS = [];
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? 'oklch(0.86 0.20 130)' : 'oklch(0.65 0.20 25)';
+  t.style.color = ok ? '#1a1a1a' : '#fff';
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+async function loadChannels() {
+  const r = await fetch('/api/channels?type=text');
+  if (!r.ok) return;
+  const d = await r.json();
+  CHANNELS = d.channels || [];
+  document.getElementById('saChannel').innerHTML =
+    '<option value="">— sélectionne —</option>' +
+    CHANNELS.map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
+}
+
+document.getElementById('saAddBtn').addEventListener('click', async () => {
+  const platform   = document.getElementById('saPlatform').value;
+  const channel_id = document.getElementById('saChannel').value;
+  const target_id  = document.getElementById('saTarget').value.trim();
+  const message    = document.getElementById('saMessage').value.trim() || null;
+  if (!channel_id) { showToast('Sélectionne un salon', false); return; }
+  if (!target_id)  { showToast('Saisis un pseudo / ID', false); return; }
+
+  const btn = document.getElementById('saAddBtn');
+  btn.disabled = true;
+  document.getElementById('saHint').textContent = '⏳ Création…';
+  try {
+    const r = await fetch('/api/social-alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, target_id, channel_id, message_template: message }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || r.status);
+    showToast('✅ Alerte créée');
+    document.getElementById('saTarget').value = '';
+    document.getElementById('saMessage').value = '';
+    document.getElementById('saHint').textContent = `id #${d.id} · 1er check d'ici ~5 min`;
+    loadList();
+    setTimeout(() => { document.getElementById('saHint').textContent = ''; }, 4000);
+  } catch (e) {
+    showToast('Erreur : ' + e.message, false);
+    document.getElementById('saHint').textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+const PLAT_INFO = {
+  twitch:  { icon: '🟣', cls: 'sa-twitch',  label: 'Twitch' },
+  youtube: { icon: '📺', cls: 'sa-youtube', label: 'YouTube' },
+  reddit:  { icon: '🟠', cls: 'sa-reddit',  label: 'Reddit' },
+};
+
+async function loadList() {
+  const list = document.getElementById('saList');
+  try {
+    const r = await fetch('/api/social-alerts');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    const alerts = d.alerts || [];
+    if (alerts.length === 0) {
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucune alerte configurée._</div>';
+      return;
+    }
+    list.innerHTML = alerts.map(a => {
+      const info = PLAT_INFO[a.platform] || { icon: '·', cls: '', label: a.platform };
+      const enabled = !!a.enabled;
+      return `<div class="sa-card ${enabled ? '' : 'sa-disabled'}">
+        <div class="sa-icon ${info.cls}">${info.icon}</div>
+        <div class="sa-meta">
+          <div class="sa-title">${info.label} · <code>${escapeHtml(a.target_label || a.target_id)}</code></div>
+          <div class="sa-sub">→ <#${a.channel_id}> · <code>id #${a.id}</code> · ${a.last_check_at ? 'last: ' + a.last_check_at : 'pas encore checkée'}</div>
+        </div>
+        <div class="sa-actions-inline">
+          <button class="btn btn-secondary toggle-btn" data-id="${a.id}" data-enabled="${enabled ? 1 : 0}" type="button">
+            ${enabled ? '⏸️ Pause' : '▶️ Activer'}
+          </button>
+          <button class="btn btn-secondary del-btn" data-id="${a.id}" type="button">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Supprimer cette alerte ?')) return;
+        const r = await fetch(`/api/social-alerts/${btn.dataset.id}`, { method: 'DELETE' });
+        if (r.ok) { showToast('Alerte supprimée'); loadList(); }
+        else showToast('Erreur', false);
+      });
+    });
+    list.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const newState = !parseInt(btn.dataset.enabled);
+        const r = await fetch(`/api/social-alerts/${btn.dataset.id}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: newState }),
+        });
+        if (r.ok) { showToast(newState ? 'Activée' : 'Mise en pause'); loadList(); }
+        else showToast('Erreur', false);
+      });
+    });
+  } catch (e) {
+    list.innerHTML = `<div class="muted">Erreur de chargement : ${e.message}</div>`;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadChannels();
+  loadList();
+});
+</script>
+{% endblock %}

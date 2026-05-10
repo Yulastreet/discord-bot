@@ -241,6 +241,28 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_groles_guild ON guild_roles(guild_id)')
 
+    # ===== SOCIAL ALERTS =====
+    # Notifie un salon Discord quand un createur publie sur une plateforme.
+    # platform : 'twitch' (live) | 'youtube' (nouvelle video) | 'reddit' (nouveau post)
+    # target_id : pseudo Twitch / channel_id YouTube (UCxxxx) / username Reddit
+    # last_seen_id : video_id youtube / post_id reddit / 'live'/'offline' twitch
+    c.execute('''CREATE TABLE IF NOT EXISTS social_alerts (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id         TEXT NOT NULL,
+        platform         TEXT NOT NULL,
+        target_id        TEXT NOT NULL,
+        target_label     TEXT,
+        channel_id       TEXT NOT NULL,
+        message_template TEXT,
+        last_seen_id     TEXT,
+        last_check_at    TEXT,
+        enabled          INTEGER NOT NULL DEFAULT 1,
+        created_by       TEXT,
+        created_at       TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_sa_guild    ON social_alerts(guild_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_sa_enabled  ON social_alerts(enabled)')
+
     # ===== REACTION ROLES =====
     # Mapping (guild, message, emoji) -> role. mode='toggle' = ajout/retrait
     # standard, 'add_only' = retire pas le role quand l'user enleve la reaction,
@@ -2530,6 +2552,81 @@ def reaction_role_list_unique_group(guild_id, message_id, group_key: str) -> lis
            WHERE guild_id = ? AND message_id = ? AND group_key = ? AND mode = 'unique' ''',
         (str(guild_id), str(message_id), group_key),
     ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# =====================================================================
+# SOCIAL ALERTS HELPERS
+# =====================================================================
+
+def social_alert_create(guild_id, platform: str, target_id: str, channel_id,
+                         target_label: str = None, message_template: str = None,
+                         created_by=None) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''INSERT INTO social_alerts
+        (guild_id, platform, target_id, target_label, channel_id,
+         message_template, enabled, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)''',
+        (str(guild_id), platform, target_id, target_label, str(channel_id),
+         message_template, str(created_by) if created_by else None))
+    conn.commit()
+    aid = c.lastrowid
+    conn.close()
+    return aid
+
+
+def social_alert_delete(alert_id, guild_id=None) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute("DELETE FROM social_alerts WHERE id = ? AND guild_id = ?",
+                  (int(alert_id), str(guild_id)))
+    else:
+        c.execute("DELETE FROM social_alerts WHERE id = ?", (int(alert_id),))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
+def social_alert_set_enabled(alert_id, enabled: bool, guild_id=None):
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute("UPDATE social_alerts SET enabled = ? WHERE id = ? AND guild_id = ?",
+                  (1 if enabled else 0, int(alert_id), str(guild_id)))
+    else:
+        c.execute("UPDATE social_alerts SET enabled = ? WHERE id = ?",
+                  (1 if enabled else 0, int(alert_id)))
+    conn.commit()
+    conn.close()
+
+
+def social_alert_update_seen(alert_id, last_seen_id: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''UPDATE social_alerts
+        SET last_seen_id = ?, last_check_at = CURRENT_TIMESTAMP
+        WHERE id = ?''',
+        (last_seen_id, int(alert_id)))
+    conn.commit()
+    conn.close()
+
+
+def social_alerts_list(guild_id=None, enabled_only: bool = False) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    sql  = "SELECT * FROM social_alerts WHERE 1=1"
+    args = []
+    if guild_id:
+        sql += " AND guild_id = ?"
+        args.append(str(guild_id))
+    if enabled_only:
+        sql += " AND enabled = 1"
+    sql += " ORDER BY id DESC"
+    rows = c.execute(sql, tuple(args)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 

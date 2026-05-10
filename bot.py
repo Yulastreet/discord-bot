@@ -79,7 +79,10 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       reaction_role_get as db_rr_get,
                       reaction_role_list as db_rr_list,
                       reaction_role_list_unique_group as db_rr_list_unique,
-                      replace_guild_roles)
+                      replace_guild_roles,
+                      social_alert_create, social_alert_delete,
+                      social_alert_update_seen, social_alerts_list)
+import social_integrations as social
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 
@@ -425,6 +428,8 @@ async def on_ready():
         daily_logs_purge.start()
     if not pass_rotation_loop.is_running():
         pass_rotation_loop.start()
+    if not social_alerts_poll.is_running():
+        social_alerts_poll.start()
     if not anti_spam_cleanup.is_running():
         anti_spam_cleanup.start()
     if not status_writer.is_running():
@@ -681,6 +686,118 @@ async def sync_commands(ctx):
 async def reload_reactions():
     global USER_REACTIONS
     USER_REACTIONS = get_all_reactions_index()
+
+_PLATFORM_DEFAULT_MSG = {
+    "youtube": "📺 **{author}** a publié une nouvelle vidéo : **{title}**\n{url}",
+    "reddit":  "🟠 Nouveau post de **{target}** : **{title}**\n{url}",
+    "twitch":  "🔴 **{target}** est en LIVE — *{title}*\n🎮 {game} · 👀 {viewers} viewers\n{url}",
+}
+
+
+@tasks.loop(minutes=5)
+async def social_alerts_poll():
+    """Poll toutes les alertes sociales actives. Compare avec last_seen_id ;
+    poste les nouveautes dans le salon configure."""
+    try:
+        alerts = social_alerts_list(enabled_only=True)
+    except Exception as e:
+        print(f"[social] list error: {e!r}")
+        return
+    for alert in alerts:
+        try:
+            new_items = await social.check_platform(
+                alert["platform"], alert["target_id"], alert["last_seen_id"],
+            )
+            if not new_items:
+                # Premiere fois -> ecrit le marqueur pour le prochain poll
+                if not alert.get("last_seen_id") and alert["platform"] != "twitch":
+                    # Tente une lecture pour seed last_seen_id
+                    seed = await social.check_platform(
+                        alert["platform"], alert["target_id"], "__seed__",
+                    )
+                    # check_platform avec last_seen_id non vide retourne [] vu qu'il
+                    # cherche le marqueur. On prend la 1ere video courante via
+                    # un seed manuel : recharge la page brute
+                    if alert["platform"] == "youtube":
+                        latest = await _social_latest_youtube_id(alert["target_id"])
+                        if latest:
+                            social_alert_update_seen(alert["id"], latest)
+                    elif alert["platform"] == "reddit":
+                        latest = await _social_latest_reddit_id(alert["target_id"])
+                        if latest:
+                            social_alert_update_seen(alert["id"], latest)
+                if alert["platform"] == "twitch" and not alert.get("last_seen_id"):
+                    social_alert_update_seen(alert["id"], "offline")
+                continue
+
+            channel = bot.get_channel(int(alert["channel_id"]))
+            if not channel:
+                continue
+
+            template = alert.get("message_template") or _PLATFORM_DEFAULT_MSG.get(
+                alert["platform"], "Nouveau contenu de {target} : {url}"
+            )
+            target_label = alert.get("target_label") or alert["target_id"]
+            for item in new_items:
+                if item.get("_silent"):
+                    # Twitch passe offline : on update juste le marqueur
+                    social_alert_update_seen(alert["id"], item["id"])
+                    continue
+                try:
+                    fmt = template.format(
+                        target=target_label,
+                        title=item.get("title", ""),
+                        url=item.get("url", ""),
+                        author=item.get("author", target_label),
+                        game=item.get("game", ""),
+                        viewers=item.get("viewers", 0),
+                    )
+                except (KeyError, IndexError):
+                    fmt = template
+                try:
+                    await channel.send(fmt)
+                except discord.Forbidden:
+                    print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']}")
+                except Exception as e:
+                    print(f"[social] send err alert={alert['id']}: {e!r}")
+                social_alert_update_seen(alert["id"], item["id"])
+        except Exception as e:
+            print(f"[social] poll err alert={alert.get('id')}: {e!r}")
+
+
+async def _social_latest_youtube_id(target_id: str) -> str | None:
+    if not target_id.startswith("UC"):
+        target_id = (await social.youtube_resolve_handle(target_id)) or target_id
+    items = await social.check_youtube(target_id, "__nope__")
+    if items:
+        return items[0]["id"]
+    # Fallback : refait la requete brute pour recuperer la 1ere entry
+    try:
+        s = await social._get_session()
+        url = social.YOUTUBE_FEED_URL.format(cid=target_id)
+        async with s.get(url) as resp:
+            if resp.status != 200:
+                return None
+            xml = await resp.text()
+        import xml.etree.ElementTree as _ET
+        root = _ET.fromstring(xml)
+        first = root.find("{http://www.w3.org/2005/Atom}entry/{http://www.youtube.com/xml/schemas/2015}videoId")
+        return first.text if first is not None else None
+    except Exception:
+        return None
+
+
+async def _social_latest_reddit_id(target_id: str) -> str | None:
+    items = await social.check_reddit(target_id, "__nope__")
+    if items:
+        return items[0]["id"]
+    return None
+
+
+@social_alerts_poll.before_loop
+async def _before_social_poll():
+    await bot.wait_until_ready()
+
 
 @tasks.loop(hours=6)
 async def pass_rotation_loop():
@@ -1127,10 +1244,10 @@ async def commandes(interaction: discord.Interaction):
         "**/reaction_add <membre> <emoji>** (ajoute une réaction auto à un membre, ce serveur uniquement)\n"
         "**/reaction_remove <membre>** (supprime la réaction auto d'un membre)\n"
         "**/reaction_list** (liste les réactions auto actives sur ce serveur)\n"
-        "**/rolereaction create** (ouvre un builder interactif : salon, embed, plusieurs emojis/rôles d'un coup)\n"
-        "**/rolereaction add <message_id> <salon> <emoji> <rôle> [mode]** (ajoute un mapping à un message existant)\n"
-        "**/rolereaction remove <message_id> [emoji]** (supprime un ou tous les mappings)\n"
-        "**/rolereaction list** (liste les rôles-réaction du serveur)"
+        "**/rolereaction create** (builder interactif : salon, embed, plusieurs emojis/rôles d'un coup ; gestion via le dashboard)\n"
+        "**/socialalert add <plateforme> <pseudo> <salon> [message]** (notifications quand un créateur publie/passe en live)\n"
+        "**/socialalert list** (liste des alertes actives sur ce serveur)\n"
+        "**/socialalert remove <id>** (supprime une alerte)"
     )
     embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
     embed.add_field(name="​", value="​", inline=False)
@@ -1884,125 +2001,122 @@ async def rr_create(interaction: discord.Interaction):
     )
 
 
-@rolereaction_group.command(name="add", description="Ajouter un mapping rôle-réaction à un message existant")
-@app_commands.describe(
-    message_id="ID du message rôle-réaction (active mode dev pour copier l'ID)",
-    salon="Salon contenant ce message",
-    emoji="Emoji déclencheur",
-    role="Rôle à attribuer",
-    mode="toggle / add_only / unique",
+bot.tree.add_command(rolereaction_group)
+
+
+# ===== SOCIAL ALERTS (commande slash) =====
+
+socialalert_group = app_commands.Group(
+    name="socialalert",
+    description="Alertes Twitch / YouTube / Reddit (admin/modo uniquement)",
+    default_permissions=discord.Permissions(manage_guild=True),
 )
-@app_commands.choices(mode=[
-    app_commands.Choice(name="toggle",   value="toggle"),
-    app_commands.Choice(name="add_only", value="add_only"),
-    app_commands.Choice(name="unique",   value="unique"),
+
+
+@socialalert_group.command(name="add", description="Créer une alerte sociale (live, vidéo, post)")
+@app_commands.describe(
+    plateforme="twitch / youtube / reddit",
+    pseudo="Pseudo Twitch / @handle YouTube ou ID UCxxx / username Reddit (ou r/sub)",
+    salon="Salon Discord où poster les alertes",
+    message="Message custom (placeholders : {target}, {title}, {url}, {author}, {game}, {viewers})",
+)
+@app_commands.choices(plateforme=[
+    app_commands.Choice(name="Twitch (live)",                value="twitch"),
+    app_commands.Choice(name="YouTube (nouvelle vidéo)",     value="youtube"),
+    app_commands.Choice(name="Reddit (nouveau post)",        value="reddit"),
 ])
-@app_commands.checks.has_permissions(manage_roles=True)
-async def rr_add(
+@app_commands.checks.has_permissions(manage_guild=True)
+async def sa_add(
     interaction: discord.Interaction,
-    message_id: str,
+    plateforme: app_commands.Choice[str],
+    pseudo: str,
     salon: discord.TextChannel,
-    emoji: str,
-    role: discord.Role,
-    mode: app_commands.Choice[str] = None,
+    message: str = None,
 ):
     await interaction.response.defer(ephemeral=True)
-    try:
-        msg_id_int = int(message_id)
-    except ValueError:
-        await interaction.followup.send("❌ ID de message invalide.", ephemeral=True)
-        return
-    emoji_key = _parse_emoji_input(emoji, interaction.guild)
-    if not emoji_key:
-        await interaction.followup.send("❌ Emoji invalide.", ephemeral=True)
-        return
-    mode_value = (mode.value if mode else "toggle")
-    me = interaction.guild.me
-    if role >= me.top_role:
+    pseudo = pseudo.strip()
+    plat = plateforme.value
+    label = pseudo
+    target_id = pseudo
+
+    # Resolution YouTube @handle -> UC...
+    if plat == "youtube" and not pseudo.startswith("UC"):
+        resolved = await social.youtube_resolve_handle(pseudo)
+        if not resolved:
+            await interaction.followup.send(
+                f"❌ Impossible de résoudre `{pseudo}` vers un channel ID YouTube. "
+                f"Essaie avec l'ID UCxxx directement.", ephemeral=True,
+            )
+            return
+        target_id = resolved
+        label = pseudo  # garde le @handle pour affichage
+
+    # Twitch sans creds = bloque
+    if plat == "twitch" and not (os.getenv("TWITCH_CLIENT_ID") and os.getenv("TWITCH_CLIENT_SECRET")):
         await interaction.followup.send(
-            f"❌ Mon rôle est en dessous de **{role.name}**.", ephemeral=True,
+            "❌ Les alertes Twitch nécessitent `TWITCH_CLIENT_ID` et `TWITCH_CLIENT_SECRET` "
+            "dans le `.env` du bot. Crée une app sur https://dev.twitch.tv/console/apps",
+            ephemeral=True,
         )
         return
-    try:
-        msg = await salon.fetch_message(msg_id_int)
-        await msg.add_reaction(emoji_key if not emoji_key.startswith("<") else discord.PartialEmoji.from_str(emoji_key))
-    except discord.NotFound:
-        await interaction.followup.send("❌ Message introuvable dans ce salon.", ephemeral=True)
-        return
-    except Exception as e:
-        await interaction.followup.send(f"❌ Erreur : {e!r}", ephemeral=True)
-        return
-    group_key = f"msg_{msg_id_int}" if mode_value == "unique" else None
-    db_rr_add(
-        interaction.guild.id, msg_id_int, salon.id, emoji_key, role.id,
-        mode=mode_value, group_key=group_key, created_by=interaction.user.id,
+
+    aid = social_alert_create(
+        guild_id=interaction.guild.id,
+        platform=plat, target_id=target_id, target_label=label,
+        channel_id=salon.id, message_template=message,
+        created_by=interaction.user.id,
     )
     await interaction.followup.send(
-        f"✅ Mapping ajouté : {emoji} → {role.mention} sur message `{msg_id_int}`.",
+        f"✅ Alerte **{plat}** créée (id `{aid}`) pour **{label}** dans {salon.mention}. "
+        f"Premier check d'ici ~5 min.",
         ephemeral=True,
     )
 
 
-@rolereaction_group.command(name="remove", description="Retirer un mapping rôle-réaction")
-@app_commands.describe(
-    message_id="ID du message",
-    emoji="Emoji à retirer (laisse vide pour retirer TOUS les mappings du message)",
-)
-@app_commands.checks.has_permissions(manage_roles=True)
-async def rr_remove(
-    interaction: discord.Interaction,
-    message_id: str,
-    emoji: str = None,
-):
-    try:
-        msg_id_int = int(message_id)
-    except ValueError:
-        await interaction.response.send_message("❌ ID invalide.", ephemeral=True)
-        return
-    if emoji:
-        ek = _parse_emoji_input(emoji, interaction.guild)
-        n = db_rr_remove(interaction.guild.id, msg_id_int, ek)
-        await interaction.response.send_message(
-            f"🗑️ {n} mapping(s) retiré(s).", ephemeral=True,
-        )
-    else:
-        n = db_rr_remove_msg(interaction.guild.id, msg_id_int)
-        await interaction.response.send_message(
-            f"🗑️ {n} mapping(s) retiré(s) (tous les emojis du message).", ephemeral=True,
-        )
-
-
-@rolereaction_group.command(name="list", description="Lister les rôles-réaction de ce serveur")
-async def rr_list(interaction: discord.Interaction):
-    rows = db_rr_list(interaction.guild.id)
+@socialalert_group.command(name="list", description="Lister les alertes sociales actives")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def sa_list(interaction: discord.Interaction):
+    rows = social_alerts_list(guild_id=interaction.guild.id)
     if not rows:
         await interaction.response.send_message(
-            "_Aucun rôle-réaction configuré sur ce serveur._", ephemeral=True,
+            "_Aucune alerte sociale configurée sur ce serveur._", ephemeral=True,
         )
         return
-    # Group by message
-    by_msg = {}
-    for r in rows:
-        by_msg.setdefault(r["message_id"], []).append(r)
+    PLAT_EMOJI = {"twitch": "🟣", "youtube": "🔴", "reddit": "🟠"}
     parts = []
-    for msg_id, mappings in list(by_msg.items())[:10]:  # cap 10 messages
-        chan_id = mappings[0]["channel_id"]
-        parts.append(f"**Message [`{msg_id}`](https://discord.com/channels/{interaction.guild.id}/{chan_id}/{msg_id})**")
-        for m in mappings:
-            mode_tag = f" *({m['mode']})*" if m['mode'] != "toggle" else ""
-            parts.append(f"  · {m['emoji']} → <@&{m['role_id']}>{mode_tag}")
-        parts.append("")
+    for r in rows[:25]:
+        emo = PLAT_EMOJI.get(r["platform"], "·")
+        state = "✅" if r["enabled"] else "⏸️"
+        parts.append(
+            f"{state} `#{r['id']}` {emo} **{r['platform']}** · "
+            f"`{r['target_label'] or r['target_id']}` → <#{r['channel_id']}>"
+        )
     embed = discord.Embed(
-        title="🎭 Rôles-Réaction",
-        description="\n".join(parts) or "—",
+        title="🔔 Alertes sociales",
+        description="\n".join(parts),
         color=0xC8F050,
     )
-    if len(by_msg) > 10:
-        embed.set_footer(text=f"…et {len(by_msg)-10} autre(s) message(s)")
+    if len(rows) > 25:
+        embed.set_footer(text=f"…et {len(rows)-25} autre(s)")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-bot.tree.add_command(rolereaction_group)
+@socialalert_group.command(name="remove", description="Supprimer une alerte sociale")
+@app_commands.describe(alerte_id="ID de l'alerte (visible avec /socialalert list)")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def sa_remove(interaction: discord.Interaction, alerte_id: int):
+    n = social_alert_delete(alerte_id, guild_id=interaction.guild.id)
+    if n:
+        await interaction.response.send_message(
+            f"🗑️ Alerte `#{alerte_id}` supprimée.", ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            f"❌ Alerte `#{alerte_id}` introuvable sur ce serveur.", ephemeral=True,
+        )
+
+
+bot.tree.add_command(socialalert_group)
 
 
 # ===== BATTLE PASS =====

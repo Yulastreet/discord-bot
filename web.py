@@ -55,7 +55,10 @@ from database import (
     get_user_cosmetic, list_user_owned_cosmetics,
     list_roles,
     reaction_role_list, reaction_role_remove, reaction_role_remove_message,
+    social_alert_create, social_alert_delete, social_alert_set_enabled,
+    social_alerts_list,
 )
+import social_integrations as social
 from niveau_card import (
     list_available_backgrounds, render_niveau_card,
     has_owner_custom_bg, save_owner_custom_bg, remove_owner_custom_bg,
@@ -100,7 +103,7 @@ MOD_ALLOWED_PAGES = {
     "dashboard", "search", "user_profile",
     "reactions_panel", "reactions_panel_post",
     "music_page", "logs_page", "moderation_page",
-    "reactionroles_page",
+    "reactionroles_page", "social_alerts_page",
 }
 MOD_ALLOWED_API_PREFIXES = (
     "/api/search", "/api/user/",
@@ -108,6 +111,7 @@ MOD_ALLOWED_API_PREFIXES = (
     "/api/members", "/api/moderation/", "/api/channels",
     "/api/select-guild", "/api/guilds",
     "/api/rolereactions",
+    "/api/social-alerts",
 )
 MOD_BLOCKED_PAGES = {
     # Pages global ou owner-only
@@ -1604,6 +1608,69 @@ def api_public_stats():
     resp.headers["Access-Control-Allow-Methods"] = "GET"
     resp.headers["Cache-Control"]                = "public, max-age=3600"
     return resp
+
+
+# ===== Social Alerts dashboard =====
+
+@app.route("/social-alerts")
+def social_alerts_page():
+    return render_template("social_alerts.html", active_nav="social_alerts")
+
+
+@app.route("/api/social-alerts", methods=["GET"])
+def api_social_alerts_list():
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    return jsonify({"alerts": social_alerts_list(guild_id=g_id)})
+
+
+@app.route("/api/social-alerts", methods=["POST"])
+def api_social_alerts_create():
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    data = request.get_json(silent=True) or {}
+    plat = (data.get("platform") or "").strip()
+    target = (data.get("target_id") or "").strip()
+    channel_id = data.get("channel_id")
+    message = (data.get("message_template") or "").strip() or None
+    label = target
+
+    if plat not in ("twitch", "youtube", "reddit"):
+        return jsonify({"error": "platform invalide"}), 400
+    if not target or not channel_id:
+        return jsonify({"error": "target_id et channel_id requis"}), 400
+
+    # Resolution YouTube @handle -> UCxxx (synchrone via aiohttp pose souci ;
+    # on accepte tel quel et la tasks loop tentera la resolution au 1er poll
+    # via youtube_resolve_handle. Ici on garde label = ce que l'user a tape.)
+    aid = social_alert_create(
+        guild_id=g_id, platform=plat, target_id=target, target_label=label,
+        channel_id=channel_id, message_template=message,
+        created_by=_current_user_id(),
+    )
+    return jsonify({"ok": True, "id": aid})
+
+
+@app.route("/api/social-alerts/<int:alert_id>", methods=["DELETE"])
+def api_social_alerts_delete(alert_id):
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    n = social_alert_delete(alert_id, guild_id=g_id)
+    return jsonify({"ok": True, "deleted": n})
+
+
+@app.route("/api/social-alerts/<int:alert_id>/toggle", methods=["POST"])
+def api_social_alerts_toggle(alert_id):
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get("enabled"))
+    social_alert_set_enabled(alert_id, enabled, guild_id=g_id)
+    return jsonify({"ok": True, "enabled": enabled})
 
 
 # ===== Reaction Roles dashboard =====
