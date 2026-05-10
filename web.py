@@ -1659,7 +1659,6 @@ def api_rolereactions_post():
         return jsonify({"error": "channel_id et mappings requis"}), 400
     if mode not in ("toggle", "add_only", "unique"):
         return jsonify({"error": "mode invalide"}), 400
-    # Sanity: chaque mapping doit avoir emoji_key + role_id
     for m in mappings:
         if not m.get("emoji_key") or not m.get("role_id"):
             return jsonify({"error": "mapping incomplet"}), 400
@@ -1673,6 +1672,23 @@ def api_rolereactions_post():
         "by":          _current_user_id(),
     })
     return jsonify({"ok": True, "cmd_id": cmd_id})
+
+
+@app.route("/api/rolereactions/command/<int:cmd_id>", methods=["GET"])
+def api_rolereactions_command_status(cmd_id):
+    """Permet au front de polling le statut d'une commande role-reaction
+    pour afficher succes ou erreur explicite."""
+    row = bot_command_get(cmd_id)
+    if not row:
+        return jsonify({"error": "command_not_found"}), 404
+    return jsonify({
+        "id":        row.get("id"),
+        "cmd":       row.get("cmd"),
+        "status":    row.get("status"),
+        "result":    row.get("result"),
+        "created_at":   row.get("created_at"),
+        "processed_at": row.get("processed_at"),
+    })
 
 
 @app.route("/api/rolereactions/<message_id>", methods=["DELETE"])

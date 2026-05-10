@@ -2586,12 +2586,21 @@ async def _dispatch_bot_command(cmd):
 
         # Verif hierarchie sur tous les roles
         me = guild.me
+        too_high = []
         for m in mapps:
             r = guild.get_role(int(m["role_id"]))
             if not r:
-                raise ValueError(f"role {m['role_id']} introuvable")
+                raise ValueError(f"Rôle {m['role_id']} introuvable. Resync nécessaire.")
             if r >= me.top_role:
-                raise ValueError(f"mon role est en dessous de '{r.name}'")
+                too_high.append(r.name)
+        if too_high:
+            names = ", ".join(f"@{n}" for n in too_high)
+            raise ValueError(
+                f"Hiérarchie : le bot ne peut pas attribuer ces rôles car ils sont "
+                f"au-dessus du sien : {names}. "
+                f"Solution : va dans Paramètres du serveur → Rôles et glisse "
+                f"le rôle du bot AU-DESSUS de ces rôles."
+            )
 
         embed = discord.Embed(title=titre, description=descp, color=0xC8F050)
         lines = []

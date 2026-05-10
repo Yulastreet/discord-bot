@@ -182,6 +182,21 @@ function addMapRow(emoji = '', roleId = '') {
 
 document.getElementById('addMapBtn').addEventListener('click', () => addMapRow());
 
+async function _pollCommand(cmdId, maxTries = 15) {
+  for (let i = 0; i < maxTries; i++) {
+    await new Promise(r => setTimeout(r, 800));
+    try {
+      const res = await fetch(`/api/rolereactions/command/${cmdId}`);
+      if (!res.ok) continue;
+      const d = await res.json();
+      if (d.status === 'done')  return { ok: true,  data: d };
+      if (d.status === 'error') return { ok: false, data: d };
+      // 'pending' / 'processing' -> continue
+    } catch (_) {}
+  }
+  return { ok: false, data: { result: 'Timeout — le bot n\'a pas répondu à temps.' } };
+}
+
 document.getElementById('postBtn').addEventListener('click', async () => {
   const channel_id  = document.getElementById('rrChannel').value;
   const mode        = document.getElementById('rrMode').value;
@@ -196,8 +211,10 @@ document.getElementById('postBtn').addEventListener('click', async () => {
   if (!channel_id) { showToast('Sélectionne un salon', false); return; }
   if (mappings.length === 0) { showToast('Au moins 1 mapping requis', false); return; }
 
-  document.getElementById('postBtn').disabled = true;
-  document.getElementById('postHint').textContent = 'Envoi…';
+  const btn  = document.getElementById('postBtn');
+  const hint = document.getElementById('postHint');
+  btn.disabled = true;
+  hint.textContent = '⏳ Envoi de la commande au bot…';
   try {
     const r = await fetch('/api/rolereactions/post', {
       method: 'POST',
@@ -206,17 +223,30 @@ document.getElementById('postBtn').addEventListener('click', async () => {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);
-    showToast('✅ Commande envoyée — le bot va publier le message');
-    document.getElementById('postHint').textContent = 'Mise à jour dans ~3s…';
-    // Reset form + reload list
-    document.getElementById('mapBuilder').innerHTML = '';
-    addMapRow();
-    setTimeout(loadList, 3500);
+
+    hint.textContent = '⏳ Le bot publie le message…';
+    // Polling status
+    const result = await _pollCommand(d.cmd_id);
+    if (result.ok) {
+      showToast('✅ Message publié avec succès !');
+      hint.textContent = '✓ Publié';
+      // Reset form
+      document.getElementById('mapBuilder').innerHTML = '';
+      addMapRow();
+      loadList();
+      setTimeout(() => { hint.textContent = ''; }, 2000);
+    } else {
+      const errMsg = result.data?.result || 'Erreur inconnue';
+      // Affiche modal d'erreur explicatif
+      alert('❌ Le bot n\'a pas pu publier le message :\n\n' + errMsg);
+      hint.textContent = '✗ Échec — voir détails';
+      showToast('Erreur lors de la publication', false);
+    }
   } catch (e) {
     showToast('Erreur : ' + e.message, false);
-    document.getElementById('postHint').textContent = '';
+    hint.textContent = '';
   } finally {
-    document.getElementById('postBtn').disabled = false;
+    btn.disabled = false;
   }
 });
 
