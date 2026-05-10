@@ -707,6 +707,80 @@ _PLATFORM_DEFAULT_MSG = {
     "twitch":  "🔴 **{target}** est en LIVE — *{title}*\n🎮 {game} · 👀 {viewers} viewers\n{url}",
 }
 
+_PLATFORM_COLOR = {
+    "twitch":  0x9146FF,
+    "youtube": 0xFF0000,
+    "reddit":  0xFF4500,
+}
+_PLATFORM_ICON = {
+    "twitch":  "https://cdn.discordapp.com/emojis/892812477145309244.png",
+    "youtube": "https://www.youtube.com/s/desktop/12d6b690/img/favicon_144x144.png",
+    "reddit":  "https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-180x180.png",
+}
+
+
+def _build_social_embed(platform: str, target_label: str, item: dict,
+                        custom_template: str | None) -> tuple[str | None, discord.Embed]:
+    """Construit (content, embed) selon plateforme. Si l'user a defini un
+    message custom, on l'utilise comme content au-dessus de l'embed (ping-friendly)."""
+    title = (item.get("title") or "").strip()
+    url   = item.get("url") or ""
+    author = item.get("author") or target_label
+
+    content = None
+    if custom_template:
+        try:
+            content = custom_template.format(
+                target=target_label, title=title, url=url, author=author,
+                game=item.get("game", ""), viewers=item.get("viewers", 0),
+            )
+        except (KeyError, IndexError):
+            content = custom_template
+
+    color = _PLATFORM_COLOR.get(platform, 0x2B2D31)
+    embed = discord.Embed(color=color, url=url or None)
+
+    if platform == "twitch":
+        embed.title = title or f"{target_label} est en live !"
+        embed.url = url
+        embed.description = f"🔴 **{target_label}** est en LIVE !"
+        if item.get("game"):
+            embed.add_field(name="🎮 Jeu", value=str(item["game"]), inline=True)
+        if item.get("viewers") is not None:
+            embed.add_field(name="👀 Viewers", value=f"{item['viewers']:,}".replace(",", " "), inline=True)
+        thumb = item.get("thumb")
+        if thumb:
+            embed.set_image(url=thumb)
+        embed.set_author(name=f"{target_label} · Twitch",
+                         url=f"https://twitch.tv/{target_label}",
+                         icon_url=_PLATFORM_ICON["twitch"])
+
+    elif platform == "youtube":
+        embed.title = title or "Nouvelle vidéo"
+        embed.url = url
+        embed.description = f"📺 **{author}** a publié une nouvelle vidéo."
+        # Miniature YouTube depuis videoId
+        vid = item.get("id")
+        if vid:
+            embed.set_image(url=f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg")
+        embed.set_author(name=f"{author} · YouTube",
+                         url=url, icon_url=_PLATFORM_ICON["youtube"])
+
+    elif platform == "reddit":
+        embed.title = title or "Nouveau post Reddit"
+        embed.url = url
+        embed.description = f"🟠 Nouveau post de **{target_label}**."
+        embed.set_author(name=f"{target_label} · Reddit",
+                         url=url, icon_url=_PLATFORM_ICON["reddit"])
+
+    else:
+        embed.title = title or "Nouveau contenu"
+        embed.url = url
+        embed.description = f"Nouveau contenu de **{target_label}**."
+
+    embed.timestamp = _dt.datetime.now(_dt.timezone.utc)
+    return content, embed
+
 
 @tasks.loop(minutes=5)
 async def social_alerts_poll():
@@ -758,29 +832,20 @@ async def social_alerts_poll():
             if not channel:
                 continue
 
-            template = alert.get("message_template") or _PLATFORM_DEFAULT_MSG.get(
-                alert["platform"], "Nouveau contenu de {target} : {url}"
-            )
+            template = alert.get("message_template")  # peut etre None
             target_label = alert.get("target_label") or alert["target_id"]
             for item in new_items:
                 if item.get("_silent"):
                     # Twitch passe offline : on update juste le marqueur
                     social_alert_update_seen(alert["id"], item["id"])
                     continue
-                try:
-                    fmt = template.format(
-                        target=target_label,
-                        title=item.get("title", ""),
-                        url=item.get("url", ""),
-                        author=item.get("author", target_label),
-                        game=item.get("game", ""),
-                        viewers=item.get("viewers", 0),
-                    )
-                except (KeyError, IndexError):
-                    fmt = template
+
+                content, embed = _build_social_embed(
+                    alert["platform"], target_label, item, template,
+                )
                 sent_ok = False
                 try:
-                    await channel.send(fmt)
+                    await channel.send(content=content, embed=embed)
                     sent_ok = True
                 except discord.Forbidden:
                     print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']} — re-tente au prochain poll")
