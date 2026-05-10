@@ -1261,10 +1261,7 @@ async def commandes(interaction: discord.Interaction):
         "**/socialalert add <plateforme> <pseudo> <salon> [message]** (notifications quand un créateur publie/passe en live)\n"
         "**/socialalert list** (liste des alertes actives sur ce serveur)\n"
         "**/socialalert remove <id>** (supprime une alerte)\n"
-        "**/ticket setup <salon> [titre] [description] [support_role] [catégorie] ...** (crée un panneau d'ouverture de tickets)\n"
-        "**/ticket list** (liste les panneaux et tickets ouverts)\n"
-        "**/ticket close** (ferme le ticket courant)\n"
-        "**/ticket adduser <membre>** / **/ticket removeuser <membre>** (gère l'accès au ticket)"
+        "**/ticket** (builder interactif : salon, rôle support, catégorie, titre/description/welcome, bouton custom — gestion via le dashboard)"
     )
     embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
     embed.add_field(name="​", value="​", inline=False)
@@ -2266,163 +2263,226 @@ class TicketControlView(discord.ui.View):
 
 # ----- Slash command /ticket -----
 
-ticket_group = app_commands.Group(
-    name="ticket",
-    description="Gérer les tickets de support",
-    default_permissions=discord.Permissions(manage_channels=True),
-)
+# ----- Builder interactif /ticket (panneau unique) -----
 
-
-@ticket_group.command(name="setup", description="Créer un panneau d'ouverture de tickets")
-@app_commands.describe(
-    salon="Salon où poster le panneau",
-    titre="Titre de l'embed du panneau",
-    description="Description (markdown OK)",
-    support_role="Rôle qui voit les tickets et peut les gérer (optionnel mais recommandé)",
-    categorie="Catégorie où créer les nouveaux tickets (optionnel)",
-    welcome="Message envoyé dans le ticket à l'ouverture (optionnel)",
-    button_label="Texte du bouton (par défaut : 'Ouvrir un ticket')",
-    button_emoji="Emoji du bouton (par défaut : 🎫)",
-)
-@app_commands.checks.has_permissions(manage_channels=True)
-async def ticket_setup(
-    interaction: discord.Interaction,
-    salon: discord.TextChannel,
-    titre: str = "🎫 Support",
-    description: str = "Clique sur le bouton ci-dessous pour ouvrir un ticket avec notre équipe.",
-    support_role: discord.Role = None,
-    categorie: discord.CategoryChannel = None,
-    welcome: str = None,
-    button_label: str = "Ouvrir un ticket",
-    button_emoji: str = "🎫",
-):
-    await interaction.response.defer(ephemeral=True)
-
-    pid = ticket_panel_create(
-        guild_id=interaction.guild.id,
-        channel_id=salon.id,
-        panel_title=titre, panel_description=description,
-        button_label=button_label, button_emoji=button_emoji,
-        support_role_id=support_role.id if support_role else None,
-        category_id=categorie.id if categorie else None,
-        welcome_message=welcome,
-        created_by=interaction.user.id,
+class _TicketEmbedModal(discord.ui.Modal, title="Configurer le panneau"):
+    titre       = discord.ui.TextInput(label="Titre", max_length=256,
+                                        placeholder="🎫 Support")
+    description = discord.ui.TextInput(
+        label="Description", style=discord.TextStyle.paragraph, max_length=2000,
+        placeholder="Texte affiché sur le panneau (markdown OK)",
+        required=False,
+    )
+    welcome = discord.ui.TextInput(
+        label="Message d'ouverture (envoyé dans le ticket)",
+        style=discord.TextStyle.paragraph, max_length=1500,
+        placeholder="Bienvenue ! Décris ton problème...",
+        required=False,
+    )
+    button_label = discord.ui.TextInput(
+        label="Texte du bouton", max_length=80,
+        placeholder="Ouvrir un ticket", required=False,
+    )
+    button_emoji = discord.ui.TextInput(
+        label="Emoji du bouton", max_length=10,
+        placeholder="🎫", required=False,
     )
 
-    embed = discord.Embed(title=titre, description=description, color=0xC8F050)
-    if support_role:
-        embed.add_field(name="Équipe", value=support_role.mention, inline=True)
-    view = TicketOpenView(label=button_label, emoji=button_emoji)
-    try:
-        msg = await salon.send(embed=embed, view=view)
-    except discord.Forbidden:
-        ticket_panel_delete(pid, interaction.guild.id)
-        await interaction.followup.send(
-            f"❌ Pas de permission pour poster dans {salon.mention}.", ephemeral=True,
+    def __init__(self, parent_view):
+        super().__init__()
+        self.parent_view = parent_view
+        self.titre.default        = parent_view.titre or ""
+        self.description.default  = parent_view.description or ""
+        self.welcome.default      = parent_view.welcome or ""
+        self.button_label.default = parent_view.button_label or "Ouvrir un ticket"
+        self.button_emoji.default = parent_view.button_emoji or "🎫"
+
+    async def on_submit(self, interaction: discord.Interaction):
+        self.parent_view.titre        = self.titre.value
+        self.parent_view.description  = self.description.value
+        self.parent_view.welcome      = self.welcome.value
+        self.parent_view.button_label = self.button_label.value or "Ouvrir un ticket"
+        self.parent_view.button_emoji = self.button_emoji.value or "🎫"
+        await self.parent_view.refresh(interaction)
+
+
+class _TicketBuilderView(discord.ui.View):
+    """Builder interactif d'un panneau de tickets."""
+
+    def __init__(self, author_id: int, guild: discord.Guild):
+        super().__init__(timeout=900)
+        self.author_id   = author_id
+        self.guild       = guild
+        self.salon: discord.TextChannel | None = None
+        self.support_role: discord.Role | None = None
+        self.category: discord.CategoryChannel | None = None
+        self.titre        = "🎫 Support"
+        self.description  = "Clique sur le bouton ci-dessous pour ouvrir un ticket avec notre équipe."
+        self.welcome      = ""
+        self.button_label = "Ouvrir un ticket"
+        self.button_emoji = "🎫"
+        self._rebuild()
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("❌ Pas ton menu.", ephemeral=True)
+            return False
+        return True
+
+    def _summary_embed(self) -> discord.Embed:
+        embed = discord.Embed(title="🎫 Builder Panneau Ticket", color=0xC8F050)
+        embed.add_field(
+            name="📍 Configuration",
+            value=(
+                f"**Salon panneau :** {self.salon.mention if self.salon else '_non défini_'}\n"
+                f"**Rôle support :** {self.support_role.mention if self.support_role else '_aucun_'}\n"
+                f"**Catégorie tickets :** {self.category.mention if self.category else '_aucune (créés à la racine)_'}"
+            ),
+            inline=False,
         )
-        return
-    ticket_panel_set_message(pid, msg.id)
-    await interaction.followup.send(
-        f"✅ Panneau de tickets `#{pid}` posté dans {salon.mention}.", ephemeral=True,
-    )
+        embed.add_field(
+            name="📝 Embed",
+            value=(
+                f"**Titre :** {self.titre}\n"
+                f"**Description :** {(self.description[:100] + '…') if self.description and len(self.description) > 100 else (self.description or '_—_')}\n"
+                f"**Message ouverture :** {(self.welcome[:80] + '…') if self.welcome and len(self.welcome) > 80 else (self.welcome or '_par défaut_')}"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="🔘 Bouton",
+            value=f"{self.button_emoji} **{self.button_label}**",
+            inline=False,
+        )
+        embed.set_footer(text="Le builder expire dans 15 minutes.")
+        return embed
+
+    def _rebuild(self):
+        self.clear_items()
+
+        # Row 0 : Salon
+        chan_sel = discord.ui.ChannelSelect(
+            placeholder="📍 Salon où poster le panneau…",
+            channel_types=[discord.ChannelType.text],
+            min_values=1, max_values=1, row=0,
+        )
+        async def _on_chan(interaction: discord.Interaction):
+            ch = self.guild.get_channel(chan_sel.values[0].id)
+            if isinstance(ch, discord.TextChannel):
+                self.salon = ch
+            await self.refresh(interaction)
+        chan_sel.callback = _on_chan
+        self.add_item(chan_sel)
+
+        # Row 1 : Catégorie
+        cat_sel = discord.ui.ChannelSelect(
+            placeholder="📁 Catégorie où créer les tickets (optionnel)…",
+            channel_types=[discord.ChannelType.category],
+            min_values=0, max_values=1, row=1,
+        )
+        async def _on_cat(interaction: discord.Interaction):
+            if cat_sel.values:
+                ch = self.guild.get_channel(cat_sel.values[0].id)
+                if isinstance(ch, discord.CategoryChannel):
+                    self.category = ch
+            else:
+                self.category = None
+            await self.refresh(interaction)
+        cat_sel.callback = _on_cat
+        self.add_item(cat_sel)
+
+        # Row 2 : Rôle support
+        role_sel = discord.ui.RoleSelect(
+            placeholder="👥 Rôle support (optionnel)…",
+            min_values=0, max_values=1, row=2,
+        )
+        async def _on_role(interaction: discord.Interaction):
+            self.support_role = role_sel.values[0] if role_sel.values else None
+            await self.refresh(interaction)
+        role_sel.callback = _on_role
+        self.add_item(role_sel)
+
+        # Row 3 : Modal embed + actions
+        btn_embed = discord.ui.Button(
+            label="📝 Texte / bouton", style=discord.ButtonStyle.secondary, row=3,
+        )
+        async def _on_embed(interaction: discord.Interaction):
+            await interaction.response.send_modal(_TicketEmbedModal(self))
+        btn_embed.callback = _on_embed
+        self.add_item(btn_embed)
+
+        btn_send = discord.ui.Button(
+            label="✅ Publier le panneau", style=discord.ButtonStyle.success, row=3,
+            disabled=not self.salon,
+        )
+        btn_send.callback = self._on_send
+        self.add_item(btn_send)
+
+        btn_cancel = discord.ui.Button(
+            label="❌ Annuler", style=discord.ButtonStyle.danger, row=3,
+        )
+        async def _on_cancel(interaction: discord.Interaction):
+            self.clear_items()
+            await interaction.response.edit_message(content="❌ Builder annulé.",
+                                                     embed=None, view=None)
+            self.stop()
+        btn_cancel.callback = _on_cancel
+        self.add_item(btn_cancel)
+
+    async def refresh(self, interaction: discord.Interaction):
+        self._rebuild()
+        if interaction.response.is_done():
+            await interaction.edit_original_response(embed=self._summary_embed(), view=self)
+        else:
+            await interaction.response.edit_message(embed=self._summary_embed(), view=self)
+
+    async def _on_send(self, interaction: discord.Interaction):
+        if not self.salon:
+            return
+        await interaction.response.defer(ephemeral=True)
+
+        pid = ticket_panel_create(
+            guild_id=self.guild.id,
+            channel_id=self.salon.id,
+            panel_title=self.titre, panel_description=self.description,
+            button_label=self.button_label, button_emoji=self.button_emoji,
+            support_role_id=self.support_role.id if self.support_role else None,
+            category_id=self.category.id if self.category else None,
+            welcome_message=self.welcome or None,
+            created_by=self.author_id,
+        )
+        embed = discord.Embed(title=self.titre, description=self.description, color=0xC8F050)
+        if self.support_role:
+            embed.add_field(name="Équipe", value=self.support_role.mention, inline=True)
+        view = TicketOpenView(label=self.button_label, emoji=self.button_emoji)
+        try:
+            msg = await self.salon.send(embed=embed, view=view)
+        except discord.Forbidden:
+            ticket_panel_delete(pid, self.guild.id)
+            await interaction.edit_original_response(
+                content=f"❌ Pas de permission pour poster dans {self.salon.mention}.",
+                embed=None, view=None,
+            )
+            self.stop()
+            return
+        ticket_panel_set_message(pid, msg.id)
+        await interaction.edit_original_response(
+            content=(
+                f"✅ Panneau ticket `#{pid}` posté dans {self.salon.mention}.\n"
+                f"`message_id = {msg.id}`"
+            ),
+            embed=None, view=None,
+        )
+        self.stop()
 
 
-@ticket_group.command(name="list", description="Lister les panneaux et tickets actifs")
+@bot.tree.command(name="ticket", description="Créer un panneau de tickets (builder interactif)")
 @app_commands.checks.has_permissions(manage_channels=True)
-async def ticket_list(interaction: discord.Interaction):
-    panels = ticket_panels_list(interaction.guild.id)
-    open_tk = tickets_list(interaction.guild.id, status="open", limit=15)
-    parts = []
-    if panels:
-        parts.append("**📋 Panneaux**")
-        for p in panels[:10]:
-            ch = interaction.guild.get_channel(int(p["channel_id"]))
-            ch_str = ch.mention if ch else f"`#{p['channel_id']}`"
-            parts.append(f"  · `#{p['id']}` {p.get('panel_title') or '—'} → {ch_str}")
-        parts.append("")
-    if open_tk:
-        parts.append(f"**🎫 Tickets ouverts ({len(open_tk)})**")
-        for t in open_tk:
-            ch = interaction.guild.get_channel(int(t["channel_id"]))
-            opener = interaction.guild.get_member(int(t["opener_id"]))
-            opener_str = opener.mention if opener else f"<@{t['opener_id']}>"
-            ch_str = ch.mention if ch else f"`#{t['channel_id']}`"
-            claim_str = f" · réclamé par <@{t['claimed_by']}>" if t.get("claimed_by") else ""
-            parts.append(f"  · `#{t['id']}` {opener_str} → {ch_str}{claim_str}")
-    if not parts:
-        await interaction.response.send_message(
-            "_Aucun panneau ni ticket ouvert._", ephemeral=True,
-        )
-        return
-    embed = discord.Embed(title="🎫 Tickets", description="\n".join(parts), color=0xC8F050)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-@ticket_group.command(name="close", description="Fermer le ticket courant")
-async def ticket_close_cmd(interaction: discord.Interaction):
-    ticket = ticket_get_by_channel(interaction.channel.id)
-    if not ticket or ticket["status"] != "open":
-        await interaction.response.send_message(
-            "❌ Ce salon n'est pas un ticket ouvert.", ephemeral=True,
-        )
-        return
-    if str(interaction.user.id) != ticket["opener_id"] and \
-       not (interaction.user.guild_permissions.manage_channels or
-            interaction.user.guild_permissions.administrator):
-        await interaction.response.send_message(
-            "❌ Seul l'auteur ou le support peut fermer.", ephemeral=True,
-        )
-        return
-    ticket_set_status(ticket["id"], "closed", closed_by=interaction.user.id)
+async def ticket_cmd(interaction: discord.Interaction):
+    view = _TicketBuilderView(interaction.user.id, interaction.guild)
     await interaction.response.send_message(
-        f"🔒 Ticket fermé par {interaction.user.mention}.",
+        embed=view._summary_embed(), view=view, ephemeral=True,
     )
-
-
-@ticket_group.command(name="adduser", description="Ajouter un membre au ticket courant")
-@app_commands.describe(membre="Membre à ajouter")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def ticket_adduser(interaction: discord.Interaction, membre: discord.Member):
-    ticket = ticket_get_by_channel(interaction.channel.id)
-    if not ticket:
-        await interaction.response.send_message(
-            "❌ Pas un ticket.", ephemeral=True,
-        ); return
-    try:
-        await interaction.channel.set_permissions(
-            membre, read_messages=True, send_messages=True,
-            reason=f"Ajout par {interaction.user}",
-        )
-    except discord.Forbidden:
-        await interaction.response.send_message(
-            "❌ Permissions manquantes.", ephemeral=True,
-        ); return
-    await interaction.response.send_message(
-        f"➕ {membre.mention} a été ajouté au ticket.",
-    )
-
-
-@ticket_group.command(name="removeuser", description="Retirer un membre du ticket courant")
-@app_commands.describe(membre="Membre à retirer")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def ticket_removeuser(interaction: discord.Interaction, membre: discord.Member):
-    ticket = ticket_get_by_channel(interaction.channel.id)
-    if not ticket:
-        await interaction.response.send_message("❌ Pas un ticket.", ephemeral=True); return
-    if str(membre.id) == ticket["opener_id"]:
-        await interaction.response.send_message(
-            "❌ Impossible de retirer l'auteur du ticket.", ephemeral=True,
-        ); return
-    try:
-        await interaction.channel.set_permissions(membre, overwrite=None)
-    except discord.Forbidden:
-        await interaction.response.send_message(
-            "❌ Permissions manquantes.", ephemeral=True,
-        ); return
-    await interaction.response.send_message(f"➖ {membre.mention} retiré du ticket.")
-
-
-bot.tree.add_command(ticket_group)
 
 
 # ===== SOCIAL ALERTS (commande slash) =====
