@@ -22,6 +22,15 @@ from typing import Optional
 import aiohttp
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+# pilmoji rend les emojis couleur (Twemoji) sur les images Pillow.
+# Fallback gracieux si la lib n'est pas dispo.
+try:
+    from pilmoji import Pilmoji
+    _HAS_PILMOJI = True
+except Exception:
+    _HAS_PILMOJI = False
+    Pilmoji = None  # type: ignore
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Constantes
 # ──────────────────────────────────────────────────────────────────────────────
@@ -230,6 +239,24 @@ def preload_backgrounds():
 # Helpers UI
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _draw_text_emoji(image: Image.Image, xy, text: str, font, fill,
+                      emoji_scale: float = 1.0):
+    """Dessine du texte contenant potentiellement des emojis couleur.
+
+    Utilise pilmoji si dispo (rendu Twemoji propre). Sinon fallback Pillow
+    standard (les emojis seront des carres). `emoji_scale` ajuste la taille
+    des glyphes emoji par rapport au font (utile pour aligner verticalement).
+    """
+    if _HAS_PILMOJI:
+        try:
+            with Pilmoji(image) as pj:
+                pj.text(xy, text, font=font, fill=fill, emoji_scale_factor=emoji_scale)
+            return
+        except Exception:
+            pass  # fallback ci-dessous
+    ImageDraw.Draw(image).text(xy, text, font=font, fill=fill)
+
+
 def _draw_xp_bar(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, percent: float):
     percent = max(0.0, min(100.0, float(percent)))
     radius = h // 2
@@ -319,7 +346,7 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
 
     # ── Bloc texte droite ────────────────────────────────────────────────
     text_x = AVATAR_X + AVATAR_SIZE + 40
-    # Pseudo (avec emoji prefix si Pass cosmetic actif)
+    # Pseudo (avec emoji prefix si Pass cosmetic actif). Pilmoji gere le rendu.
     name_font = _font(46, bold=True)
     full_name = (f"{emoji_prefix} {username}" if emoji_prefix else username)
     display = full_name
@@ -327,7 +354,7 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
         display = display[:-1]
     if display != full_name:
         display = display[:-1] + "…"
-    draw.text((text_x, 28), display, font=name_font, fill=TEXT_PRIMARY)
+    _draw_text_emoji(base, (text_x, 28), display, font=name_font, fill=TEXT_PRIMARY)
 
     # Titre Pass (sous le pseudo) si actif
     if title:
