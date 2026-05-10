@@ -78,15 +78,12 @@
     </div>
   </div>
 
-  <div class="row-2col">
-    <div class="field">
-      <label>Pseudo / ID du créateur</label>
-      <input id="saTarget" type="text" placeholder="ex: pokimane, @MrBeast, UCxxxxxx, r/france">
-    </div>
-    <div class="field">
-      <label>Format Twitch (live), @handle ou ID UCxxx (YouTube), pseudo ou r/sub (Reddit)</label>
-      <input disabled value="" style="background:transparent;border-color:transparent;color:var(--text-muted);">
-    </div>
+  <div class="field">
+    <label>Lien de la chaîne / profil</label>
+    <input id="saTarget" type="url" placeholder="https://twitch.tv/pokimane">
+    <span id="saExample" class="muted" style="font-size:11px;margin-top:4px;">
+      Colle l'URL complète de la chaîne — le bot extrait l'identifiant automatiquement.
+    </span>
   </div>
 
   <div class="field">
@@ -228,7 +225,25 @@ async function loadList() {
   }
 }
 
+const PLAT_PLACEHOLDER = {
+  twitch:  'https://twitch.tv/pokimane',
+  youtube: 'https://youtube.com/@MrBeast',
+  reddit:  'https://reddit.com/r/france',
+};
+const PLAT_EXAMPLE = {
+  twitch:  "Format accepté : https://twitch.tv/&lt;pseudo&gt; ou pseudo seul.",
+  youtube: "Format accepté : https://youtube.com/@handle, /channel/UC..., /c/nom ou /user/nom.",
+  reddit:  "Format accepté : https://reddit.com/r/&lt;sub&gt; ou /user/&lt;u&gt;.",
+};
+function syncPlatformHelp() {
+  const p = document.getElementById('saPlatform').value;
+  document.getElementById('saTarget').placeholder = PLAT_PLACEHOLDER[p] || '';
+  document.getElementById('saExample').innerHTML = PLAT_EXAMPLE[p] || '';
+}
+document.getElementById('saPlatform').addEventListener('change', syncPlatformHelp);
+
 window.addEventListener('DOMContentLoaded', async () => {
+  syncPlatformHelp();
   await loadChannels();
   loadList();
 });

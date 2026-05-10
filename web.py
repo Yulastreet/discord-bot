@@ -1680,25 +1680,31 @@ def api_social_alerts_create():
         return jsonify({"error": "no_guild"}), 400
     data = request.get_json(silent=True) or {}
     plat = (data.get("platform") or "").strip()
-    target = (data.get("target_id") or "").strip()
+    raw = (data.get("target_id") or "").strip()
     channel_id = data.get("channel_id")
     message = (data.get("message_template") or "").strip() or None
-    label = target
 
     if plat not in ("twitch", "youtube", "reddit"):
         return jsonify({"error": "platform invalide"}), 400
-    if not target or not channel_id:
-        return jsonify({"error": "target_id et channel_id requis"}), 400
+    if not raw or not channel_id:
+        return jsonify({"error": "lien et salon requis"}), 400
 
-    # Resolution YouTube @handle -> UCxxx (synchrone via aiohttp pose souci ;
-    # on accepte tel quel et la tasks loop tentera la resolution au 1er poll
-    # via youtube_resolve_handle. Ici on garde label = ce que l'user a tape.)
+    parsed = social.parse_social_url(plat, raw)
+    if not parsed:
+        examples = {
+            "twitch":  "https://twitch.tv/<pseudo>",
+            "youtube": "https://youtube.com/@<handle> ou /channel/UC...",
+            "reddit":  "https://reddit.com/r/<sub> ou /user/<u>",
+        }
+        return jsonify({"error": f"lien invalide. Exemple : {examples[plat]}"}), 400
+    target, label = parsed
+
     aid = social_alert_create(
         guild_id=g_id, platform=plat, target_id=target, target_label=label,
         channel_id=channel_id, message_template=message,
         created_by=_current_user_id(),
     )
-    return jsonify({"ok": True, "id": aid})
+    return jsonify({"ok": True, "id": aid, "target": target, "label": label})
 
 
 @app.route("/api/social-alerts/<int:alert_id>", methods=["DELETE"])

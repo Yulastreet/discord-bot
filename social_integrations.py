@@ -284,6 +284,60 @@ async def check_twitch(target_id: str, last_seen_id: Optional[str]) -> list[dict
 
 
 # --------------------------------------------------------------------------
+# URL parser
+# --------------------------------------------------------------------------
+# Accepte une URL de chaine/profil et extrait l'identifiant que les providers
+# attendent. Retourne (target_id, display_label) ou None si invalide.
+
+def parse_social_url(platform: str, raw: str) -> Optional[tuple[str, str]]:
+    s = (raw or "").strip()
+    if not s:
+        return None
+
+    if platform == "twitch":
+        m = re.search(r'twitch\.tv/([A-Za-z0-9_]{3,30})', s, re.IGNORECASE)
+        if m:
+            login = m.group(1).lower()
+            return (login, login)
+        if re.fullmatch(r'[A-Za-z0-9_]{3,30}', s):
+            return (s.lower(), s.lower())
+        return None
+
+    if platform == "youtube":
+        m = re.search(r'youtube\.com/channel/(UC[\w-]{20,})', s)
+        if m:
+            return (m.group(1), m.group(1))
+        m = re.search(r'youtube\.com/(@[\w.\-]+)', s)
+        if m:
+            return (m.group(1), m.group(1))
+        m = re.search(r'youtube\.com/(?:c|user)/([\w.\-]+)', s)
+        if m:
+            return ("@" + m.group(1), "@" + m.group(1))
+        m = re.search(r'youtu\.be/(@[\w.\-]+)', s)
+        if m:
+            return (m.group(1), m.group(1))
+        if s.startswith("UC") and len(s) >= 20:
+            return (s, s)
+        if s.startswith("@"):
+            return (s, s)
+        return None
+
+    if platform == "reddit":
+        m = re.search(r'reddit\.com/r/([A-Za-z0-9_]+)', s, re.IGNORECASE)
+        if m:
+            return (f"r/{m.group(1)}", f"r/{m.group(1)}")
+        m = re.search(r'reddit\.com/(?:u|user)/([A-Za-z0-9_-]+)', s, re.IGNORECASE)
+        if m:
+            return (m.group(1), f"u/{m.group(1)}")
+        low = s.lower()
+        if low.startswith("r/") or low.startswith("u/"):
+            return (s, s)
+        return None
+
+    return None
+
+
+# --------------------------------------------------------------------------
 # Dispatcher
 # --------------------------------------------------------------------------
 
