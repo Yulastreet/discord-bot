@@ -1,0 +1,290 @@
+{% extends "_base.html" %}
+{% block title %}Mon Pass · TookBot{% endblock %}
+{% block crumb %}Mon Pass{% endblock %}
+
+{% block content %}
+<style>
+  .pass-hero {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: 28px 32px;
+    background: linear-gradient(120deg, #1b1f15, #0f1410);
+    border: 1px solid oklch(0.86 0.20 130 / .35);
+    border-radius: var(--r-3);
+    margin-bottom: 28px;
+    color: #f4f8e8;
+  }
+  .pass-hero h1 {
+    margin: 0; font-size: 28px;
+    background: linear-gradient(120deg, oklch(0.86 0.20 130), oklch(0.82 0.16 90));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .pass-hero .sub { color: #b6c2a6; font-size: 14px; }
+  .pass-bar-wrap {
+    background: rgba(0,0,0,.35); border-radius: 999px; height: 18px;
+    overflow: hidden; position: relative;
+  }
+  .pass-bar-fill {
+    height: 100%; background: linear-gradient(90deg, oklch(0.86 0.20 130), oklch(0.78 0.18 100));
+    transition: width 250ms;
+  }
+  .pass-bar-label {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #1a1a1a; text-shadow: 0 1px 0 rgba(255,255,255,.15);
+  }
+  .quest {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .quest .top {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    font-size: 14px;
+  }
+  .quest .bar {
+    height: 8px; background: var(--bg-2); border-radius: 999px; overflow: hidden;
+  }
+  .quest .fill {
+    height: 100%; background: oklch(0.86 0.20 130);
+    transition: width 250ms;
+  }
+  .quest.done .fill { background: oklch(0.74 0.20 145); }
+  .quest .reward { font-size: 12px; color: var(--text-muted); }
+  .tier-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px; margin-top: 12px;
+  }
+  .tier-cell {
+    aspect-ratio: 1;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--text-muted);
+    position: relative;
+    cursor: default;
+  }
+  .tier-cell.claimed {
+    background: oklch(0.86 0.20 130 / .15);
+    border-color: oklch(0.86 0.20 130 / .55);
+    color: var(--text);
+  }
+  .tier-cell.next {
+    border-color: oklch(0.78 0.18 100);
+    box-shadow: 0 0 0 2px oklch(0.78 0.18 100 / .2);
+  }
+  .tier-cell .num { font-weight: 700; font-size: 12px; color: var(--text); }
+  .tier-cell .ico { font-size: 18px; margin-top: 1px; }
+  .unlock-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px; margin-top: 10px;
+  }
+  .unlock-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 12px 14px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .unlock-card .ico { font-size: 22px; }
+  .unlock-card .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .unlock-card .name { font-weight: 700; font-size: 13px; }
+  .unlock-card .exp  { font-size: 11px; color: var(--text-muted); }
+  .locked-screen {
+    text-align: center; padding: 60px 32px;
+    background: var(--bg-1); border: 1px dashed var(--border); border-radius: var(--r-2);
+  }
+  .price-tag {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    background: oklch(0.86 0.20 130); color: #1a1a1a; font-weight: 700;
+    margin-top: 8px;
+  }
+</style>
+
+<div id="passContent" class="hidden">
+  <div class="pass-hero">
+    <div class="row between" style="align-items:flex-start;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h1 id="seasonName">Battle Pass</h1>
+        <div class="sub" id="seasonDates"></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:12px;color:#a8b39a;text-transform:uppercase;letter-spacing:.05em;">Palier</div>
+        <div style="font-size:32px;font-weight:800;line-height:1;" id="currentTier">0</div>
+        <div style="font-size:12px;color:#a8b39a;">/ <span id="maxTier">30</span></div>
+      </div>
+    </div>
+    <div class="pass-bar-wrap">
+      <div class="pass-bar-fill" id="passBarFill" style="width:0%;"></div>
+      <div class="pass-bar-label" id="passBarLabel">0 / 250 XP</div>
+    </div>
+    <div class="sub" id="totalXpLabel">0 XP saison</div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr; gap:20px;">
+    <div>
+      <h3 style="margin: 0 0 10px;">📅 Quêtes du jour</h3>
+      <div id="dailyList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+    <div>
+      <h3 style="margin: 0 0 10px;">🗓️ Quêtes de la semaine</h3>
+      <div id="weeklyList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </div>
+
+  <h3 style="margin: 24px 0 6px;">Roadmap des paliers</h3>
+  <div id="tierGrid" class="tier-grid"></div>
+
+  <h3 style="margin: 24px 0 6px;">Mes récompenses débloquées</h3>
+  <div id="unlockGrid" class="unlock-grid"></div>
+</div>
+
+<div id="lockedContent" class="locked-screen hidden">
+  <h2>Tu n'as pas encore le Battle Pass</h2>
+  <p class="muted" style="max-width:520px;margin:0 auto 16px;">
+    Le Battle Pass se prend dans la <strong>boutique du bot</strong> sur Discord
+    (clique sur le profil de TookBot → Boutique). 30 paliers de récompenses
+    cosmétiques chaque mois : backgrounds exclusifs, sabres skins, titres,
+    boosts XP et plus. Renouvellement mensuel.
+  </p>
+  <div class="price-tag">3,99 € / mois</div>
+</div>
+
+<div id="loadingState" class="muted" style="text-align:center;padding:40px;">Chargement…</div>
+
+<script>
+const REWARD_ICONS = {
+  bg:        '🖼️',
+  sabre:     '⚔️',
+  title:     '🏷️',
+  emoji:     '✨',
+  boost_xp:  '⚡',
+};
+const REWARD_LABELS = {
+  bg:        'Background',
+  sabre:     'Sabre',
+  title:     'Titre',
+  emoji:     'Emoji',
+  boost_xp:  'Boost XP',
+};
+
+function fmt(n) { return (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' '); }
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api/my/pass');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    document.getElementById('loadingState').classList.add('hidden');
+    if (!d.has_pass) {
+      document.getElementById('lockedContent').classList.remove('hidden');
+      return;
+    }
+    document.getElementById('passContent').classList.remove('hidden');
+    render(d);
+  } catch (e) {
+    document.getElementById('loadingState').textContent = 'Erreur: ' + e.message;
+  }
+}
+
+const PASS_XP_PER_TIER = 250;
+const MAX_TIER         = 30;
+
+function render(d) {
+  const xp   = d.progress?.xp ?? 0;
+  const tier = Math.min(MAX_TIER, Math.floor(xp / PASS_XP_PER_TIER));
+  const xpInTier = tier < MAX_TIER ? xp - tier * PASS_XP_PER_TIER : PASS_XP_PER_TIER;
+  const xpNeeded = tier < MAX_TIER ? PASS_XP_PER_TIER : 0;
+  const pct = xpNeeded ? Math.min(100, (xpInTier / xpNeeded) * 100) : 100;
+
+  document.getElementById('seasonName').textContent = d.season?.name || 'Saison';
+  document.getElementById('seasonDates').textContent =
+    `Du ${(d.season?.started_at || '').slice(0,10)} au ${(d.season?.ends_at || '').slice(0,10)}`;
+  document.getElementById('currentTier').textContent = tier;
+  document.getElementById('passBarFill').style.width = pct + '%';
+  document.getElementById('passBarLabel').textContent =
+    tier >= MAX_TIER ? 'Pass complété !' : `${fmt(xpInTier)} / ${fmt(xpNeeded)} XP`;
+  document.getElementById('totalXpLabel').textContent =
+    `${fmt(xp)} XP cumulés cette saison`;
+
+  // Quetes
+  const daily  = (d.quests || []).filter(q => q.period === 'daily');
+  const weekly = (d.quests || []).filter(q => q.period === 'weekly');
+  document.getElementById('dailyList').innerHTML  = daily.length  ? daily.map(renderQuest).join('')  : '<div class="muted" style="font-size:13px;">Aucune quête active.</div>';
+  document.getElementById('weeklyList').innerHTML = weekly.length ? weekly.map(renderQuest).join('') : '<div class="muted" style="font-size:13px;">Aucune quête active.</div>';
+
+  // Roadmap
+  const claimedMax = d.progress?.claimed_max_tier ?? 0;
+  const rewardsByTier = {};
+  for (const r of (d.rewards || [])) rewardsByTier[r.tier] = r;
+  const cells = [];
+  for (let t = 1; t <= MAX_TIER; t++) {
+    const r = rewardsByTier[t];
+    const claimed = t <= claimedMax;
+    const next = !claimed && t === claimedMax + 1;
+    const ico = r ? (REWARD_ICONS[r.type] || '🎁') : '?';
+    const cls = ['tier-cell'];
+    if (claimed) cls.push('claimed');
+    if (next) cls.push('next');
+    cells.push(`<div class="${cls.join(' ')}" title="${r ? escapeHtml(r.label || '') : ''}">
+      <div class="num">${t}</div>
+      <div class="ico">${ico}</div>
+    </div>`);
+  }
+  document.getElementById('tierGrid').innerHTML = cells.join('');
+
+  // Unlocks
+  const unlocks = d.unlocks || [];
+  if (unlocks.length === 0) {
+    document.getElementById('unlockGrid').innerHTML =
+      '<div class="muted" style="font-size:13px;">Aucune récompense débloquée pour le moment.</div>';
+  } else {
+    document.getElementById('unlockGrid').innerHTML = unlocks.map(u => {
+      const ico = REWARD_ICONS[u.type] || '🎁';
+      const typLabel = REWARD_LABELS[u.type] || u.type;
+      const p = u.payload || {};
+      let name = typLabel;
+      if (u.type === 'bg')    name = (p.bg_name || p.bg_id || '').replace('seasonal:', '');
+      if (u.type === 'sabre') name = p.sabre_id || '';
+      if (u.type === 'title') name = p.title || '';
+      if (u.type === 'emoji') name = p.emoji || '';
+      if (u.type === 'boost_xp') name = `XP ×${p.multiplier} pendant ${p.hours}h`;
+      const exp = u.expires_at ? `Expire ${u.expires_at.slice(0,10)}` : 'Permanent';
+      return `<div class="unlock-card">
+        <div class="ico">${ico}</div>
+        <div class="meta">
+          <div class="name">${escapeHtml(name)}</div>
+          <div class="exp">${typLabel} · ${exp}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function renderQuest(q) {
+  const pct = Math.min(100, (q.progress / q.target) * 100);
+  const done = q.progress >= q.target;
+  const types = {
+    send_messages: '💬 Envoyer des messages',
+    play_duels:    '⚔️ Jouer des duels',
+    earn_xp:       '✨ Gagner de l\\'XP message',
+    use_commands:  '🔧 Utiliser des slash commands',
+  };
+  return `<div class="quest ${done ? 'done' : ''}">
+    <div class="top">
+      <span>${types[q.type] || q.type}</span>
+      <span><strong>${q.progress}</strong> / ${q.target} ${done ? '✓' : ''}</span>
+    </div>
+    <div class="bar"><div class="fill" style="width:${pct}%;"></div></div>
+    <div class="reward">+${q.xp_reward} XP de Pass</div>
+  </div>`;
+}
+
+window.addEventListener('DOMContentLoaded', load);
+</script>
+{% endblock %}

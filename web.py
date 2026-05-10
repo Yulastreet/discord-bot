@@ -190,6 +190,8 @@ def _user_can_access_page(endpoint, path):
     # Pages "Mon compte" (premium, gestion d'achats) : tout user connecte y accede
     if path == "/premium" or path.startswith("/premium/") or path.startswith("/api/premium"):
         return True
+    if path == "/my-pass" or path.startswith("/my-pass/") or path.startswith("/api/my/"):
+        return True
 
     # Pages user-perso non scopees a un serveur
     if path == "/logout" or path == "/forbidden":
@@ -234,6 +236,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/premium", "/api/premium",
     "/owner", "/api/owner",
     "/search-global", "/api/search-global",
+    "/my-pass", "/api/my",
 }
 
 def needs_guild(path):
@@ -1546,6 +1549,46 @@ def api_user_xp_set(user_id):
         "guild_id": g_id,
         "xp":       new_xp,
         "level":    new_level,
+    })
+
+
+# ===== Pass : page utilisateur "Mon Pass" =====
+
+@app.route("/my-pass")
+def my_pass_page():
+    uid = _current_user_id()
+    if not uid:
+        return redirect(url_for("oauth_login"))
+    return render_template("my_pass.html", active_nav="my_pass")
+
+
+@app.route("/api/my/pass", methods=["GET"])
+def api_my_pass():
+    """Etat complet du Pass pour l'user connecte (lecture seule)."""
+    uid = _current_user_id()
+    if not uid:
+        return jsonify({"error": "not_logged_in"}), 401
+    season   = get_or_create_current_season()
+    sid      = season["season_id"]
+    progress = get_pass_progress(uid, sid)
+    quests   = list_user_active_quests(uid)
+    unlocks  = list_user_pass_unlocks(uid)
+    has_pass = _has_pass(uid)
+    # Roadmap des paliers (rewards definis pour la saison)
+    db = get_db()
+    rows = db.execute(
+        "SELECT tier, type, label FROM pass_rewards WHERE season_id = ? ORDER BY tier",
+        (sid,),
+    ).fetchall()
+    db.close()
+    rewards = [dict(r) for r in rows]
+    return jsonify({
+        "has_pass":   has_pass,
+        "season":     season,
+        "progress":   progress,
+        "quests":     quests,
+        "unlocks":    unlocks,
+        "rewards":    rewards,
     })
 
 

@@ -410,6 +410,8 @@ async def on_ready():
         process_bot_commands.start()
     if not daily_logs_purge.is_running():
         daily_logs_purge.start()
+    if not pass_rotation_loop.is_running():
+        pass_rotation_loop.start()
     if not anti_spam_cleanup.is_running():
         anti_spam_cleanup.start()
     if not status_writer.is_running():
@@ -626,6 +628,55 @@ async def sync_commands(ctx):
 async def reload_reactions():
     global USER_REACTIONS
     USER_REACTIONS = get_all_reactions_index()
+
+@tasks.loop(hours=6)
+async def pass_rotation_loop():
+    """Rotation Battle Pass (toutes les 6h) :
+    - Genere les BG saisonniers du mois courant si absents
+    - A partir du 25 du mois, pre-genere ceux du mois suivant
+    - Cree la saison du mois courant via get_or_create_current_season()
+      (qui seed pass_rewards + sabres auto)
+    """
+    import datetime as _dt
+    import os as _os, subprocess as _sp
+    try:
+        # Saison courante (creee si manquante, seed auto)
+        season = get_or_create_current_season()
+        mk = season["month_key"]
+
+        # Genere les BG saisonniers du mois courant si manquants
+        seasonal_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                     "assets", "niveau_bg", "seasonal", mk)
+        if not _os.path.isdir(seasonal_dir) or len(_os.listdir(seasonal_dir)) < 5:
+            script = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                   "scripts", "generate_seasonal_backgrounds.py")
+            if _os.path.exists(script):
+                _sp.run(["python3", script, mk], check=False)
+                print(f"[pass rotation] BGs generated for {mk}")
+
+        # A partir du 25 du mois, pre-genere ceux du mois suivant pour anticiper
+        now = _dt.datetime.utcnow()
+        if now.day >= 25:
+            if now.month == 12:
+                next_mk = f"{now.year + 1}-01"
+            else:
+                next_mk = f"{now.year}-{now.month + 1:02d}"
+            next_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                     "assets", "niveau_bg", "seasonal", next_mk)
+            if not _os.path.isdir(next_dir) or len(_os.listdir(next_dir)) < 5:
+                script = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                       "scripts", "generate_seasonal_backgrounds.py")
+                if _os.path.exists(script):
+                    _sp.run(["python3", script, next_mk], check=False)
+                    print(f"[pass rotation] BGs pre-generated for {next_mk}")
+    except Exception as e:
+        print(f"[pass rotation] error: {e!r}")
+
+
+@pass_rotation_loop.before_loop
+async def _before_pass_rotation():
+    await bot.wait_until_ready()
+
 
 @tasks.loop(hours=24)
 async def daily_logs_purge():
