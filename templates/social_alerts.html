@@ -192,6 +192,7 @@ async function loadList() {
           <div class="sa-sub">→ <#${a.channel_id}> · <code>id #${a.id}</code> · ${a.last_check_at ? 'last: ' + a.last_check_at : 'pas encore checkée'}</div>
         </div>
         <div class="sa-actions-inline">
+          <button class="btn btn-secondary reset-btn" data-id="${a.id}" type="button" title="Force une re-detection au prochain poll">🔄 Reset</button>
           <button class="btn btn-secondary toggle-btn" data-id="${a.id}" data-enabled="${enabled ? 1 : 0}" type="button">
             ${enabled ? '⏸️ Pause' : '▶️ Activer'}
           </button>
@@ -205,6 +206,14 @@ async function loadList() {
         if (!confirm('Supprimer cette alerte ?')) return;
         const r = await fetch(`/api/social-alerts/${btn.dataset.id}`, { method: 'DELETE' });
         if (r.ok) { showToast('Alerte supprimée'); loadList(); }
+        else showToast('Erreur', false);
+      });
+    });
+    list.querySelectorAll('.reset-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Reset cette alerte ? Le bot la traitera comme nouvelle au prochain poll (≤5 min).')) return;
+        const r = await fetch(`/api/social-alerts/${btn.dataset.id}/reset`, { method: 'POST' });
+        if (r.ok) { showToast('Reset OK — re-check dans ≤5 min'); loadList(); }
         else showToast('Erreur', false);
       });
     });

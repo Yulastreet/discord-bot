@@ -2814,6 +2814,34 @@ def social_alert_update_seen(alert_id, last_seen_id: str):
     conn.close()
 
 
+def social_alert_touch_check(alert_id):
+    """Met a jour last_check_at sans toucher last_seen_id."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('UPDATE social_alerts SET last_check_at = CURRENT_TIMESTAMP WHERE id = ?',
+              (int(alert_id),))
+    conn.commit()
+    conn.close()
+
+
+def social_alert_reset(alert_id, guild_id=None) -> int:
+    """Efface last_seen_id pour forcer une re-detection au prochain poll."""
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        c.execute('UPDATE social_alerts SET last_seen_id = NULL, last_check_at = NULL '
+                  'WHERE id = ? AND guild_id = ?',
+                  (int(alert_id), str(guild_id)))
+    else:
+        c.execute('UPDATE social_alerts SET last_seen_id = NULL, last_check_at = NULL '
+                  'WHERE id = ?',
+                  (int(alert_id),))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
 def social_alerts_list(guild_id=None, enabled_only: bool = False) -> list[dict]:
     conn = get_db()
     c = conn.cursor()

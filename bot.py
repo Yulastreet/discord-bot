@@ -82,6 +82,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       replace_guild_roles,
                       social_alert_create, social_alert_delete,
                       social_alert_update_seen, social_alerts_list,
+                      social_alert_touch_check,
                       ticket_panel_create, ticket_panel_set_message,
                       ticket_panel_get, ticket_panel_get_by_message,
                       ticket_panels_list, ticket_panel_delete,
@@ -716,11 +717,21 @@ async def social_alerts_poll():
     except Exception as e:
         print(f"[social] list error: {e!r}")
         return
+    twitch_warned = False
     for alert in alerts:
         try:
+            # Warn loud if twitch creds missing (silent fail otherwise)
+            if (alert["platform"] == "twitch" and not twitch_warned
+                    and not (os.getenv("TWITCH_CLIENT_ID") and os.getenv("TWITCH_CLIENT_SECRET"))):
+                print("[social] WARNING: TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET not set in env — twitch alerts will never fire")
+                twitch_warned = True
             new_items = await social.check_platform(
                 alert["platform"], alert["target_id"], alert["last_seen_id"],
             )
+            print(f"[social] check {alert['platform']}/{alert['target_id']} alert={alert['id']} "
+                  f"last_seen={alert.get('last_seen_id')!r} -> {len(new_items)} item(s)")
+            # Always touch last_check_at so dashboard reflects the poll happened
+            social_alert_touch_check(alert["id"])
             if not new_items:
                 # Premiere fois -> ecrit le marqueur pour le prochain poll
                 if not alert.get("last_seen_id") and alert["platform"] != "twitch":
@@ -767,13 +778,16 @@ async def social_alerts_poll():
                     )
                 except (KeyError, IndexError):
                     fmt = template
+                sent_ok = False
                 try:
                     await channel.send(fmt)
+                    sent_ok = True
                 except discord.Forbidden:
-                    print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']}")
+                    print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']} — re-tente au prochain poll")
                 except Exception as e:
-                    print(f"[social] send err alert={alert['id']}: {e!r}")
-                social_alert_update_seen(alert["id"], item["id"])
+                    print(f"[social] send err alert={alert['id']}: {e!r} — re-tente au prochain poll")
+                if sent_ok:
+                    social_alert_update_seen(alert["id"], item["id"])
         except Exception as e:
             print(f"[social] poll err alert={alert.get('id')}: {e!r}")
 

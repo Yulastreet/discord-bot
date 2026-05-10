@@ -56,7 +56,7 @@ from database import (
     list_roles,
     reaction_role_list, reaction_role_remove, reaction_role_remove_message,
     social_alert_create, social_alert_delete, social_alert_set_enabled,
-    social_alerts_list,
+    social_alert_reset, social_alerts_list,
     ticket_panels_list, ticket_panel_delete, ticket_panel_get,
     tickets_list, ticket_set_status,
 )
@@ -1725,6 +1725,17 @@ def api_social_alerts_toggle(alert_id):
     enabled = bool(data.get("enabled"))
     social_alert_set_enabled(alert_id, enabled, guild_id=g_id)
     return jsonify({"ok": True, "enabled": enabled})
+
+
+@app.route("/api/social-alerts/<int:alert_id>/reset", methods=["POST"])
+def api_social_alerts_reset(alert_id):
+    """Force re-detection : efface last_seen_id pour que le prochain poll
+    notifie comme si l'alerte venait d'etre creee."""
+    g_id = gid()
+    if not g_id:
+        return jsonify({"error": "no_guild"}), 400
+    n = social_alert_reset(alert_id, guild_id=g_id)
+    return jsonify({"ok": True, "reset": n})
 
 
 # ===== Reaction Roles dashboard =====
