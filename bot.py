@@ -1332,17 +1332,21 @@ async def commandes(interaction: discord.Interaction):
         "**/kick <membre> [raison]** (expulse un membre du serveur)\n"
         "**/ban <membre> [raison]** (bannit un membre du serveur)\n"
         "**/poll <question> <option1> <option2> [option3] [option4]** (crée un sondage avec réactions)\n"
-        "**/setwelcome <salon>** (définit le salon de bienvenue)\n"
-        "**/reaction_add <membre> <emoji>** (ajoute une réaction auto à un membre, ce serveur uniquement)\n"
-        "**/reaction_remove <membre>** (supprime la réaction auto d'un membre)\n"
-        "**/reaction_list** (liste les réactions auto actives sur ce serveur)\n"
-        "**/rolereaction create** (builder interactif : salon, embed, plusieurs emojis/rôles d'un coup ; gestion via le dashboard)\n"
-        "**/socialalert add <plateforme> <pseudo> <salon> [message]** (notifications quand un créateur publie/passe en live)\n"
-        "**/socialalert list** (liste des alertes actives sur ce serveur)\n"
-        "**/socialalert remove <id>** (supprime une alerte)\n"
-        "**/ticket** (builder interactif : salon, rôle support, catégorie, titre/description/welcome, bouton custom — gestion via le dashboard)"
+        "**/setwelcome <salon>** (définit le salon de bienvenue)"
     )
     embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
+
+    outils = (
+        "**/reaction_add <membre> <emoji>** (réaction auto sur un membre, ce serveur uniquement)\n"
+        "**/reaction_remove <membre>** (supprime la réaction auto d'un membre)\n"
+        "**/reaction_list** (liste des réactions auto sur ce serveur)\n"
+        "**/rolereaction create** (builder : salon, embed, plusieurs emojis/rôles)\n"
+        "**/socialalert add <plateforme> <pseudo> <salon> [msg]** (alertes Twitch/YT/Reddit)\n"
+        "**/socialalert list** (liste des alertes actives)\n"
+        "**/socialalert remove <id>** (supprime une alerte)\n"
+        "**/ticket** (builder : salon, rôle support, catégorie, titre/desc, bouton custom)"
+    )
+    embed.add_field(name="🧰 Outils serveur", value=outils, inline=False)
     embed.add_field(name="​", value="​", inline=False)
 
     fun = (
@@ -1415,6 +1419,16 @@ async def commandes(interaction: discord.Interaction):
             "Active-les dans les paramètres Discord puis relance la commande.",
             ephemeral=True
         )
+    except discord.HTTPException as e:
+        # Embed trop long ou autre 400 — fallback texte ephemere
+        print(f"[commandes] embed send failed: {e!r}")
+        try:
+            await interaction.response.send_message(
+                "❌ Erreur d'envoi de la liste. Le dev a été pinged dans les logs.",
+                ephemeral=True,
+            )
+        except Exception:
+            pass
 
 
 # ===== FUN =====
