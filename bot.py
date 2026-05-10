@@ -1541,8 +1541,10 @@ def _parse_emoji_input(s: str, guild: discord.Guild) -> str | None:
     # Normalisation NFC : certains OS (notamment macOS) envoient l'emoji en
     # forme decomposee qui n'est pas reconnue par l'API Discord.
     s = _ud.normalize("NFC", s)
-    # Strip zero-width chars qui peuvent etre colles par certains claviers
-    for zw in ("​", "‌", "‍", "⁠", "﻿"):
+    # Strip zero-width chars parasites — ATTENTION : on GARDE U+200D (ZWJ)
+    # car il est essentiel aux sequences emoji composees comme 🧗‍♂️ ou 👨‍👩‍👧‍👦.
+    # ZWSP / ZWNJ / WJ / BOM seulement sont retires.
+    for zw in ("​", "‌", "⁠", "﻿"):
         s = s.replace(zw, "")
     s = s.strip()
     if not s:
