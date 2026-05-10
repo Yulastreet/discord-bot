@@ -354,7 +354,8 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
         display = display[:-1]
     if display != full_name:
         display = display[:-1] + "…"
-    _draw_text_emoji(base, (text_x, 28), display, font=name_font, fill=TEXT_PRIMARY)
+    _draw_text_emoji(base, (text_x, 28), display, font=name_font, fill=TEXT_PRIMARY,
+                      emoji_scale=0.75)
 
     # Titre Pass (sous le pseudo) si actif
     if title:
