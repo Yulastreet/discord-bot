@@ -804,29 +804,77 @@ def setup_duel_commands(bot, db):
     def _build_collection_embed(profil_data, member_name):
         sabres_ids   = profil_data.get("sabres", ["bleu"])
         sabre_equipe = profil_data.get("sabre_equipe", "bleu")
-        embed = discord.Embed(title=f"🗂️ Collection de {member_name}", color=0x9B59B6)
-        # Grouper par rareté
+
+        # Compte total + par rarete
+        per_rarete: dict[str, list] = {r: [] for r in RARETE_ORDER}
+        for sid in sabres_ids:
+            s = get_sabre(sid)
+            if not s:
+                continue
+            if s["rarete"] in per_rarete:
+                per_rarete[s["rarete"]].append(s)
+            else:
+                per_rarete.setdefault(s["rarete"], []).append(s)
+
+        embed = discord.Embed(
+            title=f"🗂️ Collection de {member_name}",
+            color=0x9B59B6,
+        )
+        # Stats compact en haut
+        equipped = get_sabre(sabre_equipe) if sabre_equipe else None
+        if equipped:
+            equipped_rar = RARETES.get(equipped["rarete"], {})
+            equipped_line = (
+                f"{equipped['emoji']} **{equipped['nom']}** "
+                f"· {equipped_rar.get('emoji','')} {equipped_rar.get('label','')}"
+            )
+        else:
+            equipped_line = "_aucun_"
+        embed.description = (
+            f"⚔️ **Équipé** : {equipped_line}\n"
+            f"🪙 **TookCoins** : {profil_data.get('tookcoins', 0)}\n"
+            f"📦 **Total possédé** : {len(sabres_ids)} sabre(s)\n"
+            f"​"  # blank line
+        )
+
+        # Sabres groupes par rarete avec bloc visuel propre
         for rarete_id in RARETE_ORDER:
+            sabres_rar = per_rarete.get(rarete_id) or []
+            if not sabres_rar:
+                continue
             rarete_info = RARETES[rarete_id]
-            ligne = []
-            for sid in sabres_ids:
-                s = get_sabre(sid)
-                if not s or s["rarete"] != rarete_id:
-                    continue
-                tag = " ← **équipé**" if sid == sabre_equipe else ""
-                # Marqueur 🔒 si saisonnier non equipable (manque sabre classique de la rarete)
+            # Sabres tries : equipe d'abord, puis alphabetique
+            sabres_rar.sort(key=lambda x: (x["id"] != sabre_equipe, x["nom"].lower()))
+            lignes = []
+            for s in sabres_rar:
+                is_equipped = (s["id"] == sabre_equipe)
                 can, _ = _can_equip_seasonal(profil_data, s)
-                lock = " 🔒" if not can else ""
-                ligne.append(f"{s['emoji']} **{s['nom']}**{tag}{lock}")
-            if ligne:
-                embed.add_field(
-                    name=f"{rarete_info['emoji']} {rarete_info['label']}",
-                    value="\n".join(ligne),
-                    inline=False,
+                if is_equipped:
+                    prefix = "  🟢"  # marqueur visuel actif
+                    suffix = "  **·  ÉQUIPÉ**"
+                elif not can:
+                    prefix = "  🔒"
+                    suffix = ""
+                else:
+                    prefix = "  ▫️"
+                    suffix = ""
+                special = s.get("speciale") or {}
+                spec_emoji = special.get("emoji", "✨")
+                spec_nom   = special.get("nom", "")
+                lignes.append(
+                    f"{prefix} {s['emoji']} **{s['nom']}**{suffix}\n"
+                    f"      {spec_emoji} _{spec_nom}_"
                 )
+            embed.add_field(
+                name=f"{rarete_info['emoji']}   {rarete_info['label']}   ·   {len(sabres_rar)}",
+                value="\n".join(lignes),
+                inline=False,
+            )
         if not embed.fields:
-            embed.description = "Aucun sabre dans ta collection."
-        embed.set_footer(text=f"🗂️ {len(sabres_ids)} sabre(s) · sélectionne ci-dessous pour équiper")
+            embed.description += "\n_Aucun sabre dans ta collection._"
+        embed.set_footer(
+            text="🗂️ Collection · sélectionne un sabre ci-dessous pour l'équiper · 🔒 = sabre saisonnier verrouillé"
+        )
         return embed
 
     def _build_shop_embed(profil_data):
