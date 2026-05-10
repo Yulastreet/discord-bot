@@ -1748,21 +1748,27 @@ class _RoleReactionBuilder(discord.ui.View):
 
         try:
             msg = await self.salon.send(embed=embed)
-            for m in self.mappings:
-                ek = m["emoji_key"]
-                try:
-                    if ek.startswith("<"):
-                        await msg.add_reaction(discord.PartialEmoji.from_str(ek))
-                    else:
-                        await msg.add_reaction(ek)
-                except Exception as e:
-                    print(f"[rolereaction] add_reaction {ek} err: {e!r}")
         except discord.Forbidden:
             await interaction.followup.send(
-                "❌ Permissions manquantes dans ce salon (envoyer messages / réagir).",
+                "❌ Permissions manquantes dans ce salon (envoyer messages).",
                 ephemeral=True,
             )
             return
+
+        # Ajout des reactions une par une avec petite pause anti-rate-limit
+        # (Discord cap a ~5 reactions/5s). Les echecs sont collectes et reportes.
+        failed = []
+        for m in self.mappings:
+            ek = m["emoji_key"]
+            try:
+                if ek.startswith("<"):
+                    await msg.add_reaction(discord.PartialEmoji.from_str(ek))
+                else:
+                    await msg.add_reaction(ek)
+            except Exception as e:
+                print(f"[rolereaction] add_reaction {ek} err: {e!r}")
+                failed.append((m["emoji_display"], str(e)))
+            await asyncio.sleep(0.35)
 
         # Persiste les mappings
         group_key = f"msg_{msg.id}" if self.mode == "unique" else None
@@ -1772,13 +1778,15 @@ class _RoleReactionBuilder(discord.ui.View):
                 mode=self.mode, group_key=group_key, created_by=self.author_id,
             )
 
+        confirm = (
+            f"✅ Message rôle-réaction posté dans {self.salon.mention}\n"
+            f"`message_id = {msg.id}` · {len(self.mappings)} mapping(s) · mode `{self.mode}`"
+        )
+        if failed:
+            details = "\n".join(f"  · {d} — `{e}`" for d, e in failed)
+            confirm += f"\n\n⚠️ **{len(failed)} réaction(s) non ajoutée(s) :**\n{details}"
         await interaction.edit_original_response(
-            content=(
-                f"✅ Message rôle-réaction posté dans {self.salon.mention}\n"
-                f"`message_id = {msg.id}` · {len(self.mappings)} mapping(s) · mode `{self.mode}`"
-            ),
-            embed=None,
-            view=None,
+            content=confirm, embed=None, view=None,
         )
         self.stop()
 
