@@ -2615,24 +2615,35 @@ async def _dispatch_bot_command(cmd):
         ))
 
         msg = await channel.send(embed=embed)
-        # Reactions avec retry VS-16
+        # Reactions avec retry VS-16. Cette fois on RAISE en cas d'echec
+        # final pour que le caller catche et logue / surface l'erreur.
         async def _try_add(emoji_str):
             if emoji_str.startswith("<"):
                 await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
-                return None
+                return
             base = emoji_str.replace("️", "")
+            seen = set()
+            last_err = None
             for v in [emoji_str, base, base + "️"]:
+                if not v or v in seen:
+                    continue
+                seen.add(v)
                 try:
                     await msg.add_reaction(v)
-                    return None
+                    return
                 except discord.HTTPException as e:
-                    last = e
-            return last
+                    last_err = e
+            if last_err:
+                raise last_err
+            raise RuntimeError("aucune variante d'emoji testee")
+
+        failed_dispatch = []
         for m in mapps:
             try:
                 await _try_add(m["emoji_key"])
             except Exception as e:
-                print(f"[rolereaction] dispatch add_reaction err: {e!r}")
+                print(f"[rolereaction] dispatch add_reaction {m['emoji_key']!r} err: {e!r}")
+                failed_dispatch.append((m["emoji_key"], str(e)))
             await asyncio.sleep(0.35)
 
         group_key = f"msg_{msg.id}" if mode == "unique" else None
@@ -2640,6 +2651,15 @@ async def _dispatch_bot_command(cmd):
             db_rr_add(
                 guild.id, msg.id, channel.id, m["emoji_key"], m["role_id"],
                 mode=mode, group_key=group_key, created_by=payload.get("by"),
+            )
+        if failed_dispatch:
+            details = "; ".join(f"{ek}: {er}" for ek, er in failed_dispatch)
+            raise RuntimeError(
+                f"Message posté (id {msg.id}), mais {len(failed_dispatch)} réaction(s) "
+                f"n'ont pas pu être ajoutées : {details}. "
+                f"Vérifie que le bot a la permission « Ajouter des réactions » dans ce salon, "
+                f"et que les emojis sont bien des emojis Discord standards (pas des emojis "
+                f"d'un autre serveur où le bot n'est pas)."
             )
         return
 
