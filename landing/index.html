@@ -404,18 +404,16 @@
 </footer>
 
 <script>
-  // Fetch live stats from dashboard's public-ish status endpoint
-  // Falls back to dashes if unreachable / requires auth
-  fetch('https://dashboard.tookbot.click/api/status')
+  // Stats publiques (cachees 1h cote serveur). Format FR pour les nombres.
+  function fmtNum(n) {
+    return (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' ');
+  }
+  fetch('https://dashboard.tookbot.click/api/public-stats')
     .then(r => r.ok ? r.json() : null)
     .then(d => {
       if (!d) return;
-      if (d.bot && d.bot.guild_count != null) {
-        document.getElementById('statGuilds').textContent = d.bot.guild_count;
-      }
-      if (d.db && d.db.counts && d.db.counts.users != null) {
-        document.getElementById('statUsers').textContent = d.db.counts.users;
-      }
+      if (d.guilds != null) document.getElementById('statGuilds').textContent = fmtNum(d.guilds);
+      if (d.users  != null) document.getElementById('statUsers').textContent  = fmtNum(d.users);
     })
     .catch(() => {});
 </script>

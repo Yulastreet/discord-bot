@@ -255,7 +255,7 @@ def needs_guild(path):
         return False  # DMs / status / settings = global
     return True
 
-PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms"}
+PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms", "/api/public-stats"}
 
 @app.before_request
 def _ctx():
@@ -1554,6 +1554,52 @@ def api_user_xp_set(user_id):
         "xp":       new_xp,
         "level":    new_level,
     })
+
+
+# ===== API publique : stats pour landing tookbot.click =====
+# Cache 1h pour eviter de bombarder la DB depuis la home page.
+
+import time as _time
+_PUBLIC_STATS_CACHE = {"data": None, "expires": 0.0}
+_PUBLIC_STATS_TTL_SEC = 3600  # 1h
+
+
+@app.route("/api/public-stats", methods=["GET"])
+def api_public_stats():
+    """Stats publiques affichees sur la landing tookbot.click.
+
+    Pas d'auth, CORS ouvert pour permettre le fetch cross-origin
+    (apex tookbot.click -> dashboard.tookbot.click). Cache server-side
+    1h pour limiter la charge DB.
+    """
+    now = _time.time()
+    if _PUBLIC_STATS_CACHE["data"] and _PUBLIC_STATS_CACHE["expires"] > now:
+        data = _PUBLIC_STATS_CACHE["data"]
+    else:
+        db = get_db()
+        try:
+            guild_count = db.execute(
+                "SELECT COUNT(*) AS n FROM guilds WHERE active = 1"
+            ).fetchone()["n"]
+        except Exception:
+            guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
+        user_count = db.execute(
+            "SELECT COUNT(DISTINCT user_id) AS n FROM users"
+        ).fetchone()["n"]
+        db.close()
+        data = {
+            "guilds":     int(guild_count or 0),
+            "users":      int(user_count  or 0),
+            "updated_at": int(now),
+        }
+        _PUBLIC_STATS_CACHE["data"]    = data
+        _PUBLIC_STATS_CACHE["expires"] = now + _PUBLIC_STATS_TTL_SEC
+
+    resp = jsonify(data)
+    resp.headers["Access-Control-Allow-Origin"]  = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET"
+    resp.headers["Cache-Control"]                = "public, max-age=3600"
+    return resp
 
 
 # ===== Pass : page utilisateur "Mon Pass" =====
