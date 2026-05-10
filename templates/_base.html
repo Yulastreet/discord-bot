@@ -258,60 +258,21 @@
 
     <nav>
       {% if is_owner %}
-      <div class="nav-section">Vue globale</div>
+      <div class="nav-section">👑 Owner</div>
       <a href="/general" class="nav-item {{ 'active' if active_nav == 'general' }}">
         <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
       </a>
-      {% endif %}
-
-      {% if has_server_access %}
-      <div class="nav-section">Ce serveur</div>
-      <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
-        <svg class="ic"><use href="#i-grid"/></svg> Dashboard
-      </a>
-      <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
-        <svg class="ic"><use href="#i-search"/></svg> Rechercher
-      </a>
-      {% if is_owner %}
       <a href="/search-global" class="nav-item {{ 'active' if active_nav == 'search_global' }}">
         <svg class="ic"><use href="#i-globe"/></svg> Rechercher (global)
       </a>
-      {% endif %}
-      <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
-        <svg class="ic"><use href="#i-react"/></svg> Réactions
-      </a>
-      <a href="/reactionroles" class="nav-item {{ 'active' if active_nav == 'reactionroles' }}">
-        <svg class="ic"><use href="#i-shield"/></svg> Rôles-Réaction
-      </a>
-      <a href="/social-alerts" class="nav-item {{ 'active' if active_nav == 'social_alerts' }}">
-        <svg class="ic"><use href="#i-bolt"/></svg> Alertes Twitch/YT
-      </a>
-      <a href="/tickets" class="nav-item {{ 'active' if active_nav == 'tickets' }}">
-        <svg class="ic"><use href="#i-mail"/></svg> Tickets
-      </a>
-      <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
-        <svg class="ic"><use href="#i-music"/></svg> Musique
-      </a>
-      <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
-        <svg class="ic"><use href="#i-terminal"/></svg> Logs
-      </a>
-      {% if is_owner %}
-      <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
-        <svg class="ic"><use href="#i-quote"/></svg> BotTalk
-      </a>
-      {% endif %}
-      <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
-        <svg class="ic"><use href="#i-shield"/></svg> Modération
-      </a>
-      {% endif %}
-
-      {% if is_owner %}
-      <div class="nav-section">Global (cross-serveur)</div>
       <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
         <svg class="ic"><use href="#i-swords"/></svg> Duels
       </a>
       <a href="/dms" class="nav-item {{ 'active' if active_nav == 'dms' }}">
         <svg class="ic"><use href="#i-mail"/></svg> Messages privés
+      </a>
+      <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
+        <svg class="ic"><use href="#i-quote"/></svg> BotTalk
       </a>
       <a href="/status" class="nav-item {{ 'active' if active_nav == 'status' }}">
         <svg class="ic"><use href="#i-pulse"/></svg> Status
@@ -319,21 +280,54 @@
       <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
         <svg class="ic"><use href="#i-gear"/></svg> Réglages
       </a>
+      <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
+        <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
+      </a>
+      {% endif %}
+
+      {% if has_server_access %}
+      <div class="nav-section">🛡️ Modération</div>
+      <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
+        <svg class="ic"><use href="#i-shield"/></svg> Modération
+      </a>
+      <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
+        <svg class="ic"><use href="#i-terminal"/></svg> Logs
+      </a>
+      <a href="/tickets" class="nav-item {{ 'active' if active_nav == 'tickets' }}">
+        <svg class="ic"><use href="#i-mail"/></svg> Tickets
+      </a>
+      <a href="/reactionroles" class="nav-item {{ 'active' if active_nav == 'reactionroles' }}">
+        <svg class="ic"><use href="#i-shield"/></svg> Rôles-Réaction
+      </a>
+
+      <div class="nav-section">🧰 Outils utiles</div>
+      <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
+        <svg class="ic"><use href="#i-grid"/></svg> Dashboard
+      </a>
+      <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
+        <svg class="ic"><use href="#i-search"/></svg> Rechercher
+      </a>
+      <a href="/social-alerts" class="nav-item {{ 'active' if active_nav == 'social_alerts' }}">
+        <svg class="ic"><use href="#i-bolt"/></svg> Alertes Twitch/YT
+      </a>
+
+      <div class="nav-section">🎉 Fun</div>
+      <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
+        <svg class="ic"><use href="#i-react"/></svg> Réactions
+      </a>
+      <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
+        <svg class="ic"><use href="#i-music"/></svg> Musique
+      </a>
       {% endif %}
 
       {% if discord_user and discord_user.user_id %}
-      <div class="nav-section">Mon compte</div>
+      <div class="nav-section">✨ Premium</div>
       <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
         <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
       </a>
       <a href="/my-pass" class="nav-item {{ 'active' if active_nav == 'my_pass' }}">
         <svg class="ic"><use href="#i-swords"/></svg> Mon Pass 🎟️
       </a>
-      {% if is_owner %}
-      <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
-        <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
-      </a>
-      {% endif %}
       {% endif %}
     </nav>
 
