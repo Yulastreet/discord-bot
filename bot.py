@@ -92,7 +92,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
 import social_integrations as social
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
-from welcome_utils import DEFAULT_WELCOME_MESSAGE, format_welcome_message
+from welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -977,12 +977,10 @@ async def on_member_join(member):
     if channel:
         template = data.get("message") or get_setting("welcome_template", DEFAULT_WELCOME_MESSAGE)
         try:
-            description = format_welcome_message(template, member)
+            send_kwargs = build_welcome_send_kwargs(template, member)
         except Exception:
-            description = f"Bienvenue {member.mention} !"
-        embed = discord.Embed(description=description, color=discord.Color.green())
-        embed.set_thumbnail(url=member.display_avatar.url)
-        await channel.send(embed=embed)
+            send_kwargs = {"content": f"Bienvenue {member.mention} !"}
+        await channel.send(**send_kwargs)
         return
 # ===== MONETIZATION : entitlements Discord =====
 

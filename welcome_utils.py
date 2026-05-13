@@ -14,3 +14,7 @@ def format_welcome_message(template, member):
         guild=member.guild.name,
         count=member.guild.member_count or 0,
     )
+
+
+def build_welcome_send_kwargs(template, member):
+    return {"content": format_welcome_message(template, member)}

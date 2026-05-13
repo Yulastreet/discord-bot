@@ -1,6 +1,6 @@
 import unittest
 
-from welcome_utils import format_welcome_message
+from welcome_utils import build_welcome_send_kwargs, format_welcome_message
 
 
 class FakeGuild:
@@ -27,6 +27,11 @@ class WelcomeUtilsTest(unittest.TestCase):
             format_welcome_message("Bienvenue {user}, membre {count}", FakeMember()),
             "Bienvenue <@123>, membre 42",
         )
+
+    def test_build_welcome_send_kwargs_uses_plain_content_not_embed(self):
+        kwargs = build_welcome_send_kwargs("Coucou @pseudo", FakeMember())
+
+        self.assertEqual(kwargs, {"content": "Coucou <@123>"})
 
 
 if __name__ == "__main__":
