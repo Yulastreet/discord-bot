@@ -92,6 +92,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
 import social_integrations as social
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
+from welcome_utils import DEFAULT_WELCOME_MESSAGE, format_welcome_message
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -972,27 +973,17 @@ async def on_member_join(member):
     data = get_welcome(member.guild.id)
     if not data:
         return
-    channel = bot.get_channel(data)
+    channel = bot.get_channel(data["channel_id"])
     if channel:
-        # Welcome template configurable via settings
-        template = get_setting("welcome_template",
-                               "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.")
+        template = data.get("message") or get_setting("welcome_template", DEFAULT_WELCOME_MESSAGE)
         try:
-            description = template.format(
-                user=member.mention, username=member.name,
-                guild=member.guild.name, count=member.guild.member_count or 0,
-            )
+            description = format_welcome_message(template, member)
         except Exception:
-            description = f"👋 Bienvenue {member.mention} !"
-        # Si template contient un titre dans la 1ere ligne, sinon on garde tout en description
-        title = f"👋 Bienvenue {member.name} !" if "{user}" not in template else None
-        if title:
-            embed = discord.Embed(title=title, description=description, color=discord.Color.green())
-        else:
-            embed = discord.Embed(description=description, color=discord.Color.green())
+            description = f"Bienvenue {member.mention} !"
+        embed = discord.Embed(description=description, color=discord.Color.green())
         embed.set_thumbnail(url=member.display_avatar.url)
         await channel.send(embed=embed)
-
+        return
 # ===== MONETIZATION : entitlements Discord =====
 
 def _entitlement_to_dict(ent) -> dict:
@@ -1332,7 +1323,7 @@ async def commandes(interaction: discord.Interaction):
         "**/kick <membre> [raison]** (expulse un membre du serveur)\n"
         "**/ban <membre> [raison]** (bannit un membre du serveur)\n"
         "**/poll <question> <option1> <option2> [option3] [option4]** (crée un sondage avec réactions)\n"
-        "**/setwelcome <salon>** (définit le salon de bienvenue)"
+        "**/setwelcome [salon]** (builder : salon et message de bienvenue)"
     )
     embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
 
@@ -1661,13 +1652,136 @@ async def poll(interaction: discord.Interaction, question: str, options: str):
     for i in range(len(option_list)):
         await msg.add_reaction(emojis[i])
 
-@bot.tree.command(name="setwelcome", description="Définir le salon de bienvenue")
-@app_commands.describe(salon="Le salon (laisse vide pour utiliser le salon actuel)")
+
+class _WelcomeMessageModal(discord.ui.Modal, title="Message de bienvenue"):
+    message = discord.ui.TextInput(
+        label="Message",
+        style=discord.TextStyle.paragraph,
+        max_length=1800,
+        placeholder="Ex: Coucou @pseudo sur le serveur, installe toi !",
+    )
+
+    def __init__(self, parent_view):
+        super().__init__()
+        self.parent_view = parent_view
+        self.message.default = parent_view.message or DEFAULT_WELCOME_MESSAGE
+
+    async def on_submit(self, interaction: discord.Interaction):
+        self.parent_view.message = self.message.value
+        await self.parent_view.refresh(interaction)
+
+
+class _WelcomeBuilderView(discord.ui.View):
+    def __init__(self, author_id: int, guild: discord.Guild):
+        super().__init__(timeout=900)
+        self.author_id = author_id
+        self.guild = guild
+        current = get_welcome(guild.id)
+        self.salon = guild.get_channel(current["channel_id"]) if current else None
+        self.message = (current or {}).get("message") or DEFAULT_WELCOME_MESSAGE
+        self._rebuild()
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("Ce builder n'est pas le tien.", ephemeral=True)
+            return False
+        return True
+
+    def _summary_embed(self) -> discord.Embed:
+        preview = self.message or DEFAULT_WELCOME_MESSAGE
+        embed = discord.Embed(title="Builder bienvenue", color=discord.Color.green())
+        embed.add_field(
+            name="Configuration",
+            value=(
+                f"**Salon :** {self.salon.mention if self.salon else '_non defini_'}\n"
+                f"**Message :** {(preview[:400] + '...') if len(preview) > 400 else preview}"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="Variables",
+            value="`@pseudo` ou `{user}` = mention du membre, `{username}` = pseudo, `{guild}` = serveur, `{count}` = nombre de membres.",
+            inline=False,
+        )
+        embed.set_footer(text="Le builder expire dans 15 minutes.")
+        return embed
+
+    def _rebuild(self):
+        self.clear_items()
+
+        chan_sel = discord.ui.ChannelSelect(
+            placeholder="Salon ou envoyer les bienvenues...",
+            channel_types=[discord.ChannelType.text],
+            min_values=1,
+            max_values=1,
+            row=0,
+        )
+
+        async def _on_chan(interaction: discord.Interaction):
+            ch = self.guild.get_channel(chan_sel.values[0].id)
+            if isinstance(ch, discord.TextChannel):
+                self.salon = ch
+            await self.refresh(interaction)
+
+        chan_sel.callback = _on_chan
+        self.add_item(chan_sel)
+
+        btn_message = discord.ui.Button(label="Modifier le message", style=discord.ButtonStyle.secondary, row=1)
+
+        async def _on_message(interaction: discord.Interaction):
+            await interaction.response.send_modal(_WelcomeMessageModal(self))
+
+        btn_message.callback = _on_message
+        self.add_item(btn_message)
+
+        btn_save = discord.ui.Button(
+            label="Enregistrer",
+            style=discord.ButtonStyle.success,
+            row=1,
+            disabled=not self.salon,
+        )
+        btn_save.callback = self._on_save
+        self.add_item(btn_save)
+
+        btn_cancel = discord.ui.Button(label="Annuler", style=discord.ButtonStyle.danger, row=1)
+
+        async def _on_cancel(interaction: discord.Interaction):
+            self.clear_items()
+            await interaction.response.edit_message(content="Builder annule.", embed=None, view=None)
+            self.stop()
+
+        btn_cancel.callback = _on_cancel
+        self.add_item(btn_cancel)
+
+    async def refresh(self, interaction: discord.Interaction):
+        self._rebuild()
+        if interaction.response.is_done():
+            await interaction.edit_original_response(embed=self._summary_embed(), view=self)
+        else:
+            await interaction.response.edit_message(embed=self._summary_embed(), view=self)
+
+    async def _on_save(self, interaction: discord.Interaction):
+        if not self.salon:
+            await interaction.response.send_message("Choisis d'abord un salon.", ephemeral=True)
+            return
+        set_welcome(interaction.guild.id, self.salon.id, self.message)
+        self.clear_items()
+        await interaction.response.edit_message(
+            content=f"Bienvenue configure dans {self.salon.mention}.",
+            embed=None,
+            view=None,
+        )
+        self.stop()
+
+@bot.tree.command(name="setwelcome", description="Ouvrir le builder de bienvenue")
+@app_commands.describe(salon="Preselection optionnelle du salon")
 @app_commands.default_permissions(administrator=True)
 async def setwelcome(interaction: discord.Interaction, salon: discord.TextChannel = None):
-    salon = salon or interaction.channel
-    set_welcome(interaction.guild.id, salon.id)
-    await interaction.response.send_message(f"✅ Salon de bienvenue défini sur {salon.mention} !")
+    view = _WelcomeBuilderView(interaction.user.id, interaction.guild)
+    if salon:
+        view.salon = salon
+        view._rebuild()
+    await interaction.response.send_message(embed=view._summary_embed(), view=view, ephemeral=True)
 
 
 # ===== NIVEAUX / XP =====

@@ -157,8 +157,13 @@ def init_db():
     # Table welcome
     c.execute('''CREATE TABLE IF NOT EXISTS welcome (
         guild_id TEXT PRIMARY KEY,
-        channel_id INTEGER
+        channel_id INTEGER,
+        message TEXT
     )''')
+    try:
+        c.execute("ALTER TABLE welcome ADD COLUMN message TEXT")
+    except Exception:
+        pass
 
     # Table profil duel
     c.execute('''CREATE TABLE IF NOT EXISTS duel_profil (
@@ -1382,15 +1387,22 @@ def replace_guild_channels(guild_id, channels):
 def get_welcome(guild_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT channel_id FROM welcome WHERE guild_id = ?", (str(guild_id),))
+    c.execute("SELECT channel_id, message FROM welcome WHERE guild_id = ?", (str(guild_id),))
     row = c.fetchone()
     conn.close()
-    return row["channel_id"] if row else None
+    return dict(row) if row else None
 
-def set_welcome(guild_id, channel_id):
+def set_welcome(guild_id, channel_id, message=None):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO welcome (guild_id, channel_id) VALUES (?, ?)", (str(guild_id), channel_id))
+    c.execute(
+        """INSERT INTO welcome (guild_id, channel_id, message)
+           VALUES (?, ?, ?)
+           ON CONFLICT(guild_id) DO UPDATE SET
+               channel_id = excluded.channel_id,
+               message = excluded.message""",
+        (str(guild_id), channel_id, message),
+    )
     conn.commit()
     conn.close()
 
