@@ -333,6 +333,68 @@ async def steam_market_price(market_hash_name: str, currency: int = 3) -> Option
     return None
 
 
+# --------------------------------------------------------------------------
+# Skinport : alternative marketplace gratuite, pas d'auth, prix EUR directs.
+# Endpoint bulk : retourne TOUS les items en un seul appel (~5-8 MB).
+# On cache localement pour eviter de spammer.
+# --------------------------------------------------------------------------
+
+_SKINPORT_CACHE = {"items": {}, "fetched_at": 0.0}
+_SKINPORT_LOCK = asyncio.Lock()
+
+
+async def _skinport_refresh_if_needed():
+    """Recharge la liste complete Skinport si > 30 min."""
+    now = time.time()
+    if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 1800):
+        return
+    async with _SKINPORT_LOCK:
+        if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 1800):
+            return
+        url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0"
+        s = await _get_session()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
+            "Accept": "application/json",
+            "Accept-Encoding": "br",
+        }
+        try:
+            async with s.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    print(f"[cs2/skinport] bulk status={resp.status}")
+                    return
+                data = await resp.json(content_type=None)
+                if not isinstance(data, list):
+                    print(f"[cs2/skinport] unexpected payload type={type(data).__name__}")
+                    return
+                # Cle = market_hash_name, valeur = dict avec min_price, suggested_price, etc.
+                idx = {item.get("market_hash_name"): item for item in data if item.get("market_hash_name")}
+                _SKINPORT_CACHE["items"]      = idx
+                _SKINPORT_CACHE["fetched_at"] = now
+                print(f"[cs2/skinport] cache loaded items={len(idx)}")
+        except Exception as e:
+            print(f"[cs2/skinport] bulk err: {type(e).__name__}: {e}")
+
+
+async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
+    """Cherche le prix min sur Skinport pour ce skin (prix EUR direct)."""
+    name = (market_hash_name or "").strip()
+    if not name:
+        return None
+    await _skinport_refresh_if_needed()
+    item = _SKINPORT_CACHE["items"].get(name)
+    if not item:
+        return None
+    min_price = item.get("min_price")
+    if not isinstance(min_price, (int, float)) or min_price <= 0:
+        return None
+    return {
+        "price_eur":       float(min_price),
+        "suggested_price": item.get("suggested_price"),
+        "quantity":        item.get("quantity"),
+    }
+
+
 async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
     """Cherche le listing CSFloat le moins cher pour ce skin.
     Endpoint public : GET /api/v1/listings?type=buy_now&market_hash_name=...

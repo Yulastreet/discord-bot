@@ -426,10 +426,10 @@ async def _build_price_embed(name: str) -> discord.Embed:
     if not cached_steam and steam_data:
         cs_cache_set(ck_steam, steam_data)
 
-    # CSFloat
-    ck_float = f"csfloat:{name.lower()}"
+    # Skinport
+    ck_float = f"skinport:{name.lower()}"
     cached_float = cs_cache_get(ck_float, max_age_sec=1800)
-    float_data = cached_float or await csapi.csfloat_lowest_price(name)
+    float_data = cached_float or await csapi.skinport_lowest_price(name)
     if not cached_float and float_data:
         cs_cache_set(ck_float, float_data)
 
@@ -460,17 +460,23 @@ async def _build_price_embed(name: str) -> discord.Embed:
     # CSFloat field
     if float_data:
         eur = float_data.get("price_eur") or 0
-        usd = float_data.get("price_usd") or 0
+        sugg = float_data.get("suggested_price") or 0
+        qty  = float_data.get("quantity") or 0
+        extra = []
+        if sugg:
+            extra.append(f"Suggéré : `{sugg:.2f} €`")
+        if qty:
+            extra.append(f"Listings : `{qty}`")
         float_value = (
             f"**Prix bas** : `{eur:.2f} €`\n"
-            f"_~ `{usd:.2f} $`_\n"
-            f"[Voir CSFloat](https://csfloat.com/search?market_hash_name={encoded})"
+            + ("\n".join(extra) + "\n" if extra else "")
+            + f"[Voir Skinport](https://skinport.com/market?search={encoded})"
         )
     else:
         float_value = "_Aucun listing actif._"
-    embed.add_field(name="🟧 CSFloat", value=float_value, inline=True)
+    embed.add_field(name="🟧 Skinport", value=float_value, inline=True)
 
-    embed.set_footer(text="🟦 Steam Community Market · 🟧 CSFloat")
+    embed.set_footer(text="🟦 Steam Community Market · 🟧 Skinport")
     return embed
 
 
@@ -520,7 +526,7 @@ async def _build_price_embed_all_wears(arme: str, skin: str, stattrak: bool) -> 
         )
 
     # Tableau aligne en code-block monospace
-    header = f"{'Usure':<12} │ {'🟦 Steam':<10} │ {'🟧 CSFloat':<10}"
+    header = f"{'Usure':<12} │ {'🟦 Steam':<10} │ {'🟧 Skinport':<10}"
     sep    = f"{'─'*12}─┼─{'─'*10}─┼─{'─'*10}"
     lines = [header, sep]
     for wear, s_str, f_str in rows:
@@ -532,7 +538,7 @@ async def _build_price_embed_all_wears(arme: str, skin: str, stattrak: bool) -> 
         description="**Prix par niveau d'usure :**\n```\n" + "\n".join(lines) + "\n```",
         color=0xF1C40F,
     )
-    embed.set_footer(text="🟦 Steam Market · 🟧 CSFloat · Prix les plus bas")
+    embed.set_footer(text="🟦 Steam Market · 🟧 Skinport · Prix les plus bas")
     return embed
 
 
