@@ -97,9 +97,13 @@ async def _build_steam_link(interaction: discord.Interaction, raw: str) -> Optio
     steam_id = await csapi.steam_resolve(raw)
     if not steam_id:
         await interaction.followup.send(
-            embed=_err_embed("ID Steam invalide",
-                "Format attendu : SteamID64 (17 chiffres), URL `https://steamcommunity.com/profiles/<id>`, "
-                "ou pseudo de vanity URL (`https://steamcommunity.com/id/<vanity>`)."),
+            embed=_err_embed("ID Steam invalide ou introuvable",
+                "Formats acceptés :\n"
+                "• URL custom : `https://steamcommunity.com/id/yuminiteru/`\n"
+                "• URL numérique : `https://steamcommunity.com/profiles/76561198xxxxxxxxx`\n"
+                "• Pseudo custom seul : `yuminiteru`\n"
+                "• SteamID64 seul : `76561198xxxxxxxxx` (17 chiffres)\n\n"
+                "Astuce : tu peux copier-coller l'URL de ton profil Steam directement."),
             ephemeral=True,
         )
         return None
@@ -716,7 +720,7 @@ def setup_cs2_commands(bot: commands.Bot):
     @cs_group.command(name="link", description="Lie ton compte Steam ou Faceit à ton Discord")
     @app_commands.describe(
         plateforme="Choisis la plateforme à lier",
-        identifiant="SteamID64 / URL Steam pour Steam, ou pseudo Faceit",
+        identifiant="Steam : URL https://steamcommunity.com/id/<pseudo>/ ou /profiles/<id>. Faceit : pseudo.",
     )
     @app_commands.choices(plateforme=[
         app_commands.Choice(name="Steam",  value="steam"),
@@ -880,8 +884,9 @@ def setup_cs2_commands(bot: commands.Bot):
             steam_id = await csapi.steam_resolve(steamid)
             if not steam_id:
                 await interaction.followup.send(
-                    embed=_err_embed("ID Steam invalide",
-                        "Format attendu : SteamID64 (17 chiffres) ou URL `https://steamcommunity.com/...`."),
+                    embed=_err_embed("ID Steam invalide ou introuvable",
+                        "Formats acceptés : URL `https://steamcommunity.com/id/<pseudo>/`, "
+                        "URL `/profiles/<id>`, pseudo seul, ou SteamID64 (17 chiffres)."),
                     ephemeral=True,
                 )
                 return

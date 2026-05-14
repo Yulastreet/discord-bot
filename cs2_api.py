@@ -83,7 +83,8 @@ def premier_tier(elo: int) -> tuple[Optional[str], Optional[str], Optional[int]]
 # --------------------------------------------------------------------------
 
 STEAMID64_RE = re.compile(r"^7656119[0-9]{10}$")
-STEAM_URL_RE = re.compile(r"^https?://steamcommunity\.com/(?:profiles/(\d+)|id/([\w.\-]+))/?$")
+# Tolere n'importe quel path apres /profiles/<id> ou /id/<vanity> (ex: /inventory/, /home, etc.)
+STEAM_URL_RE = re.compile(r"^https?://(?:www\.)?steamcommunity\.com/(?:profiles/(\d+)|id/([\w.\-]+))(?:/.*)?$")
 VANITY_RE    = re.compile(r"^[\w.\-]{2,32}$")
 
 
