@@ -49,6 +49,10 @@ def setup_runtime(bot, deps):
             status_writer.start()
         if not rotate_presence.is_running():
             rotate_presence.start()
+        # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
+        cs2_loop = globals().get("cs2_queue_sweep_loop")
+        if cs2_loop is not None and not cs2_loop.is_running():
+            cs2_loop.start()
         # Resume music: disabled by default. Discord voice handshakes can stall the
         # gateway at boot if the saved channel state is stale.
         if MUSIC_RESUME and os.getenv("MUSIC_RESUME_ON_BOOT", "0") == "1":

@@ -493,9 +493,7 @@ async def _before_cs2_sweep():
     await bot.wait_until_ready()
 
 
-if not cs2_queue_sweep_loop.is_running():
-    cs2_queue_sweep_loop.start()
-
-
+# NB : la loop est demarree dans tasks/runtime.py on_ready pour eviter le crash
+# 'no current event loop' au chargement du module (avant bot.run).
 setup_runtime(bot, globals())
 bot.run(TOKEN)
