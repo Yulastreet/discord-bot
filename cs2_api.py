@@ -285,6 +285,29 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
 # Steam Market : prix
 # --------------------------------------------------------------------------
 
+async def steam_market_search(query: str, count: int = 30, appid: int = 730) -> Optional[list[str]]:
+    """Recherche live sur Steam Market. Retourne liste de market_hash_name
+    correspondant a la query (ex: 'AK-47 Redline' -> tous les AK-47 Redline)."""
+    q = (query or "").strip()
+    if not q:
+        return None
+    url = ("https://steamcommunity.com/market/search/render/"
+           f"?query={quote_plus(q)}&appid={appid}&norender=1&count={count}&start=0")
+    s = await _get_session()
+    try:
+        async with s.get(url) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json(content_type=None)
+            if not data.get("success"):
+                return None
+            results = data.get("results") or []
+            return [r.get("hash_name") for r in results if r.get("hash_name")]
+    except Exception as e:
+        print(f"[cs2/market] search err: {type(e).__name__}")
+    return None
+
+
 async def steam_market_price(market_hash_name: str, currency: int = 3) -> Optional[dict]:
     """Prix Steam Market. currency 3 = EUR. None si non trouvé."""
     name = (market_hash_name or "").strip()

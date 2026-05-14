@@ -488,6 +488,50 @@ async def _arme_autocomplete(interaction: discord.Interaction, current: str):
     return [app_commands.Choice(name=w, value=w) for w in matches]
 
 
+# ─── Autocomplete pour /cs price skin ────────────────────────────────────────
+async def _skin_autocomplete(interaction: discord.Interaction, current: str):
+    # On lit l'arme deja saisie pour cibler la recherche
+    try:
+        arme = (interaction.namespace.arme or "").strip()
+    except Exception:
+        arme = ""
+    cur = (current or "").strip()
+    if not arme:
+        return [app_commands.Choice(name="⚠️ Choisis d'abord une arme", value=cur or " ")]
+    weapon_for_query = arme.replace("★", "").strip()
+    query = f"{weapon_for_query} {cur}".strip()
+    cache_key = f"skin_ac:{query.lower()}"
+    cached = cs_cache_get(cache_key, max_age_sec=3600)
+    if cached:
+        skins = cached
+    else:
+        results = await csapi.steam_market_search(query, count=40)
+        if not results:
+            return [app_commands.Choice(name="(aucun résultat — vérifie l'orthographe)", value=cur or " ")]
+        skins_set = set()
+        for hash_name in results:
+            # Ignore les items qui ne contiennent pas " | " (ex: cles, agents)
+            if " | " not in hash_name:
+                continue
+            # Filtre uniquement les items qui ont vraiment l'arme cherchee dans le prefixe
+            prefix, after_pipe = hash_name.split(" | ", 1)
+            if weapon_for_query.lower() not in prefix.lower():
+                continue
+            # Skin = partie entre " | " et " (Wear)"
+            if " (" in after_pipe:
+                skin = after_pipe.rsplit(" (", 1)[0].strip()
+            else:
+                skin = after_pipe.strip()
+            if skin:
+                skins_set.add(skin)
+        skins = sorted(skins_set)[:25]
+        if skins:
+            cs_cache_set(cache_key, skins)
+    if not skins:
+        return [app_commands.Choice(name="(aucun skin trouvé)", value=cur or " ")]
+    return [app_commands.Choice(name=s[:100], value=s[:100]) for s in skins[:25]]
+
+
 # ============================================================================
 # /cs inventory
 # ============================================================================
@@ -973,7 +1017,7 @@ def setup_cs2_commands(bot: commands.Bot):
         usure="Apparence (optionnel — laisse vide pour voir les 5 niveaux)",
         stattrak="Variante StatTrak™ (compteur de kills) — défaut: non",
     )
-    @app_commands.autocomplete(arme=_arme_autocomplete)
+    @app_commands.autocomplete(arme=_arme_autocomplete, skin=_skin_autocomplete)
     @app_commands.choices(usure=[
         app_commands.Choice(name="Neuve (Factory New)",          value="Factory New"),
         app_commands.Choice(name="Peu usée (Minimal Wear)",      value="Minimal Wear"),
