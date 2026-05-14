@@ -211,7 +211,9 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
     Utilise une session aiohttp DEDIEE (cookies vides) pour eviter que
     Steam blacklist notre fingerprint apres une serie de 400.
     """
-    url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=5000"
+    # count=75 est la valeur par defaut utilisee par steamcommunity.com lui-meme ;
+    # demander count=5000 fait que Steam repond 400+null en blocage anti-scrape.
+    url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=75"
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
         "Accept": "application/json, text/javascript, */*; q=0.01",
