@@ -10,76 +10,13 @@ from duel_combat import calculer_stats, calculer_degats, barre_hp
 from duel_minigames import run_minigame
 
 
-# ─── DEFENSE SPECIALE : ASCII ART + ZONE SELECT ─────────────────────────────
+# ─── DEFENSE SPECIALE : IMAGES + ZONE SELECT ─────────────────────────────
 
-DEFENDER_ASCII = r"""
-                  .--""""""--.
-                .'             '.
-               /    .------.    \
-              |    /  o   o  \   |
-              |   |    ><     |  |
-               \   \  ------  /  /
-                '.  '.______.' .'
-                  '----.--.---'
-                .------|##|------.
-               /       |##|       \
-              /   .----|##|----.   \
-             /   /     |##|     \   \
-            /   /  ____|##|____  \   \
-           |   |  /    |##|    \  |   |
-           |   | |  ##############  | |
-           |   | |  ##############  | |
-           |   | |  ##############  | |
-           |   | |  ##############  | |
-           |   | |  ##############  | |
-           |   |  \____|##|____/  |   |
-            \   \     |##|     /   /
-             \   \____|##|____/   /
-              \      |####|      /
-               \     |####|     /
-                '----'    '----'
-                /  \        /  \
-               /    \      /    \
-              /______\    /______\
-             |________|  |________|
-"""
-
-ATTACKER_ASCII = r"""
-                                  /
-                                 /
-                                / |
-                               /  |
-                              / / |
-                             / /  |
-                            / /   |
-                           /=/    |
-                          //      |
-                  .--""--.        |
-                .'        '.      |
-               /   .----.   \     |
-              |   / o    o \  |   |
-              |  |    ><     | |  |
-               \  \   ----  /  /
-                '. '.______.' .'
-                  '---|##|---'
-                .----.|##|.----.
-               /     ||##||     \
-              /   .--||##||--.   \
-             /   /   ||##||   \   \
-            /   /  __||##||__  \   \
-           |   |  /   |##|   \  |   |
-           |   | |    |##|    | |   |
-           |   |  \___|##|___/  |   |
-            \   \    |##|     /   /
-             \   \___|##|____/   /
-              \     |####|      /
-               \    |####|     /
-                '---'    '---'
-                /  \      /  \
-               /    \    /    \
-              /______\  /______\
-             |________||________|
-"""
+# Fichiers images uploades comme attachments Discord (referencement via attachment://)
+DEFENDER_IMAGE_PATH = "assets/duel_defender.png"
+ATTACKER_IMAGE_PATH = "assets/duel_attacker.png"
+DEFENDER_IMAGE_NAME = "duel_defender.png"
+ATTACKER_IMAGE_NAME = "duel_attacker.png"
 
 ZONE_LABELS = {
     "bras_g":   "💪 Bras gauche",
@@ -90,12 +27,9 @@ ZONE_LABELS = {
 
 
 class ZoneSelectView(discord.ui.View):
-    """Vue ephemere pour choisir la zone (bras G/D, jambe G/D).
-
-    `mode` = 'defense' ou 'attaque' (juste pour le styling).
-    """
+    """Vue attachee au message principal du duel pour choisir une zone."""
     def __init__(self, joueur_id: int, event: asyncio.Event, choix_ref: dict, mode: str = "defense"):
-        super().__init__(timeout=25)
+        super().__init__(timeout=30)
         self.joueur_id = joueur_id
         self.event     = event
         self.choix_ref = choix_ref
@@ -108,9 +42,12 @@ class ZoneSelectView(discord.ui.View):
                                     custom_id=f"zone_{mode}_{joueur_id}_{code}")
 
             async def cb(interaction: discord.Interaction, c=code):
+                # Seul le joueur concerne peut cliquer
                 if interaction.user.id != self.joueur_id:
                     try:
-                        await interaction.response.defer()
+                        await interaction.response.send_message(
+                            "❌ Pas ton tour.", ephemeral=True,
+                        )
                     except Exception:
                         pass
                     return
@@ -121,11 +58,10 @@ class ZoneSelectView(discord.ui.View):
                         pass
                     return
                 self.choix_ref["zone"] = c
-                for child in self.children:
-                    child.disabled = True
+                # Confirmation privee revele la zone uniquement au clicker
                 try:
-                    await interaction.response.edit_message(
-                        content=f"✅ Zone verrouillée : **{ZONE_LABELS[c]}**", embed=None, view=None,
+                    await interaction.response.send_message(
+                        f"🔒 Zone verrouillée : **{ZONE_LABELS[c]}**", ephemeral=True,
                     )
                 except Exception:
                     try:
@@ -139,21 +75,104 @@ class ZoneSelectView(discord.ui.View):
 
 
 def make_zone_embed(mode: str, joueur) -> discord.Embed:
-    """Embed ephemere : ASCII + prompt selon defense/attaque."""
+    """Embed du menu de zone, image referencee via attachment://."""
     if mode == "defense":
-        title = "🛡️ Défense Spéciale activée !"
+        title  = "🛡️ Défense Spéciale activée !"
         prompt = f"**{joueur.display_name}**, quelle partie de ton corps protèges-tu ?"
-        ascii_art = DEFENDER_ASCII
-        color = 0x4FB3FF
+        img    = DEFENDER_IMAGE_NAME
+        color  = 0x4FB3FF
     else:
-        title = "⚔️ L'adversaire se défend avec lecture !"
+        title  = "⚔️ L'adversaire lit ta défense !"
         prompt = f"**{joueur.display_name}**, quelle partie attaques-tu ?"
-        ascii_art = ATTACKER_ASCII
-        color = 0xFF4444
+        img    = ATTACKER_IMAGE_NAME
+        color  = 0xFF4444
 
-    embed = discord.Embed(title=title, color=color)
-    embed.description = f"```{ascii_art}```\n{prompt}\n\n_25s pour choisir — sinon **bras gauche** par défaut._"
+    embed = discord.Embed(title=title, description=prompt + "\n\n_30s pour choisir — sinon **bras gauche** par défaut._", color=color)
+    embed.set_image(url=f"attachment://{img}")
     return embed
+
+
+def _zone_attachment(mode: str) -> "discord.File | None":
+    """Retourne le discord.File a attacher pour l'image du mode."""
+    import os as _os
+    path = DEFENDER_IMAGE_PATH if mode == "defense" else ATTACKER_IMAGE_PATH
+    name = DEFENDER_IMAGE_NAME if mode == "defense" else ATTACKER_IMAGE_NAME
+    if _os.path.exists(path):
+        return discord.File(path, filename=name)
+    return None
+
+
+async def _resolve_defense_zone_on_msg(msg, joueur, stats):
+    """Affiche le menu zone defense sur msg principal, attend le pick (ou timeout).
+    Set defense_zone, defense_speciale_active, defense_speciale_cooldown.
+    Reset pending_def_zone."""
+    stats["pending_def_zone"] = False
+    zone_event = asyncio.Event()
+    zone_ref   = {}
+    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="defense")
+    embed = make_zone_embed("defense", joueur)
+    file_ = _zone_attachment("defense")
+    try:
+        if file_:
+            await msg.edit(embed=embed, view=zone_view, attachments=[file_])
+        else:
+            await msg.edit(embed=embed, view=zone_view, attachments=[])
+    except Exception:
+        # Echec edit -> fallback defense classique
+        stats["defense_active"] = True
+        return
+    try:
+        await asyncio.wait_for(zone_event.wait(), timeout=30)
+    except asyncio.TimeoutError:
+        zone_ref["zone"] = "bras_g"
+    stats["defense_zone"]              = zone_ref["zone"]
+    stats["defense_speciale_active"]   = True
+    stats["defense_speciale_cooldown"] = 4
+    # Update msg vers un visuel neutre "verrouille" en attendant la suite
+    locked_embed = discord.Embed(
+        title="🛡️✨ Défense Spéciale verrouillée",
+        description=f"**{joueur.display_name}** a verrouillé sa zone de défense.\nÀ l'adversaire de jouer…",
+        color=0x4FB3FF,
+    )
+    try:
+        await msg.edit(embed=locked_embed, view=None, attachments=[])
+    except Exception:
+        pass
+    await asyncio.sleep(1)
+
+
+async def _resolve_attack_zone_on_msg(msg, joueur, stats):
+    """Affiche le menu zone attaque sur msg principal, attend le pick (ou timeout).
+    Set attaque_zone."""
+    zone_event = asyncio.Event()
+    zone_ref   = {}
+    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="attaque")
+    embed = make_zone_embed("attaque", joueur)
+    file_ = _zone_attachment("attaque")
+    try:
+        if file_:
+            await msg.edit(embed=embed, view=zone_view, attachments=[file_])
+        else:
+            await msg.edit(embed=embed, view=zone_view, attachments=[])
+    except Exception:
+        stats["attaque_zone"] = "bras_g"
+        return
+    try:
+        await asyncio.wait_for(zone_event.wait(), timeout=30)
+    except asyncio.TimeoutError:
+        zone_ref["zone"] = "bras_g"
+    stats["attaque_zone"] = zone_ref["zone"]
+    # Petit message neutre intermediaire
+    locked_embed = discord.Embed(
+        title="⚔️ Attaque verrouillée",
+        description=f"**{joueur.display_name}** a verrouillé sa zone d'attaque.\nRévélation imminente…",
+        color=0xFF4444,
+    )
+    try:
+        await msg.edit(embed=locked_embed, view=None, attachments=[])
+    except Exception:
+        pass
+    await asyncio.sleep(1)
 
 
 # ─── EMBED HELPER : PHASE DE CHOIX ───────────────────────────
@@ -255,31 +274,18 @@ class TourView(discord.ui.View):
                     await interaction.response.defer()
                     return
 
-                # Defense + speciale dispo : prompt zone ephemere AVANT de set le choix
+                # Defense + speciale dispo : flag pending_def_zone, le combat loop
+                # gerera le menu zone sur le msg principal apres la phase.
                 if a == "defense" and self.stats_actif.get("defense_speciale_cooldown", 0) == 0:
-                    zone_event = asyncio.Event()
-                    zone_ref   = {}
-                    zone_view  = ZoneSelectView(self.joueur_actif.id, zone_event, zone_ref, mode="defense")
-                    try:
-                        await interaction.response.send_message(
-                            embed=make_zone_embed("defense", self.joueur_actif),
-                            view=zone_view, ephemeral=True,
-                        )
-                    except Exception:
-                        # Fallback : defense classique si l'envoi echoue
-                        self.stats_actif["defense_zone"] = None
-                    else:
-                        try:
-                            await asyncio.wait_for(zone_event.wait(), timeout=25)
-                        except asyncio.TimeoutError:
-                            zone_ref["zone"] = "bras_g"
-                        self.stats_actif["defense_zone"]            = zone_ref["zone"]
-                        self.stats_actif["defense_speciale_active"] = True
-                        # Cooldown demarre a l'activation (resource spent)
-                        self.stats_actif["defense_speciale_cooldown"] = 4
-                    self.choix_state[self.joueur_actif.id] = "defense"
+                    self.stats_actif["pending_def_zone"]      = True
+                    self.choix_state[self.joueur_actif.id]    = "defense"
+                    self.choix_interactions[self.joueur_actif.id] = interaction
                     for child in self.children:
                         child.disabled = True
+                    try:
+                        await interaction.response.defer()
+                    except Exception:
+                        pass
                     self.event_choix.set()
                     return
 
@@ -486,7 +492,8 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         ),
         color=0xFFD700,
     )
-    dice_msg = await channel.send(embed=dice_embed)
+    # Un seul message principal qui sera edite a chaque phase (dice -> debut -> tours)
+    msg = await channel.send(embed=dice_embed)
     await asyncio.sleep(1.5)
 
     while True:
@@ -509,10 +516,10 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         ),
         color=0x00FF88,
     )
-    await dice_msg.edit(embed=dice_result)
+    await msg.edit(embed=dice_result)
     await asyncio.sleep(2.5)
 
-    # ─── Embed de début de combat (message séparé) ─────────────────
+    # ─── Embed de debut de combat (meme message, on edite) ─────────────
     embed_debut = discord.Embed(
         title=f"⚔️ DUEL DE SABRES LASER{nerf_label}",
         description=(
@@ -525,7 +532,7 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
     )
     embed_debut.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
     embed_debut.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-    msg = await channel.send(embed=embed_debut)
+    await msg.edit(embed=embed_debut)
     await asyncio.sleep(2)
 
     tour         = 1
@@ -593,6 +600,10 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         except asyncio.TimeoutError:
             choix_state[joueur_p1.id] = "attaque"
 
+        # Si phase 1 a pick defense+speciale -> menu zone sur msg principal
+        if stats_p1.get("pending_def_zone"):
+            await _resolve_defense_zone_on_msg(msg, joueur_p1, stats_p1)
+
         # ─── Phase 2 : le second joue ────────────────────────────────
         event_p2 = asyncio.Event()
         view_p2  = TourView(joueur_p2, stats_p2, event_p2, choix_state, tour,
@@ -608,6 +619,10 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             await asyncio.wait_for(event_p2.wait(), timeout=30)
         except asyncio.TimeoutError:
             choix_state[joueur_p2.id] = "attaque"
+
+        # Idem pour phase 2
+        if stats_p2.get("pending_def_zone"):
+            await _resolve_defense_zone_on_msg(msg, joueur_p2, stats_p2)
 
         choix1 = choix_state.get(joueur1.id, "attaque")
         choix2 = choix_state.get(joueur2.id, "attaque")
@@ -637,34 +652,14 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         desc_result += "\n"
 
         # ─── Zone d'attaque (uniquement si l'adversaire est en defense speciale) ──
-        # On prompt chaque attaquant qui pick attaque/coup_bas si son adversaire
-        # a active la defense speciale. Ephemere via followup pour rester aveugle.
+        # On affiche le menu zone sur le msg principal pour l'attaquant.
         for (att, att_stats, _), (def_, def_stats, _) in [
             (ordre[0], ordre[1]),
             (ordre[1], ordre[0]),
         ]:
             att_choix = choix_state.get(att.id)
             if att_choix in ("attaque", "coup_bas") and def_stats.get("defense_speciale_active"):
-                att_inter = choix_interactions.get(att.id)
-                if att_inter is None:
-                    att_stats["attaque_zone"] = "bras_g"
-                    continue
-                zone_event = asyncio.Event()
-                zone_ref   = {}
-                zone_view  = ZoneSelectView(att.id, zone_event, zone_ref, mode="attaque")
-                try:
-                    await att_inter.followup.send(
-                        embed=make_zone_embed("attaque", att),
-                        view=zone_view, ephemeral=True,
-                    )
-                except Exception:
-                    att_stats["attaque_zone"] = "bras_g"
-                    continue
-                try:
-                    await asyncio.wait_for(zone_event.wait(), timeout=25)
-                except asyncio.TimeoutError:
-                    zone_ref["zone"] = "bras_g"
-                att_stats["attaque_zone"] = zone_ref["zone"]
+                await _resolve_attack_zone_on_msg(msg, att, att_stats)
 
         # ─── Résolution dans l'ordre d'initiative ────────────────────
         for (att, att_stats, att_sabre), (def_, def_stats, def_sabre) in [
@@ -714,6 +709,7 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             stats["defense_speciale_active"] = False
             stats["defense_zone"]            = None
             stats["attaque_zone"]            = None
+            stats["pending_def_zone"]        = False
             # Malus d'attaque : decrement aussi (down to 0)
             if stats.get("malus_attaque_tours", 0) > 0:
                 stats["malus_attaque_tours"] -= 1
