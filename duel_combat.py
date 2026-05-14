@@ -29,6 +29,11 @@ def calculer_stats(profil, sabre_data):
         "parade_active":   False,
         "parade_cooldown": 0,
         "defense_active":  False,
+        # Defense speciale directionnelle (lecture mindgame)
+        "defense_speciale_active":   False,   # True quand la zone a ete lock ce tour
+        "defense_speciale_cooldown": 0,       # decremente chaque tour du joueur
+        "defense_zone":              None,    # "bras_g" | "bras_d" | "jambe_g" | "jambe_d"
+        "malus_attaque_tours":       0,       # nb tours restants -20% atk (si l'adversaire l'a lu)
         # Passifs issus des stats
         "esquive_chance":  min(agilite * 0.04, 0.40),   # 4 % / point, max 40 %
         "crit_chance":     min(chance  * 0.05, 0.50),   # 5 % / point, max 50 %
@@ -77,6 +82,11 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
 
     variation   = random.uniform(0.85, 1.15)
     degats_base = max(1, int((atk - def_ + random.randint(5, 15)) * variation))
+
+    # ── Malus d'attaque (def speciale reussie de l'adversaire au tour precedent) ──
+    if attaquant_stats.get("malus_attaque_tours", 0) > 0:
+        degats_base = max(1, int(degats_base * 0.8))
+        rapport["messages"].append("📉 Malus de lecture : -20% dégâts !")
 
     # ── Coup critique ──────────────────────────────────────────────
     crit = attaquant_stats.get("crit_chance", 0)
