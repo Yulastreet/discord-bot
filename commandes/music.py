@@ -4,6 +4,8 @@ from discord import app_commands
 
 import yt_dlp
 
+from .music_voice import connect_to_voice
+
 def setup_music_commands(bot, deps):
     globals().update(deps)
     # ===== MUSIQUE =====
@@ -13,19 +15,6 @@ def setup_music_commands(bot, deps):
         if discord.opus.is_loaded():
             return True
         return _load_opus()
-
-    async def _connect_to_voice(guild: discord.Guild, channel: discord.VoiceChannel):
-        vc = guild.voice_client
-        if vc and vc.is_connected():
-            if vc.channel and vc.channel.id != channel.id:
-                await vc.move_to(channel)
-            return vc
-        if vc:
-            try:
-                await vc.disconnect(force=True)
-            except Exception:
-                pass
-        return await channel.connect(timeout=20, reconnect=True)
 
     @bot.tree.command(name="join", description="Rejoindre ton salon vocal")
     async def join(interaction: discord.Interaction):
@@ -38,7 +27,7 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send("❌ libopus introuvable sur le serveur. Installe-la (`apt install libopus0`) et redémarre le bot.")
                 return
             channel = interaction.user.voice.channel
-            await _connect_to_voice(interaction.guild, channel)
+            await connect_to_voice(bot, interaction.guild, channel)
             music_state_set(str(interaction.guild.id),
                             voice_channel_id=str(channel.id),
                             voice_channel_name=channel.name)
@@ -61,7 +50,7 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send("❌ libopus introuvable sur le serveur.")
                 return
             voice_channel = interaction.user.voice.channel
-            vc = await _connect_to_voice(interaction.guild, voice_channel)
+            vc = await connect_to_voice(bot, interaction.guild, voice_channel)
             music_state_set(str(interaction.guild.id),
                             voice_channel_id=str(voice_channel.id),
                             voice_channel_name=voice_channel.name)
@@ -153,7 +142,7 @@ def setup_music_commands(bot, deps):
 
                 continue
             try:
-                vc = await channel.connect()
+                vc = await connect_to_voice(bot, guild, channel)
                 print(f"[resume] {guild.name} : reconnecté à {channel.name}")
                 # Relancer la queue si non vide
                 if music_queue_list(gid):
