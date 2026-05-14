@@ -14,6 +14,19 @@ def setup_music_commands(bot, deps):
             return True
         return _load_opus()
 
+    async def _connect_to_voice(guild: discord.Guild, channel: discord.VoiceChannel):
+        vc = guild.voice_client
+        if vc and vc.is_connected():
+            if vc.channel and vc.channel.id != channel.id:
+                await vc.move_to(channel)
+            return vc
+        if vc:
+            try:
+                await vc.disconnect(force=True)
+            except Exception:
+                pass
+        return await channel.connect(timeout=20, reconnect=True)
+
     @bot.tree.command(name="join", description="Rejoindre ton salon vocal")
     async def join(interaction: discord.Interaction):
         if not interaction.user.voice:
@@ -25,10 +38,7 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send("❌ libopus introuvable sur le serveur. Installe-la (`apt install libopus0`) et redémarre le bot.")
                 return
             channel = interaction.user.voice.channel
-            if interaction.guild.voice_client:
-                await interaction.guild.voice_client.move_to(channel)
-            else:
-                await channel.connect()
+            await _connect_to_voice(interaction.guild, channel)
             music_state_set(str(interaction.guild.id),
                             voice_channel_id=str(channel.id),
                             voice_channel_name=channel.name)
@@ -50,11 +60,11 @@ def setup_music_commands(bot, deps):
             if not _ensure_opus():
                 await interaction.followup.send("❌ libopus introuvable sur le serveur.")
                 return
-            if not interaction.guild.voice_client:
-                await interaction.user.voice.channel.connect()
-                music_state_set(str(interaction.guild.id),
-                                voice_channel_id=str(interaction.user.voice.channel.id),
-                                voice_channel_name=interaction.user.voice.channel.name)
+            voice_channel = interaction.user.voice.channel
+            vc = await _connect_to_voice(interaction.guild, voice_channel)
+            music_state_set(str(interaction.guild.id),
+                            voice_channel_id=str(voice_channel.id),
+                            voice_channel_name=voice_channel.name)
             gid = str(interaction.guild.id)
             await interaction.followup.send(f"🔍 Recherche de **{query}**...")
             try:
@@ -70,8 +80,8 @@ def setup_music_commands(bot, deps):
                             thumbnail=info.get("thumbnail"),
                             requested_by=interaction.user.id)
             await interaction.followup.send(f"✅ Ajouté à la file : **{info['title']}**")
-            if not interaction.guild.voice_client.is_playing():
-                await play_next(interaction.guild.voice_client, interaction.channel, interaction.guild.id)
+            if vc.is_connected() and not vc.is_playing():
+                await play_next(vc, interaction.channel, interaction.guild.id)
         except Exception as e:
             import traceback
             print(f"[music /play] error: {e}")

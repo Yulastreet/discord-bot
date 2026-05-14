@@ -385,6 +385,15 @@ async def get_audio_info(query):
 
 async def play_next(voice_client, channel, guild_id):
     """Pop next track from DB queue and play. channel optional (for chat notif)."""
+    if not voice_client or not voice_client.is_connected():
+        print(f"[music] play_next skipped: voice client not connected (guild={guild_id})")
+        if channel:
+            try:
+                await channel.send("❌ Je ne suis plus connecté au vocal. Relance `/join` puis `/play`.")
+            except Exception:
+                pass
+        return
+
     track = music_queue_pop_next(str(guild_id))
     if not track:
         music_state_clear_current(str(guild_id))
