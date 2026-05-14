@@ -353,29 +353,45 @@ async def _skinport_refresh_if_needed():
     async with _SKINPORT_LOCK:
         if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 3600):
             return
-        url = "https://prices.csgotrader.app/latest/prices_v6.json"
+        # Plusieurs sources possibles, on essaie dans l'ordre
+        urls = [
+            "https://prices.csgotrader.app/latest/skinport.json",
+            "https://prices.csgotrader.app/latest/prices_v6.json",
+        ]
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
-            "Accept": "application/json",
+            "Accept": "application/json, text/plain, */*",
             "Accept-Encoding": "gzip, deflate",
         }
-        print(f"[cs2/skinport] fetching bulk from csgotrader.app...")
         s = await _get_session()
-        try:
-            async with s.get(url, headers=headers) as resp:
-                if resp.status != 200:
+        for url in urls:
+            print(f"[cs2/skinport] fetching {url}")
+            try:
+                async with s.get(url, headers=headers) as resp:
                     body = await resp.text()
-                    print(f"[cs2/skinport] bulk status={resp.status} body={body[:200]!r}")
+                    if resp.status != 200:
+                        print(f"[cs2/skinport] status={resp.status} url={url} body_head={body[:200]!r}")
+                        continue
+                    if not body or not body.strip():
+                        print(f"[cs2/skinport] empty body url={url} content_type={resp.headers.get('Content-Type')!r}")
+                        continue
+                    try:
+                        import json as _json
+                        data = _json.loads(body)
+                    except Exception as je:
+                        print(f"[cs2/skinport] json parse err {type(je).__name__} url={url} body_head={body[:200]!r}")
+                        continue
+                    if not isinstance(data, dict):
+                        print(f"[cs2/skinport] unexpected payload type={type(data).__name__}")
+                        continue
+                    _SKINPORT_CACHE["items"]      = data
+                    _SKINPORT_CACHE["fetched_at"] = now
+                    _SKINPORT_CACHE["source"]     = url
+                    print(f"[cs2/skinport] cache loaded items={len(data)} from {url}")
                     return
-                data = await resp.json(content_type=None)
-                if not isinstance(data, dict):
-                    print(f"[cs2/skinport] unexpected payload type={type(data).__name__}")
-                    return
-                _SKINPORT_CACHE["items"]      = data
-                _SKINPORT_CACHE["fetched_at"] = now
-                print(f"[cs2/skinport] cache loaded items={len(data)} (csgotrader aggregated)")
-        except Exception as e:
-            print(f"[cs2/skinport] bulk err: {type(e).__name__}: {e}")
+            except Exception as e:
+                print(f"[cs2/skinport] fetch exception {url}: {type(e).__name__}: {e}")
+        print(f"[cs2/skinport] all sources failed")
 
 
 # Taux EUR -> USD pour les sources qui publient en USD (la plupart sauf Skinport)
@@ -396,15 +412,17 @@ async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
         sample = [k for k in items if name.lower()[:15] in k.lower()][:3]
         print(f"[cs2/skinport] lookup name={name!r} not_found near={sample!r}")
         return None
-    sp = item.get("skinport") or {}
-    starting_usd = sp.get("starting_at")
-    suggested_usd = sp.get("suggested_price")
+    # Format 1 (aggregated prices_v6) : item = {"skinport": {...}, "steam": {...}}
+    # Format 2 (per-source skinport.json) : item = {"starting_at": ..., "suggested_price": ...}
+    sp = item.get("skinport") if isinstance(item.get("skinport"), dict) else item
+    starting_usd  = sp.get("starting_at") if isinstance(sp, dict) else None
+    suggested_usd = sp.get("suggested_price") if isinstance(sp, dict) else None
     if not isinstance(starting_usd, (int, float)) or starting_usd <= 0:
         return None
     rate = await usd_to_eur_rate()
     return {
         "price_eur":       float(starting_usd) * rate,
-        "suggested_price": (float(suggested_usd) * rate) if suggested_usd else None,
+        "suggested_price": (float(suggested_usd) * rate) if isinstance(suggested_usd, (int, float)) else None,
         "quantity":        None,
     }
 
