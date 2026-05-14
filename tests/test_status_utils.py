@@ -50,7 +50,13 @@ class StatusUtilsTests(unittest.TestCase):
             home = Path(tmp)
             profile = home / "snap" / "firefox" / "common" / ".mozilla" / "firefox" / "abc.default-release"
             profile.mkdir(parents=True)
-            (profile / "cookies.sqlite").write_text("fake", encoding="utf-8")
+            conn = sqlite3.connect(profile / "cookies.sqlite")
+            conn.execute("CREATE TABLE moz_cookies (host TEXT, name TEXT)")
+            conn.execute("INSERT INTO moz_cookies VALUES ('.youtube.com', 'SID')")
+            conn.execute("INSERT INTO moz_cookies VALUES ('.youtube.com', 'SAPISID')")
+            conn.execute("INSERT INTO moz_cookies VALUES ('.google.com', 'HSID')")
+            conn.commit()
+            conn.close()
 
             info = youtube_diagnostics(
                 env={"YT_USE_FIREFOX_COOKIES": "1", "BGUTIL_POT_URL": "http://127.0.0.1:9"},
@@ -62,6 +68,8 @@ class StatusUtilsTests(unittest.TestCase):
             self.assertEqual(info["effective_mode"], "firefox")
             self.assertTrue(info["firefox_cookies_accessible"])
             self.assertEqual(info["firefox_profiles"][0]["source"], "snap")
+            self.assertTrue(info["firefox_profiles"][0]["youtube_auth"]["has_auth"])
+            self.assertGreaterEqual(info["firefox_profiles"][0]["youtube_auth"]["auth_cookie_count"], 2)
 
     def test_youtube_diagnostics_warns_when_firefox_mode_has_no_profile(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -73,6 +81,27 @@ class StatusUtilsTests(unittest.TestCase):
 
         self.assertFalse(info["firefox_cookies_accessible"])
         self.assertIn("firefox_cookies_missing", info["warnings"])
+
+    def test_youtube_diagnostics_warns_when_profile_has_no_youtube_auth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            profile = home / ".mozilla" / "firefox" / "abc.default-release"
+            profile.mkdir(parents=True)
+            conn = sqlite3.connect(profile / "cookies.sqlite")
+            conn.execute("CREATE TABLE moz_cookies (host TEXT, name TEXT)")
+            conn.execute("INSERT INTO moz_cookies VALUES ('.example.com', 'SID')")
+            conn.commit()
+            conn.close()
+
+            info = youtube_diagnostics(
+                env={"YT_USE_FIREFOX_COOKIES": "1"},
+                home_path=home,
+                check_bgutil=False,
+            )
+
+        self.assertTrue(info["firefox_cookies_accessible"])
+        self.assertFalse(info["firefox_profiles"][0]["youtube_auth"]["has_auth"])
+        self.assertIn("firefox_youtube_auth_missing", info["warnings"])
 
 
 if __name__ == "__main__":

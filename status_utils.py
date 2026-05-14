@@ -14,6 +14,10 @@ DB_PATH = ROOT_DIR / "bot_database.db"
 BACKUP_DIR = ROOT_DIR / "backups"
 BACKUP_DB_PATH = BACKUP_DIR / "bot_database_backup.db"
 BACKUP_META_PATH = BACKUP_DIR / "bot_database_backup.json"
+YOUTUBE_AUTH_COOKIE_NAMES = {
+    "SID", "HSID", "SSID", "APISID", "SAPISID", "__Secure-1PSID", "__Secure-3PSID",
+    "__Secure-1PAPISID", "__Secure-3PAPISID", "LOGIN_INFO", "VISITOR_INFO1_LIVE",
+}
 
 
 def file_info(path):
@@ -149,8 +153,43 @@ def _firefox_profiles(home_path):
                 "path": str(child),
                 "cookies_exists": cookies.exists(),
                 "cookies_modified_at": cookies.stat().st_mtime if cookies.exists() else None,
+                "youtube_auth": _youtube_auth_from_sqlite(cookies) if cookies.exists() else _empty_youtube_auth(),
             })
     return profiles
+
+
+def _empty_youtube_auth(error=None):
+    out = {
+        "youtube_cookie_count": 0,
+        "auth_cookie_count": 0,
+        "auth_cookie_names": [],
+        "has_auth": False,
+    }
+    if error:
+        out["error"] = error
+    return out
+
+
+def _youtube_auth_from_sqlite(cookies_path):
+    try:
+        conn = sqlite3.connect(f"file:{Path(cookies_path).as_posix()}?mode=ro", uri=True)
+        rows = conn.execute(
+            """SELECT host, name FROM moz_cookies
+               WHERE host LIKE '%youtube.com'
+                  OR host LIKE '%google.com'
+                  OR host LIKE '%youtube-nocookie.com'"""
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        return _empty_youtube_auth(type(e).__name__)
+
+    names = sorted({str(name) for _host, name in rows if name in YOUTUBE_AUTH_COOKIE_NAMES})
+    return {
+        "youtube_cookie_count": len(rows),
+        "auth_cookie_count": len(names),
+        "auth_cookie_names": names,
+        "has_auth": any(name in names for name in ("SID", "SAPISID", "__Secure-1PSID", "__Secure-3PSID")),
+    }
 
 
 def best_firefox_cookie_profile(home_path=None):
@@ -221,6 +260,10 @@ def youtube_diagnostics(env=None, home_path=None, bot_state=None, check_bgutil=T
     warnings = []
     if use_firefox and not firefox_cookies_accessible:
         warnings.append("firefox_cookies_missing")
+    if use_firefox and firefox_cookies_accessible and not any(
+        p.get("youtube_auth", {}).get("has_auth") for p in profiles
+    ):
+        warnings.append("firefox_youtube_auth_missing")
     if not use_firefox and not cookies["exists"]:
         warnings.append("cookies_txt_missing")
 

@@ -315,7 +315,13 @@ function render(d) {
     .map(r => `${escapeHtml(r.source)}: ${r.exists ? 'OK' : 'absent'} (${escapeHtml(r.path)})`)
     .join('<br>') || '—';
   const profiles = (yt.firefox_profiles || [])
-    .map(p => `${escapeHtml(p.source)}: ${p.cookies_exists ? 'cookies OK' : 'sans cookies'} · ${escapeHtml(p.path)}`)
+    .map(p => {
+      const auth = p.youtube_auth || {};
+      const authText = auth.has_auth
+        ? `auth YouTube OK (${escapeHtml((auth.auth_cookie_names || []).join(', '))})`
+        : `auth YouTube absente (${auth.youtube_cookie_count || 0} cookie(s) YouTube)`;
+      return `${escapeHtml(p.source)}: ${p.cookies_exists ? 'cookies OK' : 'sans cookies'} · ${authText} · ${escapeHtml(p.path)}`;
+    })
     .join('<br>') || 'Aucun profil Firefox avec cookies détecté';
   const bins = yt.firefox_bins || {};
   const warnings = (yt.warnings || []).map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('');
