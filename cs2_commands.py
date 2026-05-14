@@ -65,6 +65,70 @@ GLOVES = ["Sport Gloves", "Driver Gloves", "Specialist Gloves", "Hand Wraps",
 GLOVES_FINISHES = ["Pandora's Box", "Vice", "King Snake", "Crimson Kimono",
                    "Snakebite", "Slaughter", "Imperial Plaid", "Amphibious"]
 WEAR_LEVELS = ["Battle-Scarred", "Well-Worn", "Field-Tested", "Minimal Wear", "Factory New"]
+WEAR_LEVELS_ORDER = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"]
+WEAR_LABEL_FR = {
+    "Factory New":    "Neuve",
+    "Minimal Wear":   "Peu usée",
+    "Field-Tested":   "Testée",
+    "Well-Worn":      "Bien usée",
+    "Battle-Scarred": "Vétérante",
+}
+
+# Liste plate de TOUTES les armes pour autocomplete /cs price.
+# Couteaux et gants portent le prefixe '★' qui doit etre conserve dans
+# market_hash_name. StatTrak peut etre rajoute par l'utilisateur.
+PRICE_WEAPONS = [
+    # Pistols
+    "USP-S", "Glock-18", "P250", "Tec-9", "Five-SeveN", "Desert Eagle",
+    "CZ75-Auto", "Dual Berettas", "P2000", "R8 Revolver",
+    # SMGs
+    "MP9", "MAC-10", "MP7", "P90", "UMP-45", "PP-Bizon", "MP5-SD",
+    # Rifles
+    "AK-47", "M4A4", "M4A1-S", "AUG", "SG 553", "FAMAS", "Galil AR",
+    # Snipers
+    "AWP", "SSG 08", "SCAR-20", "G3SG1",
+    # Heavy
+    "Nova", "XM1014", "MAG-7", "Sawed-Off", "M249", "Negev",
+    # Knives (avec etoile)
+    "★ Karambit", "★ M9 Bayonet", "★ Butterfly Knife", "★ Talon Knife",
+    "★ Stiletto Knife", "★ Skeleton Knife", "★ Bowie Knife",
+    "★ Falchion Knife", "★ Huntsman Knife", "★ Flip Knife", "★ Gut Knife",
+    "★ Shadow Daggers", "★ Bayonet", "★ Ursus Knife", "★ Navaja Knife",
+    "★ Classic Knife", "★ Paracord Knife", "★ Survival Knife", "★ Nomad Knife",
+    # Gloves (avec etoile)
+    "★ Sport Gloves", "★ Driver Gloves", "★ Specialist Gloves",
+    "★ Hand Wraps", "★ Bloodhound Gloves", "★ Moto Gloves",
+    "★ Hydra Gloves", "★ Broken Fang Gloves",
+]
+
+
+def _build_market_hash_name(arme: str, skin: str, wear: Optional[str], stattrak: bool) -> str:
+    """Construit le market_hash_name Steam selon les conventions :
+      - Normal      : 'AK-47 | Redline (Field-Tested)'
+      - StatTrak    : 'StatTrak™ AK-47 | Redline (Field-Tested)'
+      - Couteau     : '★ Karambit | Doppler (Factory New)'
+      - Couteau StT : '★ StatTrak™ Karambit | Doppler (Factory New)'
+      - Gants       : '★ Sport Gloves | Pandora\'s Box (Field-Tested)'  (pas de StatTrak)
+    """
+    skin = (skin or "").strip()
+    is_special = arme.startswith("★")
+    is_gloves  = is_special and ("Gloves" in arme or "Hand Wraps" in arme)
+    parts = []
+    if is_special:
+        weapon_clean = arme.replace("★", "").strip()
+        if stattrak and not is_gloves:
+            parts.append(f"★ StatTrak™ {weapon_clean}")
+        else:
+            parts.append(f"★ {weapon_clean}")
+    else:
+        if stattrak:
+            parts.append(f"StatTrak™ {arme}")
+        else:
+            parts.append(arme)
+    name = f"{parts[0]} | {skin}"
+    if wear:
+        name += f" ({wear})"
+    return name
 
 
 def fmt_int(n) -> str:
@@ -349,6 +413,7 @@ async def _build_faceit_stats_embed(member, faceit_id: str, faceit_nick: str) ->
 # ============================================================================
 
 async def _build_price_embed(name: str) -> discord.Embed:
+    """Embed prix pour UN market_hash_name precis."""
     cache_key = f"price:{name.lower()}"
     cached = cs_cache_get(cache_key, max_age_sec=600)
     data = cached or await csapi.steam_market_price(name, currency=3)
@@ -357,9 +422,11 @@ async def _build_price_embed(name: str) -> discord.Embed:
     if not data:
         return _err_embed(
             "Skin introuvable",
-            "Aucun résultat sur Steam Market. Vérifie l'orthographe exacte.\n"
-            "Format attendu : `AK-47 | Redline (Field-Tested)`",
+            "Aucun résultat sur Steam Market pour ce skin/usure.\n"
+            f"Recherche tentée : `{name}`\n\n"
+            "Cause probable : combinaison arme/skin/usure inexistante (certains skins n'existent pas en toutes les usures).",
         )
+    encoded = name.replace(" ", "%20").replace("|", "%7C")
     embed = discord.Embed(
         title=f"💸 {name}",
         description=(
@@ -367,11 +434,58 @@ async def _build_price_embed(name: str) -> discord.Embed:
             f"**Prix médian (24 h)** : `{data.get('median_price') or 'n/a'}`\n"
             f"**Volume échangé** : `{data.get('volume') or 0}`"
         ),
-        url=f"https://steamcommunity.com/market/listings/730/{name}",
+        url=f"https://steamcommunity.com/market/listings/730/{encoded}",
         color=0xF1C40F,
     )
     embed.set_footer(text="Source : Steam Community Market")
     return embed
+
+
+async def _build_price_embed_all_wears(arme: str, skin: str, stattrak: bool) -> discord.Embed:
+    """Lance 5 lookups (une par wear) et affiche tableau condense."""
+    rows = []
+    for wear in WEAR_LEVELS_ORDER:
+        name = _build_market_hash_name(arme, skin, wear, stattrak)
+        cache_key = f"price:{name.lower()}"
+        cached = cs_cache_get(cache_key, max_age_sec=600)
+        data = cached or await csapi.steam_market_price(name, currency=3)
+        if not cached and data:
+            cs_cache_set(cache_key, data)
+        if not cached:
+            await asyncio.sleep(0.4)   # rate-limit Steam Market
+        low = (data or {}).get("lowest_price") if data else None
+        rows.append((wear, low))
+
+    found = [r for r in rows if r[1]]
+    base_name = _build_market_hash_name(arme, skin, None, stattrak)
+    if not found:
+        return _err_embed(
+            "Skin introuvable",
+            f"Aucun prix Steam Market pour **{base_name}** sur toutes les usures.\n\n"
+            "Vérifie l'orthographe du skin (sensible à la casse, ex: `Redline`, `Hyper Beast`, `Asiimov`).\n"
+            "Certains skins anciens n'existent pas en toutes usures.",
+        )
+
+    lines = []
+    for wear, price in rows:
+        label = WEAR_LABEL_FR.get(wear, wear)
+        val   = f"`{price}`" if price else "`—`"
+        lines.append(f"**{label:<10}** {val}")
+
+    embed = discord.Embed(
+        title=f"💸 {base_name}",
+        description="**Prix Steam Market par niveau d'usure :**\n\n" + "\n".join(lines),
+        color=0xF1C40F,
+    )
+    embed.set_footer(text="Source : Steam Community Market · Prix les plus bas")
+    return embed
+
+
+# ─── Autocomplete pour /cs price arme ────────────────────────────────────────
+async def _arme_autocomplete(interaction: discord.Interaction, current: str):
+    cur = (current or "").lower()
+    matches = [w for w in PRICE_WEAPONS if cur in w.lower()][:25]
+    return [app_commands.Choice(name=w, value=w) for w in matches]
 
 
 # ============================================================================
@@ -852,17 +966,50 @@ def setup_cs2_commands(bot: commands.Bot):
         )
 
     # ---------- /cs price ----------
-    @cs_group.command(name="price", description="Prix Steam Market d'un skin")
-    @app_commands.describe(skin="Nom exact du skin (ex: 'AK-47 | Redline (Field-Tested)')")
-    async def cs_price(interaction: discord.Interaction, skin: str):
-        if len(skin) < 3 or len(skin) > 200:
+    @cs_group.command(name="price", description="Prix Steam Market d'un skin (autocomplete arme + nom libre)")
+    @app_commands.describe(
+        arme="Arme (ou couteau ★, ou gants ★). Tape pour autocompléter.",
+        skin="Nom du skin (ex: Redline, Asiimov, Hyper Beast)",
+        usure="Apparence (optionnel — laisse vide pour voir les 5 niveaux)",
+        stattrak="Variante StatTrak™ (compteur de kills) — défaut: non",
+    )
+    @app_commands.autocomplete(arme=_arme_autocomplete)
+    @app_commands.choices(usure=[
+        app_commands.Choice(name="Neuve (Factory New)",          value="Factory New"),
+        app_commands.Choice(name="Peu usée (Minimal Wear)",      value="Minimal Wear"),
+        app_commands.Choice(name="Testée (Field-Tested)",        value="Field-Tested"),
+        app_commands.Choice(name="Bien usée (Well-Worn)",        value="Well-Worn"),
+        app_commands.Choice(name="Vétérante (Battle-Scarred)",   value="Battle-Scarred"),
+    ])
+    async def cs_price(interaction: discord.Interaction, arme: str, skin: str,
+                       usure: Optional[app_commands.Choice[str]] = None,
+                       stattrak: bool = False):
+        if arme not in PRICE_WEAPONS:
+            # Tolere si user a tapé sans autocomplete mais c'est dans la liste
+            arme_match = next((w for w in PRICE_WEAPONS if w.lower() == arme.lower()), None)
+            if not arme_match:
+                await interaction.response.send_message(
+                    embed=_err_embed(
+                        "Arme inconnue",
+                        f"`{arme}` n'est pas dans la liste reconnue.\n"
+                        "Tape dans le champ pour voir les suggestions (AK-47, AWP, ★ Karambit, etc.)."),
+                    ephemeral=True,
+                )
+                return
+            arme = arme_match
+        skin = (skin or "").strip()
+        if not (2 <= len(skin) <= 60) or any(c in skin for c in "<>"):
             await interaction.response.send_message(
-                embed=_err_embed("Skin invalide", "Le nom du skin doit faire 3-200 caractères."),
+                embed=_err_embed("Skin invalide", "Le nom du skin doit faire 2-60 caractères."),
                 ephemeral=True,
             )
             return
         await interaction.response.defer()
-        embed = await _build_price_embed(skin)
+        if usure:
+            name = _build_market_hash_name(arme, skin, usure.value, stattrak)
+            embed = await _build_price_embed(name)
+        else:
+            embed = await _build_price_embed_all_wears(arme, skin, stattrak)
         await interaction.followup.send(embed=embed)
 
     # ---------- /cs inventory ----------
