@@ -600,10 +600,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         except asyncio.TimeoutError:
             choix_state[joueur_p1.id] = "attaque"
 
-        # Si phase 1 a pick defense+speciale -> menu zone sur msg principal
-        if stats_p1.get("pending_def_zone"):
-            await _resolve_defense_zone_on_msg(msg, joueur_p1, stats_p1)
-
         # ─── Phase 2 : le second joue ────────────────────────────────
         event_p2 = asyncio.Event()
         view_p2  = TourView(joueur_p2, stats_p2, event_p2, choix_state, tour,
@@ -620,7 +616,12 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         except asyncio.TimeoutError:
             choix_state[joueur_p2.id] = "attaque"
 
-        # Idem pour phase 2
+        # ─── Zone defense (apres les deux phases, blind preserve) ────
+        # Les deux actions sont deja lock, on peut maintenant reveler
+        # "qui a pris defense speciale" sans donner d'avantage.
+        # Ordre = initiative (joueur_p1 d'abord si flag).
+        if stats_p1.get("pending_def_zone"):
+            await _resolve_defense_zone_on_msg(msg, joueur_p1, stats_p1)
         if stats_p2.get("pending_def_zone"):
             await _resolve_defense_zone_on_msg(msg, joueur_p2, stats_p2)
 
