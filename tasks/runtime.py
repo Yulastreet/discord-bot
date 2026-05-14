@@ -49,8 +49,9 @@ def setup_runtime(bot, deps):
             status_writer.start()
         if not rotate_presence.is_running():
             rotate_presence.start()
-        # Resume music: rejoindre les vocals où on était + remettre la queue en lecture
-        if MUSIC_RESUME:
+        # Resume music: disabled by default. Discord voice handshakes can stall the
+        # gateway at boot if the saved channel state is stale.
+        if MUSIC_RESUME and os.getenv("MUSIC_RESUME_ON_BOOT", "0") == "1":
             await MUSIC_RESUME()
         # Sync entitlements existants (achats faits avant que le bot soit en ligne)
         try:

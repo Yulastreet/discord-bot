@@ -48,10 +48,12 @@ class FakeChannel:
     def __init__(self, guild, failures_before_success=0):
         self.guild = guild
         self.connect_calls = 0
+        self.connect_kwargs = []
         self.failures_before_success = failures_before_success
 
     async def connect(self, timeout=20, reconnect=True):
         self.connect_calls += 1
+        self.connect_kwargs.append({"timeout": timeout, "reconnect": reconnect})
         if self.connect_calls <= self.failures_before_success:
             stale = FakeVoiceClient(channel=self, connected=False)
             self.guild.voice_client = stale
@@ -81,6 +83,7 @@ class MusicVoiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(vc.is_connected())
         self.assertEqual(channel.connect_calls, 2)
+        self.assertEqual(channel.connect_kwargs[0], {"timeout": 12, "reconnect": False})
         self.assertIn(guild.id, bot._connection.removed)
 
     async def test_moves_existing_connected_client(self):

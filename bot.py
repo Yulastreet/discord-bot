@@ -222,10 +222,11 @@ _BOT_STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_
 
 def _write_bot_state():
     try:
+        _bot = globals().get("bot")
         BOT_STATE["updated_at"]  = _time.time()
-        BOT_STATE["guild_count"] = len(bot.guilds) if bot.is_ready() else 0
-        BOT_STATE["voice_count"] = sum(1 for g in bot.guilds if g.voice_client) if bot.is_ready() else 0
-        BOT_STATE["latency_ms"]  = round(bot.latency * 1000) if bot.is_ready() else None
+        BOT_STATE["guild_count"] = len(_bot.guilds) if _bot and _bot.is_ready() else 0
+        BOT_STATE["voice_count"] = sum(1 for g in _bot.guilds if g.voice_client) if _bot and _bot.is_ready() else 0
+        BOT_STATE["latency_ms"]  = round(_bot.latency * 1000) if _bot and _bot.is_ready() else None
         with open(_BOT_STATE_FILE, "w", encoding="utf-8") as f:
             _json.dump(BOT_STATE, f)
     except Exception as e:

@@ -23,8 +23,8 @@ async def connect_to_voice(
     channel,
     *,
     attempts=2,
-    timeout=20,
-    reconnect=True,
+    timeout=12,
+    reconnect=False,
     sleep=asyncio.sleep,
 ):
     last_error = None
