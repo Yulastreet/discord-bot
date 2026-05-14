@@ -341,6 +341,13 @@ else:
     print(f"[yt-dlp] aucun cookies.txt detecte ({_COOKIES_PATH}) â€” bgutil pot provider doit suffire.")
 
 print(f"[yt-dlp] bgutil pot provider endpoint: {_BGUTIL_POT_URL}")
+BOT_STATE["youtube"] = {
+    "yt_use_firefox_cookies": _USE_FIREFOX_COOKIES,
+    "bgutil_pot_url": _BGUTIL_POT_URL,
+    "cookies_path": _COOKIES_PATH,
+    "cookies_txt_exists": os.path.exists(_COOKIES_PATH),
+    "effective_mode": "firefox" if _USE_FIREFOX_COOKIES else ("cookies.txt" if os.path.exists(_COOKIES_PATH) else "bgutil_only"),
+}
 
 FFMPEG_OPTIONS = {
     # before_options : passe en CLI a ffmpeg AVANT -i (input)

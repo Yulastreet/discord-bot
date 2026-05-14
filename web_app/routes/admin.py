@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
-from status_utils import create_db_backup, db_info, read_backup_meta, system_metrics, ROOT_DIR
+from status_utils import create_db_backup, db_info, read_backup_meta, system_metrics, youtube_diagnostics, ROOT_DIR
 
 def register_admin_routes(app, deps):
     globals().update(deps)
@@ -231,6 +231,7 @@ def register_admin_routes(app, deps):
                 "backup": read_backup_meta(),
             },
             "system": system_metrics(),
+            "youtube": youtube_diagnostics(bot_state=bot_state),
             "login_log": login_log,
             "session": {
                 "logged_in": bool(session.get("logged_in")),

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from status_utils import create_db_backup, db_info, read_backup_meta
+from status_utils import create_db_backup, db_info, read_backup_meta, youtube_diagnostics
 
 
 class StatusUtilsTests(unittest.TestCase):
@@ -44,6 +44,34 @@ class StatusUtilsTests(unittest.TestCase):
 
         self.assertFalse(info["exists"])
         self.assertIsNone(info["size_bytes"])
+
+    def test_youtube_diagnostics_finds_snap_firefox_cookies(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            profile = home / "snap" / "firefox" / "common" / ".mozilla" / "firefox" / "abc.default-release"
+            profile.mkdir(parents=True)
+            (profile / "cookies.sqlite").write_text("fake", encoding="utf-8")
+
+            info = youtube_diagnostics(
+                env={"YT_USE_FIREFOX_COOKIES": "1", "BGUTIL_POT_URL": "http://127.0.0.1:9"},
+                home_path=home,
+                check_bgutil=False,
+            )
+
+        self.assertEqual(info["effective_mode"], "firefox")
+        self.assertTrue(info["firefox_cookies_accessible"])
+        self.assertEqual(info["firefox_profiles"][0]["source"], "snap")
+
+    def test_youtube_diagnostics_warns_when_firefox_mode_has_no_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            info = youtube_diagnostics(
+                env={"YT_USE_FIREFOX_COOKIES": "1"},
+                home_path=Path(tmp),
+                check_bgutil=False,
+            )
+
+        self.assertFalse(info["firefox_cookies_accessible"])
+        self.assertIn("firefox_cookies_missing", info["warnings"])
 
 
 if __name__ == "__main__":

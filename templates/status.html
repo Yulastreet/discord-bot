@@ -63,6 +63,11 @@
   </div>
 
   <div class="card">
+    <h2>YouTube / cookies</h2>
+    <div id="youtubeInfo" class="mt-2"></div>
+  </div>
+
+  <div class="card">
     <div class="card-row mb-4">
       <h2>Dernière erreur bot</h2>
       <span class="badge" id="lastErrorTime">—</span>
@@ -118,6 +123,7 @@
   }
   .metric-fill.warn { background: var(--warn); }
   .metric-fill.danger { background: var(--danger); }
+  .warn-list { margin-top: var(--s-3); color: var(--warn); font-size: var(--t-sm); }
   .login-row {
     display: grid;
     grid-template-columns: 100px 60px 140px 1fr;
@@ -164,6 +170,11 @@ function fmtTimeAgo(ts) {
   if (diff < 3600)  return `il y a ${Math.floor(diff/60)}m`;
   if (diff < 86400) return `il y a ${Math.floor(diff/3600)}h`;
   return new Date(ts*1000).toLocaleString('fr-FR');
+}
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
 }
 function metricClass(percent) {
   if (percent >= 90) return 'danger';
@@ -295,6 +306,30 @@ function render(d) {
       <div class="kv-row"><span class="kv-key">Uptime VPS</span><span class="kv-val">${sys.boot_time ? fmtUptime(now - sys.boot_time) : '—'}</span></div>
     `;
   }
+
+  // YouTube / cookies
+  const yt = d.youtube || {};
+  const botYt = bot.youtube || {};
+  const yEl = document.getElementById('youtubeInfo');
+  const roots = (yt.firefox_roots || [])
+    .map(r => `${escapeHtml(r.source)}: ${r.exists ? 'OK' : 'absent'} (${escapeHtml(r.path)})`)
+    .join('<br>') || '—';
+  const profiles = (yt.firefox_profiles || [])
+    .map(p => `${escapeHtml(p.source)}: ${p.cookies_exists ? 'cookies OK' : 'sans cookies'} · ${escapeHtml(p.path)}`)
+    .join('<br>') || 'Aucun profil Firefox avec cookies détecté';
+  const bins = yt.firefox_bins || {};
+  const warnings = (yt.warnings || []).map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('');
+  yEl.innerHTML = `
+    <div class="kv-row"><span class="kv-key">Mode web détecté</span><span class="kv-val">${escapeHtml(yt.effective_mode || '—')}</span></div>
+    <div class="kv-row"><span class="kv-key">Mode bot déclaré</span><span class="kv-val">${escapeHtml(botYt.effective_mode || '—')}</span></div>
+    <div class="kv-row"><span class="kv-key">User web / bot</span><span class="kv-val">${escapeHtml(yt.web_user || '—')} / ${escapeHtml(yt.bot_user || '—')}</span></div>
+    <div class="kv-row"><span class="kv-key">Firefox binaire</span><span class="kv-val">${escapeHtml(bins.firefox || bins['firefox-esr'] || 'non trouvé dans PATH')}</span></div>
+    <div class="kv-row"><span class="kv-key">Racines Firefox</span><span class="kv-val">${roots}</span></div>
+    <div class="kv-row"><span class="kv-key">Profils Firefox</span><span class="kv-val">${profiles}</span></div>
+    <div class="kv-row"><span class="kv-key">cookies.txt</span><span class="kv-val">${yt.cookies_txt?.exists ? `${escapeHtml(yt.cookies_txt.path)} · ${fmtBytes(yt.cookies_txt.size_bytes)} · ${new Date(yt.cookies_txt.modified_at * 1000).toLocaleString('fr-FR')}` : 'absent'}</span></div>
+    <div class="kv-row"><span class="kv-key">bgutil</span><span class="kv-val">${escapeHtml(yt.bgutil?.url || '—')} · ${yt.bgutil?.reachable ? 'reachable' : 'indisponible'}${yt.bgutil?.status ? ` · HTTP ${escapeHtml(yt.bgutil.status)}` : ''}${yt.bgutil?.error ? ` · ${escapeHtml(yt.bgutil.error)}` : ''}</span></div>
+    ${warnings ? `<div class="warn-list">${warnings}</div>` : ''}
+  `;
 
   // Last error
   if (bot.last_error) {
