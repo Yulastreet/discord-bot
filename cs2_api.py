@@ -208,47 +208,44 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
       - None  : prive OU erreur (cf logs)
       - []    : public mais vide
       - list  : items
-    On essaie d'abord le nouvel endpoint puis l'ancien en fallback. Steam
-    bloque parfois les UA custom, donc on envoie un UA Firefox credible.
+    Utilise une session aiohttp DEDIEE (cookies vides) pour eviter que
+    Steam blacklist notre fingerprint apres une serie de 400.
     """
-    urls = [
-        f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=5000",
-        f"https://steamcommunity.com/profiles/{steam_id}/inventory/json/730/2",
-    ]
+    url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=5000"
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-        "Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/",
         "X-Requested-With": "XMLHttpRequest",
     }
-    s = await _get_session()
+    timeout = aiohttp.ClientTimeout(total=20, connect=10)
+    # Session fresh par appel : pas de cookies persistents qui poisonnent
+    async with aiohttp.ClientSession(timeout=timeout, headers=headers, cookie_jar=aiohttp.DummyCookieJar()) as s:
 
-    body        = None
-    last_status = None
-    last_body   = ""
-    for url in urls:
+        body        = None
+        last_status = None
+        last_body   = ""
         try:
-            async with s.get(url, headers=headers) as resp:
+            async with s.get(url) as resp:
                 last_status = resp.status
                 last_body   = await resp.text()
                 if resp.status == 200 and last_body.strip() not in ("", "null"):
                     body = last_body
-                    break
-                print(f"[cs2/steam] inv try {url} -> status={resp.status} body={last_body[:120]!r}")
+                else:
+                    print(f"[cs2/steam] inv try {url} -> status={resp.status} body={last_body[:120]!r}")
         except Exception as e:
-            print(f"[cs2/steam] inv fetch exception {url}: {type(e).__name__}: {e}")
+            print(f"[cs2/steam] inv fetch exception: {type(e).__name__}: {e}")
 
-    if body is None:
-        if last_status == 400 and last_body.strip() in ("", "null"):
-            print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
-        elif last_status in (401, 403):
-            print(f"[cs2/steam] inv private steam_id={steam_id} status={last_status}")
-        elif last_status == 429:
-            print(f"[cs2/steam] inv rate-limited steam_id={steam_id}")
-        else:
-            print(f"[cs2/steam] inv all endpoints failed steam_id={steam_id} last_status={last_status}")
-        return None
+        if body is None:
+            if last_status == 400 and last_body.strip() in ("", "null"):
+                print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
+            elif last_status in (401, 403):
+                print(f"[cs2/steam] inv private steam_id={steam_id} status={last_status}")
+            elif last_status == 429:
+                print(f"[cs2/steam] inv rate-limited steam_id={steam_id}")
+            else:
+                print(f"[cs2/steam] inv failed steam_id={steam_id} last_status={last_status}")
+            return None
 
     import json as _json
     try:
