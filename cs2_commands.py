@@ -718,25 +718,58 @@ async def _create_queue_lobby(interaction: discord.Interaction) -> Optional[disc
 
 async def on_voice_state_update(member, before, after, bot):
     """Hook a brancher dans bot.py : supprime auto les voice channels de queue
-    qui se vident."""
-    if not before.channel:
+    qui se vident. On exclut explicitement `member` du compte car le cache
+    discord.py n'est pas toujours mis a jour avant que ce handler tourne."""
+    if not before.channel or before.channel == after.channel:
         return
     if member.bot:
-        # Si c'est le bot lui-meme qui change de canal, on ignore
         return
     ch = before.channel
+    if not ch.guild:
+        return
     lobbies = {l["channel_id"]: l for l in cs_queue_lobbies_list(ch.guild.id)}
     if str(ch.id) not in lobbies:
         return
-    # Verifie si vide (en excluant les bots)
-    remaining = [m for m in ch.members if not m.bot]
+    remaining = [m for m in ch.members if not m.bot and m.id != member.id]
     if remaining:
         return
     try:
         await ch.delete(reason="CS2 queue empty, auto-cleanup")
+        print(f"[cs2/queue] deleted empty lobby channel_id={ch.id}")
     except Exception as e:
-        print(f"[cs2/queue] auto-delete err: {type(e).__name__}")
+        print(f"[cs2/queue] auto-delete err channel_id={ch.id}: {type(e).__name__}: {e}")
+        return
     cs_queue_lobby_delete(ch.id)
+
+
+async def queue_cleanup_sweep(bot):
+    """Tache de fond : passe en revue toutes les queues persistees et supprime
+    celles qui sont vraiment vides. Filet de securite si on_voice_state_update
+    manque un evenement (bot restart, glitch Discord)."""
+    try:
+        lobbies = cs_queue_lobbies_list()
+    except Exception as e:
+        print(f"[cs2/queue/sweep] list err: {type(e).__name__}")
+        return
+    for lobby in lobbies:
+        try:
+            ch = bot.get_channel(int(lobby["channel_id"]))
+            if ch is None:
+                # Canal supprime cote Discord, on nettoie la DB
+                cs_queue_lobby_delete(lobby["channel_id"])
+                continue
+            non_bot = [m for m in ch.members if not m.bot]
+            if non_bot:
+                continue
+            try:
+                await ch.delete(reason="CS2 queue empty (sweep)")
+                print(f"[cs2/queue/sweep] deleted empty lobby channel_id={ch.id}")
+            except Exception as e:
+                print(f"[cs2/queue/sweep] delete err channel_id={ch.id}: {type(e).__name__}")
+                continue
+            cs_queue_lobby_delete(ch.id)
+        except Exception as e:
+            print(f"[cs2/queue/sweep] iter err: {type(e).__name__}")
 
 
 # ============================================================================

@@ -127,7 +127,9 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
 import social_integrations as social
 from commandes import setup_commands
 from duel_commands import setup_duel_commands
-from cs2_commands import setup_cs2_commands, on_voice_state_update as cs2_on_voice
+from cs2_commands import (setup_cs2_commands,
+                          on_voice_state_update as cs2_on_voice,
+                          queue_cleanup_sweep as cs2_queue_sweep)
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from status_utils import best_firefox_cookie_profile
@@ -479,6 +481,20 @@ async def on_voice_state_update(member, before, after):
         await cs2_on_voice(member, before, after, bot)
     except Exception as e:
         print(f"[cs2/voice-hook] {type(e).__name__}: {e}")
+
+
+@tasks.loop(minutes=2)
+async def cs2_queue_sweep_loop():
+    await cs2_queue_sweep(bot)
+
+
+@cs2_queue_sweep_loop.before_loop
+async def _before_cs2_sweep():
+    await bot.wait_until_ready()
+
+
+if not cs2_queue_sweep_loop.is_running():
+    cs2_queue_sweep_loop.start()
 
 
 setup_runtime(bot, globals())
