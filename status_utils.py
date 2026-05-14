@@ -153,6 +153,15 @@ def _firefox_profiles(home_path):
     return profiles
 
 
+def best_firefox_cookie_profile(home_path=None):
+    home = Path(home_path) if home_path is not None else Path.home()
+    profiles = [p for p in _firefox_profiles(home) if p["cookies_exists"]]
+    if not profiles:
+        return None
+    profiles.sort(key=lambda p: p.get("cookies_modified_at") or 0, reverse=True)
+    return profiles[0]["path"]
+
+
 def _process_user(pid):
     if not pid:
         return None

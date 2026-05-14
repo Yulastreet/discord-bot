@@ -322,6 +322,7 @@ function render(d) {
   yEl.innerHTML = `
     <div class="kv-row"><span class="kv-key">Mode web détecté</span><span class="kv-val">${escapeHtml(yt.effective_mode || '—')}</span></div>
     <div class="kv-row"><span class="kv-key">Mode bot déclaré</span><span class="kv-val">${escapeHtml(botYt.effective_mode || '—')}</span></div>
+    <div class="kv-row"><span class="kv-key">Profil Firefox bot</span><span class="kv-val">${escapeHtml(botYt.firefox_profile || 'auto/default')}</span></div>
     <div class="kv-row"><span class="kv-key">User web / bot</span><span class="kv-val">${escapeHtml(yt.web_user || '—')} / ${escapeHtml(yt.bot_user || '—')}</span></div>
     <div class="kv-row"><span class="kv-key">Firefox binaire</span><span class="kv-val">${escapeHtml(bins.firefox || bins['firefox-esr'] || 'non trouvé dans PATH')}</span></div>
     <div class="kv-row"><span class="kv-key">Racines Firefox</span><span class="kv-val">${roots}</span></div>

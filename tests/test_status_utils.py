@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from status_utils import create_db_backup, db_info, read_backup_meta, youtube_diagnostics
+from status_utils import create_db_backup, db_info, read_backup_meta, youtube_diagnostics, best_firefox_cookie_profile
 
 
 class StatusUtilsTests(unittest.TestCase):
@@ -57,10 +57,11 @@ class StatusUtilsTests(unittest.TestCase):
                 home_path=home,
                 check_bgutil=False,
             )
+            self.assertEqual(best_firefox_cookie_profile(home), str(profile))
 
-        self.assertEqual(info["effective_mode"], "firefox")
-        self.assertTrue(info["firefox_cookies_accessible"])
-        self.assertEqual(info["firefox_profiles"][0]["source"], "snap")
+            self.assertEqual(info["effective_mode"], "firefox")
+            self.assertTrue(info["firefox_cookies_accessible"])
+            self.assertEqual(info["firefox_profiles"][0]["source"], "snap")
 
     def test_youtube_diagnostics_warns_when_firefox_mode_has_no_profile(self):
         with tempfile.TemporaryDirectory() as tmp:

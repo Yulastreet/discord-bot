@@ -100,6 +100,7 @@ from commandes import setup_commands
 from duel_commands import setup_duel_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
+from status_utils import best_firefox_cookie_profile
 from tasks.runtime import setup_runtime
 from welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
@@ -330,10 +331,11 @@ YDL_OPTIONS = {
 # Cookies : priorite Firefox live (auto-rotation par le browser sur le VPS),
 # fallback cookies.txt manuel.
 _USE_FIREFOX_COOKIES = os.getenv("YT_USE_FIREFOX_COOKIES", "1") == "1"
+_FIREFOX_COOKIE_PROFILE = os.getenv("YT_FIREFOX_PROFILE") or best_firefox_cookie_profile()
 if _USE_FIREFOX_COOKIES:
     # yt-dlp lit cookies.sqlite live du profil par defaut.
-    YDL_OPTIONS['cookiesfrombrowser'] = ('firefox',)
-    print("[yt-dlp] cookies-from-browser: firefox (profil par defaut)")
+    YDL_OPTIONS['cookiesfrombrowser'] = ('firefox', _FIREFOX_COOKIE_PROFILE) if _FIREFOX_COOKIE_PROFILE else ('firefox',)
+    print(f"[yt-dlp] cookies-from-browser: firefox ({_FIREFOX_COOKIE_PROFILE or 'profil par defaut'})")
 elif os.path.exists(_COOKIES_PATH):
     YDL_OPTIONS['cookiefile'] = _COOKIES_PATH
     print(f"[yt-dlp] cookies loaded from {_COOKIES_PATH}")
@@ -346,6 +348,7 @@ BOT_STATE["youtube"] = {
     "bgutil_pot_url": _BGUTIL_POT_URL,
     "cookies_path": _COOKIES_PATH,
     "cookies_txt_exists": os.path.exists(_COOKIES_PATH),
+    "firefox_profile": _FIREFOX_COOKIE_PROFILE,
     "effective_mode": "firefox" if _USE_FIREFOX_COOKIES else ("cookies.txt" if os.path.exists(_COOKIES_PATH) else "bgutil_only"),
 }
 
