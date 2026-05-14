@@ -228,4 +228,34 @@ def register_server_tool_routes(app, deps):
         return jsonify({"ok": True, "deleted": n})
 
 
+    # ===== Counter-Strike 2 dashboard =====
+    from database import cs_rank_config_get, cs_rank_config_upsert
+
+    @app.route("/cs2")
+    def cs2_page():
+        return render_template("cs2.html", active_nav="cs2")
+
+
+    @app.route("/api/cs2/config", methods=["GET"])
+    def api_cs2_config_get():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        return jsonify(cs_rank_config_get(g_id))
+
+
+    @app.route("/api/cs2/config", methods=["POST"])
+    def api_cs2_config_set():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.get_json(silent=True) or {}
+        roles = {k: data.get(k) for k in (
+            "role_grey", "role_lightblue", "role_blue", "role_purple",
+            "role_pink", "role_red", "role_gold",
+        )}
+        cs_rank_config_upsert(g_id, enabled=bool(data.get("enabled")), **roles)
+        return jsonify({"ok": True})
+
+
     # ===== Pass : page utilisateur "Mon Pass" =====

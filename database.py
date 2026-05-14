@@ -1,4 +1,5 @@
 import sqlite3
+from typing import Optional
 
 def get_db():
     conn = sqlite3.connect("bot_database.db")
@@ -325,6 +326,43 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
+
+    # ===== CS2 : profils lies (steam / faceit / premier elo declare) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS cs_profiles (
+        discord_id  TEXT PRIMARY KEY,
+        steam_id    TEXT,
+        faceit_id   TEXT,
+        faceit_nick TEXT,
+        premier_elo INTEGER,
+        linked_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TEXT
+    )''')
+    # Config rank-role par guild (active ou non, plus l'ID de role par palier)
+    c.execute('''CREATE TABLE IF NOT EXISTS cs_rank_config (
+        guild_id       TEXT PRIMARY KEY,
+        enabled        INTEGER DEFAULT 0,
+        role_grey      TEXT,
+        role_lightblue TEXT,
+        role_blue      TEXT,
+        role_purple    TEXT,
+        role_pink      TEXT,
+        role_red       TEXT,
+        role_gold      TEXT,
+        updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    # Lobbies queue Premier (voice channels temporaires). Auto-delete quand vide.
+    c.execute('''CREATE TABLE IF NOT EXISTS cs_queue_lobbies (
+        channel_id TEXT PRIMARY KEY,
+        guild_id   TEXT NOT NULL,
+        creator_id TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    # Cache leger (skin prices, stats) pour reduire les hits API
+    c.execute('''CREATE TABLE IF NOT EXISTS cs_cache (
+        cache_key  TEXT PRIMARY KEY,
+        data       TEXT,
+        fetched_at REAL
+    )''')
 
     # ===== MONETIZATION (Discord SKU / entitlements) =====
     # Stocke chaque entitlement Discord recu (achat utilisateur).
@@ -2868,6 +2906,166 @@ def social_alerts_list(guild_id=None, enabled_only: bool = False) -> list[dict]:
     rows = c.execute(sql, tuple(args)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ============================================================================
+# CS2 : helpers DB (profils lies, rank config, queue lobbies, cache)
+# ============================================================================
+
+def cs_profile_get(discord_id) -> Optional[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM cs_profiles WHERE discord_id = ?", (str(discord_id),))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def cs_profile_upsert(discord_id, *, steam_id=None, faceit_id=None,
+                      faceit_nick=None, premier_elo=None) -> None:
+    """Insère ou met à jour un profil. Seuls les params non-None sont écrits."""
+    conn = get_db()
+    c = conn.cursor()
+    existing = c.execute("SELECT 1 FROM cs_profiles WHERE discord_id = ?",
+                         (str(discord_id),)).fetchone()
+    if existing:
+        sets, args = [], []
+        if steam_id is not None:
+            sets.append("steam_id = ?");    args.append(steam_id)
+        if faceit_id is not None:
+            sets.append("faceit_id = ?");   args.append(faceit_id)
+        if faceit_nick is not None:
+            sets.append("faceit_nick = ?"); args.append(faceit_nick)
+        if premier_elo is not None:
+            sets.append("premier_elo = ?"); args.append(int(premier_elo))
+        if sets:
+            sets.append("updated_at = CURRENT_TIMESTAMP")
+            args.append(str(discord_id))
+            c.execute(f"UPDATE cs_profiles SET {', '.join(sets)} WHERE discord_id = ?", args)
+    else:
+        c.execute("""INSERT INTO cs_profiles (discord_id, steam_id, faceit_id, faceit_nick, premier_elo)
+                     VALUES (?, ?, ?, ?, ?)""",
+                  (str(discord_id), steam_id, faceit_id, faceit_nick,
+                   int(premier_elo) if premier_elo is not None else None))
+    conn.commit()
+    conn.close()
+
+
+def cs_profile_unlink(discord_id, platform: str) -> None:
+    """platform = 'steam' | 'faceit' | 'all'."""
+    conn = get_db()
+    c = conn.cursor()
+    if platform == "steam":
+        c.execute("UPDATE cs_profiles SET steam_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?", (str(discord_id),))
+    elif platform == "faceit":
+        c.execute("UPDATE cs_profiles SET faceit_id = NULL, faceit_nick = NULL, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?", (str(discord_id),))
+    elif platform == "all":
+        c.execute("DELETE FROM cs_profiles WHERE discord_id = ?", (str(discord_id),))
+    conn.commit()
+    conn.close()
+
+
+def cs_rank_config_get(guild_id) -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM cs_rank_config WHERE guild_id = ?", (str(guild_id),))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {"guild_id": str(guild_id), "enabled": 0,
+            "role_grey": None, "role_lightblue": None, "role_blue": None,
+            "role_purple": None, "role_pink": None, "role_red": None,
+            "role_gold": None}
+
+
+def cs_rank_config_upsert(guild_id, *, enabled=None, **roles) -> None:
+    """roles : role_grey, role_lightblue, role_blue, role_purple, role_pink, role_red, role_gold."""
+    conn = get_db()
+    c = conn.cursor()
+    valid = {"role_grey", "role_lightblue", "role_blue", "role_purple",
+             "role_pink", "role_red", "role_gold"}
+    existing = c.execute("SELECT 1 FROM cs_rank_config WHERE guild_id = ?",
+                         (str(guild_id),)).fetchone()
+    if existing:
+        sets, args = [], []
+        if enabled is not None:
+            sets.append("enabled = ?"); args.append(int(bool(enabled)))
+        for k, v in roles.items():
+            if k in valid:
+                sets.append(f"{k} = ?"); args.append(str(v) if v else None)
+        if sets:
+            sets.append("updated_at = CURRENT_TIMESTAMP")
+            args.append(str(guild_id))
+            c.execute(f"UPDATE cs_rank_config SET {', '.join(sets)} WHERE guild_id = ?", args)
+    else:
+        cols = ["guild_id", "enabled"]
+        vals = [str(guild_id), int(bool(enabled)) if enabled is not None else 0]
+        for k, v in roles.items():
+            if k in valid:
+                cols.append(k); vals.append(str(v) if v else None)
+        placeholders = ",".join("?" for _ in cols)
+        c.execute(f"INSERT INTO cs_rank_config ({','.join(cols)}) VALUES ({placeholders})", vals)
+    conn.commit()
+    conn.close()
+
+
+def cs_queue_lobby_add(channel_id, guild_id, creator_id) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT OR REPLACE INTO cs_queue_lobbies (channel_id, guild_id, creator_id)
+                 VALUES (?, ?, ?)""",
+              (str(channel_id), str(guild_id), str(creator_id)))
+    conn.commit()
+    conn.close()
+
+
+def cs_queue_lobby_delete(channel_id) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM cs_queue_lobbies WHERE channel_id = ?", (str(channel_id),))
+    conn.commit()
+    conn.close()
+
+
+def cs_queue_lobbies_list(guild_id=None) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id:
+        rows = c.execute("SELECT * FROM cs_queue_lobbies WHERE guild_id = ?",
+                         (str(guild_id),)).fetchall()
+    else:
+        rows = c.execute("SELECT * FROM cs_queue_lobbies").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def cs_cache_get(cache_key: str, max_age_sec: int) -> Optional[dict]:
+    import json as _json, time as _time
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT data, fetched_at FROM cs_cache WHERE cache_key = ?",
+                    (cache_key,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    if _time.time() - (row["fetched_at"] or 0) > max_age_sec:
+        return None
+    try:
+        return _json.loads(row["data"])
+    except Exception:
+        return None
+
+
+def cs_cache_set(cache_key: str, data) -> None:
+    import json as _json, time as _time
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT OR REPLACE INTO cs_cache (cache_key, data, fetched_at)
+                 VALUES (?, ?, ?)""",
+              (cache_key, _json.dumps(data, ensure_ascii=False), _time.time()))
+    conn.commit()
+    conn.close()
 
 
 if __name__ == "__main__":

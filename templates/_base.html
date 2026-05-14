@@ -392,6 +392,11 @@
       <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
         <svg class="ic"><use href="#i-music"/></svg> Musique
       </a>
+
+      <div class="nav-section">🎮 Jeux</div>
+      <a href="/cs2" class="nav-item {{ 'active' if active_nav == 'cs2' }}">
+        <svg class="ic"><use href="#i-swords"/></svg> Counter-Strike 2
+      </a>
       {% endif %}
 
       {% if discord_user and discord_user.user_id %}

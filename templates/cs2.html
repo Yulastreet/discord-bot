@@ -1,0 +1,196 @@
+{% extends "_base.html" %}
+{% block title %}Counter-Strike 2 · TookBot{% endblock %}
+{% block crumb %}Counter-Strike 2{% endblock %}
+
+{% block content %}
+<style>
+  .cs-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+  .cs-card h2 { margin: 0 0 8px; font-size: 18px; }
+  .cs-card .help { color: var(--text-muted); font-size: 13px; margin-bottom: 14px; }
+  .tier-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .tier-label {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+    text-align: center;
+    color: #fff;
+  }
+  .tier-grey      { background: #808080; color: #1a1a1a; }
+  .tier-lightblue { background: #5DADE2; }
+  .tier-blue      { background: #2980B9; }
+  .tier-purple    { background: #8E44AD; }
+  .tier-pink      { background: #E91E63; }
+  .tier-red       { background: #C0392B; }
+  .tier-gold      { background: #F1C40F; color: #1a1a1a; }
+  .role-select {
+    padding: 7px 10px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    width: 100%;
+  }
+  .switch-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .switch-row:last-child { border-bottom: none; }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 46px; height: 24px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer;
+    top:0; left:0; right:0; bottom:0;
+    background: #555;
+    transition: .2s;
+    border-radius: 24px;
+  }
+  .slider::before {
+    content: ""; position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; top: 3px;
+    background: #fff;
+    transition: .2s;
+    border-radius: 50%;
+  }
+  input:checked + .slider { background: oklch(0.86 0.20 130); }
+  input:checked + .slider::before { transform: translateX(22px); }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: oklch(0.86 0.20 130); color: #1a1a1a; font-weight: 600;
+    padding: 12px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 180ms, transform 180ms;
+    pointer-events: none; z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+
+<h1 style="margin:0 0 6px;">🎮 Counter-Strike 2</h1>
+<p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
+  Config rank-role automatique : assigne un rôle Discord selon le palier Premier déclaré
+  (`/cs setrank`) de chaque membre. Active la feature ci-dessous et mappe un rôle par palier.
+</p>
+
+<div class="cs-card">
+  <h2>🎖️ Rank role automatique</h2>
+  <p class="help">Quand un membre fait <code>/cs setrank &lt;elo&gt;</code> dans Discord, le bot lui attribue le rôle correspondant à son palier Premier (CS Rating).</p>
+
+  <div class="switch-row">
+    <div>
+      <strong>Activer l'attribution auto</strong>
+      <div class="muted" style="font-size:12px;">Les rôles configurés ci-dessous seront appliqués/retirés selon l'ELO.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="csEnabled">
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<div class="cs-card">
+  <h2>Mapping rôles ↔ paliers</h2>
+  <p class="help">Sélectionne le rôle Discord à appliquer pour chaque palier Premier.</p>
+
+  <div id="tierRows">
+    <div class="tier-row"><span class="tier-label tier-grey">⚪ Grey · 0-4999</span><select class="role-select" data-tier="role_grey"></select></div>
+    <div class="tier-row"><span class="tier-label tier-lightblue">🩵 Light Blue · 5000-9999</span><select class="role-select" data-tier="role_lightblue"></select></div>
+    <div class="tier-row"><span class="tier-label tier-blue">🔷 Blue · 10000-14999</span><select class="role-select" data-tier="role_blue"></select></div>
+    <div class="tier-row"><span class="tier-label tier-purple">🟣 Purple · 15000-19999</span><select class="role-select" data-tier="role_purple"></select></div>
+    <div class="tier-row"><span class="tier-label tier-pink">💖 Pink · 20000-24999</span><select class="role-select" data-tier="role_pink"></select></div>
+    <div class="tier-row"><span class="tier-label tier-red">🔴 Red · 25000-29999</span><select class="role-select" data-tier="role_red"></select></div>
+    <div class="tier-row"><span class="tier-label tier-gold">🟡 Gold · 30000+</span><select class="role-select" data-tier="role_gold"></select></div>
+  </div>
+
+  <button class="btn btn-primary" id="saveBtn" type="button" style="margin-top:12px;">💾 Enregistrer</button>
+</div>
+
+<div class="cs-card">
+  <h2>📚 Commandes disponibles dans Discord</h2>
+  <ul style="font-size:13px;line-height:1.8;margin:0;padding-left:20px;">
+    <li><code>/cs link &lt;Steam|Faceit&gt; &lt;id&gt;</code> — lie un compte</li>
+    <li><code>/cs unlink &lt;Steam|Faceit|Tout&gt;</code> — retire un lien</li>
+    <li><code>/cs stats [@membre]</code> — affiche les stats (Steam / Faceit)</li>
+    <li><code>/cs setrank &lt;elo&gt;</code> — déclare son rating Premier</li>
+    <li><code>/cs price &lt;skin&gt;</code> — prix Steam Market</li>
+    <li><code>/cs inventory [@membre|&lt;steamid&gt;]</code> — inventaire + valeur €</li>
+    <li><code>/cs queue</code> — crée un voice channel temporaire (5 slots)</li>
+    <li><code>/cs map</code> — ban/pick maps tour-par-tour</li>
+    <li><code>/cs loadout</code> — loadout aléatoire</li>
+  </ul>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let ROLES   = [];
+let CONFIG  = {};
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? 'oklch(0.86 0.20 130)' : 'oklch(0.65 0.20 25)';
+  t.style.color = ok ? '#1a1a1a' : '#fff';
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+async function loadRoles() {
+  const r = await fetch('/api/rolereactions/roles');
+  if (!r.ok) return;
+  const d = await r.json();
+  ROLES = d.roles || [];
+}
+
+async function loadConfig() {
+  const r = await fetch('/api/cs2/config');
+  if (!r.ok) return;
+  CONFIG = await r.json();
+  document.getElementById('csEnabled').checked = !!CONFIG.enabled;
+  document.querySelectorAll('.role-select').forEach(sel => {
+    const tier = sel.dataset.tier;
+    sel.innerHTML = '<option value="">— aucun —</option>' +
+      ROLES.map(r => `<option value="${r.id}" ${String(r.id) === String(CONFIG[tier] || '') ? 'selected' : ''}>${r.name}</option>`).join('');
+  });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const payload = { enabled: document.getElementById('csEnabled').checked };
+  document.querySelectorAll('.role-select').forEach(sel => {
+    payload[sel.dataset.tier] = sel.value || null;
+  });
+  const r = await fetch('/api/cs2/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) showToast('✅ Config enregistrée');
+  else showToast('Erreur', false);
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadRoles();
+  await loadConfig();
+});
+</script>
+{% endblock %}

@@ -127,6 +127,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
 import social_integrations as social
 from commandes import setup_commands
 from duel_commands import setup_duel_commands
+from cs2_commands import setup_cs2_commands, on_voice_state_update as cs2_on_voice
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from status_utils import best_firefox_cookie_profile
@@ -468,5 +469,17 @@ db = DuelDB()
 COMMAND_HOOKS = setup_commands(bot, USER_REACTIONS, globals())
 MUSIC_RESUME = COMMAND_HOOKS.get("resume_music")
 setup_duel_commands(bot, db)
+setup_cs2_commands(bot)
+
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    """Auto-cleanup des voice channels CS2 vides."""
+    try:
+        await cs2_on_voice(member, before, after, bot)
+    except Exception as e:
+        print(f"[cs2/voice-hook] {type(e).__name__}: {e}")
+
+
 setup_runtime(bot, globals())
 bot.run(TOKEN)
