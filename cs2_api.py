@@ -352,16 +352,19 @@ async def _skinport_refresh_if_needed():
         if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 1800):
             return
         url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0"
-        s = await _get_session()
+        # gzip suffit, evite brotli qui necessite la lib brotli installee
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
             "Accept": "application/json",
-            "Accept-Encoding": "br",
+            "Accept-Encoding": "gzip, deflate",
         }
+        print(f"[cs2/skinport] fetching bulk...")
+        s = await _get_session()
         try:
             async with s.get(url, headers=headers) as resp:
                 if resp.status != 200:
-                    print(f"[cs2/skinport] bulk status={resp.status}")
+                    body = await resp.text()
+                    print(f"[cs2/skinport] bulk status={resp.status} body={body[:200]!r}")
                     return
                 data = await resp.json(content_type=None)
                 if not isinstance(data, list):
@@ -382,8 +385,15 @@ async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
     if not name:
         return None
     await _skinport_refresh_if_needed()
-    item = _SKINPORT_CACHE["items"].get(name)
+    items = _SKINPORT_CACHE["items"]
+    if not items:
+        print(f"[cs2/skinport] lookup name={name!r} cache_empty=True")
+        return None
+    item = items.get(name)
     if not item:
+        # Heuristique pour debug : trouve un nom proche dans le cache
+        sample = [k for k in items if name.lower()[:15] in k.lower()][:3]
+        print(f"[cs2/skinport] lookup name={name!r} not_found near={sample!r}")
         return None
     min_price = item.get("min_price")
     if not isinstance(min_price, (int, float)) or min_price <= 0:
