@@ -13,7 +13,36 @@ import aiohttp
 import yt_dlp
 import asyncio
 import ctypes.util
+import importlib
+import importlib.metadata
 from dotenv import load_dotenv
+
+
+def _module_version(name):
+    try:
+        return importlib.metadata.version(name)
+    except Exception:
+        return None
+
+
+def _module_file(name):
+    try:
+        module = importlib.import_module(name)
+        return getattr(module, "__file__", None)
+    except Exception as exc:
+        return f"missing ({type(exc).__name__}: {exc})"
+
+
+print(
+    "[runtime] "
+    f"python={os.sys.executable} "
+    f"discord.py={getattr(discord, '__version__', None)} "
+    f"discord_file={getattr(discord, '__file__', None)} "
+    f"davey={_module_version('davey')} "
+    f"davey_file={_module_file('davey')} "
+    f"PyNaCl={_module_version('PyNaCl')} "
+    f"nacl_file={_module_file('nacl')}"
+)
 
 # ===== Charger libopus pour le voice =====
 def _load_opus():
