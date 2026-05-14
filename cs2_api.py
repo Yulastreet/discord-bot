@@ -204,22 +204,52 @@ async def steam_owned_cs2(steam_id: str) -> Optional[dict]:
 
 
 async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
-    """Inventaire CS2 public. None si privé, [] si vide, list[dict] sinon."""
+    """Inventaire CS2 public. Retourne :
+      - None  : prive OU erreur (cf logs)
+      - []    : public mais vide
+      - list  : items
+    """
     url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=5000"
     s = await _get_session()
     try:
         async with s.get(url) as resp:
+            body = await resp.text()
+            ctype = resp.headers.get("Content-Type", "")
             if resp.status in (401, 403):
+                print(f"[cs2/steam] inv private steam_id={steam_id} status={resp.status}")
+                return None
+            if resp.status == 429:
+                print(f"[cs2/steam] inv rate-limited steam_id={steam_id} (429)")
                 return None
             if resp.status != 200:
+                print(f"[cs2/steam] inv unexpected status={resp.status} steam_id={steam_id} body={body[:200]!r}")
                 return None
-            data = await resp.json(content_type=None)
+            # Steam renvoie parfois "null" (corps vide) quand le profil est prive
+            # mais sans 403. On detecte ce cas.
+            if body.strip() in ("", "null"):
+                print(f"[cs2/steam] inv null-body (likely private) steam_id={steam_id}")
+                return None
+            if "application/json" not in ctype:
+                print(f"[cs2/steam] inv non-JSON response steam_id={steam_id} ctype={ctype!r} body={body[:200]!r}")
+                return None
+            import json as _json
+            try:
+                data = _json.loads(body)
+            except Exception as e:
+                print(f"[cs2/steam] inv json parse err steam_id={steam_id}: {type(e).__name__}")
+                return None
             if not data:
+                print(f"[cs2/steam] inv empty data steam_id={steam_id}")
                 return None
-            if not data.get("success") and "assets" not in data:
+            # data.success peut etre absent en cas d'inventaire vide
+            if data.get("error"):
+                print(f"[cs2/steam] inv error msg steam_id={steam_id} error={data.get('error')!r}")
                 return None
             assets = data.get("assets") or []
             desc_list = data.get("descriptions") or []
+            if not assets and not desc_list:
+                # Inventaire public mais vraiment vide
+                return []
             desc = {f"{d['classid']}_{d['instanceid']}": d for d in desc_list}
             items = []
             for a in assets:
@@ -233,9 +263,10 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
                     "rarity": next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Rarity"), None),
                     "type":   next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Type"), None),
                 })
+            print(f"[cs2/steam] inv ok steam_id={steam_id} assets={len(assets)} items={len(items)}")
             return items
     except Exception as e:
-        print(f"[cs2/steam] inv err: {type(e).__name__}")
+        print(f"[cs2/steam] inv exception steam_id={steam_id}: {type(e).__name__}: {e}")
     return None
 
 

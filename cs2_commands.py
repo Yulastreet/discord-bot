@@ -386,10 +386,14 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     items = await csapi.steam_inventory(steam_id)
     if items is None:
         return _err_embed(
-            "Inventaire privé",
-            f"L'inventaire CS2 de **{member.display_name}** est privé. "
-            "L'utilisateur doit le passer en public : Steam → Profile → Edit Profile → "
-            "Privacy Settings → **Inventory** → **Public**.",
+            "Inventaire inaccessible",
+            f"Impossible de récupérer l'inventaire CS2 de **{member.display_name}**.\n\n"
+            "**Causes possibles :**\n"
+            "• Inventaire privé : Steam → Profile → Edit Profile → **Privacy Settings** → "
+            "**Inventory** → **Public** (séparé du profil public !)\n"
+            "• Steam Market en surcharge (rate-limit) → réessaie dans 1-2 min\n"
+            "• Compte VAC/trade-banned\n\n"
+            f"_Vérifie en ouvrant : https://steamcommunity.com/profiles/{steam_id}/inventory/_",
         )
     if not items:
         return _info_embed(
