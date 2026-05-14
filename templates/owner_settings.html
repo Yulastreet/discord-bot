@@ -53,6 +53,9 @@
   .sabre-card .rar-legendaire { color: oklch(0.86 0.20 90); }
   .sabre-card .id { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
   .sabre-card .spec { font-size: 12px; color: var(--text-muted); }
+  .sabre-card .edit-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  .sabre-card .edit-row input { min-width: 0; flex: 1; }
+  .sabre-card .save-state { min-height: 16px; font-size: 11px; color: var(--text-muted); }
 </style>
 
 <div class="own-grid">
@@ -218,14 +221,48 @@
           </div>
           <div class="nom">${escapeHtml(s.nom)}</div>
           <div class="id">${s.id}</div>
+          <div class="edit-row">
+            <input class="input" id="sabre-name-${cssId(s.id)}" maxlength="80" value="${escapeAttr(s.nom)}">
+            <button class="btn btn-secondary btn-sm" type="button" onclick="saveSeasonalSabreName('${s.id}')">Sauver</button>
+          </div>
+          <div class="save-state" id="sabre-state-${cssId(s.id)}"></div>
           <div class="spec">${s.speciale_emoji || ''} <strong>${escapeHtml(s.speciale_nom || '—')}</strong> · ${escapeHtml(s.speciale_description || '')}</div>
         </div>
       `).join('');
     });
 
+  window.saveSeasonalSabreName = async function(sabreId) {
+    const input = document.getElementById('sabre-name-' + cssId(sabreId));
+    const state = document.getElementById('sabre-state-' + cssId(sabreId));
+    const nom = (input?.value || '').trim();
+    if (!nom) { state.textContent = 'Nom requis.'; return; }
+    state.textContent = 'Sauvegarde...';
+    try {
+      const r = await fetch('/api/owner/seasonal-sabres/' + encodeURIComponent(sabreId), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({nom}),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || r.status);
+      state.textContent = 'Sauvegardé.';
+      const label = input.closest('.sabre-card')?.querySelector('.nom');
+      if (label) label.textContent = nom;
+      setTimeout(() => state.textContent = '', 2000);
+    } catch (e) {
+      state.textContent = 'Erreur : ' + e.message;
+    }
+  };
+
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c =>
       ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/`/g, '&#96;');
+  }
+  function cssId(s) {
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, '_');
   }
 })();
 </script>

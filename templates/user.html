@@ -5,10 +5,78 @@
 {% block crumb %}<a href="/search" style="color:var(--text-3);">Rechercher</a> <span class="sep">/</span> Profil{% endblock %}
 
 {% block content %}
+<style>
+  .discord-profile-card {
+    max-width: 420px;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: linear-gradient(180deg, #17131f 0%, #1f1428 54%, #31121d 100%);
+    box-shadow: var(--shadow);
+  }
+  .discord-profile-banner {
+    height: 118px;
+    background:
+      linear-gradient(135deg, oklch(0.58 0.20 250 / .45), oklch(0.48 0.20 20 / .45)),
+      radial-gradient(circle at 20% 20%, oklch(0.82 0.18 190 / .5), transparent 34%),
+      var(--bg-3);
+  }
+  .discord-profile-body { padding: 0 18px 18px; position: relative; }
+  .discord-avatar {
+    width: 92px; height: 92px; border-radius: 50%;
+    border: 7px solid #17131f; background: var(--bg-3);
+    margin-top: -46px; display: grid; place-items: center;
+    overflow: hidden; font-size: 34px; font-weight: 800;
+  }
+  .discord-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .discord-status {
+    position: absolute; left: 84px; top: 30px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: oklch(0.72 0.20 145); border: 5px solid #17131f;
+  }
+  .discord-name { margin-top: 10px; font-size: 24px; font-weight: 800; color: #fff; }
+  .discord-handle { color: oklch(0.86 0.03 280); font-size: 13px; margin-top: 2px; }
+  .discord-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .discord-badge {
+    width: 24px; height: 24px; display: grid; place-items: center;
+    border-radius: 50%; background: oklch(0.24 0.05 285); font-size: 13px;
+  }
+  .discord-about {
+    margin-top: 14px; color: oklch(0.94 0.02 280);
+    font-size: 14px; line-height: 1.45;
+  }
+  .discord-mini-panel {
+    margin-top: 14px; padding: 12px; border-radius: 8px;
+    background: oklch(0.22 0.04 285 / .82);
+  }
+  .discord-mini-title { color: oklch(0.82 0.03 280); font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .discord-profile-card.global .discord-profile-banner {
+    background:
+      linear-gradient(135deg, oklch(0.62 0.22 25 / .55), oklch(0.34 0.15 285 / .55)),
+      radial-gradient(circle at 80% 20%, oklch(0.82 0.20 70 / .45), transparent 34%),
+      var(--bg-3);
+  }
+</style>
 
 <div id="loadingState" class="muted" style="padding: var(--s-7) 0;">Chargement du profil...</div>
 
 <div id="profileContent" class="hidden col gap-7">
+
+  <div id="discordProfileCard" class="discord-profile-card">
+    <div class="discord-profile-banner"></div>
+    <div class="discord-profile-body">
+      <div class="discord-avatar" id="discordAvatar"></div>
+      <div class="discord-status"></div>
+      <div class="discord-name" id="discordName"></div>
+      <div class="discord-handle" id="discordHandle"></div>
+      <div class="discord-badges" id="discordBadges"></div>
+      <div class="discord-about" id="discordAbout"></div>
+      <div class="discord-mini-panel">
+        <div class="discord-mini-title">Serveurs connus</div>
+        <div id="discordGuilds" class="muted" style="font-size:var(--t-sm);"></div>
+      </div>
+    </div>
+  </div>
 
   <div class="row between" style="align-items:flex-start;flex-wrap:wrap;gap:var(--s-4);">
     <div class="col gap-2">
@@ -359,8 +427,8 @@ function setupXpEdit() {
   // Pre-remplir depuis l'API user (charge en parallele)
   fetch(`/api/user/${userId}`).then(r => r.ok ? r.json() : null).then(d => {
     if (!d) return;
-    xpIn.value = d.xp ?? 0;
-    lvIn.value = d.level ?? 0;
+    xpIn.value = d.user?.xp ?? 0;
+    lvIn.value = d.user?.level ?? 0;
   });
 
   function lvFromXp(xp) { return Math.floor(Math.pow(Math.max(0, xp), 0.2)); }
@@ -482,13 +550,47 @@ function _renderPremium(d) {
 
 function loadProfile() {
   fetch(`/api/user/${userId}`)
-    .then(r => { if (!r.ok) throw new Error('Cet utilisateur n\'a pas de stats sur ce serveur.'); return r.json(); })
+    .then(r => { if (!r.ok) throw new Error('Cet utilisateur est introuvable.'); return r.json(); })
     .then(data => display(data))
     .catch(err => showError(err.message));
 }
 
+function profileEscapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderDiscordProfile(data) {
+  const u = data.user || {};
+  const card = document.getElementById('discordProfileCard');
+  card.classList.toggle('global', data.scope === 'global');
+  const name = u.username || '(sans nom)';
+  document.getElementById('discordName').textContent = name;
+  document.getElementById('discordHandle').textContent = `${name.toLowerCase().replace(/\s+/g, '')} · ${u.user_id}`;
+  const avatar = document.getElementById('discordAvatar');
+  if (u.avatar_url) {
+    avatar.innerHTML = `<img src="${profileEscapeHtml(u.avatar_url)}" alt="">`;
+  } else {
+    avatar.textContent = (name || '?').slice(0, 1).toUpperCase();
+  }
+  const badges = [];
+  if (data.duel) badges.push('⚔️');
+  if ((data.guilds || []).length > 1) badges.push('🌐');
+  if (data.scope === 'global') badges.push('OWNER');
+  document.getElementById('discordBadges').innerHTML = badges.map(b => `<span class="discord-badge">${profileEscapeHtml(b)}</span>`).join('');
+  document.getElementById('discordAbout').innerHTML =
+    data.scope === 'global'
+      ? `Profil global owner · ${fmtNum(u.xp || 0)} XP cumulés · niveau max ${u.level || 0}`
+      : `Profil du serveur sélectionné · ${fmtNum(u.xp || 0)} XP · niveau ${u.level || 0}`;
+  const guilds = data.guilds || [];
+  document.getElementById('discordGuilds').innerHTML = guilds.length
+    ? guilds.slice(0, 5).map(g => `${profileEscapeHtml(g.guild_name || g.guild_id)} · niv. ${g.level || 0}`).join('<br>')
+    : 'Aucun serveur enregistré.';
+}
+
 function display(data) {
   const u = data.user;
+  renderDiscordProfile(data);
   document.getElementById('username').textContent = u.username || '(sans nom)';
   document.getElementById('userId').textContent = u.user_id;
   document.getElementById('level').textContent = u.level;

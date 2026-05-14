@@ -1,4 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
+from owner_settings_utils import update_seasonal_sabre_name
 
 def register_premium_routes(app, deps):
     globals().update(deps)
@@ -210,6 +211,19 @@ def register_premium_routes(app, deps):
         ).fetchall()
         db.close()
         return jsonify({"sabres": [dict(r) for r in rows]})
+
+    @app.route("/api/owner/seasonal-sabres/<sabre_id>", methods=["POST"])
+    def api_owner_seasonal_sabre_update(sabre_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        data = request.get_json(silent=True) or {}
+        try:
+            ok = update_seasonal_sabre_name(db_get_sabre, db_update_sabre, sabre_id, data.get("nom"))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except LookupError as e:
+            return jsonify({"error": str(e)}), 404
+        return jsonify({"ok": bool(ok), "sabre_id": sabre_id, "nom": data.get("nom", "").strip()})
 
 
     @app.route("/api/owner/niveau-bg", methods=["DELETE"])

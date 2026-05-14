@@ -1,4 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
+from web_profile import build_user_profile_payload
 
 def register_dashboard_routes(app, deps):
     globals().update(deps)
@@ -131,6 +132,12 @@ def register_dashboard_routes(app, deps):
     def api_user(user_id):
         g_id = gid()
         db = get_db()
+        payload = build_user_profile_payload(db, user_id, guild_id=g_id, is_owner=_is_owner_session())
+        if not payload:
+            db.close()
+            return jsonify({"error": "Utilisateur non trouvé"}), 404
+        db.close()
+        return jsonify(payload)
         user = db.execute(
             "SELECT user_id, username, level, xp FROM users WHERE guild_id = ? AND user_id = ?",
             (g_id, str(user_id))).fetchone()
