@@ -543,14 +543,132 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
 
 
 # ─── COMMANDES ───────────────────────────
+def _build_duel_info_embeds():
+    overview = discord.Embed(
+        title="Guide des duels TookBot",
+        description=(
+            "Le système de duel est pensé comme un combat tour par tour inspiré des JRPG "
+            "à l'ancienne, type premiers Final Fantasy ou Dragon Quest. La RNG fait partie "
+            "du jeu : les dégâts ont une fourchette aléatoire, mais la progression, les stats, "
+            "les sabres et les choix de tour servent à compenser cette part de chance."
+        ),
+        color=0xFFD700,
+    )
+    overview.add_field(
+        name="Philosophie",
+        value=(
+            "Au début, un gros jet de dégâts peut sembler très violent. Plus ton niveau de "
+            "combat monte, plus ta range de degats grandit, mais moins vite que les gains de "
+            "stats. L'objectif est de garder l'ADN JRPG, tout en laissant de plus en plus de "
+            "place à la préparation et aux bons choix."
+        ),
+        inline=False,
+    )
+    overview.add_field(
+        name="Progression",
+        value=(
+            "Gagner un duel donne plus d'XP de combat et de TookCoins, mais perdre donne quand "
+            "même une récompense. Les niveaux donnent des points de stats, et les TookCoins "
+            "servent a acheter de nouveaux sabres. Le mode `/duel fight nerf:True` permet un "
+            "combat plus équilibré en ignorant niveaux et stats attribuées."
+        ),
+        inline=False,
+    )
+
+    actions = discord.Embed(
+        title="Actions en combat",
+        description="Chaque tour, les deux joueurs choisissent une action sans voir le choix adverse.",
+        color=0x00AAFF,
+    )
+    actions.add_field(
+        name="Attaque",
+        value="Action simple et fiable : inflige des dégâts selon tes stats, ton sabre, les bonus actifs et la RNG.",
+        inline=False,
+    )
+    actions.add_field(
+        name="Parade",
+        value=(
+            "Action défensive à cooldown. Si l'adversaire attaque, la parade peut retourner les dégâts. "
+            "Elle est puissante, donc il faut choisir le bon moment."
+        ),
+        inline=False,
+    )
+    actions.add_field(
+        name="Defense",
+        value=(
+            "Permet de temporiser : si l'adversaire attaque, les dégâts sont fortement réduits. "
+            "C'est utile pour attendre le retour d'une parade, d'une speciale ou d'un mini-jeu."
+        ),
+        inline=False,
+    )
+    actions.add_field(
+        name="Coup bas",
+        value=(
+            "Si l'adversaire est en parade, le coup bas brise sa parade et inflige des dégâts critiques. "
+            "S'il ne parade pas, le coup bas fait moins mal qu'une attaque normale. C'est donc une lecture risquee."
+        ),
+        inline=False,
+    )
+    actions.add_field(
+        name="Speciale",
+        value=(
+            "Chaque sabre a sa spéciale. Elle est forte, mais limitée : certains mini-jeux peuvent la recharger."
+        ),
+        inline=False,
+    )
+
+    bonuses = discord.Embed(
+        title="Mini-jeux, bonus et malus",
+        description=(
+            "Des mini-jeux peuvent apparaître aléatoirement pendant le combat. Ils ajoutent une couche de "
+            "prise de risque : le gagnant obtient un avantage qui peut changer le rythme du duel."
+        ),
+        color=0x9B59B6,
+    )
+    bonuses.add_field(
+        name="Recompenses actuelles",
+        value=(
+            "- Récupère 80 HP\n"
+            "- Spéciale rechargée\n"
+            "- +30% dégâts pendant 2 tours\n"
+            "- Récupère 60 HP\n"
+            "- Parade rechargée + petit montant de HP"
+        ),
+        inline=False,
+    )
+    bonuses.add_field(
+        name="Pourquoi autant de chance ?",
+        value=(
+            "Le système assume une part de hasard pour retrouver la tension des vieux JRPG. "
+            "L'idée n'est pas que chaque tour soit parfaitement prévisible, mais que la progression, "
+            "les sabres, les cooldowns et les mini-jeux donnent des moyens de reprendre le contrôle."
+        ),
+        inline=False,
+    )
+    bonuses.add_field(
+        name="Piste d'evolution",
+        value=(
+            "Une idée intéressante pour la suite serait une défense directionnelle : gauche, droite, haut, etc. "
+            "Si le défenseur lit correctement l'attaque, il pourrait éviter les dégâts, gagner un bonus ou "
+            "infliger un malus. Cela rendrait les combats plus bases sur le mindgame."
+        ),
+        inline=False,
+    )
+    bonuses.set_footer(text="Commandes utiles : /duel fight, /duel info, /profil, /statpoint, /sabre, /historique")
+
+    return [overview, actions, bonuses]
+
+
 def setup_duel_commands(bot, db):
 
-    @bot.tree.command(name="duel", description="Défie un joueur en duel de sabres laser")
+    duel_group = app_commands.Group(name="duel", description="Commandes de duel de sabres laser")
+
+    @duel_group.command(name="fight", description="Défie un joueur en duel de sabres laser")
     @app_commands.describe(
         adversaire="Le joueur que tu veux défier",
         nerf="Mode équilibré : ignore les niveaux et stats attribuées (sabres et spéciales conservés)",
     )
-    async def duel(interaction: discord.Interaction, adversaire: discord.Member, nerf: bool = False):
+    async def duel_fight(interaction: discord.Interaction, adversaire: discord.Member, nerf: bool = False):
         if adversaire.id == interaction.user.id:
             await interaction.response.send_message("❌ Tu ne peux pas te défier toi-même !", ephemeral=True)
             return
@@ -595,6 +713,26 @@ def setup_duel_commands(bot, db):
                 sabre1_id, sabre2_id, db,
                 nerf=nerf,
             )
+
+    @duel_group.command(name="info", description="Reçois en MP le guide complet du système de duel")
+    async def duel_info(interaction: discord.Interaction):
+        try:
+            await interaction.user.send(embeds=_build_duel_info_embeds())
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "❌ Je n'arrive pas a t'envoyer de MP. Active tes messages privés puis réessaie.",
+                ephemeral=True,
+            )
+            return
+        except Exception:
+            await interaction.response.send_message(
+                "❌ Impossible d'envoyer le guide en MP pour le moment.",
+                ephemeral=True,
+            )
+            return
+        await interaction.response.send_message("📩 Je t'ai envoyé le guide des duels en MP.", ephemeral=True)
+
+    bot.tree.add_command(duel_group)
 
     @bot.tree.command(name="profil", description="Voir ton profil de duel")
     @app_commands.describe(membre="Le membre dont tu veux voir le profil")

@@ -96,8 +96,9 @@ def setup_utility_commands(bot):
         embed.add_field(name="​", value="​", inline=False)
 
         duel = (
-            "**/duel <adversaire>** (défie un membre en duel de sabres)\n"
-            "**/duel <adversaire> nerf:True** (duel équilibré, ignore niveaux et stats)\n"
+            "**/duel fight <adversaire>** (défie un membre en duel de sabres)\n"
+            "**/duel fight <adversaire> nerf:True** (duel équilibré, ignore niveaux et stats)\n"
+            "**/duel info** (envoie en MP le guide complet du système de duel)\n"
             "**/profil [membre]** (affiche le profil duel d'un joueur)\n"
             "**/statpoint <stat>** (attribue un point de stat : force, agilite, defense, endurance, chance)\n"
             "**/sabre** (menu unifié : sabre équipé, collection, boutique avec navigation par boutons)\n"
