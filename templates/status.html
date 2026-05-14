@@ -17,6 +17,8 @@
     </p>
   </div>
 
+  <div id="crashAlert" class="crash-alert" style="display:none;"></div>
+
   <div class="grid grid-4">
     <div class="stat">
       <div class="stat-label">Statut bot</div>
@@ -46,9 +48,18 @@
       <div id="versions" class="mt-2"></div>
     </div>
     <div class="card">
-      <h2>Base de données</h2>
+      <div class="card-row mb-3">
+        <h2>Base de données</h2>
+        <button class="btn btn-secondary btn-sm" id="backupBtn" onclick="createBackup()">Créer une backup</button>
+      </div>
       <div id="dbInfo" class="mt-2"></div>
+      <div id="backupStatus" class="muted mt-3" style="font-size:var(--t-xs);">—</div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>VPS Oracle Cloud</h2>
+    <div id="systemInfo" class="mt-2"></div>
   </div>
 
   <div class="card">
@@ -84,6 +95,29 @@
   .kv-row:last-child { border-bottom: none; }
   .kv-row .kv-key { color: var(--text-2); }
   .kv-row .kv-val { font-family: var(--font-mono); color: var(--text); }
+  .crash-alert {
+    border: 1px solid oklch(0.55 0.20 25 / 0.55);
+    background: oklch(0.28 0.10 25 / 0.22);
+    color: oklch(0.84 0.17 25);
+    border-radius: var(--r-2);
+    padding: 12px 16px;
+    font-size: var(--t-sm);
+    font-weight: 700;
+  }
+  .metric-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .metric-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+  }
+  .metric-fill.warn { background: var(--warn); }
+  .metric-fill.danger { background: var(--danger); }
   .login-row {
     display: grid;
     grid-template-columns: 100px 60px 140px 1fr;
@@ -131,6 +165,22 @@ function fmtTimeAgo(ts) {
   if (diff < 86400) return `il y a ${Math.floor(diff/3600)}h`;
   return new Date(ts*1000).toLocaleString('fr-FR');
 }
+function metricClass(percent) {
+  if (percent >= 90) return 'danger';
+  if (percent >= 75) return 'warn';
+  return '';
+}
+function metricRow(label, value, percent) {
+  const pct = Number(percent || 0);
+  return `
+    <div class="kv-row">
+      <span class="kv-key">${label}</span>
+      <span class="kv-val">
+        ${value}
+        <div class="metric-bar"><div class="metric-fill ${metricClass(pct)}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+      </span>
+    </div>`;
+}
 
 async function refresh() {
   try {
@@ -142,25 +192,58 @@ async function refresh() {
   }
 }
 
+async function createBackup() {
+  const btn = document.getElementById('backupBtn');
+  const status = document.getElementById('backupStatus');
+  btn.disabled = true;
+  status.textContent = 'Création de la backup...';
+  try {
+    const res = await fetch('/api/status/db-backup', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    status.textContent = `Backup créée : ${data.file} · ${fmtBytes(data.size_bytes)} · ${new Date(data.created_at * 1000).toLocaleString('fr-FR')} · ancienne backup écrasée`;
+    await refresh();
+  } catch (e) {
+    status.textContent = `Erreur backup : ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function render(d) {
   const bot = d.bot || {};
   const now = d.now || Date.now()/1000;
 
   // Bot status
-  const fresh = bot.updated_at && (now - bot.updated_at) < 60;
+  const age = bot.updated_at ? (now - bot.updated_at) : null;
+  const fresh = bot.updated_at && age < 60;
+  const stale = bot.updated_at && age >= 60 && age < 180;
+  const crashed = !bot.updated_at || age >= 180;
   const statusEl = document.getElementById('botStatus');
-  if (!bot.updated_at) {
-    statusEl.textContent = 'Hors ligne';
+  const alertEl = document.getElementById('crashAlert');
+  if (crashed) {
+    statusEl.textContent = 'Crash probable';
     statusEl.style.color = 'var(--danger)';
-    document.getElementById('botStatusSub').textContent = 'bot_state.json absent — bot pas démarré ?';
-  } else if (!fresh) {
+    document.getElementById('botStatusSub').textContent = bot.updated_at ? `Heartbeat ${fmtTimeAgo(bot.updated_at)}` : 'bot_state.json absent — bot pas démarré ?';
+    alertEl.style.display = '';
+    alertEl.textContent = bot.updated_at
+      ? `Alerte : le bot ne met plus son heartbeat à jour depuis ${fmtTimeAgo(bot.updated_at)}. Vérifie pm2/logs.`
+      : 'Alerte : aucun heartbeat bot trouvé. Le bot est probablement arrêté ou bot_state.json est absent.';
+    if ('Notification' in window && Notification.permission === 'granted' && !window.__botCrashNotified) {
+      new Notification('TookBot : crash probable', { body: alertEl.textContent });
+      window.__botCrashNotified = true;
+    }
+  } else if (stale) {
     statusEl.textContent = 'Stale';
     statusEl.style.color = 'var(--warn)';
     document.getElementById('botStatusSub').textContent = `Heartbeat ${fmtTimeAgo(bot.updated_at)}`;
+    alertEl.style.display = 'none';
   } else {
     statusEl.textContent = 'En ligne';
     statusEl.style.color = 'var(--accent)';
     document.getElementById('botStatusSub').textContent = `MAJ ${fmtTimeAgo(bot.updated_at)}`;
+    alertEl.style.display = 'none';
+    window.__botCrashNotified = false;
   }
 
   // Uptime
@@ -190,8 +273,28 @@ function render(d) {
   const dbi = document.getElementById('dbInfo');
   dbi.innerHTML = `
     <div class="kv-row"><span class="kv-key">Taille fichier</span><span class="kv-val">${fmtBytes(d.db?.size_bytes)}</span></div>
+    <div class="kv-row"><span class="kv-key">Chemin</span><span class="kv-val">${d.db?.path || '—'}</span></div>
+    <div class="kv-row"><span class="kv-key">Modifiée</span><span class="kv-val">${d.db?.modified_at ? new Date(d.db.modified_at * 1000).toLocaleString('fr-FR') : '—'}</span></div>
     ${Object.entries(counts).map(([k,v]) => `<div class="kv-row"><span class="kv-key">${k}</span><span class="kv-val">${v ?? '—'}</span></div>`).join('')}
   `;
+  const backup = d.db?.backup;
+  document.getElementById('backupStatus').textContent = backup
+    ? `Dernière backup : ${backup.file} · ${fmtBytes(backup.size_bytes)} · ${new Date(backup.created_at * 1000).toLocaleString('fr-FR')}`
+    : 'Aucune backup locale créée depuis le dashboard.';
+
+  // System
+  const sys = d.system || {};
+  const si = document.getElementById('systemInfo');
+  if (!sys.available) {
+    si.innerHTML = `<div class="kv-row"><span class="kv-key">Monitoring</span><span class="kv-val">${sys.error || 'indisponible'}</span></div>`;
+  } else {
+    si.innerHTML = `
+      ${metricRow('CPU', `${Number(sys.cpu_percent || 0).toFixed(1)}%`, sys.cpu_percent)}
+      ${metricRow('RAM', `${fmtBytes(sys.ram?.used)} / ${fmtBytes(sys.ram?.total)} · ${Number(sys.ram?.percent || 0).toFixed(1)}%`, sys.ram?.percent)}
+      ${metricRow('Disque', `${fmtBytes(sys.disk?.used)} / ${fmtBytes(sys.disk?.total)} · ${Number(sys.disk?.percent || 0).toFixed(1)}%`, sys.disk?.percent)}
+      <div class="kv-row"><span class="kv-key">Uptime VPS</span><span class="kv-val">${sys.boot_time ? fmtUptime(now - sys.boot_time) : '—'}</span></div>
+    `;
+  }
 
   // Last error
   if (bot.last_error) {
@@ -219,6 +322,9 @@ function render(d) {
   }
 }
 
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission().catch(() => {});
+}
 refresh();
 setInterval(refresh, 8000);
 </script>

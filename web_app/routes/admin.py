@@ -1,4 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
+from status_utils import create_db_backup, db_info, read_backup_meta, system_metrics, ROOT_DIR
 
 def register_admin_routes(app, deps):
     globals().update(deps)
@@ -188,7 +189,7 @@ def register_admin_routes(app, deps):
     # le pid + boot ts dans bot_state.json a cote.
 
     import os as _os
-    _BOT_STATE_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "bot_state.json")
+    _BOT_STATE_FILE = _os.path.join(str(ROOT_DIR), "bot_state.json")
 
     def _read_bot_state():
         try:
@@ -211,11 +212,7 @@ def register_admin_routes(app, deps):
                 counts[tbl] = db.execute(f"SELECT COUNT(*) AS n FROM {tbl}").fetchone()["n"]
             except Exception:
                 counts[tbl] = None
-        db_size_bytes = None
-        try:
-            db_size_bytes = _os.path.getsize("bot_database.db")
-        except Exception:
-            pass
+        database_info = db_info()
         db.close()
 
         # Bot state via fichier partagé
@@ -230,8 +227,10 @@ def register_admin_routes(app, deps):
             "bot": bot_state,
             "db": {
                 "counts":    counts,
-                "size_bytes": db_size_bytes,
+                **database_info,
+                "backup": read_backup_meta(),
             },
+            "system": system_metrics(),
             "login_log": login_log,
             "session": {
                 "logged_in": bool(session.get("logged_in")),
@@ -239,6 +238,17 @@ def register_admin_routes(app, deps):
                 "login_ip":  session.get("login_ip"),
             },
         })
+
+    @app.route("/api/status/db-backup", methods=["POST"])
+    def api_status_db_backup():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        try:
+            return jsonify(create_db_backup())
+        except FileNotFoundError:
+            return jsonify({"error": "db_not_found"}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 
     # =====================================================================
