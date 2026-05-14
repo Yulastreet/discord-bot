@@ -344,21 +344,22 @@ _SKINPORT_LOCK = asyncio.Lock()
 
 
 async def _skinport_refresh_if_needed():
-    """Recharge la liste complete Skinport si > 30 min."""
+    """Recharge le JSON aggrégé csgotrader.app (contient les prix Skinport,
+    Steam, Buff, CSMoney...). On utilise Skinport pour le 'starting_at'.
+    Cache 1h. csgotrader sert un CDN static donc pas de Cloudflare bot-check."""
     now = time.time()
-    if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 1800):
+    if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 3600):
         return
     async with _SKINPORT_LOCK:
-        if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 1800):
+        if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 3600):
             return
-        url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=0"
-        # gzip suffit, evite brotli qui necessite la lib brotli installee
+        url = "https://prices.csgotrader.app/latest/prices_v6.json"
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
             "Accept": "application/json",
             "Accept-Encoding": "gzip, deflate",
         }
-        print(f"[cs2/skinport] fetching bulk...")
+        print(f"[cs2/skinport] fetching bulk from csgotrader.app...")
         s = await _get_session()
         try:
             async with s.get(url, headers=headers) as resp:
@@ -367,20 +368,21 @@ async def _skinport_refresh_if_needed():
                     print(f"[cs2/skinport] bulk status={resp.status} body={body[:200]!r}")
                     return
                 data = await resp.json(content_type=None)
-                if not isinstance(data, list):
+                if not isinstance(data, dict):
                     print(f"[cs2/skinport] unexpected payload type={type(data).__name__}")
                     return
-                # Cle = market_hash_name, valeur = dict avec min_price, suggested_price, etc.
-                idx = {item.get("market_hash_name"): item for item in data if item.get("market_hash_name")}
-                _SKINPORT_CACHE["items"]      = idx
+                _SKINPORT_CACHE["items"]      = data
                 _SKINPORT_CACHE["fetched_at"] = now
-                print(f"[cs2/skinport] cache loaded items={len(idx)}")
+                print(f"[cs2/skinport] cache loaded items={len(data)} (csgotrader aggregated)")
         except Exception as e:
             print(f"[cs2/skinport] bulk err: {type(e).__name__}: {e}")
 
 
+# Taux EUR -> USD pour les sources qui publient en USD (la plupart sauf Skinport)
 async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
-    """Cherche le prix min sur Skinport pour ce skin (prix EUR direct)."""
+    """Cherche le prix Skinport via le bundle csgotrader. Retourne {price_eur,
+    suggested_price, quantity}. Le JSON contient un sous-dict 'skinport' par
+    skin avec 'starting_at' (USD) et 'suggested_price' (USD). On convertit en EUR."""
     name = (market_hash_name or "").strip()
     if not name:
         return None
@@ -391,17 +393,19 @@ async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
         return None
     item = items.get(name)
     if not item:
-        # Heuristique pour debug : trouve un nom proche dans le cache
         sample = [k for k in items if name.lower()[:15] in k.lower()][:3]
         print(f"[cs2/skinport] lookup name={name!r} not_found near={sample!r}")
         return None
-    min_price = item.get("min_price")
-    if not isinstance(min_price, (int, float)) or min_price <= 0:
+    sp = item.get("skinport") or {}
+    starting_usd = sp.get("starting_at")
+    suggested_usd = sp.get("suggested_price")
+    if not isinstance(starting_usd, (int, float)) or starting_usd <= 0:
         return None
+    rate = await usd_to_eur_rate()
     return {
-        "price_eur":       float(min_price),
-        "suggested_price": item.get("suggested_price"),
-        "quantity":        item.get("quantity"),
+        "price_eur":       float(starting_usd) * rate,
+        "suggested_price": (float(suggested_usd) * rate) if suggested_usd else None,
+        "quantity":        None,
     }
 
 
