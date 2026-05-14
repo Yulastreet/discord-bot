@@ -335,13 +335,14 @@ async def steam_market_price(market_hash_name: str, currency: int = 3) -> Option
 
 async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
     """Cherche le listing CSFloat le moins cher pour ce skin.
-    CSFloat publie ses prix en cents USD. On convertit en EUR via le taux cache.
-    Retourne {price_eur, price_usd, listings_count} ou None si rien."""
+    Endpoint public : GET /api/v1/listings?type=buy_now&market_hash_name=...
+    Prix en cents USD -> on convertit en EUR."""
     name = (market_hash_name or "").strip()
     if not name:
         return None
     url = ("https://csfloat.com/api/v1/listings"
-           f"?market_hash_name={quote_plus(name)}&sort_by=lowest_price&limit=1")
+           f"?type=buy_now&market_hash_name={quote_plus(name)}"
+           "&sort_by=lowest_price&limit=1")
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
         "Accept": "application/json",
@@ -349,24 +350,37 @@ async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
     s = await _get_session()
     try:
         async with s.get(url, headers=headers) as resp:
+            body = await resp.text()
             if resp.status != 200:
+                print(f"[cs2/csfloat] status={resp.status} name={name!r} body={body[:200]!r}")
                 return None
-            data = await resp.json(content_type=None)
-            listings = (data or {}).get("data") or []
+            import json as _json
+            try:
+                data = _json.loads(body)
+            except Exception:
+                print(f"[cs2/csfloat] non-JSON body for {name!r}: {body[:200]!r}")
+                return None
+            # CSFloat renvoie soit {"data": [...], "cursor": ...} soit liste directe
+            if isinstance(data, list):
+                listings = data
+            else:
+                listings = (data or {}).get("data") or []
             if not listings:
+                print(f"[cs2/csfloat] empty result name={name!r}")
                 return None
             cents_usd = listings[0].get("price")
             if not isinstance(cents_usd, (int, float)) or cents_usd <= 0:
+                print(f"[cs2/csfloat] no price field name={name!r} item_keys={list(listings[0].keys())}")
                 return None
             usd = cents_usd / 100.0
             rate = await usd_to_eur_rate()
             return {
                 "price_usd": usd,
                 "price_eur": usd * rate,
-                "listings_count": (data or {}).get("cursor") or len(listings),
+                "listings_count": len(listings),
             }
     except Exception as e:
-        print(f"[cs2/csfloat] price err: {type(e).__name__}")
+        print(f"[cs2/csfloat] price err name={name!r}: {type(e).__name__}: {e}")
     return None
 
 
