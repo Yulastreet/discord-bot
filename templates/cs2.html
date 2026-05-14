@@ -170,7 +170,7 @@ async function loadConfig() {
   document.querySelectorAll('.role-select').forEach(sel => {
     const tier = sel.dataset.tier;
     sel.innerHTML = '<option value="">— aucun —</option>' +
-      ROLES.map(r => `<option value="${r.id}" ${String(r.id) === String(CONFIG[tier] || '') ? 'selected' : ''}>${r.name}</option>`).join('');
+      ROLES.map(r => `<option value="${r.role_id}" ${String(r.role_id) === String(CONFIG[tier] || '') ? 'selected' : ''}>${r.name}</option>`).join('');
   });
 }
 
