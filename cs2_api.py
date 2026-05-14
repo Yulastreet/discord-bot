@@ -111,20 +111,27 @@ async def steam_resolve(input_str: str) -> Optional[str]:
 async def _steam_resolve_vanity(vanity: str) -> Optional[str]:
     key = _steam_key()
     if not key:
+        print("[cs2/steam] vanity resolve : STEAM_API_KEY absente — verifie .env + pm2 --update-env")
         return None
     url = ("https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/"
            f"?key={key}&vanityurl={quote_plus(vanity)}")
     s = await _get_session()
     try:
         async with s.get(url) as resp:
+            body = await resp.text()
             if resp.status != 200:
+                print(f"[cs2/steam] vanity resolve status={resp.status} vanity={vanity!r}")
                 return None
-            data = await resp.json(content_type=None)
+            import json as _json
+            data = _json.loads(body)
             r = data.get("response", {})
-            if r.get("success") == 1:
+            success = r.get("success")
+            if success == 1:
                 return r.get("steamid")
+            # 42 = no match
+            print(f"[cs2/steam] vanity resolve vanity={vanity!r} success={success} msg={r.get('message')!r}")
     except Exception as e:
-        print(f"[cs2/steam] vanity resolve err: {type(e).__name__}")
+        print(f"[cs2/steam] vanity resolve err: {type(e).__name__}: {e}")
     return None
 
 
