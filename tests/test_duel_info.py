@@ -20,6 +20,8 @@ class DuelInfoTests(unittest.TestCase):
         self.assertIn("Mini-jeux", joined)
         self.assertIn("TookCoins", joined)
         self.assertIn("/duel fight", joined)
+        self.assertNotIn("Piste d'evolution", joined)
+        self.assertNotIn("Piste d'évolution", joined)
 
 
 if __name__ == "__main__":

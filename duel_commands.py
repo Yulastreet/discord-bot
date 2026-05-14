@@ -645,15 +645,6 @@ def _build_duel_info_embeds():
         ),
         inline=False,
     )
-    bonuses.add_field(
-        name="Piste d'evolution",
-        value=(
-            "Une idée intéressante pour la suite serait une défense directionnelle : gauche, droite, haut, etc. "
-            "Si le défenseur lit correctement l'attaque, il pourrait éviter les dégâts, gagner un bonus ou "
-            "infliger un malus. Cela rendrait les combats plus bases sur le mindgame."
-        ),
-        inline=False,
-    )
     bonuses.set_footer(text="Commandes utiles : /duel fight, /duel info, /profil, /statpoint, /sabre, /historique")
 
     return [overview, actions, bonuses]
