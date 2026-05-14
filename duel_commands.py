@@ -850,8 +850,20 @@ def _build_duel_info_embeds():
     actions.add_field(
         name="Defense",
         value=(
-            "Permet de temporiser : si l'adversaire attaque, les dégâts sont fortement réduits. "
-            "C'est utile pour attendre le retour d'une parade, d'une speciale ou d'un mini-jeu."
+            "Permet de temporiser : si l'adversaire attaque, les dégâts sont fortement réduits (-60%). "
+            "C'est utile pour attendre le retour d'une parade, d'une spéciale ou d'un mini-jeu."
+        ),
+        inline=False,
+    )
+    actions.add_field(
+        name="Défense Spéciale (mindgame)",
+        value=(
+            "Disponible tous les **4 tours**. Quand prête, le bouton Défense devient **🛡️✨ Défense Spéciale**. "
+            "Tu choisis une zone à protéger (bras G/D, jambe G/D) **en secret**. "
+            "Si l'adversaire attaque ou fait un coup bas, il doit choisir une zone à attaquer (lui aussi en aveugle).\n"
+            "• **Match** (même zone) → dégâts **annulés** + adversaire subit **-20% atk** pendant 2 tours.\n"
+            "• **Miss** → défense classique s'applique (-60% dégâts).\n"
+            "Ne déclenche pas contre parade/défense/spéciale."
         ),
         inline=False,
     )
