@@ -413,71 +413,119 @@ async def _build_faceit_stats_embed(member, faceit_id: str, faceit_nick: str) ->
 # ============================================================================
 
 async def _build_price_embed(name: str) -> discord.Embed:
-    """Embed prix pour UN market_hash_name precis."""
+    """Embed prix pour UN market_hash_name precis. Fallback CSFloat si Steam vide."""
     cache_key = f"price:{name.lower()}"
     cached = cs_cache_get(cache_key, max_age_sec=600)
     data = cached or await csapi.steam_market_price(name, currency=3)
     if not cached and data:
         cs_cache_set(cache_key, data)
-    if not data:
-        return _err_embed(
-            "Skin introuvable",
-            "Aucun résultat sur Steam Market pour ce skin/usure.\n"
-            f"Recherche tentée : `{name}`\n\n"
-            "Cause probable : combinaison arme/skin/usure inexistante (certains skins n'existent pas en toutes les usures).",
-        )
     encoded = name.replace(" ", "%20").replace("|", "%7C")
-    embed = discord.Embed(
-        title=f"💸 {name}",
-        description=(
-            f"**Prix le plus bas** : `{data.get('lowest_price') or 'n/a'}`\n"
-            f"**Prix médian (24 h)** : `{data.get('median_price') or 'n/a'}`\n"
-            f"**Volume échangé** : `{data.get('volume') or 0}`"
-        ),
-        url=f"https://steamcommunity.com/market/listings/730/{encoded}",
-        color=0xF1C40F,
+    if data:
+        embed = discord.Embed(
+            title=f"💸 {name}",
+            description=(
+                f"**Prix le plus bas** : `{data.get('lowest_price') or 'n/a'}`\n"
+                f"**Prix médian (24 h)** : `{data.get('median_price') or 'n/a'}`\n"
+                f"**Volume échangé** : `{data.get('volume') or 0}`"
+            ),
+            url=f"https://steamcommunity.com/market/listings/730/{encoded}",
+            color=0xF1C40F,
+        )
+        embed.set_footer(text="🟦 Source : Steam Community Market")
+        return embed
+    # Fallback CSFloat
+    ck_float = f"csfloat:{name.lower()}"
+    cached_float = cs_cache_get(ck_float, max_age_sec=1800)
+    float_data = cached_float or await csapi.csfloat_lowest_price(name)
+    if not cached_float and float_data:
+        cs_cache_set(ck_float, float_data)
+    if float_data:
+        eur = float_data.get("price_eur") or 0
+        usd = float_data.get("price_usd") or 0
+        embed = discord.Embed(
+            title=f"💸 {name}",
+            description=(
+                f"**Prix le plus bas** : `{eur:.2f} €` (~`{usd:.2f} $`)\n"
+                f"_Indisponible sur Steam Market — récupéré sur CSFloat._"
+            ),
+            url=f"https://csfloat.com/search?market_hash_name={quote_plus_safe(name)}",
+            color=0xF39C12,
+        )
+        embed.set_footer(text="🟧 Source : CSFloat")
+        return embed
+    return _err_embed(
+        "Skin introuvable",
+        "Aucun résultat sur Steam Market ni CSFloat pour ce skin/usure.\n"
+        f"Recherche tentée : `{name}`\n\n"
+        "Cause probable : combinaison arme/skin/usure inexistante.",
     )
-    embed.set_footer(text="Source : Steam Community Market")
-    return embed
+
+
+def quote_plus_safe(s: str) -> str:
+    from urllib.parse import quote_plus as _qp
+    return _qp(s)
 
 
 async def _build_price_embed_all_wears(arme: str, skin: str, stattrak: bool) -> discord.Embed:
-    """Lance 5 lookups (une par wear) et affiche tableau condense."""
-    rows = []
+    """Lance 5 lookups Steam + fallback CSFloat quand Steam vide.
+    Tableau condense avec tag source par ligne."""
+    rows = []  # (wear, value_label, source)
     for wear in WEAR_LEVELS_ORDER:
         name = _build_market_hash_name(arme, skin, wear, stattrak)
-        cache_key = f"price:{name.lower()}"
-        cached = cs_cache_get(cache_key, max_age_sec=600)
-        data = cached or await csapi.steam_market_price(name, currency=3)
-        if not cached and data:
-            cs_cache_set(cache_key, data)
-        if not cached:
-            await asyncio.sleep(0.4)   # rate-limit Steam Market
-        low = (data or {}).get("lowest_price") if data else None
-        rows.append((wear, low))
+        # 1) Steam d'abord
+        ck_steam = f"price:{name.lower()}"
+        cached_steam = cs_cache_get(ck_steam, max_age_sec=600)
+        steam_data = cached_steam or await csapi.steam_market_price(name, currency=3)
+        if not cached_steam and steam_data:
+            cs_cache_set(ck_steam, steam_data)
+        if not cached_steam:
+            await asyncio.sleep(0.4)
+        steam_price = (steam_data or {}).get("lowest_price") if steam_data else None
 
-    found = [r for r in rows if r[1]]
+        if steam_price:
+            rows.append((wear, f"`{steam_price}`", "steam"))
+            continue
+
+        # 2) Fallback CSFloat
+        ck_float = f"csfloat:{name.lower()}"
+        cached_float = cs_cache_get(ck_float, max_age_sec=1800)
+        float_data = cached_float or await csapi.csfloat_lowest_price(name)
+        if not cached_float and float_data:
+            cs_cache_set(ck_float, float_data)
+        if not cached_float:
+            await asyncio.sleep(0.4)
+        if float_data:
+            eur = float_data.get("price_eur") or 0
+            rows.append((wear, f"`{eur:.2f}€`", "csfloat"))
+        else:
+            rows.append((wear, "`—`", "none"))
+
     base_name = _build_market_hash_name(arme, skin, None, stattrak)
+    found = [r for r in rows if r[2] != "none"]
     if not found:
         return _err_embed(
             "Skin introuvable",
-            f"Aucun prix Steam Market pour **{base_name}** sur toutes les usures.\n\n"
-            "Vérifie l'orthographe du skin (sensible à la casse, ex: `Redline`, `Hyper Beast`, `Asiimov`).\n"
+            f"Aucun prix sur Steam Market **ni** CSFloat pour **{base_name}**.\n\n"
+            "Vérifie l'orthographe du skin (sensible à la casse, ex: `Redline`, `Hyper Beast`).\n"
             "Certains skins anciens n'existent pas en toutes usures.",
         )
 
     lines = []
-    for wear, price in rows:
+    for wear, val, src in rows:
         label = WEAR_LABEL_FR.get(wear, wear)
-        val   = f"`{price}`" if price else "`—`"
-        lines.append(f"**{label:<10}** {val}")
+        tag = ""
+        if src == "steam":
+            tag = " 🟦"
+        elif src == "csfloat":
+            tag = " 🟧"
+        lines.append(f"**{label:<10}** {val}{tag}")
 
     embed = discord.Embed(
         title=f"💸 {base_name}",
-        description="**Prix Steam Market par niveau d'usure :**\n\n" + "\n".join(lines),
+        description="**Prix par niveau d'usure :**\n\n" + "\n".join(lines),
         color=0xF1C40F,
     )
-    embed.set_footer(text="Source : Steam Community Market · Prix les plus bas")
+    embed.set_footer(text="🟦 Steam Market · 🟧 CSFloat · Prix les plus bas")
     return embed
 
 

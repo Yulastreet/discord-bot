@@ -333,6 +333,43 @@ async def steam_market_price(market_hash_name: str, currency: int = 3) -> Option
     return None
 
 
+async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
+    """Cherche le listing CSFloat le moins cher pour ce skin.
+    CSFloat publie ses prix en cents USD. On convertit en EUR via le taux cache.
+    Retourne {price_eur, price_usd, listings_count} ou None si rien."""
+    name = (market_hash_name or "").strip()
+    if not name:
+        return None
+    url = ("https://csfloat.com/api/v1/listings"
+           f"?market_hash_name={quote_plus(name)}&sort_by=lowest_price&limit=1")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
+        "Accept": "application/json",
+    }
+    s = await _get_session()
+    try:
+        async with s.get(url, headers=headers) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json(content_type=None)
+            listings = (data or {}).get("data") or []
+            if not listings:
+                return None
+            cents_usd = listings[0].get("price")
+            if not isinstance(cents_usd, (int, float)) or cents_usd <= 0:
+                return None
+            usd = cents_usd / 100.0
+            rate = await usd_to_eur_rate()
+            return {
+                "price_usd": usd,
+                "price_eur": usd * rate,
+                "listings_count": (data or {}).get("cursor") or len(listings),
+            }
+    except Exception as e:
+        print(f"[cs2/csfloat] price err: {type(e).__name__}")
+    return None
+
+
 def _parse_price_eur(price_str: Optional[str]) -> Optional[float]:
     """'1,23€' / '12,45€' / '1.234,56€' -> float."""
     if not price_str:
