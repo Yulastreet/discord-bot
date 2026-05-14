@@ -208,71 +208,78 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
       - None  : prive OU erreur (cf logs)
       - []    : public mais vide
       - list  : items
+    On essaie d'abord le nouvel endpoint puis l'ancien en fallback. Steam
+    bloque parfois les UA custom, donc on envoie un UA Firefox credible.
     """
-    url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=5000"
+    urls = [
+        f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=5000",
+        f"https://steamcommunity.com/profiles/{steam_id}/inventory/json/730/2",
+    ]
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        "Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/",
+        "X-Requested-With": "XMLHttpRequest",
+    }
     s = await _get_session()
+
+    body        = None
+    last_status = None
+    last_body   = ""
+    for url in urls:
+        try:
+            async with s.get(url, headers=headers) as resp:
+                last_status = resp.status
+                last_body   = await resp.text()
+                if resp.status == 200 and last_body.strip() not in ("", "null"):
+                    body = last_body
+                    break
+                print(f"[cs2/steam] inv try {url} -> status={resp.status} body={last_body[:120]!r}")
+        except Exception as e:
+            print(f"[cs2/steam] inv fetch exception {url}: {type(e).__name__}: {e}")
+
+    if body is None:
+        if last_status == 400 and last_body.strip() in ("", "null"):
+            print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
+        elif last_status in (401, 403):
+            print(f"[cs2/steam] inv private steam_id={steam_id} status={last_status}")
+        elif last_status == 429:
+            print(f"[cs2/steam] inv rate-limited steam_id={steam_id}")
+        else:
+            print(f"[cs2/steam] inv all endpoints failed steam_id={steam_id} last_status={last_status}")
+        return None
+
+    import json as _json
     try:
-        async with s.get(url) as resp:
-            body = await resp.text()
-            ctype = resp.headers.get("Content-Type", "")
-            if resp.status in (401, 403):
-                print(f"[cs2/steam] inv private steam_id={steam_id} status={resp.status}")
-                return None
-            if resp.status == 429:
-                print(f"[cs2/steam] inv rate-limited steam_id={steam_id} (429)")
-                return None
-            # Steam renvoie 400 + body 'null' quand l'inventaire (ou les details
-            # du jeu) sont prives. On considere ca comme privé.
-            if resp.status == 400 and body.strip() in ("", "null"):
-                print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
-                return None
-            if resp.status != 200:
-                print(f"[cs2/steam] inv unexpected status={resp.status} steam_id={steam_id} body={body[:200]!r}")
-                return None
-            # Steam renvoie parfois "null" (corps vide) quand le profil est prive
-            # mais sans 403. On detecte ce cas.
-            if body.strip() in ("", "null"):
-                print(f"[cs2/steam] inv null-body (likely private) steam_id={steam_id}")
-                return None
-            if "application/json" not in ctype:
-                print(f"[cs2/steam] inv non-JSON response steam_id={steam_id} ctype={ctype!r} body={body[:200]!r}")
-                return None
-            import json as _json
-            try:
-                data = _json.loads(body)
-            except Exception as e:
-                print(f"[cs2/steam] inv json parse err steam_id={steam_id}: {type(e).__name__}")
-                return None
-            if not data:
-                print(f"[cs2/steam] inv empty data steam_id={steam_id}")
-                return None
-            # data.success peut etre absent en cas d'inventaire vide
-            if data.get("error"):
-                print(f"[cs2/steam] inv error msg steam_id={steam_id} error={data.get('error')!r}")
-                return None
-            assets = data.get("assets") or []
-            desc_list = data.get("descriptions") or []
-            if not assets and not desc_list:
-                # Inventaire public mais vraiment vide
-                return []
-            desc = {f"{d['classid']}_{d['instanceid']}": d for d in desc_list}
-            items = []
-            for a in assets:
-                key = f"{a['classid']}_{a['instanceid']}"
-                d = desc.get(key, {})
-                items.append({
-                    "name": d.get("market_hash_name") or d.get("name") or "?",
-                    "icon": d.get("icon_url"),
-                    "tradable":   bool(d.get("tradable", 0)),
-                    "marketable": bool(d.get("marketable", 0)),
-                    "rarity": next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Rarity"), None),
-                    "type":   next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Type"), None),
-                })
-            print(f"[cs2/steam] inv ok steam_id={steam_id} assets={len(assets)} items={len(items)}")
-            return items
+        data = _json.loads(body)
     except Exception as e:
-        print(f"[cs2/steam] inv exception steam_id={steam_id}: {type(e).__name__}: {e}")
-    return None
+        print(f"[cs2/steam] inv json parse err steam_id={steam_id}: {type(e).__name__}")
+        return None
+    if not data:
+        return None
+    if data.get("error"):
+        print(f"[cs2/steam] inv error msg steam_id={steam_id} error={data.get('error')!r}")
+        return None
+    assets    = data.get("assets") or []
+    desc_list = data.get("descriptions") or []
+    if not assets and not desc_list:
+        return []
+    desc = {f"{d['classid']}_{d['instanceid']}": d for d in desc_list}
+    items = []
+    for a in assets:
+        key = f"{a['classid']}_{a['instanceid']}"
+        d = desc.get(key, {})
+        items.append({
+            "name": d.get("market_hash_name") or d.get("name") or "?",
+            "icon": d.get("icon_url"),
+            "tradable":   bool(d.get("tradable", 0)),
+            "marketable": bool(d.get("marketable", 0)),
+            "rarity": next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Rarity"), None),
+            "type":   next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Type"), None),
+        })
+    print(f"[cs2/steam] inv ok steam_id={steam_id} assets={len(assets)} items={len(items)}")
+    return items
 
 
 # --------------------------------------------------------------------------
