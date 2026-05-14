@@ -497,10 +497,10 @@ async def _build_price_embed_all_wears(arme: str, skin: str, stattrak: bool) -> 
             await asyncio.sleep(0.4)
         steam_price = (steam_data or {}).get("lowest_price") if steam_data else None
 
-        # CSFloat
-        ck_float = f"csfloat:{name.lower()}"
+        # Skinport
+        ck_float = f"skinport:{name.lower()}"
         cached_float = cs_cache_get(ck_float, max_age_sec=1800)
-        float_data = cached_float or await csapi.csfloat_lowest_price(name)
+        float_data = cached_float or await csapi.skinport_lowest_price(name)
         if not cached_float and float_data:
             cs_cache_set(ck_float, float_data)
         if not cached_float:
