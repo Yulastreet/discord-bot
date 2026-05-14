@@ -387,13 +387,13 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     if items is None:
         return _err_embed(
             "Inventaire inaccessible",
-            f"Impossible de récupérer l'inventaire CS2 de **{member.display_name}**.\n\n"
-            "**Causes possibles :**\n"
-            "• Inventaire privé : Steam → Profile → Edit Profile → **Privacy Settings** → "
-            "**Inventory** → **Public** (séparé du profil public !)\n"
-            "• Steam Market en surcharge (rate-limit) → réessaie dans 1-2 min\n"
-            "• Compte VAC/trade-banned\n\n"
-            f"_Vérifie en ouvrant : https://steamcommunity.com/profiles/{steam_id}/inventory/_",
+            f"L'inventaire CS2 de **{member.display_name}** n'est pas accessible publiquement.\n\n"
+            "**Va sur** https://steamcommunity.com/my/edit/settings **et passe en `Public` les 3 réglages suivants :**\n"
+            "1️⃣ **Mon profil**\n"
+            "2️⃣ **Détails du jeu** *(souvent oublié — obligatoire pour CS2 !)*\n"
+            "3️⃣ **Inventaire**\n\n"
+            "Autres causes possibles : Steam en rate-limit (retry 2-5 min) ou compte VAC/trade-ban.\n\n"
+            f"_Test direct : https://steamcommunity.com/profiles/{steam_id}/inventory/#730_",
         )
     if not items:
         return _info_embed(

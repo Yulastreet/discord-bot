@@ -221,6 +221,11 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
             if resp.status == 429:
                 print(f"[cs2/steam] inv rate-limited steam_id={steam_id} (429)")
                 return None
+            # Steam renvoie 400 + body 'null' quand l'inventaire (ou les details
+            # du jeu) sont prives. On considere ca comme privé.
+            if resp.status == 400 and body.strip() in ("", "null"):
+                print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
+                return None
             if resp.status != 200:
                 print(f"[cs2/steam] inv unexpected status={resp.status} steam_id={steam_id} body={body[:200]!r}")
                 return None
