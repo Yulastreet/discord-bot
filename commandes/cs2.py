@@ -672,8 +672,8 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     total_eur = 0.0
     valued    = []
     # Phase 1: Skinport (local dict via csgotrader cache, instantane).
-    # On valorise meme les items non-marketables (le prix marche existe quand
-    # meme, l'item est juste en cooldown).
+    # On valorise meme les items non-marketables (prix marche reste valide,
+    # item juste en cooldown).
     skinport_misses = []
     for name, qty in counts.items():
         sp = await csapi.skinport_lowest_price(name)
@@ -684,9 +684,31 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
         else:
             skinport_misses.append(name)
 
-    # Phase 2 (capped pour eviter rate-limit Steam Market)
-    STEAM_LOOKUP_CAP = 80
-    steam_targets = skinport_misses[:STEAM_LOOKUP_CAP]
+    # Phase 2 : CSFloat pour les misses Skinport (auth API key requise pour
+    # bypasser le 'logged_in required' sur skins caches). Capped : CSFloat
+    # rate limit ~60 req/min meme avec auth, on reste prudent.
+    CSFLOAT_LOOKUP_CAP = 60
+    cf_targets = skinport_misses[:CSFLOAT_LOOKUP_CAP]
+    csfloat_misses = list(skinport_misses[CSFLOAT_LOOKUP_CAP:])
+    for name in cf_targets:
+        ck = f"csfloat:{name.lower()}"
+        cached = cs_cache_get(ck, max_age_sec=600)
+        cf = cached or await csapi.csfloat_lowest_price(name)
+        if not cached and cf:
+            cs_cache_set(ck, cf)
+        if cf and cf.get("price_eur"):
+            eur = float(cf["price_eur"])
+            qty = counts[name]
+            total_eur += eur * qty
+            valued.append((name, qty, eur, "csfloat"))
+        else:
+            csfloat_misses.append(name)
+        if not cached:
+            await asyncio.sleep(0.6)
+
+    # Phase 3 : Steam Market en dernier recours pour ce que CSFloat ne couvre pas
+    STEAM_LOOKUP_CAP = 40
+    steam_targets = csfloat_misses[:STEAM_LOOKUP_CAP]
     for name in steam_targets:
         ck = f"price:{name.lower()}"
         cached = cs_cache_get(ck, max_age_sec=900)
@@ -704,15 +726,21 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     not_priced = len(counts) - len(valued)
     valued.sort(key=lambda r: -(r[2] * r[1]))
     top_lines = []
+    _SRC_TAG = {"skinport": "🟧", "csfloat": "🟪", "steam": "🟦"}
     for name, qty, eur, src in valued[:10]:
         sub = eur * qty
-        tag = "🟧" if src == "skinport" else "🟦"
+        tag = _SRC_TAG.get(src, "•")
         cd_tag = " 🔒" if nonmarket_counts.get(name) else ""
         top_lines.append(f"{tag} `x{qty}` **{name}**{cd_tag} — {sub:.2f}€ (`{eur:.2f}€/u`)")
 
     extra_note = ""
-    if len(skinport_misses) > STEAM_LOOKUP_CAP:
-        extra_note = f"_Valorisation partielle : {STEAM_LOOKUP_CAP} items uniques non-Skinport sur {len(skinport_misses)} cherchés sur Steam Market._\n"
+    overflow_cf = max(0, len(skinport_misses) - CSFLOAT_LOOKUP_CAP)
+    overflow_steam = max(0, len(csfloat_misses) - STEAM_LOOKUP_CAP)
+    if overflow_cf or overflow_steam:
+        extra_note = (
+            f"_Valorisation partielle : "
+            f"{overflow_cf} items skip CSFloat, {overflow_steam} skip Steam (rate-limit)._\n"
+        )
 
     total_items     = sum(counts.values())
     total_market    = sum(marketable_counts.values())
@@ -734,7 +762,7 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     )
     if top_lines:
         embed.add_field(name="💎 Top 10 items", value="\n".join(top_lines), inline=False)
-    embed.set_footer(text="🟧 Skinport · 🟦 Steam Market · 🔒 cooldown trade · prix les plus bas")
+    embed.set_footer(text="🟧 Skinport · 🟪 CSFloat · 🟦 Steam · 🔒 cooldown · prix les plus bas")
     return embed
 
 
