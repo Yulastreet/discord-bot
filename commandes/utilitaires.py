@@ -41,114 +41,201 @@ def setup_utility_commands(bot):
         embed.set_image(url=membre.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="commandes", description="Recevoir la liste des commandes en MP")
+    @bot.tree.command(name="commandes", description="Affiche la liste des commandes (navigation par boutons)")
     async def commandes(interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📋 Liste des commandes",
-            description="Toutes les commandes disponibles, par catégorie.",
-            color=discord.Color.blue()
+        pages = _build_command_pages()
+        view = CommandesPaginatorView(pages, owner_id=interaction.user.id)
+        await interaction.response.send_message(
+            embed=pages[0], view=view, ephemeral=True,
         )
 
-        moderation = (
-            "**/clear <nombre>** (supprime les N derniers messages)\n"
-            "**/kick <membre> [raison]** (expulse un membre du serveur)\n"
-            "**/ban <membre> [raison]** (bannit un membre du serveur)\n"
-            "**/poll <question> <option1> <option2> [option3] [option4]** (crée un sondage avec réactions)\n"
-            "**/setwelcome [salon]** (builder : salon et message de bienvenue)"
-        )
-        embed.add_field(name="🛡️ Modération", value=moderation, inline=False)
 
-        outils = (
-            "**/reaction_add <membre> <emoji>** (réaction auto sur un membre, ce serveur uniquement)\n"
-            "**/reaction_remove <membre>** (supprime la réaction auto d'un membre)\n"
-            "**/reaction_list** (liste des réactions auto sur ce serveur)\n"
-            "**/rolereaction create** (builder : salon, embed, plusieurs emojis/rôles)\n"
-            "**/socialalert add <plateforme> <pseudo> <salon> [msg]** (alertes Twitch/YT/Reddit)\n"
-            "**/socialalert list** (liste des alertes actives)\n"
-            "**/socialalert remove <id>** (supprime une alerte)\n"
-            "**/ticket** (builder : salon, rôle support, catégorie, titre/desc, bouton custom)"
-        )
-        embed.add_field(name="🧰 Outils serveur", value=outils, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
+# ============================================================================
+# Pages + view de pagination /commandes
+# ============================================================================
 
-        fun = (
-            "**/8ball <question>** (la boule magique répond à ta question)\n"
-            "**/dé [faces]** (lance un dé, 6 faces par défaut)\n"
-            "**/coinflip** (pile ou face)\n"
-            "**/blague** (raconte une blague aléatoire)\n"
-            "**/ship <membre1> <membre2>** (calcule le taux de compatibilité entre deux membres)\n"
-            "**/choix <options>** (le bot choisit une option parmi celles que tu donnes, séparées par |)\n"
-            "**/random <min> <max>** (tire un nombre aléatoire entre deux bornes)\n"
-            "**/qui <question>** (le bot désigne un membre du serveur au hasard)\n"
-            "**/clap <texte>** (insère 👏 entre 👏 chaque 👏 mot)\n"
-            "**/rate <truc>** (le bot note quelque chose sur 10)\n"
-            "**/citation** (affiche une citation au hasard)\n"
-            "**/zgeg** (mesure ton zgeg, réaction selon le résultat)"
-        )
-        embed.add_field(name="🎉 Fun", value=fun, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
+_PAGE_COLOR = 0x3498DB
 
-        xp = (
-            "**/niveau [membre]** (affiche ton niveau et XP, ou celui d'un membre)\n"
-            "**/leaderboard** (top 10 XP de ce serveur)"
-        )
-        embed.add_field(name="⭐ Niveaux & XP", value=xp, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
 
-        duel = (
-            "**/duel fight <adversaire>** (défie un membre en duel de sabres)\n"
-            "**/duel fight <adversaire> nerf:True** (duel équilibré, ignore niveaux et stats)\n"
-            "**/duel info** (envoie en MP le guide complet du système de duel)\n"
-            "**/profil [membre]** (affiche le profil duel d'un joueur)\n"
-            "**/statpoint <stat>** (attribue un point de stat : force, agilite, defense, endurance, chance)\n"
-            "**/sabre** (menu unifié : sabre équipé, collection, boutique avec navigation par boutons)\n"
-            "**/historique [membre]** (affiche l'historique des duels)"
-        )
-        embed.add_field(name="⚔️ Duel", value=duel, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
+def _build_command_pages() -> list:
+    """Construit une liste d'embeds, un par section."""
+    pages = []
 
-        music = (
-            "**/join** (rejoint ton salon vocal actuel)\n"
-            "**/play <titre ou lien>** (joue une musique ou l'ajoute à la file)\n"
-            "**/queue** (affiche la file d'attente musicale)\n"
-            "**/skip** (passe à la musique suivante)\n"
-            "**/stop** (stoppe la lecture et vide la file)\n"
-            "**/leave** (déconnecte le bot du salon vocal)"
-        )
-        embed.add_field(name="🎵 Musique", value=music, inline=False)
-        embed.add_field(name="​", value="​", inline=False)
+    # Page 1 : Modération
+    p1 = discord.Embed(
+        title="📋 Commandes · 🛡️ Modération",
+        color=_PAGE_COLOR,
+        description=(
+            "**/clear `<n>`** — supprime les N derniers messages\n"
+            "**/kick `<membre>` `[raison]`** — expulse un membre\n"
+            "**/ban `<membre>` `[raison]`** — bannit un membre\n"
+            "**/poll `<question>` `<options>`** — sondage avec réactions\n"
+            "**/setwelcome `[salon]`** — builder message de bienvenue\n"
+            "**/warn `<membre>` `<raison>`** — avertit un membre + auto-timeout si seuil atteint\n"
+            "**/modlogs `<membre>`** — historique des sanctions d'un membre\n"
+            "**/clearwarns `<membre>` `[raison]`** — révoque tous les warns actifs\n"
+            "**/note `<membre>` `<texte>`** — note interne mod (pas de DM user)"
+        ),
+    )
+    pages.append(p1)
 
-        utils = (
-            "**/avatar [membre]** (affiche l'avatar d'un membre)\n"
-            "**/userinfo [membre]** (informations détaillées sur un membre)\n"
-            "**/serverinfo** (informations détaillées sur le serveur)\n"
-            "**/ping** (affiche la latence du bot)\n"
-            "**/commandes** (envoie cette liste en message privé)"
-        )
-        embed.add_field(name="🔧 Utilitaires", value=utils, inline=False)
+    # Page 2 : Outils serveur
+    p2 = discord.Embed(
+        title="📋 Commandes · 🧰 Outils serveur",
+        color=_PAGE_COLOR,
+        description=(
+            "**/reaction_add `<membre>` `<emoji>`** — réaction auto sur un membre\n"
+            "**/reaction_remove `<membre>`** — supprime la réaction auto\n"
+            "**/reaction_list** — liste des réactions auto\n"
+            "**/rolereaction create** — builder rôles-réactions\n"
+            "**/socialalert add `<plateforme>` `<lien>` `<salon>`** — alertes Twitch/YT/Reddit\n"
+            "**/socialalert list / remove `<id>`** — gestion des alertes\n"
+            "**/ticket** — builder panneau de tickets\n"
+            "**/giveaway create `<durée>` `<gagnants>` `<prix>` `[salon]`** — tirage au sort\n"
+            "**/giveaway list / reroll / cancel** — gestion des giveaways\n"
+            "**/cmd `<nom>`** — exécute une commande custom (builder sur dashboard)"
+        ),
+    )
+    pages.append(p2)
 
-        embed.set_footer(text="Tip : tape / dans le chat pour voir l'autocomplete Discord.")
+    # Page 3 : Fun + XP
+    p3 = discord.Embed(
+        title="📋 Commandes · 🎉 Fun & ⭐ XP",
+        color=_PAGE_COLOR,
+        description=(
+            "**/8ball `<question>`** — la boule magique répond\n"
+            "**/dé `[faces]`** — lance un dé\n"
+            "**/coinflip** — pile ou face\n"
+            "**/blague** — blague aléatoire\n"
+            "**/ship `<m1>` `<m2>`** — compatibilité entre deux membres\n"
+            "**/choix `<options>`** — pick aléatoire (séparé par `|`)\n"
+            "**/random `<min>` `<max>`** — nombre aléatoire\n"
+            "**/qui `<question>`** — désigne un membre au hasard\n"
+            "**/clap `<texte>`** — insère 👏 entre chaque 👏 mot\n"
+            "**/rate `<truc>`** — note sur 10\n"
+            "**/citation** — citation aléatoire\n"
+            "**/zgeg** — mesure ton zgeg\n"
+            "\n**⭐ Niveaux & XP**\n"
+            "**/niveau `[membre]`** — niveau + XP\n"
+            "**/leaderboard** — top 10 XP du serveur"
+        ),
+    )
+    pages.append(p3)
 
-        # Tente l'envoi en MP, fallback ephemere si DMs fermés
-        try:
-            await interaction.user.send(embed=embed)
-            await interaction.response.send_message(
-                "📩 La liste des commandes vient de t'être envoyée en message privé.",
-                ephemeral=True
-            )
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                "❌ Impossible d'envoyer un MP : tu as peut-être désactivé les MP de ce serveur.\n"
-                "Active-les dans les paramètres Discord puis relance la commande.",
-                ephemeral=True
-            )
-        except discord.HTTPException as e:
-            # Embed trop long ou autre 400 - fallback texte ephemere
-            print(f"[commandes] embed send failed: {e!r}")
+    # Page 4 : Duel + Musique
+    p4 = discord.Embed(
+        title="📋 Commandes · ⚔️ Duel & 🎵 Musique",
+        color=_PAGE_COLOR,
+        description=(
+            "**⚔️ Duel**\n"
+            "**/duel fight `<adversaire>` `[nerf]`** — défi sabres laser (mindgame défense incluse)\n"
+            "**/duel info** — guide complet du système de duel\n"
+            "**/profil `[membre]`** — profil duel\n"
+            "**/statpoint `<stat>`** — attribuer un point (force/agilité/défense/endurance/chance)\n"
+            "**/sabre** — menu unifié sabres (équipé/collection/boutique)\n"
+            "**/historique `[membre]`** — historique des duels\n"
+            "\n**🎵 Musique**\n"
+            "**/join** — rejoint ton salon vocal\n"
+            "**/play `<titre|lien>`** — joue ou queue\n"
+            "**/queue** — file d'attente\n"
+            "**/skip** — chanson suivante\n"
+            "**/stop** — stop + vide file\n"
+            "**/leave** — déconnecte le bot"
+        ),
+    )
+    pages.append(p4)
+
+    # Page 5 : CS2 + Utilitaires
+    p5 = discord.Embed(
+        title="📋 Commandes · 🎮 CS2 & 🔧 Utilitaires",
+        color=_PAGE_COLOR,
+        description=(
+            "**🎮 Counter-Strike 2**\n"
+            "**/cs link `<plateforme>` `<id>`** — lie compte Steam ou Faceit\n"
+            "**/cs unlink `<plateforme>`** — retire un lien\n"
+            "**/cs stats `[membre]`** — stats Steam / Faceit\n"
+            "**/cs setrank `<elo>`** — déclare ton Premier ELO + rank role\n"
+            "**/cs rankrole on|off** — admin : auto-attribution rank role\n"
+            "**/cs price `<arme>` `<skin>` `[usure]` `[stattrak]`** — prix Steam + Skinport\n"
+            "**/cs inventory `[membre|steamid]`** — inventaire CS2 + valeur €\n"
+            "**/cs queue** — voice channel temporaire 5 slots\n"
+            "**/cs map** — ban/pick maps entre membres du vocal\n"
+            "**/cs loadout** — loadout aléatoire\n"
+            "\n**🔧 Utilitaires**\n"
+            "**/avatar `[membre]`** — avatar d'un membre\n"
+            "**/userinfo `[membre]`** — infos détaillées membre\n"
+            "**/serverinfo** — infos serveur\n"
+            "**/ping** — latence du bot\n"
+            "**/commandes** — affiche cette navigation"
+        ),
+    )
+    pages.append(p5)
+
+    # Numerote les pages dans le footer
+    for i, e in enumerate(pages, start=1):
+        e.set_footer(text=f"Page {i}/{len(pages)} · Tip : tape / pour voir l'autocomplete Discord.")
+    return pages
+
+
+class CommandesPaginatorView(discord.ui.View):
+    def __init__(self, pages: list, owner_id: int):
+        super().__init__(timeout=180)
+        self.pages    = pages
+        self.idx      = 0
+        self.owner_id = owner_id
+        self._refresh_state()
+
+    def _refresh_state(self):
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                if child.custom_id == "cmds:prev":
+                    child.disabled = (self.idx == 0)
+                elif child.custom_id == "cmds:next":
+                    child.disabled = (self.idx >= len(self.pages) - 1)
+                elif child.custom_id == "cmds:counter":
+                    child.label = f"{self.idx + 1} / {len(self.pages)}"
+
+    async def _guard(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
             try:
                 await interaction.response.send_message(
-                    "❌ Erreur d'envoi de la liste. Le dev a été pinged dans les logs.",
+                    "❌ Ce menu n'est pas pour toi. Fais `/commandes` toi-même.",
                     ephemeral=True,
                 )
             except Exception:
                 pass
+            return False
+        return True
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, custom_id="cmds:prev")
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._guard(interaction):
+            return
+        if self.idx > 0:
+            self.idx -= 1
+        self._refresh_state()
+        await interaction.response.edit_message(embed=self.pages[self.idx], view=self)
+
+    @discord.ui.button(label="1 / 5", style=discord.ButtonStyle.secondary, custom_id="cmds:counter", disabled=True)
+    async def counter_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        pass  # disabled, juste pour l'affichage
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, custom_id="cmds:next")
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._guard(interaction):
+            return
+        if self.idx < len(self.pages) - 1:
+            self.idx += 1
+        self._refresh_state()
+        await interaction.response.edit_message(embed=self.pages[self.idx], view=self)
+
+    @discord.ui.button(label="✖ Fermer", style=discord.ButtonStyle.danger, custom_id="cmds:close")
+    async def close_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._guard(interaction):
+            return
+        try:
+            await interaction.response.edit_message(
+                content="_Menu fermé._", embed=None, view=None,
+            )
+        except Exception:
+            pass
