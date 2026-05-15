@@ -457,7 +457,9 @@ async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
 
 async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
     """Cherche le listing CSFloat le moins cher pour ce skin.
-    Endpoint public : GET /api/v1/listings?type=buy_now&market_hash_name=...
+    Endpoint : GET /api/v1/listings?type=buy_now&market_hash_name=...
+    Auth via env CSFLOAT_API_KEY (header Authorization: <key>). Sans cle
+    certains skins renvoient 'logged_in required' / prix caches.
     Prix en cents USD -> on convertit en EUR."""
     name = (market_hash_name or "").strip()
     if not name:
@@ -469,6 +471,9 @@ async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
         "Accept": "application/json",
     }
+    api_key = os.getenv("CSFLOAT_API_KEY", "").strip()
+    if api_key:
+        headers["Authorization"] = api_key
     s = await _get_session()
     try:
         async with s.get(url, headers=headers) as resp:
