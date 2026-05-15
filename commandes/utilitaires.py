@@ -41,13 +41,27 @@ def setup_utility_commands(bot):
         embed.set_image(url=membre.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="commandes", description="Affiche la liste des commandes (navigation par boutons)")
+    @bot.tree.command(name="commandes", description="Recevoir la liste des commandes en MP (navigation par boutons)")
     async def commandes(interaction: discord.Interaction):
         pages = _build_command_pages()
-        view = CommandesPaginatorView(pages, owner_id=interaction.user.id)
-        await interaction.response.send_message(
-            embed=pages[0], view=view, ephemeral=True,
-        )
+        view  = CommandesPaginatorView(pages, owner_id=interaction.user.id)
+        try:
+            await interaction.user.send(embed=pages[0], view=view)
+            await interaction.response.send_message(
+                "📩 La liste des commandes vient de t'être envoyée en message privé !",
+                ephemeral=True,
+            )
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "❌ Impossible de t'envoyer un MP : tu as désactivé les MP de ce serveur.\n"
+                "Active-les dans **Paramètres utilisateur → Confidentialité** puis relance la commande.",
+                ephemeral=True,
+            )
+        except Exception as e:
+            print(f"[commandes] DM send err: {type(e).__name__}: {e}")
+            await interaction.response.send_message(
+                "❌ Erreur d'envoi. Réessaie plus tard.", ephemeral=True,
+            )
 
 
 # ============================================================================
@@ -58,99 +72,93 @@ _PAGE_COLOR = 0x3498DB
 
 
 def _build_command_pages() -> list:
-    """Construit une liste d'embeds, un par section."""
+    """Construit la liste d'embeds (3 pages denses)."""
     pages = []
 
-    # Page 1 : Modération
+    # Page 1 : Modération + Outils serveur
     p1 = discord.Embed(
-        title="📋 Commandes · 🛡️ Modération",
+        title="📋 Commandes · 🛡️ Modération & 🧰 Outils serveur",
         color=_PAGE_COLOR,
-        description=(
+    )
+    p1.add_field(
+        name="🛡️ Modération",
+        value=(
             "**/clear `<n>`** — supprime les N derniers messages\n"
             "**/kick `<membre>` `[raison]`** — expulse un membre\n"
             "**/ban `<membre>` `[raison]`** — bannit un membre\n"
             "**/poll `<question>` `<options>`** — sondage avec réactions\n"
             "**/setwelcome `[salon]`** — builder message de bienvenue\n"
-            "**/warn `<membre>` `<raison>`** — avertit un membre + auto-timeout si seuil atteint\n"
-            "**/modlogs `<membre>`** — historique des sanctions d'un membre\n"
-            "**/clearwarns `<membre>` `[raison]`** — révoque tous les warns actifs\n"
-            "**/note `<membre>` `<texte>`** — note interne mod (pas de DM user)"
+            "**/warn `<membre>` `<raison>`** — avertit + auto-timeout si seuil\n"
+            "**/modlogs `<membre>`** — historique des sanctions\n"
+            "**/clearwarns `<membre>` `[raison]`** — révoque tous warns\n"
+            "**/note `<membre>` `<texte>`** — note interne mod (pas de DM)"
         ),
+        inline=False,
+    )
+    p1.add_field(
+        name="🧰 Outils serveur",
+        value=(
+            "**/reaction_add / remove / list** — réactions auto sur membre\n"
+            "**/rolereaction create** — builder rôles-réactions\n"
+            "**/socialalert add / list / remove** — alertes Twitch/YT/Reddit\n"
+            "**/ticket** — builder panneau de tickets\n"
+            "**/giveaway create / list / reroll / cancel** — tirages au sort\n"
+            "**/cmd `<nom>`** — exécute une commande custom (builder sur dashboard)"
+        ),
+        inline=False,
     )
     pages.append(p1)
 
-    # Page 2 : Outils serveur
+    # Page 2 : Fun + XP + Duel + Musique
     p2 = discord.Embed(
-        title="📋 Commandes · 🧰 Outils serveur",
+        title="📋 Commandes · 🎉 Fun · ⭐ XP · ⚔️ Duel · 🎵 Musique",
         color=_PAGE_COLOR,
-        description=(
-            "**/reaction_add `<membre>` `<emoji>`** — réaction auto sur un membre\n"
-            "**/reaction_remove `<membre>`** — supprime la réaction auto\n"
-            "**/reaction_list** — liste des réactions auto\n"
-            "**/rolereaction create** — builder rôles-réactions\n"
-            "**/socialalert add `<plateforme>` `<lien>` `<salon>`** — alertes Twitch/YT/Reddit\n"
-            "**/socialalert list / remove `<id>`** — gestion des alertes\n"
-            "**/ticket** — builder panneau de tickets\n"
-            "**/giveaway create `<durée>` `<gagnants>` `<prix>` `[salon]`** — tirage au sort\n"
-            "**/giveaway list / reroll / cancel** — gestion des giveaways\n"
-            "**/cmd `<nom>`** — exécute une commande custom (builder sur dashboard)"
+    )
+    p2.add_field(
+        name="🎉 Fun",
+        value=(
+            "**/8ball** **/dé** **/coinflip** **/blague** **/ship** **/choix** "
+            "**/random** **/qui** **/clap** **/rate** **/citation** **/zgeg**"
         ),
+        inline=False,
+    )
+    p2.add_field(
+        name="⭐ Niveaux & XP",
+        value=(
+            "**/niveau `[membre]`** — affiche niveau + XP\n"
+            "**/leaderboard** — top 10 XP du serveur"
+        ),
+        inline=False,
+    )
+    p2.add_field(
+        name="⚔️ Duel",
+        value=(
+            "**/duel fight `<adversaire>` `[nerf]`** — défi sabres laser (mindgame défense)\n"
+            "**/duel info** — guide complet du système\n"
+            "**/profil `[membre]`** — profil duel\n"
+            "**/statpoint `<stat>`** — attribuer un point\n"
+            "**/sabre** — menu sabres (équipé / collection / boutique)\n"
+            "**/historique `[membre]`** — historique duels"
+        ),
+        inline=False,
+    )
+    p2.add_field(
+        name="🎵 Musique",
+        value=(
+            "**/join** **/play `<titre|lien>`** **/queue** **/skip** **/stop** **/leave**"
+        ),
+        inline=False,
     )
     pages.append(p2)
 
-    # Page 3 : Fun + XP
+    # Page 3 : CS2 + Utilitaires
     p3 = discord.Embed(
-        title="📋 Commandes · 🎉 Fun & ⭐ XP",
+        title="📋 Commandes · 🎮 Counter-Strike 2 & 🔧 Utilitaires",
         color=_PAGE_COLOR,
-        description=(
-            "**/8ball `<question>`** — la boule magique répond\n"
-            "**/dé `[faces]`** — lance un dé\n"
-            "**/coinflip** — pile ou face\n"
-            "**/blague** — blague aléatoire\n"
-            "**/ship `<m1>` `<m2>`** — compatibilité entre deux membres\n"
-            "**/choix `<options>`** — pick aléatoire (séparé par `|`)\n"
-            "**/random `<min>` `<max>`** — nombre aléatoire\n"
-            "**/qui `<question>`** — désigne un membre au hasard\n"
-            "**/clap `<texte>`** — insère 👏 entre chaque 👏 mot\n"
-            "**/rate `<truc>`** — note sur 10\n"
-            "**/citation** — citation aléatoire\n"
-            "**/zgeg** — mesure ton zgeg\n"
-            "\n**⭐ Niveaux & XP**\n"
-            "**/niveau `[membre]`** — niveau + XP\n"
-            "**/leaderboard** — top 10 XP du serveur"
-        ),
     )
-    pages.append(p3)
-
-    # Page 4 : Duel + Musique
-    p4 = discord.Embed(
-        title="📋 Commandes · ⚔️ Duel & 🎵 Musique",
-        color=_PAGE_COLOR,
-        description=(
-            "**⚔️ Duel**\n"
-            "**/duel fight `<adversaire>` `[nerf]`** — défi sabres laser (mindgame défense incluse)\n"
-            "**/duel info** — guide complet du système de duel\n"
-            "**/profil `[membre]`** — profil duel\n"
-            "**/statpoint `<stat>`** — attribuer un point (force/agilité/défense/endurance/chance)\n"
-            "**/sabre** — menu unifié sabres (équipé/collection/boutique)\n"
-            "**/historique `[membre]`** — historique des duels\n"
-            "\n**🎵 Musique**\n"
-            "**/join** — rejoint ton salon vocal\n"
-            "**/play `<titre|lien>`** — joue ou queue\n"
-            "**/queue** — file d'attente\n"
-            "**/skip** — chanson suivante\n"
-            "**/stop** — stop + vide file\n"
-            "**/leave** — déconnecte le bot"
-        ),
-    )
-    pages.append(p4)
-
-    # Page 5 : CS2 + Utilitaires
-    p5 = discord.Embed(
-        title="📋 Commandes · 🎮 CS2 & 🔧 Utilitaires",
-        color=_PAGE_COLOR,
-        description=(
-            "**🎮 Counter-Strike 2**\n"
+    p3.add_field(
+        name="🎮 Counter-Strike 2",
+        value=(
             "**/cs link `<plateforme>` `<id>`** — lie compte Steam ou Faceit\n"
             "**/cs unlink `<plateforme>`** — retire un lien\n"
             "**/cs stats `[membre]`** — stats Steam / Faceit\n"
@@ -160,18 +168,23 @@ def _build_command_pages() -> list:
             "**/cs inventory `[membre|steamid]`** — inventaire CS2 + valeur €\n"
             "**/cs queue** — voice channel temporaire 5 slots\n"
             "**/cs map** — ban/pick maps entre membres du vocal\n"
-            "**/cs loadout** — loadout aléatoire\n"
-            "\n**🔧 Utilitaires**\n"
+            "**/cs loadout** — loadout aléatoire"
+        ),
+        inline=False,
+    )
+    p3.add_field(
+        name="🔧 Utilitaires",
+        value=(
             "**/avatar `[membre]`** — avatar d'un membre\n"
             "**/userinfo `[membre]`** — infos détaillées membre\n"
             "**/serverinfo** — infos serveur\n"
             "**/ping** — latence du bot\n"
-            "**/commandes** — affiche cette navigation"
+            "**/commandes** — réaffiche cette aide en MP"
         ),
+        inline=False,
     )
-    pages.append(p5)
+    pages.append(p3)
 
-    # Numerote les pages dans le footer
     for i, e in enumerate(pages, start=1):
         e.set_footer(text=f"Page {i}/{len(pages)} · Tip : tape / pour voir l'autocomplete Discord.")
     return pages
@@ -216,7 +229,7 @@ class CommandesPaginatorView(discord.ui.View):
         self._refresh_state()
         await interaction.response.edit_message(embed=self.pages[self.idx], view=self)
 
-    @discord.ui.button(label="1 / 5", style=discord.ButtonStyle.secondary, custom_id="cmds:counter", disabled=True)
+    @discord.ui.button(label="1 / 3", style=discord.ButtonStyle.secondary, custom_id="cmds:counter", disabled=True)
     async def counter_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         pass  # disabled, juste pour l'affichage
 
