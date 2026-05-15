@@ -327,6 +327,32 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
 
+    # ===== MODERATION : sanctions + config auto-timeout =====
+    c.execute('''CREATE TABLE IF NOT EXISTS mod_actions (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id      TEXT NOT NULL,
+        user_id       TEXT NOT NULL,
+        action_type   TEXT NOT NULL,
+        reason        TEXT,
+        moderator_id  TEXT,
+        duration_sec  INTEGER,
+        created_at    TEXT DEFAULT CURRENT_TIMESTAMP,
+        revoked_at    TEXT,
+        revoked_by    TEXT,
+        revoke_reason TEXT
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ma_guild_user ON mod_actions(guild_id, user_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ma_action     ON mod_actions(action_type)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ma_active     ON mod_actions(revoked_at)')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS mod_config (
+        guild_id              TEXT PRIMARY KEY,
+        autotimeout_threshold INTEGER DEFAULT 0,
+        autotimeout_duration  INTEGER DEFAULT 600,
+        modlog_channel_id     TEXT,
+        updated_at            TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== CS2 : profils lies (steam / faceit / premier elo declare) =====
     c.execute('''CREATE TABLE IF NOT EXISTS cs_profiles (
         discord_id  TEXT PRIMARY KEY,
@@ -3064,6 +3090,137 @@ def cs_cache_set(cache_key: str, data) -> None:
     c.execute("""INSERT OR REPLACE INTO cs_cache (cache_key, data, fetched_at)
                  VALUES (?, ?, ?)""",
               (cache_key, _json.dumps(data, ensure_ascii=False), _time.time()))
+    conn.commit()
+    conn.close()
+
+
+# ============================================================================
+# MODERATION : helpers actions + config
+# ============================================================================
+
+VALID_MOD_ACTIONS = {"warn", "kick", "ban", "unban", "timeout", "untimeout", "note"}
+
+
+def mod_action_add(guild_id, user_id, action_type: str, *,
+                   reason: Optional[str] = None,
+                   moderator_id=None,
+                   duration_sec: Optional[int] = None) -> int:
+    if action_type not in VALID_MOD_ACTIONS:
+        raise ValueError(f"action_type invalide: {action_type}")
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO mod_actions
+                 (guild_id, user_id, action_type, reason, moderator_id, duration_sec)
+                 VALUES (?, ?, ?, ?, ?, ?)""",
+              (str(guild_id), str(user_id), action_type, reason,
+               str(moderator_id) if moderator_id else None,
+               int(duration_sec) if duration_sec else None))
+    aid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return aid
+
+
+def mod_actions_list(guild_id, *,
+                     user_id=None,
+                     action_types: Optional[list] = None,
+                     include_revoked: bool = True,
+                     limit: int = 100,
+                     offset: int = 0) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    sql  = "SELECT * FROM mod_actions WHERE guild_id = ?"
+    args = [str(guild_id)]
+    if user_id:
+        sql += " AND user_id = ?"
+        args.append(str(user_id))
+    if action_types:
+        placeholders = ",".join("?" for _ in action_types)
+        sql += f" AND action_type IN ({placeholders})"
+        args.extend(action_types)
+    if not include_revoked:
+        sql += " AND revoked_at IS NULL"
+    sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    args.extend([int(limit), int(offset)])
+    rows = c.execute(sql, args).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def mod_action_get(action_id: int) -> Optional[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM mod_actions WHERE id = ?", (int(action_id),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def mod_action_revoke(action_id: int, revoked_by, revoke_reason: Optional[str] = None) -> bool:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""UPDATE mod_actions
+                 SET revoked_at = CURRENT_TIMESTAMP, revoked_by = ?, revoke_reason = ?
+                 WHERE id = ? AND revoked_at IS NULL""",
+              (str(revoked_by) if revoked_by else None, revoke_reason, int(action_id)))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n > 0
+
+
+def mod_action_count_active(guild_id, user_id, action_type: str = "warn") -> int:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("""SELECT COUNT(*) AS n FROM mod_actions
+                       WHERE guild_id = ? AND user_id = ? AND action_type = ? AND revoked_at IS NULL""",
+                    (str(guild_id), str(user_id), action_type)).fetchone()
+    conn.close()
+    return int(row["n"]) if row else 0
+
+
+def mod_config_get(guild_id) -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM mod_config WHERE guild_id = ?", (str(guild_id),)).fetchone()
+    conn.close()
+    if row:
+        return dict(row)
+    return {
+        "guild_id": str(guild_id),
+        "autotimeout_threshold": 0,
+        "autotimeout_duration":  600,
+        "modlog_channel_id":     None,
+    }
+
+
+def mod_config_upsert(guild_id, *,
+                      autotimeout_threshold: Optional[int] = None,
+                      autotimeout_duration:  Optional[int] = None,
+                      modlog_channel_id:     Optional[str] = None) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    existing = c.execute("SELECT 1 FROM mod_config WHERE guild_id = ?",
+                         (str(guild_id),)).fetchone()
+    if existing:
+        sets, args = [], []
+        if autotimeout_threshold is not None:
+            sets.append("autotimeout_threshold = ?"); args.append(int(autotimeout_threshold))
+        if autotimeout_duration is not None:
+            sets.append("autotimeout_duration = ?");  args.append(int(autotimeout_duration))
+        if modlog_channel_id is not None:
+            sets.append("modlog_channel_id = ?"); args.append(str(modlog_channel_id) if modlog_channel_id else None)
+        if sets:
+            sets.append("updated_at = CURRENT_TIMESTAMP")
+            args.append(str(guild_id))
+            c.execute(f"UPDATE mod_config SET {', '.join(sets)} WHERE guild_id = ?", args)
+    else:
+        c.execute("""INSERT INTO mod_config
+                     (guild_id, autotimeout_threshold, autotimeout_duration, modlog_channel_id)
+                     VALUES (?, ?, ?, ?)""",
+                  (str(guild_id),
+                   int(autotimeout_threshold) if autotimeout_threshold is not None else 0,
+                   int(autotimeout_duration) if autotimeout_duration is not None else 600,
+                   str(modlog_channel_id) if modlog_channel_id else None))
     conn.commit()
     conn.close()
 

@@ -55,6 +55,7 @@
     </div>
 
     <div class="row mt-6 gap-2">
+      <button class="btn btn-warning"   id="btnWarn"    onclick="exec('warn')">      ⚠️ Warn</button>
       <button class="btn btn-secondary" id="btnKick"    onclick="exec('kick')">      <svg class="ic"><use href="#i-foot"/></svg> Kick</button>
       <button class="btn btn-secondary" id="btnTimeout" onclick="exec('timeout')">   <svg class="ic"><use href="#i-clock"/></svg> Timeout</button>
       <button class="btn btn-danger"    id="btnBan"     onclick="exec('ban')">       <svg class="ic"><use href="#i-ban"/></svg> Ban</button>
@@ -62,7 +63,61 @@
     </div>
   </div>
 
+  <div class="card" id="modlogCard">
+    <div class="row gap-3" style="justify-content:space-between;align-items:center;">
+      <h2 style="margin:0;">📋 Historique des sanctions</h2>
+      <div id="warnsBadge" class="muted" style="font-size:13px;">_Sélectionne un membre._</div>
+    </div>
+    <div id="actionsList" class="mt-4">
+      <div class="muted" style="font-size:13px;">_Aucun membre sélectionné._</div>
+    </div>
+  </div>
+
+  <div class="card" id="modConfigCard">
+    <h2 style="margin:0 0 6px;">⚙️ Configuration modération</h2>
+    <p class="muted" style="font-size:13px;margin-bottom:14px;">
+      Seuil d'avertissements avant timeout auto, durée du timeout auto, et salon où poster les sanctions.
+    </p>
+    <div class="grid grid-2 gap-3">
+      <div class="field">
+        <label>Seuil auto-timeout (0 = désactivé)</label>
+        <input type="number" id="cfgThreshold" min="0" max="20" value="0">
+      </div>
+      <div class="field">
+        <label>Durée auto-timeout (minutes)</label>
+        <input type="number" id="cfgDuration" min="1" max="40320" value="10">
+      </div>
+    </div>
+    <div class="field">
+      <label>Salon modlog (sanctions postées ici)</label>
+      <select id="cfgModlogChannel"><option value="">— aucun —</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="saveConfig()">💾 Enregistrer config</button>
+  </div>
+
 </div>
+
+<style>
+  .action-row {
+    display: grid;
+    grid-template-columns: 70px 100px 1fr 100px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 13px;
+  }
+  .action-row:last-child { border-bottom: none; }
+  .action-row.revoked { opacity: 0.45; }
+  .action-row .at { font-weight: 600; }
+  .action-row .reason { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+  .action-row .meta { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+  .pill-warn      { background: oklch(0.78 0.18 80 / .25); color: oklch(0.85 0.18 80); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill-kick      { background: oklch(0.65 0.15 40 / .25); color: oklch(0.85 0.15 40); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill-ban       { background: oklch(0.65 0.20 25 / .25); color: oklch(0.85 0.20 25); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill-timeout   { background: oklch(0.65 0.18 305 / .25); color: oklch(0.85 0.18 305); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill-note      { background: oklch(0.65 0.05 230 / .15); color: var(--text-2); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+</style>
 
 <style>
   .member-list {
@@ -156,7 +211,7 @@ async function exec(action) {
     user_id = SELECTED.user_id;
   }
   const reason = document.getElementById('reason').value.trim();
-  const labels = { kick: 'kick', ban: 'BAN', timeout: 'timeout', unban: 'unban' };
+  const labels = { warn: 'warn', kick: 'kick', ban: 'BAN', timeout: 'timeout', unban: 'unban' };
   if (!confirm(`Confirmer : ${labels[action].toUpperCase()} pour ${SELECTED ? SELECTED.username : user_id} ?\nRaison : ${reason || '(aucune)'}`)) return;
 
   const payload = { user_id, reason };
@@ -170,11 +225,110 @@ async function exec(action) {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.success) toast(`Action ${action} envoyée. (~1.5s)`);
-    else toast(data.error || 'Erreur', 'error');
+    if (data.success) {
+      const tag = action === 'warn' ? `Warn enregistré (#${data.action_id}, ${data.active_warns} actifs)` : `Action ${action} envoyée. (~1.5s)`;
+      toast(tag);
+      if (SELECTED) loadModlogs(SELECTED.user_id);
+    } else toast(data.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.exec = exec;
+
+// ─── Modlogs ───────────────────────────────────────────────────────────────
+async function loadModlogs(user_id) {
+  const list  = document.getElementById('actionsList');
+  const badge = document.getElementById('warnsBadge');
+  list.innerHTML = '<div class="muted" style="font-size:13px;">Chargement...</div>';
+  try {
+    const r = await fetch('/api/moderation/modlogs?user_id=' + encodeURIComponent(user_id));
+    const d = await r.json();
+    const actions = d.actions || [];
+    badge.innerHTML = `🟡 <strong>${d.active_warns ?? 0}</strong> warn(s) actif(s) · ${actions.length} sanction(s) totales`;
+    if (!actions.length) {
+      list.innerHTML = '<div class="muted" style="font-size:13px;padding:10px;">_Aucune sanction enregistrée._</div>';
+      return;
+    }
+    list.innerHTML = actions.map(a => {
+      const cls   = a.revoked_at ? 'action-row revoked' : 'action-row';
+      const pill  = `pill-${a.action_type}`;
+      const lbl   = ({warn:'Warn',kick:'Kick',ban:'Ban',timeout:'Timeout',unban:'Unban',untimeout:'Untimeout',note:'Note'})[a.action_type] || a.action_type;
+      const date  = (a.created_at || '').split('.')[0];
+      const mod   = a.moderator_id ? `<@${a.moderator_id}>` : '?';
+      const dur   = a.duration_sec ? ` · ${Math.round(a.duration_sec/60)} min` : '';
+      const reasonHtml = escapeHtml(a.reason || '_sans raison_');
+      const revoked = a.revoked_at ? `<div class="meta">❎ révoqué ${(a.revoked_at||'').split('.')[0]} par ${a.revoked_by ? '@'+a.revoked_by : '?'}</div>` : '';
+      const revokeBtn = (!a.revoked_at && a.action_type === 'warn')
+        ? `<button class="btn btn-ghost" onclick="revokeAction(${a.id})" style="font-size:11px;padding:4px 8px;">Révoquer</button>`
+        : '';
+      return `<div class="${cls}">
+        <span class="${pill}">${lbl}</span>
+        <span class="meta">${date}${dur}</span>
+        <div class="reason">${reasonHtml}${revoked}<div class="meta">par ${mod} · #${a.id}</div></div>
+        <div>${revokeBtn}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+  }
+}
+
+async function revokeAction(action_id) {
+  const reason = prompt('Raison de révocation (optionnel) :') || '';
+  const r = await fetch('/api/moderation/revoke', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action_id, reason }),
+  });
+  if (r.ok) {
+    toast('Sanction révoquée');
+    if (SELECTED) loadModlogs(SELECTED.user_id);
+  } else toast('Erreur', 'error');
+}
+window.revokeAction = revokeAction;
+
+// Hook : quand on selectionne un membre on charge ses modlogs
+const _origSelect = window.selectMember;
+window.selectMember = function(m) {
+  _origSelect(m);
+  loadModlogs(m.user_id);
+};
+
+// ─── Config moderation ─────────────────────────────────────────────────────
+async function loadModConfig() {
+  // Charge channels pour le selector modlog
+  try {
+    const cr = await fetch('/api/channels?type=text');
+    if (cr.ok) {
+      const cd = await cr.json();
+      const sel = document.getElementById('cfgModlogChannel');
+      sel.innerHTML = '<option value="">— aucun —</option>' +
+        (cd.channels || []).map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
+    }
+  } catch (_) {}
+  const r = await fetch('/api/moderation/config');
+  if (!r.ok) return;
+  const cfg = await r.json();
+  document.getElementById('cfgThreshold').value = cfg.autotimeout_threshold || 0;
+  document.getElementById('cfgDuration').value  = Math.round((cfg.autotimeout_duration || 600) / 60);
+  document.getElementById('cfgModlogChannel').value = cfg.modlog_channel_id || '';
+}
+async function saveConfig() {
+  const payload = {
+    autotimeout_threshold: parseInt(document.getElementById('cfgThreshold').value || '0', 10),
+    autotimeout_duration:  parseInt(document.getElementById('cfgDuration').value || '10', 10) * 60,
+    modlog_channel_id:     document.getElementById('cfgModlogChannel').value || null,
+  };
+  const r = await fetch('/api/moderation/config', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) toast('✅ Config enregistrée');
+  else toast('Erreur', 'error');
+}
+window.saveConfig = saveConfig;
+
+loadModConfig();
 
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeAttr(s) { return String(s).replaceAll('"', '&quot;'); }

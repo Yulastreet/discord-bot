@@ -159,6 +159,91 @@ def register_admin_routes(app, deps):
         rows = list_members(g_id, include_bots=include_bots, search=search, limit=300)
         return jsonify({"members": rows})
 
+    @app.route("/api/moderation/warn", methods=["POST"])
+    def api_moderation_warn():
+        from database import (mod_action_add, mod_action_count_active, mod_config_get,
+                              mod_action_get)
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        user_id = (data.get("user_id") or "").strip()
+        reason  = (data.get("reason") or "").strip() or None
+        if not user_id:
+            return jsonify({"error": "user_id requis"}), 400
+        if reason and len(reason) > 500:
+            return jsonify({"error": "raison max 500 caracteres"}), 400
+        aid = mod_action_add(g_id, user_id, "warn",
+                             reason=reason, moderator_id=_current_user_id())
+        active = mod_action_count_active(g_id, user_id, "warn")
+        # Enqueue une commande bot pour DM + modlog + auto-timeout
+        bot_command_enqueue(g_id, "mod_warn_followup", {
+            "action_id":  aid,
+            "user_id":    user_id,
+            "moderator_id": _current_user_id(),
+            "reason":     reason,
+        })
+        return jsonify({"success": True, "action_id": aid, "active_warns": active})
+
+
+    @app.route("/api/moderation/modlogs", methods=["GET"])
+    def api_moderation_modlogs():
+        from database import mod_actions_list, mod_action_count_active
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        user_id = (request.args.get("user_id") or "").strip() or None
+        actions = mod_actions_list(g_id, user_id=user_id, limit=200)
+        active_warns = mod_action_count_active(g_id, user_id, "warn") if user_id else None
+        return jsonify({"actions": actions, "active_warns": active_warns})
+
+
+    @app.route("/api/moderation/revoke", methods=["POST"])
+    def api_moderation_revoke():
+        from database import mod_action_revoke, mod_action_get
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        action_id = int(data.get("action_id") or 0)
+        revoke_reason = (data.get("reason") or "").strip() or None
+        if not action_id:
+            return jsonify({"error": "action_id requis"}), 400
+        a = mod_action_get(action_id)
+        if not a or str(a.get("guild_id")) != str(g_id):
+            return jsonify({"error": "introuvable"}), 404
+        ok = mod_action_revoke(action_id, _current_user_id(), revoke_reason)
+        return jsonify({"success": ok})
+
+
+    @app.route("/api/moderation/config", methods=["GET"])
+    def api_moderation_config_get():
+        from database import mod_config_get
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        return jsonify(mod_config_get(g_id))
+
+
+    @app.route("/api/moderation/config", methods=["POST"])
+    def api_moderation_config_set():
+        from database import mod_config_upsert
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        threshold = data.get("autotimeout_threshold")
+        duration  = data.get("autotimeout_duration")
+        modlog    = data.get("modlog_channel_id")
+        mod_config_upsert(
+            g_id,
+            autotimeout_threshold=int(threshold) if threshold is not None else None,
+            autotimeout_duration=int(duration) if duration is not None else None,
+            modlog_channel_id=str(modlog) if modlog else None,
+        )
+        return jsonify({"success": True})
+
+
     @app.route("/api/moderation/<action>", methods=["POST"])
     def api_moderation(action):
         if action not in ("kick", "ban", "timeout", "unban"):
@@ -171,6 +256,7 @@ def register_admin_routes(app, deps):
         payload = {
             "user_id":          user_id,
             "reason":           (data.get("reason") or "").strip() or None,
+            "moderator_id":     _current_user_id(),
         }
         if action == "ban":
             payload["delete_seconds"] = int(data.get("delete_seconds", 0) or 0)

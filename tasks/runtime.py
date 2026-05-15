@@ -1088,20 +1088,111 @@ def setup_runtime(bot, deps):
                     member = await guild.fetch_member(int(target_id))
                 except Exception:
                     raise RuntimeError("membre introuvable sur ce serveur")
+            duration_sec = None
             if name == "mod_kick":
                 await member.kick(reason=reason)
+                action_type = "kick"
             elif name == "mod_ban":
                 delete_seconds = int(payload.get("delete_seconds", 0) or 0)
                 await guild.ban(member, reason=reason, delete_message_seconds=delete_seconds)
+                action_type = "ban"
             elif name == "mod_timeout":
                 duration_min = int(payload.get("duration_minutes", 10) or 10)
                 until = discord.utils.utcnow() + _dt.timedelta(minutes=duration_min)
                 await member.timeout(until, reason=reason)
-            # Log côté bot
+                action_type  = "timeout"
+                duration_sec = duration_min * 60
+            else:
+                action_type = None
+            # Log côté bot (logs generaux)
             add_log(guild.id, f"action_{name}",
                     user_id=target_id, username=str(member) if 'member' in dir() and member else target_id,
                     content=reason,
                     meta={"by": "dashboard"})
+            # Enregistre la sanction dans mod_actions (historique modlogs)
+            if action_type:
+                try:
+                    from database import mod_action_add as _mod_add, mod_action_get as _mod_get, mod_config_get as _mod_cfg
+                    aid = _mod_add(
+                        guild.id, target_id, action_type,
+                        reason=reason,
+                        moderator_id=payload.get("moderator_id"),
+                        duration_sec=duration_sec,
+                    )
+                    # Post dans le salon modlog si configure
+                    cfg = _mod_cfg(guild.id)
+                    ch_id = cfg.get("modlog_channel_id")
+                    if ch_id:
+                        ch = guild.get_channel(int(ch_id))
+                        if ch:
+                            ad = _mod_get(aid) or {}
+                            from mod_commands import _build_action_embed as _bea
+                            try:
+                                await ch.send(embed=_bea(ad, member=member))
+                            except Exception:
+                                pass
+                except Exception as _e:
+                    print(f"[mod/dashboard-log] {type(_e).__name__}: {_e}")
+            return
+
+        elif name == "mod_warn_followup":
+            # Le warn est deja en DB, ici on DM le membre + post modlog + auto-timeout si seuil
+            from database import (mod_action_get as _mod_get, mod_config_get as _mod_cfg,
+                                  mod_action_count_active as _mod_count,
+                                  mod_action_add as _mod_add)
+            aid     = int(payload.get("action_id") or 0)
+            uid     = str(payload.get("user_id") or "")
+            mod_id  = str(payload.get("moderator_id") or "") or None
+            reason  = payload.get("reason") or ""
+            if not aid or not uid:
+                return
+            ad = _mod_get(aid) or {}
+            member = guild.get_member(int(uid))
+            if not member:
+                try:
+                    member = await guild.fetch_member(int(uid))
+                except Exception:
+                    member = None
+            active = _mod_count(guild.id, uid, "warn")
+            # Modlog embed
+            try:
+                from mod_commands import _build_action_embed as _bea
+                embed = _bea(ad, member=member)
+                cfg = _mod_cfg(guild.id)
+                ch_id = cfg.get("modlog_channel_id")
+                if ch_id:
+                    ch = guild.get_channel(int(ch_id))
+                    if ch:
+                        embed.set_footer(text=f"Warns actifs : {active}")
+                        try: await ch.send(embed=embed)
+                        except Exception: pass
+            except Exception as _e:
+                print(f"[mod/dashboard-warn] modlog err: {type(_e).__name__}")
+            # DM utilisateur
+            if member:
+                try:
+                    dm = discord.Embed(
+                        title=f"⚠️ Avertissement reçu sur **{guild.name}**",
+                        description=f"**Raison :** {reason or 'sans raison'}\n\nTu as **{active}** warn(s) actif(s).",
+                        color=0xF1C40F,
+                    )
+                    await member.send(embed=dm)
+                except Exception:
+                    pass
+                # Auto-timeout
+                cfg = _mod_cfg(guild.id)
+                threshold = int(cfg.get("autotimeout_threshold") or 0)
+                if threshold > 0 and active >= threshold:
+                    duration_sec = int(cfg.get("autotimeout_duration") or 600)
+                    try:
+                        until = discord.utils.utcnow() + _dt.timedelta(seconds=duration_sec)
+                        await member.timeout(until, reason=f"Auto-timeout : {active} warns (seuil {threshold})")
+                        _mod_add(guild.id, uid, "timeout",
+                                 reason=f"Auto-timeout après {active} warns",
+                                 moderator_id=mod_id,
+                                 duration_sec=duration_sec)
+                    except Exception as _e:
+                        print(f"[mod/dashboard-warn] auto-timeout err: {type(_e).__name__}")
             return
 
         elif name == "bot_say":

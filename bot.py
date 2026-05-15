@@ -130,6 +130,7 @@ from duel_commands import setup_duel_commands
 from cs2_commands import (setup_cs2_commands,
                           on_voice_state_update as cs2_on_voice,
                           queue_cleanup_sweep as cs2_queue_sweep)
+from mod_commands import setup_mod_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from status_utils import best_firefox_cookie_profile
@@ -472,6 +473,7 @@ COMMAND_HOOKS = setup_commands(bot, USER_REACTIONS, globals())
 MUSIC_RESUME = COMMAND_HOOKS.get("resume_music")
 setup_duel_commands(bot, db)
 setup_cs2_commands(bot)
+setup_mod_commands(bot)
 
 
 @bot.event
