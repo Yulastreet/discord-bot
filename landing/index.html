@@ -1857,6 +1857,38 @@
       min-height: 360px;
       border-radius: 24px;
     }
+
+    /* Fix discord-profile card : .profile-cover height:35% se casse quand
+       le parent passe en height:auto. On force des valeurs px. */
+    .horizontal-scroll .discord-profile {
+      min-height: 0;
+      padding-bottom: 24px;
+    }
+    .horizontal-scroll .discord-profile .profile-cover {
+      height: 120px;
+    }
+    .horizontal-scroll .discord-profile .profile-avatar {
+      top: 64px;
+      left: 20px;
+      width: 92px;
+      height: 92px;
+      border-width: 5px;
+    }
+    .horizontal-scroll .discord-profile .profile-avatar .status-dot {
+      width: 22px;
+      height: 22px;
+      right: 2px;
+      bottom: 4px;
+      border-width: 4px;
+    }
+    .horizontal-scroll .discord-profile .profile-body {
+      padding: 44px 20px 20px;
+    }
+    .horizontal-scroll .discord-profile .profile-tabs {
+      gap: 18px;
+      margin: 18px 0 14px;
+      font-size: 13px;
+    }
   }
 
   @media (max-width: 620px) {
