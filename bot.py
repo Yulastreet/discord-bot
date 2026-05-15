@@ -229,7 +229,7 @@ except Exception as _e:
 # Index reactions par (guild_id_str, user_id_int)
 USER_REACTIONS = get_all_reactions_index()
 
-# ===== Etat runtime exposÃ© pour /api/status =====
+# ===== Etat runtime exposé pour /api/status =====
 import time as _time
 import json as _json
 BOT_STATE = {
@@ -313,7 +313,7 @@ class DuelDB:
         return add_combat_xp_db(user_id, amount)
 
     def attribuer_stat(self, user_id, stat):
-        """Attribue 1 point Ã  une stat. Retourne True si succÃ¨s."""
+        """Attribue 1 point à une stat. Retourne True si succès."""
         return attribuer_stat_db(user_id, stat)
 
 
@@ -435,7 +435,7 @@ async def play_next(voice_client, channel, guild_id):
     if not track:
         music_state_clear_current(str(guild_id))
         if channel:
-            try: await channel.send("âœ… File d'attente terminÃ©e !")
+            try: await channel.send("✅ File d'attente terminée !")
             except Exception: pass
         return
 
@@ -455,7 +455,7 @@ async def play_next(voice_client, channel, guild_id):
             is_playing=1, is_paused=0,
             started_at=_dt.datetime.utcnow().isoformat(timespec="seconds"))
         if channel:
-            try: await channel.send(f"ðŸŽµ En cours : **{track['title']}**")
+            try: await channel.send(f"🎵 En cours : **{track['title']}**")
             except Exception: pass
     except Exception as e:
         print(f"[music] play_next error: {e}")
