@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script>
   (function () {
     const saved = localStorage.getItem('tookbot-theme');
@@ -67,6 +67,12 @@
   * { box-sizing: border-box; }
 
   html { scroll-behavior: smooth; }
+
+  /* Skip rendering of offscreen sections (browser hint) */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 600px;
+  }
 
   body {
     margin: 0;
@@ -144,7 +150,7 @@
     width: 72px;
     height: 72px;
     border-radius: 0;
-    background: url("./icon-landing.png") center / contain no-repeat;
+    background: url("./icon-landing.webp") center / contain no-repeat;
     box-shadow: none;
     transform-origin: 50% 50%;
     will-change: transform, filter;
@@ -716,7 +722,7 @@
   }
 
   .profile-cover {
-    background-image: url("./tookbot-banner.png");
+    background-image: url("./tookbot-banner.webp");
     background-size: cover;
     background-position: center;
   }
@@ -735,7 +741,7 @@
   }
 
   .profile-avatar {
-    background-image: url("./tookbot-avatar.png");
+    background-image: url("./tookbot-avatar.webp");
     background-size: cover;
     background-position: center;
   }
@@ -806,7 +812,7 @@
   }
 
   .rank-avatar {
-    background-image: url("./tookyn-rank-avatar.png");
+    background-image: url("./tookyn-rank-avatar.webp");
     background-size: cover;
     background-position: center;
   }
@@ -2183,7 +2189,7 @@
         </div>
       </section>
 
-      <section class="command-showcase" aria-labelledby="showcase-title">
+      <section class="command-showcase cv-auto" aria-labelledby="showcase-title">
         <div class="showcase-inner reveal">
           <span class="eyebrow">Aperçus</span>
           <h2 id="showcase-title">Le bot prend vie dans Discord.</h2>
