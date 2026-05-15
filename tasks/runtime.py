@@ -142,6 +142,41 @@ def setup_runtime(bot, deps):
         except Exception:
             pass
 
+        # DM presentation au membre qui a invite le bot (fallback : owner)
+        inviter = None
+        try:
+            async for entry in guild.audit_logs(limit=8, action=discord.AuditLogAction.bot_add):
+                if entry.target and entry.target.id == bot.user.id:
+                    inviter = entry.user
+                    break
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        if inviter is None:
+            inviter = guild.owner
+
+        if inviter is not None and not inviter.bot:
+            embed = discord.Embed(
+                title="👋 Merci de m'avoir invité !",
+                description=(
+                    f"Salut **{inviter.display_name}** ! Je suis maintenant sur **{guild.name}**.\n\n"
+                    "Je propose un système de **niveaux/XP**, des **duels** PvP fun, "
+                    "des outils de **modération**, des **giveaways**, des **commandes custom**, "
+                    "de l'intégration **CS2** (stats, inventaire, prix, queue), et plus encore.\n\n"
+                    "🛠️ **Pour découvrir toutes les commandes** : `/commandes`\n"
+                    "⚔️ **Pour de l'aide sur les duels** : `/duel info`\n\n"
+                    "Pense à régler les permissions du bot et à configurer "
+                    "les options dans le **dashboard web** si tu en as un."
+                ),
+                color=0xB9F23A,
+            )
+            embed.set_footer(text=f"Serveur : {guild.name} • {guild.member_count or 0} membre(s)")
+            if guild.icon:
+                embed.set_thumbnail(url=str(guild.icon.url))
+            try:
+                await inviter.send(embed=embed)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
     @bot.event
     async def on_guild_remove(guild):
         mark_guild_left(guild.id)
