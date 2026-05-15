@@ -408,41 +408,23 @@
     width: clamp(180px, 28vw, 360px);
     aspect-ratio: 1;
     border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background:
-      radial-gradient(circle at 32% 22%, rgba(255,255,255,.94), transparent 13%),
-      radial-gradient(circle at 50% 68%, rgba(117, 217, 27, .95) 0 23%, transparent 24%),
-      radial-gradient(circle at 51% 36%, rgba(202, 255, 55, .72) 0 15%, transparent 16%),
-      linear-gradient(145deg, rgba(255,255,255,.82), rgba(202, 255, 55, .22) 43%, rgba(36, 79, 16, .76));
-    border: 1px solid rgba(255,255,255,.72);
+      radial-gradient(circle at 32% 22%, rgba(255,255,255,.18), transparent 22%),
+      radial-gradient(circle at 70% 78%, rgba(0,0,0,.32), transparent 38%),
+      linear-gradient(145deg, #6f86ff 0%, #5865F2 48%, #404eed 100%);
+    border: 1px solid rgba(255,255,255,.38);
     box-shadow:
-      0 28px 100px rgba(185, 255, 36, .28),
-      0 0 80px rgba(202, 255, 55, .22) inset;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+      0 28px 100px rgba(88, 101, 242, .42),
+      0 0 80px rgba(120, 135, 255, .24) inset;
   }
 
-  .bot-orb::before,
-  .bot-orb::after {
-    content: "";
-    position: absolute;
-    border-radius: var(--radius-pill);
-    background: rgba(255,255,255,.78);
-    box-shadow: 0 0 24px rgba(255,255,255,.5);
-  }
-
-  .bot-orb::before {
-    width: 38%;
-    height: 7%;
-    left: 31%;
-    top: 30%;
-  }
-
-  .bot-orb::after {
-    width: 58%;
-    height: 9%;
-    left: 21%;
-    bottom: 23%;
-    background: rgba(255,255,255,.62);
+  .bot-orb-logo {
+    width: 52%;
+    height: auto;
+    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .25));
   }
 
   .floating-card {
@@ -2040,7 +2022,11 @@
             <code>commandes</code>
           </div>
 
-          <div class="bot-orb" aria-hidden="true"></div>
+          <div class="bot-orb" aria-hidden="true">
+            <svg class="bot-orb-logo" viewBox="0 0 127 96" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#ffffff" d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
+            </svg>
+          </div>
 
           <div class="usage floating-card" aria-label="Aperçu des statistiques TookBot">
             <strong>Activité serveur</strong>
