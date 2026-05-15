@@ -4,34 +4,64 @@
    ============================================================================ #}
 
 {% macro sparkline(points, w=720, h=80, stroke="var(--accent)") %}
-  {# points = list of {date, count} OR list of ints #}
+  {# points = list of {date, count} OR list of ints. Tooltip + glow.#}
   {% set values = points if (points and points|first is number) else (points|map(attribute='count')|list) %}
   {% set labels = points if (points and points|first is number) else (points|map(attribute='date')|list) %}
   {% set vmax = (values|max) if values else 0 %}
   {% set vmin = 0 %}
   {% set step = (w - 16) / ((values|length - 1) if values|length > 1 else 1) %}
-  <svg viewBox="0 0 {{ w }} {{ h }}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="width:100%;height:{{ h }}px;display:block;">
-    {# Gridlines horizontaux discrets #}
-    <line x1="0" y1="{{ h - 1 }}" x2="{{ w }}" y2="{{ h - 1 }}" stroke="var(--border-soft)" stroke-width="1"/>
-    {# Aire sous la courbe #}
-    {% if values and vmax > 0 %}
-      {% set path_pts = [] %}
-      {% for v in values %}
-        {% set x = 8 + (loop.index0 * step) %}
-        {% set y = h - 8 - ((v - vmin) / (vmax - vmin) * (h - 16)) if vmax > vmin else h - 8 %}
-        {% set _ = path_pts.append([x, y]) %}
-      {% endfor %}
-      <path d="M{{ path_pts[0][0] }},{{ h }} {% for p in path_pts %}L{{ p[0] }},{{ p[1] }} {% endfor %}L{{ path_pts[-1][0] }},{{ h }} Z"
-            fill="{{ stroke }}" fill-opacity="0.12"/>
-      <polyline points="{% for p in path_pts %}{{ p[0] }},{{ p[1] }} {% endfor %}"
-                fill="none" stroke="{{ stroke }}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-      {# Dernier point en surbrillance #}
-      <circle cx="{{ path_pts[-1][0] }}" cy="{{ path_pts[-1][1] }}" r="3" fill="{{ stroke }}"/>
-    {% else %}
-      <text x="{{ w / 2 }}" y="{{ h / 2 }}" text-anchor="middle" dominant-baseline="middle"
-            fill="var(--text-3)" font-size="11" font-family="var(--font-mono)">aucune activité</text>
-    {% endif %}
-  </svg>
+  {% set spark_id = (range(100000, 999999) | random) %}
+  <div class="spark-wrap" data-spark-id="{{ spark_id }}" style="position:relative;width:100%;">
+    <svg viewBox="0 0 {{ w }} {{ h }}" xmlns="http://www.w3.org/2000/svg"
+         preserveAspectRatio="none" style="width:100%;height:{{ h }}px;display:block;overflow:visible;">
+      <defs>
+        <filter id="spark-glow-{{ spark_id }}" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <linearGradient id="spark-fill-{{ spark_id }}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="{{ stroke }}" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="{{ stroke }}" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <line x1="0" y1="{{ h - 1 }}" x2="{{ w }}" y2="{{ h - 1 }}" stroke="var(--border-soft)" stroke-width="1"/>
+      {% if values and vmax > 0 %}
+        {% set path_pts = [] %}
+        {% for v in values %}
+          {% set x = 8 + (loop.index0 * step) %}
+          {% set y = h - 8 - ((v - vmin) / (vmax - vmin) * (h - 16)) if vmax > vmin else h - 8 %}
+          {% set _ = path_pts.append([x, y]) %}
+        {% endfor %}
+        <path d="M{{ path_pts[0][0] }},{{ h }} {% for p in path_pts %}L{{ p[0] }},{{ p[1] }} {% endfor %}L{{ path_pts[-1][0] }},{{ h }} Z"
+              fill="url(#spark-fill-{{ spark_id }})"/>
+        <polyline points="{% for p in path_pts %}{{ p[0] }},{{ p[1] }} {% endfor %}"
+                  fill="none" stroke="{{ stroke }}" stroke-width="2.2"
+                  stroke-linejoin="round" stroke-linecap="round"
+                  filter="url(#spark-glow-{{ spark_id }})"/>
+        <circle cx="{{ path_pts[-1][0] }}" cy="{{ path_pts[-1][1] }}" r="3.5" fill="{{ stroke }}"
+                filter="url(#spark-glow-{{ spark_id }})"/>
+        {# Curseur hover (cache par defaut) #}
+        <line class="spark-cursor" x1="0" y1="0" x2="0" y2="{{ h }}"
+              stroke="{{ stroke }}" stroke-width="1" stroke-opacity="0.4"
+              stroke-dasharray="3,3" style="display:none;"/>
+        <circle class="spark-hover-dot" r="5" fill="{{ stroke }}"
+                style="display:none;filter:url(#spark-glow-{{ spark_id }});"/>
+        {# Data brute pour JS #}
+        <script type="application/json" class="spark-data">{
+          "points": [{% for p in path_pts %}{"x":{{ p[0] }},"y":{{ p[1] }},"v":{{ values[loop.index0] }},"l":"{{ labels[loop.index0] }}"}{% if not loop.last %},{% endif %}{% endfor %}],
+          "w": {{ w }},
+          "h": {{ h }}
+        }</script>
+      {% else %}
+        <text x="{{ w / 2 }}" y="{{ h / 2 }}" text-anchor="middle" dominant-baseline="middle"
+              fill="var(--text-3)" font-size="11" font-family="var(--font-mono)">aucune activité</text>
+      {% endif %}
+    </svg>
+    <div class="spark-tooltip" style="display:none;"></div>
+  </div>
 {% endmacro %}
 
 

@@ -557,6 +557,54 @@
     if ((localStorage.getItem('theme') || 'auto') === 'auto') applyTheme('auto');
   });
 
+  // ─── Sparkline : tooltip au hover ────────────────────────
+  (function sparkTooltips() {
+    document.querySelectorAll('.spark-wrap').forEach(wrap => {
+      const dataNode = wrap.querySelector('.spark-data');
+      if (!dataNode) return;
+      let data;
+      try { data = JSON.parse(dataNode.textContent); } catch { return; }
+      if (!data.points || data.points.length === 0) return;
+      const svg = wrap.querySelector('svg');
+      const cursor = wrap.querySelector('.spark-cursor');
+      const dot    = wrap.querySelector('.spark-hover-dot');
+      const tt     = wrap.querySelector('.spark-tooltip');
+      if (!svg || !cursor || !dot || !tt) return;
+
+      svg.addEventListener('mousemove', e => {
+        const rect = svg.getBoundingClientRect();
+        // x relatif au viewBox SVG
+        const px = (e.clientX - rect.left) / rect.width * data.w;
+        // Trouve point le plus proche
+        let best = data.points[0], bestD = Math.abs(best.x - px);
+        for (const p of data.points) {
+          const d = Math.abs(p.x - px);
+          if (d < bestD) { best = p; bestD = d; }
+        }
+        cursor.setAttribute('x1', best.x);
+        cursor.setAttribute('x2', best.x);
+        cursor.style.display = '';
+        dot.setAttribute('cx', best.x);
+        dot.setAttribute('cy', best.y);
+        dot.style.display = '';
+        // Tooltip position (px ecran relatif au wrap)
+        const wrapRect = wrap.getBoundingClientRect();
+        const ttX = (best.x / data.w) * wrapRect.width;
+        const ttY = (best.y / data.h) * wrapRect.height;
+        tt.style.left = ttX + 'px';
+        tt.style.top  = ttY + 'px';
+        tt.style.display = 'block';
+        tt.innerHTML = '<div class="tt-label">' + (best.l || '') + '</div>' +
+                       '<div class="tt-value">' + best.v + '</div>';
+      });
+      svg.addEventListener('mouseleave', () => {
+        cursor.style.display = 'none';
+        dot.style.display = 'none';
+        tt.style.display = 'none';
+      });
+    });
+  })();
+
   // ─── Sidebar : persistance fold/unfold par categorie ─────
   (function navCatsPersist() {
     try {

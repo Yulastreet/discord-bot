@@ -843,6 +843,30 @@ select {
 }
 .hm-cell:hover { transform: scale(1.4); z-index: 1; outline: 1px solid var(--accent); }
 
+/* Sparkline tooltip + glow */
+.spark-wrap {
+  position: relative;
+}
+.spark-wrap svg { cursor: crosshair; }
+.spark-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  box-shadow: 0 6px 18px oklch(0 0 0 / 0.35);
+  white-space: nowrap;
+  z-index: 10;
+  transform: translate(-50%, calc(-100% - 10px));
+  transition: opacity 80ms;
+}
+.spark-tooltip .tt-label { color: var(--text-3); font-size: 11px; }
+.spark-tooltip .tt-value { color: var(--accent); font-weight: 600; }
+
 /* ============================================================================
    MODERN COMPONENTS — pills, stat cards v2, section cards, topbar enriched
    ============================================================================ */
