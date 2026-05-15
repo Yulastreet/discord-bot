@@ -36,7 +36,9 @@ except Exception:
 # ──────────────────────────────────────────────────────────────────────────────
 
 CARD_W, CARD_H = 1024, 320
-BG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "niveau_bg")
+# Module deplace dans cards/, donc on remonte d'un niveau pour pointer assets/
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BG_DIR = os.path.join(_REPO_ROOT, "assets", "niveau_bg")
 # BG custom owner : 1 par owner_id (perso, jamais expose aux autres).
 BG_OWNER_DIR = os.path.join(BG_DIR, "owner")
 os.makedirs(BG_OWNER_DIR, exist_ok=True)

@@ -549,25 +549,28 @@ select {
 .stat {
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
-  padding: var(--s-5);
-  background: var(--bg-1);
+  gap: 8px;
+  padding: 20px 22px;
+  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.135 0.004 60) 100%);
   border: 1px solid var(--border);
-  border-radius: var(--r-3);
+  border-radius: 16px;
+  transition: border-color 160ms var(--ease-out);
 }
+.stat:hover { border-color: oklch(0.40 0.010 60 / 0.5); }
 .stat .stat-label {
-  font-size: var(--t-xs);
+  font-size: 11px;
   font-weight: 500;
-  color: var(--text-3);
+  color: var(--text-2);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 .stat .stat-value {
-  font-size: var(--t-xl);
+  font-size: 32px;
   font-weight: 600;
   letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+  line-height: 1.1;
   line-height: 1;
 }
 .stat .stat-sub { font-size: var(--t-xs); color: var(--text-2); }

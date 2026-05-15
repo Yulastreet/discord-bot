@@ -9,7 +9,9 @@ import urllib.request
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parent
+# Module a ete deplace dans services/ : on remonte d'un cran pour pointer sur
+# la racine du repo (bot_state.json, bot_database.db, backups/ y vivent).
+ROOT_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT_DIR / "bot_database.db"
 BACKUP_DIR = ROOT_DIR / "backups"
 BACKUP_DB_PATH = BACKUP_DIR / "bot_database_backup.db"
