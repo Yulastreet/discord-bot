@@ -327,6 +327,24 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
 
+    # ===== CUSTOM COMMANDS (dashboard-only builder) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS custom_commands (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id       TEXT NOT NULL,
+        name           TEXT NOT NULL,
+        description    TEXT,
+        response_text  TEXT,
+        response_embed TEXT,
+        use_embed      INTEGER DEFAULT 0,
+        enabled        INTEGER DEFAULT 1,
+        created_by     TEXT,
+        uses_count     INTEGER DEFAULT 0,
+        created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at     TEXT,
+        UNIQUE(guild_id, name)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_cc_guild ON custom_commands(guild_id)')
+
     # ===== GIVEAWAYS =====
     c.execute('''CREATE TABLE IF NOT EXISTS giveaways (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3386,6 +3404,100 @@ def giveaways_pending_finalize(now_iso: str) -> list[dict]:
                      (now_iso,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ============================================================================
+# CUSTOM COMMANDS : helpers
+# ============================================================================
+
+import re as _cc_re
+
+CUSTOM_CMD_NAME_RE = _cc_re.compile(r"^[a-z0-9_-]{1,32}$")
+
+
+def custom_cmd_upsert(guild_id, name: str, *,
+                      description: Optional[str] = None,
+                      response_text: Optional[str] = None,
+                      response_embed: Optional[str] = None,
+                      use_embed: bool = False,
+                      enabled: bool = True,
+                      created_by=None) -> int:
+    if not CUSTOM_CMD_NAME_RE.match(name):
+        raise ValueError("nom invalide : a-z 0-9 _ - uniquement, max 32 chars")
+    conn = get_db()
+    c = conn.cursor()
+    existing = c.execute(
+        "SELECT id FROM custom_commands WHERE guild_id = ? AND name = ?",
+        (str(guild_id), name)
+    ).fetchone()
+    if existing:
+        c.execute("""UPDATE custom_commands
+                     SET description = COALESCE(?, description),
+                         response_text  = ?,
+                         response_embed = ?,
+                         use_embed      = ?,
+                         enabled        = ?,
+                         updated_at     = CURRENT_TIMESTAMP
+                     WHERE id = ?""",
+                  (description, response_text, response_embed,
+                   int(bool(use_embed)), int(bool(enabled)), existing["id"]))
+        cid = existing["id"]
+    else:
+        c.execute("""INSERT INTO custom_commands
+                     (guild_id, name, description, response_text, response_embed,
+                      use_embed, enabled, created_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                  (str(guild_id), name, description, response_text, response_embed,
+                   int(bool(use_embed)), int(bool(enabled)),
+                   str(created_by) if created_by else None))
+        cid = c.lastrowid
+    conn.commit()
+    conn.close()
+    return cid
+
+
+def custom_cmd_get(guild_id, name: str) -> Optional[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT * FROM custom_commands WHERE guild_id = ? AND LOWER(name) = LOWER(?)",
+        (str(guild_id), name)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def custom_cmds_list(guild_id, *, enabled_only: bool = False) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    sql  = "SELECT * FROM custom_commands WHERE guild_id = ?"
+    args = [str(guild_id)]
+    if enabled_only:
+        sql += " AND enabled = 1"
+    sql += " ORDER BY name ASC"
+    rows = c.execute(sql, args).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def custom_cmd_delete(guild_id, name: str) -> bool:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM custom_commands WHERE guild_id = ? AND name = ?",
+              (str(guild_id), name))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n > 0
+
+
+def custom_cmd_increment_uses(cmd_id: int) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE custom_commands SET uses_count = uses_count + 1 WHERE id = ?",
+              (int(cmd_id),))
+    conn.commit()
+    conn.close()
 
 
 if __name__ == "__main__":

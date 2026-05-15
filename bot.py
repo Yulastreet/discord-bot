@@ -133,6 +133,7 @@ from cs2_commands import (setup_cs2_commands,
 from mod_commands import setup_mod_commands
 from giveaway_commands import (setup_giveaway_commands,
                                giveaway_finalize_sweep as _gw_sweep)
+from custom_cmd_commands import setup_custom_cmd_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from status_utils import best_firefox_cookie_profile
@@ -477,6 +478,7 @@ setup_duel_commands(bot, db)
 setup_cs2_commands(bot)
 setup_mod_commands(bot)
 setup_giveaway_commands(bot)
+setup_custom_cmd_commands(bot)
 
 
 @bot.event

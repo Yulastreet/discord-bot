@@ -1,0 +1,277 @@
+{% extends "_base.html" %}
+{% block title %}Commandes custom · TookBot{% endblock %}
+{% block crumb %}Commandes custom{% endblock %}
+
+{% block content %}
+<style>
+  .cc-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+  .cc-card h2 { margin: 0 0 8px; font-size: 18px; }
+  .cc-help { color: var(--text-muted); font-size: 12px; }
+  .cc-list { display: grid; gap: 8px; }
+  .cc-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 12px 16px;
+  }
+  .cc-row.disabled { opacity: 0.5; }
+  .cc-row .nm { font-family: var(--font-mono); font-weight: 600; font-size: 14px; }
+  .cc-row .desc { font-size: 12px; color: var(--text-muted); }
+  .pill-on  { background: oklch(0.78 0.20 145 / .25); color: oklch(0.78 0.20 145); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill-off { background: oklch(0.65 0.10 0 / .15); color: var(--text-muted); padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .mode-toggle { display: flex; gap: 0; margin-bottom: 12px; }
+  .mode-toggle button {
+    flex: 1; padding: 8px;
+    background: var(--bg-2); border: 1px solid var(--border); color: var(--text-muted);
+    cursor: pointer; transition: all 120ms;
+  }
+  .mode-toggle button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .mode-toggle button:first-child { border-radius: 6px 0 0 6px; }
+  .mode-toggle button:last-child  { border-radius: 0 6px 6px 0; }
+  textarea.cc-text {
+    width: 100%; min-height: 100px;
+    padding: 10px; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--font-mono); font-size: 13px;
+  }
+</style>
+
+<h1 style="margin:0 0 6px;">⚙️ Commandes custom</h1>
+<p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
+  Crée des commandes personnalisées exécutables via <code>/cmd &lt;nom&gt;</code> dans Discord.
+  Mode texte simple ou embed structuré (JSON).
+</p>
+
+<div class="cc-card">
+  <h2 id="formTitle">➕ Nouvelle commande</h2>
+  <div class="grid grid-2 gap-3">
+    <div class="field">
+      <label>Nom (a-z, 0-9, _ -)</label>
+      <input id="ccName" type="text" maxlength="32" placeholder="ex: rules, info, discord-link">
+    </div>
+    <div class="field">
+      <label>Description (optionnelle)</label>
+      <input id="ccDesc" type="text" maxlength="100" placeholder="ex: Règles du serveur">
+    </div>
+  </div>
+
+  <div class="mode-toggle">
+    <button id="modeText"  onclick="setMode('text')"  class="active">📝 Texte</button>
+    <button id="modeEmbed" onclick="setMode('embed')">🎨 Embed</button>
+  </div>
+
+  <div id="textPane">
+    <div class="field">
+      <label>Réponse (texte, max 2000 caractères)</label>
+      <textarea id="ccText" class="cc-text" maxlength="2000" placeholder="Salut {user} ! Bienvenue sur {server}."></textarea>
+      <small class="muted" style="font-size:11px;">Variables : <code>{user}</code> <code>{user.name}</code> <code>{server}</code> <code>{channel}</code> <code>{date}</code> <code>{time}</code></small>
+    </div>
+  </div>
+
+  <div id="embedPane" style="display:none;">
+    <div class="grid grid-2 gap-3">
+      <div class="field">
+        <label>Titre</label>
+        <input id="embTitle" type="text" maxlength="256" placeholder="📜 Règles">
+      </div>
+      <div class="field">
+        <label>Couleur (hex, ex: 3498DB)</label>
+        <input id="embColor" type="text" maxlength="6" placeholder="3498DB" value="3498DB">
+      </div>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="embDesc" class="cc-text" placeholder="Voici les règles..."></textarea>
+    </div>
+    <div class="grid grid-2 gap-3">
+      <div class="field">
+        <label>Image (URL)</label>
+        <input id="embImage" type="url" placeholder="https://...">
+      </div>
+      <div class="field">
+        <label>Thumbnail (URL)</label>
+        <input id="embThumb" type="url" placeholder="https://...">
+      </div>
+    </div>
+    <div class="field">
+      <label>Footer</label>
+      <input id="embFooter" type="text" maxlength="2048" placeholder="ex: bot {server}">
+    </div>
+    <small class="muted" style="font-size:11px;">Pour des champs avancés (fields multiples), édite directement le JSON ci-dessous.</small>
+    <div class="field">
+      <label>JSON brut (optionnel — écrase les champs ci-dessus)</label>
+      <textarea id="embRawJson" class="cc-text" placeholder='{"title":"...","description":"...","color":3447003,"fields":[{"name":"X","value":"Y","inline":true}]}'></textarea>
+    </div>
+  </div>
+
+  <div class="row gap-2 mt-4">
+    <label style="display:flex;align-items:center;gap:6px;">
+      <input id="ccEnabled" type="checkbox" checked> <span>Activée</span>
+    </label>
+  </div>
+
+  <div class="row gap-2 mt-4">
+    <button class="btn btn-primary" onclick="saveCmd()">💾 Enregistrer</button>
+    <button class="btn btn-ghost" onclick="resetForm()">↺ Nouveau</button>
+  </div>
+</div>
+
+<div class="cc-card">
+  <h2>📋 Commandes existantes</h2>
+  <div id="ccList" class="cc-list">
+    <div class="muted" style="font-size:13px;">Chargement…</div>
+  </div>
+</div>
+
+<script>
+let MODE = 'text';
+let EDITING_NAME = null;
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setMode(m) {
+  MODE = m;
+  document.getElementById('modeText').classList.toggle('active', m === 'text');
+  document.getElementById('modeEmbed').classList.toggle('active', m === 'embed');
+  document.getElementById('textPane').style.display  = m === 'text'  ? '' : 'none';
+  document.getElementById('embedPane').style.display = m === 'embed' ? '' : 'none';
+}
+window.setMode = setMode;
+
+function buildEmbedJson() {
+  const raw = document.getElementById('embRawJson').value.trim();
+  if (raw) return raw;
+  const obj = {};
+  const title = document.getElementById('embTitle').value.trim();
+  const desc  = document.getElementById('embDesc').value.trim();
+  const color = document.getElementById('embColor').value.trim();
+  const image = document.getElementById('embImage').value.trim();
+  const thumb = document.getElementById('embThumb').value.trim();
+  const foot  = document.getElementById('embFooter').value.trim();
+  if (title) obj.title = title;
+  if (desc)  obj.description = desc;
+  if (color) obj.color = color;
+  if (image) obj.image = image;
+  if (thumb) obj.thumbnail = thumb;
+  if (foot)  obj.footer = foot;
+  return JSON.stringify(obj);
+}
+
+async function saveCmd() {
+  const name = document.getElementById('ccName').value.trim().toLowerCase();
+  if (!/^[a-z0-9_-]{1,32}$/.test(name)) { toast('Nom invalide', 'error'); return; }
+  const payload = {
+    name,
+    description: document.getElementById('ccDesc').value.trim() || null,
+    use_embed:   MODE === 'embed',
+    enabled:     document.getElementById('ccEnabled').checked,
+    response_text:  document.getElementById('ccText').value,
+    response_embed: MODE === 'embed' ? buildEmbedJson() : '',
+  };
+  const r = await fetch('/api/custom-commands', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) {
+    toast(`✅ Commande /${name} ${EDITING_NAME ? 'mise à jour' : 'créée'}`);
+    resetForm();
+    loadList();
+  } else toast(d.error || 'Erreur', 'error');
+}
+window.saveCmd = saveCmd;
+
+function resetForm() {
+  EDITING_NAME = null;
+  document.getElementById('formTitle').textContent = '➕ Nouvelle commande';
+  ['ccName','ccDesc','ccText','embTitle','embDesc','embImage','embThumb','embFooter','embRawJson']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('embColor').value = '3498DB';
+  document.getElementById('ccEnabled').checked = true;
+  setMode('text');
+}
+window.resetForm = resetForm;
+
+function editCmd(c) {
+  EDITING_NAME = c.name;
+  document.getElementById('formTitle').textContent = `✏️ Édition · /${c.name}`;
+  document.getElementById('ccName').value = c.name;
+  document.getElementById('ccName').readOnly = true;
+  document.getElementById('ccDesc').value = c.description || '';
+  document.getElementById('ccEnabled').checked = !!c.enabled;
+  setMode(c.use_embed ? 'embed' : 'text');
+  if (c.use_embed) {
+    try {
+      const e = JSON.parse(c.response_embed || '{}');
+      document.getElementById('embTitle').value  = e.title || '';
+      document.getElementById('embDesc').value   = e.description || '';
+      document.getElementById('embColor').value  = typeof e.color === 'string' ? e.color : (e.color ? e.color.toString(16) : '3498DB');
+      document.getElementById('embImage').value  = e.image || '';
+      document.getElementById('embThumb').value  = e.thumbnail || '';
+      document.getElementById('embFooter').value = e.footer || '';
+      if (e.fields && e.fields.length) {
+        document.getElementById('embRawJson').value = JSON.stringify(e, null, 2);
+      }
+    } catch (_) {
+      document.getElementById('embRawJson').value = c.response_embed || '';
+    }
+  } else {
+    document.getElementById('ccText').value = c.response_text || '';
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.editCmd = editCmd;
+
+async function deleteCmd(name) {
+  if (!confirm(`Supprimer /${name} ?`)) return;
+  const r = await fetch(`/api/custom-commands/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  if (r.ok) { toast('Commande supprimée'); loadList(); }
+  else toast('Erreur', 'error');
+}
+window.deleteCmd = deleteCmd;
+
+async function loadList() {
+  const list = document.getElementById('ccList');
+  try {
+    const r = await fetch('/api/custom-commands');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    const rows = d.commands || [];
+    if (!rows.length) {
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucune commande custom._</div>';
+      return;
+    }
+    list.innerHTML = rows.map(c => `
+      <div class="cc-row ${c.enabled ? '' : 'disabled'}">
+        <div>
+          <div class="nm">/cmd ${escapeHtml(c.name)} ${c.enabled ? '<span class="pill-on">on</span>' : '<span class="pill-off">off</span>'} ${c.use_embed ? '<span class="pill-on">embed</span>' : ''}</div>
+          <div class="desc">${escapeHtml(c.description || 'sans description')} · ${c.uses_count || 0} utilisations</div>
+        </div>
+        <div class="row gap-2">
+          <button class="btn btn-secondary" onclick='editCmd(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="font-size:12px;padding:4px 10px;">✏️ Éditer</button>
+          <button class="btn btn-secondary" onclick="deleteCmd('${c.name}')" style="font-size:12px;padding:4px 10px;">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('ccName').readOnly = !!EDITING_NAME;
+  } catch (e) {
+    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', loadList);
+</script>
+{% endblock %}

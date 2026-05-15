@@ -308,6 +308,75 @@ def register_server_tool_routes(app, deps):
         return jsonify({"success": True})
 
 
+    # ===== Custom commands dashboard =====
+    from database import (custom_cmds_list as _cc_list,
+                          custom_cmd_get as _cc_get,
+                          custom_cmd_upsert as _cc_upsert,
+                          custom_cmd_delete as _cc_delete,
+                          CUSTOM_CMD_NAME_RE as _cc_name_re)
+
+    @app.route("/custom-commands")
+    def custom_commands_page():
+        return render_template("custom_commands.html", active_nav="custom_commands")
+
+    @app.route("/api/custom-commands", methods=["GET"])
+    def api_custom_commands_list():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        return jsonify({"commands": _cc_list(g_id)})
+
+    @app.route("/api/custom-commands", methods=["POST"])
+    def api_custom_commands_save():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        name = (data.get("name") or "").strip().lower()
+        if not _cc_name_re.match(name):
+            return jsonify({"error": "nom invalide (a-z 0-9 _ - uniquement, max 32 chars)"}), 400
+        desc      = (data.get("description") or "").strip() or None
+        use_embed = bool(data.get("use_embed"))
+        enabled   = bool(data.get("enabled", True))
+        resp_text = data.get("response_text") or ""
+        resp_emb  = data.get("response_embed") or ""
+        if use_embed:
+            # Valide JSON embed
+            try:
+                import json as _j
+                obj = _j.loads(resp_emb or "{}")
+                if not isinstance(obj, dict):
+                    return jsonify({"error": "embed JSON doit etre un objet"}), 400
+                resp_emb = _j.dumps(obj)
+            except Exception as e:
+                return jsonify({"error": f"embed JSON invalide: {type(e).__name__}"}), 400
+            if not resp_emb or resp_emb == "{}":
+                return jsonify({"error": "embed vide"}), 400
+        else:
+            if len(resp_text) < 1:
+                return jsonify({"error": "response_text obligatoire en mode texte"}), 400
+            if len(resp_text) > 2000:
+                return jsonify({"error": "response_text max 2000 caracteres"}), 400
+        cid = _cc_upsert(
+            g_id, name,
+            description=desc,
+            response_text=resp_text if not use_embed else None,
+            response_embed=resp_emb if use_embed else None,
+            use_embed=use_embed,
+            enabled=enabled,
+            created_by=_current_user_id(),
+        )
+        return jsonify({"success": True, "id": cid})
+
+    @app.route("/api/custom-commands/<name>", methods=["DELETE"])
+    def api_custom_commands_delete(name):
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        ok = _cc_delete(g_id, name.lower())
+        return jsonify({"success": ok})
+
+
     # ===== Counter-Strike 2 dashboard =====
     from database import cs_rank_config_get, cs_rank_config_upsert
 
