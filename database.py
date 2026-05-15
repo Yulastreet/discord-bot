@@ -327,6 +327,17 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
 
+    # Migration : colonnes label + position pour reaction_roles avances
+    for col, ddl in [
+        ("label",    "TEXT"),
+        ("position", "INTEGER DEFAULT 0"),
+    ]:
+        if col not in _table_columns(c, "reaction_roles"):
+            try:
+                c.execute(f"ALTER TABLE reaction_roles ADD COLUMN {col} {ddl}")
+            except Exception:
+                pass
+
     # ===== CUSTOM COMMANDS (dashboard-only builder) =====
     c.execute('''CREATE TABLE IF NOT EXISTS custom_commands (
         id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2629,21 +2640,24 @@ def list_roles(guild_id, exclude_everyone=True, exclude_managed=True) -> list[di
 
 def reaction_role_add(guild_id, message_id, channel_id, emoji: str,
                        role_id, mode: str = "toggle", group_key: str = None,
-                       created_by=None):
+                       created_by=None, label: str = None, position: int = 0):
     """Insere un mapping reaction-role. UPSERT sur (guild, message, emoji)."""
     conn = get_db()
     c = conn.cursor()
     c.execute('''
         INSERT INTO reaction_roles
-            (guild_id, message_id, channel_id, emoji, role_id, mode, group_key, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (guild_id, message_id, channel_id, emoji, role_id, mode, group_key, created_by, label, position)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(guild_id, message_id, emoji) DO UPDATE SET
             channel_id = excluded.channel_id,
             role_id    = excluded.role_id,
             mode       = excluded.mode,
-            group_key  = excluded.group_key
+            group_key  = excluded.group_key,
+            label      = excluded.label,
+            position   = excluded.position
     ''', (str(guild_id), str(message_id), str(channel_id), emoji,
-          str(role_id), mode, group_key, str(created_by) if created_by else None))
+          str(role_id), mode, group_key, str(created_by) if created_by else None,
+          label, int(position)))
     conn.commit()
     conn.close()
 

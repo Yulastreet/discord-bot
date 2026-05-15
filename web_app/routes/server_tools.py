@@ -182,11 +182,13 @@ def register_server_tool_routes(app, deps):
             if not m.get("emoji_key") or not m.get("role_id"):
                 return jsonify({"error": "mapping incomplet"}), 400
 
+        color = (data.get("color") or "").strip() or None
         cmd_id = bot_command_enqueue(g_id, "rolereaction_post", {
             "channel_id":  str(channel_id),
             "titre":       titre,
             "description": description,
             "mode":        mode,
+            "color":       color,
             "mappings":    mappings,
             "by":          _current_user_id(),
         })

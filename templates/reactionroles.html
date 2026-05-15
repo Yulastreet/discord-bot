@@ -45,14 +45,44 @@
   }
   .field textarea { min-height: 80px; resize: vertical; }
   .map-builder { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-  .map-builder-row { display: flex; gap: 8px; align-items: center; }
-  .map-builder-row input.emo-in { width: 90px; text-align: center; font-size: 18px; }
-  .map-builder-row select { flex: 1; }
+  .map-builder-row {
+    display: grid;
+    grid-template-columns: 18px 90px 1fr 1fr 36px;
+    gap: 8px;
+    align-items: center;
+    background: var(--bg-2);
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .map-builder-row.dragging { opacity: 0.4; }
+  .map-builder-row.drag-over { border-color: var(--accent); background: var(--bg-3); }
+  .map-builder-row .drag-handle {
+    cursor: grab; color: var(--text-muted); font-size: 18px; user-select: none; text-align: center;
+  }
+  .map-builder-row input.emo-in { width: 100%; text-align: center; font-size: 18px; }
+  .map-builder-row input.label-in { width: 100%; font-size: 13px; }
+  .map-builder-row select { width: 100%; }
   .map-builder-row .rm-btn {
     background: oklch(0.6 0.18 25 / .25); border: 1px solid oklch(0.6 0.18 25 / .5);
     color: oklch(0.85 0.16 30);
-    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer;
   }
+  .rr-preview {
+    margin-top: 14px;
+    padding: 16px;
+    background: #2B2D31;
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    color: #DBDEE1;
+    font-family: 'gg sans', sans-serif;
+    font-size: 14px;
+  }
+  .rr-preview .pv-title { font-weight: 600; margin-bottom: 6px; color: white; }
+  .rr-preview .pv-desc  { color: #B5BAC1; margin-bottom: 8px; white-space: pre-wrap; }
+  .rr-preview .pv-fname { font-size: 12px; font-weight: 600; color: white; margin-bottom: 4px; }
+  .rr-preview .pv-fval  { white-space: pre-wrap; }
+  .rr-preview .pv-footer { font-size: 11px; color: #949BA4; margin-top: 8px; }
   .actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
   .toast {
     position: fixed; bottom: 24px; right: 24px;
@@ -95,17 +125,34 @@
     <input id="rrTitle" type="text" maxlength="256" placeholder="Choisis ton rôle de couleur">
   </div>
 
-  <div class="field">
-    <label>Description (markdown OK)</label>
-    <textarea id="rrDesc" maxlength="2000" placeholder="Réagis avec un emoji pour recevoir le rôle correspondant."></textarea>
+  <div class="row-2col">
+    <div class="field">
+      <label>Description (markdown OK)</label>
+      <textarea id="rrDesc" maxlength="2000" placeholder="Réagis avec un emoji pour recevoir le rôle correspondant."></textarea>
+    </div>
+    <div class="field">
+      <label>Couleur embed</label>
+      <input id="rrColor" type="color" value="#C8F050" style="width: 80px; height: 40px;">
+    </div>
   </div>
 
   <div class="field">
-    <label>Mappings emoji → rôle</label>
+    <label>Mappings (glisse-déplace pour réordonner)</label>
     <div id="mapBuilder" class="map-builder"></div>
     <button id="addMapBtn" class="btn btn-secondary" type="button" style="align-self:flex-start;">
       ➕ Ajouter un mapping
     </button>
+  </div>
+
+  <div class="field">
+    <label>Aperçu</label>
+    <div id="rrPreview" class="rr-preview">
+      <div class="pv-title" id="pvTitle">Choisis ton rôle</div>
+      <div class="pv-desc" id="pvDesc"></div>
+      <div class="pv-fname">Réactions disponibles</div>
+      <div class="pv-fval" id="pvMappings"><em style="color:#787C81;">_aucun mapping_</em></div>
+      <div class="pv-footer" id="pvFooter">Réagis pour recevoir le rôle correspondant.</div>
+    </div>
   </div>
 
   <div class="actions">
@@ -168,19 +215,79 @@ function buildRoleSelect(currentId) {
   return opts.join('');
 }
 
-function addMapRow(emoji = '', roleId = '') {
+function addMapRow(emoji = '', roleId = '', label = '') {
   const div = document.createElement('div');
   div.className = 'map-builder-row';
+  div.draggable = true;
   div.innerHTML = `
-    <input type="text" class="emo-in" placeholder="🟢" maxlength="80" value="${escapeHtml(emoji)}">
+    <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
+    <input type="text" class="emo-in"   placeholder="🟢" maxlength="80" value="${escapeHtml(emoji)}">
+    <input type="text" class="label-in" placeholder="Libellé (optionnel)" maxlength="60" value="${escapeHtml(label)}">
     <select class="role-sel">${buildRoleSelect(roleId)}</select>
     <button class="rm-btn" type="button">✕</button>
   `;
-  div.querySelector('.rm-btn').addEventListener('click', () => div.remove());
+  div.querySelector('.rm-btn').addEventListener('click', () => { div.remove(); updatePreview(); });
+  div.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updatePreview));
+  // Drag handlers
+  div.addEventListener('dragstart', e => {
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  div.addEventListener('dragend', () => {
+    div.classList.remove('dragging');
+    document.querySelectorAll('.map-builder-row.drag-over').forEach(el => el.classList.remove('drag-over'));
+    updatePreview();
+  });
+  div.addEventListener('dragover', e => {
+    e.preventDefault();
+    const dragging = document.querySelector('.map-builder-row.dragging');
+    if (dragging && dragging !== div) {
+      div.classList.add('drag-over');
+      const rect = div.getBoundingClientRect();
+      const after = e.clientY > rect.top + rect.height / 2;
+      div.parentElement.insertBefore(dragging, after ? div.nextSibling : div);
+    }
+  });
+  div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
   document.getElementById('mapBuilder').appendChild(div);
+  updatePreview();
 }
 
 document.getElementById('addMapBtn').addEventListener('click', () => addMapRow());
+
+// Preview live
+function getMappings() {
+  return Array.from(document.querySelectorAll('#mapBuilder .map-builder-row')).map(r => ({
+    emoji_key: r.querySelector('.emo-in').value.trim(),
+    label:     r.querySelector('.label-in').value.trim(),
+    role_id:   r.querySelector('.role-sel').value,
+  })).filter(m => m.emoji_key && m.role_id);
+}
+function updatePreview() {
+  const title = document.getElementById('rrTitle').value.trim() || 'Choisis ton rôle';
+  const desc  = document.getElementById('rrDesc').value.trim();
+  const mode  = document.getElementById('rrMode').value;
+  const color = document.getElementById('rrColor').value;
+  document.getElementById('rrPreview').style.borderLeftColor = color;
+  document.getElementById('pvTitle').textContent = title;
+  document.getElementById('pvDesc').textContent = desc;
+  const mappings = getMappings();
+  const html = mappings.length
+    ? mappings.map(m => {
+        const role = ROLES.find(r => r.role_id === m.role_id);
+        const roleName = role ? role.name : '?';
+        if (m.label) return `${escapeHtml(m.emoji_key)} <strong>${escapeHtml(m.label)}</strong> — <span style="color:#5865F2;">@${escapeHtml(roleName)}</span>`;
+        return `${escapeHtml(m.emoji_key)} → <span style="color:#5865F2;">@${escapeHtml(roleName)}</span>`;
+      }).join('<br>')
+    : '<em style="color:#787C81;">_aucun mapping_</em>';
+  document.getElementById('pvMappings').innerHTML = html;
+  document.getElementById('pvFooter').textContent = mode === 'unique'
+    ? "Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
+    : "Réagis pour recevoir le rôle correspondant.";
+}
+['rrTitle','rrDesc','rrMode','rrColor'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePreview);
+});
 
 async function _pollCommand(cmdId, maxTries = 15) {
   for (let i = 0; i < maxTries; i++) {
@@ -202,11 +309,8 @@ document.getElementById('postBtn').addEventListener('click', async () => {
   const mode        = document.getElementById('rrMode').value;
   const titre       = document.getElementById('rrTitle').value.trim();
   const description = document.getElementById('rrDesc').value.trim();
-  const rows = Array.from(document.querySelectorAll('#mapBuilder .map-builder-row'));
-  const mappings = rows.map(r => ({
-    emoji_key: r.querySelector('.emo-in').value.trim(),
-    role_id:   r.querySelector('.role-sel').value,
-  })).filter(m => m.emoji_key && m.role_id);
+  const color       = document.getElementById('rrColor').value;
+  const mappings    = getMappings();
 
   if (!channel_id) { showToast('Sélectionne un salon', false); return; }
   if (mappings.length === 0) { showToast('Au moins 1 mapping requis', false); return; }
@@ -219,7 +323,7 @@ document.getElementById('postBtn').addEventListener('click', async () => {
     const r = await fetch('/api/rolereactions/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id, mode, titre, description, mappings }),
+      body: JSON.stringify({ channel_id, mode, titre, description, color, mappings }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);

@@ -1346,11 +1346,27 @@ def setup_runtime(bot, deps):
                     f"le rôle du bot AU-DESSUS de ces rôles."
                 )
 
-            embed = discord.Embed(title=titre, description=descp, color=0xC8F050)
+            # Couleur custom (defaut: vert lime)
+            color_int = 0xC8F050
+            color_raw = payload.get("color")
+            if color_raw:
+                try:
+                    if isinstance(color_raw, str):
+                        color_int = int(color_raw.replace("#", ""), 16)
+                    else:
+                        color_int = int(color_raw)
+                except Exception:
+                    pass
+            embed = discord.Embed(title=titre, description=descp, color=color_int)
             lines = []
             for m in mapps:
                 ek = m["emoji_key"]
-                lines.append(f"{ek if not ek.startswith('<') else ek} → <@&{m['role_id']}>")
+                label = (m.get("label") or "").strip()
+                role_ref = f"<@&{m['role_id']}>"
+                if label:
+                    lines.append(f"{ek} **{label}** — {role_ref}")
+                else:
+                    lines.append(f"{ek} → {role_ref}")
             embed.add_field(name="Réactions disponibles", value="\n".join(lines), inline=False)
             embed.set_footer(text=(
                 "Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
@@ -1395,10 +1411,11 @@ def setup_runtime(bot, deps):
                 await asyncio.sleep(0.35)
 
             group_key = f"msg_{msg.id}" if mode == "unique" else None
-            for m in mapps:
+            for idx, m in enumerate(mapps):
                 db_rr_add(
                     guild.id, msg.id, channel.id, m["emoji_key"], m["role_id"],
                     mode=mode, group_key=group_key, created_by=payload.get("by"),
+                    label=(m.get("label") or None), position=idx,
                 )
             if failed_dispatch:
                 details = "; ".join(f"{ek}: {er}" for ek, er in failed_dispatch)
