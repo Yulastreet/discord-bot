@@ -1820,30 +1820,42 @@
     }
     .bars span { height: 22px; }
 
-    /* Le scroll-jacking 160vh est trop sur petit ecran : devient un swipe natif horizontal */
+    /* Demonte completement le sticky horizontal-scroll sur mobile :
+       sticky 100dvh + width:max-content + scroll-jacking = unusable.
+       On stacke tout verticalement, lisible et zero bug. */
     .horizontal-scroll {
-      height: auto;
-      padding-block: 32px;
+      height: auto !important;
+      padding-block: 24px;
+    }
+    .horizontal-scroll .horizontal-sticky {
+      position: static !important;
+      height: auto !important;
+      overflow: visible !important;
+      contain: none !important;
+      gap: 18px;
     }
     .horizontal-scroll .horizontal-track,
     .horizontal-scroll .horizontal-track-alt {
-      position: static;
+      position: static !important;
       transform: none !important;
       display: flex;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scrollbar-width: none;
-      padding-inline: 16px;
-      gap: 16px;
-      -webkit-overflow-scrolling: touch;
+      flex-direction: column;
+      width: 100%;
+      max-width: 100%;
+      padding: 0 16px;
+      gap: 18px;
+      will-change: auto;
     }
-    .horizontal-scroll .horizontal-track::-webkit-scrollbar,
-    .horizontal-scroll .horizontal-track-alt::-webkit-scrollbar { display: none; }
-    .horizontal-scroll .bot-screen {
-      flex: 0 0 86vw;
-      scroll-snap-align: center;
+    .horizontal-scroll .bot-screen,
+    .horizontal-scroll .bot-screen.compact,
+    .horizontal-scroll .bot-screen.wide,
+    .horizontal-scroll .feature-sweep {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 100%;
       height: auto;
-      min-height: 420px;
+      min-height: 360px;
+      border-radius: 24px;
     }
   }
 
