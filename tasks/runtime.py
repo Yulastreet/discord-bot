@@ -70,14 +70,17 @@ def setup_runtime(bot, deps):
             print(f"[entitlement] sync boot : {count} actif(s) charge(s)")
         except Exception as e:
             print(f"[entitlement] sync boot error : {e!r}")
-        await bot.tree.sync()
-        print("✅ Slash commands synchronisées globalement")
+        # Purge les commandes per-guild orphelines (duplication possible si
+        # une ancienne version syncait global + per-guild sans copy_global_to,
+        # ce qui faisait fire chaque handler 2 fois).
         for guild in bot.guilds:
             try:
+                bot.tree.clear_commands(guild=guild)
                 await bot.tree.sync(guild=guild)
-                print(f"✅ Sync guild : {guild.name}")
             except Exception as e:
-                print(f"❌ Sync guild échouée ({guild.name}) : {e}")
+                print(f"[sync] clear guild {guild.name} fail : {e}")
+        await bot.tree.sync()
+        print("✅ Slash commands synchronisées globalement")
 
     def _sync_guild_roles(guild):
         """Pousse les roles d'une guild dans la table guild_roles (cache pour
@@ -137,8 +140,10 @@ def setup_runtime(bot, deps):
                      icon_url=str(guild.icon.url) if guild.icon else None,
                      member_count=guild.member_count or 0)
         _sync_guild_channels(guild)
+        # Sync global uniquement (per-guild sync sans copy_global_to creait
+        # un double jeu de commandes -> handlers fire 2 fois)
         try:
-            await bot.tree.sync(guild=guild)
+            await bot.tree.sync()
         except Exception:
             pass
 
@@ -332,12 +337,14 @@ def setup_runtime(bot, deps):
     @commands.is_owner()
     async def sync_commands(ctx):
         """Resync les slash commands manuellement (owner uniquement)."""
-        await bot.tree.sync()
+        # Purge per-guild orphelines puis sync global
         for guild in bot.guilds:
             try:
+                bot.tree.clear_commands(guild=guild)
                 await bot.tree.sync(guild=guild)
             except Exception:
                 pass
+        await bot.tree.sync()
         await ctx.send("✅ Slash commands resynchronisées !")
 
     @tasks.loop(seconds=5)
