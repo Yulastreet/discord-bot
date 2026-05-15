@@ -919,15 +919,26 @@ input:checked + .slider {
 }
 
 /* Bars de progression / barres horizontales lime */
+.bar-row .bar-fill,
 .bar-h-bar,
 .progress-fill,
-.barre-hp-fill {
-  box-shadow: 0 0 8px oklch(0.86 0.20 130 / 0.35);
+.barre-hp-fill,
+.gauge-fill,
+.xp-bar-fill,
+.boost-fill {
+  box-shadow: 0 0 10px oklch(0.86 0.20 130 / 0.45),
+              0 0 3px oklch(0.86 0.20 130 / 0.6);
 }
 
-/* Heatmap cells les plus chaudes (>0.6 intensity) */
+/* Bars status / system (CPU/RAM/Disque dans /status) deja en lime */
+.bar-row .bar-fill,
+[style*="background: var(--accent)"] {
+  box-shadow: 0 0 8px oklch(0.86 0.20 130 / 0.4);
+}
+
+/* Heatmap cells les plus chaudes */
 .hm-cell {
-  box-shadow: 0 0 0 oklch(0.86 0.20 130 / 0);
+  box-shadow: 0 0 4px oklch(0.86 0.20 130 / 0.2);
 }
 
 /* Brand image lime tint glow (deja gere via brand::before mais on uniformise) */
