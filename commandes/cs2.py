@@ -630,8 +630,6 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     counts: dict[str, int] = {}
     marketable_counts: dict[str, int] = {}
     nonmarket_counts:  dict[str, int] = {}
-    # name -> premier (assetid, inspect_tpl) trouve (pour fetch float plus tard)
-    first_inspect: dict[str, tuple[str, str]] = {}
     for it in items:
         if it.get("type") in _IGNORE_TYPES:
             continue
@@ -641,8 +639,6 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
             marketable_counts[nm] = marketable_counts.get(nm, 0) + 1
         else:
             nonmarket_counts[nm] = nonmarket_counts.get(nm, 0) + 1
-        if nm not in first_inspect and it.get("assetid") and it.get("inspect"):
-            first_inspect[nm] = (it["assetid"], it["inspect"])
 
     if not counts:
         return _info_embed(
@@ -709,34 +705,13 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     not_priced = len(counts) - len(valued)
     valued.sort(key=lambda r: -(r[2] * r[1]))
 
-    # Fetch float via CSFloat inspect API pour le top 10 (cap dur, 1 call par
-    # item, 3-10s chacun cote CSFloat).
-    top10 = valued[:10]
-    floats_by_name: dict[str, float] = {}
-    for name, _qty, _eur, _src in top10:
-        pair = first_inspect.get(name)
-        if not pair:
-            continue
-        assetid, tpl = pair
-        ck = f"cf-float:{steam_id}:{assetid}"
-        cached = cs_cache_get(ck, max_age_sec=86400)  # float ne change jamais
-        info = cached or await csapi.csfloat_inspect(steam_id, assetid, tpl)
-        if not cached and info:
-            cs_cache_set(ck, info)
-        if info and info.get("float") is not None:
-            floats_by_name[name] = float(info["float"])
-        if not cached:
-            await asyncio.sleep(0.4)
-
     top_lines = []
     _SRC_TAG = {"csfloat": "🟪", "skinport": "🟧", "steam": "🟦"}
-    for name, qty, eur, src in top10:
+    for name, qty, eur, src in valued[:10]:
         sub = eur * qty
         tag = _SRC_TAG.get(src, "•")
         cd_tag = " 🔒" if nonmarket_counts.get(name) else ""
-        fv = floats_by_name.get(name)
-        float_tag = f" · 🔢 `{fv:.6f}`" if fv is not None else ""
-        top_lines.append(f"{tag} `x{qty}` **{name}**{cd_tag} — {sub:.2f}€ (`{eur:.2f}€/u`){float_tag}")
+        top_lines.append(f"{tag} `x{qty}` **{name}**{cd_tag} — {sub:.2f}€ (`{eur:.2f}€/u`)")
 
     extra_note = ""
     overflow_steam = max(0, len(skinport_misses) - STEAM_LOOKUP_CAP)

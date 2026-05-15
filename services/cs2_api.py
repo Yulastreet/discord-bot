@@ -273,15 +273,6 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
             for a in assets:
                 key = f"{a['classid']}_{a['instanceid']}"
                 d = desc_global.get(key, {})
-                # Recupere le lien inspect (necessaire pour la valeur de float
-                # via CSFloat). Steam le fournit dans actions[i].link, contient
-                # %owner_steamid% et %assetid% a substituer.
-                inspect_tpl = None
-                for act in (d.get("actions") or []):
-                    link = (act or {}).get("link") or ""
-                    if "csgo_econ_action_preview" in link:
-                        inspect_tpl = link
-                        break
                 aggregated_items.append({
                     "name":       d.get("market_hash_name") or d.get("name") or "?",
                     "icon":       d.get("icon_url"),
@@ -289,8 +280,6 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
                     "marketable": bool(d.get("marketable", 0)),
                     "rarity":     next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Rarity"), None),
                     "type":       next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Type"), None),
-                    "assetid":    str(a.get("assetid") or ""),
-                    "inspect":    inspect_tpl,
                 })
 
             pages_fetched += 1
@@ -501,54 +490,6 @@ async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
             }
     except Exception as e:
         print(f"[cs2/csfloat] price err name={name!r}: {type(e).__name__}: {e}")
-    return None
-
-
-async def csfloat_inspect(steam_id: str, assetid: str, inspect_tpl: str) -> Optional[dict]:
-    """Resoud un inspect link via CSFloat pour obtenir le float, paint seed, etc.
-    inspect_tpl est le template Steam (contient %owner_steamid% et %assetid%).
-    Necessite CSFLOAT_API_KEY (sinon 401/rate-limit). 1 appel ~3-10s cote
-    CSFloat (le serveur attend le retour du game coordinator)."""
-    if not inspect_tpl or not steam_id or not assetid:
-        return None
-    link = (inspect_tpl
-            .replace("%owner_steamid%", str(steam_id))
-            .replace("%assetid%", str(assetid)))
-    api_key = os.getenv("CSFLOAT_API_KEY", "").strip()
-    # CSFloat a deplace l'inspect endpoint : api.csfloat.com -> csfloat.com/api/v1/inspect
-    # Note : aiohttp encode lui-meme les params, pas de quote_plus sur le link
-    # sinon double-encodage (Steam met deja %20 dans le link -> %2520 = invalid).
-    url = "https://csfloat.com/api/v1/inspect"
-    params = {"url": link}
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
-    }
-    if api_key:
-        headers["Authorization"] = api_key
-    s = await _get_session()
-    try:
-        async with s.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            body = await resp.text()
-            if resp.status != 200:
-                print(f"[cs2/csfloat-inspect] status={resp.status} asset={assetid} body={body[:200]!r}")
-                return None
-            import json as _json
-            try:
-                data = _json.loads(body)
-            except Exception:
-                return None
-            info = (data or {}).get("iteminfo") or {}
-            fv = info.get("floatvalue")
-            if not isinstance(fv, (int, float)):
-                return None
-            return {
-                "float":     float(fv),
-                "paintseed": info.get("paintseed"),
-                "paintindex": info.get("paintindex"),
-            }
-    except Exception as e:
-        print(f"[cs2/csfloat-inspect] err asset={assetid}: {type(e).__name__}: {e}")
     return None
 
 
