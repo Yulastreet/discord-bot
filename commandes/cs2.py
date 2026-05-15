@@ -27,7 +27,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-import cs2_api as csapi
+from services import cs2_api as csapi
 from database import (
     cs_profile_get, cs_profile_upsert, cs_profile_unlink,
     cs_rank_config_get, cs_rank_config_upsert,

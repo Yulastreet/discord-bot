@@ -127,13 +127,13 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
 import social_integrations as social
 from commandes import setup_commands
 from duel_commands import setup_duel_commands
-from cs2_commands import (setup_cs2_commands,
-                          on_voice_state_update as cs2_on_voice,
-                          queue_cleanup_sweep as cs2_queue_sweep)
-from mod_commands import setup_mod_commands
-from giveaway_commands import (setup_giveaway_commands,
-                               giveaway_finalize_sweep as _gw_sweep)
-from custom_cmd_commands import setup_custom_cmd_commands
+from commandes.cs2 import (setup_cs2_commands,
+                           on_voice_state_update as cs2_on_voice,
+                           queue_cleanup_sweep as cs2_queue_sweep)
+from commandes.moderation_pro import setup_mod_commands
+from commandes.giveaway import (setup_giveaway_commands,
+                                giveaway_finalize_sweep as _gw_sweep)
+from commandes.custom_cmd import setup_custom_cmd_commands
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from status_utils import best_firefox_cookie_profile

@@ -1130,7 +1130,7 @@ def setup_runtime(bot, deps):
                         ch = guild.get_channel(int(ch_id))
                         if ch:
                             ad = _mod_get(aid) or {}
-                            from mod_commands import _build_action_embed as _bea
+                            from commandes.moderation_pro import _build_action_embed as _bea
                             try:
                                 await ch.send(embed=_bea(ad, member=member))
                             except Exception:
@@ -1141,7 +1141,7 @@ def setup_runtime(bot, deps):
 
         elif name == "giveaway_post":
             from database import giveaway_get as _gw_get, giveaway_set_message_id as _gw_setmsg
-            from giveaway_commands import make_giveaway_embed, GiveawayJoinView
+            from commandes.giveaway import make_giveaway_embed, GiveawayJoinView
             gid_ = int(payload.get("giveaway_id") or 0)
             gw = _gw_get(gid_)
             if not gw:
@@ -1156,7 +1156,7 @@ def setup_runtime(bot, deps):
 
         elif name == "giveaway_cancel_post":
             from database import giveaway_get as _gw_get
-            from giveaway_commands import GiveawayJoinView
+            from commandes.giveaway import GiveawayJoinView
             gid_ = int(payload.get("giveaway_id") or 0)
             gw = _gw_get(gid_)
             if not gw or not gw.get("message_id"):
@@ -1178,7 +1178,7 @@ def setup_runtime(bot, deps):
             return
 
         elif name == "giveaway_reroll":
-            from giveaway_commands import reroll_giveaway
+            from commandes.giveaway import reroll_giveaway
             gid_ = int(payload.get("giveaway_id") or 0)
             await reroll_giveaway(bot, gid_)
             return
@@ -1204,7 +1204,7 @@ def setup_runtime(bot, deps):
             active = _mod_count(guild.id, uid, "warn")
             # Modlog embed
             try:
-                from mod_commands import _build_action_embed as _bea
+                from commandes.moderation_pro import _build_action_embed as _bea
                 embed = _bea(ad, member=member)
                 cfg = _mod_cfg(guild.id)
                 ch_id = cfg.get("modlog_channel_id")
