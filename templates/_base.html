@@ -332,87 +332,117 @@
 
     <nav>
       {% if is_owner %}
-      <div class="nav-section">👑 Owner</div>
-      <a href="/general" class="nav-item {{ 'active' if active_nav == 'general' }}">
-        <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
-      </a>
-      <a href="/search-global" class="nav-item {{ 'active' if active_nav == 'search_global' }}">
-        <svg class="ic"><use href="#i-globe"/></svg> Rechercher (global)
-      </a>
-      <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
-        <svg class="ic"><use href="#i-swords"/></svg> Duels
-      </a>
-      <a href="/dms" class="nav-item {{ 'active' if active_nav == 'dms' }}">
-        <svg class="ic"><use href="#i-mail"/></svg> Messages privés
-      </a>
-      <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
-        <svg class="ic"><use href="#i-quote"/></svg> BotTalk
-      </a>
-      <a href="/status" class="nav-item {{ 'active' if active_nav == 'status' }}">
-        <svg class="ic"><use href="#i-pulse"/></svg> Status
-      </a>
-      <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
-        <svg class="ic"><use href="#i-gear"/></svg> Réglages
-      </a>
-      <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
-        <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
-      </a>
+      <details class="nav-cat" data-cat="owner" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">👑 Owner</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/general" class="nav-item {{ 'active' if active_nav == 'general' }}">
+          <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
+        </a>
+        <a href="/search-global" class="nav-item {{ 'active' if active_nav == 'search_global' }}">
+          <svg class="ic"><use href="#i-globe"/></svg> Rechercher (global)
+        </a>
+        <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
+          <svg class="ic"><use href="#i-swords"/></svg> Duels
+        </a>
+        <a href="/dms" class="nav-item {{ 'active' if active_nav == 'dms' }}">
+          <svg class="ic"><use href="#i-mail"/></svg> Messages privés
+        </a>
+        <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
+          <svg class="ic"><use href="#i-quote"/></svg> BotTalk
+        </a>
+        <a href="/status" class="nav-item {{ 'active' if active_nav == 'status' }}">
+          <svg class="ic"><use href="#i-pulse"/></svg> Status
+        </a>
+        <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
+          <svg class="ic"><use href="#i-gear"/></svg> Réglages
+        </a>
+        <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
+          <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
+        </a>
+      </details>
       {% endif %}
 
       {% if has_server_access %}
-      <div class="nav-section">🛡️ Modération</div>
-      <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
-        <svg class="ic"><use href="#i-shield"/></svg> Modération
-      </a>
-      <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
-        <svg class="ic"><use href="#i-terminal"/></svg> Logs
-      </a>
-      <a href="/tickets" class="nav-item {{ 'active' if active_nav == 'tickets' }}">
-        <svg class="ic"><use href="#i-mail"/></svg> Tickets
-      </a>
-      <a href="/reactionroles" class="nav-item {{ 'active' if active_nav == 'reactionroles' }}">
-        <svg class="ic"><use href="#i-shield"/></svg> Rôles-Réaction
-      </a>
+      <details class="nav-cat" data-cat="moderation" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">🛡️ Modération</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
+          <svg class="ic"><use href="#i-shield"/></svg> Modération
+        </a>
+        <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
+          <svg class="ic"><use href="#i-terminal"/></svg> Logs
+        </a>
+        <a href="/tickets" class="nav-item {{ 'active' if active_nav == 'tickets' }}">
+          <svg class="ic"><use href="#i-mail"/></svg> Tickets
+        </a>
+        <a href="/reactionroles" class="nav-item {{ 'active' if active_nav == 'reactionroles' }}">
+          <svg class="ic"><use href="#i-shield"/></svg> Rôles-Réaction
+        </a>
+      </details>
 
-      <div class="nav-section">🧰 Outils utiles</div>
-      <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
-        <svg class="ic"><use href="#i-grid"/></svg> Dashboard
-      </a>
-      <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
-        <svg class="ic"><use href="#i-search"/></svg> Rechercher
-      </a>
-      <a href="/social-alerts" class="nav-item {{ 'active' if active_nav == 'social_alerts' }}">
-        <svg class="ic"><use href="#i-bolt"/></svg> Alertes Twitch/YT
-      </a>
-      <a href="/custom-commands" class="nav-item {{ 'active' if active_nav == 'custom_commands' }}">
-        <svg class="ic"><use href="#i-terminal"/></svg> Commandes custom
-      </a>
+      <details class="nav-cat" data-cat="outils" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">🧰 Outils utiles</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
+          <svg class="ic"><use href="#i-grid"/></svg> Dashboard
+        </a>
+        <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
+          <svg class="ic"><use href="#i-search"/></svg> Rechercher
+        </a>
+        <a href="/social-alerts" class="nav-item {{ 'active' if active_nav == 'social_alerts' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Alertes Twitch/YT
+        </a>
+        <a href="/custom-commands" class="nav-item {{ 'active' if active_nav == 'custom_commands' }}">
+          <svg class="ic"><use href="#i-terminal"/></svg> Commandes custom
+        </a>
+      </details>
 
-      <div class="nav-section">🎉 Fun</div>
-      <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
-        <svg class="ic"><use href="#i-react"/></svg> Réactions
-      </a>
-      <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
-        <svg class="ic"><use href="#i-music"/></svg> Musique
-      </a>
-      <a href="/giveaways" class="nav-item {{ 'active' if active_nav == 'giveaways' }}">
-        <svg class="ic"><use href="#i-bolt"/></svg> Giveaways
-      </a>
+      <details class="nav-cat" data-cat="fun" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">🎉 Fun</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
+          <svg class="ic"><use href="#i-react"/></svg> Réactions
+        </a>
+        <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
+          <svg class="ic"><use href="#i-music"/></svg> Musique
+        </a>
+        <a href="/giveaways" class="nav-item {{ 'active' if active_nav == 'giveaways' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Giveaways
+        </a>
+      </details>
 
-      <div class="nav-section">🎮 Jeux</div>
-      <a href="/cs2" class="nav-item {{ 'active' if active_nav == 'cs2' }}">
-        <svg class="ic"><use href="#i-swords"/></svg> Counter-Strike 2
-      </a>
+      <details class="nav-cat" data-cat="jeux" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">🎮 Jeux</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/cs2" class="nav-item {{ 'active' if active_nav == 'cs2' }}">
+          <svg class="ic"><use href="#i-swords"/></svg> Counter-Strike 2
+        </a>
+      </details>
       {% endif %}
 
       {% if discord_user and discord_user.user_id %}
-      <div class="nav-section">✨ Premium</div>
-      <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
-        <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
-      </a>
-      <a href="/my-pass" class="nav-item {{ 'active' if active_nav == 'my_pass' }}">
-        <svg class="ic"><use href="#i-swords"/></svg> Mon Pass 🎟️
-      </a>
+      <details class="nav-cat" data-cat="premium" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">✨ Premium</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
+        </a>
+        <a href="/my-pass" class="nav-item {{ 'active' if active_nav == 'my_pass' }}">
+          <svg class="ic"><use href="#i-swords"/></svg> Mon Pass 🎟️
+        </a>
+      </details>
       {% endif %}
     </nav>
 
@@ -526,6 +556,22 @@
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
     if ((localStorage.getItem('theme') || 'auto') === 'auto') applyTheme('auto');
   });
+
+  // ─── Sidebar : persistance fold/unfold par categorie ─────
+  (function navCatsPersist() {
+    try {
+      const cats = document.querySelectorAll('aside.sidebar details.nav-cat');
+      cats.forEach(d => {
+        const key = 'nav-cat:' + (d.dataset.cat || '');
+        const saved = localStorage.getItem(key);
+        if (saved === 'closed') d.open = false;
+        else if (saved === 'open') d.open = true;
+        d.addEventListener('toggle', () => {
+          localStorage.setItem(key, d.open ? 'open' : 'closed');
+        });
+      });
+    } catch (_) {}
+  })();
 
   // ─── Drawer (mobile sidebar) ──────────────────────────────
   function openDrawer()  { document.getElementById('sidebar').dataset.open = 'true'; document.getElementById('scrim').dataset.open = 'true'; }

@@ -235,13 +235,52 @@ p { margin: 0; }
   letter-spacing: -0.01em;
 }
 .sidebar nav { display: flex; flex-direction: column; gap: 1px; flex: 1; }
+.sidebar details.nav-cat {
+  margin: var(--s-2) 0;
+}
+.sidebar details.nav-cat > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.sidebar details.nav-cat > summary::-webkit-details-marker { display: none; }
 .sidebar .nav-section {
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-  padding: var(--s-5) var(--s-3) var(--s-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: linear-gradient(90deg,
+      oklch(0.86 0.20 130 / .14),
+      oklch(0.86 0.20 130 / .04));
+  border: 1px solid oklch(0.86 0.20 130 / .25);
+  border-radius: 8px;
+  transition: background 140ms var(--ease-out), border-color 140ms var(--ease-out);
+}
+.sidebar .nav-section:hover {
+  background: linear-gradient(90deg,
+      oklch(0.86 0.20 130 / .22),
+      oklch(0.86 0.20 130 / .08));
+  border-color: oklch(0.86 0.20 130 / .45);
+}
+.sidebar .nav-section .chevron {
+  width: 14px; height: 14px;
+  color: var(--text-2);
+  transition: transform 180ms var(--ease-out);
+}
+.sidebar details.nav-cat[open] > summary .chevron {
+  transform: rotate(180deg);
+}
+/* Categorie repliee : items non rendus, animation simple */
+.sidebar details.nav-cat:not([open]) .nav-section {
+  background: var(--bg-2);
+  border-color: var(--border);
+  color: var(--text-2);
 }
 .sidebar a.nav-item {
   display: flex;
