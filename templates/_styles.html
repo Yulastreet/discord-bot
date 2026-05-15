@@ -868,6 +868,79 @@ select {
 .spark-tooltip .tt-value { color: var(--accent); font-weight: 600; }
 
 /* ============================================================================
+   LIME GLOW : applique un halo subtil aux elements accentues
+   ============================================================================ */
+
+/* CTA buttons */
+.btn-primary {
+  box-shadow: 0 0 14px oklch(0.86 0.20 130 / 0.28),
+              0 1px 2px oklch(0 0 0 / 0.3);
+  transition: box-shadow 160ms var(--ease-out), background 120ms var(--ease-out);
+}
+.btn-primary:hover {
+  box-shadow: 0 0 20px oklch(0.86 0.20 130 / 0.45),
+              0 2px 4px oklch(0 0 0 / 0.3);
+}
+
+/* Support button (already has its own shadow, enhance) */
+.support-btn {
+  box-shadow: 0 0 18px oklch(0.86 0.20 130 / 0.35),
+              0 4px 14px oklch(0.86 0.20 130 / 0.25) !important;
+}
+.support-btn:hover {
+  box-shadow: 0 0 28px oklch(0.86 0.20 130 / 0.55),
+              0 6px 18px oklch(0.86 0.20 130 / 0.4) !important;
+}
+
+/* Pills lime accent */
+.pill-accent {
+  box-shadow: 0 0 10px oklch(0.86 0.20 130 / 0.22);
+}
+
+/* Stat-card icon glow permanent (etait hover only) */
+.stat-card .stat-head .stat-icon .ic {
+  filter: drop-shadow(0 0 6px oklch(0.86 0.20 130 / 0.45));
+}
+
+/* Sidebar active item bar - amplifie */
+.sidebar a.nav-item.active::before {
+  box-shadow: 0 0 12px oklch(0.86 0.20 130 / 0.75),
+              0 0 4px oklch(0.86 0.20 130 / 0.9);
+}
+
+/* Sidebar nav-cat header (categorie active : meme glow leger) */
+.sidebar details.nav-cat[open] > summary .nav-section {
+  box-shadow: 0 0 16px oklch(0.86 0.20 130 / 0.12);
+}
+
+/* Lime checkbox / switch / toggle */
+input:checked + .slider {
+  box-shadow: 0 0 12px oklch(0.86 0.20 130 / 0.4) !important;
+}
+
+/* Bars de progression / barres horizontales lime */
+.bar-h-bar,
+.progress-fill,
+.barre-hp-fill {
+  box-shadow: 0 0 8px oklch(0.86 0.20 130 / 0.35);
+}
+
+/* Heatmap cells les plus chaudes (>0.6 intensity) */
+.hm-cell {
+  box-shadow: 0 0 0 oklch(0.86 0.20 130 / 0);
+}
+
+/* Brand image lime tint glow (deja gere via brand::before mais on uniformise) */
+
+/* Class utilitaire generique */
+.lime-glow {
+  filter: drop-shadow(0 0 8px oklch(0.86 0.20 130 / 0.5));
+}
+.lime-glow-soft {
+  filter: drop-shadow(0 0 4px oklch(0.86 0.20 130 / 0.3));
+}
+
+/* ============================================================================
    MODERN COMPONENTS — pills, stat cards v2, section cards, topbar enriched
    ============================================================================ */
 
