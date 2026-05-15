@@ -516,7 +516,10 @@ async def csfloat_inspect(steam_id: str, assetid: str, inspect_tpl: str) -> Opti
             .replace("%assetid%", str(assetid)))
     api_key = os.getenv("CSFLOAT_API_KEY", "").strip()
     # CSFloat a deplace l'inspect endpoint : api.csfloat.com -> csfloat.com/api/v1/inspect
-    url = f"https://csfloat.com/api/v1/inspect?url={quote_plus(link)}"
+    # Note : aiohttp encode lui-meme les params, pas de quote_plus sur le link
+    # sinon double-encodage (Steam met deja %20 dans le link -> %2520 = invalid).
+    url = "https://csfloat.com/api/v1/inspect"
+    params = {"url": link}
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept": "application/json",
@@ -525,7 +528,7 @@ async def csfloat_inspect(steam_id: str, assetid: str, inspect_tpl: str) -> Opti
         headers["Authorization"] = api_key
     s = await _get_session()
     try:
-        async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+        async with s.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
             body = await resp.text()
             if resp.status != 200:
                 print(f"[cs2/csfloat-inspect] status={resp.status} asset={assetid} body={body[:200]!r}")
