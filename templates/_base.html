@@ -483,6 +483,14 @@
         <button class="icon-btn drawer-toggle" id="drawerToggle" aria-label="Menu" onclick="openDrawer()">
           <svg class="ic"><use href="#i-menu"/></svg>
         </button>
+        <div class="topbar-nav">
+          <button class="nav-arrow" aria-label="Retour" onclick="history.back()">
+            <svg class="ic"><use href="#i-foot"/></svg>
+          </button>
+          <button class="nav-arrow" aria-label="Avant" onclick="history.forward()" style="transform: scaleX(-1);">
+            <svg class="ic"><use href="#i-foot"/></svg>
+          </button>
+        </div>
         <div class="crumb">{% block crumb %}{% endblock %}</div>
       </div>
       <a href="https://discord.gg/pM43xjuRAb" target="_blank" rel="noopener" class="support-btn">

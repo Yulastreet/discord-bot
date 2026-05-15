@@ -18,39 +18,66 @@
 
 {% if stats %}
 <section class="grid grid-4 mb-6">
-  <div class="stat">
-    <div class="stat-label">Utilisateurs</div>
-    <div class="stat-value">{{ "{:,}".format(stats.total_users).replace(',', ' ') }}</div>
-    <div class="stat-sub">Comptes traçés</div>
+  <div class="stat-card">
+    <div class="stat-head">
+      <span class="stat-icon"><svg class="ic"><use href="#i-user"/></svg> Utilisateurs</span>
+      <button class="stat-menu" aria-label="Menu">…</button>
+    </div>
+    <div class="stat-body">
+      <div class="stat-num">{{ "{:,}".format(stats.total_users).replace(',', ' ') }}</div>
+    </div>
+    <div class="stat-foot">Comptes tracés sur la communauté</div>
   </div>
-  <div class="stat">
-    <div class="stat-label">XP cumulé</div>
-    <div class="stat-value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
-    <div class="stat-sub">Tous comptes confondus</div>
+
+  <div class="stat-card">
+    <div class="stat-head">
+      <span class="stat-icon"><svg class="ic"><use href="#i-bolt"/></svg> XP cumulé</span>
+      <button class="stat-menu" aria-label="Menu">…</button>
+    </div>
+    <div class="stat-body">
+      <div class="stat-num">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
+    </div>
+    <div class="stat-foot">Tous comptes confondus</div>
   </div>
-  <div class="stat">
-    <div class="stat-label">Niveau moyen</div>
-    <div class="stat-value">{{ "%.1f"|format(stats.avg_level) }}</div>
-    <div class="stat-sub">Sur la communauté entière</div>
+
+  <div class="stat-card">
+    <div class="stat-head">
+      <span class="stat-icon"><svg class="ic"><use href="#i-pulse"/></svg> Niveau moyen</span>
+      <button class="stat-menu" aria-label="Menu">…</button>
+    </div>
+    <div class="stat-body">
+      <div class="stat-num">{{ "%.1f"|format(stats.avg_level) }}</div>
+    </div>
+    <div class="stat-foot">Sur la communauté entière</div>
   </div>
+
   {% if stats.top_user %}
-  <div class="stat">
-    <div class="stat-label">Tête de classement</div>
-    <div class="stat-value" style="font-size:var(--t-md);">{{ stats.top_user.username }}</div>
-    <div class="stat-sub">Niv. {{ stats.top_user.level }} · {{ "{:,}".format(stats.top_user.xp).replace(',', ' ') }} XP</div>
+  <div class="stat-card">
+    <div class="stat-head">
+      <span class="stat-icon"><svg class="ic"><use href="#i-swords"/></svg> Tête de classement</span>
+      <span class="pill pill-accent no-dot">#1</span>
+    </div>
+    <div class="stat-body">
+      <div class="stat-num" style="font-size:20px;">{{ stats.top_user.username }}</div>
+    </div>
+    <div class="stat-foot">Niv. {{ stats.top_user.level }} · {{ "{:,}".format(stats.top_user.xp).replace(',', ' ') }} XP</div>
   </div>
   {% endif %}
 </section>
 {% endif %}
 
 {% if activity %}
-<section class="card mb-6">
-  <div class="card-row mb-4">
+<section class="section-card">
+  <div class="section-card-head">
     <div>
-      <h2>Activité — 14 derniers jours</h2>
+      <div class="sc-title">
+        <svg class="ic"><use href="#i-pulse"/></svg> Activité — 14 derniers jours
+      </div>
       <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Volume d'évènements (commandes, messages édités/supprimés, joins vocaux).</p>
     </div>
-    <span class="badge">total : {{ activity|sum(attribute='count') }}</span>
+    <div class="sc-actions">
+      <span class="pill pill-accent no-dot">total : {{ activity|sum(attribute='count') }}</span>
+    </div>
   </div>
   {{ sparkline(activity, w=900, h=120) }}
   <div class="row between mt-2 faint" style="font-size:11px;font-family:var(--font-mono);">

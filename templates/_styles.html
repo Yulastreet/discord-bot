@@ -817,6 +817,190 @@ select {
 }
 .hm-cell:hover { transform: scale(1.4); z-index: 1; outline: 1px solid var(--accent); }
 
+/* ============================================================================
+   MODERN COMPONENTS — pills, stat cards v2, section cards, topbar enriched
+   ============================================================================ */
+
+/* Unified pill system */
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.pill::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.pill.no-dot::before { display: none; }
+.pill-success {
+  background: oklch(0.78 0.18 145 / .15);
+  color: oklch(0.82 0.18 145);
+  border-color: oklch(0.78 0.18 145 / .35);
+}
+.pill-warning {
+  background: oklch(0.78 0.18 80 / .18);
+  color: oklch(0.85 0.18 80);
+  border-color: oklch(0.78 0.18 80 / .35);
+}
+.pill-danger {
+  background: oklch(0.65 0.20 25 / .18);
+  color: oklch(0.85 0.20 25);
+  border-color: oklch(0.65 0.20 25 / .35);
+}
+.pill-info {
+  background: oklch(0.65 0.18 250 / .18);
+  color: oklch(0.82 0.18 250);
+  border-color: oklch(0.65 0.18 250 / .35);
+}
+.pill-accent {
+  background: oklch(0.86 0.20 130 / .18);
+  color: oklch(0.86 0.20 130);
+  border-color: oklch(0.86 0.20 130 / .35);
+}
+.pill-neutral {
+  background: var(--bg-2);
+  color: var(--text-2);
+  border-color: var(--border);
+}
+
+/* Modern stat card v2 : icon + label + big value + delta + sparkline slot */
+.stat-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 140ms var(--ease-out), background 140ms var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-2);
+}
+.stat-card .stat-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; color: var(--text-2); font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.stat-card .stat-head .stat-icon {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.stat-card .stat-head .stat-icon .ic { width: 14px; height: 14px; color: var(--accent); }
+.stat-card .stat-head .stat-menu {
+  color: var(--text-3); cursor: pointer;
+  background: none; border: none; padding: 2px 6px;
+  font-size: 14px; line-height: 1;
+}
+.stat-card .stat-head .stat-menu:hover { color: var(--text); }
+.stat-card .stat-body {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+}
+.stat-card .stat-num {
+  font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+  font-family: var(--font-mono);
+  color: var(--text);
+  line-height: 1.1;
+}
+.stat-card .stat-num .stat-unit {
+  font-size: 14px; color: var(--text-2); font-weight: 500;
+  margin-left: 4px;
+}
+.stat-card .stat-spark {
+  flex-shrink: 0;
+  height: 36px; width: 84px;
+  opacity: 0.8;
+}
+.stat-card .stat-delta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--text-2);
+}
+.stat-card .stat-delta.up   { color: oklch(0.82 0.18 145); background: oklch(0.78 0.18 145 / .14); }
+.stat-card .stat-delta.down { color: oklch(0.85 0.20 25);  background: oklch(0.65 0.20 25 / .14); }
+.stat-card .stat-foot {
+  font-size: 11px; color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 2px;
+}
+
+/* Section card avec header riche : icon + title + actions */
+.section-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  padding: 20px 22px;
+  margin-bottom: var(--s-5);
+}
+.section-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: var(--s-4);
+}
+.section-card-head .sc-title {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 600;
+  color: var(--text);
+}
+.section-card-head .sc-title .ic { width: 16px; height: 16px; color: var(--accent); }
+.section-card-head .sc-actions {
+  display: inline-flex; gap: 8px; align-items: center;
+}
+.section-card-head .sc-actions .btn {
+  font-size: 12px; padding: 5px 12px;
+}
+
+/* Topbar enrichi : back / forward arrows */
+.topbar-nav {
+  display: inline-flex; gap: 4px; align-items: center;
+}
+.topbar-nav .nav-arrow {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 120ms var(--ease-out);
+}
+.topbar-nav .nav-arrow:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.topbar-nav .nav-arrow:disabled,
+.topbar-nav .nav-arrow.disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
+.topbar-nav .nav-arrow .ic { width: 14px; height: 14px; }
+
+/* Crumb chain enrichi */
+.crumb-chain {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-2);
+}
+.crumb-chain .crumb-part {
+  color: var(--text-2);
+}
+.crumb-chain .crumb-part.current {
+  color: var(--text);
+  font-weight: 600;
+}
+.crumb-chain .crumb-sep {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
 /* Reduced motion: kill all decorative motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
