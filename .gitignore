@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .claude/
+.deepsec/
+.impeccable/
 
 # YouTube cookies — sensitive (contient session login)
 cookies.txt
