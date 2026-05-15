@@ -131,6 +131,8 @@ from cs2_commands import (setup_cs2_commands,
                           on_voice_state_update as cs2_on_voice,
                           queue_cleanup_sweep as cs2_queue_sweep)
 from mod_commands import setup_mod_commands
+from giveaway_commands import (setup_giveaway_commands,
+                               giveaway_finalize_sweep as _gw_sweep)
 from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from status_utils import best_firefox_cookie_profile
@@ -474,6 +476,7 @@ MUSIC_RESUME = COMMAND_HOOKS.get("resume_music")
 setup_duel_commands(bot, db)
 setup_cs2_commands(bot)
 setup_mod_commands(bot)
+setup_giveaway_commands(bot)
 
 
 @bot.event
@@ -492,6 +495,16 @@ async def cs2_queue_sweep_loop():
 
 @cs2_queue_sweep_loop.before_loop
 async def _before_cs2_sweep():
+    await bot.wait_until_ready()
+
+
+@tasks.loop(seconds=60)
+async def giveaway_finalize_loop():
+    await _gw_sweep(bot)
+
+
+@giveaway_finalize_loop.before_loop
+async def _before_gw_finalize():
     await bot.wait_until_ready()
 
 

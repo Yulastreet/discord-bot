@@ -327,6 +327,32 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
 
+    # ===== GIVEAWAYS =====
+    c.execute('''CREATE TABLE IF NOT EXISTS giveaways (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id      TEXT NOT NULL,
+        channel_id    TEXT NOT NULL,
+        message_id    TEXT,
+        prize         TEXT NOT NULL,
+        winners_count INTEGER NOT NULL DEFAULT 1,
+        ends_at       TEXT NOT NULL,
+        created_by    TEXT,
+        ended         INTEGER DEFAULT 0,
+        cancelled     INTEGER DEFAULT 0,
+        winner_ids    TEXT,
+        created_at    TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_gw_guild ON giveaways(guild_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_gw_ended ON giveaways(ended)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_gw_ends_at ON giveaways(ends_at)')
+    c.execute('''CREATE TABLE IF NOT EXISTS giveaway_entries (
+        giveaway_id INTEGER NOT NULL,
+        user_id     TEXT NOT NULL,
+        joined_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (giveaway_id, user_id),
+        FOREIGN KEY (giveaway_id) REFERENCES giveaways(id) ON DELETE CASCADE
+    )''')
+
     # ===== MODERATION : sanctions + config auto-timeout =====
     c.execute('''CREATE TABLE IF NOT EXISTS mod_actions (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3223,6 +3249,143 @@ def mod_config_upsert(guild_id, *,
                    str(modlog_channel_id) if modlog_channel_id else None))
     conn.commit()
     conn.close()
+
+
+# ============================================================================
+# GIVEAWAYS : helpers
+# ============================================================================
+
+import json as _json_gw
+
+
+def giveaway_create(guild_id, channel_id, prize: str, winners_count: int,
+                    ends_at_iso: str, created_by) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO giveaways
+                 (guild_id, channel_id, prize, winners_count, ends_at, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?)""",
+              (str(guild_id), str(channel_id), prize, int(winners_count),
+               ends_at_iso, str(created_by) if created_by else None))
+    gid_ = c.lastrowid
+    conn.commit()
+    conn.close()
+    return gid_
+
+
+def giveaway_set_message_id(giveaway_id: int, message_id) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE giveaways SET message_id = ? WHERE id = ?",
+              (str(message_id), int(giveaway_id)))
+    conn.commit()
+    conn.close()
+
+
+def giveaway_get(giveaway_id: int) -> Optional[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM giveaways WHERE id = ?", (int(giveaway_id),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def giveaway_get_by_message(message_id) -> Optional[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT * FROM giveaways WHERE message_id = ?", (str(message_id),)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def giveaways_list(guild_id=None, *, only_active: bool = False,
+                   limit: int = 100) -> list[dict]:
+    conn = get_db()
+    c = conn.cursor()
+    sql  = "SELECT * FROM giveaways WHERE 1=1"
+    args = []
+    if guild_id:
+        sql += " AND guild_id = ?"
+        args.append(str(guild_id))
+    if only_active:
+        sql += " AND ended = 0 AND cancelled = 0"
+    sql += " ORDER BY ends_at DESC LIMIT ?"
+    args.append(int(limit))
+    rows = c.execute(sql, args).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def giveaway_entry_add(giveaway_id: int, user_id) -> bool:
+    """Retourne True si nouveau participant, False si deja inscrit."""
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT OR IGNORE INTO giveaway_entries (giveaway_id, user_id) VALUES (?, ?)",
+                  (int(giveaway_id), str(user_id)))
+        added = c.rowcount > 0
+        conn.commit()
+        return added
+    finally:
+        conn.close()
+
+
+def giveaway_entry_remove(giveaway_id: int, user_id) -> bool:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM giveaway_entries WHERE giveaway_id = ? AND user_id = ?",
+              (int(giveaway_id), str(user_id)))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n > 0
+
+
+def giveaway_entries(giveaway_id: int) -> list[str]:
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute("SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?",
+                     (int(giveaway_id),)).fetchall()
+    conn.close()
+    return [r["user_id"] for r in rows]
+
+
+def giveaway_entries_count(giveaway_id: int) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT COUNT(*) AS n FROM giveaway_entries WHERE giveaway_id = ?",
+                    (int(giveaway_id),)).fetchone()
+    conn.close()
+    return int(row["n"]) if row else 0
+
+
+def giveaway_set_ended(giveaway_id: int, winner_ids: list) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE giveaways SET ended = 1, winner_ids = ? WHERE id = ?",
+              (_json_gw.dumps([str(w) for w in winner_ids]), int(giveaway_id)))
+    conn.commit()
+    conn.close()
+
+
+def giveaway_cancel(giveaway_id: int) -> None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE giveaways SET cancelled = 1, ended = 1 WHERE id = ?",
+              (int(giveaway_id),))
+    conn.commit()
+    conn.close()
+
+
+def giveaways_pending_finalize(now_iso: str) -> list[dict]:
+    """Liste les giveaways non termines dont la date est passee."""
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute("""SELECT * FROM giveaways
+                        WHERE ended = 0 AND cancelled = 0 AND ends_at <= ?""",
+                     (now_iso,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 if __name__ == "__main__":

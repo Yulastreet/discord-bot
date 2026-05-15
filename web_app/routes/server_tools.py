@@ -228,6 +228,86 @@ def register_server_tool_routes(app, deps):
         return jsonify({"ok": True, "deleted": n})
 
 
+    # ===== Giveaways dashboard =====
+    from database import (giveaways_list, giveaway_get, giveaway_create,
+                          giveaway_cancel, giveaway_entries_count)
+    import datetime as _gw_dt
+
+    @app.route("/giveaways")
+    def giveaways_page():
+        return render_template("giveaways.html", active_nav="giveaways")
+
+
+    @app.route("/api/giveaways", methods=["GET"])
+    def api_giveaways_list():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        rows = giveaways_list(g_id, limit=100)
+        for r in rows:
+            r["entries_count"] = giveaway_entries_count(r["id"])
+        return jsonify({"giveaways": rows})
+
+
+    @app.route("/api/giveaways", methods=["POST"])
+    def api_giveaways_create():
+        """Cree un giveaway via dashboard et delegue au bot pour poster le msg."""
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        prize    = (data.get("prize") or "").strip()
+        winners  = int(data.get("winners_count") or 1)
+        channel  = (data.get("channel_id") or "").strip()
+        duration_sec = int(data.get("duration_sec") or 0)
+        if not prize or not channel or duration_sec < 30 or duration_sec > 30 * 86400:
+            return jsonify({"error": "champs invalides (prize, channel_id, duration_sec entre 30s et 30j)"}), 400
+        if winners < 1 or winners > 50:
+            return jsonify({"error": "gagnants doit etre entre 1 et 50"}), 400
+        if len(prize) > 200:
+            return jsonify({"error": "prix max 200 caracteres"}), 400
+        ends_at = (_gw_dt.datetime.now(_gw_dt.timezone.utc)
+                   + _gw_dt.timedelta(seconds=duration_sec))
+        new_id = giveaway_create(g_id, channel, prize, winners,
+                                 ends_at.isoformat(), _current_user_id())
+        # Demande au bot de poster le message
+        bot_command_enqueue(g_id, "giveaway_post", {
+            "giveaway_id": new_id,
+        })
+        return jsonify({"success": True, "giveaway_id": new_id})
+
+
+    @app.route("/api/giveaways/<int:gid_>/cancel", methods=["POST"])
+    def api_giveaways_cancel(gid_):
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        gw = giveaway_get(gid_)
+        if not gw or str(gw.get("guild_id")) != str(g_id):
+            return jsonify({"error": "introuvable"}), 404
+        if gw.get("ended"):
+            return jsonify({"error": "deja termine"}), 400
+        giveaway_cancel(gid_)
+        bot_command_enqueue(g_id, "giveaway_cancel_post", {
+            "giveaway_id": gid_,
+        })
+        return jsonify({"success": True})
+
+
+    @app.route("/api/giveaways/<int:gid_>/reroll", methods=["POST"])
+    def api_giveaways_reroll(gid_):
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        gw = giveaway_get(gid_)
+        if not gw or str(gw.get("guild_id")) != str(g_id):
+            return jsonify({"error": "introuvable"}), 404
+        bot_command_enqueue(g_id, "giveaway_reroll", {
+            "giveaway_id": gid_,
+        })
+        return jsonify({"success": True})
+
+
     # ===== Counter-Strike 2 dashboard =====
     from database import cs_rank_config_get, cs_rank_config_upsert
 

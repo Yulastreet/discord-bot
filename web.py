@@ -107,7 +107,7 @@ MOD_ALLOWED_PAGES = {
     "reactions_panel", "reactions_panel_post",
     "music_page", "logs_page", "moderation_page",
     "reactionroles_page", "social_alerts_page", "tickets_page",
-    "cs2_page",
+    "cs2_page", "giveaways_page",
 }
 MOD_ALLOWED_API_PREFIXES = (
     "/api/search", "/api/user/",
@@ -119,6 +119,7 @@ MOD_ALLOWED_API_PREFIXES = (
     "/api/tickets",
     "/api/cs2",
     "/api/roles",
+    "/api/giveaways",
 )
 MOD_BLOCKED_PAGES = {
     # Pages global ou owner-only

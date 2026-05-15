@@ -1,0 +1,188 @@
+{% extends "_base.html" %}
+{% block title %}Giveaways · TookBot{% endblock %}
+{% block crumb %}Giveaways{% endblock %}
+
+{% block content %}
+<style>
+  .gw-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+  .gw-card h2 { margin: 0 0 10px; font-size: 18px; }
+  .gw-list { display: grid; gap: 10px; }
+  .gw-row {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+  .gw-row.ended    { opacity: 0.55; }
+  .gw-row.cancelled { opacity: 0.4; }
+  .gw-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: oklch(0.86 0.20 130 / .2);
+    display: grid; place-items: center; font-size: 22px;
+  }
+  .gw-meta-title { font-weight: 600; font-size: 14px; }
+  .gw-meta-sub   { font-size: 12px; color: var(--text-muted); }
+  .pill-active { background: oklch(0.78 0.20 145 / .25); color: oklch(0.78 0.20 145); padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill-ended  { background: oklch(0.65 0.10 0 / .15); color: var(--text-muted); padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill-cancelled { background: oklch(0.65 0.20 25 / .2); color: oklch(0.78 0.18 25); padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+</style>
+
+<h1 style="margin:0 0 6px;">🎉 Giveaways</h1>
+<p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
+  Crée et gère les tirages au sort. Le bot poste un embed avec bouton « Participer » et tire automatiquement les gagnants à la fin du timer.
+</p>
+
+<div class="gw-card">
+  <h2>➕ Nouveau giveaway</h2>
+  <div class="grid grid-2 gap-3">
+    <div class="field">
+      <label>Récompense</label>
+      <input type="text" id="gwPrize" placeholder="ex: clé Steam, rôle VIP, 10€..." maxlength="200">
+    </div>
+    <div class="field">
+      <label>Nombre de gagnants</label>
+      <input type="number" id="gwWinners" min="1" max="50" value="1">
+    </div>
+  </div>
+  <div class="grid grid-2 gap-3">
+    <div class="field">
+      <label>Durée</label>
+      <div class="row gap-2" style="align-items:center;">
+        <input type="number" id="gwDuration" min="1" value="1" style="max-width:100px;">
+        <select id="gwUnit">
+          <option value="60">minutes</option>
+          <option value="3600" selected>heures</option>
+          <option value="86400">jours</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Salon où poster</label>
+      <select id="gwChannel"><option value="">— sélectionne —</option></select>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="createGiveaway()">🎉 Lancer le giveaway</button>
+</div>
+
+<div class="gw-card">
+  <h2>📋 Giveaways</h2>
+  <div id="gwList" class="gw-list">
+    <div class="muted" style="font-size:13px;">Chargement…</div>
+  </div>
+</div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadChannels() {
+  const r = await fetch('/api/channels?type=text');
+  if (!r.ok) return;
+  const d = await r.json();
+  const sel = document.getElementById('gwChannel');
+  sel.innerHTML = '<option value="">— sélectionne —</option>' +
+    (d.channels || []).map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
+}
+
+async function createGiveaway() {
+  const prize    = document.getElementById('gwPrize').value.trim();
+  const winners  = parseInt(document.getElementById('gwWinners').value || '1', 10);
+  const dur      = parseInt(document.getElementById('gwDuration').value || '0', 10);
+  const unit     = parseInt(document.getElementById('gwUnit').value, 10);
+  const channel  = document.getElementById('gwChannel').value;
+  if (!prize) { toast('Saisis une récompense', 'error'); return; }
+  if (!channel) { toast('Choisis un salon', 'error'); return; }
+  const duration_sec = dur * unit;
+  if (duration_sec < 30) { toast('Durée minimum : 30s', 'error'); return; }
+  const r = await fetch('/api/giveaways', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ prize, winners_count: winners, channel_id: channel, duration_sec }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) {
+    toast(`✅ Giveaway #${d.giveaway_id} lancé !`);
+    document.getElementById('gwPrize').value = '';
+    setTimeout(loadList, 1500);
+  } else toast(d.error || 'Erreur', 'error');
+}
+window.createGiveaway = createGiveaway;
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString('fr-FR'); } catch { return iso; }
+}
+
+async function loadList() {
+  const list = document.getElementById('gwList');
+  try {
+    const r = await fetch('/api/giveaways');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    const rows = d.giveaways || [];
+    if (!rows.length) {
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucun giveaway encore créé._</div>';
+      return;
+    }
+    list.innerHTML = rows.map(g => {
+      const cls = g.cancelled ? 'gw-row cancelled' : (g.ended ? 'gw-row ended' : 'gw-row');
+      const pill = g.cancelled
+        ? '<span class="pill-cancelled">Annulé</span>'
+        : (g.ended ? '<span class="pill-ended">Terminé</span>' : '<span class="pill-active">Actif</span>');
+      const winners = g.winner_ids ? JSON.parse(g.winner_ids) : [];
+      const winnersHtml = winners.length
+        ? `<div class="gw-meta-sub">🏆 Gagnants : ${winners.map(w => `<@${w}>`).join(', ')}</div>` : '';
+      const actions = [];
+      if (!g.ended && !g.cancelled) {
+        actions.push(`<button class="btn btn-secondary" onclick="cancelGw(${g.id})" style="font-size:12px;padding:4px 10px;">❌ Annuler</button>`);
+      } else if (g.ended && !g.cancelled) {
+        actions.push(`<button class="btn btn-secondary" onclick="rerollGw(${g.id})" style="font-size:12px;padding:4px 10px;">🎲 Reroll</button>`);
+      }
+      return `<div class="${cls}">
+        <div class="gw-icon">🎉</div>
+        <div>
+          <div class="gw-meta-title">#${g.id} · ${escapeHtml(g.prize)} ${pill}</div>
+          <div class="gw-meta-sub">→ <#${g.channel_id}> · ${g.winners_count} gagnant(s) · ${g.entries_count || 0} participant(s) · fin ${fmtDate(g.ends_at)}</div>
+          ${winnersHtml}
+        </div>
+        <div class="row gap-2">${actions.join('')}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+  }
+}
+
+async function cancelGw(id) {
+  if (!confirm(`Annuler le giveaway #${id} ?`)) return;
+  const r = await fetch(`/api/giveaways/${id}/cancel`, { method: 'POST' });
+  if (r.ok) { toast('Giveaway annulé'); loadList(); }
+  else toast('Erreur', 'error');
+}
+window.cancelGw = cancelGw;
+
+async function rerollGw(id) {
+  if (!confirm(`Reroll le giveaway #${id} ?`)) return;
+  const r = await fetch(`/api/giveaways/${id}/reroll`, { method: 'POST' });
+  if (r.ok) { toast('Reroll lancé — check le salon Discord'); loadList(); }
+  else toast('Erreur', 'error');
+}
+window.rerollGw = rerollGw;
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadChannels();
+  loadList();
+});
+</script>
+{% endblock %}

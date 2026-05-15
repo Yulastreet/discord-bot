@@ -53,6 +53,10 @@ def setup_runtime(bot, deps):
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
             cs2_loop.start()
+        # Giveaway finalize loop
+        gw_loop = globals().get("giveaway_finalize_loop")
+        if gw_loop is not None and not gw_loop.is_running():
+            gw_loop.start()
         # Resume music: disabled by default. Discord voice handshakes can stall the
         # gateway at boot if the saved channel state is stale.
         if MUSIC_RESUME and os.getenv("MUSIC_RESUME_ON_BOOT", "0") == "1":
@@ -1133,6 +1137,50 @@ def setup_runtime(bot, deps):
                                 pass
                 except Exception as _e:
                     print(f"[mod/dashboard-log] {type(_e).__name__}: {_e}")
+            return
+
+        elif name == "giveaway_post":
+            from database import giveaway_get as _gw_get, giveaway_set_message_id as _gw_setmsg
+            from giveaway_commands import make_giveaway_embed, GiveawayJoinView
+            gid_ = int(payload.get("giveaway_id") or 0)
+            gw = _gw_get(gid_)
+            if not gw:
+                return
+            ch = guild.get_channel(int(gw["channel_id"]))
+            if not ch:
+                raise RuntimeError("salon giveaway introuvable")
+            embed = make_giveaway_embed(gw, participants_count=0)
+            msg = await ch.send(embed=embed, view=GiveawayJoinView())
+            _gw_setmsg(gid_, msg.id)
+            return
+
+        elif name == "giveaway_cancel_post":
+            from database import giveaway_get as _gw_get
+            from giveaway_commands import GiveawayJoinView
+            gid_ = int(payload.get("giveaway_id") or 0)
+            gw = _gw_get(gid_)
+            if not gw or not gw.get("message_id"):
+                return
+            ch = guild.get_channel(int(gw["channel_id"]))
+            if not ch:
+                return
+            try:
+                msg = await ch.fetch_message(int(gw["message_id"]))
+                emb = msg.embeds[0] if msg.embeds else discord.Embed()
+                emb.title = f"❌ Giveaway annulé · {gw['prize']}"
+                emb.color = 0xE74C3C
+                view = GiveawayJoinView()
+                for child in view.children:
+                    child.disabled = True
+                await msg.edit(embed=emb, view=view)
+            except Exception as e:
+                print(f"[giveaway/cancel-post] {type(e).__name__}: {e}")
+            return
+
+        elif name == "giveaway_reroll":
+            from giveaway_commands import reroll_giveaway
+            gid_ = int(payload.get("giveaway_id") or 0)
+            await reroll_giveaway(bot, gid_)
             return
 
         elif name == "mod_warn_followup":
