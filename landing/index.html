@@ -1722,6 +1722,13 @@
     }
   }
 
+  /* ----- Anchors : compense la nav sticky pour scroll vers section ----- */
+  section[id],
+  [id="features"],
+  [id="dashboard"] {
+    scroll-margin-top: 90px;
+  }
+
   /* ----- Hero reflow : passe en flow vertical, plus de positionnement absolu ----- */
   @media (max-width: 760px) {
     .hero {
@@ -1729,40 +1736,59 @@
       padding-top: 12px;
     }
     .hero-card {
-      min-height: 0;
+      min-height: 0 !important;
       padding: 26px 22px 28px;
       border-radius: 30px;
       display: flex;
       flex-direction: column;
-      gap: 22px;
+      gap: 18px;
       overflow: hidden;
     }
-    .hero-card::before { display: none; }
+    .hero-card::before,
+    .motion-field { display: none !important; }
 
     .hero-top {
-      position: static;
+      position: static !important;
+      inset: auto !important;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-    .hero-menu { display: none; }
+
+    /* Quick nav hero-menu : 3 items visibles sur mobile */
+    .hero-menu {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .hero-menu a {
+      font-size: 11px;
+      padding: 0 10px;
+      min-height: 32px;
+    }
+    .hero-menu a:nth-child(n+3) { display: inline-flex; }
 
     .command-pill {
-      position: static;
+      position: static !important;
+      inset: auto !important;
       align-self: flex-start;
       min-width: 0;
     }
 
     .bot-orb {
-      position: static;
+      position: static !important;
+      inset: auto !important;
       align-self: center;
-      width: clamp(160px, 48vw, 220px);
-      margin-top: 4px;
-      opacity: .92;
+      width: clamp(140px, 44vw, 200px);
+      margin: 0;
+      opacity: .85;
       flex-shrink: 0;
+      transform: none !important;
     }
 
     .hero-copy {
-      position: static;
+      position: static !important;
+      inset: auto !important;
       max-width: none;
     }
     .hero-copy h1 {
@@ -1786,9 +1812,11 @@
     }
 
     .usage {
-      position: static;
+      position: static !important;
+      inset: auto !important;
       width: 100%;
       padding: 18px;
+      transform: none !important;
     }
     .bars span { height: 22px; }
 
@@ -1957,9 +1985,9 @@
           <div class="hero-top">
             <strong>TookBot</strong>
             <div class="hero-menu" aria-label="Navigation hero">
-              <a href="#features">Commandes</a>
-              <a href="#dashboard">XP</a>
-              <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
+              <a href="#features">Features</a>
+              <a href="#dashboard">Dashboard</a>
+              <a href="#showcase-title">Aperçus</a>
             </div>
           </div>
 
@@ -2427,14 +2455,23 @@
 
   });
 
+  const mobileMQ = window.matchMedia('(max-width: 760px)');
+
   if (!reduceMotion) {
     const horizontalSection = document.querySelector('[data-horizontal-scroll]');
     const horizontalTrack = document.querySelector('.horizontal-track');
     const horizontalTrackAlt = document.querySelector('.horizontal-track-alt');
     let horizontalRaf = 0;
 
+    function clearHorizontalInline() {
+      if (horizontalSection) horizontalSection.style.height = '';
+      if (horizontalTrack) horizontalTrack.style.transform = '';
+      if (horizontalTrackAlt) horizontalTrackAlt.style.transform = '';
+    }
+
     function syncHorizontalMetrics() {
       if (!horizontalSection || !horizontalTrack) return;
+      if (mobileMQ.matches) { clearHorizontalInline(); return; }
       const viewportWidth = horizontalSection.clientWidth || window.innerWidth;
       const maxMove = Math.max(0, horizontalTrack.scrollWidth - viewportWidth);
       const altMove = horizontalTrackAlt ? Math.max(0, horizontalTrackAlt.scrollWidth - viewportWidth) : 0;
@@ -2444,6 +2481,7 @@
 
     function updateHorizontalScroll() {
       if (!horizontalSection || !horizontalTrack) return;
+      if (mobileMQ.matches) return;
       const rect = horizontalSection.getBoundingClientRect();
       const viewportWidth = horizontalSection.clientWidth || window.innerWidth;
       const maxMove = Math.max(0, horizontalTrack.scrollWidth - viewportWidth);
@@ -2472,6 +2510,11 @@
     }, 250);
     window.addEventListener('scroll', requestHorizontalUpdate, { passive: true });
     window.addEventListener('resize', () => {
+      syncHorizontalMetrics();
+      requestHorizontalUpdate();
+    });
+    mobileMQ.addEventListener('change', () => {
+      clearHorizontalInline();
       syncHorizontalMetrics();
       requestHorizontalUpdate();
     });
