@@ -671,25 +671,14 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
 
     total_eur = 0.0
     valued    = []
-    # Phase 1: Skinport (local dict via csgotrader cache, instantane).
-    # On valorise meme les items non-marketables (prix marche reste valide,
-    # item juste en cooldown).
-    skinport_misses = []
-    for name, qty in counts.items():
-        sp = await csapi.skinport_lowest_price(name)
-        if sp and sp.get("price_eur"):
-            eur = float(sp["price_eur"])
-            total_eur += eur * qty
-            valued.append((name, qty, eur, "skinport"))
-        else:
-            skinport_misses.append(name)
 
-    # Phase 2 : CSFloat pour les misses Skinport (auth API key requise pour
-    # bypasser le 'logged_in required' sur skins caches). Capped : CSFloat
-    # rate limit ~60 req/min meme avec auth, on reste prudent.
-    CSFLOAT_LOOKUP_CAP = 60
-    cf_targets = skinport_misses[:CSFLOAT_LOOKUP_CAP]
-    csfloat_misses = list(skinport_misses[CSFLOAT_LOOKUP_CAP:])
+    # Phase 1 : CSFloat en source primaire (prix marketplace reel, auth via
+    # CSFLOAT_API_KEY). Cap pour respecter le rate-limit ~100/min avec auth.
+    CSFLOAT_LOOKUP_CAP = 120
+    names_list = list(counts.keys())
+    cf_targets = names_list[:CSFLOAT_LOOKUP_CAP]
+    cf_overflow = names_list[CSFLOAT_LOOKUP_CAP:]
+    csfloat_misses = []
     for name in cf_targets:
         ck = f"csfloat:{name.lower()}"
         cached = cs_cache_get(ck, max_age_sec=600)
@@ -706,9 +695,21 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
         if not cached:
             await asyncio.sleep(0.6)
 
-    # Phase 3 : Steam Market en dernier recours pour ce que CSFloat ne couvre pas
+    # Phase 2 : Skinport (bundle local instant) pour misses CSFloat + overflow
+    skinport_misses = []
+    for name in csfloat_misses + cf_overflow:
+        sp = await csapi.skinport_lowest_price(name)
+        if sp and sp.get("price_eur"):
+            eur = float(sp["price_eur"])
+            qty = counts[name]
+            total_eur += eur * qty
+            valued.append((name, qty, eur, "skinport"))
+        else:
+            skinport_misses.append(name)
+
+    # Phase 3 : Steam Market en dernier recours (cap pour rate-limit)
     STEAM_LOOKUP_CAP = 40
-    steam_targets = csfloat_misses[:STEAM_LOOKUP_CAP]
+    steam_targets = skinport_misses[:STEAM_LOOKUP_CAP]
     for name in steam_targets:
         ck = f"price:{name.lower()}"
         cached = cs_cache_get(ck, max_age_sec=900)
@@ -726,7 +727,7 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     not_priced = len(counts) - len(valued)
     valued.sort(key=lambda r: -(r[2] * r[1]))
     top_lines = []
-    _SRC_TAG = {"skinport": "🟧", "csfloat": "🟪", "steam": "🟦"}
+    _SRC_TAG = {"csfloat": "🟪", "skinport": "🟧", "steam": "🟦"}
     for name, qty, eur, src in valued[:10]:
         sub = eur * qty
         tag = _SRC_TAG.get(src, "•")
@@ -734,12 +735,10 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
         top_lines.append(f"{tag} `x{qty}` **{name}**{cd_tag} — {sub:.2f}€ (`{eur:.2f}€/u`)")
 
     extra_note = ""
-    overflow_cf = max(0, len(skinport_misses) - CSFLOAT_LOOKUP_CAP)
-    overflow_steam = max(0, len(csfloat_misses) - STEAM_LOOKUP_CAP)
-    if overflow_cf or overflow_steam:
+    overflow_steam = max(0, len(skinport_misses) - STEAM_LOOKUP_CAP)
+    if overflow_steam:
         extra_note = (
-            f"_Valorisation partielle : "
-            f"{overflow_cf} items skip CSFloat, {overflow_steam} skip Steam (rate-limit)._\n"
+            f"_Valorisation partielle : {overflow_steam} items skip Steam (rate-limit)._\n"
         )
 
     total_items     = sum(counts.values())
@@ -762,7 +761,7 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     )
     if top_lines:
         embed.add_field(name="💎 Top 10 items", value="\n".join(top_lines), inline=False)
-    embed.set_footer(text="🟧 Skinport · 🟪 CSFloat · 🟦 Steam · 🔒 cooldown · prix les plus bas")
+    embed.set_footer(text="🟪 CSFloat · 🟧 Skinport · 🟦 Steam · 🔒 cooldown · prix les plus bas")
     return embed
 
 
