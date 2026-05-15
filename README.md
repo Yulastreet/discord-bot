@@ -10,3 +10,9 @@ Personal multi-feature Discord bot with an integrated admin dashboard.
 - **Architecture** : the bot and the web run as **two separate pm2 processes**
   on the VPS; web pushes commands to the bot via a lightweight DB-backed
   command queue (~1.5s polling).
+
+## License
+
+This project is proprietary. The source code is available for viewing only.
+Copying, modifying, distributing, sublicensing, or using this code to create derivative works is not allowed without explicit written permission.
+See [LICENSE](LICENSE).
