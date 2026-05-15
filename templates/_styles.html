@@ -9,22 +9,22 @@
    ======================================================================== */
 
 :root {
-  /* Surfaces — refresh: deeper black background + softer card depth */
-  --bg:           oklch(0.115 0.003 60);
-  --bg-1:         oklch(0.155 0.005 60);
-  --bg-2:         oklch(0.195 0.006 60);
-  --bg-3:         oklch(0.245 0.007 60);
-  --bg-overlay:   oklch(0.08 0.003 60 / 0.78);
+  /* Surfaces — warm neutral dark, less eye-strain than near-black */
+  --bg:           oklch(0.175 0.004 60);
+  --bg-1:         oklch(0.215 0.005 60);
+  --bg-2:         oklch(0.255 0.006 60);
+  --bg-3:         oklch(0.300 0.008 60);
+  --bg-overlay:   oklch(0.13 0.003 60 / 0.78);
 
-  /* Borders — much subtler, almost invisible */
-  --border:        oklch(0.26 0.006 60 / 0.6);
-  --border-strong: oklch(0.40 0.010 60 / 0.8);
-  --border-soft:   oklch(0.22 0.005 60 / 0.5);
+  /* Borders — visible but soft */
+  --border:        oklch(0.32 0.007 60 / 0.55);
+  --border-strong: oklch(0.45 0.009 60 / 0.7);
+  --border-soft:   oklch(0.27 0.006 60 / 0.45);
 
-  /* Text */
-  --text:    oklch(0.97 0.003 60);
-  --text-2:  oklch(0.72 0.006 60);
-  --text-3:  oklch(0.50 0.008 60);
+  /* Text — slightly off-white for comfort */
+  --text:    oklch(0.94 0.004 60);
+  --text-2:  oklch(0.73 0.006 60);
+  --text-3:  oklch(0.55 0.008 60);
 
   /* Accent — vert acide */
   --accent:        oklch(0.86 0.20 130);
@@ -448,7 +448,7 @@ p { margin: 0; }
    Cards
    ======================================================================== */
 .card {
-  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.135 0.004 60) 100%);
+  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.195 0.005 60) 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 22px 24px;
@@ -551,7 +551,7 @@ select {
   flex-direction: column;
   gap: 8px;
   padding: 20px 22px;
-  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.135 0.004 60) 100%);
+  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.195 0.005 60) 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
   transition: border-color 160ms var(--ease-out);
@@ -899,7 +899,7 @@ select {
 
 /* Modern stat card v2 : icon + label + big value + delta + sparkline slot */
 .stat-card {
-  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.135 0.004 60) 100%);
+  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.195 0.005 60) 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 22px 24px 20px;
@@ -1026,7 +1026,7 @@ select {
 
 /* Section card avec header riche : icon + title + actions */
 .section-card {
-  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.135 0.004 60) 100%);
+  background: linear-gradient(180deg, var(--bg-1) 0%, oklch(0.195 0.005 60) 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 22px 24px;
