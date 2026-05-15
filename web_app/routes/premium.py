@@ -137,8 +137,6 @@ def register_premium_routes(app, deps):
         return jsonify({"ok": True, "bg_id": f"owner:{uid}"})
 
 
-    # ─── Live console (tail pm2 logs) ─────────────────────────────────────────
-
     _PM2_LOG_PATHS = {
         "bot": {
             "out": os.path.expanduser("~/.pm2/logs/discord-bot-out.log"),

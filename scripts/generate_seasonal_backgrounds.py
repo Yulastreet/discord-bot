@@ -22,10 +22,6 @@ W, H = 1024, 320
 ROOT_OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "niveau_bg", "seasonal")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers shared
-# ──────────────────────────────────────────────────────────────────────────────
-
 def lerp(a, b, t): return a + (b - a) * t
 
 
@@ -86,10 +82,6 @@ def vignette(img, strength=0.4):
     img.alpha_composite(overlay)
     return img.convert("RGB")
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Designs saisonniers excentriques
-# ──────────────────────────────────────────────────────────────────────────────
 
 def bg_crystal_cave(seed=1):
     rng = random.Random(seed)

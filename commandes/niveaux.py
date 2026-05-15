@@ -14,7 +14,6 @@ def setup_niveau_commands(bot, deps):
         xp = get_xp(gid, membre.id)
         level, progress_xp, needed_xp, percent = get_progress(xp)
 
-        # ── Carte premium si l'utilisateur a achete /niveau Premium ─────────
         # On regarde les entitlements du *membre affiche*, pas de l'auteur,
         # afin que tout le monde puisse voir la jolie carte du premium.
         if is_premium_user(membre.id):
@@ -40,7 +39,6 @@ def setup_niveau_commands(bot, deps):
                 print(f"[niveau premium] render error: {e!r} — fallback embed")
                 # Fallback embed ci-dessous
 
-        # ── Embed classique (gratuit) ───────────────────────────────────────
         filled = int(percent / 5)
         bar = "█" * filled + "░" * (20 - filled)
         embed = discord.Embed(title=f"📊 {membre.display_name}", color=discord.Color.blurple())

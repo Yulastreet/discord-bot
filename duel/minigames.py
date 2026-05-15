@@ -5,8 +5,6 @@ import random
 from duel.combat import barre_hp
 
 
-# ─── RÉCOMPENSES ─────────────────────────────────────────────────────────────
-
 def appliquer_recompense(winner_stats, reward_id):
     """Applique la récompense au gagnant. Retourne le texte de la récompense."""
     if reward_id == "hp_80":
@@ -35,8 +33,6 @@ def appliquer_recompense(winner_stats, reward_id):
         return f"🔄 **Parade rechargée** + 🩹 **+{gain} HP** !"
     return "❓ Récompense inconnue."
 
-
-# ─── 1. PIERRE FEUILLE CISEAUX ───────────────────────────────────────────────
 
 PFC_EMOJIS = {"pierre": "🪨", "feuille": "📄", "ciseaux": "✂️"}
 PFC_WINS   = {"pierre": "ciseaux", "feuille": "pierre", "ciseaux": "feuille"}
@@ -123,8 +119,6 @@ async def pfc(msg, j1, s1, j2, s2):
     return result_txt
 
 
-# ─── 2. DUEL DE RÉFLEXE ──────────────────────────────────────────────────────
-
 async def reflexe(msg, j1, s1, j2, s2):
     """Compte à rebours, puis premier clic gagne."""
     # Countdown
@@ -190,8 +184,6 @@ async def reflexe(msg, j1, s1, j2, s2):
     await asyncio.sleep(3)
     return result_txt
 
-
-# ─── 3. DEVINETTE DE NOMBRE ──────────────────────────────────────────────────
 
 def _make_devinette_view(joueur_actif, event, choix_dict):
     view = discord.ui.View(timeout=20)
@@ -265,8 +257,6 @@ async def devinette(msg, j1, s1, j2, s2):
     await asyncio.sleep(3)
     return result
 
-
-# ─── 4. DUEL DE DÉS ──────────────────────────────────────────────────────────
 
 async def duel_des(msg, j1, s1, j2, s2):
     """Les deux joueurs lancent 3d6 simultanément. Meilleur total gagne +60 HP."""
@@ -354,8 +344,6 @@ async def duel_des(msg, j1, s1, j2, s2):
     return result
 
 
-# ─── 5. CALCUL RAPIDE ────────────────────────────────────────────────────────
-
 QUESTIONS = [
     {"q": "Combien font **7 × 8** ?",    "r": 56,  "choices": [56, 48, 63, 42]},
     {"q": "Combien font **12 + 37** ?",   "r": 49,  "choices": [49, 47, 51, 43]},
@@ -431,8 +419,6 @@ async def calcul_rapide(msg, j1, s1, j2, s2):
     await asyncio.sleep(3)
     return result_txt
 
-
-# ─── POINT D'ENTRÉE ──────────────────────────────────────────────────────────
 
 NOM_JEUX = {
     pfc:           "🪨 Pierre Feuille Ciseaux",

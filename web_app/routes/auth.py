@@ -50,10 +50,6 @@ def register_auth_routes(app, deps):
         return redirect("/")
 
 
-    # =====================================================================
-    # PUBLIC LEGAL PAGES (sans auth, accessible a tous)
-    # =====================================================================
-
     @app.route("/privacy")
     def privacy_page():
         return render_template("privacy.html")
@@ -62,10 +58,6 @@ def register_auth_routes(app, deps):
     def terms_page():
         return render_template("terms.html")
 
-
-    # =====================================================================
-    # OAuth DISCORD
-    # =====================================================================
 
     @app.route("/oauth/login")
     def oauth_login():
@@ -192,10 +184,6 @@ def register_auth_routes(app, deps):
         return redirect("/")
 
 
-    # =====================================================================
-    # GUILD PICKER
-    # =====================================================================
-
     @app.route("/select-guild", methods=["GET", "POST"])
     def select_guild():
         if request.method == "POST":
@@ -221,6 +209,3 @@ def register_auth_routes(app, deps):
         return jsonify({"guilds": g.guilds})
 
 
-    # =====================================================================
-    # DASHBOARD GENERAL (cross-guild)
-    # =====================================================================

@@ -20,10 +20,6 @@ def register_admin_routes(app, deps):
         return jsonify({"logs": rows})
 
 
-    # =====================================================================
-    # BOTTALK (per-guild)
-    # =====================================================================
-
     @app.route("/bottalk")
     def bottalk_page():
         return render_template("bottalk.html")
@@ -35,11 +31,9 @@ def register_admin_routes(app, deps):
         rows = list_channels(g_id, type_filter=type_filter)
         return jsonify({"channels": rows})
 
-    # =====================================================================
     # Note : la feature "Messages privés" (lecture/envoi de DM via dashboard
     # + stockage en base) a été retirée volontairement (raison vie privée).
     # Les DM users -> bot ne sont plus enregistrés. Voir privacy.html §1.3.
-    # =====================================================================
 
     @app.route("/api/bottalk/send", methods=["POST"])
     def api_bottalk_send():
@@ -73,10 +67,6 @@ def register_admin_routes(app, deps):
         return jsonify({"success": True, "command_id": cid})
 
 
-    # =====================================================================
-    # SETTINGS (global)
-    # =====================================================================
-
     @app.route("/settings")
     def settings_page():
         return render_template("settings.html",
@@ -98,10 +88,6 @@ def register_admin_routes(app, deps):
                 updated.append(k)
         return jsonify({"success": True, "updated": updated})
 
-
-    # =====================================================================
-    # MODERATION (per-guild) — list members + kick/ban/timeout/unban
-    # =====================================================================
 
     @app.route("/moderation")
     def moderation_page():
@@ -222,10 +208,6 @@ def register_admin_routes(app, deps):
         return jsonify({"success": True, "command_id": cid})
 
 
-    # =====================================================================
-    # STATUS / HEALTH (public-after-login, global)
-    # =====================================================================
-
     # On lit l'etat du bot via la DB (process séparé). Le bot persiste son etat
     # dans une mini-table 'kv' qu'on cree a la volee. Plus simple : on stocke
     # le pid + boot ts dans bot_state.json a cote.
@@ -293,10 +275,6 @@ def register_admin_routes(app, deps):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-
-    # =====================================================================
-    # PREMIUM (achats Discord SKU integres)
-    # =====================================================================
 
     def _current_user_id():
         """Snowflake Discord de l'utilisateur connecte (str), ou None."""

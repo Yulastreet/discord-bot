@@ -30,10 +30,6 @@ def register_dashboard_routes(app, deps):
                                activity=activity, heatmap=heatmap, top_cmds=top_cmds)
 
 
-    # =====================================================================
-    # DASHBOARD (per-guild)
-    # =====================================================================
-
     @app.route("/dashboard")
     def dashboard():
         g_id = gid()
@@ -52,10 +48,6 @@ def register_dashboard_routes(app, deps):
                                activity=activity, heatmap=heatmap,
                                top_cmds=top_cmds, top_active=top_active)
 
-
-    # =====================================================================
-    # SEARCH (per-guild)
-    # =====================================================================
 
     @app.route("/search")
     def search_page():
@@ -188,6 +180,3 @@ def register_dashboard_routes(app, deps):
         })
 
 
-    # =====================================================================
-    # REACTIONS (per-guild)
-    # =====================================================================

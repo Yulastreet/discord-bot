@@ -23,10 +23,6 @@ from database import (
 )
 
 
-# ============================================================================
-# Helpers presentation
-# ============================================================================
-
 ACTION_LABEL = {
     "warn":       "⚠️ Warn",
     "kick":       "👢 Kick",
@@ -141,10 +137,6 @@ async def _apply_auto_timeout_if_needed(member: discord.Member, moderator: disco
     await _post_modlog(member.guild, auto_embed)
     return duration_sec
 
-
-# ============================================================================
-# Setup : groupe /mod (et alias /warn /modlogs)
-# ============================================================================
 
 def setup_mod_commands(bot: commands.Bot):
 

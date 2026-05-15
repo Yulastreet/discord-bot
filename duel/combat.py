@@ -69,7 +69,6 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
     """Calcule les dégâts d'une attaque et retourne un rapport."""
     rapport = {"degats": 0, "soin": 0, "messages": [], "double": False}
 
-    # ── Esquive ────────────────────────────────────────────────────
     esquive = defenseur_stats.get("esquive_chance", 0)
     if esquive > 0 and random.random() < esquive:
         rapport["messages"].append("💨 Esquive !")
@@ -83,18 +82,15 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
     variation   = random.uniform(0.85, 1.15)
     degats_base = max(1, int((atk - def_ + random.randint(5, 15)) * variation))
 
-    # ── Malus d'attaque (def speciale reussie de l'adversaire au tour precedent) ──
     if attaquant_stats.get("malus_attaque_tours", 0) > 0:
         degats_base = max(1, int(degats_base * 0.8))
         rapport["messages"].append("📉 Malus de lecture : -20% dégâts !")
 
-    # ── Coup critique ──────────────────────────────────────────────
     crit = attaquant_stats.get("crit_chance", 0)
     if crit > 0 and random.random() < crit:
         degats_base *= 2
         rapport["messages"].append("💥 Coup critique !")
 
-    # ── Buff dégâts mini-jeu (+30 %, 2 tours) ─────────────────────
     if "buff_degats" in effets_att:
         degats_base = int(degats_base * 1.30)
         effets_att["buff_degats"] -= 1
@@ -102,7 +98,6 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
             del effets_att["buff_degats"]
         rapport["messages"].append("⚡ +30% dégâts (mini-jeu) !")
 
-    # ── Capacité spéciale ──────────────────────────────────────────
     if utilise_speciale and sabre_data and attaquant_stats["speciale_dispo"]:
         effet = sabre_data["speciale"]["effet"]
         appliquer_effet(attaquant_stats, defenseur_stats, effet)
@@ -114,7 +109,6 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
             rapport["soin"] = degats_base
             rapport["messages"].append("👑 Dégâts absolus + soin total !")
 
-    # ── Effets sur l'attaquant ─────────────────────────────────────
     if "rage_next" in effets_att:
         degats_base *= 2
         rapport["messages"].append("😡 Rage active : dégâts doublés !")
@@ -125,7 +119,6 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
         rapport["messages"].append("⚡ Overcharge : +50% de dégâts !")
         del effets_att["overcharge"]
 
-    # ── Effets sur le défenseur ────────────────────────────────────
     if "absorb_next" in effets_def:
         rapport["messages"].append("🛡️ Bouclier absorbé les dégâts !")
         del effets_def["absorb_next"]
@@ -137,7 +130,6 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
         del effets_def["reflect_100"]
         degats_base = 0
 
-    # ── Lifesteal ──────────────────────────────────────────────────
     if "lifesteal_50" in effets_att and degats_base > 0:
         soin = int(degats_base * 0.5)
         attaquant_stats["hp"] = min(attaquant_stats["hp_max"], attaquant_stats["hp"] + soin)

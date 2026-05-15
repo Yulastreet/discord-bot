@@ -240,10 +240,6 @@ def _filter_guilds_by_session(guilds):
     return [g for g in guilds if g.get("guild_id") in allowed]
 
 
-# =====================================================================
-# AUTH + GUILD CONTEXT MIDDLEWARE
-# =====================================================================
-
 PUBLIC_PATHS = {"/", "/static"}        # tout le reste exige login
 GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild sélectionné
     "/", "/select-guild", "/general", "/logout",
@@ -383,10 +379,6 @@ def _inject_ctx():
     }
 
 
-# =====================================================================
-# HELPERS
-# =====================================================================
-
 def gid():
     return session.get("guild_id")
 
@@ -405,11 +397,6 @@ def get_global_stats():
         "avg_level":   round(avg_level or 0, 2),
         "top_user":    dict(top_user) if top_user else None,
     }
-
-
-# =====================================================================
-# AUTH
-# =====================================================================
 
 
 from web_app.routes.auth import register_auth_routes

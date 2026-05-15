@@ -31,9 +31,6 @@ except Exception:
     _HAS_PILMOJI = False
     Pilmoji = None  # type: ignore
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Constantes
-# ──────────────────────────────────────────────────────────────────────────────
 
 CARD_W, CARD_H = 1024, 320
 # Module deplace dans cards/, donc on remonte d'un niveau pour pointer assets/
@@ -51,10 +48,6 @@ TEXT_PRIMARY = (245, 250, 235)
 TEXT_SECONDARY = (200, 215, 180)
 TEXT_MUTED = (170, 180, 160)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Fonts
-# ──────────────────────────────────────────────────────────────────────────────
 
 _FONT_CACHE: dict[tuple[int, bool], ImageFont.FreeTypeFont] = {}
 
@@ -83,10 +76,6 @@ def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     _FONT_CACHE[key] = f
     return f
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Avatar
-# ──────────────────────────────────────────────────────────────────────────────
 
 # Session HTTP partagee (TLS reuse + connection pool).
 _HTTP_SESSION: Optional[aiohttp.ClientSession] = None
@@ -155,10 +144,6 @@ def _placeholder_avatar(size: int) -> Image.Image:
     d.ellipse((2, 2, size - 2, size - 2), outline=ACCENT + (255,), width=4)
     return img
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Background
-# ──────────────────────────────────────────────────────────────────────────────
 
 # Cache backgrounds en RAM : { id: (mtime_disk, Image RGB) }.
 # La cle inclut le mtime du fichier source ; quand le fichier est modifie
@@ -248,10 +233,6 @@ def preload_backgrounds():
             pass
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers UI
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _draw_text_emoji(image: Image.Image, xy, text: str, font, fill,
                       emoji_scale: float = 1.0):
     """Dessine du texte contenant potentiellement des emojis couleur.
@@ -303,10 +284,6 @@ def _shadow_layer(text_layer: Image.Image, blur: int = 4) -> Image.Image:
     return text_layer.filter(ImageFilter.GaussianBlur(blur))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Render principal
-# ──────────────────────────────────────────────────────────────────────────────
-
 async def render_niveau_card(
     *,
     username: str,
@@ -346,7 +323,6 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
 
     draw = ImageDraw.Draw(base)
 
-    # ── Avatar ───────────────────────────────────────────────────────────
     avatar_img: Optional[Image.Image] = None
     if raw_avatar:
         try:
@@ -357,7 +333,6 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
         avatar_img = _placeholder_avatar(AVATAR_SIZE)
     base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
 
-    # ── Bloc texte droite ────────────────────────────────────────────────
     text_x = AVATAR_X + AVATAR_SIZE + 40
     # Pseudo (avec emoji prefix si Pass cosmetic actif). Pilmoji gere le rendu.
     name_font = _font(46, bold=True)
@@ -395,7 +370,6 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
         draw.text((rk_x, sub_y), "RANG", font=f_label, fill=ACCENT)
         draw.text((rk_x, sub_y + 26), f"#{rank}", font=f_value, fill=TEXT_PRIMARY)
 
-    # ── Barre XP ─────────────────────────────────────────────────────────
     bar_x = text_x
     bar_y = 200
     bar_w = CARD_W - bar_x - 60
@@ -410,10 +384,8 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     pct_w = draw.textlength(pct_text, font=f_xp)
     draw.text((bar_x + bar_w - pct_w, bar_y + bar_h + 8), pct_text, font=f_xp, fill=TEXT_SECONDARY)
 
-    # ── Badge premium ────────────────────────────────────────────────────
     _draw_premium_badge(draw, x=CARD_W - 180, y=24)
 
-    # ── Mention discrète ────────────────────────────────────────────────
     f_mention = _font(11, bold=False)
     mention = "Rendu possible grâce à un achat intégré"
     draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
@@ -460,7 +432,6 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
 
     draw = ImageDraw.Draw(base)
 
-    # ── Avatar ───────────────────────────────────────────────────────────
     avatar_img: Optional[Image.Image] = None
     if raw_avatar:
         try:
@@ -471,7 +442,6 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
         avatar_img = _placeholder_avatar(AVATAR_SIZE)
     base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
 
-    # ── Titre LEVEL UP avec gradient + glow ───────────────────────────────
     text_x = AVATAR_X + AVATAR_SIZE + 40
     f_title = _font(58, bold=True)
     title = "LEVEL UP !"
@@ -484,7 +454,6 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     # Texte net par-dessus
     draw.text((text_x, 30), title, font=f_title, fill=(250, 255, 230, 255))
 
-    # ── Pseudo + Niveau ──────────────────────────────────────────────────
     f_user  = _font(28, bold=True)
     f_label = _font(20, bold=True)
     f_value = _font(48, bold=True)
@@ -502,7 +471,6 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     draw.text((text_x, name_y + 42), "NIVEAU", font=f_label, fill=ACCENT)
     draw.text((text_x + 110, name_y + 30), str(new_level), font=f_value, fill=TEXT_PRIMARY)
 
-    # ── Barre XP ─────────────────────────────────────────────────────────
     bar_x = text_x
     bar_y = 230
     bar_w = CARD_W - bar_x - 60
@@ -512,10 +480,8 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     draw.text((bar_x, bar_y + bar_h + 6), f"{percent:.0f}% du prochain niveau",
               font=f_xp, fill=TEXT_MUTED)
 
-    # ── Badge premium ────────────────────────────────────────────────────
     _draw_premium_badge(draw, x=CARD_W - 180, y=24)
 
-    # ── Sparkles decoratifs ──────────────────────────────────────────────
     sparkles = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
     sd = ImageDraw.Draw(sparkles)
     for cx, cy, sz in [(CARD_W - 60, 130, 6), (CARD_W - 110, 170, 4),
@@ -524,7 +490,6 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
         sd.regular_polygon((cx, cy, sz), n_sides=4, rotation=45, fill=ACCENT + (240,))
     base.alpha_composite(sparkles)
 
-    # ── Mention discrète ────────────────────────────────────────────────
     f_mention = _font(11, bold=False)
     mention = "Rendu possible grâce à un achat intégré"
     draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,

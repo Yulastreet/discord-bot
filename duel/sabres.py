@@ -13,7 +13,6 @@ RARETES = {
 }
 
 SABRES_DEFAULT = {
-    # ─── SABRES DE BASE (C - Gratuits) ───────────────────────────
     "bleu": {
         "id": "bleu",
         "nom": "Sabre Laser Bleu",
@@ -59,7 +58,6 @@ SABRES_DEFAULT = {
         }
     },
     
-    # ─── SABRES UC (100 tookcoins) ───────────────────────────
     "blanc": {
         "id": "blanc",
         "nom": "Sabre Laser Blanc",
@@ -105,7 +103,6 @@ SABRES_DEFAULT = {
         }
     },
     
-    # ─── SABRES R (500 tookcoins) ───────────────────────────
     "jaune": {
         "id": "jaune",
         "nom": "Sabre Laser Jaune",
@@ -151,7 +148,6 @@ SABRES_DEFAULT = {
         }
     },
     
-    # ─── SABRES SR (1500 tookcoins) ───────────────────────────
     "noir": {
         "id": "noir",
         "nom": "Sabre Laser Noir",
@@ -182,7 +178,6 @@ SABRES_DEFAULT = {
         }
     },
     
-    # ─── SABRES SSR (5000 tookcoins) ───────────────────────────
     "arc_en_ciel": {
         "id": "arc_en_ciel",
         "nom": "Sabre Laser Arc-en-Ciel",

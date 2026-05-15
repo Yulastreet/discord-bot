@@ -21,10 +21,6 @@ from typing import Optional
 import aiohttp
 
 
-# --------------------------------------------------------------------------
-# Helpers HTTP partages
-# --------------------------------------------------------------------------
-
 _USER_AGENT = "TookBot/1.0 (+https://tookbot.click)"
 _HTTP_SESSION: Optional[aiohttp.ClientSession] = None
 _HTTP_LOCK = asyncio.Lock()
@@ -45,9 +41,6 @@ async def _get_session() -> aiohttp.ClientSession:
         return _HTTP_SESSION
 
 
-# --------------------------------------------------------------------------
-# YouTube
-# --------------------------------------------------------------------------
 # Le flux RSS officiel : https://www.youtube.com/feeds/videos.xml?channel_id=UCxxx
 # `target_id` doit etre l'ID de chaine YouTube (commence par UC...).
 # On peut aussi accepter un @handle (ex. @LeStream) -> on resoud d'abord vers UC.
@@ -142,9 +135,6 @@ async def check_youtube(target_id: str, last_seen_id: Optional[str]) -> list[dic
     return new_items
 
 
-# --------------------------------------------------------------------------
-# Reddit
-# --------------------------------------------------------------------------
 # Flux RSS de l'utilisateur : https://www.reddit.com/user/<u>/.rss
 # Ou d'un subreddit : https://www.reddit.com/r/<sub>/new/.rss
 # On accepte les deux : si target commence par 'r/', subreddit ; sinon user.
@@ -197,9 +187,6 @@ async def check_reddit(target_id: str, last_seen_id: Optional[str]) -> list[dict
     return new_items
 
 
-# --------------------------------------------------------------------------
-# Twitch
-# --------------------------------------------------------------------------
 # Necessite TWITCH_CLIENT_ID + TWITCH_CLIENT_SECRET dans .env.
 # Pour eviter les notifications repetees, last_seen_id contient :
 #   - 'live'    -> stream actif au dernier check
@@ -301,9 +288,6 @@ async def check_twitch(target_id: str, last_seen_id: Optional[str]) -> list[dict
     return []
 
 
-# --------------------------------------------------------------------------
-# URL parser
-# --------------------------------------------------------------------------
 # Accepte une URL de chaine/profil et extrait l'identifiant que les providers
 # attendent. Retourne (target_id, display_label) ou None si invalide.
 
@@ -354,10 +338,6 @@ def parse_social_url(platform: str, raw: str) -> Optional[tuple[str, str]]:
 
     return None
 
-
-# --------------------------------------------------------------------------
-# Dispatcher
-# --------------------------------------------------------------------------
 
 PROVIDERS = {
     "youtube": check_youtube,

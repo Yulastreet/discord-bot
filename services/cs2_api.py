@@ -27,10 +27,6 @@ _LOCK = asyncio.Lock()
 _RATE_CACHE = {"rate": 0.92, "fetched": 0.0}
 
 
-# --------------------------------------------------------------------------
-# Session HTTP partagee
-# --------------------------------------------------------------------------
-
 async def _get_session() -> aiohttp.ClientSession:
     global _SESSION
     if _SESSION and not _SESSION.closed:
@@ -53,10 +49,6 @@ def _faceit_key() -> Optional[str]:
     return (os.getenv("FACEIT_API_KEY") or "").strip() or None
 
 
-# --------------------------------------------------------------------------
-# Premier rank tiers (self-declared via /cs setrank)
-# --------------------------------------------------------------------------
-
 PREMIER_TIERS = [
     (0,      4999,   "grey",       "⚪ Grey",       0x808080),
     (5000,   9999,   "lightblue",  "🩵 Light Blue", 0x5DADE2),
@@ -77,10 +69,6 @@ def premier_tier(elo: int) -> tuple[Optional[str], Optional[str], Optional[int]]
             return code, label, color
     return None, None, None
 
-
-# --------------------------------------------------------------------------
-# Steam : resolution d'ID + summary
-# --------------------------------------------------------------------------
 
 STEAMID64_RE = re.compile(r"^7656119[0-9]{10}$")
 # Tolere n'importe quel path apres /profiles/<id> ou /id/<vanity> (ex: /inventory/, /home, etc.)
@@ -320,10 +308,6 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
     return aggregated_items
 
 
-# --------------------------------------------------------------------------
-# Steam Market : prix
-# --------------------------------------------------------------------------
-
 async def steam_market_search(query: str, count: int = 30, appid: int = 730) -> Optional[list[str]]:
     """Recherche live sur Steam Market. Retourne liste de market_hash_name
     correspondant a la query (ex: 'AK-47 Redline' -> tous les AK-47 Redline)."""
@@ -372,11 +356,9 @@ async def steam_market_price(market_hash_name: str, currency: int = 3) -> Option
     return None
 
 
-# --------------------------------------------------------------------------
 # Skinport : alternative marketplace gratuite, pas d'auth, prix EUR directs.
 # Endpoint bulk : retourne TOUS les items en un seul appel (~5-8 MB).
 # On cache localement pour eviter de spammer.
-# --------------------------------------------------------------------------
 
 _SKINPORT_CACHE = {"items": {}, "fetched_at": 0.0}
 _SKINPORT_LOCK = asyncio.Lock()
@@ -583,10 +565,6 @@ def _parse_price_eur(price_str: Optional[str]) -> Optional[float]:
         return None
 
 
-# --------------------------------------------------------------------------
-# Faceit
-# --------------------------------------------------------------------------
-
 async def faceit_player_by_nickname(nickname: str) -> Optional[dict]:
     key = _faceit_key()
     if not key:
@@ -625,10 +603,6 @@ async def faceit_player_stats(player_id: str, game: str = "cs2") -> Optional[dic
         print(f"[cs2/faceit] stats err: {type(e).__name__}")
     return None
 
-
-# --------------------------------------------------------------------------
-# Taux de change USD -> EUR
-# --------------------------------------------------------------------------
 
 async def usd_to_eur_rate() -> float:
     """Taux courant, cache 1h, fallback 0.92."""

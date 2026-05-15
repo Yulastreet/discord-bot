@@ -821,7 +821,6 @@ def setup_runtime(bot, deps):
             xp += xp_gain
             set_xp(guild_id_str, message.author.id, xp, username=message.author.name)
             new_level = get_level(xp)
-            # ── Battle Pass tracking (silencieux si pas de pass actif) ──
             try:
                 _track_pass_quest(message.author.id, "send_messages", 1)
                 _track_pass_quest(message.author.id, "earn_xp", xp_gain)

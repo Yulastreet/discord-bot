@@ -10,8 +10,6 @@ from duel.combat import calculer_stats, calculer_degats, barre_hp
 from duel.minigames import run_minigame
 
 
-# ─── DEFENSE SPECIALE : IMAGES + ZONE SELECT ─────────────────────────────
-
 # Fichiers images uploades comme attachments Discord (referencement via attachment://)
 DEFENDER_IMAGE_PATH = "assets/duel_defender.png"
 ATTACKER_IMAGE_PATH = "assets/duel_attacker.png"
@@ -175,7 +173,6 @@ async def _resolve_attack_zone_on_msg(msg, joueur, stats):
     await asyncio.sleep(1)
 
 
-# ─── EMBED HELPER : PHASE DE CHOIX ───────────────────────────
 def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
                     phase_actif=None, phase_attente=None):
     """phase_actif / phase_attente permettent de customiser le footer selon
@@ -223,7 +220,6 @@ def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
     return embed
 
 
-# ─── VUE : BOUTONS DE COMBAT (public, séquentiel) ───────────────────────────
 class TourView(discord.ui.View):
     ACTIONS = [
         ("⚔️ Attaquer",  "attaque",  discord.ButtonStyle.danger,    0),
@@ -302,7 +298,6 @@ class TourView(discord.ui.View):
             self.add_item(btn)
 
 
-# ─── VUE : HISTORIQUE DU COMBAT ───────────────────────────
 class NextTurnView(discord.ui.View):
     """Bouton 'Tour suivant' entre deux tours, cliquable par les deux duellistes."""
 
@@ -363,7 +358,6 @@ class HistoriqueView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# ─── VUE : ACCEPTER/REFUSER UN DUEL ───────────────────────────
 class DuelInviteView(discord.ui.View):
     def __init__(self, challenger_id, challenged_id):
         super().__init__(timeout=30)
@@ -392,7 +386,6 @@ class DuelInviteView(discord.ui.View):
         await interaction.response.defer()
 
 
-# ─── RÉSOLUTION D'UNE ACTION ───────────────────────────
 def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sabre, action):
     desc = ""
     if action == "attaque":
@@ -462,7 +455,6 @@ def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sab
     return desc
 
 
-# ─── FONCTION PRINCIPALE DE COMBAT ───────────────────────────
 async def lancer_combat(challenger_interaction, accept_interaction, joueur1, joueur2, sabre1_id, sabre2_id, db, nerf=False):
     channel = challenger_interaction.channel
 
@@ -480,7 +472,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
     stats1  = calculer_stats(profil1, sabre1)
     stats2  = calculer_stats(profil2, sabre2)
 
-    # ─── Jet de dé d'initiative (message dédié, suspense) ──────────
     nerf_label = " 〔MODE NERF〕" if nerf else ""
 
     dice_embed = discord.Embed(
@@ -519,7 +510,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
     await msg.edit(embed=dice_result)
     await asyncio.sleep(2.5)
 
-    # ─── Embed de debut de combat (meme message, on edite) ─────────────
     embed_debut = discord.Embed(
         title=f"⚔️ DUEL DE SABRES LASER{nerf_label}",
         description=(
@@ -550,7 +540,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
 
     while stats1["hp"] > 0 and stats2["hp"] > 0 and tour <= MAX_TOURS:
 
-        # ─── Mini-jeu ────────────────────────────────────────────────
         if tour == next_minigame:
             mini_desc     = await run_minigame(msg, joueur1, stats1, joueur2, stats2, tour)
             next_minigame = tour + random.randint(5, 8)
@@ -600,7 +589,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         except asyncio.TimeoutError:
             choix_state[joueur_p1.id] = "attaque"
 
-        # ─── Phase 2 : le second joue ────────────────────────────────
         event_p2 = asyncio.Event()
         view_p2  = TourView(joueur_p2, stats_p2, event_p2, choix_state, tour,
                             choix_interactions=choix_interactions)
@@ -616,7 +604,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         except asyncio.TimeoutError:
             choix_state[joueur_p2.id] = "attaque"
 
-        # ─── Zone defense (apres les deux phases, blind preserve) ────
         # Les deux actions sont deja lock, on peut maintenant reveler
         # "qui a pris defense speciale" sans donner d'avantage.
         # Ordre = initiative (joueur_p1 d'abord si flag).
@@ -628,7 +615,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         choix1 = choix_state.get(joueur1.id, "attaque")
         choix2 = choix_state.get(joueur2.id, "attaque")
 
-        # ─── Application des états réactifs ──────────────────────────
         desc_result = (
             f"**{joueur1.display_name}** → {labels_action[choix1]}\n"
             f"**{joueur2.display_name}** → {labels_action[choix2]}\n\n"
@@ -652,7 +638,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
 
         desc_result += "\n"
 
-        # ─── Zone d'attaque (uniquement si l'adversaire est en defense speciale) ──
         # On affiche le menu zone sur le msg principal pour l'attaquant.
         for (att, att_stats, _), (def_, def_stats, _) in [
             (ordre[0], ordre[1]),
@@ -662,7 +647,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             if att_choix in ("attaque", "coup_bas") and def_stats.get("defense_speciale_active"):
                 await _resolve_attack_zone_on_msg(msg, att, att_stats)
 
-        # ─── Résolution dans l'ordre d'initiative ────────────────────
         for (att, att_stats, att_sabre), (def_, def_stats, def_sabre) in [
             (ordre[0], ordre[1]),
             (ordre[1], ordre[0]),
@@ -715,7 +699,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             if stats.get("malus_attaque_tours", 0) > 0:
                 stats["malus_attaque_tours"] -= 1
 
-        # ─── Résultat ────────────────────────────────────────────────
         embed_result = discord.Embed(
             title=f"⚔️ Tour {tour} — Résultat",
             description=desc_result,
@@ -748,7 +731,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             pass  # avance auto après 2 min d'inactivité
         tour += 1
 
-    # ─── Fin du combat ───────────────────────────────────────────────
     if stats1["hp"] <= 0 and stats2["hp"] <= 0:
         gagnant, perdant = None, None
         desc_fin = "⚖️ **ÉGALITÉ !**"
@@ -796,7 +778,6 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
     await msg.edit(embed=embed_fin, view=HistoriqueView(historique))
 
 
-# ─── COMMANDES ───────────────────────────
 def _build_duel_info_embeds():
     overview = discord.Embed(
         title="Guide des duels TookBot",
@@ -1154,9 +1135,6 @@ def setup_duel_commands(bot, db):
         embed.description = description
         await interaction.response.send_message(embed=embed)
 
-    # =====================================================================
-    # /sabre — menu unifie : equipe / collection / boutique avec navigation
-    # =====================================================================
     RARETE_ORDER = ["C", "UC", "R", "SR", "SSR"]
 
     def _can_equip_seasonal(profil_data, sabre):

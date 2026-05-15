@@ -1916,10 +1916,6 @@ def set_premium_setting(user_id, key: str, value):
     conn.close()
 
 
-# =====================================================================
-# BATTLE PASS HELPERS
-# =====================================================================
-
 def _current_month_key(now=None):
     now = now or _dt.datetime.utcnow()
     return now.strftime("%Y-%m")
@@ -1962,7 +1958,6 @@ def _seasonal_bg_expiry(unlocked_at: _dt.datetime) -> str:
 
 _PASS_QUEST_TEMPLATES_DEFAULT = [
     # type, period, target, label, xp_reward
-    # ── DAILY (50 XP) ──
     ("send_messages", "daily",  10,  "Envoie 10 messages",                50),
     ("send_messages", "daily",  30,  "Envoie 30 messages",                50),
     ("send_messages", "daily",  50,  "Envoie 50 messages",                50),
@@ -1972,7 +1967,6 @@ _PASS_QUEST_TEMPLATES_DEFAULT = [
     ("earn_xp",       "daily",  250, "Gagne 250 XP message",              50),
     ("use_commands",  "daily",  3,   "Utilise 3 slash commands",          50),
     ("use_commands",  "daily",  8,   "Utilise 8 slash commands",          50),
-    # ── WEEKLY (250 XP) ──
     ("send_messages", "weekly", 200,  "Envoie 200 messages cette semaine", 250),
     ("send_messages", "weekly", 500,  "Envoie 500 messages cette semaine", 250),
     ("play_duels",    "weekly", 10,   "Joue 10 duels cette semaine",       250),
@@ -2164,7 +2158,6 @@ def get_or_create_current_season(name: str = None) -> dict:
     return dict(row)
 
 
-# ─── Mapping des 30 paliers (constant) ─────────────────────────────────────
 # Aucun TookCoin pour eviter le P2W (TookCoins servent aux duels/sabres).
 # Recompenses purement cosmetiques + boosts XP message (limites dans le temps).
 # Format : (tier, type, payload_dict, label)
@@ -2596,10 +2589,6 @@ def list_user_pass_unlocks(user_id, type_: str = None, include_expired=False) ->
     return out
 
 
-# =====================================================================
-# GUILD ROLES (cache)
-# =====================================================================
-
 def replace_guild_roles(guild_id, roles: list[dict]):
     conn = get_db()
     c = conn.cursor()
@@ -2633,10 +2622,6 @@ def list_roles(guild_id, exclude_everyone=True, exclude_managed=True) -> list[di
         out.append(d)
     return out
 
-
-# =====================================================================
-# REACTION ROLES HELPERS
-# =====================================================================
 
 def reaction_role_add(guild_id, message_id, channel_id, emoji: str,
                        role_id, mode: str = "toggle", group_key: str = None,
@@ -2728,10 +2713,6 @@ def reaction_role_list_unique_group(guild_id, message_id, group_key: str) -> lis
     conn.close()
     return [dict(r) for r in rows]
 
-
-# =====================================================================
-# TICKETS HELPERS
-# =====================================================================
 
 def ticket_panel_create(guild_id, channel_id, panel_title=None, panel_description=None,
                         button_label="Ouvrir un ticket", button_emoji="🎫",
@@ -2889,10 +2870,6 @@ def tickets_list(guild_id, status=None, limit=200) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-# =====================================================================
-# SOCIAL ALERTS HELPERS
-# =====================================================================
-
 def social_alert_create(guild_id, platform: str, target_id: str, channel_id,
                          target_label: str = None, message_template: str = None,
                          created_by=None) -> int:
@@ -2991,10 +2968,6 @@ def social_alerts_list(guild_id=None, enabled_only: bool = False) -> list[dict]:
     conn.close()
     return [dict(r) for r in rows]
 
-
-# ============================================================================
-# CS2 : helpers DB (profils lies, rank config, queue lobbies, cache)
-# ============================================================================
 
 def cs_profile_get(discord_id) -> Optional[dict]:
     conn = get_db()
@@ -3152,10 +3125,6 @@ def cs_cache_set(cache_key: str, data) -> None:
     conn.close()
 
 
-# ============================================================================
-# MODERATION : helpers actions + config
-# ============================================================================
-
 VALID_MOD_ACTIONS = {"warn", "kick", "ban", "unban", "timeout", "untimeout", "note"}
 
 
@@ -3282,10 +3251,6 @@ def mod_config_upsert(guild_id, *,
     conn.commit()
     conn.close()
 
-
-# ============================================================================
-# GIVEAWAYS : helpers
-# ============================================================================
 
 import json as _json_gw
 
@@ -3419,10 +3384,6 @@ def giveaways_pending_finalize(now_iso: str) -> list[dict]:
     conn.close()
     return [dict(r) for r in rows]
 
-
-# ============================================================================
-# CUSTOM COMMANDS : helpers
-# ============================================================================
 
 import re as _cc_re
 

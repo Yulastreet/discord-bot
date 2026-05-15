@@ -36,10 +36,6 @@ from database import (
 )
 
 
-# ============================================================================
-# Helpers presentation
-# ============================================================================
-
 CS2_MAP_POOL = ["Mirage", "Inferno", "Nuke", "Anubis", "Ancient", "Dust2", "Train"]
 
 WEAPON_POOL = {
@@ -153,10 +149,6 @@ def _info_embed(title: str, msg: str, color: int = 0x3498DB) -> discord.Embed:
     return discord.Embed(title=title, description=msg, color=color)
 
 
-# ============================================================================
-# /cs link
-# ============================================================================
-
 async def _build_steam_link(interaction: discord.Interaction, raw: str) -> Optional[str]:
     steam_id = await csapi.steam_resolve(raw)
     if not steam_id:
@@ -221,10 +213,6 @@ async def _build_faceit_link(interaction: discord.Interaction, nickname: str) ->
     )
     return pid
 
-
-# ============================================================================
-# Embeds /cs stats
-# ============================================================================
 
 async def _build_steam_stats_embed(member, steam_id: str) -> discord.Embed:
     summary = await csapi.steam_player_summary(steam_id)
@@ -408,10 +396,6 @@ async def _build_faceit_stats_embed(member, faceit_id: str, faceit_nick: str) ->
     return embed
 
 
-# ============================================================================
-# /cs price
-# ============================================================================
-
 def quote_plus_safe(s: str) -> str:
     from urllib.parse import quote_plus as _qp
     return _qp(s)
@@ -568,14 +552,12 @@ async def _build_price_embed_all_wears(arme: str, skin: str, stattrak: bool) -> 
     return embed
 
 
-# ─── Autocomplete pour /cs price arme ────────────────────────────────────────
 async def _arme_autocomplete(interaction: discord.Interaction, current: str):
     cur = (current or "").lower()
     matches = [w for w in PRICE_WEAPONS if cur in w.lower()][:25]
     return [app_commands.Choice(name=w, value=w) for w in matches]
 
 
-# ─── Autocomplete pour /cs price skin ────────────────────────────────────────
 async def _skin_autocomplete(interaction: discord.Interaction, current: str):
     # On lit l'arme deja saisie pour cibler la recherche
     try:
@@ -618,10 +600,6 @@ async def _skin_autocomplete(interaction: discord.Interaction, current: str):
         return [app_commands.Choice(name="(aucun skin trouvé)", value=cur or " ")]
     return [app_commands.Choice(name=s[:100], value=s[:100]) for s in skins[:25]]
 
-
-# ============================================================================
-# /cs inventory
-# ============================================================================
 
 # Type d'item ignores pour la valeur (ne sont pas marketable ou pas relevant pour le total)
 _IGNORE_TYPES = {"Conteneur de munitions", "Graffiti", "Pass-temps"}
@@ -791,10 +769,6 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     return embed
 
 
-# ============================================================================
-# /cs queue : voice channel temporaire 5 slots
-# ============================================================================
-
 async def _create_queue_lobby(interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:
     guild = interaction.guild
     if guild is None:
@@ -883,10 +857,6 @@ async def queue_cleanup_sweep(bot):
         except Exception as e:
             print(f"[cs2/queue/sweep] iter err: {type(e).__name__}")
 
-
-# ============================================================================
-# /cs map : ban/pick tour-par-tour selon membres voice channel
-# ============================================================================
 
 class MapBanView(discord.ui.View):
     def __init__(self, voters: list, maps: list[str], event: asyncio.Event):
@@ -1004,10 +974,6 @@ async def _run_map_ban(interaction: discord.Interaction):
         pass
 
 
-# ============================================================================
-# /cs loadout
-# ============================================================================
-
 def _build_loadout_embed() -> discord.Embed:
     loadout = {}
     for slot, weapons in WEAPON_POOL.items():
@@ -1030,10 +996,6 @@ def _build_loadout_embed() -> discord.Embed:
     embed.set_footer(text="Skins fictifs — purement aléatoire")
     return embed
 
-
-# ============================================================================
-# Rank role helper (appele depuis /cs setrank + admin toggle)
-# ============================================================================
 
 _TIER_TO_ROLE_FIELD = {
     "grey": "role_grey",
@@ -1076,10 +1038,6 @@ async def _apply_rank_role(member: discord.Member, elo: int) -> Optional[str]:
                 print(f"[cs2/rank] add_role err: {type(e).__name__}")
     return label
 
-
-# ============================================================================
-# Setup : groupe /cs et commandes
-# ============================================================================
 
 def setup_cs2_commands(bot: commands.Bot):
     cs_group = app_commands.Group(name="cs", description="Commandes Counter-Strike 2")
@@ -1386,10 +1344,6 @@ def setup_cs2_commands(bot: commands.Bot):
 
     bot.tree.add_command(cs_group)
 
-
-# ============================================================================
-# View interne : selection profil Steam/Faceit quand les 2 sont liés
-# ============================================================================
 
 class _StatsProfileSelectView(discord.ui.View):
     def __init__(self, target: discord.abc.User, prof: dict):

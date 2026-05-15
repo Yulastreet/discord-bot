@@ -31,9 +31,6 @@ from database import (
 )
 
 
-# ============================================================================
-# Duree parser
-# ============================================================================
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*(s|m|h|d|j)?\s*$", re.IGNORECASE)
 _UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "j": 86400}
 
@@ -63,10 +60,6 @@ def fmt_duration(sec: int) -> str:
     if s and not d and not h: parts.append(f"{s}s")
     return " ".join(parts) or f"{sec}s"
 
-
-# ============================================================================
-# View persistante
-# ============================================================================
 
 class GiveawayJoinView(discord.ui.View):
     def __init__(self):
@@ -126,10 +119,6 @@ class GiveawayJoinView(discord.ui.View):
             print(f"[giveaway/update count] {type(e).__name__}: {e}")
 
 
-# ============================================================================
-# Embed builder
-# ============================================================================
-
 def make_giveaway_embed(gw: dict, *, participants_count: int = 0,
                        finished: bool = False,
                        winners: Optional[list] = None) -> discord.Embed:
@@ -168,10 +157,6 @@ def make_giveaway_embed(gw: dict, *, participants_count: int = 0,
         embed.add_field(name="Hôte", value=f"<@{gw['created_by']}>", inline=True)
     return embed
 
-
-# ============================================================================
-# Finalize logic
-# ============================================================================
 
 async def _finalize_giveaway(bot: commands.Bot, gw: dict) -> Optional[list[str]]:
     """Tire les gagnants, edite le message, ping les winners. Retourne winner ids."""
@@ -226,10 +211,6 @@ async def giveaway_finalize_sweep(bot: commands.Bot):
             print(f"[giveaway/sweep] err: {type(e).__name__}: {e}")
 
 
-# ============================================================================
-# Reroll
-# ============================================================================
-
 async def reroll_giveaway(bot: commands.Bot, giveaway_id: int) -> Optional[list[str]]:
     gw = giveaway_get(giveaway_id)
     if not gw:
@@ -257,10 +238,6 @@ async def reroll_giveaway(bot: commands.Bot, giveaway_id: int) -> Optional[list[
         print(f"[giveaway/reroll] post err: {type(e).__name__}: {e}")
     return winners
 
-
-# ============================================================================
-# Slash commands
-# ============================================================================
 
 def setup_giveaway_commands(bot: commands.Bot):
     # Enregistre la view persistante pour survivre aux restarts
