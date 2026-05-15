@@ -36,54 +36,10 @@ def register_admin_routes(app, deps):
         return jsonify({"channels": rows})
 
     # =====================================================================
-    # DMs (global, cross-guild)
+    # Note : la feature "Messages privés" (lecture/envoi de DM via dashboard
+    # + stockage en base) a été retirée volontairement (raison vie privée).
+    # Les DM users -> bot ne sont plus enregistrés. Voir privacy.html §1.3.
     # =====================================================================
-
-    @app.route("/dms")
-    def dms_page():
-        return render_template("dms.html")
-
-    @app.route("/api/dms/conversations")
-    def api_dms_conversations():
-        return jsonify({
-            "conversations": list_dm_conversations(),
-            "unread": count_unread_dms(),
-        })
-
-    @app.route("/api/dms/conversation/<user_id>")
-    def api_dms_conversation(user_id):
-        msgs = get_dm_conversation(user_id, limit=500)
-        mark_dm_read(user_id)  # auto-marquer comme lu a la consultation
-        return jsonify({"messages": msgs})
-
-    @app.route("/api/dms/send", methods=["POST"])
-    def api_dms_send():
-        data = request.json or {}
-        user_id = (data.get("user_id") or "").strip()
-        content = (data.get("content") or "").strip()
-        if not user_id:
-            return jsonify({"error": "user_id requis"}), 400
-        if not content:
-            return jsonify({"error": "content vide"}), 400
-        if len(content) > 2000:
-            return jsonify({"error": "content trop long (max 2000 chars)"}), 400
-        # DM est global : pas de guild_id, on stocke '0'
-        cid = bot_command_enqueue("0", "dm_send", {
-            "user_id": user_id,
-            "content": content,
-        })
-        return jsonify({"success": True, "command_id": cid})
-
-    @app.route("/api/dms/mark-read/<user_id>", methods=["POST"])
-    def api_dms_mark_read(user_id):
-        mark_dm_read(user_id)
-        return jsonify({"success": True})
-
-    @app.route("/api/dms/conversation/<user_id>", methods=["DELETE"])
-    def api_dms_delete(user_id):
-        n = delete_dm_conversation(user_id)
-        return jsonify({"success": True, "deleted": n})
-
 
     @app.route("/api/bottalk/send", methods=["POST"])
     def api_bottalk_send():

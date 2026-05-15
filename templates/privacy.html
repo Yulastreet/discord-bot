@@ -47,10 +47,11 @@ ne nous est transmis ou stocké.
 
 <h3>1.3 Messages privés (DM)</h3>
 <p>
-Si tu envoies un message privé directement <strong>au bot</strong>, son contenu et
-ses pièces jointes sont stockés et consultables par l'administrateur du bot via
-le dashboard. Le bot <strong>ne peut pas</strong>, par conception Discord,
-accéder aux DM échangés entre deux utilisateurs.
+Les messages privés que tu envoies au bot <strong>ne sont pas stockés</strong>
+ni consultables depuis le dashboard. Le bot peut techniquement recevoir un DM
+(Discord lui livre le message), mais aucune copie n'est conservée et aucune
+interface ne permet à l'administrateur de les relire. Le bot ne peut pas non
+plus, par conception Discord, accéder aux DM échangés entre deux utilisateurs.
 </p>
 
 <h2>2. Finalités</h2>
@@ -79,7 +80,7 @@ ou du profilage.
   <li><strong>Logs d'évènements</strong> : 90 jours maximum, ou 5000 entrées par serveur (le plus restrictif).</li>
   <li><strong>XP / niveau</strong> : conservé tant que ton compte est actif sur un serveur où le bot est présent.</li>
   <li><strong>Profil duel</strong> (sabres, victoires) : conservé global, sans expiration.</li>
-  <li><strong>Messages privés au bot</strong> : conservés sans expiration ; l'administrateur peut les supprimer à tout moment via le dashboard.</li>
+  <li><strong>Messages privés au bot</strong> : non conservés (la fonctionnalité de lecture/envoi de DM via le dashboard a été retirée).</li>
 </ul>
 
 <h2>5. Tes droits (RGPD)</h2>

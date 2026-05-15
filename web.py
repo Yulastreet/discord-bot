@@ -36,9 +36,6 @@ from database import (
     get_all_settings, get_setting, set_setting, DEFAULT_SETTINGS,
     # Members (cache pour modération + picker)
     list_members,
-    # DMs (global)
-    list_dm_conversations, get_dm_conversation, mark_dm_read, count_unread_dms,
-    delete_dm_conversation,
     # Duels (global)
     admin_lister_duel_users, admin_get_full_duel_user, admin_update_duel_profil,
     admin_supprimer_sabre_collection,
