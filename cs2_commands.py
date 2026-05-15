@@ -621,26 +621,33 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
             color=0x95A5A6,
         )
 
-    # Aggregation : count par market_hash_name
+    # Aggregation : on compte TOUS les items CS2 (incl. cooldown non-marketable)
+    # mais on track separement le flag marketable pour la valorisation.
     counts: dict[str, int] = {}
+    marketable_counts: dict[str, int] = {}
+    nonmarket_counts:  dict[str, int] = {}
     for it in items:
-        if not it.get("marketable"):
-            continue
         if it.get("type") in _IGNORE_TYPES:
             continue
-        counts[it["name"]] = counts.get(it["name"], 0) + 1
+        nm = it["name"]
+        counts[nm] = counts.get(nm, 0) + 1
+        if it.get("marketable"):
+            marketable_counts[nm] = marketable_counts.get(nm, 0) + 1
+        else:
+            nonmarket_counts[nm] = nonmarket_counts.get(nm, 0) + 1
 
     if not counts:
         return _info_embed(
             f"📦 Inventaire CS2 · {member.display_name}",
-            "_Aucun objet marketable trouvé._",
+            "_Aucun objet CS2 trouvé dans l'inventaire._",
             color=0x95A5A6,
         )
 
     total_eur = 0.0
     valued    = []
     # Phase 1: Skinport (local dict via csgotrader cache, instantane).
-    # Phase 2: pour les items sans prix Skinport, on tente Steam Market HTTP.
+    # On valorise meme les items non-marketables (le prix marche existe quand
+    # meme, l'item est juste en cooldown).
     skinport_misses = []
     for name, qty in counts.items():
         sp = await csapi.skinport_lowest_price(name)
@@ -674,17 +681,23 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     for name, qty, eur, src in valued[:10]:
         sub = eur * qty
         tag = "🟧" if src == "skinport" else "🟦"
-        top_lines.append(f"{tag} `x{qty}` **{name}** — {sub:.2f}€ (`{eur:.2f}€/u`)")
+        cd_tag = " 🔒" if nonmarket_counts.get(name) else ""
+        top_lines.append(f"{tag} `x{qty}` **{name}**{cd_tag} — {sub:.2f}€ (`{eur:.2f}€/u`)")
 
     extra_note = ""
     if len(skinport_misses) > STEAM_LOOKUP_CAP:
         extra_note = f"_Valorisation partielle : {STEAM_LOOKUP_CAP} items uniques non-Skinport sur {len(skinport_misses)} cherchés sur Steam Market._\n"
 
+    total_items     = sum(counts.values())
+    total_market    = sum(marketable_counts.values())
+    total_nonmarket = sum(nonmarket_counts.values())
+
     embed = discord.Embed(
         title=f"📦 Inventaire CS2 · {member.display_name}",
         description=(
-            f"**Items marketables** : `{sum(counts.values())}`\n"
-            f"**Items uniques** : `{len(counts)}`\n"
+            f"**Items total** : `{total_items}` ({len(counts)} uniques)\n"
+            f"**Vendables maintenant** : `{total_market}`"
+            + (f" · **En cooldown** 🔒 `{total_nonmarket}`" if total_nonmarket else "") + "\n"
             f"**Items valorisés** : `{len(valued)}` "
             + (f"(~{not_priced} sans prix trouvé)" if not_priced else "") + "\n"
             f"**Valeur totale estimée** : **{total_eur:.2f} €**\n"
@@ -695,7 +708,7 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
     )
     if top_lines:
         embed.add_field(name="💎 Top 10 items", value="\n".join(top_lines), inline=False)
-    embed.set_footer(text="🟧 Skinport · 🟦 Steam Market · prix les plus bas")
+    embed.set_footer(text="🟧 Skinport · 🟦 Steam Market · 🔒 cooldown trade · prix les plus bas")
     return embed
 
 
