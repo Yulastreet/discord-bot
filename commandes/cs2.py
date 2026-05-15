@@ -1043,10 +1043,40 @@ def setup_cs2_commands(bot: commands.Bot):
 
     # ---------- /cs stats ----------
     @cs_group.command(name="stats", description="Affiche les stats CS2 d'un joueur (toi par défaut)")
-    @app_commands.describe(membre="Membre Discord à inspecter (optionnel)")
+    @app_commands.describe(
+        membre="Membre Discord à inspecter (optionnel)",
+        steamid="Ou un SteamID64 / URL Steam directement",
+    )
     async def cs_stats(interaction: discord.Interaction,
-                       membre: Optional[discord.Member] = None):
+                       membre: Optional[discord.Member] = None,
+                       steamid: Optional[str] = None):
         await interaction.response.defer()
+        if membre and steamid:
+            await interaction.followup.send(
+                embed=_err_embed("Param ambigu",
+                    "Choisis **soit** `membre`, **soit** `steamid`, pas les deux."),
+                ephemeral=True,
+            )
+            return
+        if steamid:
+            resolved = await csapi.steam_resolve(steamid)
+            if not resolved:
+                await interaction.followup.send(
+                    embed=_err_embed("ID Steam invalide ou introuvable",
+                        "Formats acceptés : URL `https://steamcommunity.com/id/<pseudo>/`, "
+                        "URL `/profiles/<id>`, pseudo seul, ou SteamID64 (17 chiffres)."),
+                    ephemeral=True,
+                )
+                return
+            summary = await csapi.steam_player_summary(resolved)
+            display_name = (summary or {}).get("personaname") or resolved
+            class _Stub:
+                pass
+            stub = _Stub()
+            stub.display_name = display_name
+            embed = await _build_steam_stats_embed(stub, resolved)
+            await interaction.followup.send(embed=embed)
+            return
         target = membre or interaction.user
         prof = cs_profile_get(target.id)
         if not prof:
