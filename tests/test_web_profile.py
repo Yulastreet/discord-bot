@@ -1,7 +1,7 @@
 import sqlite3
 import unittest
 
-from owner_settings_utils import update_seasonal_sabre_name
+from services.owner_settings_utils import update_seasonal_sabre_name
 from web_profile import build_user_profile_payload
 
 

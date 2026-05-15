@@ -5,9 +5,9 @@ from discord import app_commands
 import asyncio
 import random
 from database import get_historique, get_combat_xp_progress, get_xp_pour_prochain_niveau, get_user_cosmetic
-from duel_sabres import get_sabre, get_tous_les_sabres, RARETES
-from duel_combat import calculer_stats, calculer_degats, barre_hp
-from duel_minigames import run_minigame
+from duel.sabres import get_sabre, get_tous_les_sabres, RARETES
+from duel.combat import calculer_stats, calculer_degats, barre_hp
+from duel.minigames import run_minigame
 
 
 # ─── DEFENSE SPECIALE : IMAGES + ZONE SELECT ─────────────────────────────

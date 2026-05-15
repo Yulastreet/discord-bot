@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from status_utils import create_db_backup, db_info, read_backup_meta, youtube_diagnostics, best_firefox_cookie_profile
+from services.status_utils import create_db_backup, db_info, read_backup_meta, youtube_diagnostics, best_firefox_cookie_profile
 
 
 class StatusUtilsTests(unittest.TestCase):

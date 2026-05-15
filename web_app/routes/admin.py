@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
-from status_utils import create_db_backup, db_info, read_backup_meta, system_metrics, youtube_diagnostics, ROOT_DIR
+from services.status_utils import create_db_backup, db_info, read_backup_meta, system_metrics, youtube_diagnostics, ROOT_DIR
 
 def register_admin_routes(app, deps):
     globals().update(deps)

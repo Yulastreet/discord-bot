@@ -677,7 +677,7 @@ def seed_sabres_si_vide():
         conn.close()
         return
     try:
-        from duel_sabres import SABRES_DEFAULT
+        from duel.sabres import SABRES_DEFAULT
     except ImportError:
         conn.close()
         return

@@ -1,6 +1,6 @@
 import unittest
 
-from duel_commands import _build_duel_info_embeds
+from duel.commands import _build_duel_info_embeds
 
 
 class DuelInfoTests(unittest.TestCase):

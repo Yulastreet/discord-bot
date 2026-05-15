@@ -61,13 +61,13 @@ from database import (
     ticket_panels_list, ticket_panel_delete, ticket_panel_get,
     tickets_list, ticket_set_status,
 )
-import social_integrations as social
-from niveau_card import (
+from services import social
+from cards.niveau import (
     list_available_backgrounds, render_niveau_card,
     has_owner_custom_bg, save_owner_custom_bg, remove_owner_custom_bg,
     CARD_W as NIVEAU_CARD_W, CARD_H as NIVEAU_CARD_H,
 )
-from duel_sabres import RARETES
+from duel.sabres import RARETES
 
 # Init DB + seed
 init_db()

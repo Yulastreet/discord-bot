@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
-from owner_settings_utils import update_seasonal_sabre_name
+from services.owner_settings_utils import update_seasonal_sabre_name
 
 def register_premium_routes(app, deps):
     globals().update(deps)

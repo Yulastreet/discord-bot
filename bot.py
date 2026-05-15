@@ -81,7 +81,7 @@ def _ensure_opus():
         return True
     return _load_opus()
 
-from rank_card import generate_levelup_card, generate_rank_card
+from cards.rank import generate_levelup_card, generate_rank_card
 from database import (init_db, get_xp, set_xp, get_leaderboard,
                       get_all_reactions_index, set_reaction, remove_reaction, get_all_reactions,
                       get_welcome, set_welcome,
@@ -124,9 +124,9 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       ticket_create, ticket_get_by_channel,
                       ticket_get_open_by_user, ticket_set_claimed,
                       ticket_set_status, tickets_list)
-import social_integrations as social
+from services import social
 from commandes import setup_commands
-from duel_commands import setup_duel_commands
+from duel.commands import setup_duel_commands
 from commandes.cs2 import (setup_cs2_commands,
                            on_voice_state_update as cs2_on_voice,
                            queue_cleanup_sweep as cs2_queue_sweep)
@@ -134,11 +134,11 @@ from commandes.moderation_pro import setup_mod_commands
 from commandes.giveaway import (setup_giveaway_commands,
                                 giveaway_finalize_sweep as _gw_sweep)
 from commandes.custom_cmd import setup_custom_cmd_commands
-from niveau_card import render_niveau_card, render_levelup_card_premium, preload_backgrounds
+from cards.niveau import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
-from status_utils import best_firefox_cookie_profile
+from services.status_utils import best_firefox_cookie_profile
 from tasks.runtime import setup_runtime
-from welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
+from services.welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")

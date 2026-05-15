@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from database import get_welcome, set_welcome
-from welcome_utils import DEFAULT_WELCOME_MESSAGE
+from services.welcome_utils import DEFAULT_WELCOME_MESSAGE
 
 
 class _WelcomeMessageModal(discord.ui.Modal, title="Message de bienvenue"):

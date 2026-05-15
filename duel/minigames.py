@@ -2,7 +2,7 @@
 import discord
 import asyncio
 import random
-from duel_combat import barre_hp
+from duel.combat import barre_hp
 
 
 # ─── RÉCOMPENSES ─────────────────────────────────────────────────────────────

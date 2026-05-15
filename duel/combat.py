@@ -1,6 +1,6 @@
 # duel_combat.py
 import random
-from duel_sabres import get_sabre, RARETES
+from duel.sabres import get_sabre, RARETES
 
 def calculer_stats(profil, sabre_data):
     """Calcule les stats d'un joueur pour le combat."""

@@ -1,6 +1,6 @@
 import unittest
 
-from welcome_utils import build_welcome_send_kwargs, format_welcome_message
+from services.welcome_utils import build_welcome_send_kwargs, format_welcome_message
 
 
 class FakeGuild:
