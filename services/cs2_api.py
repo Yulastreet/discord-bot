@@ -515,7 +515,8 @@ async def csfloat_inspect(steam_id: str, assetid: str, inspect_tpl: str) -> Opti
             .replace("%owner_steamid%", str(steam_id))
             .replace("%assetid%", str(assetid)))
     api_key = os.getenv("CSFLOAT_API_KEY", "").strip()
-    url = f"https://api.csfloat.com/?url={quote_plus(link)}"
+    # CSFloat a deplace l'inspect endpoint : api.csfloat.com -> csfloat.com/api/v1/inspect
+    url = f"https://csfloat.com/api/v1/inspect?url={quote_plus(link)}"
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept": "application/json",
