@@ -639,9 +639,22 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
 
     total_eur = 0.0
     valued    = []
-    # Limite a 60 lookups pour respecter le rate-limit Steam Market
-    names = list(counts.keys())[:60]
-    for name in names:
+    # Phase 1: Skinport (local dict via csgotrader cache, instantane).
+    # Phase 2: pour les items sans prix Skinport, on tente Steam Market HTTP.
+    skinport_misses = []
+    for name, qty in counts.items():
+        sp = await csapi.skinport_lowest_price(name)
+        if sp and sp.get("price_eur"):
+            eur = float(sp["price_eur"])
+            total_eur += eur * qty
+            valued.append((name, qty, eur, "skinport"))
+        else:
+            skinport_misses.append(name)
+
+    # Phase 2 (capped pour eviter rate-limit Steam Market)
+    STEAM_LOOKUP_CAP = 80
+    steam_targets = skinport_misses[:STEAM_LOOKUP_CAP]
+    for name in steam_targets:
         ck = f"price:{name.lower()}"
         cached = cs_cache_get(ck, max_age_sec=900)
         price_data = cached or await csapi.steam_market_price(name, currency=3)
@@ -651,31 +664,38 @@ async def _build_inventory_embed(member: discord.abc.User, steam_id: str) -> dis
         qty = counts[name]
         if eur is not None:
             total_eur += eur * qty
-            valued.append((name, qty, eur))
-        # Tres petit sleep pour eviter rate-limit Steam Market (~2s par requete max conseille)
-        await asyncio.sleep(0.4)
+            valued.append((name, qty, eur, "steam"))
+        if not cached:
+            await asyncio.sleep(0.4)
 
-    # Top 8 items par valeur totale (qty * unit)
+    not_priced = len(counts) - len(valued)
     valued.sort(key=lambda r: -(r[2] * r[1]))
     top_lines = []
-    for name, qty, eur in valued[:8]:
+    for name, qty, eur, src in valued[:10]:
         sub = eur * qty
-        top_lines.append(f"`x{qty}` **{name}** — {sub:.2f}€ (`{eur:.2f}€/u`)")
+        tag = "🟧" if src == "skinport" else "🟦"
+        top_lines.append(f"{tag} `x{qty}` **{name}** — {sub:.2f}€ (`{eur:.2f}€/u`)")
+
+    extra_note = ""
+    if len(skinport_misses) > STEAM_LOOKUP_CAP:
+        extra_note = f"_Valorisation partielle : {STEAM_LOOKUP_CAP} items uniques non-Skinport sur {len(skinport_misses)} cherchés sur Steam Market._\n"
 
     embed = discord.Embed(
         title=f"📦 Inventaire CS2 · {member.display_name}",
         description=(
             f"**Items marketables** : `{sum(counts.values())}`\n"
             f"**Items uniques** : `{len(counts)}`\n"
+            f"**Items valorisés** : `{len(valued)}` "
+            + (f"(~{not_priced} sans prix trouvé)" if not_priced else "") + "\n"
             f"**Valeur totale estimée** : **{total_eur:.2f} €**\n"
-            + (f"_Limité aux 60 items uniques les plus présents._\n" if len(counts) > 60 else "")
+            + extra_note
         ),
         url=f"https://steamcommunity.com/profiles/{steam_id}/inventory/#730",
         color=0x9B59B6,
     )
     if top_lines:
-        embed.add_field(name="💎 Top items", value="\n".join(top_lines), inline=False)
-    embed.set_footer(text="Prix basés sur la dernière offre Steam Market (lowest_price)")
+        embed.add_field(name="💎 Top 10 items", value="\n".join(top_lines), inline=False)
+    embed.set_footer(text="🟧 Skinport · 🟦 Steam Market · prix les plus bas")
     return embed
 
 

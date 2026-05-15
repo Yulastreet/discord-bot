@@ -203,17 +203,16 @@ async def steam_owned_cs2(steam_id: str) -> Optional[dict]:
     return None
 
 
+_INV_PAGE_SIZE = 75       # Limite Steam (count > 75 = 400+null)
+_INV_MAX_PAGES = 30       # Hard cap = 30 * 75 = 2250 items max par lookup
+
+
 async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
-    """Inventaire CS2 public. Retourne :
+    """Inventaire CS2 public, pagine. Retourne :
       - None  : prive OU erreur (cf logs)
       - []    : public mais vide
-      - list  : items
-    Utilise une session aiohttp DEDIEE (cookies vides) pour eviter que
-    Steam blacklist notre fingerprint apres une serie de 400.
+      - list  : items (max 30 pages = 2250 items)
     """
-    # count=75 est la valeur par defaut utilisee par steamcommunity.com lui-meme ;
-    # demander count=5000 fait que Steam repond 400+null en blocage anti-scrape.
-    url = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=french&count=75"
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
         "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -221,64 +220,93 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
         "X-Requested-With": "XMLHttpRequest",
     }
     timeout = aiohttp.ClientTimeout(total=20, connect=10)
-    # Session fresh par appel : pas de cookies persistents qui poisonnent
-    async with aiohttp.ClientSession(timeout=timeout, headers=headers, cookie_jar=aiohttp.DummyCookieJar()) as s:
 
-        body        = None
-        last_status = None
-        last_body   = ""
-        try:
-            async with s.get(url) as resp:
-                last_status = resp.status
-                last_body   = await resp.text()
-                if resp.status == 200 and last_body.strip() not in ("", "null"):
-                    body = last_body
+    aggregated_items: list[dict] = []
+    desc_global: dict[str, dict] = {}
+    last_assetid: Optional[str] = None
+    pages_fetched = 0
+    saw_first_error = False
+
+    async with aiohttp.ClientSession(timeout=timeout, headers=headers,
+                                     cookie_jar=aiohttp.DummyCookieJar()) as s:
+        while pages_fetched < _INV_MAX_PAGES:
+            url = (f"https://steamcommunity.com/inventory/{steam_id}/730/2"
+                   f"?l=french&count={_INV_PAGE_SIZE}")
+            if last_assetid:
+                url += f"&start_assetid={last_assetid}"
+            body, last_status = None, None
+            last_body = ""
+            try:
+                async with s.get(url) as resp:
+                    last_status = resp.status
+                    last_body   = await resp.text()
+                    if resp.status == 200 and last_body.strip() not in ("", "null"):
+                        body = last_body
+            except Exception as e:
+                print(f"[cs2/steam] inv fetch exception p{pages_fetched+1}: {type(e).__name__}: {e}")
+
+            if body is None:
+                if pages_fetched == 0:
+                    # 1ere page echoue -> on classe selon le code
+                    if last_status == 400 and last_body.strip() in ("", "null"):
+                        print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
+                    elif last_status in (401, 403):
+                        print(f"[cs2/steam] inv private steam_id={steam_id} status={last_status}")
+                    elif last_status == 429:
+                        print(f"[cs2/steam] inv rate-limited steam_id={steam_id}")
+                    else:
+                        print(f"[cs2/steam] inv failed steam_id={steam_id} last_status={last_status}")
+                    return None
                 else:
-                    print(f"[cs2/steam] inv try {url} -> status={resp.status} body={last_body[:120]!r}")
-        except Exception as e:
-            print(f"[cs2/steam] inv fetch exception: {type(e).__name__}: {e}")
+                    # Page suivante echoue -> on retourne ce qu'on a deja
+                    print(f"[cs2/steam] inv pagination stopped after {pages_fetched} pages (status={last_status})")
+                    break
 
-        if body is None:
-            if last_status == 400 and last_body.strip() in ("", "null"):
-                print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
-            elif last_status in (401, 403):
-                print(f"[cs2/steam] inv private steam_id={steam_id} status={last_status}")
-            elif last_status == 429:
-                print(f"[cs2/steam] inv rate-limited steam_id={steam_id}")
-            else:
-                print(f"[cs2/steam] inv failed steam_id={steam_id} last_status={last_status}")
-            return None
+            import json as _json
+            try:
+                data = _json.loads(body)
+            except Exception:
+                if pages_fetched == 0:
+                    return None
+                break
+            if not data:
+                break
+            if data.get("error"):
+                print(f"[cs2/steam] inv error msg steam_id={steam_id} error={data.get('error')!r}")
+                if pages_fetched == 0:
+                    return None
+                break
 
-    import json as _json
-    try:
-        data = _json.loads(body)
-    except Exception as e:
-        print(f"[cs2/steam] inv json parse err steam_id={steam_id}: {type(e).__name__}")
-        return None
-    if not data:
-        return None
-    if data.get("error"):
-        print(f"[cs2/steam] inv error msg steam_id={steam_id} error={data.get('error')!r}")
-        return None
-    assets    = data.get("assets") or []
-    desc_list = data.get("descriptions") or []
-    if not assets and not desc_list:
+            assets    = data.get("assets") or []
+            desc_list = data.get("descriptions") or []
+            for d in desc_list:
+                key = f"{d['classid']}_{d['instanceid']}"
+                desc_global[key] = d
+            for a in assets:
+                key = f"{a['classid']}_{a['instanceid']}"
+                d = desc_global.get(key, {})
+                aggregated_items.append({
+                    "name":       d.get("market_hash_name") or d.get("name") or "?",
+                    "icon":       d.get("icon_url"),
+                    "tradable":   bool(d.get("tradable", 0)),
+                    "marketable": bool(d.get("marketable", 0)),
+                    "rarity":     next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Rarity"), None),
+                    "type":       next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Type"), None),
+                })
+
+            pages_fetched += 1
+            more = data.get("more_items")
+            last_assetid_new = data.get("last_assetid")
+            if not more or not last_assetid_new or last_assetid_new == last_assetid:
+                break
+            last_assetid = str(last_assetid_new)
+            # Petit delai entre pages pour ne pas trigger Steam rate-limit
+            await asyncio.sleep(0.5)
+
+    if not aggregated_items and not desc_global:
         return []
-    desc = {f"{d['classid']}_{d['instanceid']}": d for d in desc_list}
-    items = []
-    for a in assets:
-        key = f"{a['classid']}_{a['instanceid']}"
-        d = desc.get(key, {})
-        items.append({
-            "name": d.get("market_hash_name") or d.get("name") or "?",
-            "icon": d.get("icon_url"),
-            "tradable":   bool(d.get("tradable", 0)),
-            "marketable": bool(d.get("marketable", 0)),
-            "rarity": next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Rarity"), None),
-            "type":   next((t.get("name") for t in d.get("tags", []) if t.get("category") == "Type"), None),
-        })
-    print(f"[cs2/steam] inv ok steam_id={steam_id} assets={len(assets)} items={len(items)}")
-    return items
+    print(f"[cs2/steam] inv ok steam_id={steam_id} pages={pages_fetched} items={len(aggregated_items)}")
+    return aggregated_items
 
 
 # --------------------------------------------------------------------------
