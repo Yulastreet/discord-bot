@@ -1604,49 +1604,92 @@
     to { transform: rotate(360deg); }
   }
 
+  /* ----- Mobile nav drawer (always present, visibility via @media) ----- */
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid rgba(8, 9, 12, .12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .85);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease;
+  }
+  html[data-theme="dark"] .nav-toggle {
+    background: rgba(16, 26, 13, .85);
+    border-color: rgba(255, 255, 255, .14);
+  }
+  .nav-toggle:hover,
+  .nav-toggle:focus-visible {
+    background: var(--green);
+    color: var(--green-deep);
+    border-color: transparent;
+  }
+  .nav-toggle-bar {
+    display: block;
+    width: 20px;
+    height: 2px;
+    margin: 0 auto;
+    background: currentColor;
+    border-radius: 2px;
+    transition: transform .25s ease, opacity .2s ease;
+  }
+  body.nav-open .nav-toggle .nav-toggle-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  body.nav-open .nav-toggle .nav-toggle-bar:nth-child(2) { opacity: 0; }
+  body.nav-open .nav-toggle .nav-toggle-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  .nav-drawer {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 16px 0;
+    padding: 14px;
+    border: 1px solid rgba(8, 9, 12, .08);
+    border-radius: 22px;
+    background: var(--paper);
+    box-shadow: var(--shadow-soft);
+  }
+  html[data-theme="dark"] .nav-drawer {
+    border-color: rgba(255, 255, 255, .10);
+    background: var(--paper);
+  }
+  .nav-drawer a {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 14px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .nav-drawer a:hover,
+  .nav-drawer a:focus-visible {
+    background: var(--soft-2);
+  }
+  .nav-drawer .nav-drawer-cta {
+    justify-content: center;
+    margin-top: 4px;
+    background: var(--green);
+    color: var(--green-deep);
+    font-weight: 700;
+  }
+  .nav-drawer .nav-drawer-cta:hover {
+    background: var(--green-2);
+  }
+  body.nav-open .nav-drawer { display: flex; }
+  body.nav-open { overflow: hidden; }
+
   @media (max-width: 940px) {
-    .nav {
-      align-items: center;
-    }
-
-    .nav-links {
-      display: none;
-    }
-
-    .nav-actions {
-      margin-left: auto;
-    }
-
-    .hero {
-      min-height: auto;
-      padding-top: 14px;
-    }
-
-    .hero-card {
-      min-height: 720px;
-    }
-
-    .bot-orb {
-      right: 22px;
-      top: 118px;
-      opacity: .76;
-    }
-
-    .usage {
-      left: 22px;
-      right: 22px;
-      bottom: 28px;
-    }
-
-    .command-pill {
-      left: 22px;
-      top: 92px;
-    }
-
-    .hero-copy {
-      right: 22px;
-      bottom: 232px;
-    }
+    .nav { align-items: center; }
+    .nav-links { display: none; }
+    .nav-actions { margin-left: auto; gap: 8px; }
+    .nav-toggle { display: inline-flex; }
 
     .stats-strip,
     .feature-grid,
@@ -1663,30 +1706,116 @@
       min-height: 280px;
     }
 
-    .feature.is-primary {
-      grid-template-columns: 1fr;
-    }
-
-    .wide-panel {
-      min-height: 0;
-    }
-
-    .horizontal-scroll {
-      height: 160vh;
-    }
+    .feature.is-primary { grid-template-columns: 1fr; }
+    .wide-panel { min-height: 0; }
 
     .bot-screen {
       flex-basis: 84vw;
       height: 560px;
     }
 
-    .xp-banner {
-      grid-template-columns: 1fr;
-    }
+    .xp-banner { grid-template-columns: 1fr; }
 
     .rank-avatar {
       width: 138px;
       height: 138px;
+    }
+  }
+
+  /* ----- Hero reflow : passe en flow vertical, plus de positionnement absolu ----- */
+  @media (max-width: 760px) {
+    .hero {
+      min-height: auto;
+      padding-top: 12px;
+    }
+    .hero-card {
+      min-height: 0;
+      padding: 26px 22px 28px;
+      border-radius: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      overflow: hidden;
+    }
+    .hero-card::before { display: none; }
+
+    .hero-top {
+      position: static;
+      align-items: center;
+      gap: 12px;
+    }
+    .hero-menu { display: none; }
+
+    .command-pill {
+      position: static;
+      align-self: flex-start;
+      min-width: 0;
+    }
+
+    .bot-orb {
+      position: static;
+      align-self: center;
+      width: clamp(160px, 48vw, 220px);
+      margin-top: 4px;
+      opacity: .92;
+      flex-shrink: 0;
+    }
+
+    .hero-copy {
+      position: static;
+      max-width: none;
+    }
+    .hero-copy h1 {
+      font-size: clamp(34px, 9vw, 52px);
+      line-height: 1;
+    }
+    .hero-copy p {
+      margin-top: 14px;
+      font-size: 16px;
+    }
+    .hero-actions {
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 20px;
+      gap: 10px;
+    }
+    .hero-actions .btn {
+      width: 100%;
+      justify-content: center;
+      min-height: 48px;
+    }
+
+    .usage {
+      position: static;
+      width: 100%;
+      padding: 18px;
+    }
+    .bars span { height: 22px; }
+
+    /* Le scroll-jacking 160vh est trop sur petit ecran : devient un swipe natif horizontal */
+    .horizontal-scroll {
+      height: auto;
+      padding-block: 32px;
+    }
+    .horizontal-scroll .horizontal-track,
+    .horizontal-scroll .horizontal-track-alt {
+      position: static;
+      transform: none !important;
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      padding-inline: 16px;
+      gap: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .horizontal-scroll .horizontal-track::-webkit-scrollbar,
+    .horizontal-scroll .horizontal-track-alt::-webkit-scrollbar { display: none; }
+    .horizontal-scroll .bot-screen {
+      flex: 0 0 86vw;
+      scroll-snap-align: center;
+      height: auto;
+      min-height: 420px;
     }
   }
 
@@ -1705,111 +1834,55 @@
       width: calc(100% - 28px);
     }
 
-    .hero-top {
-      align-items: flex-start;
-    }
-
-    .hero-menu a:nth-child(n+3) {
-      display: none;
-    }
-
-    .hero-card {
-      min-height: 760px;
-      border-radius: 28px;
-    }
-
-    h1 {
-      font-size: clamp(44px, 14vw, 68px);
-    }
-
-    .hero-copy {
-      bottom: 238px;
-    }
-
-    .hero-actions {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
+    /* Garde le texte "Inviter" lisible : ne plus reduire en icone seule */
     .nav-actions .btn-primary {
-      min-width: 46px;
-      width: 46px;
-      padding: 0;
-      font-size: 0;
+      padding: 0 14px;
+      min-height: 44px;
+      font-size: 13px;
     }
+    .nav-actions .btn-primary .icon { margin-left: 6px; }
 
-    .nav-actions .btn-primary .icon {
-      margin: 0;
-    }
+    .stats-strip { margin-top: 14px; }
+    .stat { min-height: 100px; }
+    .feature { min-height: 240px; }
+    .dashboard-visual { min-height: 380px; }
 
-    .stats-strip {
-      margin-top: 14px;
-    }
+    .profile-card { left: 18px; right: 18px; top: 18px; }
+    .xp-card { left: 18px; right: 18px; bottom: 18px; }
 
-    .stat {
-      min-height: 100px;
-    }
+    .price-content { padding: 26px 20px; }
 
-    .feature {
-      min-height: 240px;
-    }
+    .command-showcase { padding-top: 60px; }
 
-    .dashboard-visual {
-      min-height: 380px;
-    }
+    .horizontal-track { gap: 16px; }
 
-    .profile-card {
-      left: 18px;
-      right: 18px;
-      top: 18px;
-    }
-
-    .xp-card {
-      left: 18px;
-      right: 18px;
-      bottom: 18px;
-    }
-
-    .price-content {
-      padding: 26px 20px;
-    }
-
-    .command-showcase {
-      padding-top: 60px;
-    }
-
-    .horizontal-track {
-      gap: 16px;
-    }
-
-    .bot-screen,
-    .bot-screen.compact,
-    .bot-screen.wide {
-      flex-basis: 88vw;
-      height: 620px;
-      border-radius: 26px;
-    }
-
-    .command-columns {
-      grid-template-columns: 1fr;
-    }
+    .command-columns { grid-template-columns: 1fr; }
 
     .profile-tabs {
       gap: 12px;
       flex-wrap: wrap;
     }
-
     .rank-title {
       align-items: flex-start;
       flex-direction: column;
     }
-
     .rank-metrics,
     .duel-stats {
       grid-template-columns: 1fr;
       flex-direction: column;
       gap: 14px;
     }
+  }
+
+  /* Tres petits ecrans : 360 et moins (galaxy fold, vieux iphones) */
+  @media (max-width: 380px) {
+    .nav-actions .btn-primary {
+      padding: 0 10px;
+      font-size: 12px;
+    }
+    .nav-actions .btn-primary .icon { display: none; }
+    .hero-card { padding: 22px 18px 24px; }
+    .hero-copy h1 { font-size: clamp(30px, 10vw, 40px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1838,6 +1911,11 @@
       </nav>
 
       <div class="nav-actions">
+        <button class="nav-toggle" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-drawer">
+          <span class="nav-toggle-bar" aria-hidden="true"></span>
+          <span class="nav-toggle-bar" aria-hidden="true"></span>
+          <span class="nav-toggle-bar" aria-hidden="true"></span>
+        </button>
         <button class="btn btn-secondary theme-toggle" type="button" aria-label="Activer le mode sombre" aria-pressed="false">
           <svg class="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.4-6.4 1.4-1.4M4.2 19.8l1.4-1.4m0-12.8L4.2 4.2m15.6 15.6-1.4-1.4" stroke="currentColor" stroke-linecap="round"/>
@@ -1856,6 +1934,14 @@
         </a>
       </div>
     </header>
+
+    <div id="nav-drawer" class="nav-drawer" hidden>
+      <a href="#features">Features</a>
+      <a href="#dashboard">Dashboard preview</a>
+      <a href="https://dashboard.tookbot.click/dashboard">Dashboard web</a>
+      <a href="https://dashboard.tookbot.click/privacy">Privacy</a>
+      <a class="nav-drawer-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter sur Discord</a>
+    </div>
 
     <main>
       <section class="hero" aria-labelledby="hero-title">
@@ -2224,6 +2310,36 @@
     localStorage.setItem('tookbot-theme', nextTheme);
     syncThemeButton();
   });
+
+  // ----- Mobile nav drawer
+  (function () {
+    const toggle = document.querySelector('.nav-toggle');
+    const drawer = document.getElementById('nav-drawer');
+    if (!toggle || !drawer) return;
+
+    function setOpen(open) {
+      document.body.classList.toggle('nav-open', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+      drawer.hidden = !open;
+    }
+
+    toggle.addEventListener('click', () => {
+      setOpen(!document.body.classList.contains('nav-open'));
+    });
+
+    drawer.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') setOpen(false);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('nav-open')) setOpen(false);
+    });
+
+    // Sortie automatique du mode mobile si on agrandit la fenetre
+    const mq = window.matchMedia('(min-width: 941px)');
+    mq.addEventListener('change', (e) => { if (e.matches) setOpen(false); });
+  })();
 
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
