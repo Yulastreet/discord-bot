@@ -17,17 +17,22 @@
 </section>
 
 <section class="card mb-6" id="guildSettingsCard">
-  <div class="card-row">
-    <div>
+  <div class="card-row" style="align-items:flex-start;gap:var(--s-5);flex-wrap:wrap;">
+    <div style="flex:1;min-width:260px;">
       <h2 style="margin:0;">Système d'XP</h2>
       <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">
         Active ou désactive le gain d'XP sur ce serveur. Les niveaux acquis restent conservés.
       </p>
     </div>
-    <label class="switch" title="Toggle XP">
-      <input type="checkbox" id="xpEnabledToggle">
-      <span class="slider"></span>
-    </label>
+    <div class="row gap-2" style="align-items:center;">
+      <select id="xpEnabledSelect" style="min-width:180px;">
+        <option value="1">⭐ Activé</option>
+        <option value="0">⏸ Désactivé</option>
+      </select>
+      <button class="btn btn-primary btn-sm" id="xpEnabledSave" type="button" disabled>
+        <svg class="ic"><use href="#i-check"/></svg> Sauvegarder
+      </button>
+    </div>
   </div>
 </section>
 
@@ -244,27 +249,41 @@
     update();
   })();
 
-  // ----- XP toggle (per-guild) -----
+  // ----- XP setting (per-guild, dropdown + save) -----
   (function() {
-    const toggle = document.getElementById('xpEnabledToggle');
-    if (!toggle) return;
+    const select = document.getElementById('xpEnabledSelect');
+    const btn    = document.getElementById('xpEnabledSave');
+    if (!select || !btn) return;
+    let saved = "1";
+
+    function refreshDirty() {
+      btn.disabled = (select.value === saved);
+    }
+
     fetch('/api/guild-settings').then(r => r.json()).then(data => {
-      const enabled = (data.settings || {}).xp_enabled !== "0";
-      toggle.checked = enabled;
+      saved = (data.settings || {}).xp_enabled === "0" ? "0" : "1";
+      select.value = saved;
+      refreshDirty();
     }).catch(() => {});
 
-    toggle.addEventListener('change', () => {
-      const val = toggle.checked ? "1" : "0";
+    select.addEventListener('change', refreshDirty);
+
+    btn.addEventListener('click', () => {
+      const val = select.value;
+      btn.disabled = true;
+      btn.textContent = "Sauvegarde...";
       fetch('/api/guild-settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({xp_enabled: val}),
-      }).then(r => r.json()).then(res => {
-        if (window.toast) {
-          window.toast(toggle.checked ? "XP activé sur ce serveur" : "XP désactivé sur ce serveur");
-        }
+      }).then(r => r.json()).then(() => {
+        saved = val;
+        btn.innerHTML = '<svg class="ic"><use href="#i-check"/></svg> Sauvegarder';
+        refreshDirty();
+        if (window.toast) window.toast(val === "1" ? "XP activé sur ce serveur" : "XP désactivé sur ce serveur");
       }).catch(() => {
-        toggle.checked = !toggle.checked;
+        btn.innerHTML = '<svg class="ic"><use href="#i-check"/></svg> Sauvegarder';
+        btn.disabled = false;
         if (window.toast) window.toast("Erreur lors de la sauvegarde", 3000);
       });
     });
