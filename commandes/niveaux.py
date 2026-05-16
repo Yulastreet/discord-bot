@@ -76,3 +76,60 @@ def setup_niveau_commands(bot, deps):
             description += f"{medal} {name} — **{row['xp']} XP** (Niveau {row['level']})\n"
         embed.description = description
         await interaction.followup.send(embed=embed)
+
+    xp_group = app_commands.Group(name="xp", description="Admin : activer / desactiver le systeme d'XP du serveur")
+
+    @xp_group.command(name="on", description="Reactive le gain d'XP sur ce serveur")
+    @app_commands.default_permissions(manage_guild=True)
+    async def xp_on(interaction: discord.Interaction):
+        if not interaction.guild:
+            await interaction.response.send_message("Pas dispo en DM.", ephemeral=True)
+            return
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message(
+                "❌ Permission requise : **Gérer le serveur**.", ephemeral=True)
+            return
+        guild_setting_set(interaction.guild.id, "xp_enabled", "1")
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title="⭐ XP réactivé",
+                description="Les membres gagneront à nouveau de l'XP en envoyant des messages.",
+                color=0x2ECC71),
+            ephemeral=True,
+        )
+
+    @xp_group.command(name="off", description="Desactive le gain d'XP sur ce serveur")
+    @app_commands.default_permissions(manage_guild=True)
+    async def xp_off(interaction: discord.Interaction):
+        if not interaction.guild:
+            await interaction.response.send_message("Pas dispo en DM.", ephemeral=True)
+            return
+        if not interaction.user.guild_permissions.manage_guild:
+            await interaction.response.send_message(
+                "❌ Permission requise : **Gérer le serveur**.", ephemeral=True)
+            return
+        guild_setting_set(interaction.guild.id, "xp_enabled", "0")
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title="⏸️ XP désactivé",
+                description="Plus de gain d'XP sur ce serveur. Les niveaux actuels sont conservés.\n"
+                            "Réactive avec `/xp on`.",
+                color=0xE67E22),
+            ephemeral=True,
+        )
+
+    @xp_group.command(name="status", description="Voir si l'XP est actif sur ce serveur")
+    async def xp_status(interaction: discord.Interaction):
+        if not interaction.guild:
+            await interaction.response.send_message("Pas dispo en DM.", ephemeral=True)
+            return
+        enabled = guild_setting_get(interaction.guild.id, "xp_enabled", "1") == "1"
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title="⭐ État XP",
+                description=f"L'XP est **{'activé' if enabled else 'désactivé'}** sur **{interaction.guild.name}**.",
+                color=0x2ECC71 if enabled else 0xE67E22),
+            ephemeral=True,
+        )
+
+    bot.tree.add_command(xp_group)

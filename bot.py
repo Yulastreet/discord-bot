@@ -97,6 +97,7 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       add_log, replace_guild_channels, upsert_channel, remove_channel,
                       prune_logs_global,
                       get_setting, get_all_settings,
+                      guild_setting_get, guild_setting_set,
                       replace_guild_members, upsert_member, remove_member,
                       upsert_entitlement, mark_entitlement_deleted,
                       user_has_active_entitlement, get_premium_settings,
@@ -513,3 +514,5 @@ async def _before_gw_finalize():
 # 'no current event loop' au chargement du module (avant bot.run).
 setup_runtime(bot, globals())
 bot.run(TOKEN)
+
+

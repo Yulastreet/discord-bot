@@ -128,6 +128,14 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_settings (
+        guild_id   TEXT NOT NULL,
+        key        TEXT NOT NULL,
+        value      TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, key)
+    )''')
+
     # ===== Table guild_members (cache members par serveur) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
         guild_id    TEXT NOT NULL,
@@ -1425,6 +1433,43 @@ def get_all_settings():
     db = {r["key"]: r["value"] for r in c.fetchall()}
     conn.close()
     out = dict(DEFAULT_SETTINGS)
+    out.update(db)
+    return out
+
+
+GUILD_DEFAULT_SETTINGS = {
+    "xp_enabled": "1",
+}
+
+def guild_setting_get(guild_id, key, default=None):
+    if default is None:
+        default = GUILD_DEFAULT_SETTINGS.get(key)
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT value FROM guild_settings WHERE guild_id = ? AND key = ?",
+              (str(guild_id), key))
+    row = c.fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+def guild_setting_set(guild_id, key, value):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO guild_settings (guild_id, key, value, updated_at)
+                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(guild_id, key) DO UPDATE SET
+                   value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
+              (str(guild_id), key, str(value)))
+    conn.commit()
+    conn.close()
+
+def guild_settings_all(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT key, value FROM guild_settings WHERE guild_id = ?", (str(guild_id),))
+    db = {r["key"]: r["value"] for r in c.fetchall()}
+    conn.close()
+    out = dict(GUILD_DEFAULT_SETTINGS)
     out.update(db)
     return out
 

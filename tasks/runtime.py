@@ -801,8 +801,8 @@ def setup_runtime(bot, deps):
             except discord.HTTPException as e:
                 print(f"❌ Erreur réaction : {e}")
 
-        # XP per-guild
-        if not message.author.bot:
+        # XP per-guild (skip si admin du serveur a desactive via /xp off ou dashboard)
+        if not message.author.bot and guild_setting_get(guild_id_str, "xp_enabled", "1") == "1":
             xp = get_xp(guild_id_str, message.author.id)
             old_level = get_level(xp)
             try:

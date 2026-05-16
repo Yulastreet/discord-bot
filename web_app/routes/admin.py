@@ -88,6 +88,23 @@ def register_admin_routes(app, deps):
                 updated.append(k)
         return jsonify({"success": True, "updated": updated})
 
+    @app.route("/api/guild-settings", methods=["GET"])
+    def api_guild_settings_get():
+        g_id = gid()
+        return jsonify({"settings": guild_settings_all(g_id)})
+
+    @app.route("/api/guild-settings", methods=["POST"])
+    def api_guild_settings_set():
+        g_id = gid()
+        data = request.json or {}
+        allowed = {"xp_enabled"}
+        updated = []
+        for k, v in data.items():
+            if k in allowed:
+                guild_setting_set(g_id, k, "1" if str(v) in ("1", "true", "True", "on") else "0")
+                updated.append(k)
+        return jsonify({"success": True, "updated": updated})
+
 
     @app.route("/moderation")
     def moderation_page():
