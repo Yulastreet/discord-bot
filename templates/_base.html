@@ -180,12 +180,12 @@
     /* ============ Custom cursor (triangle isocele noir + bord lime) ============ */
     @media (pointer: fine) {
       html, body {
-        cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 2 L18 11 L11 13 L13 20 L10 21 L8 14 L2 18 Z' fill='%230a0d08' stroke='%23b9ff24' stroke-width='1.5' stroke-linejoin='round'/></svg>") 2 2, auto;
+        cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 2 L19 13 L13 19 Z' fill='%230a0d08' stroke='%23b9ff24' stroke-width='1.8' stroke-linejoin='round'/></svg>") 2 2, auto;
       }
       a, button, [role="button"], .nav-item, .btn, label.switch, summary, select,
       input[type="checkbox"], input[type="radio"],
       .hm-cell[data-count]:not([data-count="0"]) {
-        cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 22 22'><path d='M2 2 L18 11 L11 13 L13 20 L10 21 L8 14 L2 18 Z' fill='%230a0d08' stroke='%23caff37' stroke-width='1.8' stroke-linejoin='round'/></svg>") 2 2, pointer;
+        cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 22 22'><path d='M2 2 L19 13 L13 19 Z' fill='%230a0d08' stroke='%23caff37' stroke-width='2.2' stroke-linejoin='round'/></svg>") 2 2, pointer;
       }
       input[type="text"], input[type="number"], input[type="search"], input[type="email"],
       input[type="password"], input[type="datetime-local"], textarea {
@@ -199,15 +199,15 @@
     .cursor-glow {
       position: fixed;
       top: 0; left: 0;
-      width: 28px; height: 28px;
+      width: 44px; height: 44px;
       border-radius: 50%;
       pointer-events: none;
       z-index: 9998;
       transform: translate3d(-50%, -50%, 0);
-      background: radial-gradient(circle, rgba(185,255,36,0.42) 0%, rgba(185,255,36,0.18) 40%, transparent 70%);
-      filter: blur(2px);
+      background: radial-gradient(circle, rgba(185,255,36,0.48) 0%, rgba(185,255,36,0.22) 45%, transparent 72%);
+      filter: blur(3px);
       mix-blend-mode: screen;
-      transition: opacity 200ms ease;
+      transition: opacity 180ms ease;
     }
     .cursor-glow.hidden { opacity: 0; }
 
@@ -753,8 +753,16 @@
     }
     let pIdx = 0;
 
+    // Hotspot du SVG curseur a (2,2). Centre du triangle ~ (10,10) en local.
+    // -> offset depuis mouse pour centrer le glow autour du curseur :
+    const CURSOR_CENTER_DX = 9;
+    const CURSOR_CENTER_DY = 9;
+    // L'arriere du triangle est vers (15,15) en local -> offset back :
+    const CURSOR_BACK_DX = 14;
+    const CURSOR_BACK_DY = 14;
+
     let mx = -100, my = -100;
-    let gx = -100, gy = -100;  // glow lerp
+    let pmx = -100, pmy = -100;  // previous mouse pos pour mesurer la vitesse
     let lastSpawn = 0;
 
     document.addEventListener('mousemove', e => {
@@ -770,9 +778,10 @@
       pIdx = (pIdx + 1) % POOL_SIZE;
       p.x = x;
       p.y = y;
-      p.vx = (Math.random() - 0.5) * 1.2;
-      p.vy = (Math.random() - 0.3) * 1.2;  // slight upward bias
-      p.max = 600 + Math.random() * 400;   // ms lifetime
+      // Vitesse legere vers l'arriere (down-right) pour effet trail
+      p.vx = 0.4 + (Math.random() - 0.4) * 0.8;
+      p.vy = 0.4 + (Math.random() - 0.4) * 0.8;
+      p.max = 600 + Math.random() * 400;
       p.life = p.max;
     }
 
@@ -781,16 +790,18 @@
       const dt = Math.min(48, now - last);
       last = now;
 
-      // Glow follows with lerp (smooth)
-      gx += (mx - gx) * 0.28;
-      gy += (my - gy) * 0.28;
-      glow.style.transform = `translate3d(${gx}px, ${gy}px, 0) translate(-50%, -50%)`;
+      // Glow colle au curseur, centre sur le triangle (no lerp, halo uniforme)
+      glow.style.transform = `translate3d(${mx + CURSOR_CENTER_DX}px, ${my + CURSOR_CENTER_DY}px, 0) translate(-50%, -50%)`;
 
-      // Spawn particles at speed > seuil
-      const dx = mx - gx, dy = my - gy;
+      // Mesure vitesse mouse pour spawn
+      const dx = mx - pmx, dy = my - pmy;
       const speed = Math.hypot(dx, dy);
-      if (speed > 1.4 && now - lastSpawn > 28) {
-        spawnParticle(mx + (Math.random() - 0.5) * 4, my + (Math.random() - 0.5) * 4);
+      pmx = mx; pmy = my;
+      if (speed > 1.2 && now - lastSpawn > 26) {
+        spawnParticle(
+          mx + CURSOR_BACK_DX + (Math.random() - 0.5) * 4,
+          my + CURSOR_BACK_DY + (Math.random() - 0.5) * 4,
+        );
         lastSpawn = now;
       }
 
@@ -803,7 +814,7 @@
         p.life -= dt;
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.04;   // soft gravity
+        p.vy += 0.03;   // soft gravity (vers le bas)
         const t = Math.max(0, p.life / p.max);
         const scale = 0.4 + t * 0.9;
         p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${scale})`;
