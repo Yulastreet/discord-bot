@@ -74,7 +74,10 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Em
                 platform=platform, summoner_id=summ_id, summoner_level=level,
             )
 
-    entries = await riot.league_entries_by_summoner(platform, summ_id) if summ_id else []
+    # Tente by-puuid d'abord (endpoint moderne, plus fiable), fallback by-summoner
+    entries = await riot.league_entries_by_puuid(platform, puuid)
+    if not entries and summ_id:
+        entries = await riot.league_entries_by_summoner(platform, summ_id)
     entries = entries or []
     solo = next((e for e in entries if e.get("queueType") == "RANKED_SOLO_5x5"), None)
     flex = next((e for e in entries if e.get("queueType") == "RANKED_FLEX_SR"), None)
@@ -94,8 +97,11 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Em
         description=f"**{riot.PLATFORM_LABEL.get(platform, platform.upper())}** · Niveau **{level or '?'}**",
         color=color,
     )
-    # Thumbnail = emblem du rank Solo (ou Flex si pas Solo)
-    embed.set_thumbnail(url=riot.tier_emblem_url(primary_tier))
+    # Emblem en image (plus grand qu'en thumbnail) si user est classe
+    if primary_tier != "UNRANKED":
+        embed.set_image(url=riot.tier_emblem_url(primary_tier))
+    else:
+        embed.set_thumbnail(url=riot.tier_emblem_url(primary_tier))
 
     def _fmt_entry(e):
         if not e:
@@ -302,12 +308,15 @@ def setup_lol_commands(bot):
             return
 
         platform = prof.get("platform") or "euw1"
+        puuid    = prof["puuid"]
         summ_id  = prof.get("summoner_id")
         if not summ_id:
-            s = await riot.summoner_by_puuid(platform, prof["puuid"])
+            s = await riot.summoner_by_puuid(platform, puuid)
             summ_id = (s or {}).get("id")
 
-        entries = await riot.league_entries_by_summoner(platform, summ_id) if summ_id else []
+        entries = await riot.league_entries_by_puuid(platform, puuid)
+        if not entries and summ_id:
+            entries = await riot.league_entries_by_summoner(platform, summ_id)
         entries = entries or []
         solo = next((e for e in entries if e.get("queueType") == "RANKED_SOLO_5x5"), None)
 
@@ -326,7 +335,11 @@ def setup_lol_commands(bot):
             ),
             color=color,
         )
-        embed.set_thumbnail(url=riot.tier_emblem_url(tier))
+        # set_image (grand) si classe, sinon thumbnail (petit)
+        if tier != "UNRANKED":
+            embed.set_image(url=riot.tier_emblem_url(tier))
+        else:
+            embed.set_thumbnail(url=riot.tier_emblem_url(tier))
         if solo:
             embed.add_field(
                 name="Solo/Duo",

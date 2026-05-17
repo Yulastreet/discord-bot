@@ -169,6 +169,15 @@ async def league_entries_by_summoner(platform: str, summoner_id: str) -> Optiona
     return None
 
 
+async def league_entries_by_puuid(platform: str, puuid: str) -> Optional[list[dict]]:
+    """Variante by-puuid (plus fiable, endpoint moderne)."""
+    data = await _get(platform.lower(),
+                       f"/lol/league/v4/entries/by-puuid/{puuid}")
+    if isinstance(data, list):
+        return data
+    return None
+
+
 # ===== Champion Mastery API (platform) =====
 async def mastery_top(platform: str, puuid: str, count: int = 3) -> Optional[list[dict]]:
     """Top N masteries du joueur.
