@@ -1955,6 +1955,49 @@
       transition-duration: .01ms !important;
     }
   }
+
+  /* ============ Custom cursor (triangle isocele noir + bord lime) ============ */
+  @media (pointer: fine) {
+    html, body {
+      cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 2 L19 13 L13 19 Z' fill='%230a0d08' stroke='%23b9ff24' stroke-width='1.8' stroke-linejoin='round'/></svg>") 2 2, auto;
+    }
+    a, button, [role="button"], .btn, .nav-links a, .hero-menu a, .stat, summary, select,
+    input[type="checkbox"], input[type="radio"] {
+      cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 22 22'><path d='M2 2 L19 13 L13 19 Z' fill='%230a0d08' stroke='%23caff37' stroke-width='2.2' stroke-linejoin='round'/></svg>") 2 2, pointer;
+    }
+    input[type="text"], input[type="number"], input[type="search"], input[type="email"],
+    textarea {
+      cursor: text;
+    }
+  }
+  @media (pointer: coarse), (prefers-reduced-motion: reduce) {
+    .cursor-glow, .cursor-trail { display: none !important; }
+  }
+  .cursor-glow {
+    position: fixed; top: 0; left: 0;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate3d(-50%, -50%, 0);
+    background: radial-gradient(circle, rgba(185,255,36,0.48) 0%, rgba(185,255,36,0.22) 45%, transparent 72%);
+    filter: blur(3px);
+    mix-blend-mode: screen;
+    transition: opacity 180ms ease;
+  }
+  .cursor-glow.hidden { opacity: 0; }
+  .cursor-trail {
+    position: fixed; top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9997;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(202,255,55,0.95), rgba(117,217,27,0.4) 60%, transparent);
+    box-shadow: 0 0 8px rgba(185,255,36,0.7);
+    opacity: 0;
+    transform: translate3d(-50%, -50%, 0);
+    will-change: transform, opacity;
+  }
 </style>
 <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
 </head>
@@ -2584,6 +2627,87 @@
       });
     });
   }
+
+  // ============ Custom cursor : halo glow + particles trail ============
+  (function() {
+    const finePointer = window.matchMedia('(pointer: fine)').matches;
+    const reduceMotion2 = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!finePointer || reduceMotion2) return;
+
+    const glow = document.createElement('div');
+    glow.className = 'cursor-glow hidden';
+    document.body.appendChild(glow);
+
+    const POOL_SIZE = 14;
+    const particles = [];
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const p = document.createElement('div');
+      p.className = 'cursor-trail';
+      document.body.appendChild(p);
+      particles.push({el: p, x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 0});
+    }
+    let pIdx = 0;
+
+    const CURSOR_CENTER_DX = 9;
+    const CURSOR_CENTER_DY = 9;
+    const CURSOR_BACK_DX = 14;
+    const CURSOR_BACK_DY = 14;
+
+    let mx = -100, my = -100;
+    let pmx = -100, pmy = -100;
+    let lastSpawn = 0;
+
+    document.addEventListener('mousemove', e => {
+      mx = e.clientX;
+      my = e.clientY;
+      glow.classList.remove('hidden');
+    }, { passive: true });
+    document.addEventListener('mouseleave', () => glow.classList.add('hidden'));
+    document.addEventListener('mouseenter', () => glow.classList.remove('hidden'));
+
+    function spawnParticle(x, y) {
+      const p = particles[pIdx];
+      pIdx = (pIdx + 1) % POOL_SIZE;
+      p.x = x; p.y = y;
+      p.vx = 0.4 + (Math.random() - 0.4) * 0.8;
+      p.vy = 0.4 + (Math.random() - 0.4) * 0.8;
+      p.max = 600 + Math.random() * 400;
+      p.life = p.max;
+    }
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(48, now - last);
+      last = now;
+      glow.style.transform = `translate3d(${mx + CURSOR_CENTER_DX}px, ${my + CURSOR_CENTER_DY}px, 0) translate(-50%, -50%)`;
+      const dx = mx - pmx, dy = my - pmy;
+      const speed = Math.hypot(dx, dy);
+      pmx = mx; pmy = my;
+      if (speed > 1.2 && now - lastSpawn > 26) {
+        spawnParticle(
+          mx + CURSOR_BACK_DX + (Math.random() - 0.5) * 4,
+          my + CURSOR_BACK_DY + (Math.random() - 0.5) * 4,
+        );
+        lastSpawn = now;
+      }
+      for (const p of particles) {
+        if (p.life <= 0) {
+          if (p.el.style.opacity !== '0') p.el.style.opacity = '0';
+          continue;
+        }
+        p.life -= dt;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.03;
+        const t = Math.max(0, p.life / p.max);
+        const scale = 0.4 + t * 0.9;
+        p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${scale})`;
+        p.el.style.opacity = t;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
 </script>
 </body>
 </html>
