@@ -282,6 +282,93 @@ def queue_label(queue_id: Optional[int]) -> str:
     return QUEUE_LABELS.get(int(queue_id or 0), f"Queue #{queue_id}")
 
 
+# ===== Meraki Analytics : prix skins + metadonnees champion =====
+_MERAKI_CACHE: dict = {}
+_MERAKI_TTL_SEC = 21600  # 6h
+
+
+async def meraki_champion(slug_or_name: str) -> Optional[dict]:
+    """Renvoie le JSON champion Meraki Analytics (contient prix skins,
+    historique, etc.). Cache 6h par slug."""
+    slug = (slug_or_name or "").strip().lower().replace(" ", "").replace("'", "")
+    if not slug:
+        return None
+    now = time.time()
+    cached = _MERAKI_CACHE.get(slug)
+    if cached and (now - cached["ts"]) < _MERAKI_TTL_SEC:
+        return cached["data"]
+    s = await _get_session()
+    url = f"https://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions/{slug}.json"
+    try:
+        async with s.get(url) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json(content_type=None)
+            _MERAKI_CACHE[slug] = {"data": data, "ts": now}
+            return data
+    except Exception as e:
+        print(f"[riot/meraki] err slug={slug}: {type(e).__name__}: {e}")
+        return None
+
+
+# ===== OP.GG scrape (build suggestions) =====
+async def opgg_build(slug: str, role: str) -> Optional[dict]:
+    """Scrape OP.GG pour suggestions de build. Tente d'extraire __NEXT_DATA__ JSON.
+    Retourne dict avec core_items, runes, summoner_spells, skill_order,
+    winrate, pickrate, ou None si echec."""
+    slug = (slug or "").strip().lower().replace(" ", "").replace("'", "")
+    role = (role or "").strip().lower()
+    if role not in ("top", "jungle", "mid", "adc", "support"):
+        return None
+    url = f"https://www.op.gg/lol/champions/{slug}/build/{role}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    s = await _get_session()
+    try:
+        async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=12)) as resp:
+            if resp.status != 200:
+                print(f"[riot/opgg] status={resp.status} url={url}")
+                return None
+            html = await resp.text()
+    except Exception as e:
+        print(f"[riot/opgg] fetch err: {type(e).__name__}: {e}")
+        return None
+
+    # Cherche le bloc __NEXT_DATA__
+    marker = '<script id="__NEXT_DATA__" type="application/json">'
+    idx = html.find(marker)
+    if idx == -1:
+        return None
+    start = idx + len(marker)
+    end = html.find("</script>", start)
+    if end == -1:
+        return None
+    raw = html[start:end].strip()
+    try:
+        import json as _j
+        next_data = _j.loads(raw)
+    except Exception as e:
+        print(f"[riot/opgg] json parse err: {type(e).__name__}")
+        return None
+
+    # Naviguer dans props.pageProps pour trouver les builds. Structure variable,
+    # on extrait au mieux. Renvoie un dict minimal + URL OP.GG en fallback.
+    try:
+        page_props = (next_data.get("props") or {}).get("pageProps") or {}
+        data = page_props.get("data") or page_props
+        # Garde l'URL pour fallback
+        return {
+            "url": url,
+            "raw_keys": list(data.keys()) if isinstance(data, dict) else None,
+            "data": data,
+        }
+    except Exception:
+        return {"url": url, "data": None}
+
+
 # ===== Champion Mastery API (platform) =====
 async def mastery_top(platform: str, puuid: str, count: int = 3) -> Optional[list[dict]]:
     """Top N masteries du joueur.

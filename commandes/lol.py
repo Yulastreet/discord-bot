@@ -663,4 +663,209 @@ def setup_lol_commands(bot):
                 embed.set_thumbnail(url=icon)
         await interaction.followup.send(embed=embed)
 
+    # ---------- /lol queue ----------
+    @lol_group.command(name="queue",
+                       description="Cree un voice channel temporaire pour stack ranked (5 slots)")
+    async def lol_queue(interaction: discord.Interaction):
+        if not interaction.guild:
+            await interaction.response.send_message(
+                embed=_err_embed("Pas dispo en DM", "Utilise cette commande dans un serveur."),
+                ephemeral=True,
+            )
+            return
+        await interaction.response.defer(ephemeral=True)
+        from database import cs_queue_lobby_add
+        guild = interaction.guild
+        category = interaction.channel.category if interaction.channel and hasattr(interaction.channel, "category") else None
+        name = f"⚔️ LoL Queue · {interaction.user.display_name}"
+        try:
+            vc = await guild.create_voice_channel(
+                name=name[:100],
+                user_limit=5,
+                category=category,
+                reason=f"LoL queue created by {interaction.user} ({interaction.user.id})",
+            )
+        except discord.Forbidden:
+            await interaction.followup.send(
+                embed=_err_embed("Permission manquante",
+                    "Le bot doit avoir la permission **Gérer les salons** pour créer un voice channel."),
+                ephemeral=True,
+            )
+            return
+        except Exception as e:
+            print(f"[lol/queue] create err: {type(e).__name__}")
+            await interaction.followup.send(
+                embed=_err_embed("Erreur",
+                    "Impossible de créer le voice channel. Réessaie plus tard."),
+                ephemeral=True,
+            )
+            return
+
+        # Reuse de la table cs_queue_lobbies (meme mecanisme cleanup auto)
+        cs_queue_lobby_add(vc.id, guild.id, interaction.user.id)
+        await interaction.followup.send(
+            embed=_info_embed(
+                "⚔️ Queue LoL créée",
+                f"Voice channel **{vc.mention}** créé (5 slots).\n"
+                "Il sera supprimé automatiquement quand il sera vide.",
+                color=0x2ECC71),
+            ephemeral=True,
+        )
+
+    # ---------- /lol skin ----------
+    @lol_group.command(name="skin",
+                       description="Splash art + prix RP d'un skin (ou liste des skins d'un champion)")
+    @app_commands.describe(
+        champion="Nom du champion (ex: Jinx, Lee Sin)",
+        skin="Nom du skin (optionnel, sinon liste tous les skins)",
+    )
+    async def lol_skin(interaction: discord.Interaction, champion: str,
+                       skin: Optional[str] = None):
+        await interaction.response.defer()
+        await riot._dd_refresh()
+        champs = riot._DD_CACHE["champions"]
+        wanted = champion.strip().lower()
+        target_id = None
+        for cid, info in champs.items():
+            if info["name"].lower() == wanted or info["slug"].lower() == wanted:
+                target_id = cid
+                break
+        if not target_id:
+            await interaction.followup.send(
+                embed=_err_embed("Champion introuvable",
+                    f"`{champion}` n'a pas été trouvé.\n"
+                    "Exemples : `Jinx`, `Lee Sin`, `Kai'Sa`, `K'Sante`."),
+                ephemeral=True,
+            )
+            return
+
+        cname = champs[target_id]["name"]
+        cslug = champs[target_id]["slug"]
+        meraki = await riot.meraki_champion(cslug)
+        all_skins = (meraki or {}).get("skins") or []
+
+        # Mode "liste" : pas de skin demande
+        if not skin:
+            if not all_skins:
+                await interaction.followup.send(
+                    embed=_info_embed("📭 Pas de données skins",
+                        f"Aucune donnée de skins disponible pour **{cname}**.",
+                        color=0x95A5A6),
+                )
+                return
+            lines = []
+            for sk in all_skins[:40]:  # cap
+                nm = sk.get("name") or "?"
+                cost = sk.get("cost")
+                cost_str = "Classic" if cost in (0, "0", None) and nm.lower() == cname.lower() else (
+                    f"{cost} RP" if isinstance(cost, int) and cost > 0 else (str(cost) if cost else "—")
+                )
+                lines.append(f"• **{nm}** — `{cost_str}`")
+            embed = discord.Embed(
+                title=f"🎨 Skins — {cname}",
+                description="\n".join(lines),
+                color=0x9B59B6,
+            )
+            icon = await riot.champion_icon_url(target_id)
+            if icon:
+                embed.set_thumbnail(url=icon)
+            embed.set_footer(text=f"Total : {len(all_skins)} skins. Utilise `/lol skin {cname} <nom>` pour le détail.")
+            await interaction.followup.send(embed=embed)
+            return
+
+        # Mode "detail" : skin precis
+        wanted_skin = skin.strip().lower()
+        found = next((sk for sk in all_skins if (sk.get("name") or "").lower() == wanted_skin), None)
+        if not found:
+            await interaction.followup.send(
+                embed=_err_embed("Skin introuvable",
+                    f"Aucun skin nommé `{skin}` pour **{cname}**.\n"
+                    f"Utilise `/lol skin {cname}` (sans 2e param) pour voir la liste."),
+                ephemeral=True,
+            )
+            return
+
+        nm = found.get("name") or "?"
+        cost = found.get("cost")
+        cost_str = "Classic" if cost in (0, "0", None) and nm.lower() == cname.lower() else (
+            f"{cost} RP" if isinstance(cost, int) and cost > 0 else (str(cost) if cost else "—")
+        )
+        skin_num = found.get("id", 0) % 1000  # Meraki id = championId * 1000 + skinNum
+        splash_url = f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{cslug}_{skin_num}.jpg"
+
+        embed = discord.Embed(
+            title=f"🎨 {nm}",
+            description=f"Champion : **{cname}**\nPrix : **{cost_str}**",
+            color=0x9B59B6,
+        )
+        embed.set_image(url=splash_url)
+        release = found.get("release") or {}
+        if release.get("date"):
+            embed.add_field(name="Sortie", value=str(release["date"])[:10], inline=True)
+        rarity = found.get("rarity")
+        if rarity and rarity.lower() != "norarity":
+            embed.add_field(name="Rareté", value=rarity, inline=True)
+        embed.set_footer(text="Données : Data Dragon + Meraki Analytics")
+        await interaction.followup.send(embed=embed)
+
+    # ---------- /lol build ----------
+    @lol_group.command(name="build",
+                       description="Suggestions de build pour un champion + role (lien OP.GG)")
+    @app_commands.describe(
+        champion="Nom du champion",
+        role="Position (top, jungle, mid, adc, support)",
+    )
+    @app_commands.choices(role=[
+        app_commands.Choice(name="Top",     value="top"),
+        app_commands.Choice(name="Jungle",  value="jungle"),
+        app_commands.Choice(name="Mid",     value="mid"),
+        app_commands.Choice(name="ADC",     value="adc"),
+        app_commands.Choice(name="Support", value="support"),
+    ])
+    async def lol_build(interaction: discord.Interaction, champion: str,
+                        role: app_commands.Choice[str]):
+        await interaction.response.defer()
+        await riot._dd_refresh()
+        champs = riot._DD_CACHE["champions"]
+        wanted = champion.strip().lower()
+        target_id = None
+        for cid, info in champs.items():
+            if info["name"].lower() == wanted or info["slug"].lower() == wanted:
+                target_id = cid
+                break
+        if not target_id:
+            await interaction.followup.send(
+                embed=_err_embed("Champion introuvable",
+                    f"`{champion}` n'a pas été trouvé.\n"
+                    "Exemples : `Jinx`, `Lee Sin`, `Kai'Sa`."),
+                ephemeral=True,
+            )
+            return
+
+        cname = champs[target_id]["name"]
+        cslug = champs[target_id]["slug"]
+        opgg_data = await riot.opgg_build(cslug, role.value)
+
+        # Build minimal : icon champion + lien OP.GG (scrape NEXT_DATA fragile,
+        # on fournit toujours le lien direct comme valeur sure).
+        slug_dash = cslug.lower().replace("'", "")
+        url = f"https://www.op.gg/lol/champions/{slug_dash}/build/{role.value}"
+        embed = discord.Embed(
+            title=f"📊 Build — {cname} {role.name}",
+            description=(
+                f"Suggestions de build, runes et skill order pour **{cname}** en **{role.name}** "
+                f"sur OP.GG (données patch courant, tier Platinum+).\n\n"
+                f"**[Ouvrir sur OP.GG →]({url})**"
+            ),
+            color=0xF1C40F,
+        )
+        icon = await riot.champion_icon_url(target_id)
+        if icon:
+            embed.set_thumbnail(url=icon)
+        if not opgg_data:
+            embed.set_footer(text="⚠️ Donnees OP.GG temporairement indisponibles. Le lien reste valide.")
+        else:
+            embed.set_footer(text="OP.GG · Patch courant · Tier Platinum+")
+        await interaction.followup.send(embed=embed)
+
     bot.tree.add_command(lol_group)
