@@ -1,4 +1,5 @@
 import asyncio
+import datetime as _dt
 import discord
 from discord import app_commands
 
@@ -82,3 +83,95 @@ def setup_pass_commands(bot, deps):
 
         embed.set_footer(text=f"Saison se termine le {season.get('ends_at', '?')[:10]}")
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+    @bot.tree.command(name="daily", description="Reclame ta recompense quotidienne (TookCoins + XP Pass si actif)")
+    async def daily_claim(interaction: discord.Interaction):
+        user = interaction.user
+        today = _dt.datetime.utcnow().date()
+        today_str = today.isoformat()
+
+        state = daily_claim_get(user.id)
+        last_str = state.get("last_claim_date")
+        prev_streak = int(state.get("streak") or 0)
+
+        if last_str == today_str:
+            # Deja claim aujourd'hui
+            tomorrow = _dt.datetime.combine(today + _dt.timedelta(days=1),
+                                            _dt.time(0, 0, tzinfo=_dt.timezone.utc))
+            now = _dt.datetime.now(_dt.timezone.utc)
+            delta = tomorrow - now
+            hours, rem = divmod(int(delta.total_seconds()), 3600)
+            minutes = rem // 60
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="⏳ Déjà réclamé",
+                    description=(
+                        f"Tu as déjà récupéré ta récompense aujourd'hui.\n\n"
+                        f"Prochaine réclamation dans **{hours}h {minutes}m** (UTC minuit).\n"
+                        f"Streak actuelle : **{prev_streak} jour(s)** 🔥"
+                    ),
+                    color=0xE67E22,
+                ),
+                ephemeral=True,
+            )
+            return
+
+        # Calcul streak : si yesterday -> +1, sinon reset a 1
+        new_streak = 1
+        if last_str:
+            try:
+                last_date = _dt.date.fromisoformat(last_str)
+                if (today - last_date).days == 1:
+                    new_streak = prev_streak + 1
+            except ValueError:
+                pass
+
+        # Recompenses : 50 base + 10/jour streak cap 7 -> max 120 TC
+        streak_bonus = min(7, new_streak) * 10
+        coins = 50 + streak_bonus
+
+        # XP Pass si user a un Pass actif
+        has_pass = bool(user_has_active_pass(user.id, sku_pass_id=SKU_PASS)) or (
+            DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID)
+        )
+        pass_xp_gain = 50 if has_pass else 0
+
+        # Apply
+        try:
+            creer_duel_profil(user.id, user.name)
+        except Exception:
+            pass
+        try:
+            ajouter_tookcoins(user.id, coins)
+        except Exception as e:
+            print(f"[daily] ajouter_tookcoins err: {e}")
+        if pass_xp_gain:
+            try:
+                season = get_or_create_current_season()
+                sid = season["season_id"]
+                new_total = add_pass_xp(user.id, sid, pass_xp_gain)
+                auto_claim_pass_tiers(user.id, sid, new_total)
+            except Exception as e:
+                print(f"[daily] add_pass_xp err: {e}")
+
+        daily_claim_apply(user.id, today_str, new_streak)
+
+        lines = [f"**+{coins} TookCoins** 🪙"]
+        if pass_xp_gain:
+            lines.append(f"**+{pass_xp_gain} XP Pass** 🎟️")
+        lines.append("")
+        lines.append(f"🔥 Streak : **{new_streak} jour(s)** consécutif(s)")
+        if new_streak < 7:
+            lines.append(f"_Bonus streak max atteint à 7 jours (+70 TC)._")
+        if not has_pass:
+            lines.append(f"_Active un Pass pour gagner aussi de l'XP Pass quotidien._")
+
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title="🎁 Récompense quotidienne",
+                description="\n".join(lines),
+                color=0xB9F23A,
+            ),
+            ephemeral=True,
+        )

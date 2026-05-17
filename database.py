@@ -136,6 +136,14 @@ def init_db():
         PRIMARY KEY (guild_id, key)
     )''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS daily_claims (
+        user_id         TEXT PRIMARY KEY,
+        last_claim_date TEXT,
+        streak          INTEGER DEFAULT 0,
+        total_claims    INTEGER DEFAULT 0,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Table guild_members (cache members par serveur) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
         guild_id    TEXT NOT NULL,
@@ -1399,7 +1407,7 @@ def delete_dm_conversation(user_id):
 DEFAULT_SETTINGS = {
     "xp_min":               "1",
     "xp_max":               "5",
-    "xp_cooldown_seconds":  "0",
+    "xp_cooldown_seconds":  "30",
     "log_retention_days":   "90",
     "log_keep_per_guild":   "5000",
     "welcome_template":     "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
@@ -1472,6 +1480,35 @@ def guild_settings_all(guild_id):
     out = dict(GUILD_DEFAULT_SETTINGS)
     out.update(db)
     return out
+
+
+# ===== DAILY LOGIN BONUS =====
+def daily_claim_get(user_id):
+    """Etat actuel : {last_claim_date, streak, total_claims}."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT last_claim_date, streak, total_claims FROM daily_claims WHERE user_id = ?",
+              (str(user_id),))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return {"last_claim_date": None, "streak": 0, "total_claims": 0}
+    return dict(row)
+
+def daily_claim_apply(user_id, today_str, new_streak):
+    """Marque la claim du jour et bump le streak. Idempotent par jour."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO daily_claims (user_id, last_claim_date, streak, total_claims, updated_at)
+                 VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+                 ON CONFLICT(user_id) DO UPDATE SET
+                   last_claim_date = excluded.last_claim_date,
+                   streak          = excluded.streak,
+                   total_claims    = total_claims + 1,
+                   updated_at      = CURRENT_TIMESTAMP""",
+              (str(user_id), today_str, new_streak))
+    conn.commit()
+    conn.close()
 
 
 # ===== GUILD MEMBERS (cache) =====

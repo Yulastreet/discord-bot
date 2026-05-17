@@ -8,6 +8,11 @@ import discord
 from discord import app_commands
 from discord.ext import tasks
 
+
+# Cooldown anti-spam XP : (guild_id, user_id) -> ts du dernier gain
+_XP_LAST_GAIN: dict = {}
+
+
 def setup_runtime(bot, deps):
     globals().update(deps)
     @bot.event
@@ -807,6 +812,19 @@ def setup_runtime(bot, deps):
 
         # XP per-guild (skip si admin du serveur a desactive via /xp off ou dashboard)
         if not message.author.bot and guild_setting_get(guild_id_str, "xp_enabled", "1") == "1":
+            # Cooldown anti-spam : evite que spammer un salon ne grind l'XP
+            try:
+                cooldown_sec = max(0, int(get_setting("xp_cooldown_seconds", "30")))
+            except (TypeError, ValueError):
+                cooldown_sec = 30
+            cd_key = (guild_id_str, message.author.id)
+            now_ts = _time.time()
+            last_ts = _XP_LAST_GAIN.get(cd_key, 0)
+            if cooldown_sec > 0 and (now_ts - last_ts) < cooldown_sec:
+                await bot.process_commands(message)
+                return
+            _XP_LAST_GAIN[cd_key] = now_ts
+
             xp = get_xp(guild_id_str, message.author.id)
             old_level = get_level(xp)
             try:
