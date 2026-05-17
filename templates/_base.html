@@ -176,6 +176,50 @@
       letter-spacing: 0.06em;
       color: var(--accent);
     }
+
+    /* ============ Custom cursor (lime arrow + glow + particles) ============ */
+    @media (pointer: fine) {
+      html, body { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 2 L2 16 L6.5 12.5 L9.5 18.5 L12 17.3 L9 11.3 L15 11.3 Z' fill='%23b9ff24' stroke='%231e4a16' stroke-width='1' stroke-linejoin='round'/></svg>") 2 2, auto; }
+      a, button, [role="button"], .nav-item, .btn, label.switch, summary, select, input[type="checkbox"], input[type="radio"], .hm-cell[data-count]:not([data-count="0"]) {
+        cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='28' viewBox='0 0 24 28'><path d='M8 2 C 8 1, 10 1, 10 2 L 10 13 L 13 12 C 14 11.5, 16 12.5, 16 14 L 16 20 C 16 23, 14 25, 11 25 L 7 25 C 5 25, 3.5 23.5, 3 22 L 1 16 C 0.5 14.5, 2 13, 3.5 13.5 L 5 14 L 5 5 C 5 4, 7 4, 7 5 L 7 13 L 8 13 Z' fill='%23b9ff24' stroke='%231e4a16' stroke-width='1' stroke-linejoin='round'/></svg>") 8 4, pointer;
+      }
+      input[type="text"], input[type="number"], input[type="search"], input[type="email"],
+      input[type="password"], input[type="datetime-local"], textarea {
+        cursor: text;
+      }
+    }
+    @media (pointer: coarse), (prefers-reduced-motion: reduce) {
+      .cursor-glow, .cursor-trail { display: none !important; }
+    }
+
+    .cursor-glow {
+      position: fixed;
+      top: 0; left: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate3d(-50%, -50%, 0);
+      background: radial-gradient(circle, rgba(185,255,36,0.42) 0%, rgba(185,255,36,0.18) 40%, transparent 70%);
+      filter: blur(2px);
+      mix-blend-mode: screen;
+      transition: opacity 200ms ease;
+    }
+    .cursor-glow.hidden { opacity: 0; }
+
+    .cursor-trail {
+      position: fixed;
+      top: 0; left: 0;
+      pointer-events: none;
+      z-index: 9997;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(202,255,55,0.95), rgba(117,217,27,0.4) 60%, transparent);
+      box-shadow: 0 0 8px rgba(185,255,36,0.7);
+      opacity: 0;
+      transform: translate3d(-50%, -50%, 0);
+      will-change: transform, opacity;
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
@@ -684,6 +728,88 @@
   }
   window.selectGuild = selectGuild;
   window.toggleGuildMenu = toggleGuildMenu;
+
+  // ============ Custom cursor : halo glow + particles trail ============
+  (function() {
+    const finePointer = window.matchMedia('(pointer: fine)').matches;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!finePointer || reduceMotion) return;
+
+    const glow = document.createElement('div');
+    glow.className = 'cursor-glow hidden';
+    document.body.appendChild(glow);
+
+    const POOL_SIZE = 14;
+    const particles = [];
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const p = document.createElement('div');
+      p.className = 'cursor-trail';
+      document.body.appendChild(p);
+      particles.push({el: p, x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 0});
+    }
+    let pIdx = 0;
+
+    let mx = -100, my = -100;
+    let gx = -100, gy = -100;  // glow lerp
+    let lastSpawn = 0;
+
+    document.addEventListener('mousemove', e => {
+      mx = e.clientX;
+      my = e.clientY;
+      glow.classList.remove('hidden');
+    }, { passive: true });
+    document.addEventListener('mouseleave', () => glow.classList.add('hidden'));
+    document.addEventListener('mouseenter', () => glow.classList.remove('hidden'));
+
+    function spawnParticle(x, y) {
+      const p = particles[pIdx];
+      pIdx = (pIdx + 1) % POOL_SIZE;
+      p.x = x;
+      p.y = y;
+      p.vx = (Math.random() - 0.5) * 1.2;
+      p.vy = (Math.random() - 0.3) * 1.2;  // slight upward bias
+      p.max = 600 + Math.random() * 400;   // ms lifetime
+      p.life = p.max;
+    }
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(48, now - last);
+      last = now;
+
+      // Glow follows with lerp (smooth)
+      gx += (mx - gx) * 0.28;
+      gy += (my - gy) * 0.28;
+      glow.style.transform = `translate3d(${gx}px, ${gy}px, 0) translate(-50%, -50%)`;
+
+      // Spawn particles at speed > seuil
+      const dx = mx - gx, dy = my - gy;
+      const speed = Math.hypot(dx, dy);
+      if (speed > 1.4 && now - lastSpawn > 28) {
+        spawnParticle(mx + (Math.random() - 0.5) * 4, my + (Math.random() - 0.5) * 4);
+        lastSpawn = now;
+      }
+
+      // Update particles
+      for (const p of particles) {
+        if (p.life <= 0) {
+          if (p.el.style.opacity !== '0') p.el.style.opacity = '0';
+          continue;
+        }
+        p.life -= dt;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.04;   // soft gravity
+        const t = Math.max(0, p.life / p.max);
+        const scale = 0.4 + t * 0.9;
+        p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${scale})`;
+        p.el.style.opacity = t;
+      }
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
 </script>
 
 {% block scripts %}{% endblock %}
