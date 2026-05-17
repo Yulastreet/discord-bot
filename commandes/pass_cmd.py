@@ -127,15 +127,16 @@ def setup_pass_commands(bot, deps):
             except ValueError:
                 pass
 
-        # Recompenses : 50 base + 10/jour streak cap 7 -> max 120 TC
-        streak_bonus = min(7, new_streak) * 10
-        coins = 50 + streak_bonus
+        # Recompenses : 10 base + 2/jour streak cap 7 -> max 24 TC
+        # (vs 100 TC pour gagner un duel : daily reste un modeste appoint)
+        streak_bonus = min(7, new_streak) * 2
+        coins = 10 + streak_bonus
 
-        # XP Pass si user a un Pass actif
+        # XP Pass si user a un Pass actif (10 XP/jour -> ~25 jours pour 1 tier)
         has_pass = bool(user_has_active_pass(user.id, sku_pass_id=SKU_PASS)) or (
             DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID)
         )
-        pass_xp_gain = 50 if has_pass else 0
+        pass_xp_gain = 10 if has_pass else 0
 
         # Apply
         try:
@@ -163,7 +164,7 @@ def setup_pass_commands(bot, deps):
         lines.append("")
         lines.append(f"🔥 Streak : **{new_streak} jour(s)** consécutif(s)")
         if new_streak < 7:
-            lines.append(f"_Bonus streak max atteint à 7 jours (+70 TC)._")
+            lines.append(f"_Bonus streak max atteint à 7 jours (+14 TC)._")
         if not has_pass:
             lines.append(f"_Active un Pass pour gagner aussi de l'XP Pass quotidien._")
 
