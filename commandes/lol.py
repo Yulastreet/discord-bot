@@ -55,6 +55,22 @@ def _format_queue_label(qt: str) -> str:
     }.get(qt, qt.replace("_", " ").title())
 
 
+async def _attach_emblem(embed: discord.Embed, tier: str):
+    """Si emblem dispo en local, attache le fichier + set_thumbnail attachment.
+    Sinon fallback URL distante."""
+    if tier == "UNRANKED":
+        embed.set_thumbnail(url=riot.tier_emblem_url(tier))
+        return None
+    path = await riot.tier_emblem_file_path(tier)
+    if path:
+        fname = f"emblem_{tier.lower()}.png"
+        embed.set_thumbnail(url=f"attachment://{fname}")
+        return discord.File(path, filename=fname)
+    # Fallback : URL distante (peut etre pixelisee par Discord)
+    embed.set_thumbnail(url=riot.tier_emblem_url(tier))
+    return None
+
+
 async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Embed:
     platform = prof.get("platform") or "euw1"
     puuid = prof["puuid"]
@@ -97,11 +113,6 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Em
         description=f"**{riot.PLATFORM_LABEL.get(platform, platform.upper())}** · Niveau **{level or '?'}**",
         color=color,
     )
-    # Emblem en image (plus grand qu'en thumbnail) si user est classe
-    if primary_tier != "UNRANKED":
-        embed.set_image(url=riot.tier_emblem_url(primary_tier))
-    else:
-        embed.set_thumbnail(url=riot.tier_emblem_url(primary_tier))
 
     def _fmt_entry(e):
         if not e:
@@ -131,7 +142,8 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Em
         embed.add_field(name="✨ Top maîtrises", value="\n".join(lines), inline=False)
 
     embed.set_footer(text=f"Riot ID : {name}#{tag} · Données via Riot Games API")
-    return embed
+    file = await _attach_emblem(embed, primary_tier)
+    return embed, file
 
 
 # ===== Rank role helpers =====
@@ -287,8 +299,11 @@ def setup_lol_commands(bot):
                 ephemeral=True,
             )
             return
-        embed = await _build_stats_embed(target, prof)
-        await interaction.followup.send(embed=embed)
+        embed, file = await _build_stats_embed(target, prof)
+        if file:
+            await interaction.followup.send(embed=embed, file=file)
+        else:
+            await interaction.followup.send(embed=embed)
 
     # ---------- /lol rank ----------
     @lol_group.command(name="rank", description="Affiche ton rank Solo/Duo et applique le role si configuré")
@@ -335,11 +350,7 @@ def setup_lol_commands(bot):
             ),
             color=color,
         )
-        # set_image (grand) si classe, sinon thumbnail (petit)
-        if tier != "UNRANKED":
-            embed.set_image(url=riot.tier_emblem_url(tier))
-        else:
-            embed.set_thumbnail(url=riot.tier_emblem_url(tier))
+        rank_file = await _attach_emblem(embed, tier)
         if solo:
             embed.add_field(
                 name="Solo/Duo",
@@ -357,7 +368,10 @@ def setup_lol_commands(bot):
         if applied:
             embed.set_footer(text=f"✅ Role «{applied}» appliqué automatiquement.")
 
-        await interaction.followup.send(embed=embed)
+        if rank_file:
+            await interaction.followup.send(embed=embed, file=rank_file)
+        else:
+            await interaction.followup.send(embed=embed)
 
     # ---------- /lol rankrole ----------
     @lol_group.command(name="rankrole",

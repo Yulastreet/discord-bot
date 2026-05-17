@@ -5,6 +5,7 @@ __pycache__/
 .deepsec/
 .impeccable/
 github-profile/
+assets/lol_emblems/
 
 # YouTube cookies — sensitive (contient session login)
 cookies.txt

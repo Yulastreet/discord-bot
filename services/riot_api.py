@@ -77,6 +77,47 @@ def tier_emblem_url(tier: str) -> str:
     return f"https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-{t.lower()}.png"
 
 
+# Cache local des emblems croppes et redimensionnes
+import os as _os
+_EMBLEM_CACHE_DIR = _os.path.join(
+    _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+    "assets", "lol_emblems",
+)
+
+async def tier_emblem_file_path(tier: str) -> Optional[str]:
+    """Retourne le path local d'un emblem cropped+redim (256x256).
+    Telecharge depuis CommunityDragon a la premiere demande, puis cache.
+    Renvoie None si echec (fallback : set_thumbnail avec URL distante)."""
+    t = (tier or "UNRANKED").upper()
+    if t == "UNRANKED":
+        return None
+    _os.makedirs(_EMBLEM_CACHE_DIR, exist_ok=True)
+    target = _os.path.join(_EMBLEM_CACHE_DIR, f"{t.lower()}.png")
+    if _os.path.exists(target) and _os.path.getsize(target) > 0:
+        return target
+    # Telecharge + crop bbox + resize
+    s = await _get_session()
+    try:
+        async with s.get(tier_emblem_url(t)) as resp:
+            if resp.status != 200:
+                return None
+            raw = await resp.read()
+        from PIL import Image
+        import io
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        bbox = im.getbbox()
+        if bbox:
+            im = im.crop(bbox)
+        # Resize a 256x256 (max display thumbnail Discord ~80x80, image ~400)
+        im.thumbnail((256, 256), Image.LANCZOS)
+        im.save(target, format="PNG", optimize=True)
+        print(f"[riot/emblem] cached {t} -> {target} size={im.size}")
+        return target
+    except Exception as e:
+        print(f"[riot/emblem] cache err {t}: {type(e).__name__}: {e}")
+        return None
+
+
 async def _get_session() -> aiohttp.ClientSession:
     global _SESSION
     if _SESSION and not _SESSION.closed:
