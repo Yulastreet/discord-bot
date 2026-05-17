@@ -449,6 +449,86 @@ async def compose_build_image(item_ids: list[int], spell_ids: list[int]) -> Opti
     return out.getvalue()
 
 
+# ===== Data Dragon recommended builds (officiel Riot, toujours dispo) =====
+_DD_CHAMP_DETAIL_CACHE: dict = {}
+
+
+async def ddragon_recommended(slug: str) -> Optional[list[dict]]:
+    """Renvoie les builds 'recommended' officiels Riot pour ce champion.
+    Format : liste de {name, items_by_phase, source_url, summoner_spells=[],
+    keystone_id=None, primary_rune_tree=None, secondary_rune_tree=None,
+    skill_order=''}. Toujours dispo (CDN public, pas d'anti-bot)."""
+    await _dd_refresh()
+    ver = _DD_CACHE.get("version")
+    if not ver:
+        return None
+    # Le slug pour DD est le 'id' (PascalCase), pas le 'slug' lowercase
+    # On a stocke 'slug' (PascalCase original) dans _DD_CACHE deja
+    asset_id = None
+    for cid, info in _DD_CACHE["champions"].items():
+        if info["slug"].lower() == slug.lower() or info["name"].lower() == slug.lower():
+            asset_id = info["slug"]
+            break
+    if not asset_id:
+        return None
+
+    cache_key = f"{ver}:{asset_id}"
+    if cache_key in _DD_CHAMP_DETAIL_CACHE:
+        rec = _DD_CHAMP_DETAIL_CACHE[cache_key]
+    else:
+        s = await _get_session()
+        url = f"https://ddragon.leagueoflegends.com/cdn/{ver}/data/en_US/champion/{asset_id}.json"
+        try:
+            async with s.get(url) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+        except Exception as e:
+            print(f"[riot/dd-champ] err {asset_id}: {type(e).__name__}: {e}")
+            return None
+        champ_data = (data.get("data") or {}).get(asset_id) or {}
+        rec = champ_data.get("recommended") or []
+        _DD_CHAMP_DETAIL_CACHE[cache_key] = rec
+
+    if not rec:
+        return None
+
+    # Filtre les builds Summoner's Rift (map=any ou map=SR) et mode classique
+    builds_out = []
+    for r in rec:
+        rmap = (r.get("map") or "").lower()
+        rmode = (r.get("mode") or "").lower()
+        if rmap not in ("any", "sr", "summonersrift", "summoner's rift"):
+            continue
+        if rmode not in ("any", "classic"):
+            continue
+        title = r.get("title") or r.get("type") or "Standard"
+        blocks = r.get("blocks") or []
+        phases = []
+        for b in blocks:
+            btype = b.get("type") or "?"
+            items = []
+            for it in (b.get("items") or []):
+                try:
+                    items.append(int(it.get("id")))
+                except (TypeError, ValueError):
+                    continue
+            if items:
+                phases.append({"type": btype, "items": items})
+        if phases:
+            builds_out.append({
+                "name":               title,
+                "items_by_phase":     phases,
+                "summoner_spells":    [],
+                "keystone_id":        None,
+                "primary_rune_tree":  None,
+                "secondary_rune_tree": None,
+                "skill_order":        "",
+                "source_url":         f"https://www.leagueoflegends.com/en-us/champions/{asset_id.lower()}/",
+            })
+    return builds_out or None
+
+
 # ===== Build scrapers (multi-source : Mobalytics, OP.GG, U.GG, DPM) =====
 async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Optional[list[dict]]:
     """Scrape Mobalytics, renvoie une LISTE de builds (1 ou plusieurs).

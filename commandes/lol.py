@@ -1034,18 +1034,33 @@ def setup_lol_commands(bot):
         ugg_url  = f"https://u.gg/lol/champions/{slug_dash}/build?role={role.value}"
         dpm_url  = f"https://dpm.lol/lol/champions/{slug_dash}/builds?role={role.value}"
 
-        # On tente plusieurs sources jusqu'a en trouver une qui renvoie des
-        # builds avec items extraits.
-        builds = await riot.mobalytics_builds_all(cslug, role.value)
-        source = "Mobalytics"
+        # Priorite OP.GG -> Mobalytics -> Data Dragon (toujours dispo)
+        builds = None
+        source = None
+        source_url = None
+
+        # 1. OP.GG (souvent bloque sur VPS, mais on tente)
+        opgg = await riot.opgg_build(cslug, role.value)
+        if opgg and opgg.get("data") and isinstance(opgg.get("data"), dict):
+            # OP.GG NEXT_DATA pageProps structure variable, on skip si pas
+            # exploitable directement
+            pass
+
+        # 2. Mobalytics
         if not builds:
-            # opgg_build renvoie 1 build au format different — wrap
-            opgg = await riot.opgg_build(cslug, role.value)
-            if opgg and opgg.get("data"):
-                builds = []  # OP.GG NEXT_DATA structure trop variable, skip
-            else:
-                builds = None
-            source = "OP.GG"
+            mb = await riot.mobalytics_builds_all(cslug, role.value)
+            if mb:
+                builds = mb
+                source = "Mobalytics"
+                source_url = mb[0].get("source_url")
+
+        # 3. Data Dragon recommended (fallback toujours dispo)
+        if not builds:
+            dd = await riot.ddragon_recommended(cslug)
+            if dd:
+                builds = dd
+                source = "Data Dragon (Riot)"
+                source_url = builds[0].get("source_url")
 
         if not builds:
             # Aucune source : fallback liens
@@ -1070,10 +1085,10 @@ def setup_lol_commands(bot):
         # 1 ou plusieurs builds dispo : si plusieurs, on affiche un selector
         view = LolBuildView(
             interaction.user.id, builds, cname, cslug, target_id,
-            role_label=role.name, source=source, source_url=builds[0]["source_url"],
+            role_label=role.name, source=source, source_url=source_url or builds[0]["source_url"],
         )
         embed, file = await _render_build_embed(builds[0], cname, target_id,
-                                                role.name, source, builds[0]["source_url"])
+                                                role.name, source, builds[0].get("source_url") or source_url)
         if file:
             await interaction.followup.send(embed=embed, view=view, file=file)
         else:
