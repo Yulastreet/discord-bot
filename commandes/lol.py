@@ -194,6 +194,53 @@ async def _apply_rank_role(member: discord.Member, tier: str) -> Optional[str]:
     return new_role.name
 
 
+# Autocomplete helpers (visibles a tous les sub-commands ci-dessous)
+async def _champion_autocomplete(interaction: discord.Interaction, current: str):
+    await riot._dd_refresh()
+    champs = list(riot._DD_CACHE["champions"].values())
+    cur = (current or "").strip().lower()
+    if cur:
+        matches = [c for c in champs if cur in c["name"].lower() or cur in c["slug"].lower()]
+    else:
+        matches = champs
+    matches.sort(key=lambda c: c["name"])
+    return [app_commands.Choice(name=c["name"], value=c["name"]) for c in matches[:25]]
+
+
+_SKIN_CACHE: dict = {}  # slug -> list of names (cache 6h cote Meraki deja)
+
+
+async def _skin_autocomplete(interaction: discord.Interaction, current: str):
+    try:
+        champ_input = (interaction.namespace.champion or "").strip()
+    except Exception:
+        champ_input = ""
+    if not champ_input:
+        return []
+    await riot._dd_refresh()
+    champs = riot._DD_CACHE["champions"]
+    cname_lower = champ_input.lower()
+    slug = None
+    for cid, info in champs.items():
+        if info["name"].lower() == cname_lower or info["slug"].lower() == cname_lower:
+            slug = info["slug"]
+            break
+    if not slug:
+        return []
+    cached_names = _SKIN_CACHE.get(slug)
+    if cached_names is None:
+        meraki = await riot.meraki_champion(slug)
+        skins = (meraki or {}).get("skins") or []
+        cached_names = [s.get("name") for s in skins if s.get("name")]
+        _SKIN_CACHE[slug] = cached_names
+    cur = (current or "").strip().lower()
+    if cur:
+        matches = [n for n in cached_names if cur in n.lower()]
+    else:
+        matches = cached_names
+    return [app_commands.Choice(name=n[:100], value=n) for n in matches[:25]]
+
+
 def setup_lol_commands(bot):
     lol_group = app_commands.Group(name="lol", description="League of Legends : link, stats, rank")
 
@@ -572,6 +619,7 @@ def setup_lol_commands(bot):
         champion="Nom du champion (optionnel, sinon top 10)",
         membre="Membre Discord (optionnel)",
     )
+    @app_commands.autocomplete(champion=_champion_autocomplete)
     async def lol_mastery(interaction: discord.Interaction,
                           champion: Optional[str] = None,
                           membre: Optional[discord.Member] = None):
@@ -719,6 +767,7 @@ def setup_lol_commands(bot):
         champion="Nom du champion (ex: Jinx, Lee Sin)",
         skin="Nom du skin (optionnel, sinon liste tous les skins)",
     )
+    @app_commands.autocomplete(champion=_champion_autocomplete, skin=_skin_autocomplete)
     async def lol_skin(interaction: discord.Interaction, champion: str,
                        skin: Optional[str] = None):
         await interaction.response.defer()
@@ -810,7 +859,7 @@ def setup_lol_commands(bot):
 
     # ---------- /lol build ----------
     @lol_group.command(name="build",
-                       description="Suggestions de build pour un champion + role (lien OP.GG)")
+                       description="Build (items, runes, sorts) d'un champion + role")
     @app_commands.describe(
         champion="Nom du champion",
         role="Position (top, jungle, mid, adc, support)",
@@ -822,6 +871,7 @@ def setup_lol_commands(bot):
         app_commands.Choice(name="ADC",     value="adc"),
         app_commands.Choice(name="Support", value="support"),
     ])
+    @app_commands.autocomplete(champion=_champion_autocomplete)
     async def lol_build(interaction: discord.Interaction, champion: str,
                         role: app_commands.Choice[str]):
         await interaction.response.defer()
@@ -836,36 +886,105 @@ def setup_lol_commands(bot):
         if not target_id:
             await interaction.followup.send(
                 embed=_err_embed("Champion introuvable",
-                    f"`{champion}` n'a pas été trouvé.\n"
-                    "Exemples : `Jinx`, `Lee Sin`, `Kai'Sa`."),
+                    f"`{champion}` n'a pas été trouvé."),
                 ephemeral=True,
             )
             return
 
         cname = champs[target_id]["name"]
         cslug = champs[target_id]["slug"]
-        opgg_data = await riot.opgg_build(cslug, role.value)
 
-        # Build minimal : icon champion + lien OP.GG (scrape NEXT_DATA fragile,
-        # on fournit toujours le lien direct comme valeur sure).
+        # Tente OP.GG -> Mobalytics -> liens fallback
         slug_dash = cslug.lower().replace("'", "")
-        url = f"https://www.op.gg/lol/champions/{slug_dash}/build/{role.value}"
+        opgg_url = f"https://www.op.gg/lol/champions/{slug_dash}/build/{role.value}"
+        moba_url = f"https://mobalytics.gg/lol/champions/{slug_dash}/build?role={role.value}"
+        ugg_url  = f"https://u.gg/lol/champions/{slug_dash}/build?role={role.value}"
+        dpm_url  = f"https://dpm.lol/lol/champions/{slug_dash}/builds?role={role.value}"
+
+        build = await riot.opgg_build(cslug, role.value)
+        source = "OP.GG"
+        source_url = opgg_url
+        if not build or not (build.get("items_by_phase") or build.get("data")):
+            build = await riot.mobalytics_build(cslug, role.value)
+            source = "Mobalytics"
+            source_url = moba_url if build else opgg_url
+
         embed = discord.Embed(
             title=f"📊 Build — {cname} {role.name}",
-            description=(
-                f"Suggestions de build, runes et skill order pour **{cname}** en **{role.name}** "
-                f"sur OP.GG (données patch courant, tier Platinum+).\n\n"
-                f"**[Ouvrir sur OP.GG →]({url})**"
-            ),
             color=0xF1C40F,
         )
         icon = await riot.champion_icon_url(target_id)
         if icon:
             embed.set_thumbnail(url=icon)
-        if not opgg_data:
-            embed.set_footer(text="⚠️ Donnees OP.GG temporairement indisponibles. Le lien reste valide.")
-        else:
-            embed.set_footer(text="OP.GG · Patch courant · Tier Platinum+")
+
+        if not build or not build.get("items_by_phase"):
+            # Aucune source ne marche : fallback liens
+            embed.description = (
+                f"⚠️ Sources de build temporairement indisponibles.\n"
+                f"Consulte directement :\n"
+                f"• [OP.GG]({opgg_url})\n"
+                f"• [U.GG]({ugg_url})\n"
+                f"• [DPM]({dpm_url})\n"
+                f"• [Mobalytics]({moba_url})"
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        # Construit l'embed avec items + runes + spells
+        embed.description = f"**{cname}** en **{role.name}** · Source : [{source}]({source_url})"
+
+        # Items par phase
+        for phase in (build.get("items_by_phase") or [])[:5]:
+            ptype = phase.get("type") or "?"
+            ids = phase.get("items") or []
+            if not ids:
+                continue
+            names = []
+            for iid in ids[:6]:
+                try:
+                    names.append(await riot.item_name(int(iid)))
+                except Exception:
+                    names.append(f"#{iid}")
+            embed.add_field(
+                name=f"🧱 {ptype}",
+                value=" → ".join(f"`{n}`" for n in names) or "—",
+                inline=False,
+            )
+
+        # Sorts d'invocateur
+        spells = build.get("summoner_spells") or []
+        if spells:
+            names = [riot.SUMMONER_SPELL_NAMES.get(int(s), f"Spell #{s}") for s in spells[:2]]
+            embed.add_field(name="✨ Sorts d'invocateur",
+                            value=" + ".join(f"**{n}**" for n in names),
+                            inline=True)
+
+        # Runes
+        rune_parts = []
+        keystone = build.get("keystone_id")
+        if keystone:
+            rune_parts.append(f"Keystone : **{riot.RUNE_KEYSTONES.get(int(keystone), f'#{keystone}')}**")
+        prim = build.get("primary_rune_tree")
+        sec  = build.get("secondary_rune_tree")
+        if prim:
+            rune_parts.append(f"Principale : {riot.RUNE_TREES.get(int(prim), f'#{prim}')}")
+        if sec:
+            rune_parts.append(f"Secondaire : {riot.RUNE_TREES.get(int(sec), f'#{sec}')}")
+        if rune_parts:
+            embed.add_field(name="🌿 Runes",
+                            value="\n".join(rune_parts),
+                            inline=True)
+
+        # Skill order
+        order = build.get("skill_order")
+        if order:
+            # Format : QWEQRQE... -> Q > W > E > Q > R > Q > E
+            human = " > ".join(order)
+            embed.add_field(name="📈 Skill order (priorité)",
+                            value=f"`{human[:200]}`",
+                            inline=False)
+
+        embed.set_footer(text=f"Source : {source}. Patch courant, tier moyen Platinum+.")
         await interaction.followup.send(embed=embed)
 
     bot.tree.add_command(lol_group)

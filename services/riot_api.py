@@ -311,7 +311,161 @@ async def meraki_champion(slug_or_name: str) -> Optional[dict]:
         return None
 
 
-# ===== OP.GG scrape (build suggestions) =====
+# ===== Data Dragon : items cache (id -> name) =====
+_DD_ITEMS_CACHE = {"version": None, "items": {}, "fetched": 0.0}
+
+
+async def _dd_items_refresh():
+    now = time.time()
+    if _DD_ITEMS_CACHE["items"] and (now - _DD_ITEMS_CACHE["fetched"]) < _DD_TTL_SEC:
+        return
+    await _dd_refresh()
+    ver = _DD_CACHE.get("version")
+    if not ver:
+        return
+    s = await _get_session()
+    try:
+        async with s.get(f"https://ddragon.leagueoflegends.com/cdn/{ver}/data/en_US/item.json") as resp:
+            if resp.status != 200:
+                return
+            data = await resp.json(content_type=None)
+        items = {}
+        for iid, info in (data.get("data") or {}).items():
+            items[int(iid)] = {"name": info.get("name"), "image": (info.get("image") or {}).get("full")}
+        _DD_ITEMS_CACHE["version"] = ver
+        _DD_ITEMS_CACHE["items"]   = items
+        _DD_ITEMS_CACHE["fetched"] = now
+        print(f"[riot/dd-items] cached items={len(items)} ver={ver}")
+    except Exception as e:
+        print(f"[riot/dd-items] err: {type(e).__name__}: {e}")
+
+
+async def item_name(item_id: int) -> str:
+    await _dd_items_refresh()
+    info = _DD_ITEMS_CACHE["items"].get(int(item_id))
+    if info:
+        return info["name"]
+    return f"Item #{item_id}"
+
+
+# Summoner spells (small static map, ne change presque jamais)
+SUMMONER_SPELL_NAMES = {
+    1:  "Cleanse", 3: "Exhaust", 4: "Flash", 6: "Ghost",
+    7:  "Heal",    11: "Smite",  12: "Teleport", 13: "Clarity",
+    14: "Ignite",  21: "Barrier", 32: "Snowball",
+}
+
+
+# ===== Build scrapers (multi-source : Mobalytics, OP.GG, U.GG, DPM) =====
+async def mobalytics_build(slug: str, role: Optional[str] = None) -> Optional[dict]:
+    """Scrape Mobalytics. Renvoie {items_by_phase, summoner_spells, runes_keystone,
+    runes_secondary_tree, skill_order, source_url} ou None si echec.
+    Le HTML Mobalytics contient les builds en JSON dans la page (App Router)."""
+    slug = (slug or "").strip().lower().replace(" ", "").replace("'", "").replace(".", "")
+    if not slug:
+        return None
+    url = f"https://mobalytics.gg/lol/champions/{slug}/build"
+    if role:
+        url += f"?role={role.lower()}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    s = await _get_session()
+    try:
+        async with s.get(url, headers=headers, allow_redirects=True,
+                          timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                print(f"[riot/moba] status={resp.status} url={url}")
+                return None
+            html = await resp.text()
+    except Exception as e:
+        print(f"[riot/moba] fetch err: {type(e).__name__}: {e}")
+        return None
+
+    import re as _re
+    out = {"source_url": url}
+
+    # Items par phase : "items":[{"__typename":"LolChampionBuildItemsList","type":"Starter","items":[1055,2003,3340]}, ...]
+    items_block = _re.search(r'"items":\[(\{"__typename":"LolChampionBuildItemsList".*?\})\](?=,|\})',
+                              html)
+    items_by_phase = []
+    if items_block:
+        try:
+            import json as _j
+            inner = "[" + items_block.group(1) + "]"
+            arr = _j.loads(inner)
+            for phase in arr:
+                items_by_phase.append({
+                    "type":  phase.get("type"),
+                    "items": phase.get("items") or [],
+                })
+        except Exception as e:
+            print(f"[riot/moba] items parse err: {type(e).__name__}: {e}")
+    out["items_by_phase"] = items_by_phase
+
+    # Summoner spells : "summonerSpells":[4,12] ou "spellIds":[4,12]
+    spell_match = _re.search(r'"summonerSpells":\[(\d+),(\d+)\]', html) \
+                  or _re.search(r'"spellIds":\[(\d+),(\d+)\]', html)
+    if spell_match:
+        out["summoner_spells"] = [int(spell_match.group(1)), int(spell_match.group(2))]
+    else:
+        out["summoner_spells"] = []
+
+    # Runes : "primaryPath" / "secondaryPath" / "runes":[..keystone..]
+    keystone = _re.search(r'"keystone":(\d+)', html) \
+               or _re.search(r'"keystoneId":(\d+)', html)
+    if keystone:
+        out["keystone_id"] = int(keystone.group(1))
+    primary = _re.search(r'"primaryPath":(\d+)', html) \
+              or _re.search(r'"primaryTree":(\d+)', html) \
+              or _re.search(r'"primaryStyle":(\d+)', html)
+    secondary = _re.search(r'"secondaryPath":(\d+)', html) \
+                or _re.search(r'"secondaryTree":(\d+)', html) \
+                or _re.search(r'"subStyle":(\d+)', html)
+    if primary:
+        out["primary_rune_tree"] = int(primary.group(1))
+    if secondary:
+        out["secondary_rune_tree"] = int(secondary.group(1))
+
+    # Skill order : "skillOrder":"QWEQRQE..." ou "abilityOrder":[Q,W,E,...]
+    skill_match = _re.search(r'"skillOrder":"([QWERqwer]+)"', html)
+    if skill_match:
+        out["skill_order"] = skill_match.group(1).upper()
+    else:
+        skill_arr = _re.search(r'"abilityOrder":\[([^\]]+)\]', html)
+        if skill_arr:
+            letters = _re.findall(r'"([QWERqwer])"', skill_arr.group(1))
+            if letters:
+                out["skill_order"] = "".join(l.upper() for l in letters)
+
+    # Si rien d'extrait, retourne None pour declencher fallback
+    if not items_by_phase and not out.get("summoner_spells"):
+        print(f"[riot/moba] empty parse url={url}")
+        return None
+    return out
+
+
+# Mapping rune tree ID -> nom (Riot Communities Dragon)
+RUNE_TREES = {
+    8000: "Precision",
+    8100: "Domination",
+    8200: "Sorcery",
+    8300: "Inspiration",
+    8400: "Resolve",
+}
+
+# Keystone runes principales (id -> name)
+RUNE_KEYSTONES = {
+    8005: "Press the Attack", 8008: "Lethal Tempo", 8021: "Fleet Footwork", 8010: "Conqueror",
+    8112: "Electrocute", 8124: "Predator", 8128: "Dark Harvest", 9923: "Hail of Blades",
+    8214: "Summon Aery", 8229: "Arcane Comet", 8230: "Phase Rush",
+    8351: "Glacial Augment", 8360: "Unsealed Spellbook", 8369: "First Strike",
+    8437: "Grasp of the Undying", 8439: "Aftershock", 8465: "Guardian",
+}
+
+
 async def opgg_build(slug: str, role: str) -> Optional[dict]:
     """Scrape OP.GG pour suggestions de build. Tente d'extraire __NEXT_DATA__ JSON.
     Retourne dict avec core_items, runes, summoner_spells, skill_order,
