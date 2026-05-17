@@ -1,0 +1,121 @@
+{% extends "_base.html" %}
+{% set active_nav = 'poll_builder' %}
+
+{% block title %}Sondage · Bot Console{% endblock %}
+{% block crumb %}Sondage{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="parallax-layer">
+    <span class="eyebrow">Sondage Discord</span>
+    <h1>Lance un poll en quelques clics.</h1>
+    <p class="hero-sub">Le bot poste un sondage natif Discord dans le salon de ton choix. 2 à 10 options, durée 1h à 7 jours.</p>
+  </div>
+</section>
+
+<section class="card mb-6">
+  <h2 style="margin-bottom: var(--s-4);">Nouveau sondage</h2>
+
+  <div class="row gap-3" style="margin-bottom: var(--s-3); flex-wrap: wrap;">
+    <div style="flex:1; min-width: 220px;">
+      <label class="muted" style="font-size: var(--t-sm);">Salon</label>
+      <select id="pollChannel" style="width:100%; margin-top: 4px;">
+        <option value="">Chargement...</option>
+      </select>
+    </div>
+    <div style="width: 160px;">
+      <label class="muted" style="font-size: var(--t-sm);">Durée (heures)</label>
+      <input id="pollDuration" type="number" min="1" max="168" value="24" style="width:100%; margin-top: 4px;">
+    </div>
+  </div>
+
+  <div style="margin-bottom: var(--s-3);">
+    <label class="muted" style="font-size: var(--t-sm);">Question (max 300 caractères)</label>
+    <input id="pollQuestion" type="text" maxlength="300" placeholder="Quel est ton skin CS2 préféré ?" style="width:100%; margin-top: 4px;">
+  </div>
+
+  <div style="margin-bottom: var(--s-3);">
+    <label class="muted" style="font-size: var(--t-sm);">Options (2 à 10, max 55 caractères chacune)</label>
+    <div id="pollOptions" style="display: grid; gap: 8px; margin-top: 4px;"></div>
+    <button class="btn btn-secondary btn-sm" id="pollAddOpt" type="button" style="margin-top: 8px;">
+      + Ajouter une option
+    </button>
+  </div>
+
+  <div class="row gap-2" style="justify-content: flex-end;">
+    <button class="btn btn-primary" id="pollSend" type="button">
+      <svg class="ic"><use href="#i-send"/></svg> Envoyer le sondage
+    </button>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const channelSel = document.getElementById('pollChannel');
+  const durationIn = document.getElementById('pollDuration');
+  const questionIn = document.getElementById('pollQuestion');
+  const optsWrap   = document.getElementById('pollOptions');
+  const addBtn     = document.getElementById('pollAddOpt');
+  const sendBtn    = document.getElementById('pollSend');
+
+  function addOption(value = '') {
+    if (optsWrap.children.length >= 10) return;
+    const row = document.createElement('div');
+    row.className = 'row gap-2';
+    row.innerHTML = `
+      <input type="text" maxlength="55" placeholder="Option ${optsWrap.children.length + 1}"
+             value="${value.replace(/"/g, '&quot;')}" style="flex:1;">
+      <button class="btn btn-secondary btn-sm poll-opt-rm" type="button" title="Retirer">✕</button>
+    `;
+    row.querySelector('.poll-opt-rm').addEventListener('click', () => {
+      if (optsWrap.children.length > 2) row.remove();
+    });
+    optsWrap.appendChild(row);
+  }
+
+  addOption(); addOption();
+  addBtn.addEventListener('click', () => addOption());
+
+  fetch('/api/channels?type=text').then(r => r.json()).then(data => {
+    const channels = data.channels || [];
+    channelSel.innerHTML = '<option value="">— choisir un salon —</option>'
+      + channels.map(c => `<option value="${c.channel_id}">#${c.name}</option>`).join('');
+  }).catch(() => {
+    channelSel.innerHTML = '<option value="">Erreur de chargement</option>';
+  });
+
+  sendBtn.addEventListener('click', () => {
+    const channel_id = channelSel.value;
+    const question   = questionIn.value.trim();
+    const options    = [...optsWrap.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
+    const duration_hours = parseInt(durationIn.value, 10) || 24;
+    if (!channel_id) { window.toast?.('Choisis un salon', 2500); return; }
+    if (!question)   { window.toast?.('Question requise', 2500); return; }
+    if (options.length < 2) { window.toast?.('Au moins 2 options', 2500); return; }
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Envoi...';
+    fetch('/api/poll/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({channel_id, question, options, duration_hours}),
+    }).then(r => r.json()).then(res => {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<svg class="ic"><use href="#i-send"/></svg> Envoyer le sondage';
+      if (res.error) { window.toast?.(res.error, 3500); return; }
+      window.toast?.('Sondage envoyé ✓');
+      questionIn.value = '';
+      [...optsWrap.children].forEach(c => c.remove());
+      addOption(); addOption();
+    }).catch(() => {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<svg class="ic"><use href="#i-send"/></svg> Envoyer le sondage';
+      window.toast?.('Erreur réseau', 3000);
+    });
+  });
+})();
+</script>
+{% endblock %}

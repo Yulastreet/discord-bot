@@ -1,0 +1,80 @@
+<svg width="1400" height="360" viewBox="0 0 1400 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Tookyn GitHub profile banner</title>
+  <desc id="desc">A sober premium GitHub banner for Tookyn and TookBot.</desc>
+
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1400" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#090B10"/>
+      <stop offset="1" stop-color="#121722"/>
+    </linearGradient>
+
+    <linearGradient id="accent" x1="220" y1="0" x2="1180" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E" stop-opacity="0"/>
+      <stop offset="0.2" stop-color="#22C55E" stop-opacity="0.9"/>
+      <stop offset="0.55" stop-color="#5E6AD2" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#5E6AD2" stop-opacity="0"/>
+    </linearGradient>
+
+    <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#FFFFFF" fill-opacity="0.07"/>
+    </pattern>
+
+    <clipPath id="clip">
+      <rect width="1400" height="360" rx="28"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#clip)">
+    <rect width="1400" height="360" fill="url(#background)"/>
+    <rect x="0" y="0" width="1400" height="360" fill="url(#dots)" opacity="0.5"/>
+
+    <path d="M80 78H1320" stroke="#FFFFFF" stroke-opacity="0.08"/>
+    <path d="M80 282H1320" stroke="#FFFFFF" stroke-opacity="0.08"/>
+    <path d="M80 78V282" stroke="#FFFFFF" stroke-opacity="0.08"/>
+    <path d="M1320 78V282" stroke="#FFFFFF" stroke-opacity="0.08"/>
+    <path d="M80 282H1320" stroke="url(#accent)" stroke-width="2"/>
+
+    <g transform="translate(120 108)">
+      <text x="0" y="0" fill="#94A3B8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="5">
+        TOOKBOT / DISCORD AUTOMATION
+      </text>
+
+      <text x="0" y="86" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="86" font-weight="800">
+        Tookyn
+      </text>
+
+      <text x="2" y="132" fill="#CBD5E1" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25" font-weight="500">
+        Bot Discord multi-fonctions, dashboard web et outils communautaires.
+      </text>
+    </g>
+
+    <g transform="translate(965 105)">
+      <rect width="270" height="150" rx="18" fill="#0D1117" stroke="#FFFFFF" stroke-opacity="0.12"/>
+      <text x="26" y="42" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21" font-weight="750">
+        TookBot
+      </text>
+      <text x="26" y="73" fill="#94A3B8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="500">
+        discord.py | Flask | SQLite
+      </text>
+
+      <rect x="26" y="98" width="72" height="28" rx="14" fill="#22C55E" fill-opacity="0.12" stroke="#22C55E" stroke-opacity="0.35"/>
+      <text x="42" y="117" fill="#86EFAC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">
+        ONLINE
+      </text>
+
+      <rect x="110" y="98" width="96" height="28" rx="14" fill="#5E6AD2" fill-opacity="0.14" stroke="#5E6AD2" stroke-opacity="0.4"/>
+      <text x="127" y="117" fill="#C7D2FE" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">
+        DASHBOARD
+      </text>
+    </g>
+
+    <g opacity="0.82">
+      <path d="M122 307H214" stroke="#FFFFFF" stroke-opacity="0.16"/>
+      <path d="M234 307H312" stroke="#22C55E" stroke-opacity="0.8"/>
+      <path d="M332 307H440" stroke="#5E6AD2" stroke-opacity="0.8"/>
+      <text x="120" y="324" fill="#64748B" font-family="SFMono-Regular, Consolas, monospace" font-size="12">
+        build | moderate | automate | ship
+      </text>
+    </g>
+  </g>
+</svg>

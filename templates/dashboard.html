@@ -288,5 +288,76 @@
       });
     });
   })();
+
+  // ----- Heatmap interactive : click une cellule -> popover detail -----
+  (function() {
+    const cells = document.querySelectorAll('.hm-cell[data-count]');
+    if (!cells.length) return;
+    let openPopover = null;
+
+    function closePopover() {
+      if (openPopover) { openPopover.remove(); openPopover = null; }
+    }
+    document.addEventListener('click', e => {
+      if (openPopover && !openPopover.contains(e.target) && !e.target.classList.contains('hm-cell')) {
+        closePopover();
+      }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopover(); });
+
+    cells.forEach(cell => {
+      const count = parseInt(cell.dataset.count, 10) || 0;
+      if (count === 0) return;
+      cell.addEventListener('click', e => {
+        e.stopPropagation();
+        closePopover();
+        const rect = cell.getBoundingClientRect();
+        const pop = document.createElement('div');
+        pop.className = 'heatmap-detail';
+        pop.innerHTML = `
+          <div class="hd-head">
+            <strong>${cell.dataset.label} · ${count} évènement(s)</strong>
+            <button class="hd-close" type="button" aria-label="Fermer">×</button>
+          </div>
+          <div class="hd-body">
+            <div class="skel skel-line"></div>
+            <div class="skel skel-line"></div>
+            <div class="skel skel-line"></div>
+          </div>
+        `;
+        document.body.appendChild(pop);
+        const top = rect.bottom + 8;
+        let left = rect.left + rect.width / 2 - 170;
+        left = Math.max(8, Math.min(left, window.innerWidth - 360));
+        pop.style.top = `${top}px`;
+        pop.style.left = `${left}px`;
+        openPopover = pop;
+        pop.querySelector('.hd-close').addEventListener('click', closePopover);
+
+        fetch(`/api/heatmap/cell?dow=${cell.dataset.dow}&hour=${cell.dataset.hour}&weeks=4`)
+          .then(r => r.json())
+          .then(data => {
+            const body = pop.querySelector('.hd-body');
+            if (data.error || !data.top || data.top.length === 0) {
+              body.innerHTML = '<p class="muted" style="font-size:var(--t-sm);">Aucun détail disponible.</p>';
+              return;
+            }
+            body.innerHTML = data.top.map(row => `
+              <div class="hd-row">
+                <span class="hd-label" title="${row.content || row.type}">
+                  <span class="muted">${row.type === 'command' ? '⌘' : row.type === 'message' ? '💬' : '·'}</span>
+                  ${(row.content || row.type || '?').replace(/</g, '&lt;').slice(0, 40)}
+                </span>
+                <span class="hd-count">${row.n}</span>
+              </div>
+            `).join('');
+          })
+          .catch(() => {
+            pop.querySelector('.hd-body').innerHTML =
+              '<p class="muted" style="font-size:var(--t-sm);">Erreur réseau.</p>';
+          });
+      });
+    });
+  })();
 </script>
 {% endblock %}

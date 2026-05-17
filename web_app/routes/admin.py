@@ -106,6 +106,56 @@ def register_admin_routes(app, deps):
         return jsonify({"success": True, "updated": updated})
 
 
+    @app.route("/api/heatmap/cell")
+    def api_heatmap_cell():
+        from database import get_heatmap_cell_detail
+        try:
+            dow   = max(0, min(6, int(request.args.get("dow", 0))))
+            hour  = max(0, min(23, int(request.args.get("hour", 0))))
+            weeks = max(1, min(12, int(request.args.get("weeks", 4))))
+        except ValueError:
+            return jsonify({"error": "bad_params"}), 400
+        scope = request.args.get("scope", "guild")
+        g_id = None if scope == "global" else gid()
+        data = get_heatmap_cell_detail(g_id, dow=dow, hour=hour, weeks=weeks, limit=10)
+        return jsonify(data)
+
+
+    @app.route("/poll-builder")
+    def poll_builder_page():
+        return render_template("poll_builder.html")
+
+    @app.route("/api/poll/create", methods=["POST"])
+    def api_poll_create():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        channel_id = (data.get("channel_id") or "").strip()
+        question   = (data.get("question") or "").strip()
+        options    = [str(o).strip() for o in (data.get("options") or []) if str(o).strip()]
+        duration_h = data.get("duration_hours")
+        if not channel_id:
+            return jsonify({"error": "channel_id requis"}), 400
+        if not question or len(question) > 300:
+            return jsonify({"error": "question requise (max 300 chars)"}), 400
+        if len(options) < 2 or len(options) > 10:
+            return jsonify({"error": "2 a 10 options"}), 400
+        if any(len(o) > 55 for o in options):
+            return jsonify({"error": "option trop longue (max 55 chars)"}), 400
+        try:
+            duration_h = max(1, min(168, int(duration_h or 24)))
+        except (TypeError, ValueError):
+            duration_h = 24
+        cid = bot_command_enqueue(g_id, "poll_send", {
+            "channel_id":     channel_id,
+            "question":       question,
+            "options":        options,
+            "duration_hours": duration_h,
+        })
+        return jsonify({"success": True, "command_id": cid})
+
+
     @app.route("/moderation")
     def moderation_page():
         return render_template("moderation.html")

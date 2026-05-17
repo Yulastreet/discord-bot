@@ -707,6 +707,63 @@ select {
   to   { opacity: 1; transform: none; }
 }
 
+/* Skeleton loaders : placeholder shimmer le temps du fetch */
+.skel {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--bg-2) 0%,
+    var(--bg-1) 50%,
+    var(--bg-2) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: skel-shimmer 1.6s ease-in-out infinite;
+}
+.skel-line { height: 14px; margin: 6px 0; }
+.skel-line.lg { height: 20px; }
+.skel-block { height: 80px; }
+.skel-circle { border-radius: 50%; }
+@keyframes skel-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; opacity: 0.6; }
+}
+
+/* Heatmap detail popover (interactive heatmap) */
+.heatmap-detail {
+  position: fixed;
+  z-index: 200;
+  min-width: 280px;
+  max-width: 360px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-1);
+  box-shadow: var(--shadow-3);
+  animation: fade-in 160ms var(--ease-out, ease-out);
+}
+.heatmap-detail .hd-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.heatmap-detail .hd-close {
+  background: none; border: none; cursor: pointer; color: var(--text-2);
+  font-size: 18px; padding: 0; line-height: 1;
+}
+.heatmap-detail .hd-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 4px 0; font-size: var(--t-sm);
+}
+.heatmap-detail .hd-row .hd-label {
+  color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.heatmap-detail .hd-row .hd-count {
+  color: var(--accent); font-family: var(--font-mono); font-weight: 700;
+}
+
 /* ========================================================================
    Bar list (replaces matplotlib chart)
    ======================================================================== */

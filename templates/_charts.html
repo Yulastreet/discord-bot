@@ -82,7 +82,9 @@
         {% for h in range(24) %}
           {% set v = matrix[d][h] %}
           {% set intensity = (v / max_v.v) if max_v.v > 0 else 0 %}
-          <div class="hm-cell" style="opacity: {{ 0.08 + intensity * 0.92 if v > 0 else 0.05 }};" title="{{ days[d] }} {{ '%02d'|format(h) }}h : {{ v }} évènement(s)"></div>
+          <div class="hm-cell" data-dow="{{ d }}" data-hour="{{ h }}" data-count="{{ v }}" data-label="{{ days[d] }} {{ '%02d'|format(h) }}h"
+               style="opacity: {{ 0.08 + intensity * 0.92 if v > 0 else 0.05 }};{% if v > 0 %}cursor:pointer;{% endif %}"
+               title="{{ days[d] }} {{ '%02d'|format(h) }}h : {{ v }} évènement(s)"></div>
         {% endfor %}
       {% endfor %}
     </div>

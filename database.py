@@ -1230,6 +1230,42 @@ def get_activity_heatmap(guild_id=None, weeks=4):
     conn.close()
     return matrix
 
+def get_heatmap_cell_detail(guild_id=None, dow=0, hour=0, weeks=4, limit=10):
+    """Detail d'une cellule heatmap (dow + hour) sur les dernieres `weeks`
+    semaines. dow=0..6 ou 0=Lundi (consistant avec get_activity_heatmap).
+    Retourne (total, top_rows) ou top_rows = liste {type, content, n}."""
+    sql_dow = (dow + 1) % 7  # SQLite %w : 0=Dimanche
+    conn = get_db()
+    c = conn.cursor()
+    params_total = []
+    params_top = []
+    if guild_id:
+        gfilter = "guild_id = ? AND "
+        params_total = [str(guild_id), f"-{int(weeks*7)} days", sql_dow, hour]
+        params_top   = [str(guild_id), f"-{int(weeks*7)} days", sql_dow, hour, limit]
+    else:
+        gfilter = ""
+        params_total = [f"-{int(weeks*7)} days", sql_dow, hour]
+        params_top   = [f"-{int(weeks*7)} days", sql_dow, hour, limit]
+
+    c.execute(f"""SELECT COUNT(*) AS n FROM logs WHERE {gfilter}
+                   ts >= datetime('now', ?)
+                   AND CAST(strftime('%w', ts) AS INTEGER) = ?
+                   AND CAST(strftime('%H', ts) AS INTEGER) = ?""",
+              params_total)
+    total = c.fetchone()["n"]
+
+    c.execute(f"""SELECT type, content, COUNT(*) AS n FROM logs WHERE {gfilter}
+                   ts >= datetime('now', ?)
+                   AND CAST(strftime('%w', ts) AS INTEGER) = ?
+                   AND CAST(strftime('%H', ts) AS INTEGER) = ?
+                   GROUP BY type, content ORDER BY n DESC LIMIT ?""",
+              params_top)
+    top = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return {"total": total, "top": top}
+
+
 def get_top_commands(guild_id=None, days=30, limit=10):
     """Top des commandes les plus utilisees."""
     conn = get_db()

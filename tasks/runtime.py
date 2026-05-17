@@ -1265,6 +1265,28 @@ def setup_runtime(bot, deps):
                         print(f"[mod/dashboard-warn] auto-timeout err: {type(_e).__name__}")
             return
 
+        elif name == "poll_send":
+            # payload: {channel_id, question, options[], duration_hours}
+            ch_id = payload.get("channel_id")
+            question = (payload.get("question") or "").strip()
+            options = [str(o).strip() for o in (payload.get("options") or []) if str(o).strip()]
+            try:
+                duration_h = max(1, min(168, int(payload.get("duration_hours", 24))))
+            except (TypeError, ValueError):
+                duration_h = 24
+            if not ch_id or not question or len(options) < 2:
+                raise ValueError("payload poll invalide")
+            channel = guild.get_channel(int(ch_id))
+            if not channel:
+                raise ValueError("salon introuvable")
+            if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+                raise ValueError("le salon n'est pas textuel")
+            poll = discord.Poll(question=question, duration=_dt.timedelta(hours=duration_h))
+            for opt in options[:10]:
+                poll.add_answer(text=opt[:55])
+            await channel.send(poll=poll)
+            return
+
         elif name == "bot_say":
             # payload: {channel_id, content, embed?}
             ch_id = payload.get("channel_id")
