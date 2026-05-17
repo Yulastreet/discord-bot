@@ -354,17 +354,110 @@ SUMMONER_SPELL_NAMES = {
     7:  "Heal",    11: "Smite",  12: "Teleport", 13: "Clarity",
     14: "Ignite",  21: "Barrier", 32: "Snowball",
 }
+# id Riot -> nom asset Data Dragon (pour icon)
+SUMMONER_SPELL_ASSETS = {
+    1:  "SummonerBoost",  3: "SummonerExhaust", 4: "SummonerFlash",  6: "SummonerHaste",
+    7:  "SummonerHeal",  11: "SummonerSmite",  12: "SummonerTeleport", 13: "SummonerMana",
+    14: "SummonerDot",   21: "SummonerBarrier", 32: "SummonerSnowball",
+}
+
+
+# ===== Composite image : icones items + sorts en une seule PNG =====
+async def compose_build_image(item_ids: list[int], spell_ids: list[int]) -> Optional[bytes]:
+    """Telecharge icones DataDragon, compose une image horizontale :
+    Row 1 : items (64x64 chacun)
+    Row 2 : summoner spells (48x48 chacun)
+    Renvoie bytes PNG ou None si echec."""
+    if not item_ids and not spell_ids:
+        return None
+    await _dd_refresh()
+    ver = _DD_CACHE.get("version")
+    if not ver:
+        return None
+    try:
+        from PIL import Image
+        import io
+    except Exception:
+        return None
+
+    s = await _get_session()
+
+    async def _fetch(url):
+        try:
+            async with s.get(url) as resp:
+                if resp.status != 200:
+                    return None
+                return await resp.read()
+        except Exception:
+            return None
+
+    # Telecharge tous les assets en parallele
+    item_tasks = [_fetch(f"https://ddragon.leagueoflegends.com/cdn/{ver}/img/item/{i}.png") for i in item_ids]
+    spell_tasks = []
+    for sid in spell_ids:
+        asset = SUMMONER_SPELL_ASSETS.get(int(sid))
+        if asset:
+            spell_tasks.append(_fetch(f"https://ddragon.leagueoflegends.com/cdn/{ver}/img/spell/{asset}.png"))
+        else:
+            spell_tasks.append(asyncio.sleep(0, result=None))
+
+    item_bufs = await asyncio.gather(*item_tasks) if item_tasks else []
+    spell_bufs = await asyncio.gather(*spell_tasks) if spell_tasks else []
+
+    ITEM_SIZE = 64
+    SPELL_SIZE = 48
+    PAD = 8
+    item_count = len(item_bufs)
+    spell_count = len(spell_bufs)
+    row1_w = item_count * ITEM_SIZE + max(0, item_count - 1) * PAD if item_count else 0
+    row2_w = spell_count * SPELL_SIZE + max(0, spell_count - 1) * PAD if spell_count else 0
+    canvas_w = max(row1_w, row2_w) + 2 * PAD
+    row1_h = ITEM_SIZE if item_count else 0
+    row2_h = SPELL_SIZE if spell_count else 0
+    canvas_h = row1_h + (PAD if item_count and spell_count else 0) + row2_h + 2 * PAD
+    if canvas_w <= 0 or canvas_h <= 0:
+        return None
+
+    canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    y = PAD
+    if item_count:
+        x = PAD + max(0, (canvas_w - 2 * PAD - row1_w) // 2)
+        for buf in item_bufs:
+            if buf:
+                try:
+                    icon = Image.open(io.BytesIO(buf)).convert("RGBA").resize(
+                        (ITEM_SIZE, ITEM_SIZE), Image.LANCZOS)
+                    canvas.paste(icon, (x, y), icon)
+                except Exception:
+                    pass
+            x += ITEM_SIZE + PAD
+        y += ITEM_SIZE + PAD
+    if spell_count:
+        x = PAD + max(0, (canvas_w - 2 * PAD - row2_w) // 2)
+        for buf in spell_bufs:
+            if buf:
+                try:
+                    icon = Image.open(io.BytesIO(buf)).convert("RGBA").resize(
+                        (SPELL_SIZE, SPELL_SIZE), Image.LANCZOS)
+                    canvas.paste(icon, (x, y), icon)
+                except Exception:
+                    pass
+            x += SPELL_SIZE + PAD
+
+    out = io.BytesIO()
+    canvas.save(out, format="PNG", optimize=True)
+    return out.getvalue()
 
 
 # ===== Build scrapers (multi-source : Mobalytics, OP.GG, U.GG, DPM) =====
-async def mobalytics_build(slug: str, role: Optional[str] = None) -> Optional[dict]:
-    """Scrape Mobalytics. Renvoie {items_by_phase, summoner_spells, runes_keystone,
-    runes_secondary_tree, skill_order, source_url} ou None si echec.
-    Le HTML Mobalytics contient les builds en JSON dans la page (App Router)."""
-    slug = (slug or "").strip().lower().replace(" ", "").replace("'", "").replace(".", "")
-    if not slug:
+async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Optional[list[dict]]:
+    """Scrape Mobalytics, renvoie une LISTE de builds (1 ou plusieurs).
+    Chaque build : {name, items_by_phase, summoner_spells, keystone_id,
+    primary_rune_tree, secondary_rune_tree, skill_order}."""
+    slug_clean = (slug or "").strip().lower().replace(" ", "").replace("'", "").replace(".", "")
+    if not slug_clean:
         return None
-    url = f"https://mobalytics.gg/lol/champions/{slug}/build"
+    url = f"https://mobalytics.gg/lol/champions/{slug_clean}/build"
     if role:
         url += f"?role={role.lower()}"
     headers = {
@@ -385,66 +478,96 @@ async def mobalytics_build(slug: str, role: Optional[str] = None) -> Optional[di
         return None
 
     import re as _re
-    out = {"source_url": url}
+    import json as _j
 
-    # Items par phase : "items":[{"__typename":"LolChampionBuildItemsList","type":"Starter","items":[1055,2003,3340]}, ...]
-    items_block = _re.search(r'"items":\[(\{"__typename":"LolChampionBuildItemsList".*?\})\](?=,|\})',
-                              html)
-    items_by_phase = []
-    if items_block:
+    # Extrait toutes les phases d'items (Starter, Core, Boots, Late, Situational).
+    # Chaque phase est un dict LolChampionBuildItemsList.
+    phases = []
+    for m in _re.finditer(r'\{"__typename":"LolChampionBuildItemsList","type":"([^"]+)","items":\[([^\]]*)\]\}', html):
+        ptype = m.group(1)
         try:
-            import json as _j
-            inner = "[" + items_block.group(1) + "]"
-            arr = _j.loads(inner)
-            for phase in arr:
-                items_by_phase.append({
-                    "type":  phase.get("type"),
-                    "items": phase.get("items") or [],
-                })
-        except Exception as e:
-            print(f"[riot/moba] items parse err: {type(e).__name__}: {e}")
-    out["items_by_phase"] = items_by_phase
+            ids = [int(x) for x in _re.findall(r'\d+', m.group(2))]
+        except Exception:
+            ids = []
+        phases.append({"type": ptype, "items": ids})
 
-    # Summoner spells : "summonerSpells":[4,12] ou "spellIds":[4,12]
+    if not phases:
+        # Pas de phase trouvee : page introuvable ou structure changee
+        return None
+
+    # Groupe les phases en builds : chaque fois qu'on retrouve un type deja
+    # vu dans le build courant, on commence un nouveau build.
+    builds_raw = []
+    current = []
+    seen_types = set()
+    for p in phases:
+        if p["type"] in seen_types and current:
+            builds_raw.append(current)
+            current = []
+            seen_types = set()
+        current.append(p)
+        seen_types.add(p["type"])
+    if current:
+        builds_raw.append(current)
+
+    # Extrait spells / runes / skill order (mobalytics donne souvent UNE
+    # valeur pour la page, applique a tous les builds par defaut)
     spell_match = _re.search(r'"summonerSpells":\[(\d+),(\d+)\]', html) \
                   or _re.search(r'"spellIds":\[(\d+),(\d+)\]', html)
-    if spell_match:
-        out["summoner_spells"] = [int(spell_match.group(1)), int(spell_match.group(2))]
-    else:
-        out["summoner_spells"] = []
+    spells = [int(spell_match.group(1)), int(spell_match.group(2))] if spell_match else []
 
-    # Runes : "primaryPath" / "secondaryPath" / "runes":[..keystone..]
-    keystone = _re.search(r'"keystone":(\d+)', html) \
-               or _re.search(r'"keystoneId":(\d+)', html)
-    if keystone:
-        out["keystone_id"] = int(keystone.group(1))
-    primary = _re.search(r'"primaryPath":(\d+)', html) \
-              or _re.search(r'"primaryTree":(\d+)', html) \
-              or _re.search(r'"primaryStyle":(\d+)', html)
-    secondary = _re.search(r'"secondaryPath":(\d+)', html) \
-                or _re.search(r'"secondaryTree":(\d+)', html) \
-                or _re.search(r'"subStyle":(\d+)', html)
-    if primary:
-        out["primary_rune_tree"] = int(primary.group(1))
-    if secondary:
-        out["secondary_rune_tree"] = int(secondary.group(1))
+    keystone = _re.search(r'"keystone":(\d+)', html) or _re.search(r'"keystoneId":(\d+)', html)
+    keystone_id = int(keystone.group(1)) if keystone else None
 
-    # Skill order : "skillOrder":"QWEQRQE..." ou "abilityOrder":[Q,W,E,...]
+    prim = _re.search(r'"primaryPath":(\d+)', html) \
+           or _re.search(r'"primaryTree":(\d+)', html) \
+           or _re.search(r'"primaryStyle":(\d+)', html)
+    primary_tree = int(prim.group(1)) if prim else None
+
+    sec = _re.search(r'"secondaryPath":(\d+)', html) \
+          or _re.search(r'"secondaryTree":(\d+)', html) \
+          or _re.search(r'"subStyle":(\d+)', html)
+    secondary_tree = int(sec.group(1)) if sec else None
+
     skill_match = _re.search(r'"skillOrder":"([QWERqwer]+)"', html)
     if skill_match:
-        out["skill_order"] = skill_match.group(1).upper()
+        skill_order = skill_match.group(1).upper()
     else:
         skill_arr = _re.search(r'"abilityOrder":\[([^\]]+)\]', html)
+        skill_order = ""
         if skill_arr:
             letters = _re.findall(r'"([QWERqwer])"', skill_arr.group(1))
             if letters:
-                out["skill_order"] = "".join(l.upper() for l in letters)
+                skill_order = "".join(l.upper() for l in letters)
 
-    # Si rien d'extrait, retourne None pour declencher fallback
-    if not items_by_phase and not out.get("summoner_spells"):
-        print(f"[riot/moba] empty parse url={url}")
+    builds = []
+    for idx, phases_set in enumerate(builds_raw):
+        name = f"Build {idx + 1}"
+        if idx == 0:
+            name = "Build principal"
+        elif idx == 1:
+            name = "Variante"
+        elif idx == 2:
+            name = "Alternative"
+        builds.append({
+            "name":               name,
+            "items_by_phase":     phases_set,
+            "summoner_spells":    spells,
+            "keystone_id":        keystone_id,
+            "primary_rune_tree":  primary_tree,
+            "secondary_rune_tree": secondary_tree,
+            "skill_order":        skill_order,
+            "source_url":         url,
+        })
+    return builds
+
+
+async def mobalytics_build(slug: str, role: Optional[str] = None) -> Optional[dict]:
+    """Compat : renvoie le premier build seulement."""
+    builds = await mobalytics_builds_all(slug, role)
+    if not builds:
         return None
-    return out
+    return builds[0]
 
 
 # Mapping rune tree ID -> nom (Riot Communities Dragon)
