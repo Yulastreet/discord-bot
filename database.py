@@ -144,6 +144,26 @@ def init_db():
         updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Codes promo (owner cree, users redeem via /redeem CODE)
+    # reward_type : 'tookcoins' | 'pass_xp' | 'premium_grant_days'
+    # reward_value : int (montant TC, XP, ou jours selon type)
+    c.execute('''CREATE TABLE IF NOT EXISTS promo_codes (
+        code         TEXT PRIMARY KEY,
+        reward_type  TEXT NOT NULL,
+        reward_value INTEGER NOT NULL DEFAULT 0,
+        max_uses     INTEGER NOT NULL DEFAULT 1,
+        used_count   INTEGER NOT NULL DEFAULT 0,
+        expires_at   TEXT,
+        note         TEXT,
+        created_at   TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS promo_redemptions (
+        code       TEXT NOT NULL,
+        user_id    TEXT NOT NULL,
+        ts         TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (code, user_id)
+    )''')
+
     # ===== Table guild_members (cache members par serveur) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
         guild_id    TEXT NOT NULL,
@@ -1530,6 +1550,82 @@ def daily_claim_get(user_id):
     if not row:
         return {"last_claim_date": None, "streak": 0, "total_claims": 0}
     return dict(row)
+
+PROMO_REWARD_TYPES = {"tookcoins", "pass_xp", "premium_grant_days"}
+
+def promo_code_create(code, reward_type, reward_value, max_uses=1, expires_at=None, note=None):
+    if reward_type not in PROMO_REWARD_TYPES:
+        raise ValueError(f"reward_type invalide: {reward_type}")
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO promo_codes (code, reward_type, reward_value, max_uses, expires_at, note)
+                 VALUES (?, ?, ?, ?, ?, ?)""",
+              (code.upper(), reward_type, int(reward_value), int(max_uses),
+               expires_at, note))
+    conn.commit()
+    conn.close()
+
+def promo_code_get(code):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM promo_codes WHERE code = ?", (code.upper(),))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def promo_codes_list():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM promo_codes ORDER BY created_at DESC")
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+def promo_code_delete(code):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM promo_codes WHERE code = ?", (code.upper(),))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+def promo_redeem_check(code, user_id):
+    """Verifie sans appliquer : (ok, reason, promo_dict)."""
+    promo = promo_code_get(code)
+    if not promo:
+        return False, "code_invalid", None
+    if promo["max_uses"] > 0 and promo["used_count"] >= promo["max_uses"]:
+        return False, "max_uses_reached", promo
+    exp = promo.get("expires_at")
+    if exp:
+        try:
+            import datetime as _d
+            if _d.datetime.fromisoformat(exp.replace("Z", "+00:00")) < _d.datetime.now(_d.timezone.utc):
+                return False, "expired", promo
+        except Exception:
+            pass
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM promo_redemptions WHERE code = ? AND user_id = ?",
+              (code.upper(), str(user_id)))
+    already = c.fetchone()
+    conn.close()
+    if already:
+        return False, "already_redeemed", promo
+    return True, "ok", promo
+
+def promo_redeem_apply(code, user_id):
+    """Marque la redemption (atomic). Le caller doit appliquer le reward."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO promo_redemptions (code, user_id) VALUES (?, ?)",
+              (code.upper(), str(user_id)))
+    c.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = ?",
+              (code.upper(),))
+    conn.commit()
+    conn.close()
+
 
 def daily_claim_apply(user_id, today_str, new_streak):
     """Marque la claim du jour et bump le streak. Idempotent par jour."""

@@ -1,0 +1,145 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_premium_analytics' %}
+
+{% block title %}Analytics Premium · Owner{% endblock %}
+{% block crumb %}Owner · Analytics Premium{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="parallax-layer">
+    <span class="eyebrow">Owner only</span>
+    <h1>Analytics Premium.</h1>
+    <p class="hero-sub">Entitlements Discord SKU, grants manuels, codes promo, total membres premium.</p>
+  </div>
+</section>
+
+<section class="grid grid-4 mb-6" id="paCards">
+  <div class="stat-card">
+    <div class="stat-head"><span class="stat-icon">👥 Total Premium</span></div>
+    <div class="stat-body"><div class="stat-num" id="paUnique"><div class="skel skel-line lg"></div></div></div>
+    <div class="stat-foot"><span class="stat-foot-label">Membres uniques avec accès</span></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-head"><span class="stat-icon">🎟️ Pass actifs</span></div>
+    <div class="stat-body"><div class="stat-num" id="paPass"><div class="skel skel-line lg"></div></div></div>
+    <div class="stat-foot"><span class="stat-foot-label">Abonnements en cours</span></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-head"><span class="stat-icon">🎁 Grants</span></div>
+    <div class="stat-body"><div class="stat-num" id="paGrants"><div class="skel skel-line lg"></div></div></div>
+    <div class="stat-foot"><span class="stat-foot-label">Offerts manuellement</span></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-head"><span class="stat-icon">🏷️ Codes utilisés (30 j)</span></div>
+    <div class="stat-body"><div class="stat-num" id="paRedeems"><div class="skel skel-line lg"></div></div></div>
+    <div class="stat-foot"><span class="stat-foot-label">Redemptions sur 30 jours</span></div>
+  </div>
+</section>
+
+<div class="grid grid-2 gap-5 mb-6">
+  <section class="card">
+    <h2 style="margin-bottom: var(--s-3);">Entitlements par SKU</h2>
+    <div id="paSkuList">
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+    </div>
+  </section>
+  <section class="card">
+    <h2 style="margin-bottom: var(--s-3);">Grants par feature</h2>
+    <div id="paFeatureList">
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+    </div>
+  </section>
+</div>
+
+<section class="card padless">
+  <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+    <h2 style="margin:0;">Top codes les plus utilisés</h2>
+    <a class="btn btn-secondary btn-sm" href="/owner/promo-codes">Gérer les codes →</a>
+  </div>
+  <div id="paTopWrap">
+    <div style="padding: var(--s-5);">
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+      <div class="skel skel-line" style="margin: 6px 0;"></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const REWARD_LABELS = {
+  tookcoins: '🪙 TC',
+  pass_xp: '🎟️ XP',
+  premium_grant_days: '🎁 j',
+};
+
+fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
+  if (data.error) {
+    document.querySelectorAll('.stat-num').forEach(el => el.textContent = '—');
+    return;
+  }
+  document.getElementById('paUnique').textContent = data.unique_premium ?? 0;
+  document.getElementById('paPass').textContent   = data.pass_active ?? 0;
+  document.getElementById('paGrants').textContent = data.grants_total ?? 0;
+  document.getElementById('paRedeems').textContent = data.promo_redemptions_30d ?? 0;
+
+  const skuList = document.getElementById('paSkuList');
+  const skus = Object.entries(data.entitlements_by_sku || {});
+  if (skus.length === 0) {
+    skuList.innerHTML = '<p class="muted" style="font-size: var(--t-sm);">Aucun entitlement actif.</p>';
+  } else {
+    skuList.innerHTML = skus.map(([sku, n]) => `
+      <div class="bar-row" style="grid-template-columns: 1fr 80px;">
+        <span class="bar-label mono" title="${sku}">${sku.slice(0, 22)}${sku.length > 22 ? '…' : ''}</span>
+        <span class="bar-value">${n}</span>
+      </div>
+    `).join('');
+  }
+
+  const featList = document.getElementById('paFeatureList');
+  const feats = Object.entries(data.grants_by_feature || {});
+  if (feats.length === 0) {
+    featList.innerHTML = '<p class="muted" style="font-size: var(--t-sm);">Aucun grant manuel.</p>';
+  } else {
+    featList.innerHTML = feats.map(([feat, n]) => `
+      <div class="bar-row" style="grid-template-columns: 1fr 80px;">
+        <span class="bar-label"><strong>${feat}</strong></span>
+        <span class="bar-value">${n}</span>
+      </div>
+    `).join('');
+  }
+
+  const top = data.promo_top || [];
+  const topWrap = document.getElementById('paTopWrap');
+  if (top.length === 0) {
+    topWrap.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);">Aucun code créé.</div>';
+  } else {
+    topWrap.innerHTML = `
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Récompense</th>
+            <th class="num">Utilisations</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${top.map(c => `
+            <tr>
+              <td class="mono"><strong>${c.code}</strong></td>
+              <td>${REWARD_LABELS[c.reward_type] || c.reward_type} <strong>${c.reward_value}</strong></td>
+              <td class="num">${c.used_count} / ${c.max_uses}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+}).catch(() => {
+  document.querySelectorAll('.stat-num').forEach(el => el.textContent = '—');
+});
+</script>
+{% endblock %}

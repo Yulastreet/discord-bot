@@ -299,6 +299,140 @@ def register_premium_routes(app, deps):
         })
 
 
+    # ===== Owner : codes promo =====
+
+    @app.route("/owner/promo-codes")
+    def owner_promo_codes_page():
+        if not _is_owner_session():
+            abort(403)
+        return render_template("owner_promo_codes.html",
+                               active_nav="owner_promo_codes")
+
+    @app.route("/api/owner/promo-codes", methods=["GET"])
+    def api_owner_promo_codes_list():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        return jsonify({"codes": promo_codes_list()})
+
+    @app.route("/api/owner/promo-codes", methods=["POST"])
+    def api_owner_promo_codes_create():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        data = request.json or {}
+        code = (data.get("code") or "").strip().upper()
+        rtype = (data.get("reward_type") or "").strip()
+        try:
+            rvalue   = int(data.get("reward_value", 0))
+            max_uses = int(data.get("max_uses", 1))
+        except (TypeError, ValueError):
+            return jsonify({"error": "valeurs numeriques invalides"}), 400
+        expires_at = (data.get("expires_at") or "").strip() or None
+        note       = (data.get("note") or "").strip() or None
+
+        if not code or len(code) > 32:
+            return jsonify({"error": "code requis (max 32 chars)"}), 400
+        if rtype not in ("tookcoins", "pass_xp", "premium_grant_days"):
+            return jsonify({"error": "reward_type invalide"}), 400
+        if rvalue <= 0:
+            return jsonify({"error": "reward_value doit etre > 0"}), 400
+        if max_uses < 1 or max_uses > 100000:
+            return jsonify({"error": "max_uses invalide"}), 400
+
+        try:
+            promo_code_create(code, rtype, rvalue, max_uses=max_uses,
+                              expires_at=expires_at, note=note)
+        except Exception as e:
+            return jsonify({"error": f"creation echouee: {e}"}), 400
+        return jsonify({"success": True, "code": code})
+
+    @app.route("/api/owner/promo-codes/<code>", methods=["DELETE"])
+    def api_owner_promo_codes_delete(code):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        n = promo_code_delete(code)
+        return jsonify({"success": True, "deleted": n})
+
+
+    # ===== Owner : analytics premium =====
+
+    @app.route("/owner/premium-analytics")
+    def owner_premium_analytics_page():
+        if not _is_owner_session():
+            abort(403)
+        return render_template("owner_premium_analytics.html",
+                               active_nav="owner_premium_analytics")
+
+    @app.route("/api/owner/premium-analytics")
+    def api_owner_premium_analytics():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        db = get_db()
+        # Entitlements actifs (SKU Discord payants)
+        ent = db.execute("""SELECT sku_id, COUNT(*) AS n
+                            FROM entitlements
+                            WHERE (deleted_at IS NULL OR deleted_at = '')
+                              AND (ends_at IS NULL OR ends_at = '' OR ends_at >= datetime('now'))
+                            GROUP BY sku_id""").fetchall()
+        entitlements_by_sku = {r["sku_id"]: r["n"] for r in ent}
+
+        # Grants manuels (codes promo, owner offre)
+        grants_total = db.execute(
+            "SELECT COUNT(*) AS n FROM premium_grants"
+        ).fetchone()["n"]
+        grants_by_feature = {r["feature"]: r["n"] for r in db.execute(
+            "SELECT feature, COUNT(*) AS n FROM premium_grants GROUP BY feature"
+        ).fetchall()}
+
+        # Codes promo : compte + redemptions 30j
+        promo_total = db.execute(
+            "SELECT COUNT(*) AS n FROM promo_codes"
+        ).fetchone()["n"]
+        promo_redemptions_30d = db.execute(
+            "SELECT COUNT(*) AS n FROM promo_redemptions WHERE ts >= datetime('now', '-30 days')"
+        ).fetchone()["n"]
+        promo_top = [dict(r) for r in db.execute(
+            """SELECT pc.code, pc.reward_type, pc.reward_value, pc.used_count, pc.max_uses
+                 FROM promo_codes pc
+                 ORDER BY pc.used_count DESC LIMIT 10"""
+        ).fetchall()]
+
+        # Pass actifs (entitlements en cours avec sku_pass)
+        sku_pass = (globals().get("SKU_PASS") or "")
+        pass_active = 0
+        if sku_pass:
+            pass_active = db.execute(
+                """SELECT COUNT(DISTINCT user_id) AS n FROM entitlements
+                   WHERE sku_id = ?
+                     AND (deleted_at IS NULL OR deleted_at = '')
+                     AND (ends_at IS NULL OR ends_at = '' OR ends_at >= datetime('now'))""",
+                (sku_pass,)
+            ).fetchone()["n"]
+
+        # Total membres uniques avec un acces premium (entitlement OU grant)
+        unique_premium = db.execute("""
+            SELECT COUNT(*) AS n FROM (
+                SELECT user_id FROM entitlements
+                WHERE (deleted_at IS NULL OR deleted_at = '')
+                  AND (ends_at IS NULL OR ends_at = '' OR ends_at >= datetime('now'))
+                UNION
+                SELECT user_id FROM premium_grants
+            )
+        """).fetchone()["n"]
+
+        db.close()
+        return jsonify({
+            "entitlements_by_sku":   entitlements_by_sku,
+            "grants_total":          grants_total,
+            "grants_by_feature":     grants_by_feature,
+            "promo_total":           promo_total,
+            "promo_redemptions_30d": promo_redemptions_30d,
+            "promo_top":             promo_top,
+            "pass_active":           pass_active,
+            "unique_premium":        unique_premium,
+            "sku_pass_id":           sku_pass,
+        })
+
+
     # ===== API publique : stats pour landing tookbot.click =====
     # Cache 1h pour eviter de bombarder la DB depuis la home page.
 

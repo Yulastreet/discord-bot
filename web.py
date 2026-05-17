@@ -35,6 +35,8 @@ from database import (
     # Settings (config dynamique)
     get_all_settings, get_setting, set_setting, DEFAULT_SETTINGS,
     guild_setting_get, guild_setting_set, guild_settings_all,
+    promo_code_create, promo_code_get, promo_codes_list,
+    promo_code_delete, promo_redeem_check, promo_redeem_apply,
     # Members (cache pour modération + picker)
     list_members,
     # Duels (global)

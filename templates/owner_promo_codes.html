@@ -1,0 +1,174 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_promo_codes' %}
+
+{% block title %}Codes promo · Owner{% endblock %}
+{% block crumb %}Owner · Codes promo{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="parallax-layer">
+    <span class="eyebrow">Owner only</span>
+    <h1>Codes promo.</h1>
+    <p class="hero-sub">Génère des codes que les membres pourront utiliser via <code>/redeem CODE</code>.</p>
+  </div>
+</section>
+
+<section class="card mb-6">
+  <h2 style="margin-bottom: var(--s-4);">Nouveau code</h2>
+  <div class="row gap-3" style="flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 160px;">
+      <label class="muted" style="font-size: var(--t-sm);">Code (laisse vide = auto)</label>
+      <div class="row gap-2" style="margin-top: 4px;">
+        <input id="pcCode" type="text" maxlength="32" placeholder="WELCOME2026" style="flex:1; text-transform: uppercase;">
+        <button class="btn btn-secondary btn-sm" id="pcGen" type="button">🎲</button>
+      </div>
+    </div>
+    <div style="width: 180px;">
+      <label class="muted" style="font-size: var(--t-sm);">Type de récompense</label>
+      <select id="pcType" style="width: 100%; margin-top: 4px;">
+        <option value="tookcoins">🪙 TookCoins</option>
+        <option value="pass_xp">🎟️ XP Pass</option>
+        <option value="premium_grant_days">🎁 Pass offert (jours)</option>
+      </select>
+    </div>
+    <div style="width: 120px;">
+      <label class="muted" style="font-size: var(--t-sm);">Valeur</label>
+      <input id="pcValue" type="number" min="1" value="100" style="width: 100%; margin-top: 4px;">
+    </div>
+    <div style="width: 120px;">
+      <label class="muted" style="font-size: var(--t-sm);">Max utilisations</label>
+      <input id="pcMax" type="number" min="1" value="1" style="width: 100%; margin-top: 4px;">
+    </div>
+    <div style="width: 200px;">
+      <label class="muted" style="font-size: var(--t-sm);">Expire le (optionnel)</label>
+      <input id="pcExp" type="datetime-local" style="width: 100%; margin-top: 4px;">
+    </div>
+  </div>
+  <div style="margin-top: var(--s-3);">
+    <label class="muted" style="font-size: var(--t-sm);">Note (optionnel, owner-only)</label>
+    <input id="pcNote" type="text" maxlength="120" placeholder="Code distribué sur Twitter" style="width: 100%; margin-top: 4px;">
+  </div>
+  <div class="row gap-2" style="justify-content: flex-end; margin-top: var(--s-4);">
+    <button class="btn btn-primary" id="pcCreate" type="button">
+      <svg class="ic"><use href="#i-check"/></svg> Créer le code
+    </button>
+  </div>
+</section>
+
+<section class="card padless">
+  <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+    <h2 style="margin:0;">Codes existants</h2>
+    <span class="badge" id="pcCount">—</span>
+  </div>
+  <div id="pcListWrap">
+    <div style="padding: var(--s-5);">
+      <div class="skel skel-line lg" style="margin-bottom: 8px;"></div>
+      <div class="skel skel-line" style="margin-bottom: 8px;"></div>
+      <div class="skel skel-line" style="margin-bottom: 8px;"></div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const REWARD_LABELS = {
+  tookcoins: '🪙 TC',
+  pass_xp: '🎟️ XP',
+  premium_grant_days: '🎁 j',
+};
+
+function randomCode(len = 10) {
+  const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < len; i++) s += charset[Math.floor(Math.random() * charset.length)];
+  return s;
+}
+
+document.getElementById('pcGen').addEventListener('click', () => {
+  document.getElementById('pcCode').value = randomCode();
+});
+
+function renderList(codes) {
+  const wrap = document.getElementById('pcListWrap');
+  document.getElementById('pcCount').textContent = `${codes.length} code(s)`;
+  if (codes.length === 0) {
+    wrap.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);">Aucun code créé.</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Récompense</th>
+          <th class="num">Utilisations</th>
+          <th>Expire</th>
+          <th>Note</th>
+          <th style="width:80px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${codes.map(c => `
+          <tr>
+            <td class="mono"><strong>${c.code}</strong></td>
+            <td>${REWARD_LABELS[c.reward_type] || c.reward_type} <strong>${c.reward_value}</strong></td>
+            <td class="num">${c.used_count} / ${c.max_uses}</td>
+            <td>${c.expires_at ? c.expires_at.replace('T', ' ').slice(0, 16) : '—'}</td>
+            <td>${(c.note || '').replace(/</g, '&lt;')}</td>
+            <td><button class="btn btn-secondary btn-sm pc-del" data-code="${c.code}">✕</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  wrap.querySelectorAll('.pc-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      if (!confirm(`Supprimer le code ${code} ?`)) return;
+      fetch(`/api/owner/promo-codes/${encodeURIComponent(code)}`, {method: 'DELETE'})
+        .then(r => r.json()).then(() => {
+          window.toast?.('Code supprimé');
+          loadCodes();
+        });
+    });
+  });
+}
+
+function loadCodes() {
+  fetch('/api/owner/promo-codes').then(r => r.json()).then(data => {
+    renderList(data.codes || []);
+  }).catch(() => {
+    document.getElementById('pcListWrap').innerHTML =
+      '<div style="padding: var(--s-5); color: var(--danger);">Erreur de chargement.</div>';
+  });
+}
+
+document.getElementById('pcCreate').addEventListener('click', () => {
+  const codeInput = document.getElementById('pcCode');
+  const code = (codeInput.value.trim() || randomCode()).toUpperCase();
+  const payload = {
+    code,
+    reward_type:  document.getElementById('pcType').value,
+    reward_value: parseInt(document.getElementById('pcValue').value, 10),
+    max_uses:     parseInt(document.getElementById('pcMax').value, 10),
+    expires_at:   document.getElementById('pcExp').value || null,
+    note:         document.getElementById('pcNote').value.trim() || null,
+  };
+  fetch('/api/owner/promo-codes', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(r => r.json()).then(res => {
+    if (res.error) { window.toast?.(res.error, 3500); return; }
+    window.toast?.(`Code ${res.code} créé ✓`);
+    codeInput.value = '';
+    document.getElementById('pcNote').value = '';
+    loadCodes();
+  });
+});
+
+loadCodes();
+</script>
+{% endblock %}

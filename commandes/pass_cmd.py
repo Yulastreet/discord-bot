@@ -85,6 +85,70 @@ def setup_pass_commands(bot, deps):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
+    @bot.tree.command(name="redeem", description="Utiliser un code promo (TookCoins, XP Pass, ou Pass gratuit)")
+    @app_commands.describe(code="Le code promo a echanger (insensible a la casse)")
+    async def redeem_code(interaction: discord.Interaction, code: str):
+        code = (code or "").strip().upper()
+        if not code or len(code) > 32:
+            await interaction.response.send_message(
+                "❌ Code invalide.", ephemeral=True)
+            return
+        ok, reason, promo = promo_redeem_check(code, interaction.user.id)
+        if not ok:
+            messages = {
+                "code_invalid":     "❌ Ce code n'existe pas.",
+                "max_uses_reached": "❌ Ce code a atteint son nombre max d'utilisations.",
+                "expired":          "❌ Ce code a expiré.",
+                "already_redeemed": "❌ Tu as déjà utilisé ce code.",
+            }
+            await interaction.response.send_message(messages.get(reason, "❌ Code invalide."),
+                                                    ephemeral=True)
+            return
+
+        rtype  = promo["reward_type"]
+        rvalue = int(promo["reward_value"])
+        try:
+            promo_redeem_apply(code, interaction.user.id)
+        except Exception as e:
+            print(f"[redeem] apply err: {e}")
+            await interaction.response.send_message(
+                "❌ Erreur lors de la validation. Réessaie plus tard.", ephemeral=True)
+            return
+
+        applied_label = "?"
+        try:
+            if rtype == "tookcoins":
+                creer_duel_profil(interaction.user.id, interaction.user.name)
+                ajouter_tookcoins(interaction.user.id, rvalue)
+                applied_label = f"**+{rvalue} TookCoins** 🪙"
+            elif rtype == "pass_xp":
+                season = get_or_create_current_season()
+                sid = season["season_id"]
+                new_total = add_pass_xp(interaction.user.id, sid, rvalue)
+                auto_claim_pass_tiers(interaction.user.id, sid, new_total)
+                applied_label = f"**+{rvalue} XP Pass** 🎟️"
+            elif rtype == "premium_grant_days":
+                add_premium_grant(interaction.user.id, feature="pass",
+                                  granted_by=f"promo:{code}",
+                                  note=f"{rvalue} jours de Pass via code promo")
+                applied_label = f"**Pass offert** ({rvalue} jour(s)) 🎁"
+        except Exception as e:
+            print(f"[redeem] reward apply err type={rtype}: {e}")
+            await interaction.response.send_message(
+                "⚠️ Code validé mais récompense non appliquée. Contacte le owner.",
+                ephemeral=True)
+            return
+
+        await interaction.response.send_message(
+            embed=discord.Embed(
+                title="🎉 Code utilisé !",
+                description=f"Code `{code}` validé.\n\n{applied_label}",
+                color=0xB9F23A,
+            ),
+            ephemeral=True,
+        )
+
+
     @bot.tree.command(name="daily", description="Reclame ta recompense quotidienne (TookCoins + XP Pass si actif)")
     async def daily_claim(interaction: discord.Interaction):
         user = interaction.user
