@@ -169,6 +169,10 @@ def setup_runtime(bot, deps):
                     "de l'intégration **CS2** (stats, inventaire, prix, queue), et plus encore.\n\n"
                     "🛠️ **Pour découvrir toutes les commandes** : `/commandes`\n"
                     "⚔️ **Pour de l'aide sur les duels** : `/duel info`\n\n"
+                    "⭐ Le **système d'XP** est **activé par défaut** sur ton serveur. "
+                    "Si tu préfères ne pas l'utiliser, désactive-le avec `/xp off` "
+                    "ou depuis le dashboard web (les niveaux acquis restent conservés). "
+                    "Réactive avec `/xp on`.\n\n"
                     "Pense à régler les permissions du bot et à configurer "
                     "les options dans le **dashboard web** si tu en as un."
                 ),
