@@ -101,6 +101,8 @@ from database import (init_db, get_xp, set_xp, get_leaderboard,
                       daily_claim_get, daily_claim_apply,
                       promo_code_create, promo_code_get, promo_codes_list,
                       promo_code_delete, promo_redeem_check, promo_redeem_apply,
+                      lol_profile_get, lol_profile_upsert, lol_profile_unlink,
+                      lol_rank_config_get, lol_rank_config_upsert,
                       replace_guild_members, upsert_member, remove_member,
                       upsert_entitlement, mark_entitlement_deleted,
                       user_has_active_entitlement, get_premium_settings,
@@ -137,6 +139,7 @@ from commandes.moderation_pro import setup_mod_commands
 from commandes.giveaway import (setup_giveaway_commands,
                                 giveaway_finalize_sweep as _gw_sweep)
 from commandes.custom_cmd import setup_custom_cmd_commands
+from commandes.lol import setup_lol_commands
 from cards.niveau import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from services.status_utils import best_firefox_cookie_profile
@@ -482,6 +485,7 @@ setup_cs2_commands(bot)
 setup_mod_commands(bot)
 setup_giveaway_commands(bot)
 setup_custom_cmd_commands(bot)
+setup_lol_commands(bot)
 
 
 @bot.event

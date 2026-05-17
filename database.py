@@ -164,6 +164,25 @@ def init_db():
         PRIMARY KEY (code, user_id)
     )''')
 
+    # ===== LEAGUE OF LEGENDS =====
+    c.execute('''CREATE TABLE IF NOT EXISTS lol_profiles (
+        user_id        TEXT PRIMARY KEY,
+        puuid          TEXT NOT NULL,
+        summoner_id    TEXT,
+        game_name      TEXT,
+        tag_line       TEXT,
+        platform       TEXT DEFAULT 'euw1',
+        summoner_level INTEGER,
+        last_synced    TEXT,
+        created_at     TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lol_rank_config (
+        guild_id   TEXT PRIMARY KEY,
+        enabled    INTEGER DEFAULT 0,
+        role_map   TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Table guild_members (cache members par serveur) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
         guild_id    TEXT NOT NULL,
@@ -1623,6 +1642,79 @@ def promo_redeem_apply(code, user_id):
               (code.upper(), str(user_id)))
     c.execute("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = ?",
               (code.upper(),))
+    conn.commit()
+    conn.close()
+
+
+# ===== LEAGUE OF LEGENDS =====
+def lol_profile_get(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM lol_profiles WHERE user_id = ?", (str(user_id),))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def lol_profile_upsert(user_id, *, puuid, game_name, tag_line, platform,
+                       summoner_id=None, summoner_level=None):
+    import datetime as _d
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO lol_profiles
+                   (user_id, puuid, summoner_id, game_name, tag_line, platform,
+                    summoner_level, last_synced)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET
+                   puuid          = excluded.puuid,
+                   summoner_id    = excluded.summoner_id,
+                   game_name      = excluded.game_name,
+                   tag_line       = excluded.tag_line,
+                   platform       = excluded.platform,
+                   summoner_level = excluded.summoner_level,
+                   last_synced    = excluded.last_synced""",
+              (str(user_id), puuid, summoner_id, game_name, tag_line, platform,
+               summoner_level,
+               _d.datetime.utcnow().isoformat(timespec="seconds")))
+    conn.commit()
+    conn.close()
+
+
+def lol_profile_unlink(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM lol_profiles WHERE user_id = ?", (str(user_id),))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
+def lol_rank_config_get(guild_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM lol_rank_config WHERE guild_id = ?", (str(guild_id),))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return {"guild_id": str(guild_id), "enabled": 0, "role_map": None}
+    return dict(row)
+
+
+def lol_rank_config_upsert(guild_id, *, enabled=None, role_map=None):
+    import json as _j
+    cur = lol_rank_config_get(guild_id)
+    new_enabled = int(enabled) if enabled is not None else int(cur.get("enabled") or 0)
+    new_map_str = _j.dumps(role_map) if role_map is not None else cur.get("role_map")
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO lol_rank_config (guild_id, enabled, role_map, updated_at)
+                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(guild_id) DO UPDATE SET
+                   enabled    = excluded.enabled,
+                   role_map   = excluded.role_map,
+                   updated_at = CURRENT_TIMESTAMP""",
+              (str(guild_id), new_enabled, new_map_str))
     conn.commit()
     conn.close()
 
