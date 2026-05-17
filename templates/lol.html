@@ -1,0 +1,200 @@
+{% extends "_base.html" %}
+{% block title %}League of Legends · TookBot{% endblock %}
+{% block crumb %}League of Legends{% endblock %}
+
+{% block content %}
+<style>
+  .lol-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+  .lol-card h2 { margin: 0 0 8px; font-size: 18px; }
+  .lol-card .help { color: var(--text-muted); font-size: 13px; margin-bottom: 14px; }
+  .tier-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .tier-label {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 8px;
+    text-align: center;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tier-IRON        { background: #5B5B5C; }
+  .tier-BRONZE      { background: #8C5230; }
+  .tier-SILVER      { background: #95A3A5; color: #1a1a1a; }
+  .tier-GOLD        { background: #C8A45C; color: #1a1a1a; }
+  .tier-PLATINUM    { background: #28A29F; }
+  .tier-EMERALD     { background: #50C878; color: #1a1a1a; }
+  .tier-DIAMOND     { background: #4E8FD8; }
+  .tier-MASTER      { background: #9B59B6; }
+  .tier-GRANDMASTER { background: #C0392B; }
+  .tier-CHALLENGER  { background: #F1C40F; color: #1a1a1a; }
+  .role-select {
+    padding: 7px 10px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    width: 100%;
+  }
+  .switch-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .switch-row:last-child { border-bottom: none; }
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 46px; height: 24px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer;
+    top:0; left:0; right:0; bottom:0;
+    background: #555;
+    transition: .2s;
+    border-radius: 24px;
+  }
+  .slider::before {
+    content: ""; position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; top: 3px;
+    background: #fff;
+    transition: .2s;
+    border-radius: 50%;
+  }
+  input:checked + .slider { background: oklch(0.86 0.20 130); }
+  input:checked + .slider::before { transform: translateX(22px); }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: oklch(0.86 0.20 130); color: #1a1a1a; font-weight: 600;
+    padding: 12px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 180ms, transform 180ms;
+    pointer-events: none; z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+
+<h1 style="margin:0 0 6px;">⚔️ League of Legends</h1>
+<p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
+  Config rank-role auto : assigne un rôle Discord selon le tier Solo/Duo fetched depuis l'API Riot quand un membre lance <code>/lol rank</code>.
+</p>
+
+<div class="lol-card">
+  <div class="switch-row">
+    <div>
+      <strong>Activer l'attribution auto</strong>
+      <div class="muted" style="font-size:12px;">Les rôles configurés ci-dessous seront appliqués/retirés selon le tier Solo/Duo.</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="lolEnabled">
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
+<div class="lol-card">
+  <h2>Mapping rôles ↔ paliers</h2>
+  <p class="help">Sélectionne le rôle Discord à appliquer pour chaque tier.</p>
+
+  <div id="tierRows">
+    {% for t in tiers %}
+    <div class="tier-row">
+      <span class="tier-label tier-{{ t }}">{{ t }}</span>
+      <select class="role-select" data-tier="{{ t }}"></select>
+    </div>
+    {% endfor %}
+  </div>
+
+  <button class="btn btn-primary" id="saveBtn" type="button" style="margin-top:12px;">💾 Enregistrer</button>
+</div>
+
+<div class="lol-card">
+  <h2>📚 Commandes disponibles dans Discord</h2>
+  <ul style="font-size:13px;line-height:1.8;margin:0;padding-left:20px;">
+    <li><code>/lol link &lt;Pseudo#TAG&gt; [region]</code> — lie ton Riot ID</li>
+    <li><code>/lol unlink</code> — retire le lien</li>
+    <li><code>/lol stats [@membre]</code> — Solo/Flex + top maitrises</li>
+    <li><code>/lol rank [@membre]</code> — focus rank Solo/Duo + auto rank role</li>
+    <li><code>/lol history [n] [@membre]</code> — N dernières ranked Solo/Duo</li>
+    <li><code>/lol live [@membre]</code> — partie en cours si en jeu</li>
+    <li><code>/lol mastery [champion] [@membre]</code> — top 10 ou détail champion</li>
+    <li><code>/lol rankrole on|off</code> — toggle l'auto rank role (admin)</li>
+  </ul>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let ROLES = [];
+let CONFIG = { enabled: false, role_map: {} };
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? 'oklch(0.86 0.20 130)' : 'oklch(0.65 0.20 25)';
+  t.style.color = ok ? '#1a1a1a' : '#fff';
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+async function loadRoles() {
+  const r = await fetch('/api/rolereactions/roles');
+  if (!r.ok) return;
+  const d = await r.json();
+  ROLES = d.roles || [];
+}
+
+async function loadConfig() {
+  const r = await fetch('/api/lol/config');
+  if (!r.ok) return;
+  CONFIG = await r.json();
+  document.getElementById('lolEnabled').checked = !!CONFIG.enabled;
+  document.querySelectorAll('.role-select').forEach(sel => {
+    const tier = sel.dataset.tier;
+    const current = (CONFIG.role_map || {})[tier] || '';
+    sel.innerHTML = '<option value="">— aucun —</option>' +
+      ROLES.map(r => `<option value="${r.role_id}" ${String(r.role_id) === String(current) ? 'selected' : ''}>${r.name}</option>`).join('');
+  });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const role_map = {};
+  document.querySelectorAll('.role-select').forEach(sel => {
+    role_map[sel.dataset.tier] = sel.value || null;
+  });
+  const payload = {
+    enabled: document.getElementById('lolEnabled').checked,
+    role_map,
+  };
+  const r = await fetch('/api/lol/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) showToast('✅ Config enregistrée');
+  else showToast('Erreur', false);
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadRoles();
+  await loadConfig();
+});
+</script>
+{% endblock %}

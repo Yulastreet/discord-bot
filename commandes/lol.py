@@ -421,4 +421,246 @@ def setup_lol_commands(bot):
             ephemeral=True,
         )
 
+    # ---------- /lol history ----------
+    @lol_group.command(name="history", description="Tes N dernieres ranked Solo/Duo (champion, KDA, W/L)")
+    @app_commands.describe(
+        n="Nombre de parties (1-10, default 5)",
+        membre="Membre Discord (optionnel)",
+    )
+    async def lol_history(interaction: discord.Interaction,
+                           n: Optional[app_commands.Range[int, 1, 10]] = 5,
+                           membre: Optional[discord.Member] = None):
+        await interaction.response.defer()
+        target = membre or interaction.user
+        prof = lol_profile_get(target.id)
+        if not prof:
+            await interaction.followup.send(
+                embed=_err_embed("Aucun compte lié",
+                    f"**{target.display_name}** n'a pas lié de compte LoL.\n"
+                    "Utilise `/lol link` d'abord."),
+                ephemeral=True,
+            )
+            return
+
+        platform = prof.get("platform") or "euw1"
+        puuid = prof["puuid"]
+        ids = await riot.match_ids_by_puuid(platform, puuid, count=int(n or 5), queue=420)
+        if not ids:
+            await interaction.followup.send(
+                embed=_info_embed("📭 Aucun match",
+                    f"Aucune partie Solo/Duo récente pour **{target.display_name}**.",
+                    color=0x95A5A6),
+            )
+            return
+
+        lines = []
+        wins = 0
+        for mid in ids:
+            m = await riot.match_details(platform, mid)
+            if not m:
+                continue
+            info = (m.get("info") or {})
+            duration = int(info.get("gameDuration", 0))
+            participants = info.get("participants") or []
+            me = next((p for p in participants if p.get("puuid") == puuid), None)
+            if not me:
+                continue
+            won = bool(me.get("win"))
+            if won:
+                wins += 1
+            cid = me.get("championId", 0)
+            cname = await riot.champion_name(cid)
+            k = me.get("kills", 0); d = me.get("deaths", 0); a = me.get("assists", 0)
+            kda = (k + a) / max(1, d)
+            cs = me.get("totalMinionsKilled", 0) + me.get("neutralMinionsKilled", 0)
+            mins = duration // 60
+            secs = duration % 60
+            tag = "🟢" if won else "🔴"
+            lines.append(
+                f"{tag} **{cname}** · `{k}/{d}/{a}` ({kda:.2f}) "
+                f"· `{cs} CS` · `{mins:02d}:{secs:02d}`"
+            )
+
+        if not lines:
+            await interaction.followup.send(
+                embed=_info_embed("📭 Données indisponibles",
+                    "Les matches existent mais le détail n'a pas pu être récupéré (rate-limit ou API down).",
+                    color=0xE67E22),
+            )
+            return
+
+        wr = (wins / len(lines)) * 100
+        embed = discord.Embed(
+            title=f"🎮 Historique Solo/Duo — {target.display_name}",
+            description=(
+                f"**{prof.get('game_name')}#{prof.get('tag_line')}** "
+                f"({riot.PLATFORM_LABEL.get(platform, platform.upper())})\n"
+                f"**{wins}V** / **{len(lines)-wins}D** · Winrate **{wr:.1f}%**\n\n"
+                + "\n".join(lines)
+            ),
+            color=0x2ECC71 if wr >= 55 else (0xE67E22 if wr < 45 else 0x3498DB),
+        )
+        embed.set_footer(text="🟢 victoire · 🔴 défaite · KDA = (kills+assists)/deaths")
+        await interaction.followup.send(embed=embed)
+
+    # ---------- /lol live ----------
+    @lol_group.command(name="live", description="Affiche la partie en cours d'un membre (si en jeu)")
+    @app_commands.describe(membre="Membre Discord (optionnel)")
+    async def lol_live(interaction: discord.Interaction,
+                       membre: Optional[discord.Member] = None):
+        await interaction.response.defer()
+        target = membre or interaction.user
+        prof = lol_profile_get(target.id)
+        if not prof:
+            await interaction.followup.send(
+                embed=_err_embed("Aucun compte lié",
+                    f"**{target.display_name}** n'a pas lié de compte LoL."),
+                ephemeral=True,
+            )
+            return
+
+        platform = prof.get("platform") or "euw1"
+        puuid = prof["puuid"]
+        game = await riot.active_game_by_puuid(platform, puuid)
+        if not game:
+            await interaction.followup.send(
+                embed=_info_embed("💤 Pas en jeu",
+                    f"**{target.display_name}** n'est pas en partie actuellement.",
+                    color=0x95A5A6),
+            )
+            return
+
+        queue_id = game.get("gameQueueConfigId")
+        q_label = riot.queue_label(queue_id)
+        length = int(game.get("gameLength", 0))
+        mins, secs = length // 60, length % 60
+        map_id = game.get("mapId")
+
+        participants = game.get("participants") or []
+        me = next((p for p in participants if p.get("puuid") == puuid), None)
+        my_team = (me or {}).get("teamId", 100)
+
+        blue, red = [], []
+        for p in participants:
+            cname = await riot.champion_name(p.get("championId", 0))
+            line = f"**{cname}** · `{p.get('riotId', '?')}`"
+            if p.get("teamId") == 100:
+                blue.append(line)
+            else:
+                red.append(line)
+
+        embed = discord.Embed(
+            title=f"🔴 En jeu — {target.display_name}",
+            description=(
+                f"**{prof.get('game_name')}#{prof.get('tag_line')}** "
+                f"({riot.PLATFORM_LABEL.get(platform, platform.upper())})\n"
+                f"**{q_label}** · Map `{map_id}` · Temps : `{mins:02d}:{secs:02d}`"
+            ),
+            color=0xE74C3C,
+        )
+        if blue:
+            embed.add_field(name=f"🔵 Équipe Bleue {'(toi)' if my_team == 100 else ''}",
+                            value="\n".join(blue), inline=True)
+        if red:
+            embed.add_field(name=f"🔴 Équipe Rouge {'(toi)' if my_team == 200 else ''}",
+                            value="\n".join(red), inline=True)
+        await interaction.followup.send(embed=embed)
+
+    # ---------- /lol mastery ----------
+    @lol_group.command(name="mastery", description="Top maitrises ou detail d'un champion specifique")
+    @app_commands.describe(
+        champion="Nom du champion (optionnel, sinon top 10)",
+        membre="Membre Discord (optionnel)",
+    )
+    async def lol_mastery(interaction: discord.Interaction,
+                          champion: Optional[str] = None,
+                          membre: Optional[discord.Member] = None):
+        await interaction.response.defer()
+        target = membre or interaction.user
+        prof = lol_profile_get(target.id)
+        if not prof:
+            await interaction.followup.send(
+                embed=_err_embed("Aucun compte lié",
+                    f"**{target.display_name}** n'a pas lié de compte LoL."),
+                ephemeral=True,
+            )
+            return
+
+        platform = prof.get("platform") or "euw1"
+        puuid = prof["puuid"]
+
+        if champion:
+            # Cherche le champion id par nom (case-insensitive)
+            await riot._dd_refresh()  # noqa : ensure cache loaded
+            champs = riot._DD_CACHE["champions"]
+            target_id = None
+            wanted = champion.strip().lower()
+            for cid, info in champs.items():
+                if info["name"].lower() == wanted or info["slug"].lower() == wanted:
+                    target_id = cid
+                    break
+            if not target_id:
+                await interaction.followup.send(
+                    embed=_err_embed("Champion introuvable",
+                        f"Aucun champion nommé `{champion}` trouvé.\n"
+                        "Vérifie l'orthographe (ex: `Lee Sin`, `Kai'Sa`, `Wukong`)."),
+                    ephemeral=True,
+                )
+                return
+            m = await riot.mastery_by_champion(platform, puuid, target_id)
+            if not m:
+                await interaction.followup.send(
+                    embed=_info_embed("📭 Aucune maîtrise",
+                        f"**{target.display_name}** n'a pas joué **{champs[target_id]['name']}** "
+                        "(ou data Riot pas encore propagée).",
+                        color=0x95A5A6),
+                )
+                return
+            embed = discord.Embed(
+                title=f"✨ Maîtrise — {champs[target_id]['name']}",
+                description=(
+                    f"**{target.display_name}** · {prof.get('game_name')}#{prof.get('tag_line')}\n\n"
+                    f"Niveau : **{m.get('championLevel', 0)}**\n"
+                    f"Points : **{int(m.get('championPoints', 0)):,}**".replace(",", " ")
+                ),
+                color=0x9B59B6,
+            )
+            icon = await riot.champion_icon_url(target_id)
+            if icon:
+                embed.set_thumbnail(url=icon)
+            await interaction.followup.send(embed=embed)
+            return
+
+        # Top 10 par defaut
+        all_m = await riot.mastery_all(platform, puuid)
+        if not all_m:
+            await interaction.followup.send(
+                embed=_info_embed("📭 Aucune maîtrise",
+                    "Pas de données de maîtrise disponibles.",
+                    color=0x95A5A6),
+            )
+            return
+        top = all_m[:10]
+        lines = []
+        for m in top:
+            cid = m.get("championId", 0)
+            cname = await riot.champion_name(cid)
+            pts = int(m.get("championPoints", 0))
+            lvl = m.get("championLevel", 0)
+            lines.append(f"**{cname}** · Niv. `{lvl}` · `{pts:,}` pts".replace(",", " "))
+        embed = discord.Embed(
+            title=f"✨ Top 10 maîtrises — {target.display_name}",
+            description=(
+                f"**{prof.get('game_name')}#{prof.get('tag_line')}**\n\n"
+                + "\n".join(lines)
+            ),
+            color=0x9B59B6,
+        )
+        # Thumbnail = icon du #1
+        if top:
+            icon = await riot.champion_icon_url(top[0].get("championId", 0))
+            if icon:
+                embed.set_thumbnail(url=icon)
+        await interaction.followup.send(embed=embed)
+
     bot.tree.add_command(lol_group)

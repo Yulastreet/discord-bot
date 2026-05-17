@@ -219,6 +219,69 @@ async def league_entries_by_puuid(platform: str, puuid: str) -> Optional[list[di
     return None
 
 
+# ===== Match API (regional) =====
+async def match_ids_by_puuid(platform: str, puuid: str,
+                              count: int = 10, queue: Optional[int] = None) -> Optional[list[str]]:
+    """N derniers matchIds. queue : 420=SoloQ, 440=Flex, 450=ARAM, 400=Normals."""
+    regional = regional_route(platform)
+    qstr = f"&queue={int(queue)}" if queue else ""
+    path = f"/lol/match/v5/matches/by-puuid/{puuid}/ids?count={int(count)}{qstr}"
+    data = await _get(regional, path)
+    if isinstance(data, list):
+        return data
+    return None
+
+
+async def match_details(platform: str, match_id: str) -> Optional[dict]:
+    """Detail complet d'un match : metadata + info (participants, teams, etc.)."""
+    regional = regional_route(platform)
+    return await _get(regional, f"/lol/match/v5/matches/{match_id}")
+
+
+# ===== Spectator API (platform) =====
+async def active_game_by_puuid(platform: str, puuid: str) -> Optional[dict]:
+    """Renvoie le current game si user en partie, None si pas en jeu."""
+    return await _get(platform.lower(),
+                       f"/lol/spectator/v5/active-games/by-summoner/{puuid}")
+
+
+# ===== Champion Mastery extra =====
+async def mastery_all(platform: str, puuid: str) -> Optional[list[dict]]:
+    """Toutes les maitrises (sorted par points desc cote API)."""
+    data = await _get(platform.lower(),
+                       f"/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}")
+    if isinstance(data, list):
+        return data
+    return None
+
+
+async def mastery_by_champion(platform: str, puuid: str, champion_id: int) -> Optional[dict]:
+    """Maitrise sur un champion specifique."""
+    return await _get(platform.lower(),
+                       f"/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/by-champion/{int(champion_id)}")
+
+
+# Mapping queue id -> label affichage (pour history / live)
+QUEUE_LABELS = {
+    400: "Normal Draft",
+    420: "Solo/Duo",
+    430: "Normal Blind",
+    440: "Flex 5v5",
+    450: "ARAM",
+    700: "Clash",
+    830: "Co-op vs AI Intro",
+    840: "Co-op vs AI Beginner",
+    850: "Co-op vs AI Intermediate",
+    900: "URF",
+    1700: "Arena",
+    1900: "URF (revisited)",
+}
+
+
+def queue_label(queue_id: Optional[int]) -> str:
+    return QUEUE_LABELS.get(int(queue_id or 0), f"Queue #{queue_id}")
+
+
 # ===== Champion Mastery API (platform) =====
 async def mastery_top(platform: str, puuid: str, count: int = 3) -> Optional[list[dict]]:
     """Top N masteries du joueur.

@@ -409,4 +409,53 @@ def register_server_tool_routes(app, deps):
         return jsonify({"ok": True})
 
 
+    # ===== League of Legends dashboard =====
+    from database import lol_rank_config_get, lol_rank_config_upsert
+    import json as _json_lol
+
+    _LOL_TIERS = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM",
+                  "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"]
+
+    @app.route("/lol")
+    def lol_page():
+        return render_template("lol.html", active_nav="lol", tiers=_LOL_TIERS)
+
+    @app.route("/api/lol/config", methods=["GET"])
+    def api_lol_config_get():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        cfg = lol_rank_config_get(g_id)
+        role_map = {}
+        if cfg.get("role_map"):
+            try:
+                role_map = _json_lol.loads(cfg["role_map"]) or {}
+            except Exception:
+                role_map = {}
+        return jsonify({
+            "enabled":  bool(cfg.get("enabled")),
+            "role_map": role_map,
+            "tiers":    _LOL_TIERS,
+        })
+
+    @app.route("/api/lol/config", methods=["POST"])
+    def api_lol_config_set():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.get_json(silent=True) or {}
+        enabled = 1 if data.get("enabled") else 0
+        raw_map = data.get("role_map") or {}
+        # Clean : ne garder que les tiers valides + role_id en str
+        clean = {}
+        for tier in _LOL_TIERS:
+            v = raw_map.get(tier)
+            if v:
+                clean[tier] = str(v)
+            else:
+                clean[tier] = None
+        lol_rank_config_upsert(g_id, enabled=enabled, role_map=clean)
+        return jsonify({"ok": True})
+
+
     # ===== Pass : page utilisateur "Mon Pass" =====
