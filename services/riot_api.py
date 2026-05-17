@@ -18,6 +18,7 @@ import time
 from typing import Optional
 
 import aiohttp
+from urllib.parse import quote
 
 
 _USER_AGENT = "TookBot-LoL/1.0 (+https://tookbot.click)"
@@ -136,10 +137,12 @@ async def _get(host_prefix: str, path: str) -> Optional[dict]:
 
 # ===== Account API (regional) =====
 async def account_by_riot_id(platform: str, game_name: str, tag_line: str) -> Optional[dict]:
-    """Resoud Riot ID 'name#tag' -> {puuid, gameName, tagLine}."""
+    """Resoud Riot ID 'name#tag' -> {puuid, gameName, tagLine}.
+    URL-encode les params : pseudos peuvent contenir espaces et caracteres
+    Unicode (accents, etc.)."""
     regional = regional_route(platform)
     return await _get(regional,
-                       f"/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}")
+                       f"/riot/account/v1/accounts/by-riot-id/{quote(game_name, safe='')}/{quote(tag_line, safe='')}")
 
 
 async def account_by_puuid(platform: str, puuid: str) -> Optional[dict]:
