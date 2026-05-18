@@ -408,6 +408,16 @@ class LolBuildView(discord.ui.View):
         self.selected_view = selected_view
         self._rebuild_buttons()
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Bloque tout autre user que l'auteur."""
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(
+                "❌ Ce menu appartient à la personne qui a lancé `/lol build`.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
     def _rebuild_buttons(self):
         self.clear_items()
         # Row 0 : builds (max 5)
@@ -442,24 +452,12 @@ class LolBuildView(discord.ui.View):
 
     def _make_build_cb(self, idx: int):
         async def cb(interaction: discord.Interaction):
-            if interaction.user.id != self.author_id:
-                await interaction.response.send_message(
-                    "❌ Ce menu n'est pas pour toi. Lance `/lol build` toi-même.",
-                    ephemeral=True,
-                )
-                return
             self.selected_build = idx
             await self._refresh(interaction)
         return cb
 
     def _make_view_cb(self, kind: str):
         async def cb(interaction: discord.Interaction):
-            if interaction.user.id != self.author_id:
-                await interaction.response.send_message(
-                    "❌ Ce menu n'est pas pour toi.",
-                    ephemeral=True,
-                )
-                return
             self.selected_view = kind
             await self._refresh(interaction)
         return cb
