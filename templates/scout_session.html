@@ -169,7 +169,7 @@
   }
   .map-thumb {
     width: 100%; height: 100%;
-    background: url('https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/map11/map11.png') center / contain no-repeat;
+    background: var(--bg-2) center / contain no-repeat;
     border-radius: 8px;
     opacity: 0.95;
   }
@@ -388,7 +388,7 @@
   </div>
   <div class="map-modal-stage">
     <div class="map-stage-inner">
-      <img id="mapImage" src="https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/map11/map11.png" alt="Summoner's Rift">
+      <img id="mapImage" src="" alt="Summoner's Rift">
       <canvas id="mapCanvas"></canvas>
     </div>
   </div>
@@ -412,6 +412,26 @@ const SESSION_ACTIVE = {{ 'true' if session_data.status == 'active' else 'false'
 let myPseudo = localStorage.getItem('scout_pseudo_' + SLUG) || '';
 let myColor  = localStorage.getItem('scout_color_'  + SLUG) || '#888';
 let lastChatId = 0;
+
+// Charge l'URL de la map SR via Data Dragon (version courante)
+(async function loadMapImage() {
+  try {
+    const r = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+    const versions = await r.json();
+    const ver = (versions && versions[0]) || '15.10.1';
+    const url = `https://ddragon.leagueoflegends.com/cdn/${ver}/img/map/map11.png`;
+    const img = document.getElementById('mapImage');
+    if (img) img.src = url;
+    const thumb = document.querySelector('.map-thumb');
+    if (thumb) thumb.style.backgroundImage = `url('${url}')`;
+  } catch (_) {
+    const fallback = "https://ddragon.leagueoflegends.com/cdn/15.10.1/img/map/map11.png";
+    const img = document.getElementById('mapImage');
+    if (img) img.src = fallback;
+    const thumb = document.querySelector('.map-thumb');
+    if (thumb) thumb.style.backgroundImage = `url('${fallback}')`;
+  }
+})();
 
 function showPseudoModal() {
   if (!SESSION_ACTIVE) return;
@@ -515,7 +535,7 @@ if (myPseudo) {
 }
 updateYouInfo();
 pollChat();
-if (SESSION_ACTIVE) setInterval(pollChat, 3000);
+if (SESSION_ACTIVE) setInterval(pollChat, 800);
 
 // ===== Map modal + canvas drawing =====
 const mapModal = document.getElementById('mapModal');
@@ -691,7 +711,7 @@ async function pollAnnotations() {
   } catch (_) {}
 }
 pollAnnotations();
-if (SESSION_ACTIVE) setInterval(pollAnnotations, 2500);
+if (SESSION_ACTIVE) setInterval(pollAnnotations, 600);
 </script>
 </body>
 </html>
