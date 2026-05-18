@@ -14,6 +14,7 @@ Securite :
 from __future__ import annotations
 
 import json as _json
+import os
 import re
 from typing import Optional
 
@@ -1403,13 +1404,21 @@ def setup_lol_commands(bot):
         else:
             await interaction.followup.send(embed=embed, view=view)
 
-    # ---------- /lol scout (clash scout builder) ----------
+    # ---------- /lol scout (clash scout builder, owner-only) ----------
     @lol_group.command(name="scout",
-                       description="Scout 5 adversaires Clash : ouvre un builder pour renseigner leurs Riot ID")
+                       description="[Owner] Scout 5 adversaires Clash : builder pour leurs Riot ID")
     @app_commands.describe(region="Région des joueurs (défaut EUW)")
     @app_commands.choices(region=_REGION_CHOICES)
     async def lol_scout(interaction: discord.Interaction,
                         region: Optional[app_commands.Choice[str]] = None):
+        owner_id = (os.getenv("DISCORD_OWNER_ID") or "").strip()
+        if not owner_id or str(interaction.user.id) != owner_id:
+            await interaction.response.send_message(
+                embed=_err_embed("Réservé au owner",
+                    "Cette commande est uniquement accessible au propriétaire du bot."),
+                ephemeral=True,
+            )
+            return
         platform = (region.value if region else "euw1").lower()
         modal = ClashScoutModal(platform=platform)
         await interaction.response.send_modal(modal)
