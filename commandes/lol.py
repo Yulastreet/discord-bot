@@ -1496,9 +1496,11 @@ async def _scout_player(platform: str, raw_riot_id: str) -> str:
     """Fetch profil scout d'un joueur via Riot ID. Retourne une string
     formattee pour embed.add_field."""
     import unicodedata as _u
-    # Normalisation NFC : Discord Modal envoie parfois 'é' decompose
-    # (e + combining acute), Riot stocke en NFC.
+    # Normalisation NFC + strip des chars de formatage Unicode (Cf) :
+    # Discord Modal entoure le texte de U+2066 (LRI) et U+2069 (PDI),
+    # qui sont invisibles mais cassent l'API Riot.
     raw_riot_id = _u.normalize("NFC", raw_riot_id or "")
+    raw_riot_id = "".join(c for c in raw_riot_id if _u.category(c) != "Cf")
     # Parsing tolerant : split brut sur le dernier '#'
     cleaned = (raw_riot_id or "").replace(" ", " ").strip()  # nbsp -> space
     if "#" not in cleaned:
