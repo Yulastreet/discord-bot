@@ -163,13 +163,11 @@
   }
   .map-box {
     aspect-ratio: 1;
-    align-items: center;
-    justify-content: center;
     padding: 12px;
     cursor: pointer;
     position: relative;
   }
-  .map-placeholder {
+  .map-thumb {
     width: 100%; height: 100%;
     background: url('https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/map11/map11.png') center / contain no-repeat;
     border-radius: 8px;
@@ -178,6 +176,76 @@
   .map-box small {
     position: absolute; bottom: 8px; left: 12px;
     color: var(--muted); font-size: 11px;
+    pointer-events: none;
+  }
+
+  /* Modal map plein ecran */
+  .map-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    z-index: 200;
+    flex-direction: column;
+  }
+  .map-modal-bg.open { display: flex; }
+  .map-modal-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .map-modal-header .tool-group {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .map-modal-header button {
+    padding: 6px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .map-modal-header button.primary {
+    background: var(--accent);
+    color: #0a0d08;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .map-modal-stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow: auto;
+  }
+  .map-stage-inner {
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+    line-height: 0;
+  }
+  #mapImage {
+    display: block;
+    max-width: 90vmin;
+    max-height: 85vh;
+    width: 90vmin;
+    height: 90vmin;
+    object-fit: contain;
+    border-radius: 12px;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  #mapCanvas {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .width-slider {
+    width: 90px;
+    accent-color: var(--accent);
   }
   .pseudo-modal-bg {
     position: fixed; inset: 0;
@@ -300,9 +368,28 @@
         <button id="chatSend" {% if session_data.status != 'active' %}disabled{% endif %}>↑</button>
       </div>
     </div>
-    <div class="map-box" id="mapBox" title="Cliquer pour zoomer">
-      <div class="map-placeholder"></div>
-      <small>Map Summoner's Rift · (dessin v2 a venir)</small>
+    <div class="map-box" id="mapBox" title="Cliquer pour zoomer + dessiner">
+      <div class="map-thumb"></div>
+      <small>Map SR · clique pour zoom + annotations</small>
+    </div>
+  </div>
+</div>
+
+<div class="map-modal-bg" id="mapModal">
+  <div class="map-modal-header">
+    <strong>🗺️ Map Summoner's Rift — annotations partagées</strong>
+    <div class="tool-group" style="margin-left:auto;">
+      <label style="font-size:12px;color:var(--muted);">Trait</label>
+      <input type="range" class="width-slider" id="strokeWidth" min="2" max="14" value="4">
+      <button id="clearMine" type="button">🗑 Mes traits</button>
+      <button id="clearAll" type="button" title="Tout effacer (visible par tous)">🧹 Tout</button>
+      <button id="closeMap" type="button" class="primary">Fermer</button>
+    </div>
+  </div>
+  <div class="map-modal-stage">
+    <div class="map-stage-inner">
+      <img id="mapImage" src="https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/map11/map11.png" alt="Summoner's Rift">
+      <canvas id="mapCanvas"></canvas>
     </div>
   </div>
 </div>
@@ -430,10 +517,181 @@ updateYouInfo();
 pollChat();
 if (SESSION_ACTIVE) setInterval(pollChat, 3000);
 
-document.getElementById('mapBox')?.addEventListener('click', () => {
-  // v2 : zoom modal + canvas drawing
-  alert('Zoom + dessin sur la map arriveront dans la prochaine version.');
+// ===== Map modal + canvas drawing =====
+const mapModal = document.getElementById('mapModal');
+const mapImage = document.getElementById('mapImage');
+const mapCanvas = document.getElementById('mapCanvas');
+const mapCtx = mapCanvas.getContext('2d');
+const widthSlider = document.getElementById('strokeWidth');
+
+let strokesAll = [];           // {id, pseudo, color, width, points:[[x,y],...]}
+let localStroke = null;        // stroke courant en cours de drag (avant POST)
+let lastAnnotId = 0;
+
+function openMap() {
+  mapModal.classList.add('open');
+  setTimeout(fitCanvas, 60);
+}
+function closeMap() {
+  mapModal.classList.remove('open');
+}
+document.getElementById('mapBox')?.addEventListener('click', openMap);
+document.getElementById('closeMap')?.addEventListener('click', closeMap);
+mapModal.addEventListener('click', e => {
+  if (e.target === mapModal) closeMap();
 });
+
+function fitCanvas() {
+  const w = mapImage.clientWidth;
+  const h = mapImage.clientHeight;
+  // High-DPI : retina-safe
+  const dpr = window.devicePixelRatio || 1;
+  mapCanvas.width = Math.round(w * dpr);
+  mapCanvas.height = Math.round(h * dpr);
+  mapCanvas.style.width = w + 'px';
+  mapCanvas.style.height = h + 'px';
+  mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redrawAll();
+}
+window.addEventListener('resize', () => {
+  if (mapModal.classList.contains('open')) fitCanvas();
+});
+
+function drawStroke(s, ctxOverride) {
+  const ctx = ctxOverride || mapCtx;
+  if (!s.points || s.points.length < 1) return;
+  ctx.strokeStyle = s.color || '#fff';
+  ctx.lineWidth = (s.width || 4);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const w = parseFloat(mapCanvas.style.width);
+  const h = parseFloat(mapCanvas.style.height);
+  ctx.beginPath();
+  const [fx, fy] = s.points[0];
+  ctx.moveTo(fx * w, fy * h);
+  for (let i = 1; i < s.points.length; i++) {
+    const [x, y] = s.points[i];
+    ctx.lineTo(x * w, y * h);
+  }
+  ctx.stroke();
+}
+
+function redrawAll() {
+  const w = parseFloat(mapCanvas.style.width || 0);
+  const h = parseFloat(mapCanvas.style.height || 0);
+  mapCtx.clearRect(0, 0, w, h);
+  for (const s of strokesAll) drawStroke(s);
+  if (localStroke) drawStroke(localStroke);
+}
+
+function getNormalizedPoint(e) {
+  const r = mapCanvas.getBoundingClientRect();
+  const cx = (e.clientX - r.left) / r.width;
+  const cy = (e.clientY - r.top) / r.height;
+  return [Math.max(0, Math.min(1, cx)), Math.max(0, Math.min(1, cy))];
+}
+
+mapCanvas.addEventListener('pointerdown', e => {
+  if (!SESSION_ACTIVE) return;
+  if (!myPseudo) { showPseudoModal(); return; }
+  mapCanvas.setPointerCapture(e.pointerId);
+  localStroke = {
+    pseudo: myPseudo,
+    color: myColor,
+    width: parseInt(widthSlider.value, 10) || 4,
+    points: [getNormalizedPoint(e)],
+  };
+  redrawAll();
+});
+mapCanvas.addEventListener('pointermove', e => {
+  if (!localStroke) return;
+  localStroke.points.push(getNormalizedPoint(e));
+  redrawAll();
+});
+async function endStroke() {
+  if (!localStroke) return;
+  const sending = localStroke;
+  localStroke = null;
+  redrawAll();
+  if (sending.points.length < 2) return;  // ignore clic seul
+  try {
+    const r = await fetch(`/api/scout/${SLUG}/annotations`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        pseudo: myPseudo, color: myColor,
+        kind: 'stroke', data: sending,
+      })
+    });
+    if (!r.ok) {
+      // Si KO, on remet le stroke localement pour pas perdre le dessin
+      strokesAll.push(sending);
+      redrawAll();
+    }
+  } catch (_) {
+    strokesAll.push(sending);
+    redrawAll();
+  }
+}
+mapCanvas.addEventListener('pointerup',     endStroke);
+mapCanvas.addEventListener('pointerleave',  endStroke);
+mapCanvas.addEventListener('pointercancel', endStroke);
+
+async function postClear(scope) {
+  await fetch(`/api/scout/${SLUG}/annotations`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      pseudo: myPseudo || '?', color: myColor,
+      kind: 'clear', data: {scope},
+    })
+  });
+}
+document.getElementById('clearMine')?.addEventListener('click', () => {
+  if (!myPseudo) return;
+  if (!confirm('Effacer tes traits ?')) return;
+  postClear('mine');
+});
+document.getElementById('clearAll')?.addEventListener('click', () => {
+  if (!confirm('Tout effacer (visible par TOUS) ?')) return;
+  postClear('all');
+});
+
+async function pollAnnotations() {
+  if (!SESSION_ACTIVE) return;
+  try {
+    const r = await fetch(`/api/scout/${SLUG}/annotations?since=${lastAnnotId}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    let needRedraw = false;
+    for (const a of (d.annotations || [])) {
+      lastAnnotId = Math.max(lastAnnotId, a.id);
+      let parsed = {};
+      try { parsed = JSON.parse(a.data); } catch (_) {}
+      if (a.kind === 'stroke') {
+        // Dedup : si on a deja ce stroke localement (par auteur+contenu), skip
+        // approche simple : tag avec id pour pas re-ajouter
+        if (!strokesAll.find(s => s._id === a.id)) {
+          parsed._id = a.id;
+          parsed.pseudo = a.pseudo;
+          parsed.color  = a.color;
+          strokesAll.push(parsed);
+          needRedraw = true;
+        }
+      } else if (a.kind === 'clear') {
+        if (parsed.scope === 'all') {
+          strokesAll = [];
+        } else if (parsed.scope === 'mine') {
+          strokesAll = strokesAll.filter(s => s.pseudo !== a.pseudo);
+        }
+        needRedraw = true;
+      }
+    }
+    if (needRedraw) redrawAll();
+  } catch (_) {}
+}
+pollAnnotations();
+if (SESSION_ACTIVE) setInterval(pollAnnotations, 2500);
 </script>
 </body>
 </html>
