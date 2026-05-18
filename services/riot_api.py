@@ -277,10 +277,28 @@ async def match_ids_by_puuid(platform: str, puuid: str,
     return None
 
 
+_MATCH_CACHE: dict = {}
+_MATCH_CACHE_MAX = 5000
+
+
 async def match_details(platform: str, match_id: str) -> Optional[dict]:
-    """Detail complet d'un match : metadata + info (participants, teams, etc.)."""
+    """Detail complet d'un match : metadata + info (participants, teams, etc.).
+    Cache in-memory : un match termine est immutable cote Riot, on evite
+    de refetch ce qui rend les stats /lol scout deterministes."""
+    cached = _MATCH_CACHE.get(match_id)
+    if cached:
+        return cached
     regional = regional_route(platform)
-    return await _get(regional, f"/lol/match/v5/matches/{match_id}")
+    data = await _get(regional, f"/lol/match/v5/matches/{match_id}")
+    if data and isinstance(data, dict):
+        # FIFO eviction si trop gros
+        if len(_MATCH_CACHE) >= _MATCH_CACHE_MAX:
+            try:
+                _MATCH_CACHE.pop(next(iter(_MATCH_CACHE)))
+            except Exception:
+                pass
+        _MATCH_CACHE[match_id] = data
+    return data
 
 
 # ===== Spectator API (platform) =====

@@ -535,7 +535,8 @@ if (myPseudo) {
 }
 updateYouInfo();
 pollChat();
-if (SESSION_ACTIVE) setInterval(pollChat, 800);
+// Polling lent en fallback ; SSE prend le relais en temps reel
+if (SESSION_ACTIVE) setInterval(pollChat, 5000);
 
 // ===== Map modal + canvas drawing =====
 const mapModal = document.getElementById('mapModal');
@@ -711,7 +712,56 @@ async function pollAnnotations() {
   } catch (_) {}
 }
 pollAnnotations();
-if (SESSION_ACTIVE) setInterval(pollAnnotations, 600);
+// Polling lent en fallback ; SSE prend le relais
+if (SESSION_ACTIVE) setInterval(pollAnnotations, 5000);
+
+// ===== SSE realtime stream (chat + annotations en quasi temps reel) =====
+if (SESSION_ACTIVE && 'EventSource' in window) {
+  const es = new EventSource(`/api/scout/${SLUG}/stream`);
+  es.addEventListener('chat', e => {
+    try {
+      const m = JSON.parse(e.data);
+      if (m.id && m.id > lastChatId) {
+        lastChatId = m.id;
+        const cont = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = 'chat-msg';
+        const t = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+        div.innerHTML =
+          `<span class="author" style="color:${m.color || '#fff'}">${escapeHtml(m.pseudo)}</span>` +
+          `<span>${escapeHtml(m.message)}</span>` +
+          `<span class="ts">${t}</span>`;
+        cont.appendChild(div);
+        cont.scrollTop = cont.scrollHeight;
+      }
+    } catch (_) {}
+  });
+  es.addEventListener('annotation', e => {
+    try {
+      const a = JSON.parse(e.data);
+      if (a.id <= lastAnnotId) return;
+      lastAnnotId = a.id;
+      const parsed = a.data || {};
+      if (a.kind === 'stroke') {
+        if (!strokesAll.find(s => s._id === a.id)) {
+          parsed._id = a.id;
+          parsed.pseudo = a.pseudo;
+          parsed.color  = a.color;
+          strokesAll.push(parsed);
+          redrawAll();
+        }
+      } else if (a.kind === 'clear') {
+        if (parsed.scope === 'all') {
+          strokesAll = [];
+        } else if (parsed.scope === 'mine') {
+          strokesAll = strokesAll.filter(s => s.pseudo !== a.pseudo);
+        }
+        redrawAll();
+      }
+    } catch (_) {}
+  });
+  es.onerror = (e) => { /* auto-retry */ };
+}
 </script>
 </body>
 </html>

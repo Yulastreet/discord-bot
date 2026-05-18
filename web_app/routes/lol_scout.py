@@ -1,6 +1,26 @@
 """LoL Scout sessions : sharable web links pour scouting Clash."""
-from flask import render_template, request, jsonify, abort, redirect, url_for, session
+from flask import render_template, request, jsonify, abort, redirect, url_for, session, Response, stream_with_context
 import secrets
+import threading
+import queue as _queue
+import json as _json
+import time as _time
+
+
+# In-memory pub/sub : slug -> list of queue.Queue
+# Chaque subscriber SSE a sa propre Queue. publish() push a tous.
+_STREAM_SUBS: dict = {}
+_STREAM_LOCK = threading.Lock()
+
+
+def _publish(slug: str, event_type: str, data: dict):
+    with _STREAM_LOCK:
+        subs = list(_STREAM_SUBS.get(slug, []))
+    for q in subs:
+        try:
+            q.put_nowait((event_type, data))
+        except Exception:
+            pass
 
 
 def register_lol_scout_routes(app, deps):
@@ -77,6 +97,10 @@ def register_lol_scout_routes(app, deps):
         if not pseudo or not message:
             return jsonify({"error": "pseudo + message required"}), 400
         chat_id = lol_scout_chat_add(slug, pseudo, color, message)
+        _publish(slug, "chat", {
+            "id": chat_id, "pseudo": pseudo, "color": color,
+            "message": message,
+        })
         return jsonify({"ok": True, "id": chat_id})
 
     @app.route("/api/scout/<slug>/annotations", methods=["GET"])
@@ -110,7 +134,44 @@ def register_lol_scout_routes(app, deps):
         except Exception:
             return jsonify({"error": "data_invalid"}), 400
         aid = lol_scout_annot_add(slug, pseudo, color, kind, data_json)
+        _publish(slug, "annotation", {
+            "id": aid, "pseudo": pseudo, "color": color,
+            "kind": kind, "data": payload,
+        })
         return jsonify({"ok": True, "id": aid})
+
+    # ===== SSE realtime stream =====
+    @app.route("/api/scout/<slug>/stream")
+    def api_scout_stream(slug):
+        sess = lol_scout_session_get(slug)
+        if not sess or sess["status"] != "active":
+            abort(404)
+        q = _queue.Queue(maxsize=200)
+        with _STREAM_LOCK:
+            _STREAM_SUBS.setdefault(slug, []).append(q)
+
+        @stream_with_context
+        def gen():
+            try:
+                yield "retry: 5000\n\n"  # client retry 5s si deconnexion
+                while True:
+                    try:
+                        event_type, data = q.get(timeout=20)
+                        yield f"event: {event_type}\ndata: {_json.dumps(data)}\n\n"
+                    except _queue.Empty:
+                        yield ":ping\n\n"  # keep-alive
+            finally:
+                with _STREAM_LOCK:
+                    subs = _STREAM_SUBS.get(slug)
+                    if subs and q in subs:
+                        subs.remove(q)
+                    if subs is not None and len(subs) == 0:
+                        _STREAM_SUBS.pop(slug, None)
+
+        resp = Response(gen(), mimetype="text/event-stream")
+        resp.headers["Cache-Control"] = "no-cache"
+        resp.headers["X-Accel-Buffering"] = "no"  # disable nginx buffer
+        return resp
 
     # Owner-only page : liste sessions + stop
     @app.route("/owner/lol-scout")
