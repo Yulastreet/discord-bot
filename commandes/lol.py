@@ -1495,6 +1495,10 @@ class ClashScoutModal(discord.ui.Modal, title="🔍 Scout Clash : renseigne 5 Ri
 async def _scout_player(platform: str, raw_riot_id: str) -> str:
     """Fetch profil scout d'un joueur via Riot ID. Retourne une string
     formattee pour embed.add_field."""
+    import unicodedata as _u
+    # Normalisation NFC : Discord Modal envoie parfois 'é' decompose
+    # (e + combining acute), Riot stocke en NFC.
+    raw_riot_id = _u.normalize("NFC", raw_riot_id or "")
     # Parsing tolerant : split brut sur le dernier '#'
     cleaned = (raw_riot_id or "").replace(" ", " ").strip()  # nbsp -> space
     if "#" not in cleaned:
@@ -1506,6 +1510,7 @@ async def _scout_player(platform: str, raw_riot_id: str) -> str:
     if not game_name or not tag_line or len(game_name) > 32 or len(tag_line) > 8:
         print(f"[lol/scout] bad parts raw={raw_riot_id!r} name={game_name!r} tag={tag_line!r}")
         return f"❌ Format invalide : `{game_name}#{tag_line}` (limites name<=32, tag<=8)."
+    print(f"[lol/scout] lookup name={game_name!r} tag={tag_line!r} platform={platform}")
 
     account = await riot.account_by_riot_id(platform, game_name, tag_line)
     if not account or not account.get("puuid"):
