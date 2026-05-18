@@ -52,6 +52,20 @@ def register_lol_scout_routes(app, deps):
         else:
             enemies = raw.get("enemies") or []
             allies = raw.get("allies") or []
+
+        # Si allies manque ou vide, on genere 5 slots vides (pour que
+        # les amis puissent renseigner leur Riot ID via la web UI).
+        ROLE_EMOJI = {"TOP": "🛡️", "JUNGLE": "🌲", "MID": "⚡",
+                       "ADC": "🏹", "SUPPORT": "🛡️"}
+        if not allies:
+            allies = [
+                {"role": f"{ROLE_EMOJI[r]} {r}", "riot_id": "", "side": "ally"}
+                for r in ("TOP", "JUNGLE", "MID", "ADC", "SUPPORT")
+            ]
+        # Side tag par defaut sur enemies (pour les sessions tres anciennes)
+        for e in enemies:
+            if "side" not in e:
+                e["side"] = "enemy"
         try:
             riot_ids = _json.loads(sess["riot_ids"] or "{}")
         except Exception:

@@ -33,9 +33,13 @@
       <div class="stat-line"><span class="lbl">🔥 Pick récent</span></div>
       <div class="champ-row">
         {% for pick in p.recent or [] %}
-          <div class="champ-icon" data-slug="{{ pick.slug or '' }}"
-               data-count="x{{ pick.games }}"
-               title="{{ pick.champ }} ×{{ pick.games }}"></div>
+          {% if pick.slug %}
+            <div class="champ-icon" data-slug="{{ pick.slug }}"
+                 data-count="x{{ pick.games }}"
+                 title="{{ pick.champ }} ×{{ pick.games }}"></div>
+          {% else %}
+            <span class="empty-pill" title="{{ pick.champ }}">{{ pick.champ }} ×{{ pick.games }}</span>
+          {% endif %}
         {% else %}
           <span class="empty-pill">—</span>
         {% endfor %}
@@ -44,9 +48,13 @@
       <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
       <div class="champ-row">
         {% for ban in p.top_wr or [] %}
-          <div class="champ-icon ban" data-slug="{{ ban.slug or '' }}"
-               data-wr="{{ '%.0f'|format(ban.wr) }}%"
-               title="{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% sur {{ ban.total }}g"></div>
+          {% if ban.slug %}
+            <div class="champ-icon ban" data-slug="{{ ban.slug }}"
+                 data-wr="{{ '%.0f'|format(ban.wr) }}%"
+                 title="{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% sur {{ ban.total }}g"></div>
+          {% else %}
+            <span class="empty-pill" style="color:#ff8888;">{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}%</span>
+          {% endif %}
         {% else %}
           <span class="empty-pill">—</span>
         {% endfor %}
@@ -55,9 +63,13 @@
       <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
       <div class="champ-row">
         {% for m in p.mastery or [] %}
-          <div class="champ-icon" data-slug="{{ m.slug or '' }}"
-               data-count="{{ m.pts }}"
-               title="{{ m.champ }} ({{ m.pts }})"></div>
+          {% if m.slug %}
+            <div class="champ-icon" data-slug="{{ m.slug }}"
+                 data-count="{{ m.pts }}"
+                 title="{{ m.champ }} ({{ m.pts }})"></div>
+          {% else %}
+            <span class="empty-pill">{{ m.champ }} ({{ m.pts }})</span>
+          {% endif %}
         {% endfor %}
       </div>
     {% endif %}
