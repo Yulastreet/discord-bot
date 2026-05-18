@@ -523,6 +523,82 @@ async def _skin_autocomplete(interaction: discord.Interaction, current: str):
     return [app_commands.Choice(name=n[:100], value=n) for n in matches[:25]]
 
 
+_REGION_CHOICES = [
+    app_commands.Choice(name="EUW (Europe West)", value="euw1"),
+    app_commands.Choice(name="EUNE (Europe Nord/Est)", value="eun1"),
+    app_commands.Choice(name="NA (Amerique Nord)", value="na1"),
+    app_commands.Choice(name="KR (Corée)", value="kr"),
+    app_commands.Choice(name="BR (Brésil)", value="br1"),
+    app_commands.Choice(name="LAN (Latine Nord)", value="la1"),
+    app_commands.Choice(name="LAS (Latine Sud)", value="la2"),
+    app_commands.Choice(name="JP (Japon)", value="jp1"),
+    app_commands.Choice(name="OCE (Océanie)", value="oc1"),
+    app_commands.Choice(name="TR (Turquie)", value="tr1"),
+]
+
+
+class _StubUser:
+    """Faux user pour /lol stats|rank quand riot_id est passe sans membre."""
+    def __init__(self, name: str, user_id: int = 0):
+        self.display_name = name
+        self.name = name
+        self.id = user_id
+        self.display_avatar = None
+
+
+async def _resolve_target_or_riot(interaction: discord.Interaction,
+                                   membre: Optional[discord.Member],
+                                   riot_id: Optional[str],
+                                   region: Optional[app_commands.Choice[str]]):
+    """Renvoie (target, profile_dict) ou (None, None) en cas d'erreur.
+    Si riot_id passe : resolve via Riot API + stub user.
+    Sinon : profile DB du membre (ou de l'auteur si pas de membre)."""
+    if riot_id:
+        platform = (region.value if region else "euw1").lower()
+        m = _RIOT_ID_RE.match((riot_id or "").strip())
+        if not m:
+            await interaction.followup.send(
+                embed=_err_embed("Format invalide",
+                    "Riot ID attendu : `Pseudo#TAG` (ex: `Tookyn#EUW`)."),
+                ephemeral=True,
+            )
+            return None, None
+        game_name, tag_line = m.group(1), m.group(2)
+        account = await riot.account_by_riot_id(platform, game_name, tag_line)
+        if not account or not account.get("puuid"):
+            await interaction.followup.send(
+                embed=_err_embed("Riot ID introuvable",
+                    f"`{game_name}#{tag_line}` n'a pas été trouvé sur **{riot.PLATFORM_LABEL.get(platform, platform)}**."),
+                ephemeral=True,
+            )
+            return None, None
+        puuid = account["puuid"]
+        summ = await riot.summoner_by_puuid(platform, puuid)
+        prof = {
+            "puuid":          puuid,
+            "summoner_id":    (summ or {}).get("id"),
+            "game_name":      account.get("gameName") or game_name,
+            "tag_line":       account.get("tagLine") or tag_line,
+            "platform":       platform,
+            "summoner_level": (summ or {}).get("summonerLevel"),
+        }
+        stub = _StubUser(f"{prof['game_name']}#{prof['tag_line']}")
+        return stub, prof
+
+    # Fallback : membre ou auteur
+    target = membre or interaction.user
+    prof = lol_profile_get(target.id)
+    if not prof:
+        await interaction.followup.send(
+            embed=_err_embed("Aucun compte lié",
+                f"**{target.display_name}** n'a pas de compte LoL lié.\n"
+                "Utilise `/lol link Pseudo#TAG` ou passe directement `riot_id:Pseudo#TAG`."),
+            ephemeral=True,
+        )
+        return None, None
+    return target, prof
+
+
 def setup_lol_commands(bot):
     lol_group = app_commands.Group(name="lol", description="League of Legends : link, stats, rank")
 
@@ -613,20 +689,28 @@ def setup_lol_commands(bot):
         )
 
     # ---------- /lol stats ----------
-    @lol_group.command(name="stats", description="Affiche les stats LoL d'un joueur")
-    @app_commands.describe(membre="Membre Discord à inspecter (optionnel)")
+    @lol_group.command(name="stats", description="Affiche les stats LoL d'un joueur (via membre Discord ou Riot ID)")
+    @app_commands.describe(
+        membre="Membre Discord à inspecter (optionnel)",
+        riot_id="Ou un Riot ID directement (Pseudo#TAG)",
+        region="Région si tu utilises riot_id (défaut EUW)",
+    )
+    @app_commands.choices(region=_REGION_CHOICES)
     async def lol_stats(interaction: discord.Interaction,
-                        membre: Optional[discord.Member] = None):
+                        membre: Optional[discord.Member] = None,
+                        riot_id: Optional[str] = None,
+                        region: Optional[app_commands.Choice[str]] = None):
         await interaction.response.defer()
-        target = membre or interaction.user
-        prof = lol_profile_get(target.id)
-        if not prof:
+        if membre and riot_id:
             await interaction.followup.send(
-                embed=_err_embed("Aucun compte lié",
-                    f"**{target.display_name}** n'a pas de compte LoL lié.\n"
-                    "Utilise `/lol link Pseudo#TAG` pour en lier un."),
+                embed=_err_embed("Param ambigu",
+                    "Choisis **soit** `membre`, **soit** `riot_id`, pas les deux."),
                 ephemeral=True,
             )
+            return
+
+        target, prof = await _resolve_target_or_riot(interaction, membre, riot_id, region)
+        if prof is None:
             return
         embed, file = await _build_stats_embed(target, prof)
         if file:
@@ -635,20 +719,27 @@ def setup_lol_commands(bot):
             await interaction.followup.send(embed=embed)
 
     # ---------- /lol rank ----------
-    @lol_group.command(name="rank", description="Affiche ton rank Solo/Duo et applique le role si configuré")
-    @app_commands.describe(membre="Membre Discord (optionnel)")
+    @lol_group.command(name="rank", description="Affiche ton rank Solo/Duo (membre Discord ou Riot ID)")
+    @app_commands.describe(
+        membre="Membre Discord (optionnel)",
+        riot_id="Ou un Riot ID directement (Pseudo#TAG)",
+        region="Région si tu utilises riot_id (défaut EUW)",
+    )
+    @app_commands.choices(region=_REGION_CHOICES)
     async def lol_rank(interaction: discord.Interaction,
-                       membre: Optional[discord.Member] = None):
+                       membre: Optional[discord.Member] = None,
+                       riot_id: Optional[str] = None,
+                       region: Optional[app_commands.Choice[str]] = None):
         await interaction.response.defer()
-        target = membre or interaction.user
-        prof = lol_profile_get(target.id)
-        if not prof:
+        if membre and riot_id:
             await interaction.followup.send(
-                embed=_err_embed("Aucun compte lié",
-                    f"**{target.display_name}** n'a pas de compte LoL lié.\n"
-                    "Utilise `/lol link` d'abord."),
+                embed=_err_embed("Param ambigu",
+                    "Choisis **soit** `membre`, **soit** `riot_id`, pas les deux."),
                 ephemeral=True,
             )
+            return
+        target, prof = await _resolve_target_or_riot(interaction, membre, riot_id, region)
+        if prof is None:
             return
 
         platform = prof.get("platform") or "euw1"
