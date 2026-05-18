@@ -20,6 +20,15 @@ from typing import Optional
 import aiohttp
 from urllib.parse import quote
 
+# curl_cffi : optional dep, mimic TLS Chrome pour bypass Cloudflare
+# Si pas installe, on tombe sur aiohttp (souvent bloque par Cloudflare).
+try:
+    from curl_cffi import requests as _curl_requests  # type: ignore
+    _HAS_CURL_CFFI = True
+except Exception:
+    _curl_requests = None
+    _HAS_CURL_CFFI = False
+
 
 _USER_AGENT = "TookBot-LoL/1.0 (+https://tookbot.click)"
 _SESSION: Optional[aiohttp.ClientSession] = None
@@ -115,6 +124,28 @@ async def tier_emblem_file_path(tier: str) -> Optional[str]:
         return target
     except Exception as e:
         print(f"[riot/emblem] cache err {t}: {type(e).__name__}: {e}")
+        return None
+
+
+async def _fetch_html_cffi(url: str, timeout: int = 15) -> Optional[str]:
+    """Fetch HTML via curl_cffi (impersonate Chrome TLS) pour bypasser
+    Cloudflare/anti-bot des sites comme OP.GG / Mobalytics / U.GG.
+    Renvoie None si echec ou lib non installee."""
+    if not _HAS_CURL_CFFI or _curl_requests is None:
+        return None
+    # curl_cffi est sync, on l'execute dans un thread pour ne pas bloquer
+    # l'event loop.
+    try:
+        return await asyncio.to_thread(
+            lambda: _curl_requests.get(
+                url,
+                impersonate="chrome",
+                timeout=timeout,
+                allow_redirects=True,
+            ).text
+        )
+    except Exception as e:
+        print(f"[riot/cffi] err {url}: {type(e).__name__}: {e}")
         return None
 
 
@@ -540,21 +571,28 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
     url = f"https://mobalytics.gg/lol/champions/{slug_clean}/build"
     if role:
         url += f"?role={role.lower()}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
-    s = await _get_session()
-    try:
-        async with s.get(url, headers=headers, allow_redirects=True,
-                          timeout=aiohttp.ClientTimeout(total=15)) as resp:
-            if resp.status != 200:
-                print(f"[riot/moba] status={resp.status} url={url}")
-                return None
-            html = await resp.text()
-    except Exception as e:
-        print(f"[riot/moba] fetch err: {type(e).__name__}: {e}")
+
+    # Tente d'abord curl_cffi (TLS Chrome -> passe Cloudflare). Fallback aiohttp.
+    html = await _fetch_html_cffi(url)
+    if not html or len(html) < 5000:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
+        s = await _get_session()
+        try:
+            async with s.get(url, headers=headers, allow_redirects=True,
+                              timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    print(f"[riot/moba] aiohttp status={resp.status} url={url}")
+                    return None
+                html = await resp.text()
+        except Exception as e:
+            print(f"[riot/moba] aiohttp fetch err: {type(e).__name__}: {e}")
+            return None
+    if not html or len(html) < 5000:
+        print(f"[riot/moba] empty html url={url} len={len(html or '')}")
         return None
 
     import re as _re
@@ -678,20 +716,27 @@ async def opgg_build(slug: str, role: str) -> Optional[dict]:
     if role not in ("top", "jungle", "mid", "adc", "support"):
         return None
     url = f"https://www.op.gg/lol/champions/{slug}/build/{role}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
-    s = await _get_session()
-    try:
-        async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=12)) as resp:
-            if resp.status != 200:
-                print(f"[riot/opgg] status={resp.status} url={url}")
-                return None
-            html = await resp.text()
-    except Exception as e:
-        print(f"[riot/opgg] fetch err: {type(e).__name__}: {e}")
+
+    # Tente curl_cffi en priorite (passe Cloudflare). Fallback aiohttp.
+    html = await _fetch_html_cffi(url)
+    if not html or len(html) < 5000:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
+        s = await _get_session()
+        try:
+            async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=12)) as resp:
+                if resp.status != 200:
+                    print(f"[riot/opgg] aiohttp status={resp.status} url={url}")
+                    return None
+                html = await resp.text()
+        except Exception as e:
+            print(f"[riot/opgg] aiohttp fetch err: {type(e).__name__}: {e}")
+            return None
+    if not html or len(html) < 5000:
+        print(f"[riot/opgg] empty html url={url}")
         return None
 
     # Cherche le bloc __NEXT_DATA__

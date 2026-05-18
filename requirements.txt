@@ -9,3 +9,4 @@ PyNaCl
 flask
 requests
 psutil
+curl_cffi>=0.7.0
