@@ -95,19 +95,27 @@
     padding-top: 4px;
   }
   .profile-icon {
-    width: 88px; height: 88px;
+    width: 96px; height: 96px;
     border-radius: 50%;
     border: 3px solid var(--border-strong);
     background: var(--bg-2) center / cover no-repeat;
     flex-shrink: 0;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.4),
+      0 0 32px 8px rgba(241,196,15,0.32);
+  }
+  .player-card.ally .profile-icon {
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.4),
+      0 0 32px 8px rgba(155,89,182,0.45);
   }
   .rank-mini {
     position: absolute;
-    top: -8px;
-    right: -4px;
-    width: 64px; height: 64px;
+    top: -16px;
+    right: -8px;
+    width: 92px; height: 92px;
     background: center / contain no-repeat;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
   }
   .role-tag {
     display: inline-block;
@@ -296,9 +304,58 @@
     font-size: 10px;
     cursor: pointer;
   }
+  .bans-synthesis {
+    flex: 0 0 auto;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--danger);
+    border-radius: 14px;
+    padding: 12px 14px;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .bans-synthesis h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--danger);
+  }
+  .bans-list { display: flex; flex-direction: column; gap: 6px; }
+  .ban-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .ban-row .num {
+    width: 18px;
+    color: var(--muted);
+    font-weight: 700;
+    text-align: center;
+  }
+  .ban-row .champ-mini {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--bg-2) center / cover no-repeat;
+    border: 1px solid var(--danger);
+    flex-shrink: 0;
+  }
+  .ban-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ban-row .wr-pill {
+    background: var(--danger);
+    color: #fff;
+    font-weight: 800;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 6px;
+  }
+  .ban-row .by { font-size: 10px; color: var(--muted); }
+
   .map-box {
     flex: 0 0 auto;
-    height: 340px;
+    height: 320px;
     padding: 10px;
     background: var(--bg-1);
     border: 1px solid var(--border);
@@ -472,6 +529,28 @@
         <button id="chatSend" {% if session_data.status != 'active' %}disabled{% endif %}>↑</button>
       </div>
     </div>
+    <div class="bans-synthesis" id="bansSynthesis">
+      <h4>💀 Top bans priorité</h4>
+      <div class="bans-list" id="bansList">
+        {% for b in top_bans %}
+        <div class="ban-row">
+          <span class="num">{{ loop.index }}.</span>
+          {% if b.slug %}
+            <div class="champ-mini" data-slug="{{ b.slug }}"></div>
+          {% else %}
+            <div class="champ-mini" style="border-style:dashed;"></div>
+          {% endif %}
+          <div class="name">
+            <strong>{{ b.champ }}</strong>
+            <div class="by">{{ b.role }} · {{ b.player }} · {{ b.total }}g</div>
+          </div>
+          <span class="wr-pill">{{ '%.0f'|format(b.wr) }}%</span>
+        </div>
+        {% else %}
+        <div style="color: var(--muted); font-size: 12px;">Pas encore de bans calculés.</div>
+        {% endfor %}
+      </div>
+    </div>
     <div class="map-box" id="mapBox" title="Cliquer pour zoom + annotations">
       <div class="map-thumb"></div>
       <small>Map SR</small>
@@ -531,11 +610,60 @@ let DD_VERSION = '15.10.1';  // fallback
   if (img) img.src = url;
   const thumb = document.querySelector('.map-thumb');
   if (thumb) thumb.style.backgroundImage = `url('${url}')`;
-  // Hydrate icones de toutes les cards
+  // Hydrate icones de toutes les cards + bans synthesis
   document.querySelectorAll('.player-card').forEach(card => {
     hydrateCardIcons(card);
   });
+  hydrateBansIcons();
 })();
+
+function hydrateBansIcons() {
+  document.querySelectorAll('#bansList .champ-mini[data-slug]').forEach(el => {
+    const slug = el.dataset.slug;
+    if (slug) el.style.backgroundImage = `url('${champIconUrl(slug)}')`;
+  });
+}
+
+function rebuildBansSynthesis() {
+  // Aggrege depuis le DOM les top_wr de toutes les cards enemy
+  const bans = [];
+  document.querySelectorAll('.player-card.enemy').forEach(card => {
+    const role = card.dataset.roleKey;
+    const inp = card.querySelector('.riot-id-edit');
+    const player = inp ? inp.value : '?';
+    card.querySelectorAll('.champ-icon.ban[data-slug]').forEach(el => {
+      const slug = el.dataset.slug;
+      const wrStr = el.dataset.wr || '0%';
+      const wr = parseFloat(wrStr) || 0;
+      const title = el.getAttribute('title') || '';
+      // Title : "Yasuo 75% sur 8g"
+      const champMatch = title.match(/^(.+?)\s+\d+%/);
+      const gamesMatch = title.match(/sur (\d+)g/);
+      const champ = champMatch ? champMatch[1] : '?';
+      const total = gamesMatch ? parseInt(gamesMatch[1]) : 0;
+      bans.push({slug, wr, total, champ, role, player});
+    });
+  });
+  bans.sort((a, b) => (b.wr - a.wr) || (b.total - a.total));
+  const top = bans.slice(0, 10);
+  const list = document.getElementById('bansList');
+  if (!list) return;
+  if (top.length === 0) {
+    list.innerHTML = '<div style="color: var(--muted); font-size: 12px;">Pas encore de bans calculés.</div>';
+    return;
+  }
+  list.innerHTML = top.map((b, i) => `
+    <div class="ban-row">
+      <span class="num">${i + 1}.</span>
+      <div class="champ-mini" data-slug="${escapeHtml(b.slug)}" style="background-image:url('${champIconUrl(b.slug)}')"></div>
+      <div class="name">
+        <strong>${escapeHtml(b.champ)}</strong>
+        <div class="by">${escapeHtml(b.role)} · ${escapeHtml(b.player)} · ${b.total}g</div>
+      </div>
+      <span class="wr-pill">${Math.round(b.wr)}%</span>
+    </div>
+  `).join('');
+}
 
 function escapeHtml(s) {
   return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
@@ -551,8 +679,9 @@ function champIconUrl(slug) {
 }
 function tierEmblemUrl(tier) {
   const t = (tier || 'UNRANKED').toLowerCase();
-  if (t === 'unranked') return '';
-  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-${t}.png`;
+  if (t === 'unranked' || !t) return '';
+  // Serveur sert le PNG cropped tight depuis le cache local
+  return `/assets/lol-emblem/${t}`;
 }
 
 function hydrateCardIcons(card) {
@@ -656,6 +785,7 @@ document.querySelectorAll('.riot-id-edit').forEach(inp => {
       const d = await r.json();
       if (d.ok && d.data) {
         renderPlayerCard(card, d.data);
+        if (side === 'enemy') rebuildBansSynthesis();
       } else {
         alert('Erreur : ' + (d.error || 'unknown'));
       }
@@ -947,6 +1077,7 @@ if (SESSION_ACTIVE && 'EventSource' in window) {
       const card = document.querySelector(`[data-side="${u.side}"][data-role-key="${u.role}"]`);
       if (!card) return;
       renderPlayerCard(card, u.data);
+      if (u.side === 'enemy') rebuildBansSynthesis();
     } catch (_) {}
   });
   es.onerror = () => {};

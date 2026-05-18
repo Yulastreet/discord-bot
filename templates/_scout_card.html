@@ -11,7 +11,6 @@
          {% endif %}></div>
     <div class="card-head-text">
       <span class="role-tag {{ side }}">{{ role_key }}</span>
-      <h3>{{ p.game_name or '' }}{% if p.tag_line %}<small style="color:var(--muted);font-weight:500;">#{{ p.tag_line }}</small>{% endif %}</h3>
       <input class="riot-id-edit" data-role="{{ role_key }}" data-side="{{ side }}"
              value="{{ p.riot_id or '' }}"
              placeholder="{% if side == 'ally' %}Ton Riot ID (Pseudo#TAG){% else %}Pseudo#TAG{% endif %}"

@@ -70,12 +70,30 @@ def register_lol_scout_routes(app, deps):
             riot_ids = _json.loads(sess["riot_ids"] or "{}")
         except Exception:
             riot_ids = {}
+
+        # Top bans : agrege top_wr de tous les enemies, sort par WR desc,
+        # top 10. Inclut le pseudo du joueur pour contexte.
+        top_bans = []
+        for p in enemies:
+            for ban in (p.get("top_wr") or []):
+                top_bans.append({
+                    "champ":  ban.get("champ"),
+                    "slug":   ban.get("slug"),
+                    "wr":     ban.get("wr") or 0,
+                    "total":  ban.get("total") or 0,
+                    "player": p.get("riot_id") or p.get("game_name") or "?",
+                    "role":   (p.get("role") or "").split(" ")[-1],
+                })
+        top_bans.sort(key=lambda x: (-x["wr"], -x["total"]))
+        top_bans = top_bans[:10]
+
         return render_template(
             "scout_session.html",
             session_data=sess,
             enemies=enemies,
             allies=allies,
             riot_ids=riot_ids,
+            top_bans=top_bans,
             slug=slug,
         )
 
@@ -265,6 +283,41 @@ def register_lol_scout_routes(app, deps):
             "data": new_entry,
         })
         return jsonify({"ok": True, "data": new_entry})
+
+
+    # ===== Emblems tier servis depuis le cache local (croppe, ~256x256) =====
+    @app.route("/assets/lol-emblem/<tier>")
+    def lol_emblem_serve(tier):
+        import asyncio as _asyncio
+        from pathlib import Path
+        from flask import send_file
+        import services.riot_api as _ra
+        tier_lower = (tier or "").lower().replace(".png", "")
+        valid = {"iron","bronze","silver","gold","platinum","emerald",
+                  "diamond","master","grandmaster","challenger"}
+        if tier_lower not in valid:
+            abort(404)
+        base_dir = Path(_ra._EMBLEM_CACHE_DIR)
+        base_dir.mkdir(parents=True, exist_ok=True)
+        path = base_dir / f"{tier_lower}.png"
+        if not path.exists():
+            # Generate one-shot
+            _ra._SESSION = None
+            loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(_ra.tier_emblem_file_path(tier.upper()))
+            finally:
+                sess_obj = getattr(_ra, "_SESSION", None)
+                if sess_obj and not sess_obj.closed:
+                    try: loop.run_until_complete(sess_obj.close())
+                    except Exception: pass
+                _ra._SESSION = None
+                loop.close()
+                _asyncio.set_event_loop(None)
+        if path.exists():
+            return send_file(str(path), mimetype="image/png")
+        abort(404)
 
 
     # ===== SSE realtime stream =====
