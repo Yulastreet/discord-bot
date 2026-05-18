@@ -194,64 +194,41 @@ async def _apply_rank_role(member: discord.Member, tier: str) -> Optional[str]:
     return new_role.name
 
 
-async def _render_build_embed(build: dict, cname: str, champion_id: int,
+_VIEW_ITEMS = "items"
+_VIEW_RUNES = "runes"
+_VIEW_SKILLS = "skills"
+
+_SKILL_LETTER = {1: "Q", 2: "W", 3: "E", 4: "R"}
+
+
+async def _render_items_view(build: dict, cname: str, champion_id: int,
                               role_label: str, source: str, source_url: str):
-    """Construit l'embed + composite PNG (items + spells) pour un build precis.
-    Retourne (embed, discord.File | None)."""
+    """Vue items : embed avec items par phase + composite PNG (items + spells)."""
     embed = discord.Embed(
-        title=f"📊 {build.get('name', 'Build')} — {cname} {role_label}",
-        description=f"**{cname}** en **{role_label}** · Source : [{source}]({source_url})",
+        title=f"🧱 Items — {build.get('name', 'Build')}",
+        description=(f"**{cname}** {role_label} · Source : [{source}]({source_url})"
+                     + (f"\n🏆 WR {build['wr']:.1f}% sur {build['matches']:,} parties".replace(",", " ")
+                        if build.get("wr") is not None else "")),
         color=0xF1C40F,
     )
-
-    # Items par phase (text)
-    for phase in (build.get("items_by_phase") or [])[:5]:
+    for phase in (build.get("items_by_phase") or [])[:6]:
         ptype = phase.get("type") or "?"
         ids = phase.get("items") or []
         if not ids:
             continue
         names = []
-        for iid in ids[:6]:
+        for iid in ids[:8]:
             try:
                 names.append(await riot.item_name(int(iid)))
             except Exception:
                 names.append(f"#{iid}")
         embed.add_field(
-            name=f"🧱 {ptype}",
+            name=f"📦 {ptype}",
             value=" → ".join(f"`{n}`" for n in names) or "—",
             inline=False,
         )
 
-    # Spells text
-    spells = build.get("summoner_spells") or []
-    if spells:
-        names = [riot.SUMMONER_SPELL_NAMES.get(int(s), f"Spell #{s}") for s in spells[:2]]
-        embed.add_field(name="✨ Sorts d'invocateur",
-                        value=" + ".join(f"**{n}**" for n in names),
-                        inline=True)
-
-    # Runes
-    rune_parts = []
-    if build.get("keystone_id"):
-        ks = int(build["keystone_id"])
-        rune_parts.append(f"Keystone : **{riot.RUNE_KEYSTONES.get(ks, f'#{ks}')}**")
-    if build.get("primary_rune_tree"):
-        p = int(build["primary_rune_tree"])
-        rune_parts.append(f"Principale : {riot.RUNE_TREES.get(p, f'#{p}')}")
-    if build.get("secondary_rune_tree"):
-        sc = int(build["secondary_rune_tree"])
-        rune_parts.append(f"Secondaire : {riot.RUNE_TREES.get(sc, f'#{sc}')}")
-    if rune_parts:
-        embed.add_field(name="🌿 Runes", value="\n".join(rune_parts), inline=True)
-
-    # Skill order
-    order = build.get("skill_order")
-    if order:
-        embed.add_field(name="📈 Skill order",
-                        value=f"`{' > '.join(order)[:200]}`",
-                        inline=False)
-
-    # Compose la PNG : items (concat de toutes les phases, max 12) + spells
+    # Composite image : items + spells
     all_items = []
     for phase in (build.get("items_by_phase") or []):
         for iid in (phase.get("items") or []):
@@ -259,8 +236,8 @@ async def _render_build_embed(build: dict, cname: str, champion_id: int,
                 all_items.append(int(iid))
             except Exception:
                 pass
-    all_items = all_items[:12]
-    img_bytes = await riot.compose_build_image(all_items, [int(s) for s in spells[:2]])
+    spells = build.get("summoner_spells") or []
+    img_bytes = await riot.compose_build_image(all_items[:12], [int(s) for s in spells[:2]])
     file = None
     if img_bytes:
         from io import BytesIO
@@ -270,15 +247,154 @@ async def _render_build_embed(build: dict, cname: str, champion_id: int,
         icon = await riot.champion_icon_url(champion_id)
         if icon:
             embed.set_thumbnail(url=icon)
-    embed.set_footer(text=f"Source : {source}. Patch courant, tier Platinum+.")
+    embed.set_footer(text=f"Items + sorts d'invocateur. {source}.")
     return embed, file
 
 
+async def _render_runes_view(build: dict, cname: str, champion_id: int,
+                              role_label: str, source: str, source_url: str):
+    """Vue runes : embed avec page de runes complete (keystone + primary 3 +
+    secondary 2 + stat shards 3)."""
+    embed = discord.Embed(
+        title=f"🌿 Runes — {build.get('name', 'Build')}",
+        description=(f"**{cname}** {role_label} · Source : [{source}]({source_url})"
+                     + (f"\n🏆 WR {build['wr']:.1f}% sur {build['matches']:,} parties".replace(",", " ")
+                        if build.get("wr") is not None else "")),
+        color=0xF1C40F,
+    )
+    perk_ids = build.get("perk_ids") or []
+    primary_tree_id = build.get("primary_style")
+    sub_tree_id     = build.get("sub_style")
+
+    if not perk_ids:
+        embed.add_field(name="—", value="Pas de données de runes.", inline=False)
+        icon = await riot.champion_icon_url(champion_id)
+        if icon:
+            embed.set_thumbnail(url=icon)
+        return embed, None
+
+    # Layout typique : keystone + 3 primary + 2 secondary + 3 shards = 9 ids
+    keystone     = perk_ids[0] if len(perk_ids) > 0 else None
+    primary_3    = perk_ids[1:4]
+    secondary_2  = perk_ids[4:6]
+    shards       = perk_ids[6:9]
+
+    tree_primary_name   = await riot.rune_name(primary_tree_id) if primary_tree_id else "?"
+    tree_secondary_name = await riot.rune_name(sub_tree_id) if sub_tree_id else "?"
+
+    primary_lines = []
+    if keystone:
+        primary_lines.append(f"⭐ **{await riot.rune_name(keystone)}** (Keystone)")
+    for rid in primary_3:
+        primary_lines.append(f"• {await riot.rune_name(rid)}")
+    embed.add_field(
+        name=f"🟦 {tree_primary_name} (principale)",
+        value="\n".join(primary_lines) or "—",
+        inline=True,
+    )
+
+    secondary_lines = []
+    for rid in secondary_2:
+        secondary_lines.append(f"• {await riot.rune_name(rid)}")
+    embed.add_field(
+        name=f"🟣 {tree_secondary_name} (secondaire)",
+        value="\n".join(secondary_lines) or "—",
+        inline=True,
+    )
+
+    shard_lines = []
+    shard_slot_labels = ["Offense", "Flex", "Defense"]
+    for i, rid in enumerate(shards):
+        label = shard_slot_labels[i] if i < 3 else ""
+        shard_lines.append(f"{label} : **{await riot.rune_name(rid)}**" if label
+                            else f"**{await riot.rune_name(rid)}**")
+    embed.add_field(
+        name="💠 Stat Shards",
+        value="\n".join(shard_lines) or "—",
+        inline=False,
+    )
+
+    # Thumbnail = icon keystone
+    if keystone:
+        icon = await riot.rune_icon_url(keystone)
+        if icon:
+            embed.set_thumbnail(url=icon)
+    embed.set_footer(text=f"Page de runes complète. {source}.")
+    return embed, None
+
+
+async def _render_skills_view(build: dict, cname: str, champion_id: int,
+                              role_label: str, source: str, source_url: str):
+    """Vue skills + summoners : ordre des skills + sorts d'invocateur."""
+    embed = discord.Embed(
+        title=f"⚔️ Skills + Sorts — {build.get('name', 'Build')}",
+        description=(f"**{cname}** {role_label} · Source : [{source}]({source_url})"
+                     + (f"\n🏆 WR {build['wr']:.1f}% sur {build['matches']:,} parties".replace(",", " ")
+                        if build.get("wr") is not None else "")),
+        color=0xF1C40F,
+    )
+
+    # Ordre des skills (1=Q, 2=W, 3=E, 4=R)
+    so = build.get("skill_order") or []
+    if so:
+        # Tableau visuel 1..18
+        line_letters = []
+        line_levels  = []
+        for lvl, s in enumerate(so[:18], 1):
+            line_letters.append(_SKILL_LETTER.get(int(s), "?"))
+            line_levels.append(f"{lvl:2d}")
+        embed.add_field(
+            name="📈 Ordre de skill (par niveau)",
+            value=f"`Lvl  {' '.join(line_levels)}`\n`Skill { ' '.join(f' {l}' for l in line_letters)}`",
+            inline=False,
+        )
+
+    # Priorite max
+    smo = build.get("skill_max_order") or []
+    if smo:
+        prio = " > ".join(_SKILL_LETTER.get(int(s), "?") for s in smo)
+        embed.add_field(name="🎯 Priorité d'augmentation", value=f"`{prio}`", inline=False)
+
+    # Summoner spells
+    spells = build.get("summoner_spells") or []
+    if spells:
+        names = [riot.SUMMONER_SPELL_NAMES.get(int(s), f"Spell #{s}") for s in spells[:2]]
+        embed.add_field(name="✨ Sorts d'invocateur",
+                        value=" + ".join(f"**{n}**" for n in names),
+                        inline=False)
+
+    icon = await riot.champion_icon_url(champion_id)
+    if icon:
+        embed.set_thumbnail(url=icon)
+    embed.set_footer(text=f"Skill order + Sorts. {source}.")
+    return embed, None
+
+
+async def _render_build(build: dict, view_kind: str, cname: str, champion_id: int,
+                        role_label: str, source: str, source_url: str):
+    """Dispatch sur la vue choisie."""
+    if view_kind == _VIEW_RUNES:
+        return await _render_runes_view(build, cname, champion_id, role_label, source, source_url)
+    if view_kind == _VIEW_SKILLS:
+        return await _render_skills_view(build, cname, champion_id, role_label, source, source_url)
+    return await _render_items_view(build, cname, champion_id, role_label, source, source_url)
+
+
+# Backwards-compat (used elsewhere)
+async def _render_build_embed(build, cname, champion_id, role_label, source, source_url):
+    return await _render_items_view(build, cname, champion_id, role_label, source, source_url)
+
+
 class LolBuildView(discord.ui.View):
-    """Boutons pour switcher entre plusieurs builds. Seul l'auteur peut switcher."""
+    """View avec 2 rangs de boutons :
+      - Row 0 : selection du build (1-5 boutons, types Mobalytics)
+      - Row 1 : selection de la vue (Items / Runes / Skills+Sorts)
+    Click = edit du meme message."""
+
     def __init__(self, author_id: int, builds: list[dict], cname: str,
                  cslug: str, champion_id: int, role_label: str,
-                 source: str, source_url: str):
+                 source: str, source_url: str,
+                 selected_build: int = 0, selected_view: str = _VIEW_ITEMS):
         super().__init__(timeout=300)
         self.author_id = author_id
         self.builds = builds
@@ -288,45 +404,78 @@ class LolBuildView(discord.ui.View):
         self.role_label = role_label
         self.source = source
         self.source_url = source_url
-        if len(builds) <= 1:
-            return  # Pas de boutons si un seul build
-        for idx, b in enumerate(builds[:5]):
+        self.selected_build = selected_build
+        self.selected_view = selected_view
+        self._rebuild_buttons()
+
+    def _rebuild_buttons(self):
+        self.clear_items()
+        # Row 0 : builds (max 5)
+        for idx, b in enumerate(self.builds[:5]):
             label = b.get("name") or f"Build {idx + 1}"
+            wr = b.get("wr")
+            if wr is not None:
+                label = f"{label} {wr:.1f}%"
             btn = discord.ui.Button(
                 label=label[:80],
-                style=discord.ButtonStyle.primary if idx == 0 else discord.ButtonStyle.secondary,
+                style=discord.ButtonStyle.primary if idx == self.selected_build else discord.ButtonStyle.secondary,
                 custom_id=f"lolbuild:{idx}",
                 row=0,
             )
-            btn.callback = self._make_callback(idx)
+            btn.callback = self._make_build_cb(idx)
+            self.add_item(btn)
+        # Row 1 : vues
+        for kind, label, emoji in (
+            (_VIEW_ITEMS,  "Items",   "🧱"),
+            (_VIEW_RUNES,  "Runes",   "🌿"),
+            (_VIEW_SKILLS, "Skills + Sorts", "⚔️"),
+        ):
+            btn = discord.ui.Button(
+                label=label,
+                emoji=emoji,
+                style=discord.ButtonStyle.success if kind == self.selected_view else discord.ButtonStyle.secondary,
+                custom_id=f"lolview:{kind}",
+                row=1,
+            )
+            btn.callback = self._make_view_cb(kind)
             self.add_item(btn)
 
-    def _make_callback(self, idx: int):
+    def _make_build_cb(self, idx: int):
         async def cb(interaction: discord.Interaction):
             if interaction.user.id != self.author_id:
                 await interaction.response.send_message(
-                    "❌ Ce menu n'est pas pour toi. Lance `/lol build` toi-meme.",
+                    "❌ Ce menu n'est pas pour toi. Lance `/lol build` toi-même.",
                     ephemeral=True,
                 )
                 return
-            build = self.builds[idx]
-            embed, file = await _render_build_embed(
-                build, self.cname, self.champion_id,
-                self.role_label, self.source, build.get("source_url") or self.source_url,
-            )
-            # Refresh button styles : selected = primary, others = secondary
-            for i, child in enumerate(self.children):
-                if isinstance(child, discord.ui.Button) and child.custom_id and child.custom_id.startswith("lolbuild:"):
-                    try:
-                        cid = int(child.custom_id.split(":")[1])
-                        child.style = discord.ButtonStyle.primary if cid == idx else discord.ButtonStyle.secondary
-                    except Exception:
-                        pass
-            if file:
-                await interaction.response.edit_message(embed=embed, attachments=[file], view=self)
-            else:
-                await interaction.response.edit_message(embed=embed, attachments=[], view=self)
+            self.selected_build = idx
+            await self._refresh(interaction)
         return cb
+
+    def _make_view_cb(self, kind: str):
+        async def cb(interaction: discord.Interaction):
+            if interaction.user.id != self.author_id:
+                await interaction.response.send_message(
+                    "❌ Ce menu n'est pas pour toi.",
+                    ephemeral=True,
+                )
+                return
+            self.selected_view = kind
+            await self._refresh(interaction)
+        return cb
+
+    async def _refresh(self, interaction: discord.Interaction):
+        build = self.builds[self.selected_build]
+        embed, file = await _render_build(
+            build, self.selected_view, self.cname, self.champion_id,
+            self.role_label, self.source,
+            build.get("source_url") or self.source_url,
+        )
+        self._rebuild_buttons()
+        if file:
+            await interaction.response.edit_message(embed=embed, attachments=[file], view=self)
+        else:
+            await interaction.response.edit_message(embed=embed, attachments=[], view=self)
 
 
 # Autocomplete helpers (visibles a tous les sub-commands ci-dessous)

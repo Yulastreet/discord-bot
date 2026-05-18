@@ -374,6 +374,63 @@ async def _dd_items_refresh():
         print(f"[riot/dd-items] err: {type(e).__name__}: {e}")
 
 
+# ===== Runes Reforged cache (resolution id -> nom + icon) =====
+_DD_RUNES_CACHE = {"version": None, "by_id": {}, "fetched": 0.0}
+
+
+async def _dd_runes_refresh():
+    now = time.time()
+    if _DD_RUNES_CACHE["by_id"] and (now - _DD_RUNES_CACHE["fetched"]) < _DD_TTL_SEC:
+        return
+    await _dd_refresh()
+    ver = _DD_CACHE.get("version")
+    if not ver:
+        return
+    s = await _get_session()
+    try:
+        async with s.get(f"https://ddragon.leagueoflegends.com/cdn/{ver}/data/en_US/runesReforged.json") as resp:
+            if resp.status != 200:
+                return
+            data = await resp.json(content_type=None)
+        by_id = {}
+        for tree in data or []:
+            tid = tree.get("id")
+            tname = tree.get("name")
+            ticon = tree.get("icon")
+            by_id[int(tid)] = {"name": tname, "icon": ticon, "is_tree": True}
+            for slot in tree.get("slots") or []:
+                for rune in slot.get("runes") or []:
+                    rid = rune.get("id")
+                    rname = rune.get("name")
+                    ricon = rune.get("icon")
+                    by_id[int(rid)] = {"name": rname, "icon": ricon, "tree_id": tid}
+        _DD_RUNES_CACHE["version"] = ver
+        _DD_RUNES_CACHE["by_id"]   = by_id
+        _DD_RUNES_CACHE["fetched"] = now
+        print(f"[riot/dd-runes] cached count={len(by_id)} ver={ver}")
+    except Exception as e:
+        print(f"[riot/dd-runes] err: {type(e).__name__}: {e}")
+
+
+async def rune_name(rune_id: int) -> str:
+    await _dd_runes_refresh()
+    info = _DD_RUNES_CACHE["by_id"].get(int(rune_id))
+    if info:
+        return info["name"]
+    return STAT_SHARDS.get(int(rune_id)) or f"Rune #{rune_id}"
+
+
+async def rune_icon_url(rune_id: int) -> Optional[str]:
+    await _dd_runes_refresh()
+    info = _DD_RUNES_CACHE["by_id"].get(int(rune_id))
+    if not info:
+        return None
+    icon = info.get("icon")
+    if not icon:
+        return None
+    return f"https://ddragon.leagueoflegends.com/cdn/img/{icon}"
+
+
 async def item_name(item_id: int) -> str:
     await _dd_items_refresh()
     info = _DD_ITEMS_CACHE["items"].get(int(item_id))
@@ -564,10 +621,39 @@ async def ddragon_recommended(slug: str) -> Optional[list[dict]]:
 
 
 # ===== Build scrapers (multi-source : Mobalytics, OP.GG, U.GG, DPM) =====
+# Mobalytics : labels des types de build
+MOBA_BUILD_LABELS = {
+    "MOST_POPULAR":     "Most Popular",
+    "HIGHEST_WIN_RATE": "Highest WR",
+    "HIGH_WIN_RATE":    "High WR",
+    "ALTERNATIVE":      "Alternative",
+    "OFF_META":         "Off-Meta",
+    "STANDARD":         "Standard",
+    "PRO":              "Pro Build",
+}
+
+# Skill order : 1=Q, 2=W, 3=E, 4=R
+SKILL_LETTERS = {1: "Q", 2: "W", 3: "E", 4: "R"}
+
+# Stat shards (5001-5013). IDs ne changent presque jamais.
+STAT_SHARDS = {
+    5001: "+15-90 HP (au niv.)",
+    5002: "+6 Armure",
+    5003: "+8 RM",
+    5005: "+10% Vitesse d'Attaque",
+    5007: "+8 Hate",
+    5008: "+9 Force Adaptative",
+    5010: "+1% Vitesse",
+    5011: "+65 HP",
+    5013: "+10% Tenacite + Reduc. Ralenti.",
+}
+
+
 async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Optional[list[dict]]:
-    """Scrape Mobalytics, renvoie une LISTE de builds (1 ou plusieurs).
-    Chaque build : {name, items_by_phase, summoner_spells, keystone_id,
-    primary_rune_tree, secondary_rune_tree, skill_order}."""
+    """Scrape Mobalytics, renvoie une LISTE de builds avec donnees completes.
+    Chaque build : {name, type, items_by_phase, summoner_spells, perk_ids (9),
+    primary_style, sub_style, skill_order (lettres), skill_max_order, wr,
+    matches, source_url}."""
     slug_clean = (slug or "").strip().lower().replace(" ", "").replace("'", "").replace(".", "")
     if not slug_clean:
         return None
@@ -598,94 +684,125 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
         print(f"[riot/moba] empty html url={url} len={len(html or '')}")
         return None
 
-    print(f"[riot/moba] html len={len(html)} has_marker={'LolChampionBuildItemsList' in html}")
-
     import re as _re
-    import json as _j
 
-    # Extrait toutes les phases d'items (Starter, Early, Core, FullBuild, Boots,
-    # Situational, etc.). Chaque phase est un objet LolChampionBuildItemsList
-    # avec des champs supplementaires (slots, timeToTarget) apres items.
-    phases = []
-    for m in _re.finditer(r'"__typename":"LolChampionBuildItemsList","type":"([^"]+)","items":\[([^\]]*)\]', html):
-        ptype = m.group(1)
-        try:
-            ids = [int(x) for x in _re.findall(r'\d+', m.group(2))]
-        except Exception:
-            ids = []
-        phases.append({"type": ptype, "items": ids})
+    # Mobalytics expose chaque build sous la cle Apollo
+    # "LolChampionBuild:{...,"type":"<TYPE>",...}":{ ...full data... }
+    # On split sur ces marqueurs pour isoler chaque build.
+    build_starts = [m.start() for m in _re.finditer(r'"LolChampionBuild:\\\?"\{', html)]
+    # Fallback pattern (parfois sans backslash)
+    if not build_starts:
+        build_starts = [m.start() for m in _re.finditer(r'"LolChampionBuild:\\["{]', html)]
+    # Encore plus permissif :
+    if not build_starts:
+        build_starts = [m.start() for m in _re.finditer(r'LolChampionBuild:[^\"]*\\\?\"id\\\?\":\\\?\"(\d+)\\\?\"', html)]
 
-    print(f"[riot/moba] phases_found={len(phases)} types={[p['type'] for p in phases[:8]]}")
+    # Si ca marche pas, on bascule sur une approche par scan : split sur
+    # chaque "type":"<UPPER_SNAKE>" qui suit "LolChampionBuild"
+    if not build_starts:
+        for m in _re.finditer(r'(LolChampionBuild)[^A-Za-z]*?"type":"([A-Z_]+)"', html):
+            build_starts.append(m.start())
 
-    if not phases:
-        # Pas de phase trouvee : page introuvable ou structure changee
+    if not build_starts:
+        print(f"[riot/moba] no LolChampionBuild marker url={url}")
         return None
 
-    # Groupe les phases en builds : chaque fois qu'on retrouve un type deja
-    # vu dans le build courant, on commence un nouveau build.
-    builds_raw = []
-    current = []
-    seen_types = set()
-    for p in phases:
-        if p["type"] in seen_types and current:
-            builds_raw.append(current)
-            current = []
-            seen_types = set()
-        current.append(p)
-        seen_types.add(p["type"])
-    if current:
-        builds_raw.append(current)
-
-    # Extrait spells / runes / skill order (mobalytics donne souvent UNE
-    # valeur pour la page, applique a tous les builds par defaut)
-    spell_match = _re.search(r'"summonerSpells":\[(\d+),(\d+)\]', html) \
-                  or _re.search(r'"spellIds":\[(\d+),(\d+)\]', html)
-    spells = [int(spell_match.group(1)), int(spell_match.group(2))] if spell_match else []
-
-    keystone = _re.search(r'"keystone":(\d+)', html) or _re.search(r'"keystoneId":(\d+)', html)
-    keystone_id = int(keystone.group(1)) if keystone else None
-
-    prim = _re.search(r'"primaryPath":(\d+)', html) \
-           or _re.search(r'"primaryTree":(\d+)', html) \
-           or _re.search(r'"primaryStyle":(\d+)', html)
-    primary_tree = int(prim.group(1)) if prim else None
-
-    sec = _re.search(r'"secondaryPath":(\d+)', html) \
-          or _re.search(r'"secondaryTree":(\d+)', html) \
-          or _re.search(r'"subStyle":(\d+)', html)
-    secondary_tree = int(sec.group(1)) if sec else None
-
-    skill_match = _re.search(r'"skillOrder":"([QWERqwer]+)"', html)
-    if skill_match:
-        skill_order = skill_match.group(1).upper()
-    else:
-        skill_arr = _re.search(r'"abilityOrder":\[([^\]]+)\]', html)
-        skill_order = ""
-        if skill_arr:
-            letters = _re.findall(r'"([QWERqwer])"', skill_arr.group(1))
-            if letters:
-                skill_order = "".join(l.upper() for l in letters)
+    build_starts.append(len(html))
+    print(f"[riot/moba] LolChampionBuild markers={len(build_starts) - 1}")
 
     builds = []
-    for idx, phases_set in enumerate(builds_raw):
-        name = f"Build {idx + 1}"
-        if idx == 0:
-            name = "Build principal"
-        elif idx == 1:
-            name = "Variante"
-        elif idx == 2:
-            name = "Alternative"
+    for i in range(len(build_starts) - 1):
+        chunk = html[build_starts[i]:build_starts[i + 1]]
+
+        # Type (label du build)
+        t = _re.search(r'"type":"([A-Z_]+)"', chunk)
+        btype = t.group(1) if t else f"BUILD_{i + 1}"
+
+        # Items par phase
+        phases = []
+        for m in _re.finditer(r'"__typename":"LolChampionBuildItemsList","type":"([^"]+)","items":\[([^\]]*)\]', chunk):
+            ptype = m.group(1)
+            ids = [int(x) for x in _re.findall(r'\d+', m.group(2))]
+            phases.append({"type": ptype, "items": ids})
+
+        # Runes : perks.IDs (9 ids), perks.style, perks.subStyle
+        perk_ids = []
+        primary_style = None
+        sub_style = None
+        perk_block = _re.search(r'"perks":\{[^}]*"IDs":\[([^\]]+)\][^}]*"style":(\d+)[^}]*"subStyle":(\d+)', chunk)
+        if perk_block:
+            try:
+                perk_ids = [int(x) for x in _re.findall(r'\d+', perk_block.group(1))]
+                primary_style = int(perk_block.group(2))
+                sub_style = int(perk_block.group(3))
+            except Exception:
+                pass
+
+        # Summoner spells : "spells":[4,14]
+        spells = []
+        sp = _re.search(r'"spells":\[(\d+),(\d+)\]', chunk)
+        if sp:
+            spells = [int(sp.group(1)), int(sp.group(2))]
+
+        # Skill order : "skillOrder":[3,1,2,2,...]
+        skill_order = []
+        so = _re.search(r'"skillOrder":\[([^\]]+)\]', chunk)
+        if so:
+            skill_order = [int(x) for x in _re.findall(r'\d+', so.group(1))]
+
+        # Skill max order : "skillMaxOrder":[2,1,3]
+        skill_max = []
+        sm = _re.search(r'"skillMaxOrder":\[([^\]]+)\]', chunk)
+        if sm:
+            skill_max = [int(x) for x in _re.findall(r'\d+', sm.group(1))]
+
+        # Stats : matchCount + wins
+        wins = None
+        matches = None
+        wr = None
+        ws = _re.search(r'"matchCount":(\d+),"wins":(\d+)', chunk)
+        if ws:
+            try:
+                matches = int(ws.group(1))
+                wins = int(ws.group(2))
+                if matches > 0:
+                    wr = wins / matches * 100.0
+            except Exception:
+                pass
+
+        # Ne garde que si on a au moins items_by_phase
+        if not phases:
+            continue
+
         builds.append({
-            "name":               name,
-            "items_by_phase":     phases_set,
-            "summoner_spells":    spells,
-            "keystone_id":        keystone_id,
-            "primary_rune_tree":  primary_tree,
-            "secondary_rune_tree": secondary_tree,
-            "skill_order":        skill_order,
-            "source_url":         url,
+            "type":             btype,
+            "name":             MOBA_BUILD_LABELS.get(btype, btype.replace("_", " ").title()),
+            "items_by_phase":   phases,
+            "summoner_spells":  spells,
+            "perk_ids":         perk_ids,         # 9 ids : keystone + 3 primary + 2 secondary + 3 shards
+            "primary_style":    primary_style,    # 8000..8400
+            "sub_style":        sub_style,
+            "keystone_id":      perk_ids[0] if perk_ids else None,
+            "primary_rune_tree": primary_style,
+            "secondary_rune_tree": sub_style,
+            "skill_order":      skill_order,
+            "skill_max_order":  skill_max,
+            "wr":               wr,
+            "matches":          matches,
+            "source_url":       url,
         })
-    return builds
+
+    # Dedup : meme type apparait parfois plusieurs fois, on garde 1er
+    seen = set()
+    unique = []
+    for b in builds:
+        if b["type"] in seen:
+            continue
+        seen.add(b["type"])
+        unique.append(b)
+
+    print(f"[riot/moba] builds parsed={len(unique)} types={[b['type'] for b in unique]}")
+    return unique[:6] if unique else None
 
 
 async def mobalytics_build(slug: str, role: Optional[str] = None) -> Optional[dict]:
