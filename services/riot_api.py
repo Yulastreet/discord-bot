@@ -686,25 +686,33 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
 
     import re as _re
 
-    # Mobalytics expose chaque build sous la cle Apollo
-    # "LolChampionBuild:{...,"type":"<TYPE>",...}":{ ...full data... }
-    # On split sur ces marqueurs pour isoler chaque build.
-    build_starts = [m.start() for m in _re.finditer(r'"LolChampionBuild:\\\?"\{', html)]
-    # Fallback pattern (parfois sans backslash)
-    if not build_starts:
-        build_starts = [m.start() for m in _re.finditer(r'"LolChampionBuild:\\["{]', html)]
-    # Encore plus permissif :
-    if not build_starts:
-        build_starts = [m.start() for m in _re.finditer(r'LolChampionBuild:[^\"]*\\\?\"id\\\?\":\\\?\"(\d+)\\\?\"', html)]
+    # Mobalytics expose chaque build via cache key Apollo :
+    # "LolChampionBuild:{\"id\":...,\"type\":...}":{...data...}
+    # Le meme pattern apparait dans __ref. On cherche tout puis on filtre :
+    # garde uniquement ceux suivis par ":{\"__typename\":\"LolChampionBuild\""
+    raw_positions = []
+    idx = 0
+    needle = '"LolChampionBuild:{'
+    while True:
+        pos = html.find(needle, idx)
+        if pos == -1:
+            break
+        raw_positions.append(pos)
+        idx = pos + 1
 
-    # Si ca marche pas, on bascule sur une approche par scan : split sur
-    # chaque "type":"<UPPER_SNAKE>" qui suit "LolChampionBuild"
-    if not build_starts:
-        for m in _re.finditer(r'(LolChampionBuild)[^A-Za-z]*?"type":"([A-Z_]+)"', html):
-            build_starts.append(m.start())
+    # Filtre : ne garde que les positions suivies d'un data block
+    build_starts = []
+    data_marker = '":{"__typename":"LolChampionBuild"'
+    for pos in raw_positions:
+        # Cherche la fin de la cle (jusqu'a 400 chars apres)
+        slice_end = pos + 400
+        if data_marker in html[pos:slice_end]:
+            build_starts.append(pos)
+
+    print(f"[riot/moba] raw markers={len(raw_positions)} data blocks={len(build_starts)}")
 
     if not build_starts:
-        print(f"[riot/moba] no LolChampionBuild marker url={url}")
+        print(f"[riot/moba] no LolChampionBuild data block url={url}")
         return None
 
     build_starts.append(len(html))
