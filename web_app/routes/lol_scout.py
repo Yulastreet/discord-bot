@@ -140,6 +140,71 @@ def register_lol_scout_routes(app, deps):
         })
         return jsonify({"ok": True, "id": aid})
 
+    # ===== Edit Riot ID inline (refetch + SSE broadcast) =====
+    @app.route("/api/scout/<slug>/player", methods=["POST"])
+    def api_scout_player_update(slug):
+        import asyncio
+        from commandes.lol import _scout_player_data
+        from database import get_db
+        sess = lol_scout_session_get(slug)
+        if not sess or sess["status"] != "active":
+            return jsonify({"error": "session_not_found"}), 404
+        data = request.get_json(silent=True) or {}
+        role = (data.get("role") or "").strip().upper()
+        raw_id = (data.get("riot_id") or "").strip()
+        if role not in ("TOP", "JUNGLE", "MID", "ADC", "SUPPORT"):
+            return jsonify({"error": "bad_role"}), 400
+        if not raw_id:
+            return jsonify({"error": "riot_id_required"}), 400
+        platform = sess["platform"]
+
+        # Re-scout via Riot API (asyncio.run dans le thread Flask sync)
+        try:
+            new_data = asyncio.run(_scout_player_data(platform, raw_id))
+        except Exception as e:
+            return jsonify({"error": f"refetch_failed: {type(e).__name__}"}), 500
+
+        role_emoji = {"TOP": "🛡️", "JUNGLE": "🌲", "MID": "⚡",
+                       "ADC": "🏹", "SUPPORT": "🛡️"}
+        new_entry = dict(new_data)
+        new_entry["role"] = f"{role_emoji.get(role, '?')} {role}"
+        new_entry["riot_id"] = raw_id
+
+        # Update DB : scout_data + riot_ids
+        try:
+            scout_data = _json.loads(sess["scout_data"] or "[]")
+        except Exception:
+            scout_data = []
+        try:
+            riot_ids = _json.loads(sess["riot_ids"] or "{}")
+        except Exception:
+            riot_ids = {}
+        replaced = False
+        for i, p in enumerate(scout_data):
+            r = (p.get("role") or "").upper()
+            if r.endswith(role):
+                scout_data[i] = new_entry
+                replaced = True
+                break
+        if not replaced:
+            scout_data.append(new_entry)
+        riot_ids[role] = raw_id
+
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("UPDATE lol_scout_sessions SET riot_ids=?, scout_data=? WHERE slug=?",
+                  (_json.dumps(riot_ids), _json.dumps(scout_data), slug))
+        conn.commit()
+        conn.close()
+
+        _publish(slug, "player_update", {
+            "role": role,
+            "riot_id": raw_id,
+            "data": new_entry,
+        })
+        return jsonify({"ok": True, "data": new_entry})
+
+
     # ===== SSE realtime stream =====
     @app.route("/api/scout/<slug>/stream")
     def api_scout_stream(slug):

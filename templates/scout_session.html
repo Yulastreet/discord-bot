@@ -75,6 +75,26 @@
     font-size: 18px;
     word-break: break-word;
   }
+  .riot-id-edit {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    width: 100%;
+    transition: border-color 120ms, background 120ms;
+  }
+  .riot-id-edit:hover { border-color: var(--border); }
+  .riot-id-edit:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-2);
+  }
+  .player-card.loading .player-body { opacity: 0.4; pointer-events: none; }
+  .player-card.loading .riot-id-edit { border-color: var(--accent); }
   .player-card .line {
     margin: 6px 0;
     font-size: 14px;
@@ -319,37 +339,44 @@
 <div class="layout">
   <div class="scout-cards">
     {% for p in scout_data %}
-    <div class="player-card">
+    {% set role_key = p.role.split(' ')[-1] if p.role else '?' %}
+    <div class="player-card" data-role-key="{{ role_key }}">
       <div class="role">{{ p.role }}</div>
-      <h3>{{ p.riot_id }}</h3>
-      {% if p.error %}
-      <div class="line" style="color: var(--danger);">⚠️ {{ p.error }}</div>
-      {% else %}
-      <div class="line"><span class="label">Niveau</span> <strong>{{ p.level or '?' }}</strong></div>
-      <div class="line"><span class="label">Solo/Duo</span> {{ p.rank_line | safe }}</div>
-      <div class="line">
-        <span class="label">🔥 Picks récents</span><br>
-        {% for pick in p.recent or [] %}
-          <span class="pill">{{ pick.champ }} ×{{ pick.games }}</span>
+      <h3>
+        <input class="riot-id-edit" data-role="{{ role_key }}"
+               value="{{ p.riot_id }}" maxlength="32"
+               title="Edite le Riot ID puis appuie sur Entrée">
+      </h3>
+      <div class="player-body">
+        {% if p.error %}
+        <div class="line" style="color: var(--danger);">⚠️ {{ p.error }}</div>
         {% else %}
-          <span style="color: var(--muted); font-size: 12px;">Pas de games récentes.</span>
-        {% endfor %}
+        <div class="line"><span class="label">Niveau</span> <strong>{{ p.level or '?' }}</strong></div>
+        <div class="line"><span class="label">Solo/Duo</span> {{ p.rank_line | safe }}</div>
+        <div class="line">
+          <span class="label">🔥 Picks récents</span><br>
+          {% for pick in p.recent or [] %}
+            <span class="pill">{{ pick.champ }} ×{{ pick.games }}</span>
+          {% else %}
+            <span style="color: var(--muted); font-size: 12px;">Pas de games récentes.</span>
+          {% endfor %}
+        </div>
+        <div class="line">
+          <span class="label">💀 À ban (WR sur 3+ games)</span><br>
+          {% for ban in p.top_wr or [] %}
+            <span class="pill ban-pill">{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% ({{ ban.total }}g)</span>
+          {% else %}
+            <span style="color: var(--muted); font-size: 12px;">Pas assez de games.</span>
+          {% endfor %}
+        </div>
+        <div class="line">
+          <span class="label">✨ Mastery</span>
+          {% for m in p.mastery or [] %}
+            <span class="pill">{{ m.champ }} ({{ m.pts }})</span>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
-      <div class="line">
-        <span class="label">💀 À ban (WR sur 3+ games)</span><br>
-        {% for ban in p.top_wr or [] %}
-          <span class="pill ban-pill">{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% ({{ ban.total }}g)</span>
-        {% else %}
-          <span style="color: var(--muted); font-size: 12px;">Pas assez de games.</span>
-        {% endfor %}
-      </div>
-      <div class="line">
-        <span class="label">✨ Mastery</span>
-        {% for m in p.mastery or [] %}
-          <span class="pill">{{ m.champ }} ({{ m.pts }})</span>
-        {% endfor %}
-      </div>
-      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -715,6 +742,64 @@ pollAnnotations();
 // Polling lent en fallback ; SSE prend le relais
 if (SESSION_ACTIVE) setInterval(pollAnnotations, 5000);
 
+// ===== Edit inline du Riot ID (Enter = submit) =====
+function renderPlayerBody(card, p) {
+  const body = card.querySelector('.player-body');
+  if (!body) return;
+  let html = '';
+  if (p.error) {
+    html = `<div class="line" style="color: var(--danger);">⚠️ ${escapeHtml(p.error)}</div>`;
+  } else {
+    const picks = (p.recent || []).map(x =>
+      `<span class="pill">${escapeHtml(x.champ)} ×${x.games}</span>`
+    ).join(' ') || '<span style="color: var(--muted); font-size: 12px;">Pas de games récentes.</span>';
+    const bans = (p.top_wr || []).map(x =>
+      `<span class="pill ban-pill">${escapeHtml(x.champ)} ${Math.round(x.wr)}% (${x.total}g)</span>`
+    ).join(' ') || '<span style="color: var(--muted); font-size: 12px;">Pas assez de games.</span>';
+    const mast = (p.mastery || []).map(m =>
+      `<span class="pill">${escapeHtml(m.champ)} (${escapeHtml(m.pts)})</span>`
+    ).join(' ');
+    html = `
+      <div class="line"><span class="label">Niveau</span> <strong>${p.level || '?'}</strong></div>
+      <div class="line"><span class="label">Solo/Duo</span> ${p.rank_line || ''}</div>
+      <div class="line"><span class="label">🔥 Picks récents</span><br>${picks}</div>
+      <div class="line"><span class="label">💀 À ban (WR sur 3+ games)</span><br>${bans}</div>
+      <div class="line"><span class="label">✨ Mastery</span> ${mast}</div>
+    `;
+  }
+  body.innerHTML = html;
+}
+
+document.querySelectorAll('.riot-id-edit').forEach(inp => {
+  inp.addEventListener('keydown', async e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const role = inp.dataset.role;
+    const newId = inp.value.trim();
+    if (!newId) return;
+    const card = inp.closest('.player-card');
+    card.classList.add('loading');
+    try {
+      const r = await fetch(`/api/scout/${SLUG}/player`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({role, riot_id: newId}),
+      });
+      const d = await r.json();
+      if (d.ok && d.data) {
+        renderPlayerBody(card, d.data);
+      } else {
+        alert('Erreur : ' + (d.error || 'unknown'));
+      }
+    } catch (_) {
+      alert('Erreur réseau.');
+    } finally {
+      card.classList.remove('loading');
+      inp.blur();
+    }
+  });
+});
+
 // ===== SSE realtime stream (chat + annotations en quasi temps reel) =====
 if (SESSION_ACTIVE && 'EventSource' in window) {
   const es = new EventSource(`/api/scout/${SLUG}/stream`);
@@ -758,6 +843,16 @@ if (SESSION_ACTIVE && 'EventSource' in window) {
         }
         redrawAll();
       }
+    } catch (_) {}
+  });
+  es.addEventListener('player_update', e => {
+    try {
+      const u = JSON.parse(e.data);
+      const card = document.querySelector(`[data-role-key="${u.role}"]`);
+      if (!card) return;
+      const inp = card.querySelector('.riot-id-edit');
+      if (inp && document.activeElement !== inp) inp.value = u.riot_id;
+      renderPlayerBody(card, u.data);
     } catch (_) {}
   });
   es.onerror = (e) => { /* auto-retry */ };
