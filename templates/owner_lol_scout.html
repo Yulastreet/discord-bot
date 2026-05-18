@@ -34,7 +34,11 @@
       {% for s in sessions %}
       <tr>
         <td class="mono">
-          <a href="/scout/{{ s.slug }}" target="_blank">{{ s.slug }}</a>
+          {% if s.status == 'active' %}
+            <a href="/scout/{{ s.slug }}" target="_blank">{{ s.slug }}</a>
+          {% else %}
+            <span class="muted" title="Lien expiré">{{ s.slug }}</span>
+          {% endif %}
         </td>
         <td>
           {% if s.status == 'active' %}

@@ -1484,12 +1484,17 @@ def setup_lol_commands(bot):
                     or "https://dashboard.tookbot.click").rstrip("/")
         lines = []
         for s in sessions[:10]:
-            status_emoji = "🟢" if s["status"] == "active" else "⏹"
-            lines.append(
-                f"{status_emoji} `{s['slug']}` · {s['platform'].upper()} · "
-                f"<t:{int(__import__('datetime').datetime.fromisoformat(s['created_at']).timestamp())}:R>\n"
-                f"   {base_url}/scout/{s['slug']}"
-            )
+            ts = int(__import__('datetime').datetime.fromisoformat(s['created_at']).timestamp())
+            if s["status"] == "active":
+                lines.append(
+                    f"🟢 `{s['slug']}` · {s['platform'].upper()} · <t:{ts}:R>\n"
+                    f"   {base_url}/scout/{s['slug']}"
+                )
+            else:
+                lines.append(
+                    f"⏹ `{s['slug']}` · {s['platform'].upper()} · <t:{ts}:R>"
+                    " *(lien expiré)*"
+                )
         embed = _info_embed("📋 Sessions de scout", "\n".join(lines), color=0x3498DB)
         await interaction.followup.send(embed=embed, ephemeral=True)
 

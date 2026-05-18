@@ -14,11 +14,12 @@ def register_lol_scout_routes(app, deps):
     )
     import json as _json
 
-    # Page publique : session de scout via slug
+    # Page publique : session de scout via slug.
+    # Une fois la session stoppee, le lien n'est plus accessible (404).
     @app.route("/scout/<slug>")
     def lol_scout_page(slug):
         sess = lol_scout_session_get(slug)
-        if not sess:
+        if not sess or sess["status"] != "active":
             abort(404)
         try:
             scout_data = _json.loads(sess["scout_data"] or "[]")
@@ -52,6 +53,9 @@ def register_lol_scout_routes(app, deps):
 
     @app.route("/api/scout/<slug>/chat", methods=["GET"])
     def api_scout_chat_get(slug):
+        sess = lol_scout_session_get(slug)
+        if not sess or sess["status"] != "active":
+            return jsonify({"error": "session_not_found"}), 404
         try:
             since = int(request.args.get("since", 0))
         except Exception:
@@ -77,6 +81,9 @@ def register_lol_scout_routes(app, deps):
 
     @app.route("/api/scout/<slug>/annotations", methods=["GET"])
     def api_scout_annot_get(slug):
+        sess = lol_scout_session_get(slug)
+        if not sess or sess["status"] != "active":
+            return jsonify({"error": "session_not_found"}), 404
         try:
             since = int(request.args.get("since", 0))
         except Exception:
