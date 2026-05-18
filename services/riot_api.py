@@ -25,9 +25,12 @@ from urllib.parse import quote
 try:
     from curl_cffi import requests as _curl_requests  # type: ignore
     _HAS_CURL_CFFI = True
-except Exception:
+except Exception as _e:
     _curl_requests = None
     _HAS_CURL_CFFI = False
+    print(f"[riot/init] curl_cffi import FAILED: {type(_e).__name__}: {_e}")
+
+print(f"[riot/init] curl_cffi available: {_HAS_CURL_CFFI}")
 
 
 _USER_AGENT = "TookBot-LoL/1.0 (+https://tookbot.click)"
@@ -595,6 +598,8 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
         print(f"[riot/moba] empty html url={url} len={len(html or '')}")
         return None
 
+    print(f"[riot/moba] html len={len(html)} has_marker={'LolChampionBuildItemsList' in html}")
+
     import re as _re
     import json as _j
 
@@ -608,6 +613,8 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
         except Exception:
             ids = []
         phases.append({"type": ptype, "items": ids})
+
+    print(f"[riot/moba] phases_found={len(phases)} types={[p['type'] for p in phases[:8]]}")
 
     if not phases:
         # Pas de phase trouvee : page introuvable ou structure changee
