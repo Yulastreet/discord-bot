@@ -13,6 +13,7 @@ Securite :
 """
 from __future__ import annotations
 
+import asyncio
 import json as _json
 import os
 import re
@@ -1480,16 +1481,71 @@ class ClashScoutModal(discord.ui.Modal, title="🔍 Scout Clash : renseigne 5 Ri
             color=0xE74C3C,
         )
 
-        for role_label, raw_id in entries:
-            scout_text = await _scout_player(self.platform, raw_id)
+        # Parallelise les 5 lookups (chacun fait ~21 API calls)
+        results = await asyncio.gather(
+            *[_scout_player(self.platform, raw_id) for _, raw_id in entries],
+            return_exceptions=True,
+        )
+
+        for (role_label, raw_id), result in zip(entries, results):
+            if isinstance(result, Exception):
+                value = f"❌ Erreur : `{type(result).__name__}`"
+            else:
+                value = result
             embed.add_field(
                 name=f"{role_label} — {raw_id}",
-                value=scout_text,
+                value=value[:1024],
                 inline=False,
             )
 
-        embed.set_footer(text="Mastery top 3 + rank Solo/Duo. Riot Games API.")
+        embed.set_footer(text="Picks récents + Top WR sur 20 ranked. Riot Games API.")
         await interaction.followup.send(embed=embed)
+
+
+async def _recent_champs_stats(platform: str, puuid: str, count: int = 20):
+    """Fetch les N dernieres ranked Solo/Duo + agrege par champion.
+    Retourne (recent_picks, top_wr) :
+    - recent_picks : liste de (champion_id, games) sortee par games desc
+    - top_wr : liste de (champion_id, wins, total, wr) avec >= 3 games, sortee par WR desc.
+    """
+    try:
+        ids = await riot.match_ids_by_puuid(platform, puuid, count=count, queue=420)
+    except Exception:
+        ids = None
+    if not ids:
+        return [], []
+    # Parallele
+    try:
+        matches = await asyncio.gather(
+            *[riot.match_details(platform, mid) for mid in ids],
+            return_exceptions=True,
+        )
+    except Exception:
+        matches = []
+    stats: dict = {}
+    for m in matches:
+        if not isinstance(m, dict):
+            continue
+        info = m.get("info") or {}
+        for p in (info.get("participants") or []):
+            if p.get("puuid") != puuid:
+                continue
+            cid = p.get("championId")
+            if not cid:
+                continue
+            d = stats.setdefault(int(cid), {"wins": 0, "total": 0})
+            d["total"] += 1
+            if p.get("win"):
+                d["wins"] += 1
+            break
+    recent = sorted(stats.items(), key=lambda kv: -kv[1]["total"])
+    recent_list = [(cid, s["total"]) for cid, s in recent[:5]]
+    top_wr_list = sorted(
+        [(cid, s["wins"], s["total"], s["wins"] / s["total"] * 100)
+         for cid, s in stats.items() if s["total"] >= 3],
+        key=lambda x: (-x[3], -x[2]),
+    )[:3]
+    return recent_list, top_wr_list
 
 
 async def _scout_player(platform: str, raw_riot_id: str) -> str:
@@ -1539,7 +1595,7 @@ async def _scout_player(platform: str, raw_riot_id: str) -> str:
     else:
         rank_line = "_Non classé Solo/Duo_"
 
-    # Top 3 maitrises
+    # Top 3 maitrises (historiques, tous champs confondus)
     try:
         masteries = await riot.mastery_top(platform, puuid, count=3)
     except Exception:
@@ -1554,9 +1610,31 @@ async def _scout_player(platform: str, raw_riot_id: str) -> str:
             names.append(f"{cname} ({pts // 1000}k)")
         mastery_line = " · ".join(names)
 
+    # Match history : picks recents + top WR (20 dernieres ranked Solo/Duo)
+    recent, top_wr = await _recent_champs_stats(platform, puuid, count=20)
+    if recent:
+        picks_parts = []
+        for cid, games in recent[:4]:
+            cname = await riot.champion_name(cid)
+            picks_parts.append(f"{cname}×{games}")
+        recent_line = " · ".join(picks_parts)
+    else:
+        recent_line = "_Pas de games récentes_"
+
+    if top_wr:
+        ban_parts = []
+        for cid, wins, total, wr in top_wr[:3]:
+            cname = await riot.champion_name(cid)
+            ban_parts.append(f"**{cname}** ({wr:.0f}% sur {total}g)")
+        ban_line = " · ".join(ban_parts)
+    else:
+        ban_line = "_Pas assez de games (3+ requis)_"
+
     lines = [
         f"Niveau **{level or '?'}**",
         f"🏆 {rank_line}",
-        f"✨ {mastery_line}",
+        f"🔥 **Picks récents** : {recent_line}",
+        f"💀 **À ban** (WR sur 3+ games) : {ban_line}",
+        f"✨ Mastery : {mastery_line}",
     ]
     return "\n".join(lines)
