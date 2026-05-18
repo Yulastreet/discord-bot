@@ -1,0 +1,87 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_lol_scout' %}
+
+{% block title %}LoL Scout · Owner{% endblock %}
+{% block crumb %}Owner · LoL Scout{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="parallax-layer">
+    <span class="eyebrow">Owner only</span>
+    <h1>LoL Scout — Sessions</h1>
+    <p class="hero-sub">Liens partageables avec ta 5-stack pour scout les adversaires Clash.</p>
+  </div>
+</section>
+
+<section class="card padless">
+  <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+    <h2 style="margin:0;">Sessions créées</h2>
+    <span class="badge">{{ sessions|length }}</span>
+  </div>
+  {% if sessions %}
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>Slug</th>
+        <th>Statut</th>
+        <th>Région</th>
+        <th>Riot IDs</th>
+        <th>Créée</th>
+        <th>Stop</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td class="mono">
+          <a href="/scout/{{ s.slug }}" target="_blank">{{ s.slug }}</a>
+        </td>
+        <td>
+          {% if s.status == 'active' %}
+            <span class="badge badge-success">🟢 active</span>
+          {% else %}
+            <span class="badge">⏹ stopped</span>
+          {% endif %}
+        </td>
+        <td>{{ s.platform.upper() }}</td>
+        <td style="font-size: var(--t-sm);">
+          {% for role, rid in s.riot_ids_dict.items() %}
+            <strong>{{ role[:3].upper() }}</strong>: {{ rid }}{% if not loop.last %} · {% endif %}
+          {% endfor %}
+        </td>
+        <td class="mono">{{ s.created_at[:16] }}</td>
+        <td>
+          {% if s.status == 'active' %}
+          <button class="btn btn-secondary btn-sm scout-stop" data-slug="{{ s.slug }}">Stop</button>
+          {% else %}
+            <span class="muted">{{ s.ended_at[:16] if s.ended_at else '' }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">
+    <p>Aucune session. Lance <code>/lol scout create</code> depuis Discord.</p>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.scout-stop').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const slug = btn.dataset.slug;
+    if (!confirm(`Stop session ${slug} ?`)) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    const r = await fetch(`/api/owner/lol-scout/${slug}/stop`, {method: 'POST'});
+    if (r.ok) location.reload();
+    else { btn.disabled = false; btn.textContent = 'Stop'; alert('Erreur'); }
+  });
+});
+</script>
+{% endblock %}

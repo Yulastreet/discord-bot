@@ -274,6 +274,7 @@ def needs_guild(path):
     return True
 
 PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms", "/api/public-stats"}
+PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/")
 
 
 def _current_user_id():
@@ -349,7 +350,8 @@ def _ctx():
     if not g.logged_in \
             and path not in PUBLIC_NO_AUTH_PATHS \
             and not path.startswith("/static") \
-            and not path.startswith("/oauth/"):
+            and not path.startswith("/oauth/") \
+            and not any(path.startswith(pref) for pref in PUBLIC_NO_AUTH_PREFIXES):
         if path.startswith("/api/"):
             return jsonify({"error": "Non authentifié"}), 401
         return redirect("/")
@@ -417,12 +419,13 @@ from web_app.routes.premium import register_premium_routes
 from web_app.routes.public_stats import register_public_stats_routes
 from web_app.routes.server_tools import register_server_tool_routes
 from web_app.routes.pass_routes import register_pass_routes
+from web_app.routes.lol_scout import register_lol_scout_routes
 
 for _register_routes in (
     register_auth_routes, register_dashboard_routes, register_reaction_routes,
     register_duel_routes, register_music_routes, register_admin_routes,
     register_premium_routes, register_public_stats_routes, register_server_tool_routes,
-    register_pass_routes,
+    register_pass_routes, register_lol_scout_routes,
 ):
     _register_routes(app, globals())
 

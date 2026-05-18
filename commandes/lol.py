@@ -27,6 +27,8 @@ from services import riot_api as riot
 from database import (
     lol_profile_get, lol_profile_upsert, lol_profile_unlink,
     lol_rank_config_get, lol_rank_config_upsert,
+    lol_scout_session_create, lol_scout_session_get,
+    lol_scout_session_stop, lol_scout_sessions_list,
 )
 
 
@@ -1405,15 +1407,24 @@ def setup_lol_commands(bot):
         else:
             await interaction.followup.send(embed=embed, view=view)
 
-    # ---------- /lol scout (clash scout builder, owner-only) ----------
-    @lol_group.command(name="scout",
-                       description="[Owner] Scout 5 adversaires Clash : builder pour leurs Riot ID")
+    # ---------- /lol scout (sub-group, owner-only) ----------
+    scout_group = app_commands.Group(
+        name="scout",
+        description="[Owner] Sessions de scouting Clash partageables",
+        parent=lol_group,
+    )
+
+    def _is_owner(interaction):
+        owner_id = (os.getenv("DISCORD_OWNER_ID") or "").strip()
+        return bool(owner_id) and str(interaction.user.id) == owner_id
+
+    @scout_group.command(name="create",
+                          description="Cree une nouvelle session de scouting (genere un lien partageable)")
     @app_commands.describe(region="Région des joueurs (défaut EUW)")
     @app_commands.choices(region=_REGION_CHOICES)
-    async def lol_scout(interaction: discord.Interaction,
-                        region: Optional[app_commands.Choice[str]] = None):
-        owner_id = (os.getenv("DISCORD_OWNER_ID") or "").strip()
-        if not owner_id or str(interaction.user.id) != owner_id:
+    async def scout_create(interaction: discord.Interaction,
+                           region: Optional[app_commands.Choice[str]] = None):
+        if not _is_owner(interaction):
             await interaction.response.send_message(
                 embed=_err_embed("Réservé au owner",
                     "Cette commande est uniquement accessible au propriétaire du bot."),
@@ -1421,19 +1432,78 @@ def setup_lol_commands(bot):
             )
             return
         platform = (region.value if region else "euw1").lower()
-        modal = ClashScoutModal(platform=platform)
+        modal = ClashScoutModal(platform=platform, owner_id=interaction.user.id)
         await interaction.response.send_modal(modal)
+
+    @scout_group.command(name="stop",
+                          description="Stop une session active (par slug)")
+    @app_commands.describe(slug="Slug de la session a stopper")
+    async def scout_stop(interaction: discord.Interaction, slug: str):
+        if not _is_owner(interaction):
+            await interaction.response.send_message(
+                embed=_err_embed("Réservé au owner", "Owner only."),
+                ephemeral=True,
+            )
+            return
+        await interaction.response.defer(ephemeral=True)
+        n = lol_scout_session_stop(slug.strip(), owner_id=interaction.user.id)
+        if n:
+            await interaction.followup.send(
+                embed=_info_embed("⏹ Session stoppée",
+                    f"Session `{slug}` arrêtée. Le lien reste accessible en lecture seule.",
+                    color=0xE67E22),
+                ephemeral=True,
+            )
+        else:
+            await interaction.followup.send(
+                embed=_err_embed("Pas trouvée",
+                    f"Aucune session active avec ce slug ou tu n'en es pas l'owner."),
+                ephemeral=True,
+            )
+
+    @scout_group.command(name="list",
+                          description="Liste tes sessions de scout récentes")
+    async def scout_list(interaction: discord.Interaction):
+        if not _is_owner(interaction):
+            await interaction.response.send_message(
+                embed=_err_embed("Réservé au owner", "Owner only."),
+                ephemeral=True,
+            )
+            return
+        await interaction.response.defer(ephemeral=True)
+        sessions = lol_scout_sessions_list(owner_id=interaction.user.id, limit=15)
+        if not sessions:
+            await interaction.followup.send(
+                embed=_info_embed("📭 Aucune session",
+                    "Tu n'as pas encore de session de scout. Utilise `/lol scout create`.",
+                    color=0x95A5A6),
+                ephemeral=True,
+            )
+            return
+        base_url = (os.getenv("DASHBOARD_BASE_URL")
+                    or "https://dashboard.tookbot.click").rstrip("/")
+        lines = []
+        for s in sessions[:10]:
+            status_emoji = "🟢" if s["status"] == "active" else "⏹"
+            lines.append(
+                f"{status_emoji} `{s['slug']}` · {s['platform'].upper()} · "
+                f"<t:{int(__import__('datetime').datetime.fromisoformat(s['created_at']).timestamp())}:R>\n"
+                f"   {base_url}/scout/{s['slug']}"
+            )
+        embed = _info_embed("📋 Sessions de scout", "\n".join(lines), color=0x3498DB)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     bot.tree.add_command(lol_group)
 
 
 class ClashScoutModal(discord.ui.Modal, title="🔍 Scout Clash : renseigne 5 Riot IDs"):
-    """Modal avec 5 inputs (Top/Jungle/Mid/ADC/Support) pour scout les
-    adversaires Clash. Format : Pseudo#TAG."""
+    """Modal avec 5 inputs (Top/Jungle/Mid/ADC/Support). Cree une session
+    de scout en DB + retourne un lien dashboard partageable."""
 
-    def __init__(self, platform: str = "euw1"):
+    def __init__(self, platform: str = "euw1", owner_id: int = 0):
         super().__init__(timeout=600)
         self.platform = platform
+        self.owner_id = owner_id
         self.top = discord.ui.TextInput(
             label="TOP — Pseudo#TAG",
             placeholder="ex: Faker#KR1",
@@ -1466,40 +1536,61 @@ class ClashScoutModal(discord.ui.Modal, title="🔍 Scout Clash : renseigne 5 Ri
         self.add_item(self.support)
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         entries = [
-            ("🛡️ TOP",     self.top.value),
-            ("🌲 JUNGLE",  self.jungle.value),
-            ("⚡ MID",      self.mid.value),
-            ("🏹 ADC",     self.adc.value),
-            ("🛡️ SUPPORT", self.support.value),
+            ("TOP",     "🛡️", self.top.value),
+            ("JUNGLE",  "🌲", self.jungle.value),
+            ("MID",     "⚡", self.mid.value),
+            ("ADC",     "🏹", self.adc.value),
+            ("SUPPORT", "🛡️", self.support.value),
         ]
 
-        embed = discord.Embed(
-            title="🔍 Scout Clash — 5 adversaires",
-            description=f"Région : **{riot.PLATFORM_LABEL.get(self.platform, self.platform.upper())}**",
-            color=0xE74C3C,
-        )
-
-        # Parallelise les 5 lookups (chacun fait ~21 API calls)
-        results = await asyncio.gather(
-            *[_scout_player(self.platform, raw_id) for _, raw_id in entries],
+        # Parallel scout des 5 joueurs (data brute, pas string)
+        scouts = await asyncio.gather(
+            *[_scout_player_data(self.platform, raw_id) for _, _, raw_id in entries],
             return_exceptions=True,
         )
 
-        for (role_label, raw_id), result in zip(entries, results):
+        scout_data = []
+        for (role, emoji, raw_id), result in zip(entries, scouts):
             if isinstance(result, Exception):
-                value = f"❌ Erreur : `{type(result).__name__}`"
-            else:
-                value = result
-            embed.add_field(
-                name=f"{role_label} — {raw_id}",
-                value=value[:1024],
-                inline=False,
-            )
+                scout_data.append({
+                    "role": f"{emoji} {role}",
+                    "riot_id": raw_id,
+                    "error": f"Lookup err : {type(result).__name__}",
+                })
+                continue
+            entry = dict(result)
+            entry["role"] = f"{emoji} {role}"
+            entry["riot_id"] = raw_id
+            scout_data.append(entry)
 
-        embed.set_footer(text="Picks récents + Top WR sur 20 ranked. Riot Games API.")
-        await interaction.followup.send(embed=embed)
+        # Genere slug + sauvegarde session
+        from web_app.routes.lol_scout import generate_scout_slug
+        slug = generate_scout_slug()
+        riot_ids_dict = {role: raw_id for role, _, raw_id in entries}
+        lol_scout_session_create(
+            slug=slug,
+            owner_id=self.owner_id,
+            platform=self.platform,
+            riot_ids=riot_ids_dict,
+            scout_data=scout_data,
+        )
+        base_url = (os.getenv("DASHBOARD_BASE_URL")
+                    or "https://dashboard.tookbot.click").rstrip("/")
+        link = f"{base_url}/scout/{slug}"
+
+        embed = discord.Embed(
+            title="✅ Session de scout créée",
+            description=(
+                f"**Région** : {riot.PLATFORM_LABEL.get(self.platform, self.platform.upper())}\n"
+                f"**Slug** : `{slug}`\n\n"
+                f"🔗 **Lien à partager avec ta 5-stack** :\n{link}\n\n"
+                "Lance `/lol scout stop {0}` pour terminer la session.".format(slug)
+            ),
+            color=0x2ECC71,
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def _recent_champs_stats(platform: str, puuid: str, count: int = 20):
@@ -1546,6 +1637,75 @@ async def _recent_champs_stats(platform: str, puuid: str, count: int = 20):
         key=lambda x: (-x[3], -x[2]),
     )[:3]
     return recent_list, top_wr_list
+
+
+async def _scout_player_data(platform: str, raw_riot_id: str) -> dict:
+    """Version structuree de _scout_player. Renvoie un dict avec niveau,
+    rank, recent picks, top_wr, mastery, pour stockage en DB et rendu
+    template."""
+    import unicodedata as _u
+    raw_riot_id = _u.normalize("NFC", raw_riot_id or "")
+    raw_riot_id = "".join(c for c in raw_riot_id if _u.category(c) != "Cf")
+    cleaned = raw_riot_id.replace(" ", " ").strip()
+    if "#" not in cleaned:
+        return {"error": "Format Riot ID invalide (Pseudo#TAG attendu)."}
+    parts = cleaned.rsplit("#", 1)
+    game_name = parts[0].strip()
+    tag_line = parts[1].strip()
+    if not game_name or not tag_line:
+        return {"error": f"Format invalide : `{game_name}#{tag_line}`."}
+    account = await riot.account_by_riot_id(platform, game_name, tag_line)
+    if not account or not account.get("puuid"):
+        return {"error": f"`{game_name}#{tag_line}` introuvable sur "
+                          f"{riot.PLATFORM_LABEL.get(platform, platform)}."}
+    puuid = account["puuid"]
+    summ = await riot.summoner_by_puuid(platform, puuid)
+    level = (summ or {}).get("summonerLevel")
+    # Rank
+    try:
+        entries = await riot.league_entries_by_puuid(platform, puuid)
+    except Exception:
+        entries = None
+    entries = entries or []
+    solo = next((e for e in entries if e.get("queueType") == "RANKED_SOLO_5x5"), None)
+    if solo:
+        tier_lbl = riot.rank_label_fr(solo.get("tier", "UNRANKED"), solo.get("rank", ""))
+        lp = solo.get("leaguePoints", 0)
+        wins = solo.get("wins", 0)
+        losses = solo.get("losses", 0)
+        wr = (wins / (wins + losses) * 100) if (wins + losses) else 0
+        rank_line = (f"<strong style='color:#caff37'>{tier_lbl}</strong> · "
+                     f"{lp} LP · {wins}V/{losses}D ({wr:.1f}% WR)")
+    else:
+        rank_line = "<span style='color:#99a288'>Non classé Solo/Duo</span>"
+    # Mastery
+    try:
+        masteries = await riot.mastery_top(platform, puuid, count=3)
+    except Exception:
+        masteries = None
+    mastery_list = []
+    for m in (masteries or [])[:3]:
+        cid = m.get("championId", 0)
+        cname = await riot.champion_name(cid)
+        pts = int(m.get("championPoints", 0))
+        mastery_list.append({"champ": cname, "pts": f"{pts // 1000}k"})
+    # Recent + top WR
+    recent, top_wr = await _recent_champs_stats(platform, puuid, count=20)
+    recent_list = []
+    for cid, games in recent[:5]:
+        cname = await riot.champion_name(cid)
+        recent_list.append({"champ": cname, "games": games})
+    top_wr_list = []
+    for cid, wins, total, wr in top_wr[:3]:
+        cname = await riot.champion_name(cid)
+        top_wr_list.append({"champ": cname, "wins": wins, "total": total, "wr": wr})
+    return {
+        "level": level,
+        "rank_line": rank_line,
+        "mastery": mastery_list,
+        "recent": recent_list,
+        "top_wr": top_wr_list,
+    }
 
 
 async def _scout_player(platform: str, raw_riot_id: str) -> str:

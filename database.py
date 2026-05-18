@@ -183,6 +183,43 @@ def init_db():
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Scout sessions : link partageable avec data scout des 5 adversaires
+    c.execute('''CREATE TABLE IF NOT EXISTS lol_scout_sessions (
+        slug         TEXT PRIMARY KEY,
+        owner_id     TEXT NOT NULL,
+        platform     TEXT NOT NULL,
+        riot_ids     TEXT NOT NULL,
+        scout_data   TEXT NOT NULL,
+        status       TEXT DEFAULT 'active',
+        created_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+        ended_at     TEXT
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lol_scout_users (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_slug TEXT NOT NULL,
+        pseudo       TEXT NOT NULL,
+        color        TEXT NOT NULL,
+        joined_at    TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_seen    TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lol_scout_chat (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_slug TEXT NOT NULL,
+        pseudo       TEXT NOT NULL,
+        color        TEXT,
+        message      TEXT NOT NULL,
+        ts           TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS lol_scout_annotations (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_slug TEXT NOT NULL,
+        pseudo       TEXT NOT NULL,
+        color        TEXT NOT NULL,
+        kind         TEXT NOT NULL,
+        data         TEXT NOT NULL,
+        ts           TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Table guild_members (cache members par serveur) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
         guild_id    TEXT NOT NULL,
@@ -1699,6 +1736,140 @@ def lol_rank_config_get(guild_id):
     if not row:
         return {"guild_id": str(guild_id), "enabled": 0, "role_map": None}
     return dict(row)
+
+
+_SCOUT_COLORS = ["#E74C3C", "#3498DB", "#2ECC71", "#F1C40F", "#9B59B6",
+                 "#1ABC9C", "#E67E22", "#34495E"]
+
+
+def lol_scout_session_create(slug, owner_id, platform, riot_ids, scout_data):
+    import json as _j
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO lol_scout_sessions
+                   (slug, owner_id, platform, riot_ids, scout_data, status)
+                 VALUES (?, ?, ?, ?, ?, 'active')""",
+              (slug, str(owner_id), platform, _j.dumps(riot_ids), _j.dumps(scout_data)))
+    conn.commit()
+    conn.close()
+
+
+def lol_scout_session_get(slug):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM lol_scout_sessions WHERE slug = ?", (slug,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def lol_scout_session_stop(slug, owner_id=None):
+    conn = get_db()
+    c = conn.cursor()
+    if owner_id:
+        c.execute("""UPDATE lol_scout_sessions SET status='stopped',
+                       ended_at=CURRENT_TIMESTAMP
+                     WHERE slug=? AND owner_id=? AND status='active'""",
+                  (slug, str(owner_id)))
+    else:
+        c.execute("""UPDATE lol_scout_sessions SET status='stopped',
+                       ended_at=CURRENT_TIMESTAMP
+                     WHERE slug=? AND status='active'""", (slug,))
+    n = c.rowcount
+    conn.commit()
+    conn.close()
+    return n
+
+
+def lol_scout_sessions_list(owner_id=None, status=None, limit=50):
+    conn = get_db()
+    c = conn.cursor()
+    q = "SELECT * FROM lol_scout_sessions WHERE 1=1"
+    params = []
+    if owner_id:
+        q += " AND owner_id=?"
+        params.append(str(owner_id))
+    if status:
+        q += " AND status=?"
+        params.append(status)
+    q += " ORDER BY created_at DESC LIMIT ?"
+    params.append(int(limit))
+    c.execute(q, params)
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def lol_scout_user_join(slug, pseudo):
+    """Renvoie {pseudo, color}. Si pseudo deja pris dans la session, ré-use.
+    Color assignee dans l'ordre d'arrivee."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM lol_scout_users WHERE session_slug=? AND pseudo=?",
+              (slug, pseudo))
+    row = c.fetchone()
+    if row:
+        c.execute("UPDATE lol_scout_users SET last_seen=CURRENT_TIMESTAMP WHERE id=?",
+                  (row["id"],))
+        conn.commit()
+        conn.close()
+        return {"pseudo": pseudo, "color": row["color"]}
+    c.execute("SELECT COUNT(*) AS n FROM lol_scout_users WHERE session_slug=?", (slug,))
+    n = c.fetchone()["n"]
+    color = _SCOUT_COLORS[n % len(_SCOUT_COLORS)]
+    c.execute("""INSERT INTO lol_scout_users (session_slug, pseudo, color)
+                 VALUES (?, ?, ?)""", (slug, pseudo, color))
+    conn.commit()
+    conn.close()
+    return {"pseudo": pseudo, "color": color}
+
+
+def lol_scout_chat_add(slug, pseudo, color, message):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO lol_scout_chat (session_slug, pseudo, color, message)
+                 VALUES (?, ?, ?, ?)""", (slug, pseudo, color, message[:500]))
+    conn.commit()
+    chat_id = c.lastrowid
+    conn.close()
+    return chat_id
+
+
+def lol_scout_chat_list(slug, since_id=0, limit=100):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT * FROM lol_scout_chat
+                 WHERE session_slug=? AND id>?
+                 ORDER BY id ASC LIMIT ?""",
+              (slug, int(since_id), int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def lol_scout_annot_add(slug, pseudo, color, kind, data_json):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO lol_scout_annotations
+                   (session_slug, pseudo, color, kind, data)
+                 VALUES (?, ?, ?, ?, ?)""",
+              (slug, pseudo, color, kind, data_json))
+    conn.commit()
+    aid = c.lastrowid
+    conn.close()
+    return aid
+
+
+def lol_scout_annot_list(slug, since_id=0, limit=500):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""SELECT * FROM lol_scout_annotations
+                 WHERE session_slug=? AND id>?
+                 ORDER BY id ASC LIMIT ?""",
+              (slug, int(since_id), int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
 
 
 def lol_rank_config_upsert(guild_id, *, enabled=None, role_map=None):

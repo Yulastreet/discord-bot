@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scout {{ slug }} · TookBot</title>
+<style>
+  :root {
+    --bg-0: #0a0d08;
+    --bg-1: #131811;
+    --bg-2: #1c2218;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8eed8;
+    --muted: #99a288;
+    --accent: #b9ff24;
+    --danger: #e74c3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: linear-gradient(180deg, #050803 0%, var(--bg-0) 100%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+  }
+  .topbar h1 { font-size: 18px; margin: 0; }
+  .topbar .status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(46,204,113,0.18);
+    color: #2ecc71;
+  }
+  .topbar .status.stopped {
+    background: rgba(231,76,60,0.18); color: var(--danger);
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+    min-height: calc(100vh - 60px);
+  }
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .scout-cards { display: grid; gap: 16px; }
+  .player-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .player-card .role {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .player-card h3 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    word-break: break-word;
+  }
+  .player-card .line {
+    margin: 6px 0;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .player-card .label {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 6px;
+  }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    background: var(--bg-2);
+    margin-right: 4px;
+  }
+  .ban-pill {
+    background: rgba(231,76,60,0.15);
+    color: #ff8888;
+    font-weight: 600;
+  }
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+  .chat-box, .map-box {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-box { flex: 1; min-height: 400px; }
+  .chat-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 50vh;
+  }
+  .chat-msg {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .chat-msg .author {
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .chat-msg .ts {
+    color: var(--muted);
+    font-size: 10px;
+    margin-left: 6px;
+  }
+  .chat-input {
+    display: flex;
+    border-top: 1px solid var(--border);
+    padding: 10px;
+    gap: 6px;
+  }
+  .chat-input input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .chat-input button {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #0a0d08;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .map-box {
+    aspect-ratio: 1;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    cursor: pointer;
+    position: relative;
+  }
+  .map-placeholder {
+    width: 100%; height: 100%;
+    background: url('https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/map11/map11.png') center / contain no-repeat;
+    border-radius: 8px;
+    opacity: 0.95;
+  }
+  .map-box small {
+    position: absolute; bottom: 8px; left: 12px;
+    color: var(--muted); font-size: 11px;
+  }
+  .pseudo-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .pseudo-modal {
+    background: var(--bg-1);
+    padding: 28px 32px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    min-width: 320px;
+    text-align: center;
+  }
+  .pseudo-modal h2 { margin: 0 0 12px; }
+  .pseudo-modal p { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .pseudo-modal input {
+    width: 100%;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    text-align: center;
+  }
+  .pseudo-modal button {
+    padding: 10px 24px;
+    background: var(--accent);
+    color: #0a0d08;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .you-info {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .color-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    display: inline-block;
+  }
+  .you-info button.change-pseudo {
+    margin-left: auto;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🔍 Scout · {{ session_data.platform.upper() }}</h1>
+  <span class="status {{ 'stopped' if session_data.status != 'active' }}">
+    {{ session_data.status }}
+  </span>
+</div>
+
+<div class="layout">
+  <div class="scout-cards">
+    {% for p in scout_data %}
+    <div class="player-card">
+      <div class="role">{{ p.role }}</div>
+      <h3>{{ p.riot_id }}</h3>
+      {% if p.error %}
+      <div class="line" style="color: var(--danger);">⚠️ {{ p.error }}</div>
+      {% else %}
+      <div class="line"><span class="label">Niveau</span> <strong>{{ p.level or '?' }}</strong></div>
+      <div class="line"><span class="label">Solo/Duo</span> {{ p.rank_line | safe }}</div>
+      <div class="line">
+        <span class="label">🔥 Picks récents</span><br>
+        {% for pick in p.recent or [] %}
+          <span class="pill">{{ pick.champ }} ×{{ pick.games }}</span>
+        {% else %}
+          <span style="color: var(--muted); font-size: 12px;">Pas de games récentes.</span>
+        {% endfor %}
+      </div>
+      <div class="line">
+        <span class="label">💀 À ban (WR sur 3+ games)</span><br>
+        {% for ban in p.top_wr or [] %}
+          <span class="pill ban-pill">{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% ({{ ban.total }}g)</span>
+        {% else %}
+          <span style="color: var(--muted); font-size: 12px;">Pas assez de games.</span>
+        {% endfor %}
+      </div>
+      <div class="line">
+        <span class="label">✨ Mastery</span>
+        {% for m in p.mastery or [] %}
+          <span class="pill">{{ m.champ }} ({{ m.pts }})</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="right-col">
+    <div class="chat-box">
+      <div class="chat-header">💬 Chat de session</div>
+      <div class="you-info" id="youInfo" style="display:none;">
+        <span class="color-dot" id="youColor"></span>
+        <span><strong id="youPseudo">—</strong></span>
+        <button class="change-pseudo" id="changePseudo">Changer</button>
+      </div>
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Message…" maxlength="500" {% if session_data.status != 'active' %}disabled{% endif %}>
+        <button id="chatSend" {% if session_data.status != 'active' %}disabled{% endif %}>↑</button>
+      </div>
+    </div>
+    <div class="map-box" id="mapBox" title="Cliquer pour zoomer">
+      <div class="map-placeholder"></div>
+      <small>Map Summoner's Rift · (dessin v2 a venir)</small>
+    </div>
+  </div>
+</div>
+
+{% if session_data.status == 'active' %}
+<div class="pseudo-modal-bg" id="pseudoModal">
+  <div class="pseudo-modal">
+    <h2>👋 Identifie-toi</h2>
+    <p>Renseigne un pseudo pour rejoindre la session<br>(changeable a tout moment).</p>
+    <input type="text" id="pseudoInput" placeholder="Ton pseudo" maxlength="24">
+    <br>
+    <button id="pseudoSubmit">Rejoindre</button>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const SLUG = "{{ slug }}";
+const SESSION_ACTIVE = {{ 'true' if session_data.status == 'active' else 'false' }};
+let myPseudo = localStorage.getItem('scout_pseudo_' + SLUG) || '';
+let myColor  = localStorage.getItem('scout_color_'  + SLUG) || '#888';
+let lastChatId = 0;
+
+function showPseudoModal() {
+  if (!SESSION_ACTIVE) return;
+  const modal = document.getElementById('pseudoModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.getElementById('pseudoInput').value = myPseudo || '';
+  document.getElementById('pseudoInput').focus();
+}
+function hidePseudoModal() {
+  const m = document.getElementById('pseudoModal');
+  if (m) m.style.display = 'none';
+}
+function updateYouInfo() {
+  if (!myPseudo) {
+    document.getElementById('youInfo').style.display = 'none';
+    return;
+  }
+  document.getElementById('youInfo').style.display = 'flex';
+  document.getElementById('youPseudo').textContent = myPseudo;
+  document.getElementById('youColor').style.background = myColor;
+}
+
+async function joinSession(pseudo) {
+  const r = await fetch(`/api/scout/${SLUG}/join`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pseudo}),
+  });
+  const d = await r.json();
+  if (d.color) {
+    myPseudo = d.pseudo;
+    myColor  = d.color;
+    localStorage.setItem('scout_pseudo_' + SLUG, myPseudo);
+    localStorage.setItem('scout_color_'  + SLUG, myColor);
+    updateYouInfo();
+    hidePseudoModal();
+  } else {
+    alert(d.error || 'Erreur');
+  }
+}
+
+document.getElementById('pseudoSubmit')?.addEventListener('click', () => {
+  const v = document.getElementById('pseudoInput').value.trim();
+  if (v) joinSession(v);
+});
+document.getElementById('pseudoInput')?.addEventListener('keypress', e => {
+  if (e.key === 'Enter') document.getElementById('pseudoSubmit').click();
+});
+document.getElementById('changePseudo')?.addEventListener('click', showPseudoModal);
+
+async function pollChat() {
+  try {
+    const r = await fetch(`/api/scout/${SLUG}/chat?since=${lastChatId}`);
+    const d = await r.json();
+    const cont = document.getElementById('chatMessages');
+    for (const m of (d.messages || [])) {
+      lastChatId = Math.max(lastChatId, m.id);
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      const t = new Date((m.ts || '').replace(' ', 'T') + 'Z').toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+      div.innerHTML =
+        `<span class="author" style="color:${m.color || '#fff'}">${escapeHtml(m.pseudo)}</span>` +
+        `<span>${escapeHtml(m.message)}</span>` +
+        `<span class="ts">${t}</span>`;
+      cont.appendChild(div);
+    }
+    cont.scrollTop = cont.scrollHeight;
+  } catch (_) {}
+}
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+}
+
+document.getElementById('chatSend')?.addEventListener('click', sendMsg);
+document.getElementById('chatInput')?.addEventListener('keypress', e => {
+  if (e.key === 'Enter') sendMsg();
+});
+async function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg || !myPseudo) {
+    if (!myPseudo) showPseudoModal();
+    return;
+  }
+  input.value = '';
+  await fetch(`/api/scout/${SLUG}/chat`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pseudo: myPseudo, color: myColor, message: msg}),
+  });
+  pollChat();
+}
+
+// Init
+if (myPseudo) {
+  // Re-join pour rafraichir couleur si session reset
+  joinSession(myPseudo);
+} else {
+  showPseudoModal();
+}
+updateYouInfo();
+pollChat();
+if (SESSION_ACTIVE) setInterval(pollChat, 3000);
+
+document.getElementById('mapBox')?.addEventListener('click', () => {
+  // v2 : zoom modal + canvas drawing
+  alert('Zoom + dessin sur la map arriveront dans la prochaine version.');
+});
+</script>
+</body>
+</html>
