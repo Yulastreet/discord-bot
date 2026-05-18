@@ -79,19 +79,41 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Em
     tag  = prof.get("tag_line") or "?"
     level = prof.get("summoner_level")
 
-    # Si pas de summoner_id, refresh
+    # Si pas de summoner_id, refresh (avec auto-recovery sur puuid stale)
     if not summ_id:
-        s = await riot.summoner_by_puuid(platform, puuid)
+        try:
+            s = await riot.summoner_by_puuid(platform, puuid)
+        except riot.RiotPuuidStaleError:
+            new_prof = await _refresh_puuid_if_stale(member.id if hasattr(member, 'id') else 0, prof)
+            if new_prof:
+                prof = new_prof
+                puuid = prof["puuid"]
+                summ_id = prof.get("summoner_id")
+                name = prof.get("game_name") or name
+                tag = prof.get("tag_line") or tag
+                level = prof.get("summoner_level") or level
+            s = None
         if s:
             summ_id = s.get("id")
             level = s.get("summonerLevel")
-            lol_profile_upsert(
-                member.id, puuid=puuid, game_name=name, tag_line=tag,
-                platform=platform, summoner_id=summ_id, summoner_level=level,
-            )
+            if hasattr(member, 'id') and member.id:
+                lol_profile_upsert(
+                    member.id, puuid=puuid, game_name=name, tag_line=tag,
+                    platform=platform, summoner_id=summ_id, summoner_level=level,
+                )
 
     # Tente by-puuid d'abord (endpoint moderne, plus fiable), fallback by-summoner
-    entries = await riot.league_entries_by_puuid(platform, puuid)
+    try:
+        entries = await riot.league_entries_by_puuid(platform, puuid)
+    except riot.RiotPuuidStaleError:
+        new_prof = await _refresh_puuid_if_stale(member.id if hasattr(member, 'id') else 0, prof)
+        if new_prof:
+            prof = new_prof
+            puuid = prof["puuid"]
+            summ_id = prof.get("summoner_id")
+            entries = await riot.league_entries_by_puuid(platform, puuid)
+        else:
+            entries = None
     if not entries and summ_id:
         entries = await riot.league_entries_by_summoner(platform, summ_id)
     entries = entries or []
@@ -131,7 +153,10 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict) -> discord.Em
     embed.add_field(name="⚔️ Flex 5v5", value=_fmt_entry(flex), inline=True)
 
     # Top 3 masteries
-    masteries = await riot.mastery_top(platform, puuid, count=3)
+    try:
+        masteries = await riot.mastery_top(platform, puuid, count=3)
+    except riot.RiotPuuidStaleError:
+        masteries = None
     if masteries:
         lines = []
         for m in masteries:
@@ -546,6 +571,33 @@ class _StubUser:
         self.display_avatar = None
 
 
+async def _refresh_puuid_if_stale(user_id, prof: dict) -> Optional[dict]:
+    """Refait l'Account API call avec game_name + tag_line stockes pour
+    obtenir un puuid chiffre par la NOUVELLE cle API. Met a jour la DB.
+    Retourne le nouveau profile ou None si echec."""
+    platform = prof.get("platform") or "euw1"
+    gname = prof.get("game_name")
+    tag   = prof.get("tag_line")
+    if not gname or not tag:
+        return None
+    account = await riot.account_by_riot_id(platform, gname, tag)
+    if not account or not account.get("puuid"):
+        return None
+    new_puuid = account["puuid"]
+    summ = await riot.summoner_by_puuid(platform, new_puuid)
+    lol_profile_upsert(
+        user_id,
+        puuid=new_puuid,
+        game_name=account.get("gameName") or gname,
+        tag_line=account.get("tagLine") or tag,
+        platform=platform,
+        summoner_id=(summ or {}).get("id"),
+        summoner_level=(summ or {}).get("summonerLevel"),
+    )
+    print(f"[lol] puuid refresh user={user_id} platform={platform} new_prefix={new_puuid[:10]}")
+    return lol_profile_get(user_id)
+
+
 async def _resolve_target_or_riot(interaction: discord.Interaction,
                                    membre: Optional[discord.Member],
                                    riot_id: Optional[str],
@@ -746,10 +798,29 @@ def setup_lol_commands(bot):
         puuid    = prof["puuid"]
         summ_id  = prof.get("summoner_id")
         if not summ_id:
-            s = await riot.summoner_by_puuid(platform, puuid)
-            summ_id = (s or {}).get("id")
+            try:
+                s = await riot.summoner_by_puuid(platform, puuid)
+            except riot.RiotPuuidStaleError:
+                new_prof = await _refresh_puuid_if_stale(target.id if hasattr(target, 'id') else 0, prof)
+                if new_prof:
+                    prof = new_prof
+                    puuid = prof["puuid"]
+                    summ_id = prof.get("summoner_id")
+                s = None
+            if s:
+                summ_id = (s or {}).get("id")
 
-        entries = await riot.league_entries_by_puuid(platform, puuid)
+        try:
+            entries = await riot.league_entries_by_puuid(platform, puuid)
+        except riot.RiotPuuidStaleError:
+            new_prof = await _refresh_puuid_if_stale(target.id if hasattr(target, 'id') else 0, prof)
+            if new_prof:
+                prof = new_prof
+                puuid = prof["puuid"]
+                summ_id = prof.get("summoner_id")
+                entries = await riot.league_entries_by_puuid(platform, puuid)
+            else:
+                entries = None
         if not entries and summ_id:
             entries = await riot.league_entries_by_summoner(platform, summ_id)
         entries = entries or []

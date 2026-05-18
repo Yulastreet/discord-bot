@@ -174,6 +174,12 @@ def regional_route(platform: str) -> str:
     return PLATFORM_TO_REGIONAL.get(platform.lower(), "europe")
 
 
+class RiotPuuidStaleError(Exception):
+    """Levee quand Riot retourne 'Exception decrypting <puuid>' = puuid chiffre
+    avec une autre cle API. Le caller doit refresh le puuid via Account API."""
+    pass
+
+
 async def _get(host_prefix: str, path: str) -> Optional[dict]:
     """GET helper qui ajoute la cle et logge non-200."""
     key = _key()
@@ -197,6 +203,9 @@ async def _get(host_prefix: str, path: str) -> Optional[dict]:
             if resp.status == 429:
                 print(f"[riot] 429 rate-limited — retry after {resp.headers.get('Retry-After')}")
                 return None
+            if resp.status == 400 and "decrypting" in body.lower():
+                # puuid chiffre avec une autre cle (changement de cle API)
+                raise RiotPuuidStaleError(path)
             if resp.status >= 500:
                 print(f"[riot] {resp.status} upstream error path={path}")
                 return None
@@ -205,6 +214,8 @@ async def _get(host_prefix: str, path: str) -> Optional[dict]:
                 return None
             import json as _json
             return _json.loads(body)
+    except RiotPuuidStaleError:
+        raise
     except Exception as e:
         print(f"[riot] err path={path}: {type(e).__name__}: {e}")
         return None
