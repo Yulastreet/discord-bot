@@ -144,6 +144,7 @@ def register_lol_scout_routes(app, deps):
     @app.route("/api/scout/<slug>/player", methods=["POST"])
     def api_scout_player_update(slug):
         import asyncio
+        import services.riot_api as _ra
         from commandes.lol import _scout_player_data
         from database import get_db
         sess = lol_scout_session_get(slug)
@@ -158,11 +159,34 @@ def register_lol_scout_routes(app, deps):
             return jsonify({"error": "riot_id_required"}), 400
         platform = sess["platform"]
 
-        # Re-scout via Riot API (asyncio.run dans le thread Flask sync)
+        # Re-scout via Riot API : on cree un loop dedie + on cleanup
+        # la session aiohttp a la fin (sinon elle reste attachee au loop
+        # ferme et casse l'appel suivant).
+        _ra._SESSION = None
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            new_data = asyncio.run(_scout_player_data(platform, raw_id))
-        except Exception as e:
-            return jsonify({"error": f"refetch_failed: {type(e).__name__}"}), 500
+            try:
+                new_data = loop.run_until_complete(
+                    _scout_player_data(platform, raw_id)
+                )
+            except Exception as e:
+                print(f"[lol/scout-edit] err: {type(e).__name__}: {e}")
+                return jsonify({"error": f"refetch_failed: {type(e).__name__}"}), 500
+        finally:
+            # Close la session aiohttp creee dans CE loop avant de close le loop
+            sess_obj = getattr(_ra, "_SESSION", None)
+            if sess_obj and not sess_obj.closed:
+                try:
+                    loop.run_until_complete(sess_obj.close())
+                except Exception:
+                    pass
+            _ra._SESSION = None
+            try:
+                loop.close()
+            except Exception:
+                pass
+            asyncio.set_event_loop(None)
 
         role_emoji = {"TOP": "🛡️", "JUNGLE": "🌲", "MID": "⚡",
                        "ADC": "🏹", "SUPPORT": "🛡️"}
