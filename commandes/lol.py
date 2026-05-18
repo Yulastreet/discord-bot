@@ -1403,4 +1403,137 @@ def setup_lol_commands(bot):
         else:
             await interaction.followup.send(embed=embed, view=view)
 
+    # ---------- /lol scout (clash scout builder) ----------
+    @lol_group.command(name="scout",
+                       description="Scout 5 adversaires Clash : ouvre un builder pour renseigner leurs Riot ID")
+    @app_commands.describe(region="Région des joueurs (défaut EUW)")
+    @app_commands.choices(region=_REGION_CHOICES)
+    async def lol_scout(interaction: discord.Interaction,
+                        region: Optional[app_commands.Choice[str]] = None):
+        platform = (region.value if region else "euw1").lower()
+        modal = ClashScoutModal(platform=platform)
+        await interaction.response.send_modal(modal)
+
     bot.tree.add_command(lol_group)
+
+
+class ClashScoutModal(discord.ui.Modal, title="🔍 Scout Clash : renseigne 5 Riot IDs"):
+    """Modal avec 5 inputs (Top/Jungle/Mid/ADC/Support) pour scout les
+    adversaires Clash. Format : Pseudo#TAG."""
+
+    def __init__(self, platform: str = "euw1"):
+        super().__init__(timeout=600)
+        self.platform = platform
+        self.top = discord.ui.TextInput(
+            label="TOP — Pseudo#TAG",
+            placeholder="ex: Faker#KR1",
+            required=True, max_length=30,
+        )
+        self.jungle = discord.ui.TextInput(
+            label="JUNGLE — Pseudo#TAG",
+            placeholder="ex: Canyon#KR1",
+            required=True, max_length=30,
+        )
+        self.mid = discord.ui.TextInput(
+            label="MID — Pseudo#TAG",
+            placeholder="ex: Showmaker#KR1",
+            required=True, max_length=30,
+        )
+        self.adc = discord.ui.TextInput(
+            label="ADC — Pseudo#TAG",
+            placeholder="ex: Ruler#KR1",
+            required=True, max_length=30,
+        )
+        self.support = discord.ui.TextInput(
+            label="SUPPORT — Pseudo#TAG",
+            placeholder="ex: Keria#KR1",
+            required=True, max_length=30,
+        )
+        self.add_item(self.top)
+        self.add_item(self.jungle)
+        self.add_item(self.mid)
+        self.add_item(self.adc)
+        self.add_item(self.support)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        entries = [
+            ("🛡️ TOP",     self.top.value),
+            ("🌲 JUNGLE",  self.jungle.value),
+            ("⚡ MID",      self.mid.value),
+            ("🏹 ADC",     self.adc.value),
+            ("🛡️ SUPPORT", self.support.value),
+        ]
+
+        embed = discord.Embed(
+            title="🔍 Scout Clash — 5 adversaires",
+            description=f"Région : **{riot.PLATFORM_LABEL.get(self.platform, self.platform.upper())}**",
+            color=0xE74C3C,
+        )
+
+        for role_label, raw_id in entries:
+            scout_text = await _scout_player(self.platform, raw_id)
+            embed.add_field(
+                name=f"{role_label} — {raw_id}",
+                value=scout_text,
+                inline=False,
+            )
+
+        embed.set_footer(text="Mastery top 3 + rank Solo/Duo. Riot Games API.")
+        await interaction.followup.send(embed=embed)
+
+
+async def _scout_player(platform: str, raw_riot_id: str) -> str:
+    """Fetch profil scout d'un joueur via Riot ID. Retourne une string
+    formattee pour embed.add_field."""
+    m = _RIOT_ID_RE.match((raw_riot_id or "").strip())
+    if not m:
+        return "❌ Format Riot ID invalide (Pseudo#TAG attendu)."
+    game_name, tag_line = m.group(1), m.group(2)
+
+    account = await riot.account_by_riot_id(platform, game_name, tag_line)
+    if not account or not account.get("puuid"):
+        return f"❌ `{game_name}#{tag_line}` introuvable sur {riot.PLATFORM_LABEL.get(platform, platform)}."
+    puuid = account["puuid"]
+
+    summ = await riot.summoner_by_puuid(platform, puuid)
+    level = (summ or {}).get("summonerLevel")
+
+    # Rank Solo/Duo
+    try:
+        entries = await riot.league_entries_by_puuid(platform, puuid)
+    except Exception:
+        entries = None
+    entries = entries or []
+    solo = next((e for e in entries if e.get("queueType") == "RANKED_SOLO_5x5"), None)
+    if solo:
+        tier_lbl = riot.rank_label_fr(solo.get("tier", "UNRANKED"), solo.get("rank", ""))
+        lp = solo.get("leaguePoints", 0)
+        wins = solo.get("wins", 0)
+        losses = solo.get("losses", 0)
+        wr = (wins / (wins + losses) * 100) if (wins + losses) else 0
+        rank_line = f"**{tier_lbl}** · {lp} LP · {wins}V/{losses}D ({wr:.1f}% WR)"
+    else:
+        rank_line = "_Non classé Solo/Duo_"
+
+    # Top 3 maitrises
+    try:
+        masteries = await riot.mastery_top(platform, puuid, count=3)
+    except Exception:
+        masteries = None
+    mastery_line = "_Pas de données mastery_"
+    if masteries:
+        names = []
+        for m in masteries[:3]:
+            cid = m.get("championId", 0)
+            cname = await riot.champion_name(cid)
+            pts = int(m.get("championPoints", 0))
+            names.append(f"{cname} ({pts // 1000}k)")
+        mastery_line = " · ".join(names)
+
+    lines = [
+        f"Niveau **{level or '?'}**",
+        f"🏆 {rank_line}",
+        f"✨ {mastery_line}",
+    ]
+    return "\n".join(lines)
