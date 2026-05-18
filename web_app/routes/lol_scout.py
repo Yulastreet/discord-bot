@@ -42,9 +42,16 @@ def register_lol_scout_routes(app, deps):
         if not sess or sess["status"] != "active":
             abort(404)
         try:
-            scout_data = _json.loads(sess["scout_data"] or "[]")
+            raw = _json.loads(sess["scout_data"] or "{}")
         except Exception:
-            scout_data = []
+            raw = {}
+        # Backward compat : ancienne forme = liste de 5 enemies seulement
+        if isinstance(raw, list):
+            enemies = raw
+            allies = []
+        else:
+            enemies = raw.get("enemies") or []
+            allies = raw.get("allies") or []
         try:
             riot_ids = _json.loads(sess["riot_ids"] or "{}")
         except Exception:
@@ -52,7 +59,8 @@ def register_lol_scout_routes(app, deps):
         return render_template(
             "scout_session.html",
             session_data=sess,
-            scout_data=scout_data,
+            enemies=enemies,
+            allies=allies,
             riot_ids=riot_ids,
             slug=slug,
         )
@@ -141,6 +149,7 @@ def register_lol_scout_routes(app, deps):
         return jsonify({"ok": True, "id": aid})
 
     # ===== Edit Riot ID inline (refetch + SSE broadcast) =====
+    # side : "enemy" (cote adverse) ou "ally" (notre 5-stack)
     @app.route("/api/scout/<slug>/player", methods=["POST"])
     def api_scout_player_update(slug):
         import asyncio
@@ -151,6 +160,9 @@ def register_lol_scout_routes(app, deps):
         if not sess or sess["status"] != "active":
             return jsonify({"error": "session_not_found"}), 404
         data = request.get_json(silent=True) or {}
+        side = (data.get("side") or "enemy").strip().lower()
+        if side not in ("enemy", "ally"):
+            return jsonify({"error": "bad_side"}), 400
         role = (data.get("role") or "").strip().upper()
         raw_id = (data.get("riot_id") or "").strip()
         if role not in ("TOP", "JUNGLE", "MID", "ADC", "SUPPORT"):
@@ -160,8 +172,7 @@ def register_lol_scout_routes(app, deps):
         platform = sess["platform"]
 
         # Re-scout via Riot API : on cree un loop dedie + on cleanup
-        # la session aiohttp a la fin (sinon elle reste attachee au loop
-        # ferme et casse l'appel suivant).
+        # la session aiohttp a la fin.
         _ra._SESSION = None
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -174,7 +185,6 @@ def register_lol_scout_routes(app, deps):
                 print(f"[lol/scout-edit] err: {type(e).__name__}: {e}")
                 return jsonify({"error": f"refetch_failed: {type(e).__name__}"}), 500
         finally:
-            # Close la session aiohttp creee dans CE loop avant de close le loop
             sess_obj = getattr(_ra, "_SESSION", None)
             if sess_obj and not sess_obj.closed:
                 try:
@@ -193,26 +203,39 @@ def register_lol_scout_routes(app, deps):
         new_entry = dict(new_data)
         new_entry["role"] = f"{role_emoji.get(role, '?')} {role}"
         new_entry["riot_id"] = raw_id
+        new_entry["side"] = side
 
-        # Update DB : scout_data + riot_ids
+        # Update DB : scout_data{enemies, allies} + riot_ids
         try:
-            scout_data = _json.loads(sess["scout_data"] or "[]")
+            scout_data = _json.loads(sess["scout_data"] or "{}")
         except Exception:
-            scout_data = []
+            scout_data = {}
+        if isinstance(scout_data, list):
+            scout_data = {"enemies": scout_data, "allies": []}
+        enemies = scout_data.get("enemies") or []
+        allies  = scout_data.get("allies")  or []
         try:
             riot_ids = _json.loads(sess["riot_ids"] or "{}")
         except Exception:
             riot_ids = {}
+
+        target_list = enemies if side == "enemy" else allies
         replaced = False
-        for i, p in enumerate(scout_data):
+        for i, p in enumerate(target_list):
             r = (p.get("role") or "").upper()
             if r.endswith(role):
-                scout_data[i] = new_entry
+                target_list[i] = new_entry
                 replaced = True
                 break
         if not replaced:
-            scout_data.append(new_entry)
-        riot_ids[role] = raw_id
+            target_list.append(new_entry)
+
+        scout_data = {"enemies": enemies, "allies": allies}
+        # On garde riot_ids des enemies dans le dict top-level pour
+        # compat /lol scout list dans Discord. Les allies sont dans le
+        # scout_data uniquement.
+        if side == "enemy":
+            riot_ids[role] = raw_id
 
         conn = get_db()
         c = conn.cursor()
@@ -222,6 +245,7 @@ def register_lol_scout_routes(app, deps):
         conn.close()
 
         _publish(slug, "player_update", {
+            "side": side,
             "role": role,
             "riot_id": raw_id,
             "data": new_entry,

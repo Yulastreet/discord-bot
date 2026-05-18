@@ -9,11 +9,15 @@
     --bg-0: #0a0d08;
     --bg-1: #131811;
     --bg-2: #1c2218;
+    --bg-3: #242b1f;
     --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.18);
     --text: #e8eed8;
     --muted: #99a288;
     --accent: #b9ff24;
     --danger: #e74c3c;
+    --enemy: #f1c40f;
+    --ally:  #9b59b6;
   }
   * { box-sizing: border-box; }
   body {
@@ -25,15 +29,15 @@
   }
   .topbar {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 14px 24px;
+    padding: 10px 20px;
     border-bottom: 1px solid var(--border);
-    background: rgba(0,0,0,0.4);
+    background: rgba(0,0,0,0.45);
     backdrop-filter: blur(8px);
   }
-  .topbar h1 { font-size: 18px; margin: 0; }
+  .topbar h1 { font-size: 16px; margin: 0; }
   .topbar .status {
     display: inline-block;
-    padding: 4px 10px;
+    padding: 3px 9px;
     border-radius: 12px;
     font-size: 11px;
     font-weight: 700;
@@ -41,149 +45,233 @@
     background: rgba(46,204,113,0.18);
     color: #2ecc71;
   }
-  .topbar .status.stopped {
-    background: rgba(231,76,60,0.18); color: var(--danger);
-  }
+  .topbar .status.stopped { background: rgba(231,76,60,0.18); color: var(--danger); }
+
+  /* ===== Layout grille 5 cards × 2 rows + sidebar ===== */
   .layout {
     display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 20px;
-    padding: 20px;
-    max-width: 1600px;
-    margin: 0 auto;
-    min-height: calc(100vh - 60px);
+    grid-template-columns: repeat(5, minmax(0, 1fr)) 320px;
+    grid-template-rows: auto auto;
+    gap: 10px;
+    padding: 12px;
+    align-items: stretch;
   }
-  @media (max-width: 1000px) {
-    .layout { grid-template-columns: 1fr; }
+  .scout-card-cell { display: contents; }
+  .side-col {
+    grid-column: 6;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
   }
-  .scout-cards { display: grid; gap: 16px; }
+
+  /* ===== Card joueur ===== */
   .player-card {
     background: var(--bg-1);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 18px 20px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 320px;
+    position: relative;
   }
-  .player-card .role {
-    font-size: 12px;
+  .player-card.enemy { border-top: 3px solid var(--enemy); }
+  .player-card.ally  { border-top: 3px solid var(--ally); }
+
+  .card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .profile-icon {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    background: var(--bg-2) center / cover no-repeat;
+    flex-shrink: 0;
+  }
+  .role-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--accent);
-    margin-bottom: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--bg-2);
   }
-  .player-card h3 {
-    margin: 0 0 12px;
-    font-size: 18px;
+  .role-tag.enemy { color: var(--enemy); }
+  .role-tag.ally  { color: var(--ally);  }
+  .card-head-text { flex: 1; min-width: 0; }
+  .card-head-text h3 {
+    margin: 4px 0 0;
+    font-size: 14px;
     word-break: break-word;
+    line-height: 1.1;
   }
+  .rank-mini {
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 44px; height: 44px;
+    background: center / contain no-repeat;
+  }
+
   .riot-id-edit {
     background: transparent;
     border: 1px solid transparent;
     color: var(--text);
     font-family: inherit;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
-    padding: 4px 8px;
+    padding: 4px 6px;
+    margin-top: 4px;
     border-radius: 6px;
     width: 100%;
     transition: border-color 120ms, background 120ms;
   }
+  .riot-id-edit::placeholder { color: var(--muted); font-weight: 500; }
   .riot-id-edit:hover { border-color: var(--border); }
   .riot-id-edit:focus {
     outline: none;
     border-color: var(--accent);
     background: var(--bg-2);
   }
-  .player-card.loading .player-body { opacity: 0.4; pointer-events: none; }
-  .player-card.loading .riot-id-edit { border-color: var(--accent); }
-  .player-card .line {
-    margin: 6px 0;
-    font-size: 14px;
+
+  .stat-line {
+    font-size: 11px;
     line-height: 1.45;
+    color: var(--text);
   }
-  .player-card .label {
+  .stat-line .lbl {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 9px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-right: 6px;
   }
-  .pill {
-    display: inline-block;
-    padding: 2px 8px;
+
+  .champ-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .champ-icon {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    background: var(--bg-2) center / cover no-repeat;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .champ-icon.ban { border-color: var(--danger); }
+  .champ-icon[data-count]::after {
+    content: attr(data-count);
+    position: absolute;
+    bottom: -2px; right: -2px;
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    font-size: 12px;
-    background: var(--bg-2);
-    margin-right: 4px;
+    padding: 0 3px;
+    color: var(--text);
   }
-  .ban-pill {
-    background: rgba(231,76,60,0.15);
-    color: #ff8888;
-    font-weight: 600;
+  .champ-icon[data-wr]::after {
+    content: attr(data-wr);
+    position: absolute;
+    bottom: -2px; right: -2px;
+    font-size: 8px;
+    font-weight: 800;
+    background: var(--danger);
+    color: #fff;
+    border-radius: 8px;
+    padding: 1px 4px;
   }
-  .right-col { display: flex; flex-direction: column; gap: 16px; }
-  .chat-box, .map-box {
+  .empty-pill {
+    font-size: 10px; color: var(--muted);
+  }
+  .player-card.loading .card-body { opacity: 0.4; pointer-events: none; }
+  .player-card.loading .riot-id-edit { border-color: var(--accent); }
+  .player-card.empty .card-body { opacity: 0.35; }
+
+  /* ===== Chat + Map ===== */
+  .chat-box {
+    flex: 1;
     background: var(--bg-1);
     border: 1px solid var(--border);
     border-radius: 14px;
     display: flex;
     flex-direction: column;
+    min-height: 0;
   }
-  .chat-box { flex: 1; min-height: 400px; }
   .chat-header {
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-bottom: 1px solid var(--border);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
   }
   .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 16px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     max-height: 50vh;
+    min-height: 200px;
   }
-  .chat-msg {
-    font-size: 13px;
-    line-height: 1.4;
-  }
-  .chat-msg .author {
-    font-weight: 700;
-    margin-right: 6px;
-  }
-  .chat-msg .ts {
-    color: var(--muted);
-    font-size: 10px;
-    margin-left: 6px;
-  }
+  .chat-msg { font-size: 12px; line-height: 1.4; }
+  .chat-msg .author { font-weight: 700; margin-right: 5px; }
+  .chat-msg .ts { color: var(--muted); font-size: 10px; margin-left: 5px; }
   .chat-input {
     display: flex;
     border-top: 1px solid var(--border);
-    padding: 10px;
+    padding: 8px;
     gap: 6px;
   }
   .chat-input input {
     flex: 1;
-    padding: 8px 12px;
+    padding: 7px 10px;
     background: var(--bg-2);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 7px;
     color: var(--text);
     font-family: inherit;
+    font-size: 13px;
   }
   .chat-input button {
-    padding: 8px 14px;
+    padding: 7px 12px;
     background: var(--accent);
     color: #0a0d08;
     border: none;
-    border-radius: 8px;
+    border-radius: 7px;
     cursor: pointer;
     font-weight: 700;
   }
+  .you-info {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .color-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .you-info button.change-pseudo {
+    margin-left: auto;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10px;
+    cursor: pointer;
+  }
   .map-box {
     aspect-ratio: 1;
-    padding: 12px;
+    padding: 10px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
     cursor: pointer;
     position: relative;
   }
@@ -191,15 +279,54 @@
     width: 100%; height: 100%;
     background: var(--bg-2) center / contain no-repeat;
     border-radius: 8px;
-    opacity: 0.95;
   }
   .map-box small {
     position: absolute; bottom: 8px; left: 12px;
-    color: var(--muted); font-size: 11px;
+    color: var(--muted); font-size: 10px;
     pointer-events: none;
   }
 
-  /* Modal map plein ecran */
+  /* ===== Pseudo modal ===== */
+  .pseudo-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .pseudo-modal {
+    background: var(--bg-1);
+    padding: 24px 28px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    min-width: 320px;
+    text-align: center;
+  }
+  .pseudo-modal h2 { margin: 0 0 10px; }
+  .pseudo-modal p { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .pseudo-modal input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px;
+    text-align: center;
+  }
+  .pseudo-modal button {
+    padding: 9px 22px;
+    background: var(--accent);
+    color: #0a0d08;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  /* ===== Map modal plein ecran ===== */
   .map-modal-bg {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.92);
@@ -215,7 +342,7 @@
     flex-wrap: wrap;
   }
   .map-modal-header .tool-group {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 8px; margin-left: auto;
   }
   .map-modal-header button {
     padding: 6px 12px;
@@ -240,12 +367,7 @@
     padding: 16px;
     overflow: auto;
   }
-  .map-stage-inner {
-    position: relative;
-    max-width: 100%;
-    max-height: 100%;
-    line-height: 0;
-  }
+  .map-stage-inner { position: relative; max-width: 100%; max-height: 100%; line-height: 0; }
   #mapImage {
     display: block;
     max-width: 90vmin;
@@ -263,67 +385,22 @@
     cursor: crosshair;
     touch-action: none;
   }
-  .width-slider {
-    width: 90px;
-    accent-color: var(--accent);
+  .width-slider { width: 80px; accent-color: var(--accent); }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 1400px) {
+    .layout {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-rows: auto auto auto;
+    }
+    .side-col { grid-column: 1 / -1; grid-row: 3; flex-direction: row; }
+    .chat-box { flex: 2; }
+    .map-box { width: 30%; aspect-ratio: 1; }
   }
-  .pseudo-modal-bg {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100;
-  }
-  .pseudo-modal {
-    background: var(--bg-1);
-    padding: 28px 32px;
-    border-radius: 18px;
-    border: 1px solid var(--border);
-    min-width: 320px;
-    text-align: center;
-  }
-  .pseudo-modal h2 { margin: 0 0 12px; }
-  .pseudo-modal p { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
-  .pseudo-modal input {
-    width: 100%;
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 16px;
-    text-align: center;
-  }
-  .pseudo-modal button {
-    padding: 10px 24px;
-    background: var(--accent);
-    color: #0a0d08;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-weight: 700;
-    font-size: 14px;
-  }
-  .you-info {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .color-dot {
-    width: 12px; height: 12px; border-radius: 50%;
-    display: inline-block;
-  }
-  .you-info button.change-pseudo {
-    margin-left: auto;
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 11px;
-    cursor: pointer;
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr 1fr; }
+    .side-col { flex-direction: column; }
+    .map-box { width: 100%; }
   }
 </style>
 </head>
@@ -337,51 +414,20 @@
 </div>
 
 <div class="layout">
-  <div class="scout-cards">
-    {% for p in scout_data %}
-    {% set role_key = p.role.split(' ')[-1] if p.role else '?' %}
-    <div class="player-card" data-role-key="{{ role_key }}">
-      <div class="role">{{ p.role }}</div>
-      <h3>
-        <input class="riot-id-edit" data-role="{{ role_key }}"
-               value="{{ p.riot_id }}" maxlength="32"
-               title="Edite le Riot ID puis appuie sur Entrée">
-      </h3>
-      <div class="player-body">
-        {% if p.error %}
-        <div class="line" style="color: var(--danger);">⚠️ {{ p.error }}</div>
-        {% else %}
-        <div class="line"><span class="label">Niveau</span> <strong>{{ p.level or '?' }}</strong></div>
-        <div class="line"><span class="label">Solo/Duo</span> {{ p.rank_line | safe }}</div>
-        <div class="line">
-          <span class="label">🔥 Picks récents</span><br>
-          {% for pick in p.recent or [] %}
-            <span class="pill">{{ pick.champ }} ×{{ pick.games }}</span>
-          {% else %}
-            <span style="color: var(--muted); font-size: 12px;">Pas de games récentes.</span>
-          {% endfor %}
-        </div>
-        <div class="line">
-          <span class="label">💀 À ban (WR sur 3+ games)</span><br>
-          {% for ban in p.top_wr or [] %}
-            <span class="pill ban-pill">{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% ({{ ban.total }}g)</span>
-          {% else %}
-            <span style="color: var(--muted); font-size: 12px;">Pas assez de games.</span>
-          {% endfor %}
-        </div>
-        <div class="line">
-          <span class="label">✨ Mastery</span>
-          {% for m in p.mastery or [] %}
-            <span class="pill">{{ m.champ }} ({{ m.pts }})</span>
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
+  {# Row 1 : ENEMIES #}
+  {% for p in enemies %}
+    {% set role_key = (p.role or '').split(' ')[-1] if p.role else '?' %}
+    {% include "_scout_card.html" %}
+  {% endfor %}
 
-  <div class="right-col">
+  {# Row 2 : ALLIES #}
+  {% for p in allies %}
+    {% set role_key = (p.role or '').split(' ')[-1] if p.role else '?' %}
+    {% include "_scout_card.html" %}
+  {% endfor %}
+
+  {# Sidebar : chat + map #}
+  <div class="side-col">
     <div class="chat-box">
       <div class="chat-header">💬 Chat de session</div>
       <div class="you-info" id="youInfo" style="display:none;">
@@ -395,9 +441,9 @@
         <button id="chatSend" {% if session_data.status != 'active' %}disabled{% endif %}>↑</button>
       </div>
     </div>
-    <div class="map-box" id="mapBox" title="Cliquer pour zoomer + dessiner">
+    <div class="map-box" id="mapBox" title="Cliquer pour zoom + annotations">
       <div class="map-thumb"></div>
-      <small>Map SR · clique pour zoom + annotations</small>
+      <small>Map SR</small>
     </div>
   </div>
 </div>
@@ -405,7 +451,7 @@
 <div class="map-modal-bg" id="mapModal">
   <div class="map-modal-header">
     <strong>🗺️ Map Summoner's Rift — annotations partagées</strong>
-    <div class="tool-group" style="margin-left:auto;">
+    <div class="tool-group">
       <label style="font-size:12px;color:var(--muted);">Trait</label>
       <input type="range" class="width-slider" id="strokeWidth" min="2" max="14" value="4">
       <button id="clearMine" type="button">🗑 Mes traits</button>
@@ -439,27 +485,159 @@ const SESSION_ACTIVE = {{ 'true' if session_data.status == 'active' else 'false'
 let myPseudo = localStorage.getItem('scout_pseudo_' + SLUG) || '';
 let myColor  = localStorage.getItem('scout_color_'  + SLUG) || '#888';
 let lastChatId = 0;
+let DD_VERSION = '15.10.1';  // fallback
 
-// Charge l'URL de la map SR via Data Dragon (version courante)
-(async function loadMapImage() {
+// Charge versions.json Data Dragon
+(async function loadDDVersion() {
   try {
     const r = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-    const versions = await r.json();
-    const ver = (versions && versions[0]) || '15.10.1';
-    const url = `https://ddragon.leagueoflegends.com/cdn/${ver}/img/map/map11.png`;
-    const img = document.getElementById('mapImage');
-    if (img) img.src = url;
-    const thumb = document.querySelector('.map-thumb');
-    if (thumb) thumb.style.backgroundImage = `url('${url}')`;
-  } catch (_) {
-    const fallback = "https://ddragon.leagueoflegends.com/cdn/15.10.1/img/map/map11.png";
-    const img = document.getElementById('mapImage');
-    if (img) img.src = fallback;
-    const thumb = document.querySelector('.map-thumb');
-    if (thumb) thumb.style.backgroundImage = `url('${fallback}')`;
-  }
+    const v = await r.json();
+    if (v && v[0]) DD_VERSION = v[0];
+  } catch (_) {}
+  // Map thumbnail + image
+  const url = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img/map/map11.png`;
+  const img = document.getElementById('mapImage');
+  if (img) img.src = url;
+  const thumb = document.querySelector('.map-thumb');
+  if (thumb) thumb.style.backgroundImage = `url('${url}')`;
+  // Hydrate icones de toutes les cards
+  document.querySelectorAll('.player-card').forEach(card => {
+    hydrateCardIcons(card);
+  });
 })();
 
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+}
+
+function profileIconUrl(id) {
+  if (id === null || id === undefined || id === '') return '';
+  return `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img/profileicon/${id}.png`;
+}
+function champIconUrl(slug) {
+  if (!slug) return '';
+  return `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img/champion/${slug}.png`;
+}
+function tierEmblemUrl(tier) {
+  const t = (tier || 'UNRANKED').toLowerCase();
+  if (t === 'unranked') return '';
+  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-${t}.png`;
+}
+
+function hydrateCardIcons(card) {
+  // Set profile icon, rank emblem, champ icons from data-* attributes
+  const profIcon = card.querySelector('.profile-icon');
+  if (profIcon) {
+    const pid = profIcon.dataset.profileIconId;
+    if (pid) profIcon.style.backgroundImage = `url('${profileIconUrl(pid)}')`;
+  }
+  const rankIcon = card.querySelector('.rank-mini');
+  if (rankIcon) {
+    const tier = rankIcon.dataset.tier;
+    if (tier && tier !== 'UNRANKED') rankIcon.style.backgroundImage = `url('${tierEmblemUrl(tier)}')`;
+  }
+  card.querySelectorAll('.champ-icon[data-slug]').forEach(el => {
+    el.style.backgroundImage = `url('${champIconUrl(el.dataset.slug)}')`;
+  });
+}
+
+function buildCardBodyHTML(p) {
+  if (p.error) {
+    return `<div class="stat-line" style="color:var(--danger);">⚠️ ${escapeHtml(p.error)}</div>`;
+  }
+  const picks = (p.recent || []).map(x =>
+    `<div class="champ-icon" data-slug="${escapeHtml(x.slug || '')}" data-count="x${x.games}" title="${escapeHtml(x.champ)} ×${x.games}"></div>`
+  ).join('');
+  const bans = (p.top_wr || []).map(x =>
+    `<div class="champ-icon ban" data-slug="${escapeHtml(x.slug || '')}" data-wr="${Math.round(x.wr)}%" title="${escapeHtml(x.champ)} ${Math.round(x.wr)}% sur ${x.total}g"></div>`
+  ).join('');
+  const mast = (p.mastery || []).map(m =>
+    `<div class="champ-icon" data-slug="${escapeHtml(m.slug || '')}" data-count="${escapeHtml(m.pts || '')}" title="${escapeHtml(m.champ)} (${escapeHtml(m.pts || '')})"></div>`
+  ).join('');
+  return `
+    <div class="stat-line"><span class="lbl">Niveau</span> <strong>${p.level || '?'}</strong></div>
+    <div class="stat-line">${p.rank_line || ''}</div>
+    <div class="stat-line"><span class="lbl">🔥 Pick récent</span></div>
+    <div class="champ-row">${picks || '<span class="empty-pill">—</span>'}</div>
+    <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
+    <div class="champ-row">${bans || '<span class="empty-pill">—</span>'}</div>
+    <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
+    <div class="champ-row">${mast || '<span class="empty-pill">—</span>'}</div>
+  `;
+}
+
+function renderPlayerCard(card, p) {
+  const isEmpty = !p || (!p.riot_id && !p.error);
+  // Profile icon
+  const profIcon = card.querySelector('.profile-icon');
+  if (profIcon) {
+    if (p && p.profile_icon_id !== undefined && p.profile_icon_id !== null) {
+      profIcon.dataset.profileIconId = p.profile_icon_id;
+      profIcon.style.backgroundImage = `url('${profileIconUrl(p.profile_icon_id)}')`;
+    } else {
+      profIcon.style.backgroundImage = '';
+    }
+  }
+  // Rank emblem
+  const rankIcon = card.querySelector('.rank-mini');
+  if (rankIcon) {
+    rankIcon.dataset.tier = p?.tier || 'UNRANKED';
+    if (p && p.tier && p.tier !== 'UNRANKED') {
+      rankIcon.style.backgroundImage = `url('${tierEmblemUrl(p.tier)}')`;
+    } else {
+      rankIcon.style.backgroundImage = '';
+    }
+  }
+  // Riot ID
+  const inp = card.querySelector('.riot-id-edit');
+  if (inp && document.activeElement !== inp) inp.value = (p && p.riot_id) || '';
+  // Body
+  const body = card.querySelector('.card-body');
+  if (body) {
+    if (isEmpty) {
+      body.innerHTML = '<div class="empty-pill">— Slot vide. Renseigne le Riot ID.</div>';
+      card.classList.add('empty');
+    } else {
+      body.innerHTML = buildCardBodyHTML(p);
+      card.classList.remove('empty');
+      hydrateCardIcons(card);
+    }
+  }
+}
+
+// Bind edit Enter sur tous les inputs
+document.querySelectorAll('.riot-id-edit').forEach(inp => {
+  inp.addEventListener('keydown', async e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const role = inp.dataset.role;
+    const side = inp.dataset.side;
+    const newId = inp.value.trim();
+    if (!newId) return;
+    const card = inp.closest('.player-card');
+    card.classList.add('loading');
+    try {
+      const r = await fetch(`/api/scout/${SLUG}/player`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({side, role, riot_id: newId}),
+      });
+      const d = await r.json();
+      if (d.ok && d.data) {
+        renderPlayerCard(card, d.data);
+      } else {
+        alert('Erreur : ' + (d.error || 'unknown'));
+      }
+    } catch (_) {
+      alert('Erreur réseau.');
+    } finally {
+      card.classList.remove('loading');
+      inp.blur();
+    }
+  });
+});
+
+// ===== Pseudo / chat =====
 function showPseudoModal() {
   if (!SESSION_ACTIVE) return;
   const modal = document.getElementById('pseudoModal');
@@ -481,7 +659,6 @@ function updateYouInfo() {
   document.getElementById('youPseudo').textContent = myPseudo;
   document.getElementById('youColor').style.background = myColor;
 }
-
 async function joinSession(pseudo) {
   const r = await fetch(`/api/scout/${SLUG}/join`, {
     method: 'POST',
@@ -500,7 +677,6 @@ async function joinSession(pseudo) {
     alert(d.error || 'Erreur');
   }
 }
-
 document.getElementById('pseudoSubmit')?.addEventListener('click', () => {
   const v = document.getElementById('pseudoInput').value.trim();
   if (v) joinSession(v);
@@ -513,24 +689,26 @@ document.getElementById('changePseudo')?.addEventListener('click', showPseudoMod
 async function pollChat() {
   try {
     const r = await fetch(`/api/scout/${SLUG}/chat?since=${lastChatId}`);
+    if (!r.ok) return;
     const d = await r.json();
     const cont = document.getElementById('chatMessages');
     for (const m of (d.messages || [])) {
       lastChatId = Math.max(lastChatId, m.id);
-      const div = document.createElement('div');
-      div.className = 'chat-msg';
-      const t = new Date((m.ts || '').replace(' ', 'T') + 'Z').toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-      div.innerHTML =
-        `<span class="author" style="color:${m.color || '#fff'}">${escapeHtml(m.pseudo)}</span>` +
-        `<span>${escapeHtml(m.message)}</span>` +
-        `<span class="ts">${t}</span>`;
-      cont.appendChild(div);
+      appendChatMsg(m);
     }
     cont.scrollTop = cont.scrollHeight;
   } catch (_) {}
 }
-function escapeHtml(s) {
-  return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+function appendChatMsg(m) {
+  const cont = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  const t = m.ts ? new Date((m.ts || '').replace(' ', 'T') + 'Z').toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) : '';
+  div.innerHTML =
+    `<span class="author" style="color:${m.color || '#fff'}">${escapeHtml(m.pseudo)}</span>` +
+    `<span>${escapeHtml(m.message)}</span>` +
+    `<span class="ts">${t}</span>`;
+  cont.appendChild(div);
 }
 
 document.getElementById('chatSend')?.addEventListener('click', sendMsg);
@@ -550,49 +728,35 @@ async function sendMsg() {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({pseudo: myPseudo, color: myColor, message: msg}),
   });
-  pollChat();
 }
 
 // Init
-if (myPseudo) {
-  // Re-join pour rafraichir couleur si session reset
-  joinSession(myPseudo);
-} else {
-  showPseudoModal();
-}
+if (myPseudo) joinSession(myPseudo);
+else showPseudoModal();
 updateYouInfo();
 pollChat();
-// Polling lent en fallback ; SSE prend le relais en temps reel
 if (SESSION_ACTIVE) setInterval(pollChat, 5000);
 
-// ===== Map modal + canvas drawing =====
+// ===== Map drawing =====
 const mapModal = document.getElementById('mapModal');
 const mapImage = document.getElementById('mapImage');
 const mapCanvas = document.getElementById('mapCanvas');
 const mapCtx = mapCanvas.getContext('2d');
 const widthSlider = document.getElementById('strokeWidth');
 
-let strokesAll = [];           // {id, pseudo, color, width, points:[[x,y],...]}
-let localStroke = null;        // stroke courant en cours de drag (avant POST)
+let strokesAll = [];
+let localStroke = null;
 let lastAnnotId = 0;
 
-function openMap() {
-  mapModal.classList.add('open');
-  setTimeout(fitCanvas, 60);
-}
-function closeMap() {
-  mapModal.classList.remove('open');
-}
+function openMap() { mapModal.classList.add('open'); setTimeout(fitCanvas, 60); }
+function closeMap() { mapModal.classList.remove('open'); }
 document.getElementById('mapBox')?.addEventListener('click', openMap);
 document.getElementById('closeMap')?.addEventListener('click', closeMap);
-mapModal.addEventListener('click', e => {
-  if (e.target === mapModal) closeMap();
-});
+mapModal.addEventListener('click', e => { if (e.target === mapModal) closeMap(); });
 
 function fitCanvas() {
   const w = mapImage.clientWidth;
   const h = mapImage.clientHeight;
-  // High-DPI : retina-safe
   const dpr = window.devicePixelRatio || 1;
   mapCanvas.width = Math.round(w * dpr);
   mapCanvas.height = Math.round(h * dpr);
@@ -605,25 +769,23 @@ window.addEventListener('resize', () => {
   if (mapModal.classList.contains('open')) fitCanvas();
 });
 
-function drawStroke(s, ctxOverride) {
-  const ctx = ctxOverride || mapCtx;
+function drawStroke(s) {
   if (!s.points || s.points.length < 1) return;
-  ctx.strokeStyle = s.color || '#fff';
-  ctx.lineWidth = (s.width || 4);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  mapCtx.strokeStyle = s.color || '#fff';
+  mapCtx.lineWidth = (s.width || 4);
+  mapCtx.lineCap = 'round';
+  mapCtx.lineJoin = 'round';
   const w = parseFloat(mapCanvas.style.width);
   const h = parseFloat(mapCanvas.style.height);
-  ctx.beginPath();
+  mapCtx.beginPath();
   const [fx, fy] = s.points[0];
-  ctx.moveTo(fx * w, fy * h);
+  mapCtx.moveTo(fx * w, fy * h);
   for (let i = 1; i < s.points.length; i++) {
     const [x, y] = s.points[i];
-    ctx.lineTo(x * w, y * h);
+    mapCtx.lineTo(x * w, y * h);
   }
-  ctx.stroke();
+  mapCtx.stroke();
 }
-
 function redrawAll() {
   const w = parseFloat(mapCanvas.style.width || 0);
   const h = parseFloat(mapCanvas.style.height || 0);
@@ -631,21 +793,18 @@ function redrawAll() {
   for (const s of strokesAll) drawStroke(s);
   if (localStroke) drawStroke(localStroke);
 }
-
 function getNormalizedPoint(e) {
   const r = mapCanvas.getBoundingClientRect();
   const cx = (e.clientX - r.left) / r.width;
   const cy = (e.clientY - r.top) / r.height;
   return [Math.max(0, Math.min(1, cx)), Math.max(0, Math.min(1, cy))];
 }
-
 mapCanvas.addEventListener('pointerdown', e => {
   if (!SESSION_ACTIVE) return;
   if (!myPseudo) { showPseudoModal(); return; }
   mapCanvas.setPointerCapture(e.pointerId);
   localStroke = {
-    pseudo: myPseudo,
-    color: myColor,
+    pseudo: myPseudo, color: myColor,
     width: parseInt(widthSlider.value, 10) || 4,
     points: [getNormalizedPoint(e)],
   };
@@ -661,38 +820,25 @@ async function endStroke() {
   const sending = localStroke;
   localStroke = null;
   redrawAll();
-  if (sending.points.length < 2) return;  // ignore clic seul
+  if (sending.points.length < 2) return;
   try {
     const r = await fetch(`/api/scout/${SLUG}/annotations`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        pseudo: myPseudo, color: myColor,
-        kind: 'stroke', data: sending,
-      })
+      body: JSON.stringify({pseudo: myPseudo, color: myColor, kind: 'stroke', data: sending})
     });
-    if (!r.ok) {
-      // Si KO, on remet le stroke localement pour pas perdre le dessin
-      strokesAll.push(sending);
-      redrawAll();
-    }
-  } catch (_) {
-    strokesAll.push(sending);
-    redrawAll();
-  }
+    if (!r.ok) { strokesAll.push(sending); redrawAll(); }
+  } catch (_) { strokesAll.push(sending); redrawAll(); }
 }
-mapCanvas.addEventListener('pointerup',     endStroke);
-mapCanvas.addEventListener('pointerleave',  endStroke);
+mapCanvas.addEventListener('pointerup',    endStroke);
+mapCanvas.addEventListener('pointerleave', endStroke);
 mapCanvas.addEventListener('pointercancel', endStroke);
 
 async function postClear(scope) {
   await fetch(`/api/scout/${SLUG}/annotations`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      pseudo: myPseudo || '?', color: myColor,
-      kind: 'clear', data: {scope},
-    })
+    body: JSON.stringify({pseudo: myPseudo || '?', color: myColor, kind: 'clear', data: {scope}})
   });
 }
 document.getElementById('clearMine')?.addEventListener('click', () => {
@@ -704,103 +850,35 @@ document.getElementById('clearAll')?.addEventListener('click', () => {
   if (!confirm('Tout effacer (visible par TOUS) ?')) return;
   postClear('all');
 });
-
 async function pollAnnotations() {
   if (!SESSION_ACTIVE) return;
   try {
     const r = await fetch(`/api/scout/${SLUG}/annotations?since=${lastAnnotId}`);
     if (!r.ok) return;
     const d = await r.json();
-    let needRedraw = false;
+    let need = false;
     for (const a of (d.annotations || [])) {
       lastAnnotId = Math.max(lastAnnotId, a.id);
       let parsed = {};
-      try { parsed = JSON.parse(a.data); } catch (_) {}
+      try { parsed = JSON.parse(a.data); } catch(_) {}
       if (a.kind === 'stroke') {
-        // Dedup : si on a deja ce stroke localement (par auteur+contenu), skip
-        // approche simple : tag avec id pour pas re-ajouter
         if (!strokesAll.find(s => s._id === a.id)) {
-          parsed._id = a.id;
-          parsed.pseudo = a.pseudo;
-          parsed.color  = a.color;
-          strokesAll.push(parsed);
-          needRedraw = true;
+          parsed._id = a.id; parsed.pseudo = a.pseudo; parsed.color = a.color;
+          strokesAll.push(parsed); need = true;
         }
       } else if (a.kind === 'clear') {
-        if (parsed.scope === 'all') {
-          strokesAll = [];
-        } else if (parsed.scope === 'mine') {
-          strokesAll = strokesAll.filter(s => s.pseudo !== a.pseudo);
-        }
-        needRedraw = true;
+        if (parsed.scope === 'all') strokesAll = [];
+        else if (parsed.scope === 'mine') strokesAll = strokesAll.filter(s => s.pseudo !== a.pseudo);
+        need = true;
       }
     }
-    if (needRedraw) redrawAll();
+    if (need) redrawAll();
   } catch (_) {}
 }
 pollAnnotations();
-// Polling lent en fallback ; SSE prend le relais
 if (SESSION_ACTIVE) setInterval(pollAnnotations, 5000);
 
-// ===== Edit inline du Riot ID (Enter = submit) =====
-function renderPlayerBody(card, p) {
-  const body = card.querySelector('.player-body');
-  if (!body) return;
-  let html = '';
-  if (p.error) {
-    html = `<div class="line" style="color: var(--danger);">⚠️ ${escapeHtml(p.error)}</div>`;
-  } else {
-    const picks = (p.recent || []).map(x =>
-      `<span class="pill">${escapeHtml(x.champ)} ×${x.games}</span>`
-    ).join(' ') || '<span style="color: var(--muted); font-size: 12px;">Pas de games récentes.</span>';
-    const bans = (p.top_wr || []).map(x =>
-      `<span class="pill ban-pill">${escapeHtml(x.champ)} ${Math.round(x.wr)}% (${x.total}g)</span>`
-    ).join(' ') || '<span style="color: var(--muted); font-size: 12px;">Pas assez de games.</span>';
-    const mast = (p.mastery || []).map(m =>
-      `<span class="pill">${escapeHtml(m.champ)} (${escapeHtml(m.pts)})</span>`
-    ).join(' ');
-    html = `
-      <div class="line"><span class="label">Niveau</span> <strong>${p.level || '?'}</strong></div>
-      <div class="line"><span class="label">Solo/Duo</span> ${p.rank_line || ''}</div>
-      <div class="line"><span class="label">🔥 Picks récents</span><br>${picks}</div>
-      <div class="line"><span class="label">💀 À ban (WR sur 3+ games)</span><br>${bans}</div>
-      <div class="line"><span class="label">✨ Mastery</span> ${mast}</div>
-    `;
-  }
-  body.innerHTML = html;
-}
-
-document.querySelectorAll('.riot-id-edit').forEach(inp => {
-  inp.addEventListener('keydown', async e => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const role = inp.dataset.role;
-    const newId = inp.value.trim();
-    if (!newId) return;
-    const card = inp.closest('.player-card');
-    card.classList.add('loading');
-    try {
-      const r = await fetch(`/api/scout/${SLUG}/player`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({role, riot_id: newId}),
-      });
-      const d = await r.json();
-      if (d.ok && d.data) {
-        renderPlayerBody(card, d.data);
-      } else {
-        alert('Erreur : ' + (d.error || 'unknown'));
-      }
-    } catch (_) {
-      alert('Erreur réseau.');
-    } finally {
-      card.classList.remove('loading');
-      inp.blur();
-    }
-  });
-});
-
-// ===== SSE realtime stream (chat + annotations en quasi temps reel) =====
+// ===== SSE realtime =====
 if (SESSION_ACTIVE && 'EventSource' in window) {
   const es = new EventSource(`/api/scout/${SLUG}/stream`);
   es.addEventListener('chat', e => {
@@ -808,15 +886,8 @@ if (SESSION_ACTIVE && 'EventSource' in window) {
       const m = JSON.parse(e.data);
       if (m.id && m.id > lastChatId) {
         lastChatId = m.id;
+        appendChatMsg({...m, ts: ''});
         const cont = document.getElementById('chatMessages');
-        const div = document.createElement('div');
-        div.className = 'chat-msg';
-        const t = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-        div.innerHTML =
-          `<span class="author" style="color:${m.color || '#fff'}">${escapeHtml(m.pseudo)}</span>` +
-          `<span>${escapeHtml(m.message)}</span>` +
-          `<span class="ts">${t}</span>`;
-        cont.appendChild(div);
         cont.scrollTop = cont.scrollHeight;
       }
     } catch (_) {}
@@ -829,18 +900,12 @@ if (SESSION_ACTIVE && 'EventSource' in window) {
       const parsed = a.data || {};
       if (a.kind === 'stroke') {
         if (!strokesAll.find(s => s._id === a.id)) {
-          parsed._id = a.id;
-          parsed.pseudo = a.pseudo;
-          parsed.color  = a.color;
-          strokesAll.push(parsed);
-          redrawAll();
+          parsed._id = a.id; parsed.pseudo = a.pseudo; parsed.color = a.color;
+          strokesAll.push(parsed); redrawAll();
         }
       } else if (a.kind === 'clear') {
-        if (parsed.scope === 'all') {
-          strokesAll = [];
-        } else if (parsed.scope === 'mine') {
-          strokesAll = strokesAll.filter(s => s.pseudo !== a.pseudo);
-        }
+        if (parsed.scope === 'all') strokesAll = [];
+        else if (parsed.scope === 'mine') strokesAll = strokesAll.filter(s => s.pseudo !== a.pseudo);
         redrawAll();
       }
     } catch (_) {}
@@ -848,14 +913,12 @@ if (SESSION_ACTIVE && 'EventSource' in window) {
   es.addEventListener('player_update', e => {
     try {
       const u = JSON.parse(e.data);
-      const card = document.querySelector(`[data-role-key="${u.role}"]`);
+      const card = document.querySelector(`[data-side="${u.side}"][data-role-key="${u.role}"]`);
       if (!card) return;
-      const inp = card.querySelector('.riot-id-edit');
-      if (inp && document.activeElement !== inp) inp.value = u.riot_id;
-      renderPlayerBody(card, u.data);
+      renderPlayerCard(card, u.data);
     } catch (_) {}
   });
-  es.onerror = (e) => { /* auto-retry */ };
+  es.onerror = () => {};
 }
 </script>
 </body>

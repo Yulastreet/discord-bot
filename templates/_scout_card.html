@@ -1,0 +1,65 @@
+{# Card joueur (enemy ou ally). Variables: p (player dict), role_key #}
+{% set side = p.side or ('enemy' if loop and loop.first else 'enemy') %}
+{% set is_empty = not p.riot_id and not p.error %}
+<div class="player-card {{ side }}{{ ' empty' if is_empty }}"
+     data-side="{{ side }}"
+     data-role-key="{{ role_key }}">
+  <div class="card-head">
+    <div class="profile-icon"
+         {% if p.profile_icon_id is not none and p.profile_icon_id != '' %}
+           data-profile-icon-id="{{ p.profile_icon_id }}"
+         {% endif %}></div>
+    <div class="card-head-text">
+      <span class="role-tag {{ side }}">{{ role_key }}</span>
+      <h3>{{ p.game_name or '' }}{% if p.tag_line %}<small style="color:var(--muted);font-weight:500;">#{{ p.tag_line }}</small>{% endif %}</h3>
+      <input class="riot-id-edit" data-role="{{ role_key }}" data-side="{{ side }}"
+             value="{{ p.riot_id or '' }}"
+             placeholder="{% if side == 'ally' %}Ton Riot ID (Pseudo#TAG){% else %}Pseudo#TAG{% endif %}"
+             maxlength="32"
+             title="Edite + Entrée pour fetch">
+    </div>
+    <div class="rank-mini" data-tier="{{ p.tier or 'UNRANKED' }}"></div>
+  </div>
+
+  <div class="card-body">
+    {% if p.error %}
+      <div class="stat-line" style="color: var(--danger);">⚠️ {{ p.error }}</div>
+    {% elif is_empty %}
+      <div class="empty-pill">— Slot vide. Renseigne le Riot ID.</div>
+    {% else %}
+      <div class="stat-line"><span class="lbl">Niveau</span> <strong>{{ p.level or '?' }}</strong></div>
+      <div class="stat-line">{{ p.rank_line | safe }}</div>
+
+      <div class="stat-line"><span class="lbl">🔥 Pick récent</span></div>
+      <div class="champ-row">
+        {% for pick in p.recent or [] %}
+          <div class="champ-icon" data-slug="{{ pick.slug or '' }}"
+               data-count="x{{ pick.games }}"
+               title="{{ pick.champ }} ×{{ pick.games }}"></div>
+        {% else %}
+          <span class="empty-pill">—</span>
+        {% endfor %}
+      </div>
+
+      <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
+      <div class="champ-row">
+        {% for ban in p.top_wr or [] %}
+          <div class="champ-icon ban" data-slug="{{ ban.slug or '' }}"
+               data-wr="{{ '%.0f'|format(ban.wr) }}%"
+               title="{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% sur {{ ban.total }}g"></div>
+        {% else %}
+          <span class="empty-pill">—</span>
+        {% endfor %}
+      </div>
+
+      <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
+      <div class="champ-row">
+        {% for m in p.mastery or [] %}
+          <div class="champ-icon" data-slug="{{ m.slug or '' }}"
+               data-count="{{ m.pts }}"
+               title="{{ m.champ }} ({{ m.pts }})"></div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>

@@ -1570,16 +1570,25 @@ class ClashScoutModal(discord.ui.Modal, title="🔍 Scout Clash : renseigne 5 Ri
             entry["riot_id"] = raw_id
             scout_data.append(entry)
 
-        # Genere slug + sauvegarde session
+        # Genere slug + sauvegarde session avec structure :
+        #   scout_data = {"enemies": [...5...], "allies": [5 empty slots]}
         from web_app.routes.lol_scout import generate_scout_slug
         slug = generate_scout_slug()
         riot_ids_dict = {role: raw_id for role, _, raw_id in entries}
+        empty_allies = [
+            {"role": f"{emoji} {role}", "riot_id": "", "side": "ally"}
+            for role, emoji, _ in entries
+        ]
+        # On marque les enemies avec side="enemy" pour le rendu template
+        for entry in scout_data:
+            entry["side"] = "enemy"
+        scout_data_v2 = {"enemies": scout_data, "allies": empty_allies}
         lol_scout_session_create(
             slug=slug,
             owner_id=self.owner_id,
             platform=self.platform,
             riot_ids=riot_ids_dict,
-            scout_data=scout_data,
+            scout_data=scout_data_v2,
         )
         base_url = (os.getenv("DASHBOARD_BASE_URL")
                     or "https://dashboard.tookbot.click").rstrip("/")
@@ -1645,9 +1654,8 @@ async def _recent_champs_stats(platform: str, puuid: str, count: int = 20):
 
 
 async def _scout_player_data(platform: str, raw_riot_id: str) -> dict:
-    """Version structuree de _scout_player. Renvoie un dict avec niveau,
-    rank, recent picks, top_wr, mastery, pour stockage en DB et rendu
-    template."""
+    """Version structuree de _scout_player. Renvoie un dict riche pour
+    rendu HTML : icones champion, profile icon, rank tier etc."""
     import unicodedata as _u
     raw_riot_id = _u.normalize("NFC", raw_riot_id or "")
     raw_riot_id = "".join(c for c in raw_riot_id if _u.category(c) != "Cf")
@@ -1666,23 +1674,36 @@ async def _scout_player_data(platform: str, raw_riot_id: str) -> dict:
     puuid = account["puuid"]
     summ = await riot.summoner_by_puuid(platform, puuid)
     level = (summ or {}).get("summonerLevel")
-    # Rank
+    profile_icon_id = (summ or {}).get("profileIconId")
+
+    # Rank Solo/Duo
     try:
         entries = await riot.league_entries_by_puuid(platform, puuid)
     except Exception:
         entries = None
     entries = entries or []
     solo = next((e for e in entries if e.get("queueType") == "RANKED_SOLO_5x5"), None)
+    tier = (solo or {}).get("tier", "UNRANKED")
+    rank = (solo or {}).get("rank", "")
+    lp = (solo or {}).get("leaguePoints", 0)
+    wins = (solo or {}).get("wins", 0)
+    losses = (solo or {}).get("losses", 0)
+    wr = (wins / (wins + losses) * 100) if (wins + losses) else 0
     if solo:
-        tier_lbl = riot.rank_label_fr(solo.get("tier", "UNRANKED"), solo.get("rank", ""))
-        lp = solo.get("leaguePoints", 0)
-        wins = solo.get("wins", 0)
-        losses = solo.get("losses", 0)
-        wr = (wins / (wins + losses) * 100) if (wins + losses) else 0
+        tier_lbl = riot.rank_label_fr(tier, rank)
         rank_line = (f"<strong style='color:#caff37'>{tier_lbl}</strong> · "
                      f"{lp} LP · {wins}V/{losses}D ({wr:.1f}% WR)")
     else:
         rank_line = "<span style='color:#99a288'>Non classé Solo/Duo</span>"
+
+    # Resolve champion slug helper
+    await riot._dd_refresh()
+    champs_map = riot._DD_CACHE.get("champions", {})
+
+    def _slug(cid):
+        info = champs_map.get(int(cid))
+        return info["slug"] if info else None
+
     # Mastery
     try:
         masteries = await riot.mastery_top(platform, puuid, count=3)
@@ -1690,26 +1711,56 @@ async def _scout_player_data(platform: str, raw_riot_id: str) -> dict:
         masteries = None
     mastery_list = []
     for m in (masteries or [])[:3]:
-        cid = m.get("championId", 0)
+        cid = int(m.get("championId", 0))
         cname = await riot.champion_name(cid)
         pts = int(m.get("championPoints", 0))
-        mastery_list.append({"champ": cname, "pts": f"{pts // 1000}k"})
-    # Recent + top WR
+        mastery_list.append({
+            "id": cid,
+            "slug": _slug(cid),
+            "champ": cname,
+            "pts": f"{pts // 1000}k",
+            "pts_int": pts,
+            "level": m.get("championLevel", 0),
+        })
+
+    # Recent picks + top WR
     recent, top_wr = await _recent_champs_stats(platform, puuid, count=20)
     recent_list = []
     for cid, games in recent[:5]:
         cname = await riot.champion_name(cid)
-        recent_list.append({"champ": cname, "games": games})
+        recent_list.append({
+            "id": int(cid),
+            "slug": _slug(cid),
+            "champ": cname,
+            "games": games,
+        })
     top_wr_list = []
-    for cid, wins, total, wr in top_wr[:3]:
+    for cid, w, t, w_pct in top_wr[:3]:
         cname = await riot.champion_name(cid)
-        top_wr_list.append({"champ": cname, "wins": wins, "total": total, "wr": wr})
+        top_wr_list.append({
+            "id": int(cid),
+            "slug": _slug(cid),
+            "champ": cname,
+            "wins": w,
+            "total": t,
+            "wr": w_pct,
+        })
+
     return {
-        "level": level,
-        "rank_line": rank_line,
-        "mastery": mastery_list,
-        "recent": recent_list,
-        "top_wr": top_wr_list,
+        "game_name":       account.get("gameName") or game_name,
+        "tag_line":        account.get("tagLine") or tag_line,
+        "level":           level,
+        "profile_icon_id": profile_icon_id,
+        "tier":            tier,
+        "rank":            rank,
+        "lp":              lp,
+        "wins":            wins,
+        "losses":          losses,
+        "wr":              wr,
+        "rank_line":       rank_line,
+        "mastery":         mastery_list,
+        "recent":          recent_list,
+        "top_wr":          top_wr_list,
     }
 
 
