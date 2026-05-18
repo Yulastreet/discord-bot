@@ -153,17 +153,26 @@ async def _fetch_html_cffi(url: str, timeout: int = 15) -> Optional[str]:
 
 
 async def _get_session() -> aiohttp.ClientSession:
+    """Session aiohttp loop-aware : aiohttp.ClientSession est attache a un
+    event loop specifique. Si on appelle depuis un autre loop (ex: Flask
+    sync + asyncio.run), la session existante est inutilisable.
+    On detecte le mismatch et on recreate."""
     global _SESSION
-    if _SESSION and not _SESSION.closed:
-        return _SESSION
-    async with _LOCK:
-        if _SESSION and not _SESSION.closed:
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+    if _SESSION:
+        sess_loop = getattr(_SESSION, "_loop", None)
+        if not _SESSION.closed and sess_loop is current_loop:
             return _SESSION
-        _SESSION = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=15, connect=8),
-            headers={"User-Agent": _USER_AGENT},
-        )
-        return _SESSION
+        # Session inutilisable (closed ou autre loop) -> on drop
+        _SESSION = None
+    _SESSION = aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=15, connect=8),
+        headers={"User-Agent": _USER_AGENT},
+    )
+    return _SESSION
 
 
 def _key() -> Optional[str]:
