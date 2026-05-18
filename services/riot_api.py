@@ -603,10 +603,11 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
     import re as _re
     import json as _j
 
-    # Extrait toutes les phases d'items (Starter, Core, Boots, Late, Situational).
-    # Chaque phase est un dict LolChampionBuildItemsList.
+    # Extrait toutes les phases d'items (Starter, Early, Core, FullBuild, Boots,
+    # Situational, etc.). Chaque phase est un objet LolChampionBuildItemsList
+    # avec des champs supplementaires (slots, timeToTarget) apres items.
     phases = []
-    for m in _re.finditer(r'\{"__typename":"LolChampionBuildItemsList","type":"([^"]+)","items":\[([^\]]*)\]\}', html):
+    for m in _re.finditer(r'"__typename":"LolChampionBuildItemsList","type":"([^"]+)","items":\[([^\]]*)\]', html):
         ptype = m.group(1)
         try:
             ids = [int(x) for x in _re.findall(r'\d+', m.group(2))]
