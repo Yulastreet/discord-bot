@@ -44,6 +44,7 @@
         {% endfor %}
       </div>
 
+      {% if side == 'enemy' %}
       <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
       <div class="champ-row">
         {% for ban in p.top_wr or [] %}
@@ -58,6 +59,7 @@
           <span class="empty-pill">—</span>
         {% endfor %}
       </div>
+      {% endif %}
 
       <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
       <div class="champ-row">
@@ -71,6 +73,15 @@
           {% endif %}
         {% endfor %}
       </div>
+    {% endif %}
+
+    {% if side == 'ally' %}
+    <div class="ready-wrap">
+      <label class="ready-toggle{% if p.ready %} ready{% endif %}">
+        <input type="checkbox" class="ready-check" data-role="{{ role_key }}" {% if p.ready %}checked{% endif %}>
+        <span>✅ Je suis prêt</span>
+      </label>
+    </div>
     {% endif %}
   </div>
 </div>

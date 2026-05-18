@@ -285,6 +285,41 @@ def register_lol_scout_routes(app, deps):
         return jsonify({"ok": True, "data": new_entry})
 
 
+    # ===== Toggle ready d'un ally =====
+    @app.route("/api/scout/<slug>/ready", methods=["POST"])
+    def api_scout_ready(slug):
+        from database import get_db
+        sess = lol_scout_session_get(slug)
+        if not sess or sess["status"] != "active":
+            return jsonify({"error": "session_not_found"}), 404
+        data = request.get_json(silent=True) or {}
+        role = (data.get("role") or "").strip().upper()
+        ready = bool(data.get("ready"))
+        if role not in ("TOP", "JUNGLE", "MID", "ADC", "SUPPORT"):
+            return jsonify({"error": "bad_role"}), 400
+        try:
+            scout_data = _json.loads(sess["scout_data"] or "{}")
+        except Exception:
+            scout_data = {}
+        if isinstance(scout_data, list):
+            scout_data = {"enemies": scout_data, "allies": []}
+        allies = scout_data.get("allies") or []
+        for i, p in enumerate(allies):
+            r = (p.get("role") or "").upper()
+            if r.endswith(role):
+                allies[i]["ready"] = ready
+                break
+        scout_data["allies"] = allies
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("UPDATE lol_scout_sessions SET scout_data=? WHERE slug=?",
+                  (_json.dumps(scout_data), slug))
+        conn.commit()
+        conn.close()
+        _publish(slug, "ally_ready", {"role": role, "ready": ready})
+        return jsonify({"ok": True})
+
+
     # ===== Emblems tier servis depuis le cache local (croppe, ~256x256) =====
     @app.route("/assets/lol-emblem/<tier>")
     def lol_emblem_serve(tier):

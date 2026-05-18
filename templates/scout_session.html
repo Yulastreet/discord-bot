@@ -95,35 +95,35 @@
     padding-top: 4px;
   }
   .profile-icon {
-    width: 96px; height: 96px;
+    width: 120px; height: 120px;
     border-radius: 50%;
     border: 3px solid var(--border-strong);
     background: var(--bg-2) center / cover no-repeat;
     flex-shrink: 0;
     box-shadow:
       0 0 0 1px rgba(0,0,0,0.4),
-      0 0 32px 8px rgba(241,196,15,0.32);
+      0 0 40px 10px rgba(241,196,15,0.38);
   }
   .player-card.ally .profile-icon {
     box-shadow:
       0 0 0 1px rgba(0,0,0,0.4),
-      0 0 32px 8px rgba(155,89,182,0.45);
+      0 0 40px 10px rgba(155,89,182,0.50);
   }
   .rank-mini {
     position: absolute;
-    top: -16px;
+    top: -12px;
     right: -8px;
-    width: 92px; height: 92px;
+    width: 110px; height: 110px;
     background: center / contain no-repeat;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
   }
   .role-tag {
     display: inline-block;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 3px 12px;
+    letter-spacing: 0.12em;
+    padding: 4px 14px;
     border-radius: 8px;
     background: var(--bg-2);
   }
@@ -148,10 +148,10 @@
     border: 1px solid transparent;
     color: var(--text);
     font-family: inherit;
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 700;
-    padding: 5px 8px;
-    margin-top: 4px;
+    padding: 6px 10px;
+    margin-top: 6px;
     border-radius: 7px;
     width: 100%;
     text-align: center;
@@ -174,61 +174,91 @@
     min-height: 0;
   }
   .stat-line {
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 15px;
+    line-height: 1.5;
     color: var(--text);
     text-align: center;
   }
   .stat-line .lbl {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     display: inline-block;
-    margin-top: 2px;
+    margin-top: 4px;
   }
 
   .champ-row {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
   }
   .champ-icon {
-    width: 44px; height: 44px;
-    border-radius: 8px;
+    width: 58px; height: 58px;
+    border-radius: 10px;
     background: var(--bg-2) center / cover no-repeat;
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
     position: relative;
   }
   .champ-icon.ban { border-color: var(--danger); border-width: 2px; }
   .champ-icon[data-count]::after {
     content: attr(data-count);
     position: absolute;
-    bottom: -4px; right: -4px;
-    font-size: 11px;
+    bottom: -6px; right: -6px;
+    font-size: 12px;
     font-weight: 700;
     background: var(--bg-0);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 1px 5px;
+    padding: 2px 6px;
     color: var(--text);
     line-height: 1.1;
   }
   .champ-icon[data-wr]::after {
     content: attr(data-wr);
     position: absolute;
-    bottom: -4px; right: -4px;
-    font-size: 10px;
+    bottom: -6px; right: -6px;
+    font-size: 12px;
     font-weight: 800;
     background: var(--danger);
     color: #fff;
     border-radius: 8px;
-    padding: 2px 5px;
+    padding: 2px 6px;
     line-height: 1;
   }
   .empty-pill {
-    font-size: 10px; color: var(--muted);
+    font-size: 11px; color: var(--muted);
+  }
+
+  /* Ready toggle (ally only) */
+  .ready-wrap {
+    margin-top: auto;
+    padding-top: 10px;
+    display: flex;
+    justify-content: center;
+  }
+  .ready-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    background: var(--bg-2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    user-select: none;
+    transition: all 180ms;
+  }
+  .ready-toggle:hover { border-color: var(--ally); }
+  .ready-toggle input { display: none; }
+  .ready-toggle.ready {
+    border-color: #2ecc71;
+    color: #2ecc71;
+    background: rgba(46, 204, 113, 0.14);
+    box-shadow: 0 0 12px rgba(46,204,113,0.25);
   }
   .player-card.loading .card-body { opacity: 0.4; pointer-events: none; }
   .player-card.loading .riot-id-edit { border-color: var(--accent); }
@@ -701,28 +731,39 @@ function hydrateCardIcons(card) {
   });
 }
 
-function buildCardBodyHTML(p) {
+function buildCardBodyHTML(p, side, role) {
   if (p.error) {
     return `<div class="stat-line" style="color:var(--danger);">⚠️ ${escapeHtml(p.error)}</div>`;
   }
   const picks = (p.recent || []).map(x =>
     `<div class="champ-icon" data-slug="${escapeHtml(x.slug || '')}" data-count="x${x.games}" title="${escapeHtml(x.champ)} ×${x.games}"></div>`
   ).join('');
-  const bans = (p.top_wr || []).map(x =>
-    `<div class="champ-icon ban" data-slug="${escapeHtml(x.slug || '')}" data-wr="${Math.round(x.wr)}%" title="${escapeHtml(x.champ)} ${Math.round(x.wr)}% sur ${x.total}g"></div>`
-  ).join('');
+  const bansSection = (side === 'enemy') ? `
+    <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
+    <div class="champ-row">${(p.top_wr || []).map(x =>
+      `<div class="champ-icon ban" data-slug="${escapeHtml(x.slug || '')}" data-wr="${Math.round(x.wr)}%" title="${escapeHtml(x.champ)} ${Math.round(x.wr)}% sur ${x.total}g"></div>`
+    ).join('') || '<span class="empty-pill">—</span>'}</div>
+  ` : '';
   const mast = (p.mastery || []).map(m =>
     `<div class="champ-icon" data-slug="${escapeHtml(m.slug || '')}" data-count="${escapeHtml(m.pts || '')}" title="${escapeHtml(m.champ)} (${escapeHtml(m.pts || '')})"></div>`
   ).join('');
+  const readySection = (side === 'ally') ? `
+    <div class="ready-wrap">
+      <label class="ready-toggle${p.ready ? ' ready' : ''}">
+        <input type="checkbox" class="ready-check" data-role="${escapeHtml(role || '')}" ${p.ready ? 'checked' : ''}>
+        <span>✅ Je suis prêt</span>
+      </label>
+    </div>
+  ` : '';
   return `
     <div class="stat-line"><span class="lbl">Niveau</span> <strong>${p.level || '?'}</strong></div>
     <div class="stat-line">${p.rank_line || ''}</div>
     <div class="stat-line"><span class="lbl">🔥 Pick récent</span></div>
     <div class="champ-row">${picks || '<span class="empty-pill">—</span>'}</div>
-    <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
-    <div class="champ-row">${bans || '<span class="empty-pill">—</span>'}</div>
+    ${bansSection}
     <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
     <div class="champ-row">${mast || '<span class="empty-pill">—</span>'}</div>
+    ${readySection}
   `;
 }
 
@@ -754,16 +795,51 @@ function renderPlayerCard(card, p) {
   // Body
   const body = card.querySelector('.card-body');
   if (body) {
+    const side = card.dataset.side;
+    const role = card.dataset.roleKey;
     if (isEmpty) {
-      body.innerHTML = '<div class="empty-pill">— Slot vide. Renseigne le Riot ID.</div>';
+      let html = '<div class="empty-pill">— Slot vide. Renseigne le Riot ID.</div>';
+      if (side === 'ally') {
+        html += `
+          <div class="ready-wrap">
+            <label class="ready-toggle">
+              <input type="checkbox" class="ready-check" data-role="${escapeHtml(role)}">
+              <span>✅ Je suis prêt</span>
+            </label>
+          </div>`;
+      }
+      body.innerHTML = html;
       card.classList.add('empty');
     } else {
-      body.innerHTML = buildCardBodyHTML(p);
+      body.innerHTML = buildCardBodyHTML(p, side, role);
       card.classList.remove('empty');
       hydrateCardIcons(card);
     }
+    bindReadyChecks();
   }
 }
+
+// Bind ready checkboxes
+function bindReadyChecks() {
+  document.querySelectorAll('.ready-check').forEach(check => {
+    if (check._bound) return;
+    check._bound = true;
+    check.addEventListener('change', async () => {
+      const role = check.dataset.role;
+      const ready = check.checked;
+      const label = check.closest('.ready-toggle');
+      label.classList.toggle('ready', ready);
+      try {
+        await fetch(`/api/scout/${SLUG}/ready`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({role, ready}),
+        });
+      } catch (_) {}
+    });
+  });
+}
+bindReadyChecks();
 
 // Bind edit Enter sur tous les inputs
 document.querySelectorAll('.riot-id-edit').forEach(inp => {
@@ -1078,6 +1154,18 @@ if (SESSION_ACTIVE && 'EventSource' in window) {
       if (!card) return;
       renderPlayerCard(card, u.data);
       if (u.side === 'enemy') rebuildBansSynthesis();
+      bindReadyChecks();
+    } catch (_) {}
+  });
+  es.addEventListener('ally_ready', e => {
+    try {
+      const u = JSON.parse(e.data);
+      const card = document.querySelector(`.player-card.ally[data-role-key="${u.role}"]`);
+      if (!card) return;
+      const check = card.querySelector('.ready-check');
+      const label = card.querySelector('.ready-toggle');
+      if (check && document.activeElement !== check) check.checked = !!u.ready;
+      if (label) label.classList.toggle('ready', !!u.ready);
     } catch (_) {}
   });
   es.onerror = () => {};
