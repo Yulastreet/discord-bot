@@ -495,8 +495,12 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
               fill=(200, 215, 180, 130), anchor="rb")
 
+    # Resize final compact (notification levelup, pas la carte /niveau).
+    # Ratio identique : 1024x320 -> 512x160 (50%).
+    final = base.resize((512, 160), Image.LANCZOS)
+
     buf = io.BytesIO()
-    base.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
+    final.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
     buf.seek(0)
     return buf
 
