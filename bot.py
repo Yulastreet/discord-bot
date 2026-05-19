@@ -468,12 +468,42 @@ async def play_next(voice_client, channel, guild_id):
         music_state_clear_current(str(guild_id))
 
 
+# ===== FEATURE GUARD TREE =====
+class FeatureGuardTree(app_commands.CommandTree):
+    """CommandTree avec verification de feature par guild avant chaque slash command."""
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not interaction.guild or not interaction.data:
+            return True
+
+        root_name = (interaction.data or {}).get("name", "")
+        if not root_name:
+            return True
+
+        from services.feature_guard import COMMAND_FEATURE_MAP, get_feature_label
+        from database import guild_setting_get
+
+        feature_key = COMMAND_FEATURE_MAP.get(root_name)
+        if feature_key is None:
+            return True
+
+        enabled = guild_setting_get(str(interaction.guild.id), feature_key, "1") == "1"
+        if not enabled:
+            label = get_feature_label(feature_key)
+            await interaction.response.send_message(
+                f"Cette fonctionnalité **{label}** est désactivée sur ce serveur par les administrateurs.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
+
 # ===== BOT =====
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents, tree_cls=FeatureGuardTree)
 
 
 # ===== LANCEMENT =====

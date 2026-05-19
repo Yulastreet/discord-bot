@@ -156,6 +156,46 @@ def register_admin_routes(app, deps):
         return jsonify({"success": True, "command_id": cid})
 
 
+    @app.route("/features")
+    def features_page():
+        from services.feature_guard import FEATURE_REGISTRY
+        g_id = gid()
+        settings = guild_settings_all(g_id)
+        return render_template("features.html",
+                               active_nav="features",
+                               feature_registry=FEATURE_REGISTRY,
+                               settings=settings)
+
+    @app.route("/api/guild-features", methods=["GET"])
+    def api_guild_features_get():
+        from services.feature_guard import FEATURE_REGISTRY, FEATURE_KEYS
+        g_id = gid()
+        settings = guild_settings_all(g_id)
+        features = []
+        for f in FEATURE_REGISTRY:
+            features.append({
+                **f,
+                "enabled": settings.get(f["key"], "1") == "1",
+            })
+        return jsonify({"features": features})
+
+    @app.route("/api/guild-features", methods=["POST"])
+    def api_guild_features_set():
+        from services.feature_guard import FEATURE_KEYS
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        key   = (data.get("key") or "").strip()
+        value = data.get("value")
+        if key not in FEATURE_KEYS:
+            return jsonify({"error": "cle invalide"}), 400
+        if value is None:
+            return jsonify({"error": "value requis"}), 400
+        val_str = "1" if str(value) in ("1", "true", "True", "on") else "0"
+        guild_setting_set(g_id, key, val_str)
+        return jsonify({"success": True, "key": key, "value": val_str})
+
     @app.route("/moderation")
     def moderation_page():
         return render_template("moderation.html")

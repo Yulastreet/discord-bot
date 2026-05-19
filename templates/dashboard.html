@@ -16,23 +16,17 @@
   </div>
 </section>
 
-<section class="card mb-6" id="guildSettingsCard">
-  <div class="card-row" style="align-items:flex-start;gap:var(--s-5);flex-wrap:wrap;">
-    <div style="flex:1;min-width:260px;">
-      <h2 style="margin:0;">Système d'XP</h2>
+<section class="card mb-6" style="border-color:var(--border-soft);">
+  <div class="card-row" style="align-items:center;gap:var(--s-5);flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <h2 style="margin:0;font-size:var(--t-lg);">Gérer les fonctionnalités</h2>
       <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">
-        Active ou désactive le gain d'XP sur ce serveur. Les niveaux acquis restent conservés.
+        Active ou désactive chaque module du bot pour ce serveur.
       </p>
     </div>
-    <div class="row gap-2" style="align-items:center;">
-      <select id="xpEnabledSelect" style="min-width:180px;">
-        <option value="1">⭐ Activé</option>
-        <option value="0">⏸ Désactivé</option>
-      </select>
-      <button class="btn btn-primary btn-sm" id="xpEnabledSave" type="button" disabled>
-        <svg class="ic"><use href="#i-check"/></svg> Sauvegarder
-      </button>
-    </div>
+    <a href="/features" class="btn btn-primary btn-sm">
+      <svg class="ic"><use href="#i-power"/></svg> Fonctionnalités
+    </a>
   </div>
 </section>
 
@@ -247,46 +241,6 @@
       if (!ticking) { requestAnimationFrame(update); ticking = true; }
     }, { passive: true });
     update();
-  })();
-
-  // ----- XP setting (per-guild, dropdown + save) -----
-  (function() {
-    const select = document.getElementById('xpEnabledSelect');
-    const btn    = document.getElementById('xpEnabledSave');
-    if (!select || !btn) return;
-    let saved = "1";
-
-    function refreshDirty() {
-      btn.disabled = (select.value === saved);
-    }
-
-    fetch('/api/guild-settings').then(r => r.json()).then(data => {
-      saved = (data.settings || {}).xp_enabled === "0" ? "0" : "1";
-      select.value = saved;
-      refreshDirty();
-    }).catch(() => {});
-
-    select.addEventListener('change', refreshDirty);
-
-    btn.addEventListener('click', () => {
-      const val = select.value;
-      btn.disabled = true;
-      btn.textContent = "Sauvegarde...";
-      fetch('/api/guild-settings', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({xp_enabled: val}),
-      }).then(r => r.json()).then(() => {
-        saved = val;
-        btn.innerHTML = '<svg class="ic"><use href="#i-check"/></svg> Sauvegarder';
-        refreshDirty();
-        if (window.toast) window.toast(val === "1" ? "XP activé sur ce serveur" : "XP désactivé sur ce serveur");
-      }).catch(() => {
-        btn.innerHTML = '<svg class="ic"><use href="#i-check"/></svg> Sauvegarder';
-        btn.disabled = false;
-        if (window.toast) window.toast("Erreur lors de la sauvegarde", 3000);
-      });
-    });
   })();
 
   // ----- Heatmap interactive : click une cellule -> popover detail -----

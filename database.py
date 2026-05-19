@@ -1558,7 +1558,21 @@ def get_all_settings():
 
 
 GUILD_DEFAULT_SETTINGS = {
-    "xp_enabled": "1",
+    "xp_enabled":      "1",
+    "music":           "1",
+    "giveaway":        "1",
+    "fun":             "1",
+    "moderation_cmds": "1",
+    "tickets":         "1",
+    "welcome":         "1",
+    "rolereaction":    "1",
+    "reactions":       "1",
+    "social_alerts":   "1",
+    "custom_commands": "1",
+    "poll":            "1",
+    "cs2":             "1",
+    "lol":             "1",
+    "duels":           "1",
 }
 
 def guild_setting_get(guild_id, key, default=None):
