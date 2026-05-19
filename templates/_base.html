@@ -1183,8 +1183,13 @@
       if (!gameState || !gameState.running) return;
 
       // Delta-time : framerate independant (60Hz vs 144Hz)
-      if (!gameState.lastTime) gameState.lastTime = now;
+      if (typeof now !== 'number' || !gameState.lastTime) {
+        gameState.lastTime = now || performance.now();
+        gameState.raf = requestAnimationFrame(loop);
+        return;
+      }
       var dt = (now - gameState.lastTime) / 16.667;  // 1.0 a 60fps
+      if (!isFinite(dt) || dt < 0) dt = 1;
       if (dt > 3) dt = 3;  // clamp tab background long
       gameState.lastTime = now;
 
@@ -1298,7 +1303,7 @@
       gameState.raf = requestAnimationFrame(loop);
     }
 
-    loop();
+    gameState.raf = requestAnimationFrame(loop);
   }
 
   function stopGame() {
