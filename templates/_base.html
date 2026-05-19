@@ -226,6 +226,7 @@
     }
   </style>
   {% block extra_head %}{% endblock %}
+  {% block feature_meta %}{% endblock %}
 </head>
 <body>
 
@@ -837,6 +838,74 @@
 </script>
 
 {% block scripts %}{% endblock %}
+
+<!-- ============ FEATURE GATE OVERLAY ============ -->
+<div id="featureGateOverlay" style="display:none;position:fixed;inset:0;z-index:800;
+     background:oklch(0 0 0 / 0.75);backdrop-filter:blur(4px);
+     -webkit-backdrop-filter:blur(4px);
+     display:none;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-0,#0d0d0b);border:1px solid oklch(0.86 0.20 130 / 0.55);
+              border-radius:var(--r-3,14px);
+              box-shadow:0 0 0 1px oklch(0.86 0.20 130 / 0.12),
+                         0 8px 56px oklch(0.86 0.20 130 / 0.22),
+                         0 0 80px oklch(0.86 0.20 130 / 0.08);
+              padding:48px 44px;text-align:center;max-width:380px;width:90%;">
+    <!-- Logo + glow -->
+    <div style="position:relative;width:80px;height:80px;margin:0 auto 28px;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;inset:-18px;border-radius:50%;
+                  background:radial-gradient(circle,oklch(0.86 0.20 130 / .5) 0%,transparent 68%);
+                  filter:blur(14px);animation:fg-pulse 3s ease-in-out infinite;"></div>
+      <img src="/static/icon-landing.png" alt=""
+           style="position:relative;width:80px;height:80px;border-radius:16px;object-fit:cover;z-index:1;"
+           onerror="this.style.display='none'">
+    </div>
+    <!-- Titre -->
+    <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.01em;margin-bottom:10px;">
+      Fonctionnalité désactivée
+    </div>
+    <!-- Sous-titre -->
+    <div style="font-size:var(--t-sm,13px);color:var(--text-2);line-height:1.6;margin-bottom:28px;">
+      Cette fonctionnalité a été désactivée sur ce serveur par un administrateur.
+    </div>
+    <!-- Bouton -->
+    <a href="/features"
+       style="display:inline-flex;align-items:center;gap:8px;
+              padding:10px 20px;
+              background:oklch(0.86 0.20 130);
+              color:#0a0d08;
+              border-radius:999px;
+              font-size:var(--t-sm,13px);font-weight:700;
+              text-decoration:none;
+              letter-spacing:0.03em;
+              box-shadow:0 4px 16px oklch(0.86 0.20 130 / .3);
+              transition:transform 120ms ease,box-shadow 120ms ease;">
+      Pour la réactiver, cliquer ici
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</div>
+<style>
+  @keyframes fg-pulse {
+    0%, 100% { opacity: .75; transform: scale(1); }
+    50%       { opacity: 1;  transform: scale(1.1); }
+  }
+</style>
+<script>
+(function() {
+  var meta = document.querySelector('meta[name="feature-key"]');
+  if (!meta || !meta.content) return;
+  var key = meta.content;
+  var overlay = document.getElementById('featureGateOverlay');
+  if (!overlay) return;
+  fetch('/api/guild-features').then(function(r) { return r.json(); }).then(function(data) {
+    var feat = (data.features || []).find(function(f) { return f.key === key; });
+    if (!feat || feat.enabled) return;
+    overlay.style.display = 'flex';
+  }).catch(function() {});
+})();
+</script>
 
 </body>
 </html>
