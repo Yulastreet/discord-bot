@@ -840,62 +840,116 @@
 {% block scripts %}{% endblock %}
 
 <!-- ============ FEATURE GATE OVERLAY ============ -->
-<div id="featureGateOverlay" style="display:none;position:fixed;inset:0;z-index:800;
-     background:oklch(0 0 0 / 0.82);backdrop-filter:blur(4px);
-     -webkit-backdrop-filter:blur(4px);
-     align-items:center;justify-content:center;">
-  <div style="background:#0a0d08;
-              border-radius:var(--r-3,14px);
-              box-shadow:0 0 40px 8px oklch(0.86 0.20 130 / 0.28),
-                         0 0 100px 20px oklch(0.86 0.20 130 / 0.10);
-              padding:48px 44px;text-align:center;max-width:380px;width:90%;">
-    <!-- Logo + glow statique -->
-    <div style="position:relative;width:80px;height:80px;margin:0 auto 28px;display:flex;align-items:center;justify-content:center;">
-      <div style="position:absolute;inset:-20px;border-radius:50%;
-                  background:radial-gradient(circle,oklch(0.86 0.20 130 / .45) 0%,transparent 65%);
-                  filter:blur(16px);"></div>
-      <img src="/static/icon-landing.png" alt=""
-           style="position:relative;width:80px;height:80px;border-radius:16px;object-fit:cover;z-index:1;"
-           onerror="this.style.display='none'">
-    </div>
-    <!-- Titre -->
-    <div style="font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.01em;margin-bottom:10px;">
-      Fonctionnalité désactivée
-    </div>
-    <!-- Sous-titre -->
-    <div style="font-size:var(--t-sm,13px);color:var(--text-2);line-height:1.6;margin-bottom:28px;">
-      Cette fonctionnalité a été désactivée sur ce serveur par un administrateur.
-    </div>
-    <!-- Bouton -->
-    <a href="/features"
-       style="display:inline-flex;align-items:center;gap:8px;
-              padding:10px 20px;
-              background:oklch(0.86 0.20 130);
-              color:#0a0d08;
-              border-radius:999px;
-              font-size:var(--t-sm,13px);font-weight:700;
-              text-decoration:none;
-              letter-spacing:0.03em;
-              box-shadow:0 4px 16px oklch(0.86 0.20 130 / .3);
-              transition:transform 120ms ease,box-shadow 120ms ease;">
-      Pour la réactiver, cliquer ici
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
-      </svg>
-    </a>
-  </div>
-</div>
+<style>
+  .fg-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 200;
+    background: oklch(0 0 0 / 0.84);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .fg-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  /* Logo */
+  .fg-logo-wrap {
+    position: relative;
+    width: 80px; height: 80px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 28px;
+  }
+  .fg-logo-glow {
+    position: absolute;
+    inset: -22px;
+    border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.86 0.20 130 / .5) 0%, transparent 65%);
+    filter: blur(18px);
+  }
+  .fg-logo-wrap img {
+    position: relative;
+    width: 80px; height: 80px;
+    border-radius: 16px;
+    object-fit: cover;
+    z-index: 1;
+  }
+  /* Titre avec glow lime */
+  .fg-title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: #ffffff;
+    text-shadow:
+      0 0 6px  oklch(0.86 0.20 130),
+      0 0 16px oklch(0.86 0.20 130 / .85),
+      0 0 36px oklch(0.86 0.20 130 / .55),
+      0 0 70px oklch(0.86 0.20 130 / .25);
+    margin-bottom: 12px;
+  }
+  /* Sous-titre discret */
+  .fg-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 300px;
+  }
+  /* Bouton */
+  .fg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    background: oklch(0.86 0.20 130);
+    color: #0a0d08;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    box-shadow: 0 4px 18px oklch(0.86 0.20 130 / .35);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .fg-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px oklch(0.86 0.20 130 / .5);
+    color: #0a0d08;
+  }
+</style>
 <script>
 (function() {
   var meta = document.querySelector('meta[name="feature-key"]');
   if (!meta || !meta.content) return;
   var key = meta.content;
-  var overlay = document.getElementById('featureGateOverlay');
-  if (!overlay) return;
   fetch('/api/guild-features').then(function(r) { return r.json(); }).then(function(data) {
     var feat = (data.features || []).find(function(f) { return f.key === key; });
     if (!feat || feat.enabled) return;
-    overlay.style.display = 'flex';
+    var main = document.querySelector('main.main');
+    if (!main) return;
+    main.style.position = 'relative';
+    var ov = document.createElement('div');
+    ov.className = 'fg-overlay';
+    ov.innerHTML =
+      '<div class="fg-inner">' +
+        '<div class="fg-logo-wrap">' +
+          '<div class="fg-logo-glow"></div>' +
+          '<img src="/static/icon-landing.png" alt="" onerror="this.style.display=\'none\'">' +
+        '</div>' +
+        '<div class="fg-title">Fonctionnalité désactivée</div>' +
+        '<div class="fg-sub">Cette fonctionnalité a été désactivée sur ce serveur par un administrateur.</div>' +
+        '<a href="/features" class="fg-btn">' +
+          'Pour la réactiver, cliquer ici' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>' +
+        '</a>' +
+      '</div>';
+    main.appendChild(ov);
   }).catch(function() {});
 })();
 </script>
