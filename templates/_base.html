@@ -1064,8 +1064,12 @@
       stars: [],
       groundOffset: 0,
       speed: 6,            // Chrome dino: SPEED
-      maxSpeed: 24,        // 2x Chrome dino : reste interessant plus longtemps
-      acceleration: 0.01,  // 6 -> 24 en ~30s
+      maxSpeed: 24,        // 2x Chrome dino
+      // Paliers : target speed jumps tous les ~30s, vitesse rejoint target en douceur
+      palierStep: 1800,    // 30s a 60fps (score est en frames)
+      palierBump: 3,       // +3 par palier (6 paliers pour atteindre 24)
+      paliers: [0, 30, 60, 90, 120, 150, 180],  // secondes (info)
+      approachRate: 0.05,  // vitesse de convergence vers la target
       gravity: 0.55,
       jumpVelocity: -8.5,  // robot saute juste un peu plus haut que l'obstacle max
       score: 0,
@@ -1120,14 +1124,62 @@
     canvas.addEventListener('click', jump);
 
     function spawnObstacle() {
-      var double = Math.random() < 0.18 && gameState.speed > 8;
-      // hauteur reduite pour que le robot puisse sauter par-dessus sans saut max
+      // Oiseaux apparaissent apres speed > 9 (~30s+), 30% des spawns
+      if (gameState.speed > 9 && Math.random() < 0.30) {
+        spawnBird();
+        return;
+      }
+      var double = Math.random() < 0.18 && gameState.speed > 12;
       var h = 18 + Math.floor(Math.random() * 16);  // 18 a 33
       var w = 12 + Math.floor(Math.random() * 8);
-      gameState.obstacles.push({ x: W, y: GROUND_Y - h, w: w, h: h });
+      gameState.obstacles.push({ x: W, y: GROUND_Y - h, w: w, h: h, kind: 'pillar' });
       if (double) {
-        gameState.obstacles.push({ x: W + w + 4, y: GROUND_Y - h, w: w, h: h });
+        gameState.obstacles.push({ x: W + w + 4, y: GROUND_Y - h, w: w, h: h, kind: 'pillar' });
       }
+    }
+
+    function spawnBird() {
+      // Deux niveaux : high (faut PAS sauter) ou low (faut sauter)
+      var highBird = Math.random() < 0.55;
+      var y = highBird ? (GROUND_Y - 54) : (GROUND_Y - 22);
+      gameState.obstacles.push({
+        x: W, y: y, w: 22, h: 12,
+        kind: 'bird',
+        flapPhase: Math.random() * 100,
+      });
+    }
+
+    function drawBird(o, tick) {
+      var wing = Math.floor((tick + o.flapPhase) / 7) % 2;
+      var bx = o.x, by = o.y;
+      // Body
+      ctx.fillStyle = LIME;
+      ctx.fillRect(bx + 5, by + 4, 12, 5);
+      // Head
+      ctx.fillRect(bx + 15, by + 2, 5, 5);
+      // Beak
+      ctx.fillRect(bx + 19, by + 4, 3, 2);
+      // Tail
+      ctx.fillRect(bx + 2, by + 5, 4, 3);
+      // Eye
+      ctx.fillStyle = '#0a0d08';
+      ctx.fillRect(bx + 17, by + 3, 1, 1);
+      // Wings (flap)
+      ctx.fillStyle = LIME;
+      if (wing === 0) {
+        // Wings up
+        ctx.fillRect(bx + 7, by - 4, 9, 3);
+        ctx.fillRect(bx + 9, by - 6, 5, 2);
+      } else {
+        // Wings down
+        ctx.fillRect(bx + 7, by + 9, 9, 3);
+        ctx.fillRect(bx + 9, by + 11, 5, 2);
+      }
+      // Glow subtil
+      ctx.shadowColor = LIME;
+      ctx.shadowBlur = 6;
+      ctx.fillRect(bx + 5, by + 4, 12, 5);
+      ctx.shadowBlur = 0;
     }
 
     function drawRobot(x, y, dead) {
@@ -1266,24 +1318,29 @@
             break;
           }
         }
-        // Score + speed up : valeurs Chrome dino (ACCELERATION 0.001/frame@60fps, MAX_SPEED 12)
+        // Score + speed up par paliers (target step tous les palierStep frames)
         gameState.score += dt;
-        if (gameState.speed < gameState.maxSpeed) {
-          gameState.speed += gameState.acceleration * dt;
+        var palier = Math.floor(gameState.score / gameState.palierStep);
+        var targetSpeed = Math.min(gameState.maxSpeed, 6 + palier * gameState.palierBump);
+        if (gameState.speed < targetSpeed) {
+          gameState.speed = Math.min(targetSpeed, gameState.speed + gameState.approachRate * dt);
         }
       }
 
-      // Obstacles (lime pillars with glow)
+      // Obstacles (pillars ou birds)
       for (var m = 0; m < gameState.obstacles.length; m++) {
         var ob = gameState.obstacles[m];
-        ctx.shadowColor = LIME;
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = LIME;
-        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
-        ctx.shadowBlur = 0;
-        // Inner darker stripe
-        ctx.fillStyle = LIME_DIM;
-        ctx.fillRect(ob.x + 2, ob.y + 2, ob.w - 4, 3);
+        if (ob.kind === 'bird') {
+          drawBird(ob, gameState.tick);
+        } else {
+          ctx.shadowColor = LIME;
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = LIME;
+          ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = LIME_DIM;
+          ctx.fillRect(ob.x + 2, ob.y + 2, ob.w - 4, 3);
+        }
       }
 
       // Robot
