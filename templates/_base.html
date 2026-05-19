@@ -1083,7 +1083,7 @@
     function jump() {
       if (gameState.gameOver) { restart(); return; }
       if (!gameState.robot.jumping) {
-        gameState.robot.vy = -14;
+        gameState.robot.vy = -11;
         gameState.robot.jumping = true;
         gameState.jumpHeld = true;
       }
@@ -1111,9 +1111,9 @@
     };
     gameState.keyUpHandler = function(e) {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
-        // Jump cut : si encore en montee au relachement, on coupe la vitesse
+        // Jump cut : si encore en montee au relachement, coupe la vitesse
         if (gameState && gameState.robot.vy < 0) {
-          gameState.robot.vy *= 0.4;
+          gameState.robot.vy *= 0.5;
         }
         gameState.jumpHeld = false;
       }
@@ -1220,8 +1220,8 @@
 
       if (!gameState.gameOver) {
         gameState.tick++;
-        // Physics : gravite reduite tant que SPACE tenu et on monte
-        var g = (gameState.jumpHeld && gameState.robot.vy < 0) ? 0.55 : 0.95;
+        // Physics : valeurs Chrome dino (GRAVITY 0.6), reduite tant que SPACE tenu en montee
+        var g = (gameState.jumpHeld && gameState.robot.vy < 0) ? 0.35 : 0.6;
         gameState.robot.vy += g;
         gameState.robot.y += gameState.robot.vy;
         if (gameState.robot.y >= GROUND_Y) {
@@ -1249,10 +1249,10 @@
             break;
           }
         }
-        // Score + speed up (ramp doux, cap 14)
+        // Score + speed up : valeurs Chrome dino (acceleration 0.001/tick, cap 13)
         gameState.score++;
-        if (gameState.score % 150 === 0 && gameState.speed < 14) {
-          gameState.speed += 0.35;
+        if (gameState.speed < 13) {
+          gameState.speed += 0.001;
         }
       }
 
