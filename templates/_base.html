@@ -1063,7 +1063,7 @@
       obstacles: [],
       stars: [],
       groundOffset: 0,
-      speed: 6,
+      speed: 7,
       score: 0,
       gameOver: false,
       nextObs: 100,
@@ -1082,7 +1082,7 @@
     function jump() {
       if (gameState.gameOver) { restart(); return; }
       if (!gameState.robot.jumping) {
-        gameState.robot.vy = -13.5;
+        gameState.robot.vy = -16;
         gameState.robot.jumping = true;
       }
     }
@@ -1092,7 +1092,7 @@
       gameState.robot.vy = 0;
       gameState.robot.jumping = false;
       gameState.obstacles = [];
-      gameState.speed = 6;
+      gameState.speed = 7;
       gameState.score = 0;
       gameState.gameOver = false;
       gameState.nextObs = 100;
@@ -1206,8 +1206,8 @@
 
       if (!gameState.gameOver) {
         gameState.tick++;
-        // Physics
-        gameState.robot.vy += 0.72;
+        // Physics (gravity tuned for snappy jump)
+        gameState.robot.vy += 1.05;
         gameState.robot.y += gameState.robot.vy;
         if (gameState.robot.y >= GROUND_Y) {
           gameState.robot.y = GROUND_Y;
@@ -1234,9 +1234,11 @@
             break;
           }
         }
-        // Score + speed up
+        // Score + speed up (ramp aggressif, cap 22)
         gameState.score++;
-        if (gameState.score % 240 === 0) gameState.speed += 0.45;
+        if (gameState.score % 90 === 0 && gameState.speed < 22) {
+          gameState.speed += 0.6;
+        }
       }
 
       // Obstacles (lime pillars with glow)
