@@ -1063,11 +1063,12 @@
       obstacles: [],
       stars: [],
       groundOffset: 0,
-      speed: 7,
+      speed: 6,
       score: 0,
       gameOver: false,
       nextObs: 100,
       tick: 0,
+      jumpHeld: false,
     };
 
     // Pre-seed stars
@@ -1082,8 +1083,9 @@
     function jump() {
       if (gameState.gameOver) { restart(); return; }
       if (!gameState.robot.jumping) {
-        gameState.robot.vy = -16;
+        gameState.robot.vy = -14;
         gameState.robot.jumping = true;
+        gameState.jumpHeld = true;
       }
     }
 
@@ -1092,20 +1094,32 @@
       gameState.robot.vy = 0;
       gameState.robot.jumping = false;
       gameState.obstacles = [];
-      gameState.speed = 7;
+      gameState.speed = 6;
       gameState.score = 0;
       gameState.gameOver = false;
       gameState.nextObs = 100;
       gameState.tick = 0;
+      gameState.jumpHeld = false;
     }
 
     gameState.keyHandler = function(e) {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
+        if (e.repeat) return;
         jump();
       }
     };
+    gameState.keyUpHandler = function(e) {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        // Jump cut : si encore en montee au relachement, on coupe la vitesse
+        if (gameState && gameState.robot.vy < 0) {
+          gameState.robot.vy *= 0.4;
+        }
+        gameState.jumpHeld = false;
+      }
+    };
     window.addEventListener('keydown', gameState.keyHandler);
+    window.addEventListener('keyup',   gameState.keyUpHandler);
     canvas.addEventListener('click', jump);
 
     function spawnObstacle() {
@@ -1206,8 +1220,9 @@
 
       if (!gameState.gameOver) {
         gameState.tick++;
-        // Physics (gravity tuned for snappy jump)
-        gameState.robot.vy += 1.05;
+        // Physics : gravite reduite tant que SPACE tenu et on monte
+        var g = (gameState.jumpHeld && gameState.robot.vy < 0) ? 0.55 : 0.95;
+        gameState.robot.vy += g;
         gameState.robot.y += gameState.robot.vy;
         if (gameState.robot.y >= GROUND_Y) {
           gameState.robot.y = GROUND_Y;
@@ -1234,10 +1249,10 @@
             break;
           }
         }
-        // Score + speed up (ramp aggressif, cap 22)
+        // Score + speed up (ramp doux, cap 14)
         gameState.score++;
-        if (gameState.score % 90 === 0 && gameState.speed < 22) {
-          gameState.speed += 0.6;
+        if (gameState.score % 150 === 0 && gameState.speed < 14) {
+          gameState.speed += 0.35;
         }
       }
 
@@ -1290,7 +1305,8 @@
     if (!gameState) return;
     gameState.running = false;
     if (gameState.raf) cancelAnimationFrame(gameState.raf);
-    if (gameState.keyHandler) window.removeEventListener('keydown', gameState.keyHandler);
+    if (gameState.keyHandler)   window.removeEventListener('keydown', gameState.keyHandler);
+    if (gameState.keyUpHandler) window.removeEventListener('keyup',   gameState.keyUpHandler);
     var canvas = document.getElementById('eeCanvas');
     if (canvas) {
       var ctx = canvas.getContext('2d');
