@@ -986,7 +986,7 @@
                 margin-top:14px;font-size:12px;color:rgba(255,255,255,0.55);
                 font-family:var(--font-mono,monospace);letter-spacing:0.06em;">
       <span><strong style="color:rgba(255,255,255,0.85);">SPACE</strong> ou <strong style="color:rgba(255,255,255,0.85);">↑</strong> pour sauter · <strong style="color:rgba(255,255,255,0.85);">ESC</strong> pour quitter</span>
-      <span id="eeScore" style="color:oklch(0.86 0.20 130);font-weight:700;font-size:14px;">0000</span>
+      <span id="eeScore" style="color:oklch(0.86 0.20 130);font-weight:700;font-size:14px;">00000</span>
     </div>
   </div>
 </div>
@@ -1063,12 +1063,16 @@
       obstacles: [],
       stars: [],
       groundOffset: 0,
-      speed: 6,
+      speed: 6,            // Chrome dino: SPEED
+      maxSpeed: 12,        // Chrome dino: MAX_SPEED
+      acceleration: 0.001, // Chrome dino: ACCELERATION (per frame@60fps)
+      gravity: 0.55,
+      jumpVelocity: -8.5,  // robot saute juste un peu plus haut que l'obstacle max
       score: 0,
       gameOver: false,
       nextObs: 100,
       tick: 0,
-      jumpHeld: false,
+      lastTime: 0,
     };
 
     // Pre-seed stars
@@ -1083,9 +1087,8 @@
     function jump() {
       if (gameState.gameOver) { restart(); return; }
       if (!gameState.robot.jumping) {
-        gameState.robot.vy = -11;
+        gameState.robot.vy = gameState.jumpVelocity;
         gameState.robot.jumping = true;
-        gameState.jumpHeld = true;
       }
     }
 
@@ -1099,7 +1102,7 @@
       gameState.gameOver = false;
       gameState.nextObs = 100;
       gameState.tick = 0;
-      gameState.jumpHeld = false;
+      gameState.lastTime = 0;
     }
 
     gameState.keyHandler = function(e) {
@@ -1109,23 +1112,14 @@
         jump();
       }
     };
-    gameState.keyUpHandler = function(e) {
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
-        // Jump cut : si encore en montee au relachement, coupe la vitesse
-        if (gameState && gameState.robot.vy < 0) {
-          gameState.robot.vy *= 0.5;
-        }
-        gameState.jumpHeld = false;
-      }
-    };
     window.addEventListener('keydown', gameState.keyHandler);
-    window.addEventListener('keyup',   gameState.keyUpHandler);
     canvas.addEventListener('click', jump);
 
     function spawnObstacle() {
-      var double = Math.random() < 0.18 && gameState.speed > 7;
-      var h = 22 + Math.floor(Math.random() * 24);
-      var w = 14 + Math.floor(Math.random() * 8);
+      var double = Math.random() < 0.18 && gameState.speed > 8;
+      // hauteur reduite pour que le robot puisse sauter par-dessus sans saut max
+      var h = 18 + Math.floor(Math.random() * 16);  // 18 a 33
+      var w = 12 + Math.floor(Math.random() * 8);
       gameState.obstacles.push({ x: W, y: GROUND_Y - h, w: w, h: h });
       if (double) {
         gameState.obstacles.push({ x: W + w + 4, y: GROUND_Y - h, w: w, h: h });
@@ -1185,14 +1179,21 @@
       return rx < ox + ow && rx + rw > ox && ry < oy + oh && ry + rh > oy;
     }
 
-    function loop() {
+    function loop(now) {
       if (!gameState || !gameState.running) return;
+
+      // Delta-time : framerate independant (60Hz vs 144Hz)
+      if (!gameState.lastTime) gameState.lastTime = now;
+      var dt = (now - gameState.lastTime) / 16.667;  // 1.0 a 60fps
+      if (dt > 3) dt = 3;  // clamp tab background long
+      gameState.lastTime = now;
+
       ctx.clearRect(0, 0, W, H);
 
       // Stars background
       for (var i = 0; i < gameState.stars.length; i++) {
         var st = gameState.stars[i];
-        st.x -= st.s * (gameState.gameOver ? 0 : 0.6);
+        st.x -= st.s * (gameState.gameOver ? 0 : 0.6) * dt;
         if (st.x < -2) { st.x = W + 2; st.y = Math.random() * (GROUND_Y - 20); }
         ctx.fillStyle = 'rgba(202,255,55,' + (st.s * 0.4).toFixed(2) + ')';
         ctx.fillRect(st.x, st.y, 1.6, 1.6);
@@ -1207,8 +1208,8 @@
       ctx.stroke();
 
       // Ground dashes
-      if (!gameState.gameOver) gameState.groundOffset -= gameState.speed;
-      if (gameState.groundOffset < -40) gameState.groundOffset = 0;
+      if (!gameState.gameOver) gameState.groundOffset -= gameState.speed * dt;
+      while (gameState.groundOffset < -40) gameState.groundOffset += 40;
       ctx.fillStyle = LIME_DIM;
       for (var gx = gameState.groundOffset; gx < W; gx += 40) {
         ctx.fillRect(gx, GROUND_Y + 6, 22, 2);
@@ -1219,24 +1220,23 @@
       }
 
       if (!gameState.gameOver) {
-        gameState.tick++;
-        // Physics : valeurs Chrome dino (GRAVITY 0.6), reduite tant que SPACE tenu en montee
-        var g = (gameState.jumpHeld && gameState.robot.vy < 0) ? 0.35 : 0.6;
-        gameState.robot.vy += g;
-        gameState.robot.y += gameState.robot.vy;
+        gameState.tick += dt;
+        // Physics scalees par dt
+        gameState.robot.vy += gameState.gravity * dt;
+        gameState.robot.y  += gameState.robot.vy * dt;
         if (gameState.robot.y >= GROUND_Y) {
           gameState.robot.y = GROUND_Y;
           gameState.robot.vy = 0;
           gameState.robot.jumping = false;
         }
         // Obstacles
-        gameState.nextObs -= gameState.speed;
+        gameState.nextObs -= gameState.speed * dt;
         if (gameState.nextObs <= 0) {
           spawnObstacle();
           gameState.nextObs = 180 + Math.random() * 220;
         }
         for (var j = 0; j < gameState.obstacles.length; j++) {
-          gameState.obstacles[j].x -= gameState.speed;
+          gameState.obstacles[j].x -= gameState.speed * dt;
         }
         gameState.obstacles = gameState.obstacles.filter(function(o) { return o.x + o.w > -4; });
         // Collision
@@ -1249,10 +1249,10 @@
             break;
           }
         }
-        // Score + speed up : valeurs Chrome dino (acceleration 0.001/tick, cap 13)
-        gameState.score++;
-        if (gameState.speed < 13) {
-          gameState.speed += 0.001;
+        // Score + speed up : valeurs Chrome dino (ACCELERATION 0.001/frame@60fps, MAX_SPEED 12)
+        gameState.score += dt;
+        if (gameState.speed < gameState.maxSpeed) {
+          gameState.speed += gameState.acceleration * dt;
         }
       }
 
@@ -1272,11 +1272,11 @@
       // Robot
       drawRobot(gameState.robot.x, gameState.robot.y, gameState.gameOver);
 
-      // Score display
+      // Score display (score est en frames@60fps, divise pour readability)
       var scoreEl = document.getElementById('eeScore');
       if (scoreEl) {
         var s = String(Math.floor(gameState.score / 5));
-        while (s.length < 4) s = '0' + s;
+        while (s.length < 5) s = '0' + s;
         scoreEl.textContent = s;
       }
 
@@ -1305,8 +1305,7 @@
     if (!gameState) return;
     gameState.running = false;
     if (gameState.raf) cancelAnimationFrame(gameState.raf);
-    if (gameState.keyHandler)   window.removeEventListener('keydown', gameState.keyHandler);
-    if (gameState.keyUpHandler) window.removeEventListener('keyup',   gameState.keyUpHandler);
+    if (gameState.keyHandler) window.removeEventListener('keydown', gameState.keyHandler);
     var canvas = document.getElementById('eeCanvas');
     if (canvas) {
       var ctx = canvas.getContext('2d');
