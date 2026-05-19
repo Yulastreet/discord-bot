@@ -127,7 +127,58 @@
       <div class="muted" style="font-size:13px;">Chargement…</div>
     </div>
   </div>
+
+  <div class="own-card">
+    <h2>Rétention des logs</h2>
+    <div class="sub">
+      Purge quotidienne automatique de la table <code>logs</code>.
+      Conserve les N derniers logs par serveur et supprime les entrées plus vieilles que X jours.
+    </div>
+    <div class="grid grid-2" style="gap:16px;margin-top:4px;">
+      <div class="field">
+        <label>Logs conservés par serveur</label>
+        <input type="number" id="log_keep_per_guild" min="100"
+               value="{{ log_settings.get('log_keep_per_guild', log_defaults.get('log_keep_per_guild', '5000')) }}">
+        <small class="faint" style="font-size:11px;">Défaut : {{ log_defaults.get('log_keep_per_guild', '5000') }}</small>
+      </div>
+      <div class="field">
+        <label>Âge maximum des logs (jours)</label>
+        <input type="number" id="log_retention_days" min="7"
+               value="{{ log_settings.get('log_retention_days', log_defaults.get('log_retention_days', '90')) }}">
+        <small class="faint" style="font-size:11px;">Défaut : {{ log_defaults.get('log_retention_days', '90') }} jours</small>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary btn-sm" type="button" onclick="saveLogSettings()">
+        <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+      </button>
+      <span id="logSettingsStatus" style="margin-left:12px;font-size:12px;color:var(--text-2);"></span>
+    </div>
+  </div>
 </div>
+
+<script>
+async function saveLogSettings() {
+  const keep = document.getElementById('log_keep_per_guild')?.value;
+  const age  = document.getElementById('log_retention_days')?.value;
+  const status = document.getElementById('logSettingsStatus');
+  if (status) status.textContent = 'Sauvegarde...';
+  try {
+    const r = await fetch('/api/owner/log-settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ log_keep_per_guild: keep, log_retention_days: age }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || r.status);
+    if (status) status.textContent = '';
+    if (window.toast) window.toast('Rétention des logs enregistrée.');
+  } catch(e) {
+    if (status) status.textContent = 'Erreur : ' + e.message;
+  }
+}
+window.saveLogSettings = saveLogSettings;
+</script>
 
 <script>
 (function(){

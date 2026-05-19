@@ -95,12 +95,33 @@ def register_premium_routes(app, deps):
             abort(403)
         uid = _current_user_id()
         has_custom = has_owner_custom_bg(uid) if uid else False
+        from database import get_all_settings, DEFAULT_SETTINGS
+        log_settings = get_all_settings()
         return render_template(
             "owner_settings.html",
             active_nav="owner_settings",
             has_custom=has_custom,
             owner_id=uid,
+            log_settings=log_settings,
+            log_defaults=DEFAULT_SETTINGS,
         )
+
+    @app.route("/api/owner/log-settings", methods=["POST"])
+    def api_owner_log_settings():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        from database import set_setting
+        data = request.json or {}
+        updated = []
+        try:
+            keep = max(100, int(data.get("log_keep_per_guild", 5000)))
+            age  = max(7,   int(data.get("log_retention_days", 90)))
+        except (TypeError, ValueError):
+            return jsonify({"error": "valeurs invalides"}), 400
+        set_setting("log_keep_per_guild", str(keep))
+        set_setting("log_retention_days", str(age))
+        updated = ["log_keep_per_guild", "log_retention_days"]
+        return jsonify({"success": True, "updated": updated})
 
 
     @app.route("/api/owner/niveau-bg", methods=["POST"])

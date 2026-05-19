@@ -69,9 +69,12 @@ def register_admin_routes(app, deps):
 
     @app.route("/settings")
     def settings_page():
+        from database import GUILD_DEFAULT_SETTINGS
+        g_id = gid()
         return render_template("settings.html",
-                               settings=get_all_settings(),
-                               defaults=DEFAULT_SETTINGS)
+                               active_nav="settings",
+                               settings=guild_settings_all(g_id),
+                               defaults=GUILD_DEFAULT_SETTINGS)
 
     @app.route("/api/settings", methods=["GET"])
     def api_settings_get():
@@ -97,11 +100,17 @@ def register_admin_routes(app, deps):
     def api_guild_settings_set():
         g_id = gid()
         data = request.json or {}
-        allowed = {"xp_enabled"}
+        BOOL_KEYS = {"xp_enabled", "music", "giveaway", "fun", "moderation_cmds",
+                     "tickets", "welcome", "rolereaction", "reactions", "social_alerts",
+                     "custom_commands", "poll", "cs2", "lol", "duels"}
+        STR_KEYS  = {"xp_min", "xp_max", "xp_cooldown_seconds", "welcome_template"}
         updated = []
         for k, v in data.items():
-            if k in allowed:
+            if k in BOOL_KEYS:
                 guild_setting_set(g_id, k, "1" if str(v) in ("1", "true", "True", "on") else "0")
+                updated.append(k)
+            elif k in STR_KEYS:
+                guild_setting_set(g_id, k, str(v))
                 updated.append(k)
         return jsonify({"success": True, "updated": updated})
 

@@ -604,7 +604,9 @@ def setup_runtime(bot, deps):
     async def daily_logs_purge():
         """Purge quotidienne: > 90 jours OU > 5000 logs par guild. Recupere espace disque via VACUUM."""
         try:
-            res = prune_logs_global(keep_per_guild=5000, max_age_days=90)
+            keep = max(100, int(get_setting("log_keep_per_guild") or "5000"))
+            age  = max(7,   int(get_setting("log_retention_days")  or "90"))
+            res = prune_logs_global(keep_per_guild=keep, max_age_days=age)
             if res["by_age"] or res["by_count"]:
                 print(f"[purge] logs : -{res['by_age']} (age) -{res['by_count']} (count) + VACUUM")
         except Exception as e:
@@ -634,7 +636,7 @@ def setup_runtime(bot, deps):
             return
         channel = bot.get_channel(data["channel_id"])
         if channel:
-            template = data.get("message") or get_setting("welcome_template", DEFAULT_WELCOME_MESSAGE)
+            template = data.get("message") or guild_setting_get(str(member.guild.id), "welcome_template", DEFAULT_WELCOME_MESSAGE)
             try:
                 send_kwargs = build_welcome_send_kwargs(template, member)
             except Exception:
@@ -814,7 +816,7 @@ def setup_runtime(bot, deps):
         if not message.author.bot and guild_setting_get(guild_id_str, "xp_enabled", "1") == "1":
             # Cooldown anti-spam : evite que spammer un salon ne grind l'XP
             try:
-                cooldown_sec = max(0, int(get_setting("xp_cooldown_seconds", "30")))
+                cooldown_sec = max(0, int(guild_setting_get(guild_id_str, "xp_cooldown_seconds", "30")))
             except (TypeError, ValueError):
                 cooldown_sec = 30
             cd_key = (guild_id_str, message.author.id)
@@ -828,8 +830,8 @@ def setup_runtime(bot, deps):
             xp = get_xp(guild_id_str, message.author.id)
             old_level = get_level(xp)
             try:
-                xp_min = max(0, int(get_setting("xp_min", "1")))
-                xp_max = max(xp_min, int(get_setting("xp_max", "5")))
+                xp_min = max(0, int(guild_setting_get(guild_id_str, "xp_min", "1")))
+                xp_max = max(xp_min, int(guild_setting_get(guild_id_str, "xp_max", "5")))
             except (TypeError, ValueError):
                 xp_min, xp_max = 1, 5
             xp_gain = random.randint(xp_min, xp_max)

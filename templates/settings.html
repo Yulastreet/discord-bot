@@ -1,54 +1,37 @@
 {% extends "_base.html" %}
 {% set active_nav = 'settings' %}
 
-{% block title %}Réglages · Bot Console{% endblock %}
-{% block crumb %}Réglages{% endblock %}
+{% block title %}Réglages serveur · Bot Console{% endblock %}
+{% block crumb %}Réglages serveur{% endblock %}
 
 {% block content %}
 
 <div class="col gap-7">
   <div>
-    <h1>Réglages globaux</h1>
+    <h1>Réglages serveur</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Configuration dynamique appliquée à tous les serveurs sans redémarrer le bot.
+      Configuration propre à ce serveur. Les modifications s'appliquent immédiatement sans redémarrer le bot.
     </p>
   </div>
 
   <div class="card">
     <h2 style="margin-bottom: var(--s-3);">XP messages</h2>
-    <p class="muted mb-4" style="font-size:var(--t-sm);">XP gagné aléatoirement à chaque message hors-bot.</p>
+    <p class="muted mb-4" style="font-size:var(--t-sm);">XP gagné aléatoirement à chaque message hors-bot sur ce serveur.</p>
     <div class="grid grid-2">
       <div class="field">
         <label>XP minimum par message</label>
-        <input type="number" id="xp_min" min="0" value="{{ settings.xp_min }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.xp_min }}</small>
+        <input type="number" id="xp_min" min="0" value="{{ settings.get('xp_min', defaults.get('xp_min', '1')) }}">
+        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_min', '1') }}</small>
       </div>
       <div class="field">
         <label>XP maximum par message</label>
-        <input type="number" id="xp_max" min="0" value="{{ settings.xp_max }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.xp_max }}</small>
+        <input type="number" id="xp_max" min="0" value="{{ settings.get('xp_max', defaults.get('xp_max', '5')) }}">
+        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_max', '5') }}</small>
       </div>
       <div class="field">
         <label>Cooldown XP (secondes, 0 = aucun)</label>
-        <input type="number" id="xp_cooldown_seconds" min="0" value="{{ settings.xp_cooldown_seconds }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.xp_cooldown_seconds }}. Pas encore appliqué.</small>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">Logs — rétention</h2>
-    <p class="muted mb-4" style="font-size:var(--t-sm);">Purge quotidienne automatique : conserve les N derniers + supprime > X jours.</p>
-    <div class="grid grid-2">
-      <div class="field">
-        <label>Logs conservés par serveur</label>
-        <input type="number" id="log_keep_per_guild" min="100" value="{{ settings.log_keep_per_guild }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.log_keep_per_guild }}</small>
-      </div>
-      <div class="field">
-        <label>Âge maximum des logs (jours)</label>
-        <input type="number" id="log_retention_days" min="7" value="{{ settings.log_retention_days }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.log_retention_days }}</small>
+        <input type="number" id="xp_cooldown_seconds" min="0" value="{{ settings.get('xp_cooldown_seconds', defaults.get('xp_cooldown_seconds', '30')) }}">
+        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_cooldown_seconds', '30') }} s.</small>
       </div>
     </div>
   </div>
@@ -56,12 +39,11 @@
   <div class="card">
     <h2 style="margin-bottom: var(--s-3);">Message de bienvenue</h2>
     <p class="muted mb-4" style="font-size:var(--t-sm);">
-      Variables disponibles : <code>{user}</code> (mention), <code>{username}</code>,
-      <code>{guild}</code> (nom serveur), <code>{count}</code> (nb membres).
+      Template par défaut utilisé si aucun message spécifique n'a été configuré via <code>/setwelcome</code>.<br>
+      Variables : <code>{user}</code> (mention), <code>{username}</code>, <code>{guild}</code>, <code>{count}</code> (nb membres).
     </p>
     <div class="field">
-      <textarea id="welcome_template" rows="4" style="font-family:var(--font-mono);font-size:13px;">{{ settings.welcome_template }}</textarea>
-      <small class="faint" style="font-size:11px;">Activable salon par salon via <code>/setwelcome</code> dans Discord.</small>
+      <textarea id="welcome_template" rows="4" style="font-family:var(--font-mono);font-size:13px;">{{ settings.get('welcome_template', defaults.get('welcome_template', '')) }}</textarea>
     </div>
   </div>
 
@@ -77,7 +59,7 @@
 
 {% block scripts %}
 <script>
-const FIELDS = ['xp_min','xp_max','xp_cooldown_seconds','log_keep_per_guild','log_retention_days','welcome_template'];
+const FIELDS   = ['xp_min', 'xp_max', 'xp_cooldown_seconds', 'welcome_template'];
 const DEFAULTS = JSON.parse('{{ defaults|tojson|safe }}');
 
 async function saveSettings() {
@@ -87,25 +69,25 @@ async function saveSettings() {
     if (el) payload[f] = el.value;
   }
   try {
-    const res = await fetch('/api/settings', {
+    const res = await fetch('/api/guild-settings', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.success) toast(`Réglages enregistrés (${data.updated.length} modifié${data.updated.length > 1 ? 's' : ''}).`);
+    if (data.success) toast('Réglages enregistrés (' + data.updated.length + ' modifié' + (data.updated.length > 1 ? 's' : '') + ').');
     else toast(data.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.saveSettings = saveSettings;
 
 function resetDefaults() {
-  if (!confirm('Restaurer toutes les valeurs par défaut ?')) return;
+  if (!confirm('Restaurer les valeurs par défaut ?')) return;
   for (const f of FIELDS) {
     const el = document.getElementById(f);
     if (el && f in DEFAULTS) el.value = DEFAULTS[f];
   }
-  toast('Valeurs restaurées (clique Enregistrer pour appliquer).');
+  toast('Valeurs restaurées — clique Enregistrer pour appliquer.');
 }
 window.resetDefaults = resetDefaults;
 </script>

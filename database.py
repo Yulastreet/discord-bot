@@ -1558,6 +1558,7 @@ def get_all_settings():
 
 
 GUILD_DEFAULT_SETTINGS = {
+    # Feature toggles
     "xp_enabled":      "1",
     "music":           "1",
     "giveaway":        "1",
@@ -1573,6 +1574,12 @@ GUILD_DEFAULT_SETTINGS = {
     "cs2":             "1",
     "lol":             "1",
     "duels":           "1",
+    # XP — configurables par serveur
+    "xp_min":              "1",
+    "xp_max":              "5",
+    "xp_cooldown_seconds": "30",
+    # Message de bienvenue par défaut du serveur
+    "welcome_template": "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
 }
 
 def guild_setting_get(guild_id, key, default=None):
