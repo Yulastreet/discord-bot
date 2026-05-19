@@ -954,5 +954,353 @@
 })();
 </script>
 
+<!-- ============ EASTER EGG : TOOK RUNNER ============ -->
+<div id="eeOverlay" style="display:none;position:fixed;inset:0;z-index:900;
+     background:rgba(0,0,0,0.86);backdrop-filter:blur(6px);
+     -webkit-backdrop-filter:blur(6px);
+     align-items:center;justify-content:center;">
+  <div id="eeBox" style="background:#0a0d08;border-radius:18px;
+       box-shadow:0 0 60px oklch(0.86 0.20 130 / 0.30),
+                  0 0 140px oklch(0.86 0.20 130 / 0.12);
+       padding:28px 32px 24px;max-width:880px;width:92%;
+       border:1px solid oklch(0.86 0.20 130 / 0.25);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div style="font-size:22px;font-weight:800;letter-spacing:0.14em;color:#ffffff;
+                  text-shadow:0 0 8px oklch(0.86 0.20 130),
+                              0 0 22px oklch(0.86 0.20 130 / .6),
+                              0 0 48px oklch(0.86 0.20 130 / .3);">
+        TOOK RUNNER
+      </div>
+      <button id="eeCloseBtn" type="button" aria-label="Fermer"
+              style="background:none;border:none;color:rgba(255,255,255,0.55);
+                     cursor:pointer;font-size:22px;padding:4px 10px;line-height:1;
+                     transition:color 120ms ease;"
+              onmouseover="this.style.color='#ffffff'"
+              onmouseout="this.style.color='rgba(255,255,255,0.55)'">✕</button>
+    </div>
+    <canvas id="eeCanvas" width="800" height="220"
+            style="width:100%;display:block;background:#0a0d08;
+                   border-radius:10px;
+                   border:1px solid oklch(0.86 0.20 130 / 0.18);"></canvas>
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                margin-top:14px;font-size:12px;color:rgba(255,255,255,0.55);
+                font-family:var(--font-mono,monospace);letter-spacing:0.06em;">
+      <span><strong style="color:rgba(255,255,255,0.85);">SPACE</strong> ou <strong style="color:rgba(255,255,255,0.85);">↑</strong> pour sauter · <strong style="color:rgba(255,255,255,0.85);">ESC</strong> pour quitter</span>
+      <span id="eeScore" style="color:oklch(0.86 0.20 130);font-weight:700;font-size:14px;">0000</span>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  // ===== Konami code listener =====
+  var SEQ = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown',
+             'ArrowLeft','ArrowRight','ArrowLeft','ArrowRight',
+             'KeyB','KeyA'];
+  var buf = [];
+  window.addEventListener('keydown', function(e) {
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
+      buf = [];
+      return;
+    }
+    buf.push(e.code);
+    if (buf.length > SEQ.length) buf.shift();
+    if (buf.length === SEQ.length) {
+      var ok = true;
+      for (var i = 0; i < SEQ.length; i++) {
+        if (buf[i] !== SEQ[i]) { ok = false; break; }
+      }
+      if (ok) { openEasterEgg(); buf = []; }
+    }
+  });
+
+  // ===== Game state (single global ref so we can cleanly unload) =====
+  var gameState = null;
+
+  function openEasterEgg() {
+    var ov = document.getElementById('eeOverlay');
+    if (!ov) return;
+    ov.style.display = 'flex';
+    startGame();
+  }
+
+  function closeEasterEgg() {
+    var ov = document.getElementById('eeOverlay');
+    if (ov) ov.style.display = 'none';
+    stopGame();
+  }
+  window.closeEasterEgg = closeEasterEgg;
+
+  // Close handlers
+  document.getElementById('eeCloseBtn').addEventListener('click', closeEasterEgg);
+  document.getElementById('eeOverlay').addEventListener('click', function(e) {
+    if (e.target.id === 'eeOverlay') closeEasterEgg();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.code === 'Escape') {
+      var ov = document.getElementById('eeOverlay');
+      if (ov && ov.style.display === 'flex') closeEasterEgg();
+    }
+  });
+
+  // ===== Game =====
+  function startGame() {
+    if (gameState) stopGame();
+    var canvas = document.getElementById('eeCanvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var W = canvas.width, H = canvas.height;
+    var GROUND_Y = H - 30;
+    var LIME = '#caff37';
+    var LIME_DIM = '#7ba622';
+    var LIME_GLOW = 'oklch(0.86 0.20 130)';
+
+    gameState = {
+      running: true,
+      raf: null,
+      keyHandler: null,
+      robot: { x: 60, y: GROUND_Y, vy: 0, jumping: false, frame: 0 },
+      obstacles: [],
+      stars: [],
+      groundOffset: 0,
+      speed: 6,
+      score: 0,
+      gameOver: false,
+      nextObs: 100,
+      tick: 0,
+    };
+
+    // Pre-seed stars
+    for (var i = 0; i < 14; i++) {
+      gameState.stars.push({
+        x: Math.random() * W,
+        y: Math.random() * (GROUND_Y - 20),
+        s: Math.random() * 1.4 + 0.4,
+      });
+    }
+
+    function jump() {
+      if (gameState.gameOver) { restart(); return; }
+      if (!gameState.robot.jumping) {
+        gameState.robot.vy = -13.5;
+        gameState.robot.jumping = true;
+      }
+    }
+
+    function restart() {
+      gameState.robot.y = GROUND_Y;
+      gameState.robot.vy = 0;
+      gameState.robot.jumping = false;
+      gameState.obstacles = [];
+      gameState.speed = 6;
+      gameState.score = 0;
+      gameState.gameOver = false;
+      gameState.nextObs = 100;
+      gameState.tick = 0;
+    }
+
+    gameState.keyHandler = function(e) {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        jump();
+      }
+    };
+    window.addEventListener('keydown', gameState.keyHandler);
+    canvas.addEventListener('click', jump);
+
+    function spawnObstacle() {
+      var double = Math.random() < 0.18 && gameState.speed > 7;
+      var h = 22 + Math.floor(Math.random() * 24);
+      var w = 14 + Math.floor(Math.random() * 8);
+      gameState.obstacles.push({ x: W, y: GROUND_Y - h, w: w, h: h });
+      if (double) {
+        gameState.obstacles.push({ x: W + w + 4, y: GROUND_Y - h, w: w, h: h });
+      }
+    }
+
+    function drawRobot(x, y, dead) {
+      var bodyCol = dead ? '#888' : LIME;
+      var dotCol  = '#0a0d08';
+      // Antenna
+      ctx.fillStyle = bodyCol;
+      ctx.fillRect(x + 11, y - 40, 2, 5);
+      ctx.beginPath();
+      ctx.arc(x + 12, y - 41, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      // Head
+      ctx.fillRect(x + 4, y - 35, 16, 12);
+      // Eye (or X if dead)
+      if (dead) {
+        ctx.strokeStyle = dotCol;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 8, y - 32);  ctx.lineTo(x + 12, y - 28);
+        ctx.moveTo(x + 12, y - 32); ctx.lineTo(x + 8, y - 28);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = dotCol;
+        ctx.fillRect(x + 9, y - 31, 4, 3);
+      }
+      // Body
+      ctx.fillStyle = bodyCol;
+      ctx.fillRect(x + 2, y - 22, 20, 16);
+      // Body detail (chest light)
+      ctx.fillStyle = dotCol;
+      ctx.fillRect(x + 10, y - 16, 4, 4);
+      // Arms
+      ctx.fillStyle = bodyCol;
+      ctx.fillRect(x, y - 20, 3, 10);
+      ctx.fillRect(x + 21, y - 20, 3, 10);
+      // Legs (alternating frames when running)
+      var frame = Math.floor(gameState.tick / 6) % 2;
+      if (gameState.robot.jumping || dead) {
+        ctx.fillRect(x + 4, y - 6, 5, 6);
+        ctx.fillRect(x + 15, y - 6, 5, 6);
+      } else {
+        if (frame === 0) {
+          ctx.fillRect(x + 4, y - 6, 5, 6);
+          ctx.fillRect(x + 15, y - 4, 5, 4);
+        } else {
+          ctx.fillRect(x + 4, y - 4, 5, 4);
+          ctx.fillRect(x + 15, y - 6, 5, 6);
+        }
+      }
+    }
+
+    function aabb(rx, ry, rw, rh, ox, oy, ow, oh) {
+      return rx < ox + ow && rx + rw > ox && ry < oy + oh && ry + rh > oy;
+    }
+
+    function loop() {
+      if (!gameState || !gameState.running) return;
+      ctx.clearRect(0, 0, W, H);
+
+      // Stars background
+      for (var i = 0; i < gameState.stars.length; i++) {
+        var st = gameState.stars[i];
+        st.x -= st.s * (gameState.gameOver ? 0 : 0.6);
+        if (st.x < -2) { st.x = W + 2; st.y = Math.random() * (GROUND_Y - 20); }
+        ctx.fillStyle = 'rgba(202,255,55,' + (st.s * 0.4).toFixed(2) + ')';
+        ctx.fillRect(st.x, st.y, 1.6, 1.6);
+      }
+
+      // Ground line
+      ctx.strokeStyle = LIME_DIM;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND_Y + 1);
+      ctx.lineTo(W, GROUND_Y + 1);
+      ctx.stroke();
+
+      // Ground dashes
+      if (!gameState.gameOver) gameState.groundOffset -= gameState.speed;
+      if (gameState.groundOffset < -40) gameState.groundOffset = 0;
+      ctx.fillStyle = LIME_DIM;
+      for (var gx = gameState.groundOffset; gx < W; gx += 40) {
+        ctx.fillRect(gx, GROUND_Y + 6, 22, 2);
+      }
+      ctx.fillStyle = 'rgba(123,166,34,0.4)';
+      for (var gx2 = gameState.groundOffset + 18; gx2 < W; gx2 += 40) {
+        ctx.fillRect(gx2, GROUND_Y + 12, 10, 1);
+      }
+
+      if (!gameState.gameOver) {
+        gameState.tick++;
+        // Physics
+        gameState.robot.vy += 0.72;
+        gameState.robot.y += gameState.robot.vy;
+        if (gameState.robot.y >= GROUND_Y) {
+          gameState.robot.y = GROUND_Y;
+          gameState.robot.vy = 0;
+          gameState.robot.jumping = false;
+        }
+        // Obstacles
+        gameState.nextObs -= gameState.speed;
+        if (gameState.nextObs <= 0) {
+          spawnObstacle();
+          gameState.nextObs = 180 + Math.random() * 220;
+        }
+        for (var j = 0; j < gameState.obstacles.length; j++) {
+          gameState.obstacles[j].x -= gameState.speed;
+        }
+        gameState.obstacles = gameState.obstacles.filter(function(o) { return o.x + o.w > -4; });
+        // Collision
+        var rx = gameState.robot.x + 2, ry = gameState.robot.y - 35;
+        var rw = 22, rh = 35;
+        for (var k = 0; k < gameState.obstacles.length; k++) {
+          var o = gameState.obstacles[k];
+          if (aabb(rx + 3, ry + 4, rw - 6, rh - 4, o.x, o.y, o.w, o.h)) {
+            gameState.gameOver = true;
+            break;
+          }
+        }
+        // Score + speed up
+        gameState.score++;
+        if (gameState.score % 240 === 0) gameState.speed += 0.45;
+      }
+
+      // Obstacles (lime pillars with glow)
+      for (var m = 0; m < gameState.obstacles.length; m++) {
+        var ob = gameState.obstacles[m];
+        ctx.shadowColor = LIME;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = LIME;
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+        ctx.shadowBlur = 0;
+        // Inner darker stripe
+        ctx.fillStyle = LIME_DIM;
+        ctx.fillRect(ob.x + 2, ob.y + 2, ob.w - 4, 3);
+      }
+
+      // Robot
+      drawRobot(gameState.robot.x, gameState.robot.y, gameState.gameOver);
+
+      // Score display
+      var scoreEl = document.getElementById('eeScore');
+      if (scoreEl) {
+        var s = String(Math.floor(gameState.score / 5));
+        while (s.length < 4) s = '0' + s;
+        scoreEl.textContent = s;
+      }
+
+      // Game over text
+      if (gameState.gameOver) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = LIME;
+        ctx.shadowBlur = 14;
+        ctx.font = '800 30px ui-sans-serif, system-ui, sans-serif';
+        ctx.fillText('GAME OVER', W / 2, H / 2 - 8);
+        ctx.shadowBlur = 0;
+        ctx.font = '13px ui-monospace, monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.fillText('SPACE pour rejouer', W / 2, H / 2 + 16);
+        ctx.textAlign = 'start';
+      }
+
+      gameState.raf = requestAnimationFrame(loop);
+    }
+
+    loop();
+  }
+
+  function stopGame() {
+    if (!gameState) return;
+    gameState.running = false;
+    if (gameState.raf) cancelAnimationFrame(gameState.raf);
+    if (gameState.keyHandler) window.removeEventListener('keydown', gameState.keyHandler);
+    var canvas = document.getElementById('eeCanvas');
+    if (canvas) {
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Remove all click listeners by cloning
+      var clone = canvas.cloneNode(true);
+      canvas.parentNode.replaceChild(clone, canvas);
+    }
+    gameState = null;
+  }
+})();
+</script>
+
 </body>
 </html>
