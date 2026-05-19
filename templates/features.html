@@ -19,9 +19,12 @@
     background: var(--bg-1);
     border: 1px solid var(--border);
     border-radius: var(--r-3);
-    transition: border-color 140ms var(--ease-out);
+    transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
   }
-  .feat-card:hover { border-color: var(--border-strong); }
+  .feat-card:hover {
+    border-color: oklch(0.86 0.20 130 / 0.7);
+    box-shadow: 0 0 0 1px oklch(0.86 0.20 130 / 0.18), 0 4px 24px oklch(0.86 0.20 130 / 0.13);
+  }
   .feat-card.disabled { opacity: 0.55; }
   .feat-info { flex: 1; min-width: 0; }
   .feat-label {
