@@ -1089,6 +1089,9 @@
       if (!gameState.robot.jumping) {
         gameState.robot.vy = gameState.jumpVelocity;
         gameState.robot.jumping = true;
+      } else {
+        // Jump buffer : si encore en l'air, queue le prochain saut
+        gameState.jumpBufferAt = performance.now();
       }
     }
 
@@ -1103,6 +1106,7 @@
       gameState.nextObs = 100;
       gameState.tick = 0;
       gameState.lastTime = 0;
+      gameState.jumpBufferAt = 0;
     }
 
     gameState.keyHandler = function(e) {
@@ -1233,12 +1237,20 @@
           gameState.robot.y = GROUND_Y;
           gameState.robot.vy = 0;
           gameState.robot.jumping = false;
+          // Consomme le jump buffer si pressed dans les 160ms precedentes
+          if (gameState.jumpBufferAt && (performance.now() - gameState.jumpBufferAt) < 160) {
+            gameState.robot.vy = gameState.jumpVelocity;
+            gameState.robot.jumping = true;
+          }
+          gameState.jumpBufferAt = 0;
         }
-        // Obstacles
+        // Obstacles : gap scale avec la vitesse pour garder du temps de reaction
         gameState.nextObs -= gameState.speed * dt;
         if (gameState.nextObs <= 0) {
           spawnObstacle();
-          gameState.nextObs = 180 + Math.random() * 220;
+          var minGap = 260 + gameState.speed * 28;  // ~430 a speed 6, ~600 a speed 12
+          var maxGap = minGap + 220;
+          gameState.nextObs = minGap + Math.random() * (maxGap - minGap);
         }
         for (var j = 0; j < gameState.obstacles.length; j++) {
           gameState.obstacles[j].x -= gameState.speed * dt;
