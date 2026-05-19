@@ -93,8 +93,8 @@ async def generate_levelup_card(member, level, percent):
     draw.text((490, 133), f"{percent}%", fill=(255, 255, 255), font=font_small)
 
     # Resize final compact (notification levelup fallback)
-    # Ratio identique : 600x170 -> 360x102 (60%).
-    final = card.resize((360, 102), Image.LANCZOS)
+    # Ratio identique 3.53:1 : 600x170 -> 300x85 (50%).
+    final = card.resize((300, 85), Image.LANCZOS)
 
     output = io.BytesIO()
     final.save(output, format="PNG")

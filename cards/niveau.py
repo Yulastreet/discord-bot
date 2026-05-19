@@ -496,8 +496,9 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
               fill=(200, 215, 180, 130), anchor="rb")
 
     # Resize final compact (notification levelup, pas la carte /niveau).
-    # Ratio identique : 1024x320 -> 512x160 (50%).
-    final = base.resize((512, 160), Image.LANCZOS)
+    # Ratio identique 3.2:1 : 1024x320 -> 384x120 (~37%).
+    # Discord scale les images <400px en natif sans agrandir.
+    final = base.resize((384, 120), Image.LANCZOS)
 
     buf = io.BytesIO()
     final.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
