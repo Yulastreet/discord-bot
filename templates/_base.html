@@ -1296,12 +1296,14 @@
           }
           gameState.jumpBufferAt = 0;
         }
-        // Obstacles : gap scale avec la vitesse pour garder du temps de reaction
+        // Obstacles : gap scale avec speed. Hard mode (score >= 2100 affiche) reduit le gap.
         gameState.nextObs -= gameState.speed * dt;
         if (gameState.nextObs <= 0) {
           spawnObstacle();
-          var minGap = 260 + gameState.speed * 28;  // ~430 a speed 6, ~600 a speed 12
-          var maxGap = minGap + 220;
+          var hardMode = (gameState.score / 5) >= 2100;
+          var gapMul   = hardMode ? 0.72 : 1.0;
+          var minGap   = (260 + gameState.speed * 28) * gapMul;
+          var maxGap   = minGap + (hardMode ? 140 : 220);
           gameState.nextObs = minGap + Math.random() * (maxGap - minGap);
         }
         for (var j = 0; j < gameState.obstacles.length; j++) {
