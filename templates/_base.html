@@ -841,20 +841,19 @@
 
 <!-- ============ FEATURE GATE OVERLAY ============ -->
 <div id="featureGateOverlay" style="display:none;position:fixed;inset:0;z-index:800;
-     background:oklch(0 0 0 / 0.75);backdrop-filter:blur(4px);
+     background:oklch(0 0 0 / 0.82);backdrop-filter:blur(4px);
      -webkit-backdrop-filter:blur(4px);
-     display:none;align-items:center;justify-content:center;">
-  <div style="background:var(--bg-0,#0d0d0b);border:1px solid oklch(0.86 0.20 130 / 0.55);
+     align-items:center;justify-content:center;">
+  <div style="background:#0a0d08;
               border-radius:var(--r-3,14px);
-              box-shadow:0 0 0 1px oklch(0.86 0.20 130 / 0.12),
-                         0 8px 56px oklch(0.86 0.20 130 / 0.22),
-                         0 0 80px oklch(0.86 0.20 130 / 0.08);
+              box-shadow:0 0 40px 8px oklch(0.86 0.20 130 / 0.28),
+                         0 0 100px 20px oklch(0.86 0.20 130 / 0.10);
               padding:48px 44px;text-align:center;max-width:380px;width:90%;">
-    <!-- Logo + glow -->
+    <!-- Logo + glow statique -->
     <div style="position:relative;width:80px;height:80px;margin:0 auto 28px;display:flex;align-items:center;justify-content:center;">
-      <div style="position:absolute;inset:-18px;border-radius:50%;
-                  background:radial-gradient(circle,oklch(0.86 0.20 130 / .5) 0%,transparent 68%);
-                  filter:blur(14px);animation:fg-pulse 3s ease-in-out infinite;"></div>
+      <div style="position:absolute;inset:-20px;border-radius:50%;
+                  background:radial-gradient(circle,oklch(0.86 0.20 130 / .45) 0%,transparent 65%);
+                  filter:blur(16px);"></div>
       <img src="/static/icon-landing.png" alt=""
            style="position:relative;width:80px;height:80px;border-radius:16px;object-fit:cover;z-index:1;"
            onerror="this.style.display='none'">
@@ -886,12 +885,6 @@
     </a>
   </div>
 </div>
-<style>
-  @keyframes fg-pulse {
-    0%, 100% { opacity: .75; transform: scale(1); }
-    50%       { opacity: 1;  transform: scale(1.1); }
-  }
-</style>
 <script>
 (function() {
   var meta = document.querySelector('meta[name="feature-key"]');
