@@ -1,0 +1,102 @@
+{% extends "_base.html" %}
+{% set active_nav = '' %}
+
+{% block title %}{% if is_500 %}Erreur serveur{% else %}Page introuvable{% endif %} · TookBot{% endblock %}
+{% block crumb %}{% if is_500 %}500{% else %}404{% endif %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .err-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: var(--s-9) var(--s-5);
+  }
+  .err-logo-wrap {
+    position: relative;
+    width: 88px; height: 88px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 32px;
+  }
+  .err-logo-glow {
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.86 0.20 130 / .4) 0%, transparent 65%);
+    filter: blur(18px);
+  }
+  .err-logo-wrap img {
+    position: relative;
+    width: 88px; height: 88px;
+    border-radius: 18px;
+    object-fit: cover;
+    z-index: 1;
+  }
+  .err-code {
+    font-size: 96px;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    color: #ffffff;
+    text-shadow:
+      0 0 8px  oklch(0.86 0.20 130),
+      0 0 20px oklch(0.86 0.20 130 / .8),
+      0 0 48px oklch(0.86 0.20 130 / .45),
+      0 0 90px oklch(0.86 0.20 130 / .2);
+    margin-bottom: 16px;
+  }
+  .err-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .err-sub {
+    font-size: var(--t-sm);
+    color: var(--text-2);
+    max-width: 42ch;
+    line-height: 1.65;
+    margin-bottom: 36px;
+  }
+  .err-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="err-wrap">
+  <div class="err-logo-wrap">
+    <div class="err-logo-glow"></div>
+    <img src="/static/icon-landing.png" alt="" onerror="this.style.display='none'">
+  </div>
+
+  <div class="err-code">{% if is_500 %}500{% else %}404{% endif %}</div>
+
+  <div class="err-title">
+    {% if is_500 %}Erreur interne du serveur{% else %}Page introuvable{% endif %}
+  </div>
+
+  <p class="err-sub">
+    {% if is_500 %}
+      Quelque chose s'est mal passé côté serveur. Réessaie dans quelques instants.
+    {% else %}
+      Cette page n'existe pas ou a été déplacée.
+      Vérifie l'URL ou retourne au dashboard.
+    {% endif %}
+  </p>
+
+  <div class="err-actions">
+    <a href="/dashboard" class="btn btn-primary">
+      <svg class="ic"><use href="#i-grid"/></svg> Dashboard
+    </a>
+    <a href="javascript:history.back()" class="btn btn-ghost">Retour</a>
+  </div>
+</div>
+{% endblock %}

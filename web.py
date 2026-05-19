@@ -431,6 +431,14 @@ for _register_routes in (
 ):
     _register_routes(app, globals())
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template("404.html", is_500=True), 500
+
 if __name__ == "__main__":
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
     # threaded=True : indispensable pour SSE (long-lived connections),
