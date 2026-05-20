@@ -389,10 +389,23 @@ function setupPassToggle() {
       if (!r.ok) throw new Error(r.status);
       const d = await r.json();
       active = !!d.has_pass;
-      btn.disabled = false;
+      const hasGrant = !!d.has_grant;
+      const hasEnt   = !!d.has_entitlement;
       btn.classList.toggle('btn-primary', !active);
       btn.classList.toggle('btn-secondary', active);
-      lbl.textContent = active ? 'Retirer le Pass' : 'Offrir le Pass';
+      if (d.is_owner) {
+        lbl.textContent = 'Pass (owner)';
+        btn.disabled = true;
+      } else if (active && hasEnt && !hasGrant) {
+        lbl.textContent = 'Pass (achat Discord)';
+        btn.disabled = true;
+      } else if (active && hasGrant) {
+        lbl.textContent = 'Retirer le Pass (offert)';
+        btn.disabled = false;
+      } else {
+        lbl.textContent = 'Offrir le Pass';
+        btn.disabled = false;
+      }
     } catch (_) {
       lbl.textContent = 'Pass (erreur)';
     }
@@ -445,8 +458,8 @@ function setupGuildBoostToggle() {
       } else if (active && hasEnt && !d.has_grant) {
         lbl.textContent = 'Guild Boost + (achat Discord)';
         btn.disabled = true;
-      } else if (active) {
-        lbl.textContent = 'Retirer Guild Boost +';
+      } else if (active && d.has_grant) {
+        lbl.textContent = 'Retirer Guild Boost + (offert)';
         btn.disabled = false;
       } else {
         lbl.textContent = 'Offrir Guild Boost +';

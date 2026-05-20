@@ -80,12 +80,19 @@ def register_pass_routes(app, deps):
         season = get_or_create_current_season()
         progress = get_pass_progress(user_id, season["season_id"])
         unlocks = list_user_pass_unlocks(user_id)
+        is_owner_target = bool(DISCORD_OWNER_ID) and str(user_id) == str(DISCORD_OWNER_ID)
+        has_grant = has_premium_grant(user_id, feature="pass", inherit_all=False)
+        sku_pass = globals().get("SKU_PASS")
+        has_entitlement = bool(sku_pass) and user_has_active_entitlement(user_id, sku_id=sku_pass)
         return jsonify({
-            "user_id":  str(user_id),
-            "has_pass": has_pass,
-            "season":   season,
-            "progress": progress,
-            "unlocks":  unlocks,
+            "user_id":         str(user_id),
+            "has_pass":        has_pass,
+            "is_owner":        is_owner_target,
+            "has_grant":       has_grant,
+            "has_entitlement": has_entitlement,
+            "season":          season,
+            "progress":        progress,
+            "unlocks":         unlocks,
         })
 
 

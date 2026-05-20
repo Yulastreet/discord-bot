@@ -2458,7 +2458,7 @@ def guild_has_active_boost(guild_id, *, sku_id=None, owner_id=None) -> bool:
 
     Un boost est actif si :
     - le user est l'owner du bot (owner_id correspondant), OU
-    - le user a un grant premium 'guild_boost' (ou 'all'), OU
+    - le user a un grant premium strictement 'guild_boost', OU
     - le user a un entitlement non-deleted, non-expire sur sku_id.
     """
     conn = get_db()
@@ -2492,7 +2492,7 @@ def user_can_assign_guild_boost(user_id, *, sku_id=None, owner_id=None) -> bool:
     uid = str(user_id)
     if owner_id and uid == str(owner_id):
         return True
-    if has_premium_grant(uid, feature="guild_boost", inherit_all=True):
+    if has_premium_grant(uid, feature="guild_boost", inherit_all=False):
         return True
     if sku_id and user_has_active_entitlement(uid, sku_id=sku_id):
         return True
