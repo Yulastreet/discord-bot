@@ -49,7 +49,7 @@
 
 <h1 style="margin:0 0 6px;">⚙️ Commandes custom</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
-  Crée des commandes personnalisées exécutables via <code>/cmd &lt;nom&gt;</code> dans Discord.
+  Crée des commandes personnalisées exécutables via <code>/&lt;nom&gt;</code> dans Discord (slash directe).
   Mode texte simple ou embed structuré (JSON).
 </p>
 
@@ -258,7 +258,7 @@ async function loadList() {
     list.innerHTML = rows.map(c => `
       <div class="cc-row ${c.enabled ? '' : 'disabled'}">
         <div>
-          <div class="nm">/cmd ${escapeHtml(c.name)} ${c.enabled ? '<span class="pill-on">on</span>' : '<span class="pill-off">off</span>'} ${c.use_embed ? '<span class="pill-on">embed</span>' : ''}</div>
+          <div class="nm">/${escapeHtml(c.name)} ${c.enabled ? '<span class="pill-on">on</span>' : '<span class="pill-off">off</span>'} ${c.use_embed ? '<span class="pill-on">embed</span>' : ''}</div>
           <div class="desc">${escapeHtml(c.description || 'sans description')} · ${c.uses_count || 0} utilisations</div>
         </div>
         <div class="row gap-2">
