@@ -15,6 +15,33 @@ _XP_LAST_GAIN: dict = {}
 
 def setup_runtime(bot, deps):
     globals().update(deps)
+
+    def _resolve_setup_channel(guild, key: str):
+        """Retourne le salon configure via /setup pour `key` (welcome/logs/alerts/admin).
+
+        Fallback : si non configure OU salon introuvable OU non-writable,
+        retourne le premier salon ecrit writable du serveur (system_channel
+        prioritaire, sinon premier text_channel writable). None si rien dispo.
+        """
+        if not guild:
+            return None
+        me = guild.me
+        cid = guild_setting_get(guild.id, f"setup_{key}_channel_id", "")
+        if cid:
+            try:
+                ch = guild.get_channel(int(cid))
+            except (TypeError, ValueError):
+                ch = None
+            if ch and me and ch.permissions_for(me).send_messages:
+                return ch
+        # Fallback : system_channel puis premier text_channel writable
+        if guild.system_channel and me and guild.system_channel.permissions_for(me).send_messages:
+            return guild.system_channel
+        for ch in guild.text_channels:
+            if me and ch.permissions_for(me).send_messages:
+                return ch
+        return None
+
     @bot.event
     async def on_ready():
         print(f"✅ Bot connecté en tant que {bot.user}")
@@ -1531,16 +1558,9 @@ def setup_runtime(bot, deps):
 
         elif name == "guild_boost_activated_notify":
             # payload: {user_id} — notifie dans le salon admin que Guild Boost + a ete active
-            admin_ch_id = guild_setting_get(gid, "setup_admin_channel_id", "")
-            if not admin_ch_id:
-                print(f"[gb-notify] {gid}: pas de salon admin configure, skip")
-                return
-            try:
-                channel = guild.get_channel(int(admin_ch_id))
-            except (TypeError, ValueError):
-                channel = None
+            channel = _resolve_setup_channel(guild, "admin")
             if not channel:
-                print(f"[gb-notify] {gid}: salon admin introuvable")
+                print(f"[gb-notify] {gid}: aucun salon writable trouve, skip")
                 return
             uid = payload.get("user_id")
             mention = f"<@{uid}>" if uid else "Un membre"
