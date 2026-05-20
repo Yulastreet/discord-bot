@@ -95,6 +95,9 @@
         <button id="passToggleBtn" class="btn btn-secondary" type="button" disabled>
           <svg class="ic"><use href="#i-swords"/></svg> <span id="passToggleLabel">Pass…</span>
         </button>
+        <button id="guildBoostToggleBtn" class="btn btn-secondary" type="button" disabled>
+          <svg class="ic"><use href="#i-shield"/></svg> <span id="guildBoostToggleLabel">Guild Boost +…</span>
+        </button>
       {% endif %}
     </div>
   </div>
@@ -235,6 +238,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadPremiumStatus();
   setupPassToggle();
+  setupGuildBoostToggle();
   setupPassAdmin();
   setupXpEdit();
 });
@@ -403,6 +407,66 @@ function setupPassToggle() {
         await fetch(`/api/user/${userId}/pass`, { method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ note: 'Offert depuis dashboard' }),
+        });
+      }
+      await refresh();
+    } catch (e) {
+      alert('Erreur : ' + e.message);
+      btn.disabled = false;
+    }
+  });
+
+  refresh();
+}
+
+// ===== GUILD BOOST + TOGGLE (owner-only) =====
+function setupGuildBoostToggle() {
+  const btn = document.getElementById('guildBoostToggleBtn');
+  const lbl = document.getElementById('guildBoostToggleLabel');
+  if (!btn) return;
+  let active = false;
+  let hasEnt = false;
+
+  async function refresh() {
+    try {
+      const r = await fetch(`/api/user/${userId}/guild-boost`);
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      active = !!d.active;
+      hasEnt = !!d.has_entitlement;
+      btn.disabled = false;
+      // Ne peut pas retirer un vrai entitlement Discord ; seul le grant manuel est revocable
+      const canRevoke = active && !d.is_owner && !hasEnt;
+      btn.classList.toggle('btn-primary',   !active);
+      btn.classList.toggle('btn-secondary',  active);
+      if (d.is_owner) {
+        lbl.textContent = 'Guild Boost + (owner)';
+        btn.disabled = true;
+      } else if (active && hasEnt && !d.has_grant) {
+        lbl.textContent = 'Guild Boost + (achat Discord)';
+        btn.disabled = true;
+      } else if (active) {
+        lbl.textContent = 'Retirer Guild Boost +';
+        btn.disabled = false;
+      } else {
+        lbl.textContent = 'Offrir Guild Boost +';
+        btn.disabled = false;
+      }
+    } catch (_) {
+      lbl.textContent = 'Guild Boost + (erreur)';
+    }
+  }
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      if (active) {
+        await fetch(`/api/user/${userId}/guild-boost`, { method: 'DELETE' });
+      } else {
+        await fetch(`/api/user/${userId}/guild-boost`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ note: 'Offert depuis dashboard' }),
         });
       }
       await refresh();

@@ -87,6 +87,123 @@ def register_premium_routes(app, deps):
         return send_file(buf, mimetype="image/png")
 
 
+    # ===== GUILD BOOST + : assignation par user =====
+
+    def _user_guilds_admin_or_owner():
+        """Liste des guilds connues du bot ou le user connecte est admin OU owner."""
+        metas = (session.get("discord") or {}).get("guilds_meta") or []
+        out = []
+        seen = set()
+        for m in metas:
+            if m.get("is_admin") or m.get("is_owner"):
+                gid = str(m.get("guild_id"))
+                if gid and gid not in seen:
+                    seen.add(gid)
+                    out.append({
+                        "guild_id":  gid,
+                        "name":      m.get("name") or gid,
+                        "icon_url":  m.get("icon_url"),
+                    })
+        return out
+
+
+    @app.route("/api/guild-boost/status", methods=["GET"])
+    def api_guild_boost_status():
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"ok": False, "error": "not_logged_in"}), 401
+        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        owner = DISCORD_OWNER_ID
+        is_owner = bool(owner) and str(uid) == str(owner)
+        can_assign = user_can_assign_guild_boost(uid, sku_id=sku, owner_id=owner)
+        assignments = guild_boost_get_for_user(uid)
+        return jsonify({
+            "ok": True,
+            "user_id":     str(uid),
+            "is_owner":    is_owner,
+            "can_assign":  can_assign,
+            "assignments": assignments,
+            "guilds":      _user_guilds_admin_or_owner(),
+            "sku_id":      sku,
+        })
+
+
+    @app.route("/api/guild-boost/assign", methods=["POST"])
+    def api_guild_boost_assign():
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"error": "not_logged_in"}), 401
+        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        owner = DISCORD_OWNER_ID
+        if not user_can_assign_guild_boost(uid, sku_id=sku, owner_id=owner):
+            return jsonify({"error": "pas de Guild Boost + actif sur ce compte"}), 403
+        data = request.get_json(silent=True) or {}
+        gid_target = str(data.get("guild_id") or "").strip()
+        if not gid_target:
+            return jsonify({"error": "guild_id requis"}), 400
+        # Verifie que le user a bien admin/owner sur la guild cible
+        eligible = {g["guild_id"] for g in _user_guilds_admin_or_owner()}
+        if gid_target not in eligible:
+            return jsonify({"error": "tu dois etre admin ou owner du serveur"}), 403
+        is_owner = bool(owner) and str(uid) == str(owner)
+        guild_boost_assign(uid, gid_target, is_owner=is_owner)
+        return jsonify({"ok": True, "guild_id": gid_target})
+
+
+    @app.route("/api/guild-boost/unassign", methods=["POST"])
+    def api_guild_boost_unassign():
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"error": "not_logged_in"}), 401
+        data = request.get_json(silent=True) or {}
+        gid_target = str(data.get("guild_id") or "").strip() or None
+        guild_boost_unassign(uid, gid_target)
+        return jsonify({"ok": True, "guild_id": gid_target})
+
+
+    # ===== Owner : grant/revoke Guild Boost + manuellement =====
+
+    @app.route("/api/user/<user_id>/guild-boost", methods=["POST"])
+    def api_user_guild_boost_grant(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        data = request.get_json(silent=True) or {}
+        note = data.get("note") or "Offert depuis dashboard"
+        add_premium_grant(user_id, feature="guild_boost",
+                          granted_by=_current_user_id(), note=note)
+        return jsonify({"ok": True, "user_id": str(user_id), "feature": "guild_boost"})
+
+
+    @app.route("/api/user/<user_id>/guild-boost", methods=["DELETE"])
+    def api_user_guild_boost_revoke(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        remove_premium_grant(user_id, feature="guild_boost")
+        # Retire aussi toutes les assignations du user (cleanup)
+        guild_boost_unassign(user_id, None)
+        return jsonify({"ok": True, "user_id": str(user_id), "feature": "guild_boost", "revoked": True})
+
+
+    @app.route("/api/user/<user_id>/guild-boost", methods=["GET"])
+    def api_user_guild_boost_status(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        owner = DISCORD_OWNER_ID
+        is_owner_target = bool(owner) and str(user_id) == str(owner)
+        active = user_can_assign_guild_boost(user_id, sku_id=sku, owner_id=owner)
+        granted = has_premium_grant(user_id, feature="guild_boost", inherit_all=False)
+        ent_active = bool(sku) and user_has_active_entitlement(user_id, sku_id=sku)
+        return jsonify({
+            "user_id":     str(user_id),
+            "is_owner":    is_owner_target,
+            "active":      active,
+            "has_grant":   granted,
+            "has_entitlement": ent_active,
+            "assignments": guild_boost_get_for_user(user_id),
+        })
+
+
     # ===== Owner : page de paramètres avancée (custom BG, etc.) =====
 
     @app.route("/owner/settings")

@@ -151,10 +151,12 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 # ===== MONETIZATION =====
 # SKUs Discord. Remplis ces env apres avoir cree les SKU dans le Dev Portal :
-#   SKU_NIVEAU_PREMIUM = SKU "Durable" (achat unique 1.99 USD) /niveau Premium
-#   SKU_PASS           = SKU "Subscription" (recurrent 3.99 EUR / mois) Battle Pass
-SKU_NIVEAU_PREMIUM = os.getenv("SKU_NIVEAU_PREMIUM", "").strip() or None
-SKU_PASS           = os.getenv("SKU_PASS", "").strip() or None
+#   SKU_NIVEAU_PREMIUM   = SKU "Durable" (achat unique 1.99 USD) /niveau Premium
+#   SKU_PASS             = SKU "Subscription" (recurrent 3.99 USD / mois) Battle Pass
+#   SKU_GUILD_BOOST_PLUS = SKU "Subscription" (recurrent 3.99 USD / mois) Guild Boost +
+SKU_NIVEAU_PREMIUM   = os.getenv("SKU_NIVEAU_PREMIUM",   "").strip() or None
+SKU_PASS             = os.getenv("SKU_PASS",             "").strip() or None
+SKU_GUILD_BOOST_PLUS = os.getenv("SKU_GUILD_BOOST_PLUS", "").strip() or None
 DISCORD_OWNER_ID   = os.getenv("DISCORD_OWNER_ID", "").strip() or None
 
 
@@ -481,7 +483,7 @@ class FeatureGuardTree(app_commands.CommandTree):
             return True
 
         from services.feature_guard import COMMAND_FEATURE_MAP, get_feature_label
-        from database import guild_setting_get, custom_cmd_get
+        from database import guild_setting_get, custom_cmd_get, guild_has_active_boost
 
         feature_key = COMMAND_FEATURE_MAP.get(root_name)
         if feature_key is None:
@@ -502,6 +504,25 @@ class FeatureGuardTree(app_commands.CommandTree):
                 ephemeral=True,
             )
             return False
+
+        # Gating Guild Boost + : certaines features ne sont accessibles que si la
+        # guild a au moins un Guild Boost + actif (achete OU offert OU owner).
+        GUILD_BOOST_FEATURES = {"custom_commands", "social_alerts", "tickets"}
+        if feature_key in GUILD_BOOST_FEATURES:
+            boosted = guild_has_active_boost(
+                interaction.guild.id,
+                sku_id=SKU_GUILD_BOOST_PLUS,
+                owner_id=DISCORD_OWNER_ID,
+            )
+            if not boosted:
+                label = get_feature_label(feature_key)
+                await interaction.response.send_message(
+                    f"Cette fonctionnalité **{label}** nécessite **Guild Boost +** sur ce serveur.\n"
+                    "Un membre doit acheter Guild Boost + dans la boutique du bot, puis l'assigner "
+                    "à ce serveur depuis `dashboard.tookbot.click/premium`.",
+                    ephemeral=True,
+                )
+                return False
         return True
 
 

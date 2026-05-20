@@ -572,7 +572,7 @@ def init_db():
             pass
 
     # Grants premium manuels (owner offre la feature gratuitement, comptes test, etc.).
-    # feature='all' = pack complet, 'pass' = Battle Pass, ou cle specifique.
+    # feature='all' = pack complet, 'pass' = Battle Pass, 'guild_boost' = Guild Boost +, etc.
     c.execute('''CREATE TABLE IF NOT EXISTS premium_grants (
         user_id    TEXT NOT NULL,
         feature    TEXT NOT NULL DEFAULT 'all',
@@ -580,6 +580,17 @@ def init_db():
         granted_at TEXT DEFAULT CURRENT_TIMESTAMP,
         note       TEXT,
         PRIMARY KEY (user_id, feature)
+    )''')
+
+    # Assignations Guild Boost + : un user assigne son achat/grant a une (ou
+    # plusieurs si owner) guild. PK composite pour permettre l'owner d'avoir
+    # plusieurs assignations ; pour les autres users on supprime les anciennes
+    # rows avant insert (1 user = 1 assignation max).
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_boost (
+        user_id     TEXT NOT NULL,
+        guild_id    TEXT NOT NULL,
+        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, guild_id)
     )''')
 
     # ===== BATTLE PASS =====
@@ -2389,6 +2400,101 @@ def user_is_premium(user_id, feature="all", owner_id=None) -> bool:
     if has_premium_grant(uid, feature):
         return True
     if user_has_active_entitlement(uid):
+        return True
+    return False
+
+
+# ===== GUILD BOOST + =====
+def guild_boost_get_for_user(user_id) -> list[dict]:
+    """Retourne toutes les assignations actives d'un user (1 max sauf owner)."""
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT guild_id, assigned_at FROM guild_boost WHERE user_id = ? ORDER BY assigned_at DESC",
+        (str(user_id),),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def guild_boost_assign(user_id, guild_id, *, is_owner: bool = False):
+    """Assigne le Guild Boost + d'un user a une guild. Pour les non-owners,
+    supprime les anciennes rows (1 user = 1 assignation). L'owner peut avoir
+    plusieurs rows simultanees."""
+    conn = get_db()
+    c = conn.cursor()
+    if not is_owner:
+        c.execute(
+            "DELETE FROM guild_boost WHERE user_id = ? AND guild_id != ?",
+            (str(user_id), str(guild_id)),
+        )
+    c.execute('''
+        INSERT INTO guild_boost (user_id, guild_id, assigned_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, guild_id) DO UPDATE SET
+            assigned_at = CURRENT_TIMESTAMP
+    ''', (str(user_id), str(guild_id)))
+    conn.commit()
+    conn.close()
+
+
+def guild_boost_unassign(user_id, guild_id=None):
+    """Retire l'assignation. Si guild_id None, retire toutes celles du user."""
+    conn = get_db()
+    c = conn.cursor()
+    if guild_id is None:
+        c.execute("DELETE FROM guild_boost WHERE user_id = ?", (str(user_id),))
+    else:
+        c.execute(
+            "DELETE FROM guild_boost WHERE user_id = ? AND guild_id = ?",
+            (str(user_id), str(guild_id)),
+        )
+    conn.commit()
+    conn.close()
+
+
+def guild_has_active_boost(guild_id, *, sku_id=None, owner_id=None) -> bool:
+    """True si au moins un user a assigne son Guild Boost + actif a cette guild.
+
+    Un boost est actif si :
+    - le user est l'owner du bot (owner_id correspondant), OU
+    - le user a un grant premium 'guild_boost' (ou 'all'), OU
+    - le user a un entitlement non-deleted, non-expire sur sku_id.
+    """
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT user_id FROM guild_boost WHERE guild_id = ?",
+        (str(guild_id),),
+    ).fetchall()
+    conn.close()
+    if not rows:
+        return False
+    now = _dt.datetime.utcnow().isoformat()
+    for r in rows:
+        uid = r["user_id"]
+        # Owner -> boost gratuit illimite
+        if owner_id and str(uid) == str(owner_id):
+            return True
+        # Grant manuel
+        if has_premium_grant(uid, feature="guild_boost", inherit_all=True):
+            return True
+        # Entitlement Discord actif
+        if sku_id and user_has_active_entitlement(uid, sku_id=sku_id):
+            return True
+    return False
+
+
+def user_can_assign_guild_boost(user_id, *, sku_id=None, owner_id=None) -> bool:
+    """True si le user a un Guild Boost + utilisable (peut donc l'assigner)."""
+    if not user_id:
+        return False
+    uid = str(user_id)
+    if owner_id and uid == str(owner_id):
+        return True
+    if has_premium_grant(uid, feature="guild_boost", inherit_all=True):
+        return True
+    if sku_id and user_has_active_entitlement(uid, sku_id=sku_id):
         return True
     return False
 
