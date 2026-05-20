@@ -107,14 +107,25 @@ def register_premium_routes(app, deps):
         return out
 
 
+    def _gb_skus():
+        return {
+            "solo":  globals().get("SKU_GUILD_BOOST_PLUS"),
+            "duo":   globals().get("SKU_GUILD_BOOST_DUO"),
+            "squad": globals().get("SKU_GUILD_BOOST_SQUAD"),
+        }
+
+
     @app.route("/api/guild-boost/guild-status", methods=["GET"])
     def api_guild_boost_guild_status():
         """Statut Guild Boost + pour la guild actuellement selectionnee."""
         g_id = gid()
         if not g_id:
             return jsonify({"ok": False, "active": False, "error": "no_guild"}), 200
-        sku = globals().get("SKU_GUILD_BOOST_PLUS")
-        active = guild_has_active_boost(g_id, sku_id=sku, owner_id=DISCORD_OWNER_ID)
+        s = _gb_skus()
+        active = guild_has_active_boost(
+            g_id, sku_solo=s["solo"], sku_duo=s["duo"], sku_squad=s["squad"],
+            owner_id=DISCORD_OWNER_ID,
+        )
         return jsonify({"ok": True, "guild_id": str(g_id), "active": active})
 
 
@@ -123,19 +134,31 @@ def register_premium_routes(app, deps):
         uid = _current_user_id()
         if not uid:
             return jsonify({"ok": False, "error": "not_logged_in"}), 401
-        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        s = _gb_skus()
         owner = DISCORD_OWNER_ID
         is_owner = bool(owner) and str(uid) == str(owner)
-        can_assign = user_can_assign_guild_boost(uid, sku_id=sku, owner_id=owner)
+        max_slots = user_max_guild_slots(
+            uid, sku_solo=s["solo"], sku_duo=s["duo"], sku_squad=s["squad"], owner_id=owner,
+        )
+        can_assign = max_slots > 0
         assignments = guild_boost_get_for_user(uid)
+        used_slots = len(assignments)
+        # Detail tiers actifs (pour affichage UI)
+        tiers = {
+            "solo":  bool(s["solo"]  and user_has_active_entitlement(uid, sku_id=s["solo"]))  or has_premium_grant(uid, feature="guild_boost",       inherit_all=False),
+            "duo":   bool(s["duo"]   and user_has_active_entitlement(uid, sku_id=s["duo"]))   or has_premium_grant(uid, feature="guild_boost_duo",   inherit_all=False),
+            "squad": bool(s["squad"] and user_has_active_entitlement(uid, sku_id=s["squad"])) or has_premium_grant(uid, feature="guild_boost_squad", inherit_all=False),
+        }
         return jsonify({
             "ok": True,
             "user_id":     str(uid),
             "is_owner":    is_owner,
             "can_assign":  can_assign,
+            "max_slots":   max_slots,
+            "used_slots":  used_slots,
+            "tiers":       tiers,
             "assignments": assignments,
             "guilds":      _user_guilds_admin_or_owner(),
-            "sku_id":      sku,
         })
 
 
@@ -144,20 +167,29 @@ def register_premium_routes(app, deps):
         uid = _current_user_id()
         if not uid:
             return jsonify({"error": "not_logged_in"}), 401
-        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        s = _gb_skus()
         owner = DISCORD_OWNER_ID
-        if not user_can_assign_guild_boost(uid, sku_id=sku, owner_id=owner):
+        max_slots = user_max_guild_slots(
+            uid, sku_solo=s["solo"], sku_duo=s["duo"], sku_squad=s["squad"], owner_id=owner,
+        )
+        if max_slots <= 0:
             return jsonify({"error": "pas de Guild Boost + actif sur ce compte"}), 403
         data = request.get_json(silent=True) or {}
         gid_target = str(data.get("guild_id") or "").strip()
         if not gid_target:
             return jsonify({"error": "guild_id requis"}), 400
-        # Verifie que le user a bien admin/owner sur la guild cible
         eligible = {g["guild_id"] for g in _user_guilds_admin_or_owner()}
         if gid_target not in eligible:
             return jsonify({"error": "tu dois etre admin ou owner du serveur"}), 403
-        is_owner = bool(owner) and str(uid) == str(owner)
-        guild_boost_assign(uid, gid_target, is_owner=is_owner)
+        # Capacite : ne depasse pas max_slots (sauf reassignation a une guild deja boostee)
+        current = guild_boost_get_for_user(uid)
+        already = any(str(a["guild_id"]) == gid_target for a in current)
+        if not already and len(current) >= max_slots:
+            return jsonify({
+                "error": f"limite atteinte ({len(current)}/{max_slots} serveurs). "
+                         f"Achete Duo ou Squad pour plus de slots.",
+            }), 403
+        guild_boost_assign(uid, gid_target)
         return jsonify({"ok": True, "guild_id": gid_target})
 
 
@@ -172,45 +204,71 @@ def register_premium_routes(app, deps):
         return jsonify({"ok": True, "guild_id": gid_target})
 
 
-    # ===== Owner : grant/revoke Guild Boost + manuellement =====
+    # ===== Owner : grant/revoke Guild Boost + (3 tiers) manuellement =====
+
+    _GB_TIER_FEATURE = {
+        "solo":  "guild_boost",
+        "duo":   "guild_boost_duo",
+        "squad": "guild_boost_squad",
+    }
 
     @app.route("/api/user/<user_id>/guild-boost", methods=["POST"])
     def api_user_guild_boost_grant(user_id):
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         data = request.get_json(silent=True) or {}
-        note = data.get("note") or "Offert depuis dashboard"
-        add_premium_grant(user_id, feature="guild_boost",
+        tier = (data.get("tier") or "solo").lower()
+        if tier not in _GB_TIER_FEATURE:
+            return jsonify({"error": "tier invalide (solo|duo|squad)"}), 400
+        note = data.get("note") or f"Offert ({tier}) depuis dashboard"
+        add_premium_grant(user_id, feature=_GB_TIER_FEATURE[tier],
                           granted_by=_current_user_id(), note=note)
-        return jsonify({"ok": True, "user_id": str(user_id), "feature": "guild_boost"})
+        return jsonify({"ok": True, "user_id": str(user_id), "tier": tier})
 
 
     @app.route("/api/user/<user_id>/guild-boost", methods=["DELETE"])
     def api_user_guild_boost_revoke(user_id):
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
-        remove_premium_grant(user_id, feature="guild_boost")
-        # Retire aussi toutes les assignations du user (cleanup)
-        guild_boost_unassign(user_id, None)
-        return jsonify({"ok": True, "user_id": str(user_id), "feature": "guild_boost", "revoked": True})
+        tier = (request.args.get("tier") or "").lower().strip()
+        if tier and tier in _GB_TIER_FEATURE:
+            # Revoke d'un tier specifique
+            remove_premium_grant(user_id, feature=_GB_TIER_FEATURE[tier])
+        else:
+            # Revoke tous les tiers
+            for f in _GB_TIER_FEATURE.values():
+                remove_premium_grant(user_id, feature=f)
+            guild_boost_unassign(user_id, None)
+        return jsonify({"ok": True, "user_id": str(user_id), "tier": tier or "all", "revoked": True})
 
 
     @app.route("/api/user/<user_id>/guild-boost", methods=["GET"])
     def api_user_guild_boost_status(user_id):
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
-        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        s = _gb_skus()
         owner = DISCORD_OWNER_ID
         is_owner_target = bool(owner) and str(user_id) == str(owner)
-        active = user_can_assign_guild_boost(user_id, sku_id=sku, owner_id=owner)
-        granted = has_premium_grant(user_id, feature="guild_boost", inherit_all=False)
-        ent_active = bool(sku) and user_has_active_entitlement(user_id, sku_id=sku)
+        max_slots = user_max_guild_slots(
+            user_id, sku_solo=s["solo"], sku_duo=s["duo"], sku_squad=s["squad"], owner_id=owner,
+        )
+        # Detail par tier
+        def _tier_state(tier_key, sku_key, feat):
+            return {
+                "has_grant":       has_premium_grant(user_id, feature=feat, inherit_all=False),
+                "has_entitlement": bool(s[sku_key]) and user_has_active_entitlement(user_id, sku_id=s[sku_key]),
+            }
+        tiers = {
+            "solo":  _tier_state("solo",  "solo",  "guild_boost"),
+            "duo":   _tier_state("duo",   "duo",   "guild_boost_duo"),
+            "squad": _tier_state("squad", "squad", "guild_boost_squad"),
+        }
         return jsonify({
             "user_id":     str(user_id),
             "is_owner":    is_owner_target,
-            "active":      active,
-            "has_grant":   granted,
-            "has_entitlement": ent_active,
+            "active":      max_slots > 0,
+            "max_slots":   max_slots,
+            "tiers":       tiers,
             "assignments": guild_boost_get_for_user(user_id),
         })
 

@@ -154,9 +154,11 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 #   SKU_NIVEAU_PREMIUM   = SKU "Durable" (achat unique 1.99 USD) /niveau Premium
 #   SKU_PASS             = SKU "Subscription" (recurrent 3.99 USD / mois) Battle Pass
 #   SKU_GUILD_BOOST_PLUS = SKU "Subscription" (recurrent 3.99 USD / mois) Guild Boost +
-SKU_NIVEAU_PREMIUM   = os.getenv("SKU_NIVEAU_PREMIUM",   "").strip() or None
-SKU_PASS             = os.getenv("SKU_PASS",             "").strip() or None
-SKU_GUILD_BOOST_PLUS = os.getenv("SKU_GUILD_BOOST_PLUS", "").strip() or None
+SKU_NIVEAU_PREMIUM    = os.getenv("SKU_NIVEAU_PREMIUM",    "").strip() or None
+SKU_PASS              = os.getenv("SKU_PASS",              "").strip() or None
+SKU_GUILD_BOOST_PLUS  = os.getenv("SKU_GUILD_BOOST_PLUS",  "").strip() or None  # Solo: 1 slot
+SKU_GUILD_BOOST_DUO   = os.getenv("SKU_GUILD_BOOST_DUO",   "").strip() or None  # Duo: 2 slots
+SKU_GUILD_BOOST_SQUAD = os.getenv("SKU_GUILD_BOOST_SQUAD", "").strip() or None  # Squad: 5 slots
 DISCORD_OWNER_ID   = os.getenv("DISCORD_OWNER_ID", "").strip() or None
 
 
@@ -511,7 +513,9 @@ class FeatureGuardTree(app_commands.CommandTree):
         if feature_key in GUILD_BOOST_FEATURES:
             boosted = guild_has_active_boost(
                 interaction.guild.id,
-                sku_id=SKU_GUILD_BOOST_PLUS,
+                sku_solo=SKU_GUILD_BOOST_PLUS,
+                sku_duo=SKU_GUILD_BOOST_DUO,
+                sku_squad=SKU_GUILD_BOOST_SQUAD,
                 owner_id=DISCORD_OWNER_ID,
             )
             if not boosted:

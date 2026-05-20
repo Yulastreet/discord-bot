@@ -95,9 +95,13 @@
         <button id="passToggleBtn" class="btn btn-secondary" type="button" disabled>
           <svg class="ic"><use href="#i-swords"/></svg> <span id="passToggleLabel">Pass…</span>
         </button>
-        <button id="guildBoostToggleBtn" class="btn btn-secondary" type="button" disabled>
-          <svg class="ic"><use href="#i-shield"/></svg> <span id="guildBoostToggleLabel">Guild Boost +…</span>
-        </button>
+        <div id="guildBoostBtnGroup" class="row" style="gap:6px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:11px;color:var(--text-3);letter-spacing:0.05em;text-transform:uppercase;font-weight:700;">Guild Boost +</span>
+          <button class="btn btn-secondary btn-sm gb-tier-btn" data-tier="solo"  type="button" disabled>Solo</button>
+          <button class="btn btn-secondary btn-sm gb-tier-btn" data-tier="duo"   type="button" disabled>Duo</button>
+          <button class="btn btn-secondary btn-sm gb-tier-btn" data-tier="squad" type="button" disabled>Squad</button>
+          <span id="guildBoostHint" class="muted" style="font-size:11px;"></span>
+        </div>
       {% endif %}
     </div>
   </div>
@@ -432,61 +436,82 @@ function setupPassToggle() {
   refresh();
 }
 
-// ===== GUILD BOOST + TOGGLE (owner-only) =====
+// ===== GUILD BOOST + (3 tiers, owner-only) =====
 function setupGuildBoostToggle() {
-  const btn = document.getElementById('guildBoostToggleBtn');
-  const lbl = document.getElementById('guildBoostToggleLabel');
-  if (!btn) return;
-  let active = false;
-  let hasEnt = false;
+  const group = document.getElementById('guildBoostBtnGroup');
+  const hint  = document.getElementById('guildBoostHint');
+  if (!group) return;
+  const buttons = group.querySelectorAll('.gb-tier-btn');
 
   async function refresh() {
     try {
       const r = await fetch(`/api/user/${userId}/guild-boost`);
       if (!r.ok) throw new Error(r.status);
       const d = await r.json();
-      active = !!d.active;
-      hasEnt = !!d.has_entitlement;
-      btn.disabled = false;
-      // Ne peut pas retirer un vrai entitlement Discord ; seul le grant manuel est revocable
-      const canRevoke = active && !d.is_owner && !hasEnt;
-      btn.classList.toggle('btn-primary',   !active);
-      btn.classList.toggle('btn-secondary',  active);
+      const tiers = d.tiers || {};
       if (d.is_owner) {
-        lbl.textContent = 'Guild Boost + (owner)';
-        btn.disabled = true;
-      } else if (active && hasEnt && !d.has_grant) {
-        lbl.textContent = 'Guild Boost + (achat Discord)';
-        btn.disabled = true;
-      } else if (active && d.has_grant) {
-        lbl.textContent = 'Retirer Guild Boost + (offert)';
-        btn.disabled = false;
+        hint.textContent = `(owner, illimité)`;
       } else {
-        lbl.textContent = 'Offrir Guild Boost +';
-        btn.disabled = false;
+        hint.textContent = d.max_slots > 0
+          ? `${d.max_slots} slot${d.max_slots > 1 ? 's' : ''}`
+          : '';
       }
-    } catch (_) {
-      lbl.textContent = 'Guild Boost + (erreur)';
+      buttons.forEach(btn => {
+        const tier = btn.dataset.tier;
+        const t = tiers[tier] || {};
+        const hasGrant = !!t.has_grant;
+        const hasEnt   = !!t.has_entitlement;
+        btn.disabled = d.is_owner;
+        if (d.is_owner) {
+          btn.textContent = tier[0].toUpperCase() + tier.slice(1);
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-secondary');
+        } else if (hasEnt && !hasGrant) {
+          btn.textContent = `${tier[0].toUpperCase() + tier.slice(1)} (achat)`;
+          btn.disabled = true;
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-secondary');
+        } else if (hasGrant) {
+          btn.textContent = `Retirer ${tier}`;
+          btn.disabled = false;
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-secondary');
+        } else {
+          btn.textContent = `Offrir ${tier}`;
+          btn.disabled = false;
+          btn.classList.add('btn-primary');
+          btn.classList.remove('btn-secondary');
+        }
+      });
+    } catch (e) {
+      hint.textContent = '(erreur)';
     }
   }
 
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    try {
-      if (active) {
-        await fetch(`/api/user/${userId}/guild-boost`, { method: 'DELETE' });
-      } else {
-        await fetch(`/api/user/${userId}/guild-boost`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ note: 'Offert depuis dashboard' }),
-        });
+  buttons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tier = btn.dataset.tier;
+      const prev = btn.textContent;
+      const wasGrant = prev.toLowerCase().startsWith('retirer');
+      btn.disabled = true;
+      btn.textContent = '...';
+      try {
+        if (wasGrant) {
+          await fetch(`/api/user/${userId}/guild-boost?tier=${tier}`, { method: 'DELETE' });
+        } else {
+          await fetch(`/api/user/${userId}/guild-boost`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ tier, note: 'Offert depuis dashboard' }),
+          });
+        }
+        await refresh();
+      } catch (e) {
+        alert('Erreur : ' + e.message);
+        btn.disabled = false;
+        btn.textContent = prev;
       }
-      await refresh();
-    } catch (e) {
-      alert('Erreur : ' + e.message);
-      btn.disabled = false;
-    }
+    });
   });
 
   refresh();

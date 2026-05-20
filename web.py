@@ -52,7 +52,7 @@ from database import (
     add_premium_grant, remove_premium_grant, list_premium_grants,
     has_premium_grant, user_has_active_pass, get_or_create_current_season,
     guild_boost_assign, guild_boost_unassign, guild_boost_get_for_user,
-    guild_has_active_boost, user_can_assign_guild_boost,
+    guild_has_active_boost, user_can_assign_guild_boost, user_max_guild_slots,
     get_pass_progress, list_user_pass_unlocks,
     list_user_active_quests, auto_claim_pass_tiers,
     get_user_cosmetic, list_user_owned_cosmetics,
@@ -87,9 +87,11 @@ DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 DISCORD_OWNER_ID      = os.getenv("DISCORD_OWNER_ID", "").strip()
 # SKUs Discord pour la monetisation (renseigner apres creation dans le Dev Portal)
-SKU_NIVEAU_PREMIUM    = os.getenv("SKU_NIVEAU_PREMIUM",   "").strip() or None
-SKU_PASS              = os.getenv("SKU_PASS",             "").strip() or None
-SKU_GUILD_BOOST_PLUS  = os.getenv("SKU_GUILD_BOOST_PLUS", "").strip() or None
+SKU_NIVEAU_PREMIUM    = os.getenv("SKU_NIVEAU_PREMIUM",    "").strip() or None
+SKU_PASS              = os.getenv("SKU_PASS",              "").strip() or None
+SKU_GUILD_BOOST_PLUS  = os.getenv("SKU_GUILD_BOOST_PLUS",  "").strip() or None  # Solo: 1 slot
+SKU_GUILD_BOOST_DUO   = os.getenv("SKU_GUILD_BOOST_DUO",   "").strip() or None  # Duo: 2 slots
+SKU_GUILD_BOOST_SQUAD = os.getenv("SKU_GUILD_BOOST_SQUAD", "").strip() or None  # Squad: 5 slots
 OAUTH_REDIRECT_URI    = os.getenv("OAUTH_REDIRECT_URI", "").strip()
 
 OAUTH_ENABLED = bool(DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET and OAUTH_REDIRECT_URI and _requests)

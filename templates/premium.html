@@ -193,20 +193,78 @@
   .gb-buy-block .help { font-size: 12px; color: var(--text-2); margin-top: 8px; }
 </style>
 
+<style>
+  .gb-tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .gb-tier {
+    background: var(--bg-0, #0d0d0b);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 18px 18px 16px;
+    position: relative;
+    transition: border-color 140ms ease, transform 140ms ease;
+  }
+  .gb-tier:hover { border-color: oklch(0.86 0.20 130 / 0.45); transform: translateY(-1px); }
+  .gb-tier.owned {
+    border-color: oklch(0.86 0.20 130);
+    box-shadow: 0 0 0 1px oklch(0.86 0.20 130 / 0.18), 0 4px 18px oklch(0.86 0.20 130 / 0.10);
+  }
+  .gb-tier .tier-name { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 4px; }
+  .gb-tier .tier-slots { font-size: 13px; color: oklch(0.86 0.20 130); font-weight: 700; margin-bottom: 10px; }
+  .gb-tier .tier-price { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 14px; }
+  .gb-tier .tier-price .per { font-size: 12px; color: var(--text-2); font-weight: 500; }
+  .gb-tier .tier-status { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .gb-tier .tier-status.on  { color: oklch(0.86 0.20 130); }
+  .gb-tier .tier-status.off { color: var(--text-3); }
+  .gb-slot-counter {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: var(--bg-2);
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: var(--text);
+  }
+  .gb-slot-counter .num { color: oklch(0.86 0.20 130); font-weight: 800; }
+</style>
+
 <div class="gb-card" id="gbCard">
   <div class="gb-head">
     <div>
       <h2>🛡️ Guild Boost +</h2>
       <p class="gb-sub" style="margin: 6px 0 0;">
-        Abonnement <strong>3,99 $US / mois</strong> qui débloque pour un serveur entier :
-        commandes custom, alertes Twitch/YouTube/Reddit, tickets, logs étendus.
-        Achète une fois, assigne au serveur de ton choix, réassigne à volonté.
+        Débloque pour un serveur entier : commandes custom, alertes Twitch/YouTube/Reddit,
+        tickets, logs étendus. Achète Solo, Duo ou Squad selon le nombre de serveurs à booster.
       </p>
     </div>
     <div id="gbStatusBadge"></div>
   </div>
 
-  <div id="gbContent" style="margin-top: 8px;">
+  <!-- Tiers -->
+  <div class="gb-tiers" id="gbTiers">
+    <div class="gb-tier" data-tier="solo">
+      <div class="tier-name">Solo</div>
+      <div class="tier-slots">1 serveur</div>
+      <div class="tier-price">3,99 $<span class="per"> /mois</span></div>
+      <div class="tier-status off" id="gbTierStatus-solo">Non débloqué</div>
+    </div>
+    <div class="gb-tier" data-tier="duo">
+      <div class="tier-name">Duo</div>
+      <div class="tier-slots">2 serveurs</div>
+      <div class="tier-price">6,99 $<span class="per"> /mois</span></div>
+      <div class="tier-status off" id="gbTierStatus-duo">Non débloqué</div>
+    </div>
+    <div class="gb-tier" data-tier="squad">
+      <div class="tier-name">Squad</div>
+      <div class="tier-slots">5 serveurs</div>
+      <div class="tier-price">14,99 $<span class="per"> /mois</span></div>
+      <div class="tier-status off" id="gbTierStatus-squad">Non débloqué</div>
+    </div>
+  </div>
+
+  <div id="gbContent" style="margin-top: 18px;">
     <div class="muted" style="font-size:13px;">Chargement…</div>
   </div>
 </div>
@@ -319,12 +377,30 @@
 
     const canAssign  = !!d.can_assign;
     const isOwner    = !!d.is_owner;
+    const maxSlots   = d.max_slots || 0;
+    const usedSlots  = d.used_slots || 0;
+    const tiers      = d.tiers || {};
     const assigned   = (d.assignments || []).map(a => String(a.guild_id));
     const guilds     = d.guilds || [];
 
+    // Update tier cards
+    ['solo','duo','squad'].forEach(t => {
+      const tierCard  = document.querySelector(`.gb-tier[data-tier="${t}"]`);
+      const tierStat  = document.getElementById(`gbTierStatus-${t}`);
+      const owned     = !!tiers[t];
+      if (tierCard) tierCard.classList.toggle('owned', owned);
+      if (tierStat) {
+        tierStat.textContent = owned ? '★ Actif' : 'Non débloqué';
+        tierStat.className   = 'tier-status ' + (owned ? 'on' : 'off');
+      }
+    });
+
     if (canAssign) {
       card.classList.add('active');
-      badge.innerHTML = '<span class="gb-status-active">★ ACTIF</span>';
+      const counter = isOwner
+        ? '<span class="gb-slot-counter"><span class="num">∞</span> serveurs (owner)</span>'
+        : `<span class="gb-slot-counter"><span class="num">${usedSlots}</span> / ${maxSlots} slots utilisés</span>`;
+      badge.innerHTML = '<span class="gb-status-active">★ ACTIF</span> ' + counter;
     } else {
       card.classList.remove('active');
       badge.innerHTML = '<span class="gb-status-inactive">Non débloqué</span>';
@@ -333,13 +409,12 @@
     if (!canAssign) {
       content.innerHTML = `
         <div class="gb-buy-block">
-          <div class="price">3,99 $US / mois</div>
           <div style="font-size:13px;color:var(--text);">
-            Ouvre le profil de <strong>TookBot</strong> sur Discord → onglet <em>Boutique</em>
-            → sélectionne <strong>Guild Boost +</strong>.
+            Choisis un palier ci-dessus, ouvre le profil de <strong>TookBot</strong> sur Discord
+            → onglet <em>Boutique</em> → sélectionne <strong>Guild Boost + Solo / Duo / Squad</strong>.
           </div>
           <div class="help">
-            Une fois acheté, reviens sur cette page pour assigner le boost au serveur de ton choix.
+            Une fois acheté, reviens sur cette page pour assigner le boost à un ou plusieurs serveurs.
           </div>
         </div>`;
       return;
@@ -354,9 +429,14 @@
       return;
     }
 
+    const slotsLeft = isOwner ? 999 : Math.max(0, maxSlots - usedSlots);
     const ownerHint = isOwner
-      ? `<div class="gb-sub" style="margin: 12px 0 6px;color:oklch(0.86 0.20 130);">👑 En tant qu'owner du bot tu peux assigner ton boost à autant de serveurs que tu veux.</div>`
-      : `<div class="gb-sub" style="margin: 12px 0 6px;">Sélectionne un serveur : ton boost s'applique immédiatement. Tu peux le réassigner à tout moment.</div>`;
+      ? `<div class="gb-sub" style="margin: 12px 0 6px;color:oklch(0.86 0.20 130);">👑 Owner du bot : assignations illimitées.</div>`
+      : `<div class="gb-sub" style="margin: 12px 0 6px;">
+           ${slotsLeft > 0
+             ? `Tu as encore <strong>${slotsLeft} slot${slotsLeft > 1 ? 's' : ''}</strong> disponible${slotsLeft > 1 ? 's' : ''}.`
+             : 'Limite atteinte. Retire une assignation ou achète un palier supérieur pour en ajouter.'}
+         </div>`;
 
     const items = guilds.map(g => {
       const id = String(g.guild_id);
@@ -364,15 +444,20 @@
       const iconHtml = g.icon_url
         ? `<img src="${escapeHtml(g.icon_url)}" alt="">`
         : escapeHtml((g.name || '?')[0].toUpperCase());
-      const actionBtn = isAssigned
-        ? `<button class="btn btn-secondary btn-sm" data-action="unassign" data-guild="${escapeHtml(id)}">Retirer</button>`
-        : `<button class="btn btn-primary btn-sm" data-action="assign" data-guild="${escapeHtml(id)}">Assigner</button>`;
+      let actionBtn;
+      if (isAssigned) {
+        actionBtn = `<button class="btn btn-secondary btn-sm" data-action="unassign" data-guild="${escapeHtml(id)}">Retirer</button>`;
+      } else if (slotsLeft <= 0) {
+        actionBtn = `<button class="btn btn-secondary btn-sm" disabled title="Plus de slots disponibles">Plein</button>`;
+      } else {
+        actionBtn = `<button class="btn btn-primary btn-sm" data-action="assign" data-guild="${escapeHtml(id)}">Assigner</button>`;
+      }
       return `
         <div class="gb-guild ${isAssigned ? 'assigned' : ''}">
           <div class="icon">${iconHtml}</div>
           <div class="meta">
             <div class="name">${escapeHtml(g.name)}</div>
-            <div class="hint">${isAssigned ? '★ Boost assigné ici' : 'Disponible pour assignation'}</div>
+            <div class="hint">${isAssigned ? '★ Boost assigné ici' : (slotsLeft <= 0 ? 'Slots épuisés' : 'Disponible pour assignation')}</div>
           </div>
           <div class="actions">${actionBtn}</div>
         </div>`;

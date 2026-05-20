@@ -2417,17 +2417,13 @@ def guild_boost_get_for_user(user_id) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def guild_boost_assign(user_id, guild_id, *, is_owner: bool = False):
-    """Assigne le Guild Boost + d'un user a une guild. Pour les non-owners,
-    supprime les anciennes rows (1 user = 1 assignation). L'owner peut avoir
-    plusieurs rows simultanees."""
+def guild_boost_assign(user_id, guild_id):
+    """Assigne le Guild Boost + d'un user a une guild (upsert).
+
+    Le caller doit verifier la capacite (user_max_guild_slots) AVANT d'appeler.
+    """
     conn = get_db()
     c = conn.cursor()
-    if not is_owner:
-        c.execute(
-            "DELETE FROM guild_boost WHERE user_id = ? AND guild_id != ?",
-            (str(user_id), str(guild_id)),
-        )
     c.execute('''
         INSERT INTO guild_boost (user_id, guild_id, assigned_at)
         VALUES (?, ?, CURRENT_TIMESTAMP)
@@ -2453,13 +2449,40 @@ def guild_boost_unassign(user_id, guild_id=None):
     conn.close()
 
 
-def guild_has_active_boost(guild_id, *, sku_id=None, owner_id=None) -> bool:
+def user_max_guild_slots(user_id, *, sku_solo=None, sku_duo=None, sku_squad=None,
+                          owner_id=None) -> int:
+    """Nb total de serveurs que ce user peut booster simultanement.
+
+    Slots cumulatifs (stackent) :
+    - Owner -> 999 (illimite)
+    - Solo  (entitlement OU grant 'guild_boost')        : +1
+    - Duo   (entitlement OU grant 'guild_boost_duo')    : +2
+    - Squad (entitlement OU grant 'guild_boost_squad')  : +5
+    """
+    if not user_id:
+        return 0
+    uid = str(user_id)
+    if owner_id and uid == str(owner_id):
+        return 999
+    slots = 0
+    if (sku_solo and user_has_active_entitlement(uid, sku_id=sku_solo)) \
+            or has_premium_grant(uid, feature="guild_boost", inherit_all=False):
+        slots += 1
+    if (sku_duo and user_has_active_entitlement(uid, sku_id=sku_duo)) \
+            or has_premium_grant(uid, feature="guild_boost_duo", inherit_all=False):
+        slots += 2
+    if (sku_squad and user_has_active_entitlement(uid, sku_id=sku_squad)) \
+            or has_premium_grant(uid, feature="guild_boost_squad", inherit_all=False):
+        slots += 5
+    return slots
+
+
+def guild_has_active_boost(guild_id, *, sku_solo=None, sku_duo=None, sku_squad=None,
+                            owner_id=None) -> bool:
     """True si au moins un user a assigne son Guild Boost + actif a cette guild.
 
-    Un boost est actif si :
-    - le user est l'owner du bot (owner_id correspondant), OU
-    - le user a un grant premium strictement 'guild_boost', OU
-    - le user a un entitlement non-deleted, non-expire sur sku_id.
+    Verifie que les users qui ont assigne ont toujours des slots disponibles
+    (grant ou entitlement valide sur un des 3 tiers).
     """
     conn = get_db()
     c = conn.cursor()
@@ -2470,33 +2493,23 @@ def guild_has_active_boost(guild_id, *, sku_id=None, owner_id=None) -> bool:
     conn.close()
     if not rows:
         return False
-    now = _dt.datetime.utcnow().isoformat()
     for r in rows:
         uid = r["user_id"]
-        # Owner -> boost gratuit illimite
-        if owner_id and str(uid) == str(owner_id):
-            return True
-        # Grant manuel
-        if has_premium_grant(uid, feature="guild_boost", inherit_all=False):
-            return True
-        # Entitlement Discord actif
-        if sku_id and user_has_active_entitlement(uid, sku_id=sku_id):
+        if user_max_guild_slots(
+            uid, sku_solo=sku_solo, sku_duo=sku_duo, sku_squad=sku_squad,
+            owner_id=owner_id,
+        ) > 0:
             return True
     return False
 
 
-def user_can_assign_guild_boost(user_id, *, sku_id=None, owner_id=None) -> bool:
-    """True si le user a un Guild Boost + utilisable (peut donc l'assigner)."""
-    if not user_id:
-        return False
-    uid = str(user_id)
-    if owner_id and uid == str(owner_id):
-        return True
-    if has_premium_grant(uid, feature="guild_boost", inherit_all=False):
-        return True
-    if sku_id and user_has_active_entitlement(uid, sku_id=sku_id):
-        return True
-    return False
+def user_can_assign_guild_boost(user_id, *, sku_solo=None, sku_duo=None, sku_squad=None,
+                                 owner_id=None) -> bool:
+    """True si le user a au moins 1 slot Guild Boost + utilisable."""
+    return user_max_guild_slots(
+        user_id, sku_solo=sku_solo, sku_duo=sku_duo, sku_squad=sku_squad,
+        owner_id=owner_id,
+    ) > 0
 
 
 def set_premium_setting(user_id, key: str, value):
