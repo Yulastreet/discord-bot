@@ -142,6 +142,7 @@ def setup_runtime(bot, deps):
 
 
     def _sync_guild_members(guild):
+        from database import member_roles_set
         members = []
         for m in guild.members:
             members.append({
@@ -152,6 +153,13 @@ def setup_runtime(bot, deps):
                 "joined_at":  m.joined_at,
             })
         replace_guild_members(guild.id, members)
+        # Sync roles de chaque member (sans @everyone)
+        for m in guild.members:
+            try:
+                role_ids = [str(r.id) for r in m.roles if r.name != "@everyone"]
+                member_roles_set(guild.id, m.id, role_ids)
+            except Exception:
+                pass
 
     def _sync_guild_channels(guild):
         """Pousse les salons d'un guild dans la table guild_channels."""
@@ -266,6 +274,36 @@ def setup_runtime(bot, deps):
                         await target.send(embed=embed_setup)
                 except Exception:
                     pass
+
+        # === 3e message : DM SERVER OWNER (different du inviter) pour config perms modos ===
+        server_owner = guild.owner
+        if server_owner and not server_owner.bot:
+            embed_owner = discord.Embed(
+                title="🔐 Configuration des permissions modérateurs",
+                description=(
+                    f"Bonjour **{server_owner.display_name}** !\n\n"
+                    f"TookBot a été ajouté à ton serveur **{guild.name}**.\n\n"
+                    "## ⚠️ Étape obligatoire pour toi (proprio du serveur)\n\n"
+                    "Par défaut, **les modérateurs ont accès à TOUT** (commandes et dashboard).\n"
+                    "Tu peux restreindre leurs droits feature par feature.\n\n"
+                    "**Tant que tu ne fais pas cette config :**\n"
+                    "• Les modos ne peuvent **utiliser aucune** commande slash de modération\n"
+                    "• Les modos ne peuvent **accéder à aucune** page du dashboard "
+                    "(sauf leur Premium/Pass perso)\n\n"
+                    "**Deux façons de configurer :**\n\n"
+                    "**1.** Sur le **dashboard web** : un popup apparaîtra à ta 1re connexion\n"
+                    "→ <https://dashboard.tookbot.click>\n\n"
+                    "**2.** Sur Discord : fais `/setup` pour choisir le rôle des modérateurs, "
+                    "puis un salon privé temporaire sera créé pour cocher les permissions\n\n"
+                    "💡 *Tu pourras modifier ces droits à tout moment via le dashboard.*"
+                ),
+                color=0xB9F23A,
+            )
+            embed_owner.set_footer(text="Configuration permission modérateurs — Obligatoire")
+            try:
+                await server_owner.send(embed=embed_owner)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
     @bot.event
     async def on_guild_remove(guild):
@@ -406,6 +444,11 @@ def setup_runtime(bot, deps):
             remove_member(member.guild.id, member.id)
         except Exception:
             pass
+        try:
+            from database import member_roles_clear
+            member_roles_clear(member.guild.id, member.id)
+        except Exception:
+            pass
 
     @bot.event
     async def on_member_update(before, after):
@@ -415,6 +458,15 @@ def setup_runtime(bot, deps):
             upsert_member(after.guild.id, after.id, str(after),
                           avatar_url=str(after.display_avatar.url) if after.display_avatar else None,
                           is_bot=after.bot, joined_at=after.joined_at)
+        except Exception:
+            pass
+        # Sync roles si change
+        try:
+            before_ids = {str(r.id) for r in (before.roles or [])}
+            after_ids  = {str(r.id) for r in (after.roles or [])}
+            if before_ids != after_ids:
+                from database import member_roles_set
+                member_roles_set(after.guild.id, after.id, list(after_ids))
         except Exception:
             pass
 
@@ -704,6 +756,13 @@ def setup_runtime(bot, deps):
             upsert_member(member.guild.id, member.id, str(member),
                           avatar_url=str(member.display_avatar.url) if member.display_avatar else None,
                           is_bot=member.bot, joined_at=member.joined_at)
+        except Exception:
+            pass
+        # Init roles (vide au join sauf si rôles auto-attribués par la guild)
+        try:
+            from database import member_roles_set
+            role_ids = [str(r.id) for r in (member.roles or []) if r.name != "@everyone"]
+            member_roles_set(member.guild.id, member.id, role_ids)
         except Exception:
             pass
 

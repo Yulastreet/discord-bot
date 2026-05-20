@@ -232,6 +232,16 @@ def init_db():
         PRIMARY KEY (guild_id, user_id)
     )''')
 
+    # Roles d'un member (pour gating mod perms cote dashboard/bot)
+    c.execute('''CREATE TABLE IF NOT EXISTS member_roles (
+        guild_id TEXT NOT NULL,
+        user_id  TEXT NOT NULL,
+        role_id  TEXT NOT NULL,
+        PRIMARY KEY (guild_id, user_id, role_id)
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_member_roles_user ON member_roles(guild_id, user_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_member_roles_role ON member_roles(guild_id, role_id)')
+
     # ===== Table dm_messages (DM entre users et le bot, global cross-guild) =====
     c.execute('''CREATE TABLE IF NOT EXISTS dm_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1597,6 +1607,31 @@ GUILD_DEFAULT_SETTINGS = {
     "setup_logs_channel_id":      "",
     "setup_alerts_channel_id":    "",
     "setup_admin_channel_id":     "",
+    # Permissions modérateurs (configurees par le server owner)
+    "mod_role_id":                "",
+    "mod_access_configured":      "0",
+    # Toggleables slash commands
+    "mod_perm_warn":              "0",
+    "mod_perm_rolereaction":      "0",
+    "mod_perm_ticket":            "0",
+    "mod_perm_giveaway":          "0",
+    "mod_perm_clear":             "0",
+    "mod_perm_kick":              "0",
+    "mod_perm_poll":              "0",
+    "mod_perm_modlogs":           "0",
+    "mod_perm_setwelcome":        "0",
+    "mod_perm_reaction":          "0",
+    "mod_perm_socialalert":       "0",
+    "mod_perm_ban":               "0",
+    "mod_perm_setup":             "0",
+    "mod_perm_xp":                "0",
+    "mod_perm_note":              "0",
+    # Toggleables pages dashboard (sans slash equivalent)
+    "mod_perm_features":          "0",
+    "mod_perm_settings":          "0",
+    "mod_perm_logs":              "0",
+    "mod_perm_custom_commands":   "0",
+    "mod_perm_music":             "0",
 }
 
 def guild_setting_get(guild_id, key, default=None):
@@ -2001,6 +2036,75 @@ def replace_guild_members(guild_id, members):
                    m["joined_at"].isoformat() if m.get("joined_at") else None))
     conn.commit()
     conn.close()
+
+
+# ===== Member roles (cache pour gating mod perms) =====
+def member_roles_set(guild_id, user_id, role_ids):
+    """Remplace tous les role_ids d'un member pour cette guild."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "DELETE FROM member_roles WHERE guild_id = ? AND user_id = ?",
+        (str(guild_id), str(user_id)),
+    )
+    for rid in (role_ids or []):
+        c.execute(
+            "INSERT OR IGNORE INTO member_roles (guild_id, user_id, role_id) VALUES (?, ?, ?)",
+            (str(guild_id), str(user_id), str(rid)),
+        )
+    conn.commit()
+    conn.close()
+
+
+def member_roles_clear(guild_id, user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "DELETE FROM member_roles WHERE guild_id = ? AND user_id = ?",
+        (str(guild_id), str(user_id)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def member_has_role(guild_id, user_id, role_id) -> bool:
+    if not role_id:
+        return False
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT 1 FROM member_roles WHERE guild_id = ? AND user_id = ? AND role_id = ? LIMIT 1",
+        (str(guild_id), str(user_id), str(role_id)),
+    ).fetchone()
+    conn.close()
+    return bool(row)
+
+
+def member_get_roles(guild_id, user_id) -> list[str]:
+    conn = get_db()
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT role_id FROM member_roles WHERE guild_id = ? AND user_id = ?",
+        (str(guild_id), str(user_id)),
+    ).fetchall()
+    conn.close()
+    return [r["role_id"] for r in rows]
+
+
+def mod_has_perm(guild_id, user_id, perm_key: str, mod_role_id: str | None = None) -> bool:
+    """True si user a le mod_role configure ET la perm_key est activee.
+
+    `perm_key` sans le prefixe 'mod_perm_'. Ex: 'kick', 'ticket'.
+    """
+    # Lit mod_role_id si non fourni
+    if mod_role_id is None:
+        mod_role_id = guild_setting_get(guild_id, "mod_role_id", "") or ""
+    if not mod_role_id:
+        return False
+    if not member_has_role(guild_id, user_id, mod_role_id):
+        return False
+    val = guild_setting_get(guild_id, f"mod_perm_{perm_key}", "0")
+    return val == "1"
 
 
 def replace_guild_channels(guild_id, channels):
