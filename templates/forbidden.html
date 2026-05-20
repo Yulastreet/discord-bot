@@ -5,13 +5,21 @@
 {% block crumb %}Accès refusé{% endblock %}
 
 {% block content %}
-<div class="card" style="text-align:center;padding:var(--s-12) var(--s-7);max-width:600px;margin:var(--s-9) auto;">
+<div class="card" style="text-align:center;padding:var(--s-12) var(--s-7);max-width:640px;margin:var(--s-9) auto;">
   <div style="font-size:48px;margin-bottom:var(--s-3);">🔒</div>
   <h1 style="font-size:var(--t-xl);margin-bottom:var(--s-3);">Accès refusé</h1>
-  <p class="muted" style="font-size:var(--t-sm);max-width:50ch;margin:0 auto var(--s-5);">
-    Tu n'as pas les permissions nécessaires pour accéder à cette page.
-    Les modérateurs ne voient que : Dashboard, Recherche, Réactions, Musique, Logs, Modération.
+  {% if current_guild %}
+    {% set _gid = current_guild.guild_id %}
+    {% set _configured = (current_guild.mod_access_configured if current_guild.mod_access_configured else '0') %}
+  {% endif %}
+  <p class="muted" style="font-size:var(--t-sm);max-width:60ch;margin:0 auto var(--s-5);line-height:1.6;">
+    Le <strong>propriétaire du serveur</strong> n'a pas encore configuré les permissions pour les modérateurs,
+    ou cette fonctionnalité ne t'est pas accordée.<br><br>
+    Tu peux toujours accéder à tes pages personnelles : <a href="/premium">Premium</a>, <a href="/my-pass">Mon Pass</a>.
   </p>
-  <a href="/dashboard" class="btn btn-primary">Retour au dashboard</a>
+  <div class="row gap-3" style="justify-content:center;">
+    <a href="/premium" class="btn btn-primary">Section Premium</a>
+    <a href="/select-guild" class="btn btn-secondary">Changer de serveur</a>
+  </div>
 </div>
 {% endblock %}

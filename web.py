@@ -221,32 +221,81 @@ def _user_can_access_page(endpoint, path):
     if path in ("/api/select-guild", "/api/guilds"):
         return True
 
-    # Pages "Mon compte" (premium, gestion d'achats) : tout user connecte y accede
+    # Pages "Mon compte" perso (premium, pass, guild boost) : tout user connecte y accede
     if path == "/premium" or path.startswith("/premium/") or path.startswith("/api/premium"):
         return True
     if path == "/my-pass" or path.startswith("/my-pass/") or path.startswith("/api/my/"):
+        return True
+    if path == "/api/guild-boost/status" or path == "/api/guild-boost/assign" \
+            or path == "/api/guild-boost/unassign":
         return True
 
     # Pages user-perso non scopees a un serveur
     if path == "/logout" or path == "/forbidden":
         return True
 
-    # Mods : checks par endpoint et par path
-    if path in MOD_BLOCKED_PAGES:
-        return False
-    for pref in MOD_BLOCKED_API_PREFIXES:
-        if path.startswith(pref):
-            return False
-    # Si endpoint dans la liste autorisee, OK
-    if endpoint in MOD_ALLOWED_PAGES:
+    # Server owner : passe partout pour SES serveurs
+    cg = session.get("guild_id")
+    role_class = _user_role_class(cg) if cg else "none"
+    if role_class == "server_owner":
         return True
-    # API allowed if matches prefix
-    for pref in MOD_ALLOWED_API_PREFIXES:
-        if path.startswith(pref):
-            return True
-    # Path-based fallback (allows /dashboard, /search, /user/<id>, /reactions, /music, /logs, /moderation)
-    allowed_path_prefixes = ("/dashboard", "/search", "/user/", "/reactions", "/music", "/logs", "/moderation")
-    return any(path == p.rstrip("/") or path.startswith(p) for p in allowed_path_prefixes)
+
+    # Page de config des perms modos (visible uniquement server_owner / bot_owner)
+    if path == "/mod-config" or path.startswith("/api/mod-config"):
+        return role_class == "server_owner"
+
+    # Mods : doivent avoir mod_access_configured=1 ET la perm specifique
+    if role_class != "mod":
+        # Pas mod du tout : aucun acces (sauf pages permanentes ci-dessus)
+        return False
+
+    if not cg:
+        return False
+    configured = guild_setting_get(cg, "mod_access_configured", "0") == "1"
+    if not configured:
+        # Owner du serveur n'a pas encore configure -> blocage total des pages serveur
+        return False
+
+    # Mod avec acces configure : check perm specifique
+    uid = _current_user_id()
+    # Path -> perm
+    perm = _PATH_MOD_PERMS.get(path)
+    if perm is None:
+        # Mappings API : derive du path
+        # /api/<feature>/... -> map sur la perm correspondante
+        api_perm_prefix = {
+            "/api/moderation":      ["warn", "kick", "ban", "clear"],
+            "/api/tickets":         "ticket",
+            "/api/rolereactions":   "rolereaction",
+            "/api/social-alerts":   "socialalert",
+            "/api/giveaways":       "giveaway",
+            "/api/poll":            "poll",
+            "/api/reactions":       "reaction",
+            "/api/logs":            "logs",
+            "/api/custom-commands": "custom_commands",
+            "/api/guild-features":  "features",
+            "/api/guild-settings":  "settings",
+            "/api/music":           "music",
+        }
+        for pref, p in api_perm_prefix.items():
+            if path.startswith(pref):
+                perm = p
+                break
+
+    # Endpoints/paths neutres toujours OK pour les mods (lookup user, channels, etc.)
+    NEUTRAL_PREFIXES = ("/api/members", "/api/channels", "/api/heatmap",
+                        "/api/cs2", "/api/lol", "/api/roles", "/api/user/",
+                        "/api/guild-boost", "/api/search")
+    NEUTRAL_PAGES = ("/search", "/cs2", "/lol")
+    if any(path.startswith(p) for p in NEUTRAL_PREFIXES):
+        return True
+    if path == "/" or path in NEUTRAL_PAGES or path.startswith("/user/"):
+        return True
+
+    if perm is None:
+        # Path inconnu : ne pas bloquer par defaut (eviter de casser des routes legitimes)
+        return True
+    return _mod_has_any_perm(cg, uid, perm)
 
 def _filter_guilds_by_session(guilds):
     """Filtre une liste de guilds (du bot) selon l'access user."""
@@ -304,6 +353,61 @@ def _is_admin_of_current_guild() -> bool:
         if str(m.get("guild_id")) == str(cg) and m.get("is_admin"):
             return True
     return False
+
+
+def _is_server_owner_of(guild_id) -> bool:
+    """True si l'user est le proprietaire Discord du serveur (OAuth `owner: true`)."""
+    if not guild_id:
+        return False
+    metas = (session.get("discord") or {}).get("guilds_meta") or []
+    for m in metas:
+        if str(m.get("guild_id")) == str(guild_id) and m.get("is_server_owner"):
+            return True
+    return False
+
+
+def _user_role_class(guild_id) -> str:
+    """Renvoie 'bot_owner' | 'server_owner' | 'mod' | 'none' pour la guild donnee."""
+    if _is_owner_session():
+        return "bot_owner"
+    if not guild_id:
+        return "none"
+    if _is_server_owner_of(guild_id):
+        return "server_owner"
+    uid = _current_user_id()
+    if uid:
+        mod_role = guild_setting_get(guild_id, "mod_role_id", "") or ""
+        if mod_role:
+            from database import member_has_role
+            if member_has_role(guild_id, uid, mod_role):
+                return "mod"
+    return "none"
+
+
+# Mapping path -> mod_perm_key (ou liste de keys = OR)
+_PATH_MOD_PERMS = {
+    "/dashboard":        "xp",
+    "/moderation":       ["warn", "kick", "ban", "clear"],
+    "/tickets":          "ticket",
+    "/reactionroles":    "rolereaction",
+    "/social-alerts":    "socialalert",
+    "/giveaways":        "giveaway",
+    "/poll-builder":     "poll",
+    "/reactions":        "reaction",
+    "/logs":             "logs",
+    "/custom-commands":  "custom_commands",
+    "/features":         "features",
+    "/settings":         "settings",
+    "/music":            "music",
+}
+
+
+def _mod_has_any_perm(guild_id, uid, perms) -> bool:
+    """True si user a au moins une des perms listees pour cette guild."""
+    from database import mod_has_perm
+    if isinstance(perms, str):
+        perms = [perms]
+    return any(mod_has_perm(guild_id, uid, p) for p in perms)
 
 
 def _has_pass(uid) -> bool:
@@ -380,18 +484,26 @@ def _ctx():
 def _inject_ctx():
     is_owner = getattr(g, "is_owner", False)
     guilds   = getattr(g, "guilds", []) or []
+    cg = getattr(g, "guild_id", None)
+    is_so = _is_server_owner_of(cg) if cg else False
     # Mod = a au moins une guild commune avec perms moderation/admin (mais pas owner).
     has_mod_access = bool(guilds) and not is_owner
+    # Configuration des perms mod (pour le popup first-login)
+    mod_config_needed = False
+    if cg and is_so:
+        try:
+            mod_config_needed = guild_setting_get(cg, "mod_access_configured", "0") != "1"
+        except Exception:
+            pass
     return {
         "current_guild":  getattr(g, "guild", None),
         "current_guilds": guilds,
         "is_owner":       is_owner,
         "has_mod_access": has_mod_access,
-        # True pour owner OU mod ; sert a afficher la section "Ce serveur".
         "has_server_access": is_owner or has_mod_access,
-        # True si l'user peut editer les data d'un membre du serveur courant
-        # (owner partout, admin Discord pour le serveur selectionne).
         "is_guild_admin": _is_admin_of_current_guild(),
+        "is_server_owner_of_current": is_so,
+        "mod_config_needed": mod_config_needed,
         "discord_user":   getattr(g, "discord_user", {}),
         "oauth_enabled":  OAUTH_ENABLED,
     }

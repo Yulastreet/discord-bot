@@ -434,6 +434,11 @@
         <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
           <svg class="ic"><use href="#i-gear"/></svg> Réglages serveur
         </a>
+        {% if is_server_owner_of_current or is_owner %}
+        <a href="/mod-config" class="nav-item {{ 'active' if active_nav == 'mod_config' }}">
+          <svg class="ic"><use href="#i-shield"/></svg> Permissions modérateurs
+        </a>
+        {% endif %}
         <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
           <svg class="ic"><use href="#i-terminal"/></svg> Logs
         </a>
@@ -838,6 +843,42 @@
 </script>
 
 {% block scripts %}{% endblock %}
+
+{% if mod_config_needed and active_nav != 'mod_config' %}
+<!-- ============ MOD CONFIG POPUP (first login server owner) ============ -->
+<div id="mcOverlay" style="position:fixed;inset:0;z-index:850;
+     background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);
+     -webkit-backdrop-filter:blur(6px);
+     display:flex;align-items:center;justify-content:center;">
+  <div style="background:#0a0d08;border:1px solid oklch(0.86 0.20 130 / 0.5);
+              border-radius:18px;
+              box-shadow:0 0 60px oklch(0.86 0.20 130 / 0.28);
+              padding:34px 38px;max-width:560px;width:92%;
+              text-align:center;">
+    <div style="font-size:36px;margin-bottom:14px;">🔐</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-bottom:10px;
+                text-shadow:0 0 14px oklch(0.86 0.20 130 / .55);">
+      Configure les permissions des modérateurs
+    </div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.6;margin-bottom:24px;">
+      Tu es le proprietaire de <strong>{{ current_guild.name if current_guild else 'ce serveur' }}</strong>.<br>
+      Tant que tu n'as pas configuré, <strong>aucun modérateur</strong> ne peut utiliser le bot ou accéder au dashboard de ce serveur.<br>
+      Choisis le rôle des modos et coche les fonctionnalités auxquelles ils auront accès.
+    </div>
+    <a href="/mod-config" style="display:inline-flex;align-items:center;gap:8px;
+            padding:11px 24px;
+            background:oklch(0.86 0.20 130);color:#0a0d08;
+            border-radius:999px;font-size:13px;font-weight:800;
+            text-decoration:none;letter-spacing:0.03em;
+            box-shadow:0 4px 18px oklch(0.86 0.20 130 / .35);">
+      Configurer maintenant
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
+      </svg>
+    </a>
+  </div>
+</div>
+{% endif %}
 
 <!-- ============ FEATURE GATE OVERLAY ============ -->
 <style>

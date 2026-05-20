@@ -175,6 +175,94 @@ def register_admin_routes(app, deps):
                                feature_registry=FEATURE_REGISTRY,
                                settings=settings)
 
+
+    # ===== Mod permissions config (server owner only) =====
+    _MOD_PERMS_REGISTRY = [
+        # Slash commands
+        ("warn",            "/warn",          "Avertir un membre",                      "Slash"),
+        ("kick",            "/kick",          "Expulser un membre",                     "Slash"),
+        ("ban",             "/ban",           "Bannir un membre",                       "Slash"),
+        ("clear",           "/clear",         "Supprimer des messages en masse",        "Slash"),
+        ("ticket",          "/ticket",        "Créer un panneau de tickets",            "Slash"),
+        ("giveaway",        "/giveaway",      "Créer/gérer des giveaways",              "Slash"),
+        ("poll",            "/poll",          "Créer des sondages",                     "Slash"),
+        ("rolereaction",    "/rolereaction",  "Configurer les rôles-réaction",          "Slash"),
+        ("socialalert",     "/socialalert",   "Configurer les alertes Twitch/YT/Reddit","Slash"),
+        ("setwelcome",      "/setwelcome",    "Configurer le message de bienvenue",     "Slash"),
+        ("reaction",        "/reaction_*",    "Configurer les auto-réactions",          "Slash"),
+        ("modlogs",         "/modlogs",       "Consulter / configurer le modlog",       "Slash"),
+        ("setup",           "/setup",         "Reconfigurer les salons du bot",         "Slash"),
+        ("xp",              "/xp",            "Activer/désactiver le système d'XP",     "Slash"),
+        ("note",            "/note",          "Ajouter une note sur un membre",         "Slash"),
+        # Dashboard only
+        ("logs",            "Logs",           "Consulter les logs du serveur",          "Dashboard"),
+        ("custom_commands", "Commandes custom","Créer/éditer les commandes /<nom>",     "Dashboard"),
+        ("music",           "Musique",        "Contrôler la musique du bot",            "Dashboard"),
+        ("features",        "Fonctionnalités","Activer/désactiver les modules du bot",  "Dashboard"),
+        ("settings",        "Réglages serveur","Réglages XP/welcome par serveur",       "Dashboard"),
+    ]
+
+
+    @app.route("/mod-config")
+    def mod_config_page():
+        g_id = gid()
+        if not g_id:
+            return redirect("/select-guild")
+        # Seul le server owner ou le bot owner peut voir
+        if not (_is_owner_session() or _is_server_owner_of(g_id)):
+            return render_template("forbidden.html"), 403
+        settings = guild_settings_all(g_id)
+        # Liste des roles de la guild (pour le dropdown mod_role_id)
+        from database import list_roles as _list_roles
+        roles = [r for r in (_list_roles(g_id) or []) if r.get("name") != "@everyone"]
+        return render_template("mod_config.html",
+                               active_nav="mod_config",
+                               perms_registry=_MOD_PERMS_REGISTRY,
+                               settings=settings,
+                               roles=roles)
+
+
+    @app.route("/api/mod-config", methods=["GET"])
+    def api_mod_config_get():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        if not (_is_owner_session() or _is_server_owner_of(g_id)):
+            return jsonify({"error": "server_owner_only"}), 403
+        settings = guild_settings_all(g_id)
+        from database import list_roles as _list_roles
+        roles = [r for r in (_list_roles(g_id) or []) if r.get("name") != "@everyone"]
+        return jsonify({
+            "mod_role_id":           settings.get("mod_role_id", ""),
+            "mod_access_configured": settings.get("mod_access_configured", "0"),
+            "perms": {p[0]: settings.get(f"mod_perm_{p[0]}", "0") == "1"
+                      for p in _MOD_PERMS_REGISTRY},
+            "roles": roles,
+        })
+
+
+    @app.route("/api/mod-config", methods=["POST"])
+    def api_mod_config_set():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        if not (_is_owner_session() or _is_server_owner_of(g_id)):
+            return jsonify({"error": "server_owner_only"}), 403
+        data = request.json or {}
+        # Save role
+        if "mod_role_id" in data:
+            guild_setting_set(g_id, "mod_role_id", str(data["mod_role_id"]) or "")
+        # Save perms
+        perms = data.get("perms") or {}
+        valid_keys = {p[0] for p in _MOD_PERMS_REGISTRY}
+        for k, v in perms.items():
+            if k in valid_keys:
+                guild_setting_set(g_id, f"mod_perm_{k}",
+                                  "1" if str(v) in ("1", "true", "True", "on") else "0")
+        # Marquer comme configure
+        guild_setting_set(g_id, "mod_access_configured", "1")
+        return jsonify({"success": True})
+
     @app.route("/api/guild-features", methods=["GET"])
     def api_guild_features_get():
         from services.feature_guard import FEATURE_REGISTRY, FEATURE_KEYS

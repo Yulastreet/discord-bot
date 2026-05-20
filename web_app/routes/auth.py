@@ -139,12 +139,13 @@ def register_auth_routes(app, deps):
             is_kick  = bool(perms & (PERM_KICK_MEMBERS | PERM_BAN_MEMBERS))
             if gd.get("owner") or is_admin or is_mgr or is_kick:
                 accessible.append({
-                    "guild_id":   gid,
-                    "name":       gd.get("name"),
-                    "perms":      perms,
-                    "is_admin":   is_admin or bool(gd.get("owner")),
-                    "is_manager": is_mgr,
-                    "is_mod":     is_kick,
+                    "guild_id":         gid,
+                    "name":             gd.get("name"),
+                    "perms":            perms,
+                    "is_admin":         is_admin or bool(gd.get("owner")),
+                    "is_manager":       is_mgr,
+                    "is_mod":           is_kick,
+                    "is_server_owner":  bool(gd.get("owner")),
                 })
 
         # On autorise tous les utilisateurs Discord a se connecter (acces page /premium,
