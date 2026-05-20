@@ -2477,7 +2477,7 @@ def guild_has_active_boost(guild_id, *, sku_id=None, owner_id=None) -> bool:
         if owner_id and str(uid) == str(owner_id):
             return True
         # Grant manuel
-        if has_premium_grant(uid, feature="guild_boost", inherit_all=True):
+        if has_premium_grant(uid, feature="guild_boost", inherit_all=False):
             return True
         # Entitlement Discord actif
         if sku_id and user_has_active_entitlement(uid, sku_id=sku_id):
