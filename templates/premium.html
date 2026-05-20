@@ -133,6 +133,84 @@
   </div>
 {% endif %}
 
+<!-- ============ GUILD BOOST + ============ -->
+<style>
+  .gb-card {
+    margin-top: 32px;
+    padding: 24px 28px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+  }
+  .gb-card.active {
+    border-color: oklch(0.86 0.20 130 / 0.45);
+    box-shadow: 0 0 24px oklch(0.86 0.20 130 / 0.08);
+  }
+  .gb-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 6px;
+  }
+  .gb-head h2 { margin: 0; font-size: 22px; }
+  .gb-sub { color: var(--text-2); font-size: 13px; line-height: 1.6; max-width: 60ch; }
+  .gb-status-active { background: oklch(0.86 0.20 130); color: #0a0d08; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; }
+  .gb-status-inactive { background: var(--bg-2); color: var(--text-2); padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; border: 1px dashed var(--border); }
+  .gb-guild-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px; margin-top: 18px;
+  }
+  .gb-guild {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-0, #0d0d0b);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    transition: border-color 140ms ease, transform 140ms ease;
+  }
+  .gb-guild:hover { border-color: oklch(0.86 0.20 130 / 0.5); transform: translateY(-1px); }
+  .gb-guild.assigned {
+    border-color: oklch(0.86 0.20 130);
+    box-shadow: 0 0 0 1px oklch(0.86 0.20 130 / 0.25), 0 4px 18px oklch(0.86 0.20 130 / 0.10);
+  }
+  .gb-guild .icon {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--bg-2);
+    display: grid; place-items: center; flex-shrink: 0;
+    color: var(--text); font-weight: 700; font-size: 14px;
+    overflow: hidden;
+  }
+  .gb-guild .icon img { width: 100%; height: 100%; object-fit: cover; }
+  .gb-guild .meta { flex: 1; min-width: 0; }
+  .gb-guild .name { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gb-guild .hint { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+  .gb-guild .actions { flex-shrink: 0; }
+  .gb-buy-block {
+    margin-top: 16px;
+    padding: 18px 20px;
+    background: linear-gradient(120deg, oklch(0.86 0.20 130 / 0.10), transparent);
+    border: 1px dashed oklch(0.86 0.20 130 / 0.4);
+    border-radius: var(--r-2);
+  }
+  .gb-buy-block .price { font-size: 22px; font-weight: 800; color: oklch(0.86 0.20 130); margin-bottom: 4px; }
+  .gb-buy-block .help { font-size: 12px; color: var(--text-2); margin-top: 8px; }
+</style>
+
+<div class="gb-card" id="gbCard">
+  <div class="gb-head">
+    <div>
+      <h2>🛡️ Guild Boost +</h2>
+      <p class="gb-sub" style="margin: 6px 0 0;">
+        Abonnement <strong>3,99 $US / mois</strong> qui débloque pour un serveur entier :
+        commandes custom, alertes Twitch/YouTube/Reddit, tickets, logs étendus.
+        Achète une fois, assigne au serveur de ton choix, réassigne à volonté.
+      </p>
+    </div>
+    <div id="gbStatusBadge"></div>
+  </div>
+
+  <div id="gbContent" style="margin-top: 8px;">
+    <div class="muted" style="font-size:13px;">Chargement…</div>
+  </div>
+</div>
+
 <div class="toast" id="toast">Sauvegardé ✓</div>
 
 {% if is_premium %}
@@ -206,4 +284,133 @@
 })();
 </script>
 {% endif %}
+
+<!-- ============ GUILD BOOST + : JS ============ -->
+<script>
+(function() {
+  const card    = document.getElementById('gbCard');
+  const badge   = document.getElementById('gbStatusBadge');
+  const content = document.getElementById('gbContent');
+  if (!card) return;
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  async function refresh() {
+    let d;
+    try {
+      const r = await fetch('/api/guild-boost/status');
+      if (!r.ok) throw new Error(r.status);
+      d = await r.json();
+    } catch (e) {
+      content.innerHTML = '<div class="muted" style="font-size:13px;color:#f88;">Erreur de chargement.</div>';
+      return;
+    }
+
+    const canAssign  = !!d.can_assign;
+    const isOwner    = !!d.is_owner;
+    const assigned   = (d.assignments || []).map(a => String(a.guild_id));
+    const guilds     = d.guilds || [];
+
+    if (canAssign) {
+      card.classList.add('active');
+      badge.innerHTML = '<span class="gb-status-active">★ ACTIF</span>';
+    } else {
+      card.classList.remove('active');
+      badge.innerHTML = '<span class="gb-status-inactive">Non débloqué</span>';
+    }
+
+    if (!canAssign) {
+      content.innerHTML = `
+        <div class="gb-buy-block">
+          <div class="price">3,99 $US / mois</div>
+          <div style="font-size:13px;color:var(--text);">
+            Ouvre le profil de <strong>TookBot</strong> sur Discord → onglet <em>Boutique</em>
+            → sélectionne <strong>Guild Boost +</strong>.
+          </div>
+          <div class="help">
+            Une fois acheté, reviens sur cette page pour assigner le boost au serveur de ton choix.
+          </div>
+        </div>`;
+      return;
+    }
+
+    if (!guilds.length) {
+      content.innerHTML = `
+        <div class="muted" style="font-size:13px;margin-top:12px;">
+          Aucun serveur où tu es admin/owner et où TookBot est présent.
+          Invite le bot sur ton serveur ou demande les permissions <code>Administrateur</code>.
+        </div>`;
+      return;
+    }
+
+    const ownerHint = isOwner
+      ? `<div class="gb-sub" style="margin: 12px 0 6px;color:oklch(0.86 0.20 130);">👑 En tant qu'owner du bot tu peux assigner ton boost à autant de serveurs que tu veux.</div>`
+      : `<div class="gb-sub" style="margin: 12px 0 6px;">Sélectionne un serveur : ton boost s'applique immédiatement. Tu peux le réassigner à tout moment.</div>`;
+
+    const items = guilds.map(g => {
+      const id = String(g.guild_id);
+      const isAssigned = assigned.includes(id);
+      const iconHtml = g.icon_url
+        ? `<img src="${escapeHtml(g.icon_url)}" alt="">`
+        : escapeHtml((g.name || '?')[0].toUpperCase());
+      const actionBtn = isAssigned
+        ? `<button class="btn btn-secondary btn-sm" data-action="unassign" data-guild="${escapeHtml(id)}">Retirer</button>`
+        : `<button class="btn btn-primary btn-sm" data-action="assign" data-guild="${escapeHtml(id)}">Assigner</button>`;
+      return `
+        <div class="gb-guild ${isAssigned ? 'assigned' : ''}">
+          <div class="icon">${iconHtml}</div>
+          <div class="meta">
+            <div class="name">${escapeHtml(g.name)}</div>
+            <div class="hint">${isAssigned ? '★ Boost assigné ici' : 'Disponible pour assignation'}</div>
+          </div>
+          <div class="actions">${actionBtn}</div>
+        </div>`;
+    }).join('');
+
+    content.innerHTML = ownerHint + `<div class="gb-guild-grid">${items}</div>`;
+
+    content.querySelectorAll('button[data-action]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.action;
+        const guildId = btn.dataset.guild;
+        btn.disabled = true;
+        const prev = btn.textContent;
+        btn.textContent = '...';
+        try {
+          const url = action === 'assign'
+            ? '/api/guild-boost/assign'
+            : '/api/guild-boost/unassign';
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId }),
+          });
+          const dat = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(dat.error || r.status);
+          showToast(action === 'assign' ? 'Boost assigné ✓' : 'Boost retiré ✓');
+          await refresh();
+        } catch (e) {
+          showToast('Erreur : ' + e.message);
+          btn.disabled = false;
+          btn.textContent = prev;
+        }
+      });
+    });
+  }
+
+  refresh();
+})();
+</script>
+
 {% endblock %}

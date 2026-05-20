@@ -107,6 +107,17 @@ def register_premium_routes(app, deps):
         return out
 
 
+    @app.route("/api/guild-boost/guild-status", methods=["GET"])
+    def api_guild_boost_guild_status():
+        """Statut Guild Boost + pour la guild actuellement selectionnee."""
+        g_id = gid()
+        if not g_id:
+            return jsonify({"ok": False, "active": False, "error": "no_guild"}), 200
+        sku = globals().get("SKU_GUILD_BOOST_PLUS")
+        active = guild_has_active_boost(g_id, sku_id=sku, owner_id=DISCORD_OWNER_ID)
+        return jsonify({"ok": True, "guild_id": str(g_id), "active": active})
+
+
     @app.route("/api/guild-boost/status", methods=["GET"])
     def api_guild_boost_status():
         uid = _current_user_id()

@@ -928,9 +928,9 @@
   var meta = document.querySelector('meta[name="feature-key"]');
   if (!meta || !meta.content) return;
   var key = meta.content;
-  fetch('/api/guild-features').then(function(r) { return r.json(); }).then(function(data) {
-    var feat = (data.features || []).find(function(f) { return f.key === key; });
-    if (!feat || feat.enabled) return;
+  var GUILD_BOOST_FEATURES = { custom_commands: 1, social_alerts: 1, tickets: 1 };
+
+  function showOverlay(opts) {
     var main = document.querySelector('main.main');
     if (!main) return;
     main.style.position = 'relative';
@@ -942,14 +942,41 @@
           '<div class="fg-logo-glow"></div>' +
           '<img src="/static/icon-landing.png" alt="" onerror="this.style.display=\'none\'">' +
         '</div>' +
-        '<div class="fg-title">Fonctionnalité désactivée</div>' +
-        '<div class="fg-sub">Cette fonctionnalité a été désactivée sur ce serveur par un administrateur.</div>' +
-        '<a href="/features" class="fg-btn">' +
-          'Pour la réactiver, cliquer ici' +
+        '<div class="fg-title">' + opts.title + '</div>' +
+        '<div class="fg-sub">' + opts.sub + '</div>' +
+        '<a href="' + opts.href + '" class="fg-btn">' +
+          opts.btn +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>' +
         '</a>' +
       '</div>';
     main.appendChild(ov);
+  }
+
+  // 1) Check feature toggle (desactive par admin)
+  fetch('/api/guild-features').then(function(r) { return r.json(); }).then(function(data) {
+    var feat = (data.features || []).find(function(f) { return f.key === key; });
+    if (!feat) return;
+    if (!feat.enabled) {
+      showOverlay({
+        title: 'Fonctionnalité désactivée',
+        sub:   'Cette fonctionnalité a été désactivée sur ce serveur par un administrateur.',
+        href:  '/features',
+        btn:   'Pour la réactiver, cliquer ici',
+      });
+      return;
+    }
+    // 2) Check Guild Boost + pour features qui le requierent
+    if (GUILD_BOOST_FEATURES[key]) {
+      fetch('/api/guild-boost/guild-status').then(function(r) { return r.json(); }).then(function(gb) {
+        if (gb && gb.active) return;
+        showOverlay({
+          title: 'Guild Boost + requis',
+          sub:   'Cette fonctionnalité nécessite Guild Boost + sur ce serveur. Un admin doit acheter et assigner Guild Boost + au serveur.',
+          href:  '/premium',
+          btn:   'Voir Guild Boost +',
+        });
+      }).catch(function() {});
+    }
   }).catch(function() {});
 })();
 </script>

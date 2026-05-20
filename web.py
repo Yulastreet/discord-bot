@@ -130,6 +130,7 @@ MOD_ALLOWED_API_PREFIXES = (
     "/api/poll/",
     "/api/guild-settings",
     "/api/guild-features",
+    "/api/guild-boost",
     "/api/lol",
 )
 MOD_BLOCKED_PAGES = {
