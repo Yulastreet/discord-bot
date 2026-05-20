@@ -481,9 +481,16 @@ class FeatureGuardTree(app_commands.CommandTree):
             return True
 
         from services.feature_guard import COMMAND_FEATURE_MAP, get_feature_label
-        from database import guild_setting_get
+        from database import guild_setting_get, custom_cmd_get
 
         feature_key = COMMAND_FEATURE_MAP.get(root_name)
+        if feature_key is None:
+            # Fallback : si c'est une commande custom du serveur, gate sur la feature custom_commands
+            try:
+                if custom_cmd_get(interaction.guild.id, root_name):
+                    feature_key = "custom_commands"
+            except Exception:
+                pass
         if feature_key is None:
             return True
 

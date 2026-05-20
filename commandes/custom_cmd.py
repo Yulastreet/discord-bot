@@ -1,7 +1,7 @@
-"""Custom commands : dispatcher /cmd <name>.
+"""Custom commands : enregistrement dynamique par guild.
 
-Le builder est cote dashboard (page /custom-commands). Ce module n'expose
-qu'une seule slash command runtime qui execute la commande choisie.
+Chaque commande custom devient une vraie slash command `/<nom>` propre au serveur
+(guild-scoped). Le builder est cote dashboard (page /custom-commands).
 
 Variables supportees dans le texte ou les champs d'embed :
   {user}        -> @mention de l'utilisateur
@@ -75,58 +75,92 @@ def _build_embed_from_json(raw: str, *, user, guild, channel) -> Optional[discor
     return embed
 
 
-async def _cmd_name_autocomplete(interaction: discord.Interaction, current: str):
+async def _execute_custom(interaction: discord.Interaction, name: str):
+    """Logique d'execution partagee : recupere la commande en DB et repond."""
     if not interaction.guild:
-        return []
-    cur = (current or "").lower()
-    rows = custom_cmds_list(interaction.guild.id, enabled_only=True)
-    matches = [r for r in rows if cur in r["name"].lower()][:25]
-    return [app_commands.Choice(name=f"/{r['name']} — {r.get('description') or 'sans description'}"[:100],
-                                value=r["name"]) for r in matches]
+        await interaction.response.send_message("❌ Pas dispo en DM.", ephemeral=True)
+        return
+    row = custom_cmd_get(interaction.guild.id, name)
+    if not row or not row.get("enabled"):
+        await interaction.response.send_message(
+            f"❌ Commande `/{name}` introuvable ou désactivée.",
+            ephemeral=True)
+        return
+    try:
+        if row.get("use_embed"):
+            embed = _build_embed_from_json(
+                row.get("response_embed") or "{}",
+                user=interaction.user, guild=interaction.guild,
+                channel=interaction.channel,
+            )
+            if not embed:
+                raise ValueError("embed invalide")
+            await interaction.response.send_message(embed=embed)
+        else:
+            text = _interpolate(
+                row.get("response_text") or "",
+                user=interaction.user, guild=interaction.guild,
+                channel=interaction.channel,
+            )
+            if not text.strip():
+                text = "_(réponse vide)_"
+            await interaction.response.send_message(text)
+        custom_cmd_increment_uses(row["id"])
+    except Exception as e:
+        print(f"[custom_cmd] exec err {name}: {type(e).__name__}: {e}")
+        try:
+            await interaction.response.send_message(
+                f"❌ Erreur d'exécution : `{type(e).__name__}`.",
+                ephemeral=True)
+        except Exception:
+            pass
+
+
+def _make_callback(name: str):
+    """Cree un callback async qui exec la commande custom 'name'."""
+    async def _cb(interaction: discord.Interaction):
+        await _execute_custom(interaction, name)
+    return _cb
+
+
+def _build_command(name: str, description: Optional[str]) -> app_commands.Command:
+    desc = (description or "Commande personnalisée du serveur")[:100]
+    return app_commands.Command(
+        name=name,
+        description=desc,
+        callback=_make_callback(name),
+    )
+
+
+async def sync_custom_commands_for_guild(bot: commands.Bot, guild_id) -> int:
+    """Recharge les slash commands custom d'un serveur (utilise au boot + apres
+    save/delete depuis le dashboard). Retourne le nb de commandes enregistrees."""
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        return 0
+    try:
+        bot.tree.clear_commands(guild=guild)
+    except Exception as e:
+        print(f"[custom_cmd] clear {guild_id} fail : {e}")
+    rows = custom_cmds_list(guild.id, enabled_only=True)
+    added = 0
+    for r in rows:
+        try:
+            cmd = _build_command(r["name"], r.get("description"))
+            bot.tree.add_command(cmd, guild=guild, override=True)
+            added += 1
+        except Exception as e:
+            print(f"[custom_cmd] add err {r['name']} ({guild_id}): {e}")
+    try:
+        await bot.tree.sync(guild=guild)
+    except Exception as e:
+        print(f"[custom_cmd] sync {guild_id} fail : {e}")
+    return added
 
 
 def setup_custom_cmd_commands(bot: commands.Bot):
-
-    @bot.tree.command(name="cmd", description="Exécute une commande custom de ce serveur")
-    @app_commands.describe(nom="Nom de la commande custom (autocomplete)")
-    @app_commands.autocomplete(nom=_cmd_name_autocomplete)
-    async def cmd_run(interaction: discord.Interaction, nom: str):
-        if not interaction.guild:
-            await interaction.response.send_message(
-                "❌ Pas dispo en DM.", ephemeral=True)
-            return
-        row = custom_cmd_get(interaction.guild.id, nom)
-        if not row or not row.get("enabled"):
-            await interaction.response.send_message(
-                f"❌ Commande `{nom}` introuvable ou désactivée. "
-                "Va sur le dashboard pour la créer.",
-                ephemeral=True)
-            return
-        try:
-            if row.get("use_embed"):
-                embed = _build_embed_from_json(
-                    row.get("response_embed") or "{}",
-                    user=interaction.user, guild=interaction.guild,
-                    channel=interaction.channel,
-                )
-                if not embed:
-                    raise ValueError("embed invalide")
-                await interaction.response.send_message(embed=embed)
-            else:
-                text = _interpolate(
-                    row.get("response_text") or "",
-                    user=interaction.user, guild=interaction.guild,
-                    channel=interaction.channel,
-                )
-                if not text.strip():
-                    text = "_(réponse vide)_"
-                await interaction.response.send_message(text)
-            custom_cmd_increment_uses(row["id"])
-        except Exception as e:
-            print(f"[custom_cmd] exec err {nom}: {type(e).__name__}: {e}")
-            try:
-                await interaction.response.send_message(
-                    f"❌ Erreur d'exécution : `{type(e).__name__}`. Vérifie la config dans le dashboard.",
-                    ephemeral=True)
-            except Exception:
-                pass
+    """Conserve pour compat. Aucune commande globale `/cmd` n'est plus enregistree :
+    les commandes custom sont ajoutees dynamiquement par guild via
+    sync_custom_commands_for_guild() au demarrage du bot et apres chaque
+    modification depuis le dashboard."""
+    return

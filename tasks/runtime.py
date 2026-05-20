@@ -87,6 +87,17 @@ def setup_runtime(bot, deps):
         await bot.tree.sync()
         print("✅ Slash commands synchronisées globalement")
 
+        # Enregistre les commandes custom (per-guild slash commands) apres
+        # le sync global, sinon le clear ci-dessus les efface.
+        from commandes.custom_cmd import sync_custom_commands_for_guild
+        for guild in bot.guilds:
+            try:
+                n = await sync_custom_commands_for_guild(bot, guild.id)
+                if n:
+                    print(f"[custom_cmd] {guild.name}: {n} commandes custom enregistrées")
+            except Exception as e:
+                print(f"[custom_cmd] sync boot {guild.name} fail : {e}")
+
     def _sync_guild_roles(guild):
         """Pousse les roles d'une guild dans la table guild_roles (cache pour
         les pickers du dashboard)."""
@@ -1473,6 +1484,12 @@ def setup_runtime(bot, deps):
                     f"d'un autre serveur où le bot n'est pas)."
                 )
             return
+
+        elif name == "custom_cmd_sync":
+            # Resync les commandes custom slash de la guild (apres save/delete depuis dashboard)
+            from commandes.custom_cmd import sync_custom_commands_for_guild
+            n = await sync_custom_commands_for_guild(bot, gid)
+            print(f"[custom_cmd] resync {gid}: {n} commandes")
 
         else:
             raise ValueError(f"commande inconnue: {name}")

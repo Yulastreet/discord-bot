@@ -316,6 +316,13 @@ def register_server_tool_routes(app, deps):
                           custom_cmd_upsert as _cc_upsert,
                           custom_cmd_delete as _cc_delete,
                           CUSTOM_CMD_NAME_RE as _cc_name_re)
+    from services.feature_guard import COMMAND_FEATURE_MAP as _CMD_FEATURE_MAP
+
+    # Noms reserves : toute commande slash existante du bot. Empeche les conflits
+    # ou l'override d'une commande builtin par une custom.
+    _RESERVED_CMD_NAMES = set(_CMD_FEATURE_MAP.keys()) | {
+        "sync", "cmd",  # commandes globales sans entry dans feature_map
+    }
 
     @app.route("/custom-commands")
     def custom_commands_page():
@@ -337,6 +344,8 @@ def register_server_tool_routes(app, deps):
         name = (data.get("name") or "").strip().lower()
         if not _cc_name_re.match(name):
             return jsonify({"error": "nom invalide (a-z 0-9 _ - uniquement, max 32 chars)"}), 400
+        if name in _RESERVED_CMD_NAMES:
+            return jsonify({"error": f"nom réservé : `/{name}` est déjà une commande du bot"}), 400
         desc      = (data.get("description") or "").strip() or None
         use_embed = bool(data.get("use_embed"))
         enabled   = bool(data.get("enabled", True))
@@ -368,6 +377,8 @@ def register_server_tool_routes(app, deps):
             enabled=enabled,
             created_by=_current_user_id(),
         )
+        # Demande au bot de resync les slash commands de cette guild
+        bot_command_enqueue(g_id, "custom_cmd_sync", {})
         return jsonify({"success": True, "id": cid})
 
     @app.route("/api/custom-commands/<name>", methods=["DELETE"])
@@ -376,6 +387,8 @@ def register_server_tool_routes(app, deps):
         if not g_id:
             return jsonify({"error": "no_guild"}), 400
         ok = _cc_delete(g_id, name.lower())
+        if ok:
+            bot_command_enqueue(g_id, "custom_cmd_sync", {})
         return jsonify({"success": ok})
 
 
