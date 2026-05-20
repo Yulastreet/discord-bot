@@ -1591,6 +1591,12 @@ GUILD_DEFAULT_SETTINGS = {
     "xp_cooldown_seconds": "30",
     # Message de bienvenue par défaut du serveur
     "welcome_template": "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
+    # Setup initial (configuré via /setup)
+    "setup_completed":            "0",
+    "setup_welcome_channel_id":   "",
+    "setup_logs_channel_id":      "",
+    "setup_alerts_channel_id":    "",
+    "setup_admin_channel_id":     "",
 }
 
 def guild_setting_get(guild_id, key, default=None):

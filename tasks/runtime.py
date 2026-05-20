@@ -202,6 +202,44 @@ def setup_runtime(bot, deps):
             except (discord.Forbidden, discord.HTTPException):
                 pass
 
+            # === Second message TRES VISIBLE pour forcer le /setup ===
+            embed_setup = discord.Embed(
+                title="⚠️ NE PAS SKIP — Initialisation requise",
+                description=(
+                    "**Avant d'utiliser le bot**, un **admin ou modérateur** du serveur "
+                    "doit faire la commande :\n\n"
+                    "## `/setup`\n\n"
+                    "Cette commande ouvre un **builder de configuration** où tu choisis "
+                    "les 4 salons essentiels du bot :\n\n"
+                    "📥 **Bienvenue** — messages d'arrivée des nouveaux membres\n"
+                    "📜 **Logs** — historique d'activité (commandes, modération)\n"
+                    "🔴 **Alertes** — notifications Twitch / YouTube / Reddit\n"
+                    "🛡️ **Admin/Modo** — notifications internes du staff\n\n"
+                    "Sans cette étape, certaines fonctionnalités ne pourront pas "
+                    "envoyer leurs messages au bon endroit.\n\n"
+                    "💡 *Tu peux refaire `/setup` à tout moment pour modifier la config.*"
+                ),
+                color=0xFF6B35,
+            )
+            embed_setup.set_footer(text="Étape obligatoire — Configuration initiale")
+            try:
+                await inviter.send(embed=embed_setup)
+            except (discord.Forbidden, discord.HTTPException):
+                # Fallback : essaye d'envoyer dans le premier channel writable
+                try:
+                    target = None
+                    if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
+                        target = guild.system_channel
+                    else:
+                        for ch in guild.text_channels:
+                            if ch.permissions_for(guild.me).send_messages:
+                                target = ch
+                                break
+                    if target:
+                        await target.send(embed=embed_setup)
+                except Exception:
+                    pass
+
     @bot.event
     async def on_guild_remove(guild):
         mark_guild_left(guild.id)
@@ -1490,6 +1528,49 @@ def setup_runtime(bot, deps):
             from commandes.custom_cmd import sync_custom_commands_for_guild
             n = await sync_custom_commands_for_guild(bot, gid)
             print(f"[custom_cmd] resync {gid}: {n} commandes")
+
+        elif name == "guild_boost_activated_notify":
+            # payload: {user_id} — notifie dans le salon admin que Guild Boost + a ete active
+            admin_ch_id = guild_setting_get(gid, "setup_admin_channel_id", "")
+            if not admin_ch_id:
+                print(f"[gb-notify] {gid}: pas de salon admin configure, skip")
+                return
+            try:
+                channel = guild.get_channel(int(admin_ch_id))
+            except (TypeError, ValueError):
+                channel = None
+            if not channel:
+                print(f"[gb-notify] {gid}: salon admin introuvable")
+                return
+            uid = payload.get("user_id")
+            mention = f"<@{uid}>" if uid else "Un membre"
+            embed = discord.Embed(
+                title="🛡️ Guild Boost + activé sur ce serveur",
+                description=(
+                    f"{mention} vient d'activer **Guild Boost +** sur ce serveur. "
+                    "Les fonctionnalités suivantes sont maintenant **débloquées** :\n\n"
+                    "**⚙️ Commandes custom** — `/<nom>` directes\n"
+                    "Crée tes commandes depuis le dashboard : "
+                    "`dashboard.tookbot.click/custom-commands`\n\n"
+                    "**🔔 Alertes Twitch / YouTube / Reddit**\n"
+                    "Configure les alertes par salon avec : `/socialalert add`\n"
+                    "Salon par défaut : celui configuré via `/setup` (Alertes).\n\n"
+                    "**🎟️ Système de tickets**\n"
+                    "Crée un panneau de tickets avec : `/ticket`\n"
+                    "Gestion complète : claim, transcripts, modlog dédié.\n\n"
+                    "**📜 Logs étendus**\n"
+                    "Consulte l'historique du serveur sur le dashboard : "
+                    "`dashboard.tookbot.click/logs`\n\n"
+                    "💡 *Pour gérer/désactiver une fonctionnalité : "
+                    "`dashboard.tookbot.click/features`*"
+                ),
+                color=0xB9F23A,
+            )
+            embed.set_footer(text="Guild Boost + — Merci de soutenir TookBot !")
+            try:
+                await channel.send(embed=embed)
+            except Exception as e:
+                print(f"[gb-notify] envoi fail {gid}: {e}")
 
         else:
             raise ValueError(f"commande inconnue: {name}")

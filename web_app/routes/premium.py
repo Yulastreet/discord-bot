@@ -190,6 +190,13 @@ def register_premium_routes(app, deps):
                          f"Achete Duo ou Squad pour plus de slots.",
             }), 403
         guild_boost_assign(uid, gid_target)
+        # Notifie le salon admin de la guild qu'un boost vient d'etre active
+        if not already:
+            try:
+                bot_command_enqueue(gid_target, "guild_boost_activated_notify",
+                                    {"user_id": str(uid)})
+            except Exception as e:
+                print(f"[gb-notify enqueue] err: {e}")
         return jsonify({"ok": True, "guild_id": gid_target})
 
 
