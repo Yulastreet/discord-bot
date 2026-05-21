@@ -488,6 +488,54 @@ class FeatureGuardTree(app_commands.CommandTree):
         from database import (guild_setting_get, custom_cmd_get, guild_has_active_boost,
                               mod_has_perm)
 
+        # === Gating permissions modérateurs (PRIORITAIRE) ===
+        # Tourne avant le gating feature : certaines commandes (warn/setup/xp/note/
+        # modlogs) ne sont pas dans COMMAND_FEATURE_MAP et seraient sinon skippees.
+        SLASH_MOD_PERM_MAP = {
+            "warn":            "warn",
+            "rolereaction":    "rolereaction",
+            "ticket":          "ticket",
+            "giveaway":        "giveaway",
+            "clear":           "clear",
+            "kick":            "kick",
+            "poll":            "poll",
+            "modlogs":         "modlogs",
+            "setwelcome":      "setwelcome",
+            "reaction_add":    "reaction",
+            "reaction_remove": "reaction",
+            "reaction_list":   "reaction",
+            "socialalert":     "socialalert",
+            "ban":             "ban",
+            "setup":           "setup",
+            "xp":              "xp",
+            "note":            "note",
+        }
+        perm_key = SLASH_MOD_PERM_MAP.get(root_name)
+        if perm_key is not None:
+            uid = str(interaction.user.id)
+            is_bypass = (
+                (DISCORD_OWNER_ID and uid == str(DISCORD_OWNER_ID))
+                or (interaction.guild.owner_id and uid == str(interaction.guild.owner_id))
+            )
+            if not is_bypass:
+                configured = guild_setting_get(interaction.guild.id, "mod_access_configured", "0") == "1"
+                if not configured:
+                    await interaction.response.send_message(
+                        "⛔ Cette commande est désactivée pour les modérateurs tant que le "
+                        "**propriétaire du serveur** n'a pas configuré les permissions.\n"
+                        f"Demande à <@{interaction.guild.owner_id}> de faire `/setup` ou de "
+                        "passer sur `dashboard.tookbot.click`.",
+                        ephemeral=True,
+                    )
+                    return False
+                if not mod_has_perm(interaction.guild.id, uid, perm_key):
+                    await interaction.response.send_message(
+                        f"⛔ Tu n'as pas la permission `{perm_key}` accordée par le propriétaire du serveur.\n"
+                        f"Demande à <@{interaction.guild.owner_id}> de l'activer via le dashboard.",
+                        ephemeral=True,
+                    )
+                    return False
+
         feature_key = COMMAND_FEATURE_MAP.get(root_name)
         if feature_key is None:
             # Fallback : si c'est une commande custom du serveur, gate sur la feature custom_commands
@@ -525,56 +573,6 @@ class FeatureGuardTree(app_commands.CommandTree):
                     f"Cette fonctionnalité **{label}** nécessite **Guild Boost +** sur ce serveur.\n"
                     "Un membre doit acheter Guild Boost + dans la boutique du bot, puis l'assigner "
                     "à ce serveur depuis `dashboard.tookbot.click/premium`.",
-                    ephemeral=True,
-                )
-                return False
-
-        # Gating permissions modérateurs : seul le server owner ou le bot owner
-        # peuvent utiliser les slash commands sensibles SANS configuration prealable.
-        # Apres config, un user avec le mod_role n'a acces qu'aux perms cochees.
-        SLASH_MOD_PERM_MAP = {
-            "warn":          "warn",
-            "rolereaction":  "rolereaction",
-            "ticket":        "ticket",
-            "giveaway":      "giveaway",
-            "clear":         "clear",
-            "kick":          "kick",
-            "poll":          "poll",
-            "modlogs":       "modlogs",
-            "setwelcome":    "setwelcome",
-            "reaction_add":  "reaction",
-            "reaction_remove": "reaction",
-            "reaction_list": "reaction",
-            "socialalert":   "socialalert",
-            "ban":           "ban",
-            "setup":         "setup",
-            "xp":            "xp",
-            "note":          "note",
-        }
-        perm_key = SLASH_MOD_PERM_MAP.get(root_name)
-        if perm_key is not None:
-            uid = str(interaction.user.id)
-            # Bot owner -> bypass
-            if DISCORD_OWNER_ID and uid == str(DISCORD_OWNER_ID):
-                return True
-            # Server owner -> bypass
-            if interaction.guild.owner_id and uid == str(interaction.guild.owner_id):
-                return True
-            # Sinon il faut que l'owner ait configure + perm cochee pour ce mod
-            configured = guild_setting_get(interaction.guild.id, "mod_access_configured", "0") == "1"
-            if not configured:
-                await interaction.response.send_message(
-                    "⛔ Cette commande est désactivée pour les modérateurs tant que le "
-                    "**proprietaire du serveur** n'a pas configuré les permissions.\n"
-                    f"Demande à <@{interaction.guild.owner_id}> de faire `/setup` ou de "
-                    "passer sur `dashboard.tookbot.click`.",
-                    ephemeral=True,
-                )
-                return False
-            if not mod_has_perm(interaction.guild.id, uid, perm_key):
-                await interaction.response.send_message(
-                    f"⛔ Tu n'as pas la permission `{perm_key}` accordée par le proprietaire du serveur.\n"
-                    f"Demande à <@{interaction.guild.owner_id}> de l'activer via le dashboard.",
                     ephemeral=True,
                 )
                 return False
