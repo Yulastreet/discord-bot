@@ -479,12 +479,6 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
     Assigne sur bot.tree.interaction_check apres creation du bot (plus fiable
     que tree_cls qui n'est pas toujours honore par commands.Bot)."""
     if True:
-        try:
-            _dbg_name = (interaction.data or {}).get("name", "?")
-        except Exception:
-            _dbg_name = "?"
-        print(f"[GUARD] interaction_check FIRED cmd={_dbg_name}", flush=True)
-
         if not interaction.guild or not interaction.data:
             return True
 
@@ -528,9 +522,6 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
             if not is_bypass:
                 configured = guild_setting_get(interaction.guild.id, "mod_access_configured", "0") == "1"
                 _has = mod_has_perm(interaction.guild.id, uid, perm_key)
-                print(f"[mod-perm DEBUG] guild={interaction.guild.id} cmd={root_name} "
-                      f"perm={perm_key} uid={uid} bypass={is_bypass} "
-                      f"configured={configured} mod_has_perm={_has}", flush=True)
                 if not configured:
                     await interaction.response.send_message(
                         "⛔ Cette commande est désactivée pour les modérateurs tant que le "
@@ -599,7 +590,6 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 # Assigne le guard directement sur le tree (fiable quelle que soit la version discord.py)
 bot.tree.interaction_check = _feature_guard_check
-print(f"[GUARD] interaction_check assigne sur bot.tree : {bot.tree.interaction_check}", flush=True)
 
 
 # ===== LANCEMENT =====
