@@ -517,6 +517,9 @@ class FeatureGuardTree(app_commands.CommandTree):
                 (DISCORD_OWNER_ID and uid == str(DISCORD_OWNER_ID))
                 or (interaction.guild.owner_id and uid == str(interaction.guild.owner_id))
             )
+            print(f"[mod-perm DEBUG] cmd={root_name} perm={perm_key} uid={uid} "
+                  f"guild_owner={interaction.guild.owner_id} bot_owner={DISCORD_OWNER_ID} "
+                  f"bypass={is_bypass}")
             if not is_bypass:
                 configured = guild_setting_get(interaction.guild.id, "mod_access_configured", "0") == "1"
                 if not configured:
