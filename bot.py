@@ -473,10 +473,12 @@ async def play_next(voice_client, channel, guild_id):
 
 
 # ===== FEATURE GUARD TREE =====
-class FeatureGuardTree(app_commands.CommandTree):
-    """CommandTree avec verification de feature par guild avant chaque slash command."""
+async def _feature_guard_check(interaction: discord.Interaction) -> bool:
+    """Verification feature/boost/mod-perm avant chaque slash command.
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+    Assigne sur bot.tree.interaction_check apres creation du bot (plus fiable
+    que tree_cls qui n'est pas toujours honore par commands.Bot)."""
+    if True:
         if not interaction.guild or not interaction.data:
             return True
 
@@ -587,7 +589,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents, tree_cls=FeatureGuardTree)
+bot = commands.Bot(command_prefix="!", intents=intents)
+# Assigne le guard directement sur le tree (fiable quelle que soit la version discord.py)
+bot.tree.interaction_check = _feature_guard_check
 
 
 # ===== LANCEMENT =====
