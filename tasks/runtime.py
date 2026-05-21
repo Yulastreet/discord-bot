@@ -1030,27 +1030,39 @@ def setup_runtime(bot, deps):
         bucket.append(now)
         return False, 0.0
 
+    # Capture l'interaction_check deja en place (feature/boost/mod-perm guard
+    # assigne dans bot.py) pour le chainer apres le rate-limit.
+    _prev_interaction_check = bot.tree.interaction_check
+
     async def _global_rate_limit(interaction: discord.Interaction) -> bool:
-        """Refuse les interactions si l'user spam les slash commands."""
-        # Bypass pour le proprietaire (toujours autorise)
+        """Rate-limit anti-spam PUIS chaine vers le guard feature/boost/mod-perm."""
+        # Bypass rate-limit pour le proprietaire du bot
+        is_bot_owner = False
         try:
-            if await bot.is_owner(interaction.user):
-                return True
+            is_bot_owner = await bot.is_owner(interaction.user)
         except Exception:
             pass
-        limited, retry = _is_rate_limited(interaction.user.id)
-        if limited:
+        if not is_bot_owner:
+            limited, retry = _is_rate_limited(interaction.user.id)
+            if limited:
+                try:
+                    await interaction.response.send_message(
+                        f"⏱️ Tu envoies des commandes trop vite. Réessaie dans **{int(retry) + 1}s**.",
+                        ephemeral=True,
+                    )
+                except Exception:
+                    pass
+                return False
+        # Chaine vers le guard feature/boost/mod-perm
+        if callable(_prev_interaction_check):
             try:
-                await interaction.response.send_message(
-                    f"⏱️ Tu envoies des commandes trop vite. Réessaie dans **{int(retry) + 1}s**.",
-                    ephemeral=True,
-                )
-            except Exception:
-                pass
-            return False
+                return await _prev_interaction_check(interaction)
+            except Exception as e:
+                print(f"[guard] chained interaction_check error: {e}", flush=True)
+                return True
         return True
 
-    # Hook global rate-limit sur l'arbre des slash commands
+    # Hook global : rate-limit + guard chaines sur l'arbre des slash commands
     bot.tree.interaction_check = _global_rate_limit
 
     @tasks.loop(seconds=30)
