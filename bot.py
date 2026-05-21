@@ -525,11 +525,12 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
                 (DISCORD_OWNER_ID and uid == str(DISCORD_OWNER_ID))
                 or (interaction.guild.owner_id and uid == str(interaction.guild.owner_id))
             )
-            print(f"[mod-perm DEBUG] cmd={root_name} perm={perm_key} uid={uid} "
-                  f"guild_owner={interaction.guild.owner_id} bot_owner={DISCORD_OWNER_ID} "
-                  f"bypass={is_bypass}", flush=True)
             if not is_bypass:
                 configured = guild_setting_get(interaction.guild.id, "mod_access_configured", "0") == "1"
+                _has = mod_has_perm(interaction.guild.id, uid, perm_key)
+                print(f"[mod-perm DEBUG] guild={interaction.guild.id} cmd={root_name} "
+                      f"perm={perm_key} uid={uid} bypass={is_bypass} "
+                      f"configured={configured} mod_has_perm={_has}", flush=True)
                 if not configured:
                     await interaction.response.send_message(
                         "⛔ Cette commande est désactivée pour les modérateurs tant que le "
@@ -539,7 +540,7 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
                         ephemeral=True,
                     )
                     return False
-                if not mod_has_perm(interaction.guild.id, uid, perm_key):
+                if not _has:
                     await interaction.response.send_message(
                         f"⛔ Tu n'as pas la permission `{perm_key}` accordée par le propriétaire du serveur.\n"
                         f"Demande à <@{interaction.guild.owner_id}> de l'activer via le dashboard.",
