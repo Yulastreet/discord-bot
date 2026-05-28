@@ -888,6 +888,81 @@ def setup_runtime(bot, deps):
 
 
     @bot.event
+    async def on_interaction(interaction: discord.Interaction):
+        # Gere uniquement les boutons rolereaction (custom_id "rr:<role_id>").
+        # Les autres interactions (slash, autres composants) sont gerees ailleurs.
+        if interaction.type != discord.InteractionType.component:
+            return
+        cid = (interaction.data or {}).get("custom_id", "")
+        if not cid.startswith("rr:"):
+            return
+        if not interaction.guild:
+            return
+        try:
+            role_id = int(cid.split(":", 1)[1])
+        except (ValueError, IndexError):
+            return
+        guild = interaction.guild
+        member = interaction.user
+        if not isinstance(member, discord.Member) or member.bot:
+            return
+        role = guild.get_role(role_id)
+        if not role:
+            await interaction.response.send_message("Rôle introuvable.", ephemeral=True)
+            return
+        # Recupere le mapping pour mode/group
+        rows = db_rr_list(guild.id, interaction.message.id)
+        mapping = next((r for r in rows if str(r["role_id"]) == str(role_id)), None)
+        mode = mapping.get("mode") if mapping else "toggle"
+        group_key = mapping.get("group_key") if mapping else None
+        try:
+            if mode == "unique" and group_key:
+                # Retire les autres roles du groupe
+                others = db_rr_list_unique(guild.id, interaction.message.id, group_key)
+                for o in others:
+                    if str(o["role_id"]) == str(role_id):
+                        continue
+                    other_role = guild.get_role(int(o["role_id"]))
+                    if other_role and other_role in member.roles:
+                        await member.remove_roles(other_role, reason="RoleButton unique group")
+                if role not in member.roles:
+                    await member.add_roles(role, reason="RoleButton unique")
+                    await interaction.response.send_message(
+                        f"✅ Rôle {role.mention} attribué.", ephemeral=True)
+                else:
+                    await interaction.response.send_message(
+                        f"Tu as déjà {role.mention}.", ephemeral=True)
+            elif mode == "add_only":
+                if role not in member.roles:
+                    await member.add_roles(role, reason="RoleButton add_only")
+                    await interaction.response.send_message(
+                        f"✅ Rôle {role.mention} attribué.", ephemeral=True)
+                else:
+                    await interaction.response.send_message(
+                        f"Tu as déjà {role.mention}.", ephemeral=True)
+            else:
+                # toggle
+                if role in member.roles:
+                    await member.remove_roles(role, reason="RoleButton toggle off")
+                    await interaction.response.send_message(
+                        f"➖ Rôle {role.mention} retiré.", ephemeral=True)
+                else:
+                    await member.add_roles(role, reason="RoleButton toggle on")
+                    await interaction.response.send_message(
+                        f"✅ Rôle {role.mention} attribué.", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "❌ Je n'ai pas la permission de gérer ce rôle (vérifie ma hiérarchie).",
+                ephemeral=True)
+        except Exception as e:
+            print(f"[rolebutton] error: {e!r}")
+            try:
+                await interaction.response.send_message("❌ Erreur.", ephemeral=True)
+            except Exception:
+                pass
+
+
+    @bot.event
     async def on_app_command_completion(interaction: discord.Interaction, command: app_commands.Command):
         """Slash command terminee avec succes -> +1 use_commands quete Pass."""
         try:

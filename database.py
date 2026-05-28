@@ -430,9 +430,12 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
 
     # Migration : colonnes label + position pour reaction_roles avances
+    # + delivery (reaction|button) et style (embed|text) du message
     for col, ddl in [
         ("label",    "TEXT"),
         ("position", "INTEGER DEFAULT 0"),
+        ("delivery", "TEXT DEFAULT 'reaction'"),
+        ("style",    "TEXT DEFAULT 'embed'"),
     ]:
         if col not in _table_columns(c, "reaction_roles"):
             try:
@@ -3352,24 +3355,31 @@ def list_roles(guild_id, exclude_everyone=True, exclude_managed=True) -> list[di
 
 def reaction_role_add(guild_id, message_id, channel_id, emoji: str,
                        role_id, mode: str = "toggle", group_key: str = None,
-                       created_by=None, label: str = None, position: int = 0):
-    """Insere un mapping reaction-role. UPSERT sur (guild, message, emoji)."""
+                       created_by=None, label: str = None, position: int = 0,
+                       delivery: str = "reaction", style: str = "embed"):
+    """Insere un mapping reaction-role. UPSERT sur (guild, message, emoji).
+
+    delivery : 'reaction' (emojis sous le message) ou 'button' (boutons).
+    style    : 'embed' ou 'text' (message normal).
+    """
     conn = get_db()
     c = conn.cursor()
     c.execute('''
         INSERT INTO reaction_roles
-            (guild_id, message_id, channel_id, emoji, role_id, mode, group_key, created_by, label, position)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (guild_id, message_id, channel_id, emoji, role_id, mode, group_key, created_by, label, position, delivery, style)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(guild_id, message_id, emoji) DO UPDATE SET
             channel_id = excluded.channel_id,
             role_id    = excluded.role_id,
             mode       = excluded.mode,
             group_key  = excluded.group_key,
             label      = excluded.label,
-            position   = excluded.position
+            position   = excluded.position,
+            delivery   = excluded.delivery,
+            style      = excluded.style
     ''', (str(guild_id), str(message_id), str(channel_id), emoji,
           str(role_id), mode, group_key, str(created_by) if created_by else None,
-          label, int(position)))
+          label, int(position), delivery, style))
     conn.commit()
     conn.close()
 

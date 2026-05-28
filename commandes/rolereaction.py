@@ -106,6 +106,8 @@ def setup_rolereaction_commands(bot, deps):
             self.guild       = guild
             self.salon: discord.TextChannel | None = None
             self.mode        = "toggle"
+            self.delivery    = "reaction"   # reaction | button
+            self.style       = "embed"      # embed | text
             self.titre       = "Choisis ton rôle"
             self.description = "Réagis pour obtenir un rôle."
             self.mappings: list[dict] = []  # [{emoji_key, emoji_display, role_id, role_name}]
@@ -132,6 +134,8 @@ def setup_rolereaction_commands(bot, deps):
                 value=(
                     f"📍 **Salon :** {self.salon.mention if self.salon else '_non défini_'}\n"
                     f"⚡ **Mode :** `{self.mode}`\n"
+                    f"🔘 **Type :** `{'boutons' if self.delivery == 'button' else 'réactions'}`\n"
+                    f"🎨 **Affichage :** `{'message normal' if self.style == 'text' else 'embed'}`\n"
                     f"📝 **Titre :** {self.titre or '_—_'}\n"
                     f"📄 **Description :** {(self.description[:100] + '…') if self.description and len(self.description) > 100 else (self.description or '_—_')}"
                 ),
@@ -216,7 +220,7 @@ def setup_rolereaction_commands(bot, deps):
                 role_sel.callback = _on_role
                 self.add_item(role_sel)
 
-            # Row 3 : Buttons
+            # Row 3 : config (titre, type, style)
             btn_embed = discord.ui.Button(label="📝 Titre & description",
                                            style=discord.ButtonStyle.secondary, row=3)
             async def _on_embed(interaction: discord.Interaction):
@@ -224,16 +228,35 @@ def setup_rolereaction_commands(bot, deps):
             btn_embed.callback = _on_embed
             self.add_item(btn_embed)
 
-            btn_add = discord.ui.Button(label="➕ Ajouter un mapping",
-                                         style=discord.ButtonStyle.primary, row=3,
+            btn_delivery = discord.ui.Button(
+                label=f"🔘 Type : {'boutons' if self.delivery == 'button' else 'réactions'}",
+                style=discord.ButtonStyle.secondary, row=3)
+            async def _on_delivery(interaction: discord.Interaction):
+                self.delivery = "button" if self.delivery == "reaction" else "reaction"
+                await self.refresh(interaction)
+            btn_delivery.callback = _on_delivery
+            self.add_item(btn_delivery)
+
+            btn_style = discord.ui.Button(
+                label=f"🎨 Affichage : {'normal' if self.style == 'text' else 'embed'}",
+                style=discord.ButtonStyle.secondary, row=3)
+            async def _on_style(interaction: discord.Interaction):
+                self.style = "text" if self.style == "embed" else "embed"
+                await self.refresh(interaction)
+            btn_style.callback = _on_style
+            self.add_item(btn_style)
+
+            # Row 4 : mapping + actions finales
+            btn_add = discord.ui.Button(label="➕ Mapping",
+                                         style=discord.ButtonStyle.primary, row=4,
                                          disabled=bool(self.pending_emoji_key))
             async def _on_add(interaction: discord.Interaction):
                 await interaction.response.send_modal(_RREmojiModal(self))
             btn_add.callback = _on_add
             self.add_item(btn_add)
 
-            btn_remove = discord.ui.Button(label="↩️ Retirer le dernier",
-                                            style=discord.ButtonStyle.secondary, row=3,
+            btn_remove = discord.ui.Button(label="↩️ Retirer",
+                                            style=discord.ButtonStyle.secondary, row=4,
                                             disabled=len(self.mappings) == 0)
             async def _on_remove(interaction: discord.Interaction):
                 if self.mappings:
@@ -242,8 +265,7 @@ def setup_rolereaction_commands(bot, deps):
             btn_remove.callback = _on_remove
             self.add_item(btn_remove)
 
-            # Row 4 : final actions
-            btn_send = discord.ui.Button(label="✅ Envoyer le message",
+            btn_send = discord.ui.Button(label="✅ Envoyer",
                                           style=discord.ButtonStyle.success, row=4,
                                           disabled=not (self.salon and self.mappings))
             btn_send.callback = self._on_send
@@ -271,22 +293,61 @@ def setup_rolereaction_commands(bot, deps):
             if not self.salon or not self.mappings:
                 return
             await interaction.response.defer(ephemeral=True)
-            # Build embed final
-            embed = discord.Embed(
-                title=self.titre or "Choisis ton rôle",
-                description=self.description or "",
-                color=0xC8F050,
-            )
-            # Bloc des mappings
-            lines = [f"{m['emoji_display']} → <@&{m['role_id']}>" for m in self.mappings]
-            embed.add_field(name="Réactions disponibles", value="\n".join(lines), inline=False)
-            if self.mode == "unique":
-                embed.set_footer(text="Tu ne peux choisir qu'UN seul rôle parmi ceux-ci.")
+
+            use_buttons = self.delivery == "button"
+            mapping_lines = [f"{m['emoji_display']} → <@&{m['role_id']}>" for m in self.mappings]
+            footer = ("Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
+                      if self.mode == "unique"
+                      else ("Clique un bouton pour recevoir le rôle correspondant."
+                            if use_buttons
+                            else "Réagis pour recevoir le rôle correspondant."))
+
+            # ----- Construire content / embed selon le style -----
+            content = None
+            embed = None
+            if self.style == "embed":
+                embed = discord.Embed(
+                    title=self.titre or "Choisis ton rôle",
+                    description=self.description or "",
+                    color=0xC8F050,
+                )
+                # En mode boutons, pas besoin de lister les emojis (les boutons parlent)
+                if not use_buttons:
+                    embed.add_field(name="Réactions disponibles",
+                                    value="\n".join(mapping_lines), inline=False)
+                embed.set_footer(text=footer)
             else:
-                embed.set_footer(text="Réagis pour recevoir le rôle correspondant.")
+                # Message normal (texte)
+                parts = []
+                if self.titre:
+                    parts.append(f"**{self.titre}**")
+                if self.description:
+                    parts.append(self.description)
+                if not use_buttons:
+                    parts.append("\n".join(mapping_lines))
+                parts.append(f"_{footer}_")
+                content = "\n\n".join(p for p in parts if p)
+
+            # ----- Construire la View boutons si besoin -----
+            view = None
+            if use_buttons:
+                view = discord.ui.View(timeout=None)
+                for m in self.mappings:
+                    ek = m["emoji_key"]
+                    try:
+                        emoji_obj = (discord.PartialEmoji.from_str(ek)
+                                     if ek.startswith("<") else ek)
+                    except Exception:
+                        emoji_obj = None
+                    view.add_item(discord.ui.Button(
+                        label=m["role_name"][:80],
+                        emoji=emoji_obj,
+                        style=discord.ButtonStyle.secondary,
+                        custom_id=f"rr:{m['role_id']}",
+                    ))
 
             try:
-                msg = await self.salon.send(embed=embed)
+                msg = await self.salon.send(content=content, embed=embed, view=view)
             except discord.Forbidden:
                 await interaction.followup.send(
                     "❌ Permissions manquantes dans ce salon (envoyer messages).",
@@ -294,44 +355,39 @@ def setup_rolereaction_commands(bot, deps):
                 )
                 return
 
-            # Ajout des reactions une par une avec petite pause anti-rate-limit
-            # (Discord cap a ~5 reactions/5s). Les echecs sont collectes et reportes.
-            async def _try_add(emoji_str):
-                """Tente d'ajouter une reaction avec plusieurs variantes du meme
-                emoji unicode (avec/sans selecteur de variation U+FE0F) ; certains
-                clients Discord rejettent une variante mais acceptent l'autre."""
-                if emoji_str.startswith("<"):
-                    # Custom emoji — pas de variantes a essayer
-                    await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
-                    return None
-                # Variantes : strip VS-16, sans, avec
-                base = emoji_str.replace("️", "")
-                variants = [emoji_str, base, base + "️"]
-                seen = set()
-                last_err = None
-                for v in variants:
-                    if v in seen or not v:
-                        continue
-                    seen.add(v)
-                    try:
-                        await msg.add_reaction(v)
-                        return None
-                    except discord.HTTPException as e:
-                        last_err = e
-                        continue
-                return last_err
-
             failed = []
-            for m in self.mappings:
-                ek = m["emoji_key"]
-                try:
-                    err = await _try_add(ek)
-                    if err:
-                        raise err
-                except Exception as e:
-                    print(f"[rolereaction] add_reaction {ek!r} err: {e!r}")
-                    failed.append((m["emoji_display"], str(e)))
-                await asyncio.sleep(0.35)
+            # ----- Mode réactions : ajoute les emojis -----
+            if not use_buttons:
+                async def _try_add(emoji_str):
+                    if emoji_str.startswith("<"):
+                        await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
+                        return None
+                    base = emoji_str.replace("️", "")
+                    variants = [emoji_str, base, base + "️"]
+                    seen = set()
+                    last_err = None
+                    for v in variants:
+                        if v in seen or not v:
+                            continue
+                        seen.add(v)
+                        try:
+                            await msg.add_reaction(v)
+                            return None
+                        except discord.HTTPException as e:
+                            last_err = e
+                            continue
+                    return last_err
+
+                for m in self.mappings:
+                    ek = m["emoji_key"]
+                    try:
+                        err = await _try_add(ek)
+                        if err:
+                            raise err
+                    except Exception as e:
+                        print(f"[rolereaction] add_reaction {ek!r} err: {e!r}")
+                        failed.append((m["emoji_display"], str(e)))
+                    await asyncio.sleep(0.35)
 
             # Persiste les mappings
             group_key = f"msg_{msg.id}" if self.mode == "unique" else None
@@ -339,11 +395,13 @@ def setup_rolereaction_commands(bot, deps):
                 db_rr_add(
                     self.guild.id, msg.id, self.salon.id, m["emoji_key"], m["role_id"],
                     mode=self.mode, group_key=group_key, created_by=self.author_id,
+                    delivery=self.delivery, style=self.style,
                 )
 
             confirm = (
                 f"✅ Message rôle-réaction posté dans {self.salon.mention}\n"
-                f"`message_id = {msg.id}` · {len(self.mappings)} mapping(s) · mode `{self.mode}`"
+                f"`message_id = {msg.id}` · {len(self.mappings)} mapping(s) · "
+                f"mode `{self.mode}` · type `{self.delivery}` · affichage `{self.style}`"
             )
             if failed:
                 details = "\n".join(f"  · {d} — `{e}`" for d, e in failed)
