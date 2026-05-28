@@ -1573,28 +1573,35 @@ def setup_runtime(bot, deps):
             await channel.send(content=content or None, embed=embed_obj)
 
         elif name == "rolereaction_post":
-            # payload: {channel_id, titre, description, mode, mappings:[{emoji_key, role_id}]}
-            ch_id   = payload.get("channel_id")
-            titre   = (payload.get("titre") or "Choisis ton rôle").strip()
-            descp   = (payload.get("description") or "").strip()
-            mode    = payload.get("mode") or "toggle"
-            mapps   = payload.get("mappings") or []
+            # payload: {channel_id, titre, description, mode, delivery, style, mappings:[{emoji_key, role_id, label}]}
+            ch_id    = payload.get("channel_id")
+            titre    = (payload.get("titre") or "Choisis ton rôle").strip()
+            descp    = (payload.get("description") or "").strip()
+            mode     = payload.get("mode") or "toggle"
+            delivery = payload.get("delivery") or "reaction"
+            style    = payload.get("style") or "embed"
+            mapps    = payload.get("mappings") or []
             # Normalise les emojis recus du web : strip zero-width + reroute
-            # via _parse_emoji_input pour gerer aussi ":name:" -> custom emoji.
             for m in mapps:
                 ek = m.get("emoji_key", "")
-                ek_clean = _parse_emoji_input(ek, guild) if guild else ek.strip()
+                ek_clean = _parse_emoji_input(ek, guild) if (guild and ek) else (ek or "").strip()
                 if ek_clean:
                     m["emoji_key"] = ek_clean
             if not ch_id:
                 raise ValueError("channel_id requis")
             if mode not in ("toggle", "add_only", "unique"):
                 raise ValueError("mode invalide")
+            if delivery not in ("reaction", "button"):
+                raise ValueError("delivery invalide")
+            if style not in ("embed", "text"):
+                raise ValueError("style invalide")
             if not mapps:
                 raise ValueError("au moins 1 mapping requis")
             channel = guild.get_channel(int(ch_id))
             if not channel or not isinstance(channel, (discord.TextChannel, discord.Thread)):
                 raise ValueError("salon textuel introuvable")
+
+            use_buttons = delivery == "button"
 
             # Verif hierarchie sur tous les roles
             me = guild.me
@@ -1614,85 +1621,115 @@ def setup_runtime(bot, deps):
                     f"le rôle du bot AU-DESSUS de ces rôles."
                 )
 
-            # Couleur custom (defaut: vert lime)
             color_int = 0xC8F050
             color_raw = payload.get("color")
             if color_raw:
                 try:
-                    if isinstance(color_raw, str):
-                        color_int = int(color_raw.replace("#", ""), 16)
-                    else:
-                        color_int = int(color_raw)
+                    color_int = (int(color_raw.replace("#", ""), 16)
+                                 if isinstance(color_raw, str) else int(color_raw))
                 except Exception:
                     pass
-            embed = discord.Embed(title=titre, description=descp, color=color_int)
-            lines = []
-            for m in mapps:
-                ek = m["emoji_key"]
+
+            footer = ("Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
+                      if mode == "unique"
+                      else ("Clique un bouton pour recevoir le rôle correspondant."
+                            if use_buttons else "Réagis pour recevoir le rôle correspondant."))
+
+            def _line(m):
+                ek = m.get("emoji_key") or ""
                 label = (m.get("label") or "").strip()
                 role_ref = f"<@&{m['role_id']}>"
                 if label:
-                    lines.append(f"{ek} **{label}** — {role_ref}")
-                else:
-                    lines.append(f"{ek} → {role_ref}")
-            embed.add_field(name="Réactions disponibles", value="\n".join(lines), inline=False)
-            embed.set_footer(text=(
-                "Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
-                if mode == "unique" else
-                "Réagis pour recevoir le rôle correspondant."
-            ))
+                    return f"{ek} **{label}** — {role_ref}".strip()
+                return f"{ek} → {role_ref}".strip(" →") if not ek else f"{ek} → {role_ref}"
 
-            msg = await channel.send(embed=embed)
-            # Reactions avec retry VS-16. Cette fois on RAISE en cas d'echec
-            # final pour que le caller catche et logue / surface l'erreur.
-            async def _try_add(emoji_str):
-                if emoji_str.startswith("<"):
-                    await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
-                    return
-                base = emoji_str.replace("️", "")
-                seen = set()
-                last_err = None
-                for v in [emoji_str, base, base + "️"]:
-                    if not v or v in seen:
-                        continue
-                    seen.add(v)
+            # ----- content / embed -----
+            content = None
+            embed = None
+            if style == "embed":
+                embed = discord.Embed(title=titre, description=descp, color=color_int)
+                if not use_buttons:
+                    embed.add_field(name="Réactions disponibles",
+                                    value="\n".join(_line(m) for m in mapps), inline=False)
+                embed.set_footer(text=footer)
+            else:
+                parts = []
+                if titre:
+                    parts.append(f"**{titre}**")
+                if descp:
+                    parts.append(descp)
+                if not use_buttons:
+                    parts.append("\n".join(_line(m) for m in mapps))
+                parts.append(f"_{footer}_")
+                content = "\n\n".join(p for p in parts if p)
+
+            # ----- View boutons -----
+            view = None
+            if use_buttons:
+                view = discord.ui.View(timeout=None)
+                for m in mapps:
+                    ek = m.get("emoji_key") or ""
                     try:
-                        await msg.add_reaction(v)
-                        return
-                    except discord.HTTPException as e:
-                        last_err = e
-                if last_err:
-                    raise last_err
-                raise RuntimeError("aucune variante d'emoji testee")
+                        emoji_obj = (discord.PartialEmoji.from_str(ek)
+                                     if ek.startswith("<") else (ek or None))
+                    except Exception:
+                        emoji_obj = None
+                    r = guild.get_role(int(m["role_id"]))
+                    lbl = (m.get("label") or (r.name if r else "Rôle"))[:80]
+                    view.add_item(discord.ui.Button(
+                        label=lbl, emoji=emoji_obj,
+                        style=discord.ButtonStyle.secondary,
+                        custom_id=f"rr:{m['role_id']}",
+                    ))
+
+            msg = await channel.send(content=content, embed=embed, view=view)
 
             failed_dispatch = []
-            for m in mapps:
-                ek = m["emoji_key"]
-                # Log codepoints pour diagnostic 'Unknown Emoji'
-                cps = " ".join(f"U+{ord(c):04X}" for c in ek)
-                print(f"[rolereaction] add_reaction emoji={ek!r} codepoints=[{cps}]")
-                try:
-                    await _try_add(ek)
-                except Exception as e:
-                    print(f"[rolereaction] dispatch add_reaction {ek!r} err: {e!r}")
-                    failed_dispatch.append((ek, str(e)))
-                await asyncio.sleep(0.35)
+            if not use_buttons:
+                async def _try_add(emoji_str):
+                    if emoji_str.startswith("<"):
+                        await msg.add_reaction(discord.PartialEmoji.from_str(emoji_str))
+                        return
+                    base = emoji_str.replace("️", "")
+                    seen = set()
+                    last_err = None
+                    for v in [emoji_str, base, base + "️"]:
+                        if not v or v in seen:
+                            continue
+                        seen.add(v)
+                        try:
+                            await msg.add_reaction(v)
+                            return
+                        except discord.HTTPException as e:
+                            last_err = e
+                    if last_err:
+                        raise last_err
+                    raise RuntimeError("aucune variante d'emoji testee")
+
+                for m in mapps:
+                    ek = m["emoji_key"]
+                    try:
+                        await _try_add(ek)
+                    except Exception as e:
+                        print(f"[rolereaction] dispatch add_reaction {ek!r} err: {e!r}")
+                        failed_dispatch.append((ek, str(e)))
+                    await asyncio.sleep(0.35)
 
             group_key = f"msg_{msg.id}" if mode == "unique" else None
             for idx, m in enumerate(mapps):
+                # En mode boutons sans emoji, cle synthetique pour respecter le PK
+                ek = m.get("emoji_key") or f"btn_{m['role_id']}"
                 db_rr_add(
-                    guild.id, msg.id, channel.id, m["emoji_key"], m["role_id"],
+                    guild.id, msg.id, channel.id, ek, m["role_id"],
                     mode=mode, group_key=group_key, created_by=payload.get("by"),
                     label=(m.get("label") or None), position=idx,
+                    delivery=delivery, style=style,
                 )
             if failed_dispatch:
                 details = "; ".join(f"{ek}: {er}" for ek, er in failed_dispatch)
                 raise RuntimeError(
                     f"Message posté (id {msg.id}), mais {len(failed_dispatch)} réaction(s) "
-                    f"n'ont pas pu être ajoutées : {details}. "
-                    f"Vérifie que le bot a la permission « Ajouter des réactions » dans ce salon, "
-                    f"et que les emojis sont bien des emojis Discord standards (pas des emojis "
-                    f"d'un autre serveur où le bot n'est pas)."
+                    f"n'ont pas pu être ajoutées : {details}."
                 )
             return
 

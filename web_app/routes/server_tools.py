@@ -173,14 +173,23 @@ def register_server_tool_routes(app, deps):
         titre       = (data.get("titre") or "").strip() or "Choisis ton rôle"
         description = (data.get("description") or "").strip()
         mode        = data.get("mode") or "toggle"
+        delivery    = data.get("delivery") or "reaction"
+        style       = data.get("style") or "embed"
         mappings    = data.get("mappings") or []
         if not channel_id or not mappings:
             return jsonify({"error": "channel_id et mappings requis"}), 400
         if mode not in ("toggle", "add_only", "unique"):
             return jsonify({"error": "mode invalide"}), 400
+        if delivery not in ("reaction", "button"):
+            return jsonify({"error": "delivery invalide"}), 400
+        if style not in ("embed", "text"):
+            return jsonify({"error": "style invalide"}), 400
         for m in mappings:
-            if not m.get("emoji_key") or not m.get("role_id"):
-                return jsonify({"error": "mapping incomplet"}), 400
+            if not m.get("role_id"):
+                return jsonify({"error": "mapping incomplet (role_id requis)"}), 400
+            # En mode reactions l'emoji est obligatoire ; en boutons il est optionnel
+            if delivery == "reaction" and not m.get("emoji_key"):
+                return jsonify({"error": "emoji requis pour le mode réactions"}), 400
 
         color = (data.get("color") or "").strip() or None
         cmd_id = bot_command_enqueue(g_id, "rolereaction_post", {
@@ -188,6 +197,8 @@ def register_server_tool_routes(app, deps):
             "titre":       titre,
             "description": description,
             "mode":        mode,
+            "delivery":    delivery,
+            "style":       style,
             "color":       color,
             "mappings":    mappings,
             "by":          _current_user_id(),

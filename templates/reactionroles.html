@@ -121,6 +121,23 @@
     </div>
   </div>
 
+  <div class="row-2col">
+    <div class="field">
+      <label>Type d'interaction</label>
+      <select id="rrDelivery">
+        <option value="reaction" selected>Réactions (emojis)</option>
+        <option value="button">Boutons</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Affichage</label>
+      <select id="rrStyle">
+        <option value="embed" selected>Embed</option>
+        <option value="text">Message normal</option>
+      </select>
+    </div>
+  </div>
+
   <div class="field">
     <label>Titre de l'embed</label>
     <input id="rrTitle" type="text" maxlength="256" placeholder="Choisis ton rôle de couleur">
@@ -308,6 +325,8 @@ async function _pollCommand(cmdId, maxTries = 15) {
 document.getElementById('postBtn').addEventListener('click', async () => {
   const channel_id  = document.getElementById('rrChannel').value;
   const mode        = document.getElementById('rrMode').value;
+  const delivery    = document.getElementById('rrDelivery').value;
+  const style       = document.getElementById('rrStyle').value;
   const titre       = document.getElementById('rrTitle').value.trim();
   const description = document.getElementById('rrDesc').value.trim();
   const color       = document.getElementById('rrColor').value;
@@ -315,6 +334,9 @@ document.getElementById('postBtn').addEventListener('click', async () => {
 
   if (!channel_id) { showToast('Sélectionne un salon', false); return; }
   if (mappings.length === 0) { showToast('Au moins 1 mapping requis', false); return; }
+  if (delivery === 'reaction' && mappings.some(m => !m.emoji_key)) {
+    showToast('Emoji requis pour chaque mapping en mode réactions', false); return;
+  }
 
   const btn  = document.getElementById('postBtn');
   const hint = document.getElementById('postHint');
@@ -324,7 +346,7 @@ document.getElementById('postBtn').addEventListener('click', async () => {
     const r = await fetch('/api/rolereactions/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id, mode, titre, description, color, mappings }),
+      body: JSON.stringify({ channel_id, mode, delivery, style, titre, description, color, mappings }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);
