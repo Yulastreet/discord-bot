@@ -10,6 +10,7 @@ from .reactions import setup_reaction_commands
 from .utilitaires import setup_utility_commands
 from .welcome import setup_welcome_commands
 from .setup_cmd import setup_setup_commands
+from .presentation import setup_presentation_commands
 
 
 def setup_commands(bot, user_reactions, deps):
@@ -19,6 +20,7 @@ def setup_commands(bot, user_reactions, deps):
     setup_moderation_commands(bot)
     setup_welcome_commands(bot)
     setup_setup_commands(bot)
+    setup_presentation_commands(bot)
     setup_niveau_commands(bot, deps)
     setup_rolereaction_commands(bot, deps)
     setup_ticket_commands(bot, deps)

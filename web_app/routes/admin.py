@@ -102,8 +102,10 @@ def register_admin_routes(app, deps):
         data = request.json or {}
         BOOL_KEYS = {"xp_enabled", "music", "giveaway", "fun", "moderation_cmds",
                      "tickets", "welcome", "rolereaction", "reactions", "social_alerts",
-                     "custom_commands", "poll", "cs2", "lol", "duels"}
-        STR_KEYS  = {"xp_min", "xp_max", "xp_cooldown_seconds", "welcome_template"}
+                     "custom_commands", "poll", "cs2", "lol", "duels",
+                     "presentation_enabled"}
+        STR_KEYS  = {"xp_min", "xp_max", "xp_cooldown_seconds", "welcome_template",
+                     "presentation_channel_id"}
         updated = []
         for k, v in data.items():
             if k in BOOL_KEYS:

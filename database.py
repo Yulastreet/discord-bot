@@ -1610,6 +1610,9 @@ GUILD_DEFAULT_SETTINGS = {
     "setup_logs_channel_id":      "",
     "setup_alerts_channel_id":    "",
     "setup_admin_channel_id":     "",
+    # Présentations membres
+    "presentation_enabled":       "0",
+    "presentation_channel_id":    "",
     # Permissions modérateurs (configurees par le server owner)
     "mod_role_id":                "",
     "mod_access_configured":      "0",

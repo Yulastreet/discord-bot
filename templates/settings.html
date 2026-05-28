@@ -47,6 +47,27 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2 style="margin-bottom: var(--s-3);">Présentations</h2>
+    <p class="muted mb-4" style="font-size:var(--t-sm);">
+      Active la commande <code>/presentation create</code> et choisis le salon où les présentations sont postées.
+      La commande ne fonctionne que dans ce salon.
+    </p>
+    <div class="grid grid-2">
+      <div class="field">
+        <label>Activer les présentations</label>
+        <select id="presentation_enabled">
+          <option value="1">⭐ Activé</option>
+          <option value="0">⏸ Désactivé</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Salon des présentations</label>
+        <select id="presentation_channel_id"><option value="">— Choisir un salon —</option></select>
+      </div>
+    </div>
+  </div>
+
   <div class="row end gap-3">
     <button class="btn btn-ghost" onclick="resetDefaults()">Restaurer les défauts</button>
     <button class="btn btn-primary" onclick="saveSettings()">
@@ -59,8 +80,32 @@
 
 {% block scripts %}
 <script>
-const FIELDS   = ['xp_min', 'xp_max', 'xp_cooldown_seconds', 'welcome_template'];
+const FIELDS   = ['xp_min', 'xp_max', 'xp_cooldown_seconds', 'welcome_template',
+                  'presentation_enabled', 'presentation_channel_id'];
 const DEFAULTS = JSON.parse('{{ defaults|tojson|safe }}');
+const PRESENTATION_CURRENT = {
+  enabled: '{{ settings.get("presentation_enabled", "0") }}',
+  channel: '{{ settings.get("presentation_channel_id", "") }}',
+};
+
+// Charge les salons texte pour le select présentation
+(async function loadPresentationChannels() {
+  const sel = document.getElementById('presentation_channel_id');
+  const enSel = document.getElementById('presentation_enabled');
+  if (enSel) enSel.value = PRESENTATION_CURRENT.enabled === '1' ? '1' : '0';
+  if (!sel) return;
+  try {
+    const r = await fetch('/api/channels?type=text');
+    const d = await r.json();
+    for (const c of (d.channels || [])) {
+      const opt = document.createElement('option');
+      opt.value = String(c.channel_id);
+      opt.textContent = '#' + (c.name || c.channel_id);
+      if (String(c.channel_id) === String(PRESENTATION_CURRENT.channel)) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch (_) {}
+})();
 
 async function saveSettings() {
   const payload = {};
