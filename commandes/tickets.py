@@ -470,8 +470,16 @@ def setup_ticket_commands(bot, deps):
             embed=view._summary_embed(), view=view, ephemeral=True,
         )
 
-    try:
-        bot.add_view(TicketOpenView())
-        bot.add_view(TicketControlView())
-    except Exception as e:
-        print(f"[ticket] persistent views: {e!r}", flush=True)
+    def _register_ticket_views():
+        """(Re)enregistre les vues persistantes. Appele a l'import ET dans on_ready
+        (timing fiable apres connexion gateway, sinon les vieux messages ne sont
+        pas captes)."""
+        try:
+            bot.add_view(TicketOpenView())
+            bot.add_view(TicketControlView())
+        except Exception as e:
+            print(f"[ticket] persistent views: {e!r}", flush=True)
+
+    # Expose pour re-registration dans on_ready
+    bot._register_ticket_views = _register_ticket_views
+    _register_ticket_views()

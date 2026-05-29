@@ -45,6 +45,13 @@ def setup_runtime(bot, deps):
     @bot.event
     async def on_ready():
         print(f"✅ Bot connecté en tant que {bot.user}")
+        # Re-enregistre les vues persistantes APRES connexion (timing fiable :
+        # garantit que les vieux messages ticket sont captes sans re-poster)
+        try:
+            if hasattr(bot, "_register_ticket_views"):
+                bot._register_ticket_views()
+        except Exception as e:
+            print(f"[ticket] re-register views on_ready: {e!r}")
         # Enregistrer chaque guild où le bot est présent + sync ses channels
         for guild in bot.guilds:
             upsert_guild(
