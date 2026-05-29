@@ -242,6 +242,7 @@ USER_REACTIONS = get_all_reactions_index()
 # ===== Etat runtime exposé pour /api/status =====
 import time as _time
 import json as _json
+import math as _math
 BOT_STATE = {
     "started_at":     _time.time(),
     "pid":            os.getpid(),
@@ -272,7 +273,9 @@ def _write_bot_state():
         BOT_STATE["updated_at"]  = _time.time()
         BOT_STATE["guild_count"] = len(_bot.guilds) if _bot and _bot.is_ready() else 0
         BOT_STATE["voice_count"] = sum(1 for g in _bot.guilds if g.voice_client) if _bot and _bot.is_ready() else 0
-        BOT_STATE["latency_ms"]  = round(_bot.latency * 1000) if _bot and _bot.is_ready() else None
+        _lat = _bot.latency if (_bot and _bot.is_ready()) else None
+        BOT_STATE["latency_ms"]  = (round(_lat * 1000)
+                                    if _lat is not None and _math.isfinite(_lat) else None)
         with open(_BOT_STATE_FILE, "w", encoding="utf-8") as f:
             _json.dump(BOT_STATE, f)
     except Exception as e:
