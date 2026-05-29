@@ -28,16 +28,9 @@ def setup_ticket_commands(bot, deps):
             self.add_item(btn)
 
         async def _on_open(self, interaction: discord.Interaction):
-            print(f"[ticket DEBUG] _on_open FIRED guild={getattr(interaction.guild,'id',None)} msg={getattr(interaction.message,'id',None)}", flush=True)
             if not interaction.guild or not interaction.message:
                 await interaction.response.send_message("❌ Erreur de contexte.", ephemeral=True)
                 return
-            try:
-                panel = ticket_panel_get_by_message(interaction.guild.id, interaction.message.id)
-                print(f"[ticket DEBUG] panel lookup -> {panel!r}", flush=True)
-            except Exception as _e:
-                print(f"[ticket DEBUG] panel lookup ERROR: {_e!r}", flush=True)
-                raise
             panel = ticket_panel_get_by_message(interaction.guild.id, interaction.message.id)
             if not panel or not panel.get("enabled"):
                 await interaction.response.send_message(
@@ -480,6 +473,5 @@ def setup_ticket_commands(bot, deps):
     try:
         bot.add_view(TicketOpenView())
         bot.add_view(TicketControlView())
-        print("[ticket DEBUG] persistent views registered OK", flush=True)
     except Exception as e:
         print(f"[ticket] persistent views: {e!r}", flush=True)
