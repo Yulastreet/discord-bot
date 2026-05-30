@@ -1,0 +1,179 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_ai' %}
+
+{% block title %}IA · TookBot{% endblock %}
+{% block crumb %}IA (Groq){% endblock %}
+
+{% block extra_head %}
+<style>
+  .ai-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    padding: 22px 26px;
+    margin-bottom: 22px;
+  }
+  .ai-card h2 { margin: 0 0 6px; font-size: 18px; }
+  .ai-card .sub { color: var(--text-2); font-size: 13px; margin-bottom: 14px; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+  .pill.on  { background: oklch(0.86 0.20 130 / 0.18); color: oklch(0.86 0.20 130); }
+  .pill.off { background: var(--bg-2); color: var(--text-3); }
+  .id-list {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+  }
+  .id-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 999px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 12px;
+  }
+  .id-chip .x { cursor: pointer; color: var(--text-3); font-weight: 700; }
+  .id-chip .x:hover { color: #f88; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="col gap-6">
+  <div>
+    <h1>🧠 Configuration IA (Groq)</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
+      Activer / désactiver la réponse IA quand des utilisateurs <strong>mentionnent le bot</strong>.
+      Seul l'owner du bot a accès à cette page. La config est globale (s'applique à tous les serveurs).
+    </p>
+  </div>
+
+  {% if not api_key_present %}
+  <div class="ai-card" style="border-color: #c66;">
+    <h2>⚠️ Clé API manquante</h2>
+    <p class="sub" style="color: #f88;">
+      <code>GROQ_API_KEY</code> n'est pas définie dans le <code>.env</code> du VPS.
+      Obtiens une clé gratuite sur <a href="https://console.groq.com" target="_blank">console.groq.com</a>,
+      ajoute <code>GROQ_API_KEY=...</code> au fichier <code>.env</code> et redémarre le bot.
+    </p>
+  </div>
+  {% endif %}
+
+  <div class="ai-card">
+    <div class="row between" style="align-items:center;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h2>État</h2>
+        <div class="sub">L'IA répond aux mentions seulement si activée.</div>
+      </div>
+      <div>
+        <span id="aiStatusPill" class="pill {{ 'on' if ai_enabled else 'off' }}">
+          {{ '★ Activée' if ai_enabled else 'Désactivée' }}
+        </span>
+        <select id="ai_enabled" style="margin-left:10px;">
+          <option value="1" {{ 'selected' if ai_enabled }}>Activer</option>
+          <option value="0" {{ '' if ai_enabled else 'selected' }}>Désactiver</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="ai-card">
+    <h2>Modèle</h2>
+    <div class="sub">Modèles Groq dispo (tous gratuits). Llama 3.3 70B = meilleure qualité.</div>
+    <select id="ai_model" style="min-width:320px;">
+      <option value="llama-3.3-70b-versatile" {{ 'selected' if ai_model == 'llama-3.3-70b-versatile' }}>llama-3.3-70b-versatile (recommandé)</option>
+      <option value="llama-3.1-8b-instant" {{ 'selected' if ai_model == 'llama-3.1-8b-instant' }}>llama-3.1-8b-instant (rapide)</option>
+      <option value="gemma2-9b-it" {{ 'selected' if ai_model == 'gemma2-9b-it' }}>gemma2-9b-it</option>
+      <option value="mixtral-8x7b-32768" {{ 'selected' if ai_model == 'mixtral-8x7b-32768' }}>mixtral-8x7b-32768</option>
+    </select>
+    <div style="margin-top:12px;">
+      <label class="muted" style="font-size:12px;">Max tokens</label>
+      <input type="number" id="ai_max_tokens" min="50" max="2000" value="{{ ai_max_tokens }}" style="width:120px;">
+    </div>
+  </div>
+
+  <div class="ai-card">
+    <h2>System prompt (persona)</h2>
+    <div class="sub">Définit la personnalité et le comportement par défaut du bot. Max 4000 caractères.</div>
+    <textarea id="ai_system_prompt" rows="6"
+              style="width:100%;font-family:var(--font-mono);font-size:13px;">{{ ai_system_prompt }}</textarea>
+  </div>
+
+  <div class="ai-card">
+    <h2>Utilisateurs autorisés</h2>
+    <div class="sub">
+      Ces user IDs Discord peuvent invoquer l'IA en mentionnant le bot, sur n'importe quel serveur.
+      Tu (owner) es toujours autorisé automatiquement.
+    </div>
+    <div class="row gap-2" style="align-items:center;">
+      <input type="text" id="newId" placeholder="ID Discord (clic droit sur un user → Copier l'ID)"
+             style="flex:1;font-family:var(--font-mono);font-size:13px;">
+      <button class="btn btn-secondary" type="button" onclick="addId()">Ajouter</button>
+    </div>
+    <div id="idList" class="id-list"></div>
+  </div>
+
+  <div class="row end gap-3">
+    <button class="btn btn-primary" onclick="saveAI()">
+      <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let ALLOWED_IDS = {{ allowed_ids|tojson }};
+
+function renderIds() {
+  const wrap = document.getElementById('idList');
+  wrap.innerHTML = '';
+  if (ALLOWED_IDS.length === 0) {
+    wrap.innerHTML = '<span class="muted" style="font-size:12px;">Aucun user en plus de toi (owner).</span>';
+    return;
+  }
+  for (const id of ALLOWED_IDS) {
+    const chip = document.createElement('span');
+    chip.className = 'id-chip';
+    chip.innerHTML = `${id}<span class="x" title="Retirer">×</span>`;
+    chip.querySelector('.x').addEventListener('click', () => {
+      ALLOWED_IDS = ALLOWED_IDS.filter(x => x !== id);
+      renderIds();
+    });
+    wrap.appendChild(chip);
+  }
+}
+function addId() {
+  const inp = document.getElementById('newId');
+  const v = (inp.value || '').trim();
+  if (!/^\d{15,25}$/.test(v)) {
+    if (window.toast) window.toast('ID Discord invalide (chiffres seulement)', 'error');
+    return;
+  }
+  if (!ALLOWED_IDS.includes(v)) ALLOWED_IDS.push(v);
+  inp.value = '';
+  renderIds();
+}
+window.addId = addId;
+
+async function saveAI() {
+  const payload = {
+    ai_enabled:         document.getElementById('ai_enabled').value,
+    ai_model:           document.getElementById('ai_model').value,
+    ai_max_tokens:      document.getElementById('ai_max_tokens').value,
+    ai_system_prompt:   document.getElementById('ai_system_prompt').value,
+    ai_allowed_user_ids: ALLOWED_IDS,
+  };
+  try {
+    const r = await fetch('/api/owner/ai-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    if (window.toast) window.toast('Config IA enregistrée ✓');
+    setTimeout(() => location.reload(), 500);
+  } catch (e) {
+    if (window.toast) window.toast('Erreur : ' + e.message, 'error');
+  }
+}
+window.saveAI = saveAI;
+
+renderIds();
+</script>
+{% endblock %}

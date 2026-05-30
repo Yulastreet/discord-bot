@@ -282,6 +282,56 @@ def register_premium_routes(app, deps):
 
     # ===== Owner : page de paramètres avancée (custom BG, etc.) =====
 
+    # ===== Owner : IA Groq config =====
+    @app.route("/owner/ai")
+    def owner_ai_page():
+        if not _is_owner_session():
+            abort(403)
+        from database import get_all_settings, DEFAULT_SETTINGS
+        from services.groq_ai import get_groq_api_key
+        s = get_all_settings()
+        allowed_csv = s.get("ai_allowed_user_ids", "") or ""
+        ids = [x.strip() for x in allowed_csv.split(",") if x.strip()]
+        return render_template(
+            "owner_ai.html",
+            active_nav="owner_ai",
+            ai_enabled=(s.get("ai_enabled") == "1"),
+            ai_model=s.get("ai_model", DEFAULT_SETTINGS["ai_model"]),
+            ai_system_prompt=s.get("ai_system_prompt", DEFAULT_SETTINGS["ai_system_prompt"]),
+            ai_max_tokens=s.get("ai_max_tokens", DEFAULT_SETTINGS["ai_max_tokens"]),
+            allowed_ids=ids,
+            api_key_present=bool(get_groq_api_key()),
+            defaults=DEFAULT_SETTINGS,
+        )
+
+
+    @app.route("/api/owner/ai-settings", methods=["POST"])
+    def api_owner_ai_set():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        from database import set_setting
+        data = request.json or {}
+        if "ai_enabled" in data:
+            set_setting("ai_enabled", "1" if str(data["ai_enabled"]) in ("1", "true", "True", "on") else "0")
+        if "ai_model" in data:
+            set_setting("ai_model", str(data["ai_model"]).strip() or "llama-3.3-70b-versatile")
+        if "ai_system_prompt" in data:
+            set_setting("ai_system_prompt", str(data["ai_system_prompt"])[:4000])
+        if "ai_max_tokens" in data:
+            try:
+                set_setting("ai_max_tokens", str(max(50, min(2000, int(data["ai_max_tokens"])))))
+            except (TypeError, ValueError):
+                pass
+        if "ai_allowed_user_ids" in data:
+            raw = data["ai_allowed_user_ids"]
+            if isinstance(raw, list):
+                ids = [str(x).strip() for x in raw if str(x).strip().isdigit()]
+            else:
+                ids = [x.strip() for x in str(raw).split(",") if x.strip().isdigit()]
+            set_setting("ai_allowed_user_ids", ",".join(ids))
+        return jsonify({"success": True})
+
+
     @app.route("/owner/settings")
     def owner_settings_page():
         if not _is_owner_session():

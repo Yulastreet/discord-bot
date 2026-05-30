@@ -1547,6 +1547,12 @@ DEFAULT_SETTINGS = {
     "log_retention_days":   "90",
     "log_keep_per_guild":   "5000",
     "welcome_template":     "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
+    # IA (Groq) — config globale, owner-only via dashboard
+    "ai_enabled":           "0",
+    "ai_model":             "llama-3.3-70b-versatile",
+    "ai_system_prompt":     "Tu es TookBot, l'assistant officiel d'un bot Discord polyvalent. Tu es concis, utile, sympa, et tu parles français. Tu réponds en quelques phrases max sauf si on te demande un détail. Évite les listes interminables.",
+    "ai_allowed_user_ids":  "",   # CSV
+    "ai_max_tokens":        "400",
 }
 
 def get_setting(key, default=None):

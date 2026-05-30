@@ -1016,10 +1016,50 @@ def setup_runtime(bot, deps):
             return
         if message.guild is None:
             # DM (user -> bot) : on ne stocke plus rien (raison vie privee).
-            # On laisse juste passer process_commands au cas ou.
             await bot.process_commands(message)
             return
         guild_id_str = str(message.guild.id)
+
+        # ===== IA Groq : mention du bot + author dans allowlist =====
+        if (bot.user in message.mentions and not message.author.bot
+                and get_setting("ai_enabled", "0") == "1"):
+            try:
+                from services.groq_ai import groq_chat, get_groq_api_key
+                allowed_csv = (get_setting("ai_allowed_user_ids", "") or "").strip()
+                allowed_ids = {x.strip() for x in allowed_csv.split(",") if x.strip()}
+                uid = str(message.author.id)
+                bot_owner_id = (DISCORD_OWNER_ID or "")
+                if uid in allowed_ids or (bot_owner_id and uid == str(bot_owner_id)):
+                    if not get_groq_api_key():
+                        await message.reply("⚠️ IA pas configurée (clé Groq manquante).",
+                                            mention_author=False)
+                    else:
+                        # Strip toutes les mentions du contenu pour avoir le prompt brut
+                        prompt = message.content
+                        for m in message.mentions:
+                            prompt = prompt.replace(f"<@{m.id}>", "").replace(f"<@!{m.id}>", "")
+                        prompt = prompt.strip()
+                        if not prompt:
+                            await message.reply("Tu m'as ping mais sans question 🤔",
+                                                mention_author=False)
+                        else:
+                            try:
+                                async with message.channel.typing():
+                                    reply = await groq_chat(
+                                        prompt,
+                                        system_prompt=get_setting("ai_system_prompt", "") or "",
+                                        model=get_setting("ai_model", "llama-3.3-70b-versatile"),
+                                        max_tokens=int(get_setting("ai_max_tokens", "400") or "400"),
+                                    )
+                                await message.reply(reply[:2000], mention_author=False)
+                            except Exception as e:
+                                print(f"[ai] groq err: {e!r}")
+                                await message.reply(f"❌ Erreur IA : `{type(e).__name__}`",
+                                                    mention_author=False)
+                    # Stop ici : pas de XP / commands sur ce message
+                    return
+            except Exception as _e:
+                print(f"[ai] hook err: {_e!r}")
 
         # Réactions automatiques per-guild
         key = (guild_id_str, message.author.id)
