@@ -586,10 +586,16 @@
         </button>
         <div class="crumb">{% block crumb %}{% endblock %}</div>
       </div>
-      <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener" class="support-btn">
-        <svg><use href="#i-discord"/></svg>
-        REJOINDRE LE SERVEUR DE SUPPORT
-      </a>
+      <div class="topbar-center">
+        <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener" class="support-btn">
+          <svg><use href="#i-discord"/></svg>
+          REJOINDRE LE SERVEUR DE SUPPORT
+        </a>
+        <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="support-btn support-btn-kofi">
+          <span class="kofi-ico">☕</span>
+          SOUTENIR
+        </a>
+      </div>
       <div class="actions">
         {% if current_guild %}
         <div class="guild-switcher" id="guildSwitcher">
