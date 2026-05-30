@@ -282,12 +282,39 @@ def register_premium_routes(app, deps):
 
     # ===== Owner : page de paramètres avancée (custom BG, etc.) =====
 
+    # ===== Owner : Analytics (visites + tokens IA) =====
+    @app.route("/owner/analytics")
+    def owner_analytics_page():
+        if not _is_owner_session():
+            abort(403)
+        from database import visits_stats, ai_usage_stats
+        return render_template(
+            "owner_analytics.html",
+            active_nav="owner_analytics",
+            landing=visits_stats("landing"),
+            dashboard=visits_stats("dashboard"),
+            ai=ai_usage_stats(),
+        )
+
+
+    @app.route("/api/owner/analytics", methods=["GET"])
+    def api_owner_analytics():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        from database import visits_stats, ai_usage_stats
+        return jsonify({
+            "landing":   visits_stats("landing"),
+            "dashboard": visits_stats("dashboard"),
+            "ai":        ai_usage_stats(),
+        })
+
+
     # ===== Owner : IA Groq config =====
     @app.route("/owner/ai")
     def owner_ai_page():
         if not _is_owner_session():
             abort(403)
-        from database import get_all_settings, DEFAULT_SETTINGS
+        from database import get_all_settings, DEFAULT_SETTINGS, ai_usage_stats
         from services.groq_ai import get_groq_api_key
         s = get_all_settings()
         allowed_csv = s.get("ai_allowed_user_ids", "") or ""
@@ -302,6 +329,7 @@ def register_premium_routes(app, deps):
             allowed_ids=ids,
             api_key_present=bool(get_groq_api_key()),
             defaults=DEFAULT_SETTINGS,
+            ai_stats=ai_usage_stats(),
         )
 
 

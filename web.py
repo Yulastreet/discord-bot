@@ -437,6 +437,47 @@ def _require_premium_user():
         return None
     return uid
 
+def _hash_ip(ip: str) -> str:
+    """Hash IP avec un salt court (RGPD-friendly : on ne stocke pas l'IP brute)."""
+    import hashlib
+    salt = os.getenv("VISIT_HASH_SALT", "tookbot")
+    return hashlib.sha256((salt + (ip or "")).encode()).hexdigest()[:32]
+
+
+@app.route("/api/track/landing")
+def api_track_landing():
+    """Beacon 1x1 pour tracker les visites de tookbot.click (servie par nginx)."""
+    try:
+        from database import visit_log
+        ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
+        ref = request.headers.get("Referer") or "/"
+        visit_log("landing", ref[:200], _hash_ip(ip))
+    except Exception:
+        pass
+    # GIF 1x1 transparent
+    return (b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;',
+            200, {"Content-Type": "image/gif", "Cache-Control": "no-store, no-cache, must-revalidate"})
+
+
+@app.before_request
+def _log_dashboard_visit():
+    """Log les pageviews dashboard (HTML, pas API/static)."""
+    try:
+        p = request.path or ""
+        if (p.startswith("/static") or p.startswith("/api/") or p.startswith("/oauth/")
+                or p == "/favicon.ico" or p.startswith("/scout/")):
+            return
+        # Seulement les requêtes HTML (GET)
+        if request.method != "GET":
+            return
+        from database import visit_log
+        ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
+        uid = (session.get("discord") or {}).get("user_id")
+        visit_log("dashboard", p, _hash_ip(ip), user_id=uid)
+    except Exception:
+        pass
+
+
 @app.before_request
 def _ctx():
     g.logged_in = bool(session.get("logged_in"))

@@ -1520,6 +1520,129 @@ def mark_dm_read(user_id):
     conn.commit()
     conn.close()
 
+# ===== AI USAGE & SITE VISITS =====
+def _ensure_analytics_tables():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS ai_usage (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id           TEXT,
+        guild_id          TEXT,
+        model             TEXT,
+        prompt_tokens     INTEGER DEFAULT 0,
+        completion_tokens INTEGER DEFAULT 0,
+        total_tokens      INTEGER DEFAULT 0,
+        ts                TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ai_usage_ts ON ai_usage(ts)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ai_usage_user ON ai_usage(user_id, ts)')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS site_visits (
+        id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        site    TEXT NOT NULL,
+        path    TEXT,
+        ip_hash TEXT,
+        user_id TEXT,
+        ts      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_visits_site_ts ON site_visits(site, ts)')
+    conn.commit()
+    conn.close()
+
+_ensure_analytics_tables()
+
+
+def ai_usage_add(user_id, guild_id, model, prompt_tokens, completion_tokens, total_tokens):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''INSERT INTO ai_usage
+                 (user_id, guild_id, model, prompt_tokens, completion_tokens, total_tokens)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
+              (str(user_id) if user_id else None,
+               str(guild_id) if guild_id else None,
+               model,
+               int(prompt_tokens or 0),
+               int(completion_tokens or 0),
+               int(total_tokens or 0)))
+    conn.commit()
+    conn.close()
+
+
+def ai_usage_stats():
+    """Retourne stats agrégées : total, last 24h, 7j, 30j, top users."""
+    conn = get_db()
+    c = conn.cursor()
+    out = {}
+    for label, since in (("total", None), ("h24", "-1 day"),
+                         ("d7", "-7 days"), ("d30", "-30 days")):
+        if since:
+            row = c.execute(
+                "SELECT COALESCE(SUM(total_tokens),0) AS n, COUNT(*) AS calls "
+                "FROM ai_usage WHERE ts >= datetime('now', ?)", (since,)
+            ).fetchone()
+        else:
+            row = c.execute(
+                "SELECT COALESCE(SUM(total_tokens),0) AS n, COUNT(*) AS calls FROM ai_usage"
+            ).fetchone()
+        out[label] = {"tokens": int(row["n"]), "calls": int(row["calls"])}
+    top = c.execute(
+        '''SELECT user_id, SUM(total_tokens) AS tokens, COUNT(*) AS calls
+           FROM ai_usage WHERE user_id IS NOT NULL AND ts >= datetime('now', '-30 days')
+           GROUP BY user_id ORDER BY tokens DESC LIMIT 10'''
+    ).fetchall()
+    out["top_users_30d"] = [
+        {"user_id": r["user_id"], "tokens": int(r["tokens"]), "calls": int(r["calls"])}
+        for r in top
+    ]
+    by_day = c.execute(
+        '''SELECT DATE(ts) AS day, SUM(total_tokens) AS tokens
+           FROM ai_usage WHERE ts >= datetime('now', '-30 days')
+           GROUP BY day ORDER BY day'''
+    ).fetchall()
+    out["by_day_30d"] = [{"day": r["day"], "tokens": int(r["tokens"])} for r in by_day]
+    conn.close()
+    return out
+
+
+def visit_log(site: str, path: str, ip_hash: str, user_id=None):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''INSERT INTO site_visits (site, path, ip_hash, user_id) VALUES (?, ?, ?, ?)''',
+              (site, path[:200] if path else None, ip_hash[:64] if ip_hash else None,
+               str(user_id) if user_id else None))
+    conn.commit()
+    conn.close()
+
+
+def visits_stats(site: str):
+    """Retourne stats agrégées : total, h24, 7j, 30j, uniques (ip_hash distinct)."""
+    conn = get_db()
+    c = conn.cursor()
+    out = {}
+    for label, since in (("total", None), ("h24", "-1 day"),
+                         ("d7", "-7 days"), ("d30", "-30 days")):
+        if since:
+            row = c.execute(
+                "SELECT COUNT(*) AS n, COUNT(DISTINCT ip_hash) AS u "
+                "FROM site_visits WHERE site = ? AND ts >= datetime('now', ?)",
+                (site, since)
+            ).fetchone()
+        else:
+            row = c.execute(
+                "SELECT COUNT(*) AS n, COUNT(DISTINCT ip_hash) AS u FROM site_visits WHERE site = ?",
+                (site,)
+            ).fetchone()
+        out[label] = {"visits": int(row["n"]), "unique": int(row["u"])}
+    by_day = c.execute(
+        '''SELECT DATE(ts) AS day, COUNT(*) AS n, COUNT(DISTINCT ip_hash) AS u
+           FROM site_visits WHERE site = ? AND ts >= datetime('now', '-30 days')
+           GROUP BY day ORDER BY day''', (site,)
+    ).fetchall()
+    out["by_day_30d"] = [{"day": r["day"], "visits": int(r["n"]), "unique": int(r["u"])} for r in by_day]
+    conn.close()
+    return out
+
+
 def count_unread_dms():
     conn = get_db()
     c = conn.cursor()

@@ -1045,13 +1045,28 @@ def setup_runtime(bot, deps):
                         else:
                             try:
                                 async with message.channel.typing():
-                                    reply = await groq_chat(
+                                    res = await groq_chat(
                                         prompt,
                                         system_prompt=get_setting("ai_system_prompt", "") or "",
                                         model=get_setting("ai_model", "llama-3.3-70b-versatile"),
                                         max_tokens=int(get_setting("ai_max_tokens", "400") or "400"),
                                     )
-                                await message.reply(reply[:2000], mention_author=False)
+                                txt = res["text"] if isinstance(res, dict) else str(res)
+                                await message.reply(txt[:2000], mention_author=False)
+                                # Log usage
+                                try:
+                                    from database import ai_usage_add
+                                    if isinstance(res, dict):
+                                        ai_usage_add(
+                                            user_id=message.author.id,
+                                            guild_id=message.guild.id,
+                                            model=res.get("model"),
+                                            prompt_tokens=res.get("prompt_tokens", 0),
+                                            completion_tokens=res.get("completion_tokens", 0),
+                                            total_tokens=res.get("total_tokens", 0),
+                                        )
+                                except Exception as _ue:
+                                    print(f"[ai] usage log err: {_ue!r}")
                             except Exception as e:
                                 print(f"[ai] groq err: {e!r}")
                                 await message.reply(f"❌ Erreur IA : `{type(e).__name__}`",

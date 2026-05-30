@@ -58,6 +58,14 @@ async def groq_chat(prompt: str, *,
                 msg = err.get("message") or str(data)[:200]
                 raise RuntimeError(f"Groq {r.status}: {msg}")
             try:
-                return data["choices"][0]["message"]["content"]
+                txt = data["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError):
                 raise RuntimeError(f"Réponse Groq inattendue : {str(data)[:200]}")
+            usage = data.get("usage") or {}
+            return {
+                "text":              txt,
+                "prompt_tokens":     int(usage.get("prompt_tokens") or 0),
+                "completion_tokens": int(usage.get("completion_tokens") or 0),
+                "total_tokens":      int(usage.get("total_tokens") or 0),
+                "model":             data.get("model") or model,
+            }

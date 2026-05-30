@@ -1,0 +1,211 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_analytics' %}
+
+{% block title %}Analytics · TookBot{% endblock %}
+{% block crumb %}Analytics{% endblock %}
+
+{% block extra_head %}
+<style>
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin: 14px 0 28px;
+  }
+  .stat {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 16px 18px;
+  }
+  .stat .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  .stat .val {
+    font-size: 26px; font-weight: 800; letter-spacing: -.02em;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+  .stat .sub {
+    font-size: 12px; color: var(--text-2); margin-top: 4px;
+  }
+  .stat.accent {
+    border-color: oklch(0.86 0.20 130 / 0.4);
+    background: linear-gradient(135deg, oklch(0.86 0.20 130 / 0.05), transparent);
+  }
+  .stat.accent .val { color: oklch(0.86 0.20 130); }
+  .sect-title {
+    font-size: 18px; font-weight: 700; margin: 28px 0 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-wrap {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-2);
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+  .chart-wrap h3 { margin: 0 0 14px; font-size: 14px; color: var(--text-2); font-weight: 600; }
+  .bar-chart {
+    display: flex; align-items: flex-end; gap: 4px;
+    height: 140px;
+  }
+  .bar-chart .bar {
+    flex: 1;
+    min-width: 4px;
+    background: oklch(0.86 0.20 130 / 0.7);
+    border-radius: 3px 3px 0 0;
+    transition: background 120ms;
+    position: relative;
+  }
+  .bar-chart .bar:hover { background: oklch(0.86 0.20 130); }
+  .bar-chart .bar::after {
+    content: attr(data-val) " (" attr(data-day) ")";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-0, #0a0d08);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid oklch(0.86 0.20 130 / 0.4);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    margin-bottom: 4px;
+    z-index: 10;
+  }
+  .bar-chart .bar:hover::after { opacity: 1; }
+  .top-list {
+    display: grid; gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .top-list .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px;
+    background: var(--bg-2);
+    border-radius: var(--r-1);
+  }
+  .top-list .row .uid { color: var(--text-2); }
+  .top-list .row .tok { color: oklch(0.86 0.20 130); font-weight: 700; }
+</style>
+{% endblock %}
+
+{% macro render_visits(label, data, accent=False) %}
+<h2 class="sect-title">{% if accent %}🌐{% else %}🖥️{% endif %} {{ label }}</h2>
+<div class="stat-grid">
+  <div class="stat {{ 'accent' if accent }}">
+    <div class="lbl">24h</div>
+    <div class="val">{{ "{:,}".format(data.h24.visits).replace(",", " ") }}</div>
+    <div class="sub">{{ data.h24.unique }} uniques</div>
+  </div>
+  <div class="stat">
+    <div class="lbl">7 jours</div>
+    <div class="val">{{ "{:,}".format(data.d7.visits).replace(",", " ") }}</div>
+    <div class="sub">{{ data.d7.unique }} uniques</div>
+  </div>
+  <div class="stat">
+    <div class="lbl">30 jours</div>
+    <div class="val">{{ "{:,}".format(data.d30.visits).replace(",", " ") }}</div>
+    <div class="sub">{{ data.d30.unique }} uniques</div>
+  </div>
+  <div class="stat">
+    <div class="lbl">Total</div>
+    <div class="val">{{ "{:,}".format(data.total.visits).replace(",", " ") }}</div>
+    <div class="sub">{{ data.total.unique }} uniques</div>
+  </div>
+</div>
+{% if data.by_day_30d %}
+<div class="chart-wrap">
+  <h3>Visites · 30 derniers jours</h3>
+  {% set max_v = data.by_day_30d|map(attribute='visits')|max %}
+  <div class="bar-chart">
+    {% for d in data.by_day_30d %}
+      <div class="bar"
+           style="height: {{ (d.visits / max_v * 100) if max_v > 0 else 0 }}%"
+           data-val="{{ d.visits }}"
+           data-day="{{ d.day }}"></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="col gap-3">
+  <div>
+    <h1>📊 Analytics</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
+      Visites de la landing et du dashboard + consommation IA. Visible uniquement par l'owner.
+      IPs anonymisées (hashées) pour respecter la vie privée.
+    </p>
+  </div>
+
+  {{ render_visits("Landing — tookbot.click", landing, accent=True) }}
+  {{ render_visits("Dashboard — dashboard.tookbot.click", dashboard) }}
+
+  <h2 class="sect-title">🧠 Consommation IA (Groq)</h2>
+  <div class="stat-grid">
+    <div class="stat accent">
+      <div class="lbl">24h · tokens</div>
+      <div class="val">{{ "{:,}".format(ai.h24.tokens).replace(",", " ") }}</div>
+      <div class="sub">{{ ai.h24.calls }} appel(s)</div>
+    </div>
+    <div class="stat">
+      <div class="lbl">7 jours · tokens</div>
+      <div class="val">{{ "{:,}".format(ai.d7.tokens).replace(",", " ") }}</div>
+      <div class="sub">{{ ai.d7.calls }} appel(s)</div>
+    </div>
+    <div class="stat">
+      <div class="lbl">30 jours · tokens</div>
+      <div class="val">{{ "{:,}".format(ai.d30.tokens).replace(",", " ") }}</div>
+      <div class="sub">{{ ai.d30.calls }} appel(s)</div>
+    </div>
+    <div class="stat">
+      <div class="lbl">Total</div>
+      <div class="val">{{ "{:,}".format(ai.total.tokens).replace(",", " ") }}</div>
+      <div class="sub">{{ ai.total.calls }} appel(s)</div>
+    </div>
+  </div>
+
+  {% if ai.by_day_30d %}
+  <div class="chart-wrap">
+    <h3>Tokens consommés · 30 derniers jours</h3>
+    {% set max_t = ai.by_day_30d|map(attribute='tokens')|max %}
+    <div class="bar-chart">
+      {% for d in ai.by_day_30d %}
+        <div class="bar"
+             style="height: {{ (d.tokens / max_t * 100) if max_t > 0 else 0 }}%"
+             data-val="{{ d.tokens }}"
+             data-day="{{ d.day }}"></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if ai.top_users_30d %}
+  <div class="chart-wrap">
+    <h3>Top utilisateurs IA · 30 derniers jours</h3>
+    <div class="top-list">
+      {% for u in ai.top_users_30d %}
+      <div class="row">
+        <span class="uid">{{ u.user_id }} · {{ u.calls }} appel(s)</span>
+        <span class="tok">{{ "{:,}".format(u.tokens).replace(",", " ") }} tok</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="muted" style="font-size:11px;text-align:center;margin-top:18px;">
+    Limite gratuite Groq : 30 req/min, environ 6 000 tokens/min.
+  </p>
+</div>
+{% endblock %}

@@ -42,6 +42,35 @@
     </p>
   </div>
 
+  {% if ai_stats %}
+  <div class="ai-card">
+    <h2>📊 Consommation</h2>
+    <div class="sub">Tokens consommés via l'API Groq. <a href="/owner/analytics" style="color: oklch(0.86 0.20 130);">Détails →</a></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:6px;">
+      <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">24h</div>
+        <div style="font-size:22px;font-weight:800;color:oklch(0.86 0.20 130);font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.h24.tokens).replace(",", " ") }}</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.h24.calls }} appel(s)</div>
+      </div>
+      <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">7 jours</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.d7.tokens).replace(",", " ") }}</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.d7.calls }} appel(s)</div>
+      </div>
+      <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">30 jours</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.d30.tokens).replace(",", " ") }}</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.d30.calls }} appel(s)</div>
+      </div>
+      <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">Total</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.total.tokens).replace(",", " ") }}</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.total.calls }} appel(s)</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {% if not api_key_present %}
   <div class="ai-card" style="border-color: #c66;">
     <h2>⚠️ Clé API manquante</h2>
