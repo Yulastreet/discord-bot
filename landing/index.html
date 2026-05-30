@@ -1478,6 +1478,27 @@
     font-weight: 700;
   }
 
+  .footer a.footer-support {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(180deg, #caff37, #75d91b);
+    color: #13220b;
+    box-shadow: 0 6px 18px rgba(185, 255, 36, .28);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+
+  .footer a.footer-support:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(185, 255, 36, .38);
+  }
+
+  html[data-theme="dark"] .footer a.footer-support {
+    color: #13220b;
+  }
+
   html[data-theme="dark"] .stat,
   html[data-theme="dark"] .feature,
   html[data-theme="dark"] .wide-panel,
@@ -2399,6 +2420,7 @@
     <footer class="footer">
       <span>© TookBot - Bot Discord personnel</span>
       <div class="footer-links">
+        <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="footer-support">☕ Soutenir TookBot</a>
         <a href="https://dashboard.tookbot.click">Dashboard</a>
         <a href="https://dashboard.tookbot.click/privacy">Privacy</a>
         <a href="https://dashboard.tookbot.click/terms">Terms</a>
