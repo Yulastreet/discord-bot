@@ -124,6 +124,16 @@
   }
   .hours .hbarv:hover::after { opacity: 1; }
   .hours .hlbl { font-size: 9px; color: var(--text-3); }
+
+  /* --- Pages engageantes (par temps) --- */
+  .time-pages { display: grid; gap: 14px; }
+  .tpage { display: grid; gap: 6px; }
+  .tpage-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .tpage-head .tpath { font-size: 13px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tpage-head .tdur { font-family: var(--font-mono); font-size: 15px; font-weight: 800; color: oklch(0.86 0.20 130); white-space: nowrap; }
+  .tpage .ttrack { height: 10px; background: var(--bg-2); border-radius: 999px; overflow: hidden; }
+  .tpage .tfill { height: 100%; background: linear-gradient(90deg, oklch(0.86 0.20 130 / 0.5), oklch(0.86 0.20 130)); border-radius: 999px; }
+  .tpage .tmeta { font-size: 11px; color: var(--text-3); }
 </style>
 {% endblock %}
 
@@ -264,7 +274,7 @@
 
   {% if eng.top_pages_30d %}
   <div class="chart-wrap" style="margin-bottom:0;">
-    <h3>Pages populaires · 30j</h3>
+    <h3>Pages populaires · 30j (par visites)</h3>
     {% set mp = eng.top_pages_30d|map(attribute='n')|max %}
     <div class="hbars">
       {% for r in eng.top_pages_30d %}
@@ -278,6 +288,29 @@
   </div>
   {% endif %}
 </div>
+
+{% if eng.top_time_pages_30d %}
+<div class="chart-wrap">
+  <h3>Pages les plus engageantes · 30j (par temps moyen passe)</h3>
+  <p class="muted" style="font-size:11px;margin:-6px 0 14px;">
+    Temps actif moyen par visite (min. 3 visites). En haut = on y reste le plus longtemps.
+    En bas avec beaucoup de visites = candidat a ameliorer.
+  </p>
+  {% set mt = eng.top_time_pages_30d|map(attribute='avg_sec')|max %}
+  <div class="time-pages">
+    {% for r in eng.top_time_pages_30d %}
+    <div class="tpage">
+      <div class="tpage-head">
+        <span class="tpath" title="{{ r.path }}">{{ r.path }}</span>
+        <span class="tdur">{{ dur(r.avg_sec) }}</span>
+      </div>
+      <div class="ttrack"><span class="tfill" style="width: {{ (r.avg_sec / mt * 100) if mt > 0 else 0 }}%"></span></div>
+      <div class="tmeta">{{ r.n }} visite(s) · scroll {{ r.avg_scroll }}%</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 {% if eng.by_hour_30d %}
 <div class="chart-wrap">

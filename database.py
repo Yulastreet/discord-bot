@@ -1798,6 +1798,22 @@ def pageview_stats(site: str):
         for r in pages
     ]
 
+    # --- Pages ou on reste le plus longtemps (30j) ---
+    # Triees par temps actif moyen. Seuil min 3 visites pour eviter le bruit statistique.
+    time_pages = c.execute(
+        """SELECT COALESCE(path,'/') AS p, COUNT(*) AS n,
+                  COALESCE(AVG(active_ms),0) AS avg_ms,
+                  COALESCE(AVG(scroll_pct),0) AS avg_scroll
+           FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
+           GROUP BY p HAVING n >= 3 ORDER BY avg_ms DESC LIMIT 10""", (site,)
+    ).fetchall()
+    out["top_time_pages_30d"] = [
+        {"path": r["p"], "n": int(r["n"]),
+         "avg_sec": round(float(r["avg_ms"]) / 1000, 1),
+         "avg_scroll": round(float(r["avg_scroll"]))}
+        for r in time_pages
+    ]
+
     # --- Repartition horaire (30j, heure locale serveur) ---
     hours = c.execute(
         """SELECT CAST(strftime('%H', ts) AS INTEGER) AS h, COUNT(*) AS n
