@@ -16,6 +16,7 @@ import asyncio
 import io
 import math
 import os
+import re
 import time
 from typing import Optional
 
@@ -233,13 +234,33 @@ def preload_backgrounds():
             pass
 
 
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F1E6-\U0001F1FF"  # drapeaux regionaux
+    "\U0001F300-\U0001FAFF"  # symboles & pictogrammes etendus
+    "\U00002600-\U000027BF"  # divers symboles + dingbats
+    "\U0001F000-\U0001F0FF"  # mahjong/dominos/cartes
+    "\U0000FE00-\U0000FE0F"  # variation selectors
+    "\U00002190-\U000021FF"  # fleches
+    "\U00002B00-\U00002BFF"  # fleches & etoiles diverses
+    "\U0000200D"             # zero width joiner
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def _strip_emojis(text: str) -> str:
+    """Retire les emojis unicode et nettoie les espaces restants (fallback sans pilmoji)."""
+    return _EMOJI_RE.sub("", text).strip()
+
+
 def _draw_text_emoji(image: Image.Image, xy, text: str, font, fill,
                       emoji_scale: float = 1.0):
     """Dessine du texte contenant potentiellement des emojis couleur.
 
     Utilise pilmoji si dispo (rendu Twemoji propre). Sinon fallback Pillow
-    standard (les emojis seront des carres). `emoji_scale` ajuste la taille
-    des glyphes emoji par rapport au font (utile pour aligner verticalement).
+    qui retire les emojis (eviter le carre tofu de la police par defaut).
+    `emoji_scale` ajuste la taille des glyphes emoji (alignement vertical).
     """
     if _HAS_PILMOJI:
         try:
@@ -248,7 +269,8 @@ def _draw_text_emoji(image: Image.Image, xy, text: str, font, fill,
             return
         except Exception:
             pass  # fallback ci-dessous
-    ImageDraw.Draw(image).text(xy, text, font=font, fill=fill)
+    # Pas de pilmoji : on retire les emojis pour ne pas afficher de tofu.
+    ImageDraw.Draw(image).text(xy, _strip_emojis(text), font=font, fill=fill)
 
 
 def _draw_xp_bar(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, percent: float):
