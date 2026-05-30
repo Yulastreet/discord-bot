@@ -1469,5 +1469,76 @@
 })();
 </script>
 
+<!-- Tracker engagement dashboard : temps actif, scroll, device. Anonyme (IP hashee cote serveur). -->
+<script>
+(function () {
+  var ENDPOINT = "/api/track/pv";
+  var SITE = "dashboard";
+  var vid = (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  var activeMs = 0, lastTick = Date.now();
+  var visible = (document.visibilityState === "visible");
+  var idle = false, idleTimer = null, scrollPct = 0;
+
+  function markActivity() {
+    idle = false;
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () { idle = true; }, 30000);
+  }
+  function tick() {
+    var now = Date.now();
+    if (visible && !idle) activeMs += (now - lastTick);
+    lastTick = now;
+  }
+  setInterval(tick, 1000);
+  document.addEventListener("visibilitychange", function () {
+    tick();
+    visible = (document.visibilityState === "visible");
+    lastTick = Date.now();
+  });
+  ["mousemove", "keydown", "scroll", "touchstart", "click"].forEach(function (ev) {
+    window.addEventListener(ev, markActivity, { passive: true });
+  });
+  markActivity();
+
+  function updateScroll() {
+    var doc = document.documentElement;
+    var max = (doc.scrollHeight - doc.clientHeight);
+    var p = max > 0 ? Math.round((doc.scrollTop || window.pageYOffset) / max * 100) : 0;
+    if (p > scrollPct) scrollPct = Math.min(100, p);
+  }
+  window.addEventListener("scroll", updateScroll, { passive: true });
+  updateScroll();
+
+  function payload() {
+    tick();
+    return JSON.stringify({
+      vid: vid, site: SITE,
+      path: location.pathname || "/",
+      referrer: document.referrer || "",
+      screen: (window.screen ? (window.screen.width + "x" + window.screen.height) : ""),
+      lang: navigator.language || "",
+      active_ms: activeMs, scroll_pct: scrollPct
+    });
+  }
+  function send(useBeacon) {
+    var body = payload();
+    if (useBeacon && navigator.sendBeacon) {
+      navigator.sendBeacon(ENDPOINT, new Blob([body], { type: "text/plain" }));
+    } else {
+      try {
+        fetch(ENDPOINT, { method: "POST", headers: { "Content-Type": "text/plain" },
+                          body: body, keepalive: true });
+      } catch (e) {}
+    }
+  }
+  setTimeout(function () { send(false); }, 1500);
+  setInterval(function () { send(false); }, 15000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") send(true);
+  });
+  window.addEventListener("pagehide", function () { send(true); });
+})();
+</script>
+
 </body>
 </html>
