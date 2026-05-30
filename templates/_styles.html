@@ -318,6 +318,29 @@ p { margin: 0; }
 }
 .sidebar a.nav-item:hover .ic { color: var(--text-2); }
 
+.kofi-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: var(--s-3);
+  padding: 10px 14px;
+  border-radius: var(--r-2);
+  border: 1px solid oklch(0.86 0.20 130 / 0.4);
+  background: linear-gradient(135deg, oklch(0.86 0.20 130 / 0.16), oklch(0.86 0.20 130 / 0.04));
+  color: oklch(0.86 0.20 130);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), background 120ms var(--ease-out);
+}
+.kofi-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, oklch(0.86 0.20 130 / 0.26), oklch(0.86 0.20 130 / 0.08));
+  box-shadow: 0 6px 16px oklch(0.86 0.20 130 / 0.2);
+}
+.kofi-btn .kofi-ico { font-size: 15px; line-height: 1; }
+
 .sidebar-foot {
   display: flex;
   align-items: center;
