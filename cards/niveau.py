@@ -384,8 +384,6 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     pct_w = draw.textlength(pct_text, font=f_xp)
     draw.text((bar_x + bar_w - pct_w, bar_y + bar_h + 8), pct_text, font=f_xp, fill=TEXT_SECONDARY)
 
-    _draw_premium_badge(draw, x=CARD_W - 180, y=24)
-
     f_mention = _font(11, bold=False)
     mention = "Rendu possible grâce à un achat intégré"
     draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
