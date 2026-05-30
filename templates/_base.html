@@ -105,12 +105,18 @@
       50%      { opacity: 1;  transform: scale(1.08); }
     }
 
-    /* Support server button (header center) */
+    /* Support server + Ko-fi buttons (header center) */
     .topbar { position: relative; }
-    .support-btn {
+    .topbar-center {
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-50%, -50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 5;
+    }
+    .support-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -128,10 +134,9 @@
       box-shadow: 0 4px 14px oklch(0.86 0.20 130 / .25);
       transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out), background 120ms var(--ease-out);
       white-space: nowrap;
-      z-index: 5;
     }
     .support-btn:hover {
-      transform: translate(-50%, -50%) translateY(-1px);
+      transform: translateY(-1px);
       background: oklch(0.90 0.20 130);
       box-shadow: 0 6px 18px oklch(0.86 0.20 130 / .4);
       color: #ffffff;
@@ -139,8 +144,22 @@
     }
     .support-btn:hover svg { color: #ffffff; }
     .support-btn svg { width: 16px; height: 16px; }
+    /* Ko-fi variant : outline pour distinguer du bouton plein */
+    .support-btn-kofi {
+      background: transparent;
+      color: oklch(0.86 0.20 130);
+      border: 1px solid oklch(0.86 0.20 130 / 0.5);
+      box-shadow: none;
+    }
+    .support-btn-kofi:hover {
+      background: oklch(0.86 0.20 130 / 0.12);
+      color: oklch(0.90 0.20 130);
+      box-shadow: 0 6px 18px oklch(0.86 0.20 130 / .2);
+      text-shadow: none;
+    }
+    .support-btn-kofi .kofi-ico { font-size: 14px; line-height: 1; }
     @media (max-width: 900px) {
-      .support-btn { display: none; }
+      .topbar-center { display: none; }
     }
 
     /* User card in sidebar */
