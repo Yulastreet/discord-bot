@@ -8,7 +8,7 @@
 <style>
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 14px;
     margin: 14px 0 28px;
   }
@@ -95,43 +95,200 @@
   }
   .top-list .row .uid { color: var(--text-2); }
   .top-list .row .tok { color: oklch(0.86 0.20 130); font-weight: 700; }
+
+  /* --- Engagement : barres horizontales (device/browser/os/referrer) --- */
+  .split-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .hbars { display: grid; gap: 8px; }
+  .hbar { display: grid; grid-template-columns: 92px 1fr 44px; align-items: center; gap: 10px; font-size: 12px; }
+  .hbar .hk { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hbar .htrack { height: 16px; background: var(--bg-2); border-radius: 999px; overflow: hidden; }
+  .hbar .hfill { height: 100%; background: oklch(0.86 0.20 130 / 0.7); border-radius: 999px; }
+  .hbar .hn { text-align: right; font-family: var(--font-mono); color: var(--text); }
+
+  /* --- Heatmap horaire --- */
+  .hours { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
+  .hours .hcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .hours .hbarv { width: 100%; background: oklch(0.70 0.16 250 / 0.7); border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
+  .hours .hbarv:hover { background: oklch(0.70 0.16 250); }
+  .hours .hbarv::after {
+    content: attr(data-val) " visites · " attr(data-h) "h";
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: var(--bg-0, #0a0d08); color: var(--text); font-size: 11px;
+    padding: 3px 7px; border-radius: 4px; border: 1px solid var(--border);
+    white-space: nowrap; opacity: 0; pointer-events: none; margin-bottom: 4px; z-index: 10;
+  }
+  .hours .hbarv:hover::after { opacity: 1; }
+  .hours .hlbl { font-size: 9px; color: var(--text-3); }
 </style>
 {% endblock %}
 
-{% macro render_visits(label, data, accent=False) %}
+{% macro fmt(n) %}{{ "{:,}".format(n).replace(",", " ") }}{% endmacro %}
+
+{% macro dur(sec) %}{% if sec >= 60 %}{{ (sec // 60)|int }}m{{ "%02d"|format((sec % 60)|int) }}s{% else %}{{ sec }}s{% endif %}{% endmacro %}
+
+{% macro render_engagement(label, v, eng, accent=False) %}
 <h2 class="sect-title">{% if accent %}🌐{% else %}🖥️{% endif %} {{ label }}</h2>
+
 <div class="stat-grid">
   <div class="stat {{ 'accent' if accent }}">
-    <div class="lbl">24h</div>
-    <div class="val">{{ "{:,}".format(data.h24.visits).replace(",", " ") }}</div>
-    <div class="sub">{{ data.h24.unique }} uniques</div>
+    <div class="lbl">Visites 24h</div>
+    <div class="val">{{ fmt(v.h24.visits) }}</div>
+    <div class="sub">{{ v.h24.unique }} uniques</div>
   </div>
   <div class="stat">
-    <div class="lbl">7 jours</div>
-    <div class="val">{{ "{:,}".format(data.d7.visits).replace(",", " ") }}</div>
-    <div class="sub">{{ data.d7.unique }} uniques</div>
+    <div class="lbl">Visites 7j</div>
+    <div class="val">{{ fmt(v.d7.visits) }}</div>
+    <div class="sub">{{ v.d7.unique }} uniques</div>
   </div>
   <div class="stat">
-    <div class="lbl">30 jours</div>
-    <div class="val">{{ "{:,}".format(data.d30.visits).replace(",", " ") }}</div>
-    <div class="sub">{{ data.d30.unique }} uniques</div>
+    <div class="lbl">Visites 30j</div>
+    <div class="val">{{ fmt(v.d30.visits) }}</div>
+    <div class="sub">{{ v.d30.unique }} uniques</div>
   </div>
   <div class="stat">
     <div class="lbl">Total</div>
-    <div class="val">{{ "{:,}".format(data.total.visits).replace(",", " ") }}</div>
-    <div class="sub">{{ data.total.unique }} uniques</div>
+    <div class="val">{{ fmt(v.total.visits) }}</div>
+    <div class="sub">{{ v.total.unique }} uniques</div>
   </div>
 </div>
-{% if data.by_day_30d %}
+
+<div class="stat-grid">
+  <div class="stat {{ 'accent' if accent }}">
+    <div class="lbl">Temps moyen / visite</div>
+    <div class="val">{{ dur(eng.d30.avg_sec) }}</div>
+    <div class="sub">30j · mediane {{ dur(eng.median_sec_30d) }}</div>
+  </div>
+  <div class="stat">
+    <div class="lbl">Taux de rebond</div>
+    <div class="val">{{ eng.d30.bounce_pct }}%</div>
+    <div class="sub">visites &lt; 10s · 30j</div>
+  </div>
+  <div class="stat">
+    <div class="lbl">Scroll moyen</div>
+    <div class="val">{{ eng.d30.avg_scroll }}%</div>
+    <div class="sub">profondeur lecture · 30j</div>
+  </div>
+  <div class="stat">
+    <div class="lbl">Temps moyen 24h</div>
+    <div class="val">{{ dur(eng.h24.avg_sec) }}</div>
+    <div class="sub">{{ eng.h24.visits }} visite(s)</div>
+  </div>
+</div>
+
+{% if eng.by_day_30d %}
 <div class="chart-wrap">
   <h3>Visites · 30 derniers jours</h3>
-  {% set max_v = data.by_day_30d|map(attribute='visits')|max %}
+  {% set max_v = eng.by_day_30d|map(attribute='visits')|max %}
   <div class="bar-chart">
-    {% for d in data.by_day_30d %}
+    {% for d in eng.by_day_30d %}
       <div class="bar"
            style="height: {{ (d.visits / max_v * 100) if max_v > 0 else 0 }}%"
-           data-val="{{ d.visits }}"
+           data-val="{{ d.visits }} ({{ dur(d.avg_sec) }})"
            data-day="{{ d.day }}"></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="split-grid">
+  {% if eng.by_device_30d %}
+  <div class="chart-wrap" style="margin-bottom:0;">
+    <h3>Appareils · 30j</h3>
+    {% set md = eng.by_device_30d|map(attribute='n')|max %}
+    <div class="hbars">
+      {% for r in eng.by_device_30d %}
+      <div class="hbar">
+        <span class="hk">{{ r.key }}</span>
+        <span class="htrack"><span class="hfill" style="width: {{ (r.n / md * 100) if md > 0 else 0 }}%"></span></span>
+        <span class="hn">{{ r.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if eng.by_browser_30d %}
+  <div class="chart-wrap" style="margin-bottom:0;">
+    <h3>Navigateurs · 30j</h3>
+    {% set mb = eng.by_browser_30d|map(attribute='n')|max %}
+    <div class="hbars">
+      {% for r in eng.by_browser_30d %}
+      <div class="hbar">
+        <span class="hk">{{ r.key }}</span>
+        <span class="htrack"><span class="hfill" style="width: {{ (r.n / mb * 100) if mb > 0 else 0 }}%"></span></span>
+        <span class="hn">{{ r.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if eng.by_os_30d %}
+  <div class="chart-wrap" style="margin-bottom:0;">
+    <h3>Systemes · 30j</h3>
+    {% set mo = eng.by_os_30d|map(attribute='n')|max %}
+    <div class="hbars">
+      {% for r in eng.by_os_30d %}
+      <div class="hbar">
+        <span class="hk">{{ r.key }}</span>
+        <span class="htrack"><span class="hfill" style="width: {{ (r.n / mo * 100) if mo > 0 else 0 }}%"></span></span>
+        <span class="hn">{{ r.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="split-grid">
+  {% if eng.top_referrers_30d %}
+  <div class="chart-wrap" style="margin-bottom:0;">
+    <h3>Sources de trafic · 30j</h3>
+    {% set mr = eng.top_referrers_30d|map(attribute='n')|max %}
+    <div class="hbars">
+      {% for r in eng.top_referrers_30d %}
+      <div class="hbar">
+        <span class="hk" title="{{ r.ref }}">{{ r.ref }}</span>
+        <span class="htrack"><span class="hfill" style="width: {{ (r.n / mr * 100) if mr > 0 else 0 }}%"></span></span>
+        <span class="hn">{{ r.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if eng.top_pages_30d %}
+  <div class="chart-wrap" style="margin-bottom:0;">
+    <h3>Pages populaires · 30j</h3>
+    {% set mp = eng.top_pages_30d|map(attribute='n')|max %}
+    <div class="hbars">
+      {% for r in eng.top_pages_30d %}
+      <div class="hbar">
+        <span class="hk" title="{{ r.path }}">{{ r.path }}</span>
+        <span class="htrack"><span class="hfill" style="width: {{ (r.n / mp * 100) if mp > 0 else 0 }}%"></span></span>
+        <span class="hn">{{ r.n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if eng.by_hour_30d %}
+<div class="chart-wrap">
+  <h3>Heures de pointe · 30j (heure serveur)</h3>
+  {% set mh = eng.by_hour_30d|map(attribute='n')|max %}
+  <div class="hours">
+    {% for h in eng.by_hour_30d %}
+    <div class="hcol">
+      <div class="hbarv" style="height: {{ (h.n / mh * 100) if mh > 0 else 0 }}%" data-val="{{ h.n }}" data-h="{{ h.hour }}"></div>
+      <div class="hlbl">{{ h.hour }}</div>
+    </div>
     {% endfor %}
   </div>
 </div>
@@ -142,42 +299,43 @@
 <div class="col gap-3">
   <div>
     <h1>📊 Analytics</h1>
-    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Visites de la landing et du dashboard + consommation IA. Visible uniquement par l'owner.
-      IPs anonymisées (hashées) pour respecter la vie privée.
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:70ch;">
+      Suivi complet de l'utilisation : visites, temps passe, scroll, rebond, appareils,
+      sources de trafic et heures de pointe. Plus consommation IA. Visible uniquement par l'owner.
+      IPs anonymisees (hashees) pour respecter la vie privee.
     </p>
   </div>
 
-  {{ render_visits("Landing — tookbot.click", landing, accent=True) }}
-  {{ render_visits("Dashboard — dashboard.tookbot.click", dashboard) }}
+  {{ render_engagement("Landing — tookbot.click", landing, eng_landing, accent=True) }}
+  {{ render_engagement("Dashboard — dashboard.tookbot.click", dashboard, eng_dashboard) }}
 
   <h2 class="sect-title">🧠 Consommation IA (Groq)</h2>
   <div class="stat-grid">
     <div class="stat accent">
       <div class="lbl">24h · tokens</div>
-      <div class="val">{{ "{:,}".format(ai.h24.tokens).replace(",", " ") }}</div>
+      <div class="val">{{ fmt(ai.h24.tokens) }}</div>
       <div class="sub">{{ ai.h24.calls }} appel(s)</div>
     </div>
     <div class="stat">
       <div class="lbl">7 jours · tokens</div>
-      <div class="val">{{ "{:,}".format(ai.d7.tokens).replace(",", " ") }}</div>
+      <div class="val">{{ fmt(ai.d7.tokens) }}</div>
       <div class="sub">{{ ai.d7.calls }} appel(s)</div>
     </div>
     <div class="stat">
       <div class="lbl">30 jours · tokens</div>
-      <div class="val">{{ "{:,}".format(ai.d30.tokens).replace(",", " ") }}</div>
+      <div class="val">{{ fmt(ai.d30.tokens) }}</div>
       <div class="sub">{{ ai.d30.calls }} appel(s)</div>
     </div>
     <div class="stat">
       <div class="lbl">Total</div>
-      <div class="val">{{ "{:,}".format(ai.total.tokens).replace(",", " ") }}</div>
+      <div class="val">{{ fmt(ai.total.tokens) }}</div>
       <div class="sub">{{ ai.total.calls }} appel(s)</div>
     </div>
   </div>
 
   {% if ai.by_day_30d %}
   <div class="chart-wrap">
-    <h3>Tokens consommés · 30 derniers jours</h3>
+    <h3>Tokens consommes · 30 derniers jours</h3>
     {% set max_t = ai.by_day_30d|map(attribute='tokens')|max %}
     <div class="bar-chart">
       {% for d in ai.by_day_30d %}
@@ -197,7 +355,7 @@
       {% for u in ai.top_users_30d %}
       <div class="row">
         <span class="uid">{{ u.user_id }} · {{ u.calls }} appel(s)</span>
-        <span class="tok">{{ "{:,}".format(u.tokens).replace(",", " ") }} tok</span>
+        <span class="tok">{{ fmt(u.tokens) }} tok</span>
       </div>
       {% endfor %}
     </div>
@@ -206,6 +364,7 @@
 
   <p class="muted" style="font-size:11px;text-align:center;margin-top:18px;">
     Limite gratuite Groq : 30 req/min, environ 6 000 tokens/min.
+    · Engagement (temps/scroll/device) base sur le tracker JS, donnees disponibles apres deploiement.
   </p>
 </div>
 {% endblock %}

@@ -1546,6 +1546,29 @@ def _ensure_analytics_tables():
         ts      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_visits_site_ts ON site_visits(site, ts)')
+
+    # Tracking riche par pageview : durée active, scroll, device, referrer.
+    c.execute('''CREATE TABLE IF NOT EXISTS page_views (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        vid        TEXT UNIQUE,
+        site       TEXT NOT NULL,
+        path       TEXT,
+        referrer   TEXT,
+        device     TEXT,
+        browser    TEXT,
+        os         TEXT,
+        screen     TEXT,
+        lang       TEXT,
+        active_ms  INTEGER DEFAULT 0,
+        scroll_pct INTEGER DEFAULT 0,
+        ip_hash    TEXT,
+        user_id    TEXT,
+        ts         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_pv_site_ts ON page_views(site, ts)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid)')
+
     conn.commit()
     conn.close()
 
@@ -1639,6 +1662,151 @@ def visits_stats(site: str):
            GROUP BY day ORDER BY day''', (site,)
     ).fetchall()
     out["by_day_30d"] = [{"day": r["day"], "visits": int(r["n"]), "unique": int(r["u"])} for r in by_day]
+    conn.close()
+    return out
+
+
+def pageview_upsert(vid, site, path=None, referrer=None, device=None, browser=None,
+                    os_name=None, screen=None, lang=None, active_ms=None,
+                    scroll_pct=None, ip_hash=None, user_id=None):
+    """Insere une pageview (1er hit) ou met a jour duree/scroll (heartbeat/unload).
+
+    Le 1er appel cree la ligne avec les metadonnees device/referrer.
+    Les appels suivants (meme vid) ne mettent a jour que active_ms (max) et scroll_pct (max).
+    """
+    if not vid:
+        return
+    conn = get_db()
+    c = conn.cursor()
+    row = c.execute("SELECT id, active_ms, scroll_pct FROM page_views WHERE vid = ?", (vid,)).fetchone()
+    if row is None:
+        c.execute('''INSERT INTO page_views
+                     (vid, site, path, referrer, device, browser, os, screen, lang,
+                      active_ms, scroll_pct, ip_hash, user_id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (vid, site,
+                   (path or "")[:200] or None,
+                   (referrer or "")[:300] or None,
+                   (device or "")[:20] or None,
+                   (browser or "")[:40] or None,
+                   (os_name or "")[:40] or None,
+                   (screen or "")[:20] or None,
+                   (lang or "")[:10] or None,
+                   int(active_ms or 0),
+                   int(scroll_pct or 0),
+                   (ip_hash or "")[:64] or None,
+                   str(user_id) if user_id else None))
+    else:
+        new_active = max(int(row["active_ms"] or 0), int(active_ms or 0))
+        new_scroll = max(int(row["scroll_pct"] or 0), int(scroll_pct or 0))
+        c.execute('''UPDATE page_views
+                     SET active_ms = ?, scroll_pct = ?, updated_at = CURRENT_TIMESTAMP
+                     WHERE vid = ?''', (new_active, min(100, new_scroll), vid))
+    conn.commit()
+    conn.close()
+
+
+def pageview_stats(site: str):
+    """Stats d'engagement riches pour un site (landing/dashboard).
+
+    Retourne : compteurs par periode, duree active moyenne/mediane, taux de rebond,
+    scroll moyen, split device/browser/os, top referrers, top pages, repartition horaire.
+    """
+    conn = get_db()
+    c = conn.cursor()
+    out = {}
+
+    # --- Compteurs + engagement par periode ---
+    for label, since in (("h24", "-1 day"), ("d7", "-7 days"), ("d30", "-30 days"), ("total", None)):
+        where = "WHERE site = ?"
+        params = [site]
+        if since:
+            where += " AND ts >= datetime('now', ?)"
+            params.append(since)
+        row = c.execute(
+            f"""SELECT COUNT(*) AS n,
+                       COUNT(DISTINCT ip_hash) AS u,
+                       COALESCE(AVG(active_ms), 0) AS avg_ms,
+                       COALESCE(AVG(scroll_pct), 0) AS avg_scroll,
+                       COALESCE(SUM(CASE WHEN active_ms < 10000 THEN 1 ELSE 0 END), 0) AS bounces
+                FROM page_views {where}""", params
+        ).fetchone()
+        n = int(row["n"])
+        out[label] = {
+            "visits": n,
+            "unique": int(row["u"]),
+            "avg_sec": round(float(row["avg_ms"]) / 1000, 1),
+            "avg_scroll": round(float(row["avg_scroll"])),
+            "bounce_pct": round(float(row["bounces"]) / n * 100) if n else 0,
+        }
+
+    # --- Mediane duree active (30j) ---
+    durs = [int(r["active_ms"]) for r in c.execute(
+        "SELECT active_ms FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days') ORDER BY active_ms",
+        (site,)
+    ).fetchall()]
+    if durs:
+        mid = len(durs) // 2
+        median_ms = durs[mid] if len(durs) % 2 else (durs[mid - 1] + durs[mid]) / 2
+        out["median_sec_30d"] = round(median_ms / 1000, 1)
+    else:
+        out["median_sec_30d"] = 0
+
+    # --- Visites par jour (30j) ---
+    by_day = c.execute(
+        '''SELECT DATE(ts) AS day, COUNT(*) AS n, COUNT(DISTINCT ip_hash) AS u,
+                  COALESCE(AVG(active_ms),0) AS avg_ms
+           FROM page_views WHERE site = ? AND ts >= datetime('now', '-30 days')
+           GROUP BY day ORDER BY day''', (site,)
+    ).fetchall()
+    out["by_day_30d"] = [
+        {"day": r["day"], "visits": int(r["n"]), "unique": int(r["u"]),
+         "avg_sec": round(float(r["avg_ms"]) / 1000, 1)}
+        for r in by_day
+    ]
+
+    # --- Helper split (30j) ---
+    def _split(col):
+        rows = c.execute(
+            f"""SELECT COALESCE({col}, 'inconnu') AS k, COUNT(*) AS n
+                FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
+                GROUP BY k ORDER BY n DESC LIMIT 12""", (site,)
+        ).fetchall()
+        return [{"key": r["k"], "n": int(r["n"])} for r in rows]
+
+    out["by_device_30d"] = _split("device")
+    out["by_browser_30d"] = _split("browser")
+    out["by_os_30d"] = _split("os")
+
+    # --- Top referrers (30j, hors self) ---
+    refs = c.execute(
+        """SELECT COALESCE(referrer,'direct') AS r, COUNT(*) AS n
+           FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
+           GROUP BY r ORDER BY n DESC LIMIT 10""", (site,)
+    ).fetchall()
+    out["top_referrers_30d"] = [{"ref": r["r"], "n": int(r["n"])} for r in refs]
+
+    # --- Top pages (30j) ---
+    pages = c.execute(
+        """SELECT COALESCE(path,'/') AS p, COUNT(*) AS n,
+                  COALESCE(AVG(active_ms),0) AS avg_ms
+           FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
+           GROUP BY p ORDER BY n DESC LIMIT 10""", (site,)
+    ).fetchall()
+    out["top_pages_30d"] = [
+        {"path": r["p"], "n": int(r["n"]), "avg_sec": round(float(r["avg_ms"]) / 1000, 1)}
+        for r in pages
+    ]
+
+    # --- Repartition horaire (30j, heure locale serveur) ---
+    hours = c.execute(
+        """SELECT CAST(strftime('%H', ts) AS INTEGER) AS h, COUNT(*) AS n
+           FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
+           GROUP BY h""", (site,)
+    ).fetchall()
+    hour_map = {int(r["h"]): int(r["n"]) for r in hours}
+    out["by_hour_30d"] = [{"hour": h, "n": hour_map.get(h, 0)} for h in range(24)]
+
     conn.close()
     return out
 

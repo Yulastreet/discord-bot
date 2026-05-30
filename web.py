@@ -459,6 +459,116 @@ def api_track_landing():
             200, {"Content-Type": "image/gif", "Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
+def _ua_parse(ua: str):
+    """Parse minimaliste du User-Agent : device, browser, os. Sans dependance externe."""
+    ua = (ua or "").lower()
+    # device
+    if any(k in ua for k in ("ipad", "tablet")):
+        device = "tablette"
+    elif any(k in ua for k in ("mobi", "iphone", "android")):
+        device = "mobile"
+    else:
+        device = "desktop"
+    # os
+    if "windows" in ua:
+        os_name = "Windows"
+    elif "iphone" in ua or "ipad" in ua or "ios" in ua:
+        os_name = "iOS"
+    elif "mac os" in ua or "macintosh" in ua:
+        os_name = "macOS"
+    elif "android" in ua:
+        os_name = "Android"
+    elif "linux" in ua:
+        os_name = "Linux"
+    else:
+        os_name = "Autre"
+    # browser (ordre important : edge/chrome avant safari)
+    if "edg" in ua:
+        browser = "Edge"
+    elif "opr" in ua or "opera" in ua:
+        browser = "Opera"
+    elif "firefox" in ua:
+        browser = "Firefox"
+    elif "chrome" in ua or "crios" in ua:
+        browser = "Chrome"
+    elif "safari" in ua:
+        browser = "Safari"
+    else:
+        browser = "Autre"
+    return device, browser, os_name
+
+
+def _clean_referrer(ref: str):
+    """Reduit un referrer a son host (ex: https://google.com/x -> google.com). 'direct' si vide/self."""
+    if not ref:
+        return "direct"
+    try:
+        host = urllib.parse.urlparse(ref).netloc.lower()
+    except Exception:
+        return "direct"
+    if not host or "tookbot.click" in host:
+        return "direct"
+    if host.startswith("www."):
+        host = host[4:]
+    return host[:120]
+
+
+def _track_cors(resp):
+    """Autorise le beacon cross-origin depuis la landing (tookbot.click -> dashboard.tookbot.click)."""
+    origin = request.headers.get("Origin", "")
+    if "tookbot.click" in origin:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Vary"] = "Origin"
+    return resp
+
+
+@app.route("/api/track/pv", methods=["POST", "OPTIONS"])
+def api_track_pv():
+    """Pageview riche + heartbeat. Recoit JSON via fetch/sendBeacon.
+
+    Payload : {vid, site, path, referrer, screen, lang, active_ms, scroll_pct}
+    1er hit cree la ligne, hits suivants (meme vid) maj active_ms/scroll_pct.
+    """
+    if request.method == "OPTIONS":
+        return _track_cors(app.make_response(("", 204)))
+    try:
+        from database import pageview_upsert
+        # sendBeacon envoie en text/plain (evite le preflight CORS) -> parse manuel.
+        data = request.get_json(silent=True)
+        if data is None:
+            try:
+                data = json.loads(request.get_data(as_text=True) or "{}")
+            except Exception:
+                data = {}
+        if not isinstance(data, dict):
+            data = {}
+        vid = str(data.get("vid", ""))[:40]
+        if not vid:
+            return _track_cors(jsonify({"ok": False})), 400
+        site = str(data.get("site", "landing"))[:20] or "landing"
+        ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
+        ua = request.headers.get("User-Agent", "")
+        device, browser, os_name = _ua_parse(ua)
+        uid = (session.get("discord") or {}).get("user_id")
+        pageview_upsert(
+            vid=vid, site=site,
+            path=str(data.get("path", "/"))[:200],
+            referrer=_clean_referrer(data.get("referrer", "")),
+            device=device, browser=browser, os_name=os_name,
+            screen=str(data.get("screen", ""))[:20],
+            lang=str(data.get("lang", ""))[:10],
+            active_ms=int(data.get("active_ms", 0) or 0),
+            scroll_pct=int(data.get("scroll_pct", 0) or 0),
+            ip_hash=_hash_ip(ip),
+            user_id=uid,
+        )
+    except Exception:
+        pass
+    return _track_cors(jsonify({"ok": True}))
+
+
 @app.before_request
 def _log_dashboard_visit():
     """Log les pageviews dashboard (HTML, pas API/static)."""
