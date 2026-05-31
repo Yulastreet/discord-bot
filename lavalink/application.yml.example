@@ -7,23 +7,23 @@ server:
 plugins:
   youtube:
     enabled: true
-    # Clients YouTube essayes dans l'ordre. MUSIC + WEB + multiples mobiles =
-    # meilleure resilience contre "Sign in to confirm you're not a bot".
+    # Clients YouTube essayes dans l'ordre. WEB/WEBEMBEDDED utilisent l'OAuth
+    # (refreshToken ci-dessous) -> contournent "Sign in to confirm" et le 400.
+    # ANDROID_VR/IOS retires : exigent un login non couvert par l'OAuth (echec 400).
     clients:
-      - MUSIC
       - WEB
       - WEBEMBEDDED
       - MWEB
+      - MUSIC
       - TVHTML5EMBEDDED
       - ANDROID_MUSIC
-      - ANDROID_VR
-      - IOS
-    # OAuth : decommente/active via le 1er lancement. Voir lavalink/README.md.
-    # Le refreshToken sera affiche dans les logs au 1er login, a coller ici.
+    # OAuth obligatoire : sans refreshToken, WEB renvoie "requires login" / 400.
+    # Token obtenu au 1er lancement (oauth.enabled true sans token -> code device
+    # dans les logs). Voir lavalink/README.md.
     oauth:
       enabled: true
-      # refreshToken: "COLLE_ICI_APRES_PREMIER_LOGIN"
-      skipInitialization: false
+      refreshToken: "COLLE_TON_REFRESH_TOKEN_ICI"
+      skipInitialization: true
 
 lavalink:
   plugins:

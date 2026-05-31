@@ -23,3 +23,10 @@ bot_database.db
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# Lavalink : binaire, plugins, logs, config live (contient le refreshToken OAuth).
+# On versionne uniquement lavalink/application.yml.example
+lavalink/Lavalink.jar
+lavalink/plugins/
+lavalink/logs/
+lavalink/application.yml
