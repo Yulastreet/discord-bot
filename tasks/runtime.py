@@ -486,8 +486,8 @@ def setup_runtime(bot, deps):
 
         # Detection role soutien (VIP / Super VIP) -> message de remerciement
         try:
-            support_guild_id = os.getenv("SUPPORT_GUILD_ID", "")
-            soutien_chan_id = os.getenv("SOUTIEN_CHANNEL_ID", "")
+            support_guild_id = os.getenv("SUPPORT_GUILD_ID", "1502322150822908115")
+            soutien_chan_id = os.getenv("SOUTIEN_CHANNEL_ID", "1510450694195511436")
             if support_guild_id and soutien_chan_id and str(after.guild.id) == support_guild_id:
                 before_names = {r.name for r in (before.roles or [])}
                 after_names  = {r.name for r in (after.roles or [])}

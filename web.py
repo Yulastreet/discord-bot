@@ -605,7 +605,7 @@ def api_kofi_webhook():
         # Notifie le bot (seulement si nouveau don, pas un doublon de webhook).
         if inserted:
             from database import bot_command_enqueue
-            support_guild = os.getenv("SUPPORT_GUILD_ID", "")
+            support_guild = os.getenv("SUPPORT_GUILD_ID", "1502322150822908115")
             bot_command_enqueue(support_guild or "0", "kofi_donation_notify", {
                 "donor_name": payload.get("from_name") or "Anonyme",
                 "amount": float(payload.get("amount") or 0),
