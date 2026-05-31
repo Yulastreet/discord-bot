@@ -1067,8 +1067,18 @@ def setup_runtime(bot, deps):
                                 _AI_MEMORY[chan_id] = mem
                             mem["ts"] = now_ai
 
-                            # Construit le system prompt + liste des personnes mentionnables
+                            # Construit le system prompt + liste des personnes mentionnables.
+                            # IMPORTANT : plusieurs personnes parlent dans le meme salon.
+                            # On prefixe chaque message user par son auteur pour que le
+                            # modele ne confonde pas les locuteurs.
+                            author_name = message.author.display_name
                             sys_prompt = get_setting("ai_system_prompt", "") or ""
+                            sys_prompt += (
+                                "\n\nPlusieurs personnes differentes peuvent te parler dans ce salon. "
+                                "Chaque message utilisateur est prefixe par le nom de son auteur sous la "
+                                "forme 'Nom: message'. Ne confonds jamais les differents interlocuteurs : "
+                                "traite-les comme des personnes distinctes."
+                            )
                             if mention_map:
                                 who = ", ".join(sorted({m.display_name for m in mention_map.values()}))
                                 sys_prompt += (
@@ -1076,10 +1086,12 @@ def setup_runtime(bot, deps):
                                     f"Pour mentionner quelqu'un dans ta reponse, ecris son pseudo "
                                     f"precede de @ (exemple : @{next(iter(mention_map.values())).display_name})."
                                 )
+                            # Message courant prefixe de l'auteur
+                            prompt_for_model = f"{author_name}: {prompt}"
                             try:
                                 async with message.channel.typing():
                                     res = await groq_chat(
-                                        prompt,
+                                        prompt_for_model,
                                         system_prompt=sys_prompt,
                                         model=get_setting("ai_model", "llama-3.3-70b-versatile"),
                                         max_tokens=int(get_setting("ai_max_tokens", "400") or "400"),
@@ -1087,8 +1099,8 @@ def setup_runtime(bot, deps):
                                     )
                                 txt = res["text"] if isinstance(res, dict) else str(res)
 
-                                # Memorise l'echange (texte brut, avant conversion mentions)
-                                mem["history"].append({"role": "user", "content": prompt})
+                                # Memorise l'echange (user prefixe de l'auteur)
+                                mem["history"].append({"role": "user", "content": prompt_for_model})
                                 mem["history"].append({"role": "assistant", "content": txt})
                                 if len(mem["history"]) > _AI_MEMORY_MAX_MSGS:
                                     mem["history"] = mem["history"][-_AI_MEMORY_MAX_MSGS:]
