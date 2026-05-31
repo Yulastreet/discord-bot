@@ -363,10 +363,12 @@ def register_premium_routes(app, deps):
         allowed_csv = s.get("ai_allowed_user_ids", "") or ""
         ids = [x.strip() for x in allowed_csv.split(",") if x.strip()]
         try:
-            from services.tts import is_available as _tts_available
+            from services.tts import is_available as _tts_available, elevenlabs_available
             tts_available = _tts_available()
+            el_available = elevenlabs_available()
         except Exception:
             tts_available = False
+            el_available = False
         return render_template(
             "owner_ai.html",
             active_nav="owner_ai",
@@ -376,12 +378,31 @@ def register_premium_routes(app, deps):
             ai_max_tokens=s.get("ai_max_tokens", DEFAULT_SETTINGS["ai_max_tokens"]),
             ai_voice_enabled=(s.get("ai_voice_enabled") == "1"),
             ai_voice_name=s.get("ai_voice_name", DEFAULT_SETTINGS["ai_voice_name"]),
+            ai_voice_provider=s.get("ai_voice_provider", DEFAULT_SETTINGS["ai_voice_provider"]),
+            ai_elevenlabs_voice_id=s.get("ai_elevenlabs_voice_id",
+                                          DEFAULT_SETTINGS["ai_elevenlabs_voice_id"]),
+            ai_elevenlabs_model=s.get("ai_elevenlabs_model",
+                                       DEFAULT_SETTINGS["ai_elevenlabs_model"]),
             tts_available=tts_available,
+            elevenlabs_key_present=el_available,
             allowed_ids=ids,
             api_key_present=bool(get_groq_api_key()),
             defaults=DEFAULT_SETTINGS,
             ai_stats=ai_usage_stats(),
         )
+
+
+    @app.route("/api/owner/elevenlabs-quota")
+    def api_owner_elevenlabs_quota():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        try:
+            from services.tts import get_elevenlabs_quota
+            import asyncio as _asyncio
+            quota = _asyncio.run(get_elevenlabs_quota())
+        except Exception:
+            quota = None
+        return jsonify({"quota": quota})
 
 
     @app.route("/api/owner/ai-settings", methods=["POST"])
@@ -412,7 +433,7 @@ def register_premium_routes(app, deps):
             set_setting("ai_voice_enabled",
                         "1" if str(data["ai_voice_enabled"]) in ("1", "true", "True", "on") else "0")
         if "ai_voice_name" in data:
-            # Whitelist voix FR pour eviter abus
+            # Whitelist voix FR Edge pour eviter abus
             voice = str(data["ai_voice_name"]).strip()
             allowed_voices = {
                 "fr-FR-DeniseNeural", "fr-FR-HenriNeural",
@@ -420,6 +441,24 @@ def register_premium_routes(app, deps):
             }
             if voice in allowed_voices:
                 set_setting("ai_voice_name", voice)
+        if "ai_voice_provider" in data:
+            prov = str(data["ai_voice_provider"]).strip().lower()
+            if prov in ("edge", "elevenlabs"):
+                set_setting("ai_voice_provider", prov)
+        if "ai_elevenlabs_voice_id" in data:
+            vid = str(data["ai_elevenlabs_voice_id"]).strip()
+            # voice IDs ElevenLabs = 20 chars alphanumeriques
+            import re as _re
+            if _re.match(r"^[A-Za-z0-9]{15,30}$", vid):
+                set_setting("ai_elevenlabs_voice_id", vid)
+        if "ai_elevenlabs_model" in data:
+            model = str(data["ai_elevenlabs_model"]).strip()
+            allowed_models = {
+                "eleven_multilingual_v2", "eleven_turbo_v2_5",
+                "eleven_flash_v2_5", "eleven_monolingual_v1",
+            }
+            if model in allowed_models:
+                set_setting("ai_elevenlabs_model", model)
         return jsonify({"success": True})
 
 

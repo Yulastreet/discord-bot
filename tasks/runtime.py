@@ -1240,17 +1240,27 @@ def setup_runtime(bot, deps):
                                     everyone=False, roles=False, users=True, replied_user=False,
                                 )
 
-                                # Mode vocal : si active, on synthese la reponse en MP3
-                                # (Microsoft Edge TTS) et on l'envoie en attachment.
+                                # Mode vocal : si active, on synthese la reponse en MP3.
+                                # Provider configurable : "edge" (gratuit, robotique) ou
+                                # "elevenlabs" (top qualite, 10k chars/mo free, fallback edge si quota epuise).
                                 voice_sent = False
                                 if get_setting("ai_voice_enabled", "0") == "1":
                                     try:
-                                        from services.tts import synthesize_voice
+                                        from services.tts import synthesize
                                         import io as _io
-                                        voice_name = get_setting("ai_voice_name", "fr-FR-DeniseNeural")
-                                        audio_bytes = await synthesize_voice(txt, voice=voice_name)
+                                        provider = get_setting("ai_voice_provider", "edge")
+                                        audio_bytes, used = await synthesize(
+                                            txt,
+                                            provider=provider,
+                                            edge_voice=get_setting("ai_voice_name", "fr-FR-DeniseNeural"),
+                                            elevenlabs_voice_id=get_setting(
+                                                "ai_elevenlabs_voice_id", "XB0fDUnXU5powFXDhCwa"),
+                                            elevenlabs_model=get_setting(
+                                                "ai_elevenlabs_model", "eleven_multilingual_v2"),
+                                        )
                                         audio_file = discord.File(
-                                            _io.BytesIO(audio_bytes), filename="reponse-tookbot.mp3"
+                                            _io.BytesIO(audio_bytes),
+                                            filename=f"reponse-tookbot-{used}.mp3",
                                         )
                                         await message.reply(
                                             file=audio_file,

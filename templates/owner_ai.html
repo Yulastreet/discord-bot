@@ -139,13 +139,14 @@
   <div class="ai-card">
     <h2>🎙️ Mode vocal</h2>
     <div class="sub">
-      Quand activé, l'IA répond avec un message vocal (MP3 synthétisé via Microsoft Edge TTS, gratuit)
-      au lieu de texte. Le texte est nettoyé (mentions, URLs, markdown) avant synthèse.
+      Quand activé, l'IA répond avec un message vocal (MP3) au lieu de texte. Le texte est
+      nettoyé (mentions, URLs, markdown) avant synthèse.
       {% if not tts_available %}
       <br><strong style="color:#ff6b6b;">⚠️ La lib edge-tts n'est pas installée sur le VPS — fais
       <code>pip install edge-tts</code> puis restart le bot.</strong>
       {% endif %}
     </div>
+
     <div class="row gap-3" style="margin-top:10px;align-items:center;flex-wrap:wrap;">
       <label class="row gap-2" style="align-items:center;">
         <span style="font-weight:600;">Réponse en :</span>
@@ -155,7 +156,22 @@
         </select>
       </label>
       <label class="row gap-2" style="align-items:center;">
-        <span style="font-weight:600;">Voix :</span>
+        <span style="font-weight:600;">Moteur TTS :</span>
+        <select id="ai_voice_provider" style="min-width:240px;" onchange="toggleVoiceProvider()">
+          <option value="edge" {{ 'selected' if ai_voice_provider == 'edge' }}>
+            Edge (Microsoft, gratuit, robotique)
+          </option>
+          <option value="elevenlabs" {{ 'selected' if ai_voice_provider == 'elevenlabs' }}>
+            ElevenLabs (réaliste, 10k chars/mois gratuit)
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Bloc voix Edge -->
+    <div id="edgeVoiceBlock" style="margin-top:14px;">
+      <label class="row gap-2" style="align-items:center;">
+        <span style="font-weight:600;">Voix Edge :</span>
         <select id="ai_voice_name" style="min-width:280px;">
           <option value="fr-FR-DeniseNeural" {{ 'selected' if ai_voice_name == 'fr-FR-DeniseNeural' }}>
             Denise — femme, naturelle (FR)
@@ -172,9 +188,72 @@
         </select>
       </label>
     </div>
-    <div class="sub" style="margin-top:8px;">
-      Note : limite ~600 caractères par message vocal pour garder l'audio court (et éviter les pavés).
-      Si la synthèse échoue, le bot retombe automatiquement sur du texte.
+
+    <!-- Bloc voix ElevenLabs -->
+    <div id="elevenVoiceBlock" style="margin-top:14px;">
+      {% if not elevenlabs_key_present %}
+      <div style="background:#3a1e1e;border:1px solid #ff6b6b;padding:10px;border-radius:8px;font-size:13px;color:#ffb3b3;margin-bottom:10px;">
+        ⚠️ <strong>ELEVENLABS_API_KEY non configuré dans .env</strong> sur le VPS.<br>
+        1. Crée un compte sur <a href="https://elevenlabs.io" target="_blank" style="color:#ffd0d0;text-decoration:underline;">elevenlabs.io</a> (free tier 10k chars/mois)<br>
+        2. Profile → API Keys → copie la clé<br>
+        3. <code>nano ~/discord-bot/.env</code> → ajoute <code>ELEVENLABS_API_KEY=ta_cle</code><br>
+        4. <code>pm2 restart all --update-env</code>
+      </div>
+      {% endif %}
+      <div class="row gap-3" style="align-items:center;flex-wrap:wrap;">
+        <label class="row gap-2" style="align-items:center;">
+          <span style="font-weight:600;">Voix ElevenLabs :</span>
+          <select id="ai_elevenlabs_voice_id" style="min-width:260px;">
+            <option value="XB0fDUnXU5powFXDhCwa" {{ 'selected' if ai_elevenlabs_voice_id == 'XB0fDUnXU5powFXDhCwa' }}>
+              Charlotte — femme, calme (multi)
+            </option>
+            <option value="EXAVITQu4vr4xnSDxMaL" {{ 'selected' if ai_elevenlabs_voice_id == 'EXAVITQu4vr4xnSDxMaL' }}>
+              Sarah — femme, claire (multi)
+            </option>
+            <option value="9BWtsMINqrJLrRacOk9x" {{ 'selected' if ai_elevenlabs_voice_id == '9BWtsMINqrJLrRacOk9x' }}>
+              Aria — femme, expressive
+            </option>
+            <option value="pFZP5JQG7iQjIQuC4Bku" {{ 'selected' if ai_elevenlabs_voice_id == 'pFZP5JQG7iQjIQuC4Bku' }}>
+              Lily — jeune femme, douce
+            </option>
+            <option value="IKne3meq5aSn9XLyUdCD" {{ 'selected' if ai_elevenlabs_voice_id == 'IKne3meq5aSn9XLyUdCD' }}>
+              Charlie — homme, naturel (multi)
+            </option>
+            <option value="nPczCjzI2devNBz1zQrb" {{ 'selected' if ai_elevenlabs_voice_id == 'nPczCjzI2devNBz1zQrb' }}>
+              Brian — homme, posé
+            </option>
+            <option value="TX3LPaxmHKxFdv7VOQHJ" {{ 'selected' if ai_elevenlabs_voice_id == 'TX3LPaxmHKxFdv7VOQHJ' }}>
+              Liam — jeune homme
+            </option>
+            <option value="onwK4e9ZLuTAKqWW03F9" {{ 'selected' if ai_elevenlabs_voice_id == 'onwK4e9ZLuTAKqWW03F9' }}>
+              Daniel — homme, britannique posé
+            </option>
+          </select>
+        </label>
+        <label class="row gap-2" style="align-items:center;">
+          <span style="font-weight:600;">Modèle :</span>
+          <select id="ai_elevenlabs_model" style="min-width:220px;">
+            <option value="eleven_multilingual_v2" {{ 'selected' if ai_elevenlabs_model == 'eleven_multilingual_v2' }}>
+              multilingual_v2 (qualité)
+            </option>
+            <option value="eleven_turbo_v2_5" {{ 'selected' if ai_elevenlabs_model == 'eleven_turbo_v2_5' }}>
+              turbo_v2_5 (rapide)
+            </option>
+            <option value="eleven_flash_v2_5" {{ 'selected' if ai_elevenlabs_model == 'eleven_flash_v2_5' }}>
+              flash_v2_5 (le + rapide)
+            </option>
+          </select>
+        </label>
+        {% if elevenlabs_key_present %}
+        <button class="btn btn-secondary" type="button" onclick="loadElevenQuota()">📊 Voir quota</button>
+        <span id="elevenQuotaInfo" class="muted" style="font-size:12px;"></span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="sub" style="margin-top:10px;">
+      Note : limite ~600 caractères par message vocal pour garder l'audio court. Si la synthèse
+      échoue (quota ElevenLabs épuisé, clé invalide, etc.), le bot retombe automatiquement sur Edge TTS.
     </div>
   </div>
 
@@ -230,6 +309,9 @@ async function saveAI() {
     ai_allowed_user_ids: ALLOWED_IDS,
     ai_voice_enabled:   document.getElementById('ai_voice_enabled').value,
     ai_voice_name:      document.getElementById('ai_voice_name').value,
+    ai_voice_provider:  document.getElementById('ai_voice_provider').value,
+    ai_elevenlabs_voice_id: document.getElementById('ai_elevenlabs_voice_id').value,
+    ai_elevenlabs_model:    document.getElementById('ai_elevenlabs_model').value,
   };
   try {
     const r = await fetch('/api/owner/ai-settings', {
@@ -247,6 +329,31 @@ async function saveAI() {
 }
 window.saveAI = saveAI;
 
+function toggleVoiceProvider() {
+  const prov = document.getElementById('ai_voice_provider').value;
+  document.getElementById('edgeVoiceBlock').style.display    = (prov === 'edge') ? '' : 'none';
+  document.getElementById('elevenVoiceBlock').style.display  = (prov === 'elevenlabs') ? '' : 'none';
+}
+window.toggleVoiceProvider = toggleVoiceProvider;
+
+async function loadElevenQuota() {
+  const info = document.getElementById('elevenQuotaInfo');
+  info.textContent = 'Chargement...';
+  try {
+    const r = await fetch('/api/owner/elevenlabs-quota');
+    const d = await r.json();
+    if (!d.quota) {
+      info.textContent = '⚠️ impossible de récupérer le quota (clé KO ?)';
+      return;
+    }
+    info.textContent = `Utilisé : ${d.quota.used.toLocaleString('fr-FR')} / ${d.quota.limit.toLocaleString('fr-FR')} (${d.quota.remaining.toLocaleString('fr-FR')} restants)`;
+  } catch (e) {
+    info.textContent = '⚠️ erreur : ' + e.message;
+  }
+}
+window.loadElevenQuota = loadElevenQuota;
+
 renderIds();
+toggleVoiceProvider();
 </script>
 {% endblock %}

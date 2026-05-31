@@ -2001,6 +2001,13 @@ DEFAULT_SETTINGS = {
     #   fr-FR-EloiseNeural (jeune femme), fr-FR-VivienneMultilingualNeural (multi).
     "ai_voice_enabled":     "0",
     "ai_voice_name":        "fr-FR-DeniseNeural",
+    # Provider TTS : "edge" (Microsoft Edge gratuit, robotique) ou "elevenlabs"
+    # (qualite top, free tier 10k chars/mois, fallback auto vers edge si quota epuise).
+    # ELEVENLABS_API_KEY doit etre defini dans .env pour "elevenlabs".
+    "ai_voice_provider":    "edge",
+    # Voice ID ElevenLabs (premade voices, fonctionnent en FR via le modele multilingual).
+    "ai_elevenlabs_voice_id": "XB0fDUnXU5powFXDhCwa",  # Charlotte (femme, naturelle)
+    "ai_elevenlabs_model":    "eleven_multilingual_v2",
     # Message soutien Ko-fi (poste quand un membre recoit un role de donateur)
     "soutien_message":      "<user> A décidé de filer un coup de main ! Merci pour ton soutien !",
     "soutien_role_ids":     "",   # CSV d'IDs de roles ; vide = fallback noms par defaut
