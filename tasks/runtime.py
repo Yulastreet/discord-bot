@@ -1136,6 +1136,77 @@ def setup_runtime(bot, deps):
                                     f"Pour mentionner quelqu'un dans ta reponse, ecris son pseudo "
                                     f"precede de @ (exemple : @{next(iter(mention_map.values())).display_name})."
                                 )
+
+                                # Injecte le profil Discord des membres mentionnes
+                                # (l'IA peut donc decrire qui est qui).
+                                profiles = []
+                                for member in mention_map.values():
+                                    created = getattr(member, "created_at", None)
+                                    joined = getattr(member, "joined_at", None)
+                                    roles = [r.name for r in getattr(member, "roles", []) if r.name != "@everyone"]
+                                    status = str(getattr(member, "status", "?"))
+                                    activity = getattr(member, "activity", None)
+                                    activity_str = (f" — Activite: {activity.name}"
+                                                    if activity and getattr(activity, "name", None) else "")
+                                    avatar_url = (member.display_avatar.url
+                                                  if getattr(member, "display_avatar", None) else "?")
+                                    profiles.append(
+                                        f"- @{member.display_name} (id {member.id})"
+                                        f" | Pseudo Discord: {member.name}"
+                                        f" | Compte cree le: {created.strftime('%Y-%m-%d') if created else '?'}"
+                                        f" | A rejoint le serveur le: {joined.strftime('%Y-%m-%d') if joined else '?'}"
+                                        f" | Statut: {status}{activity_str}"
+                                        f" | Roles: {', '.join(roles) if roles else 'aucun'}"
+                                        f" | Avatar: {avatar_url}"
+                                    )
+                                sys_prompt += "\n\nProfils Discord des personnes mentionnees :\n" + "\n".join(profiles)
+
+                                # Profil de l'auteur lui-meme (utile pour repondre perso)
+                                a = message.author
+                                a_created = getattr(a, "created_at", None)
+                                a_joined = getattr(a, "joined_at", None)
+                                a_roles = [r.name for r in getattr(a, "roles", []) if r.name != "@everyone"]
+                                sys_prompt += (
+                                    f"\n\nProfil de l'auteur du message courant : "
+                                    f"@{a.display_name} (id {a.id}), "
+                                    f"compte cree {a_created.strftime('%Y-%m-%d') if a_created else '?'}, "
+                                    f"a rejoint le serveur {a_joined.strftime('%Y-%m-%d') if a_joined else '?'}, "
+                                    f"roles: {', '.join(a_roles) if a_roles else 'aucun'}."
+                                )
+
+                            # --- Detection images / GIFs en attachment ---
+                            image_urls = []
+                            for att in (message.attachments or []):
+                                ct = (att.content_type or "").lower()
+                                if ct.startswith("image/"):
+                                    image_urls.append(att.url)
+                            # Discord embeds aussi (gifs Tenor/Giphy par exemple)
+                            for emb in (message.embeds or []):
+                                img = getattr(emb, "image", None)
+                                if img and getattr(img, "url", None):
+                                    image_urls.append(img.url)
+                                thumb = getattr(emb, "thumbnail", None)
+                                if thumb and getattr(thumb, "url", None):
+                                    image_urls.append(thumb.url)
+                            image_urls = image_urls[:5]  # cap
+
+                            # Si image presente, switch sur un modele vision Groq
+                            base_model = get_setting("ai_model", "llama-3.3-70b-versatile")
+                            vision_model = get_setting("ai_vision_model",
+                                                       "meta-llama/llama-4-scout-17b-16e-instruct")
+                            if image_urls:
+                                used_model = vision_model
+                                sys_prompt += (
+                                    "\n\nL'utilisateur a joint une ou plusieurs images/GIFs."
+                                    " Decris-les precisement et tiens-en compte dans ta reponse."
+                                )
+                                # Vision Groq ne supporte pas system + history texte parfois ;
+                                # on simplifie en envoyant juste le prompt + images, sans history.
+                                history_to_send = []
+                            else:
+                                used_model = base_model
+                                history_to_send = list(mem["history"])
+
                             # Message courant prefixe de l'auteur
                             prompt_for_model = f"{author_name}: {prompt}"
                             try:
@@ -1143,9 +1214,10 @@ def setup_runtime(bot, deps):
                                     res = await groq_chat(
                                         prompt_for_model,
                                         system_prompt=sys_prompt,
-                                        model=get_setting("ai_model", "llama-3.3-70b-versatile"),
+                                        model=used_model,
                                         max_tokens=int(get_setting("ai_max_tokens", "400") or "400"),
-                                        history=list(mem["history"]),
+                                        history=history_to_send,
+                                        image_urls=image_urls or None,
                                     )
                                 txt = res["text"] if isinstance(res, dict) else str(res)
 
@@ -1418,9 +1490,13 @@ def setup_runtime(bot, deps):
         vc = guild.voice_client
 
         if name in ("music_play", "music_skip", "music_stop", "music_pause",
-                     "music_resume", "music_join", "music_leave"):
-            # Moteur audio = Lavalink/wavelink. Les helpers vivent dans commandes/music.py
-            # et sont exposes sur le bot au setup (bot._wl_*).
+                     "music_resume", "music_join", "music_leave",
+                     "music_remove_track", "music_clear"):
+            # Module musique en MAINTENANCE -> no-op cote bot. Le dashboard
+            # affichera juste un message indisponible si l'utilisateur tente.
+            print(f"[music] commande '{name}' ignoree (mode maintenance)")
+            return
+            # --- ANCIEN CODE wavelink (a restaurer quand on remet la musique) ---
             import wavelink as _wl
             wl_connect = getattr(bot, "_wl_connect_node", None)
             wl_get_player = getattr(bot, "_wl_get_player", None)

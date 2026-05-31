@@ -1992,6 +1992,9 @@ DEFAULT_SETTINGS = {
     "ai_system_prompt":     "Tu es TookBot, l'assistant officiel d'un bot Discord polyvalent. Tu es concis, utile, sympa, et tu parles français. Tu réponds en quelques phrases max sauf si on te demande un détail. Évite les listes interminables.",
     "ai_allowed_user_ids":  "",   # CSV
     "ai_max_tokens":        "400",
+    # Modele vision (utilise si l'utilisateur joint une image/GIF a son message).
+    # Doit etre un modele Groq qui supporte la vision (multimodal).
+    "ai_vision_model":      "meta-llama/llama-4-scout-17b-16e-instruct",
     # Message soutien Ko-fi (poste quand un membre recoit un role de donateur)
     "soutien_message":      "<user> A décidé de filer un coup de main ! Merci pour ton soutien !",
     "soutien_role_ids":     "",   # CSV d'IDs de roles ; vide = fallback noms par defaut

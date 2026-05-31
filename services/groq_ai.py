@@ -18,18 +18,24 @@ def get_groq_api_key() -> Optional[str]:
     return (os.getenv("GROQ_API_KEY", "") or "").strip() or None
 
 
-async def groq_chat(prompt: str, *,
+async def groq_chat(prompt, *,
                     system_prompt: str = "",
                     model: str = "llama-3.3-70b-versatile",
                     max_tokens: int = 400,
                     temperature: float = 0.7,
                     history: Optional[list] = None,
+                    image_urls: Optional[list] = None,
                     timeout_sec: float = 20.0) -> str:
-    """Appelle Groq et retourne le texte de la réponse.
+    """Appelle Groq et retourne {text, *_tokens, model}.
 
-    `history` : liste de messages precedents [{"role": "user"/"assistant", "content": ...}]
-    pour donner du contexte conversationnel au modele. Lève RuntimeError si la
-    clé manque ou si l'API renvoie une erreur.
+    `prompt` : texte du message courant. Peut etre str ou directement une liste
+        au format content multimodal (text + image_url).
+    `history` : liste [{"role": "user"/"assistant", "content": ...}]
+    `image_urls` : si fourni, on switch en mode vision et on ajoute ces URLs
+        d'images au message courant. Necessite un modele vision (ex:
+        meta-llama/llama-4-scout-17b-16e-instruct).
+
+    Leve RuntimeError si la cle manque ou si l'API renvoie une erreur.
     """
     key = get_groq_api_key()
     if not key:
@@ -44,7 +50,16 @@ async def groq_chat(prompt: str, *,
             content = h.get("content")
             if role in ("user", "assistant") and content:
                 messages.append({"role": role, "content": content})
-    messages.append({"role": "user", "content": prompt})
+
+    # Construit le message user courant : texte simple OU content multimodal
+    if image_urls:
+        parts = [{"type": "text", "text": prompt if isinstance(prompt, str) else str(prompt)}]
+        for url in image_urls[:5]:   # limite raisonnable (Groq accepte ~5 images)
+            if url:
+                parts.append({"type": "image_url", "image_url": {"url": url}})
+        messages.append({"role": "user", "content": parts})
+    else:
+        messages.append({"role": "user", "content": prompt})
 
     payload = {
         "model": model,
