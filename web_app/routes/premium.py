@@ -447,9 +447,10 @@ def register_premium_routes(app, deps):
                 set_setting("ai_voice_provider", prov)
         if "ai_elevenlabs_voice_id" in data:
             vid = str(data["ai_elevenlabs_voice_id"]).strip()
-            # voice IDs ElevenLabs = 20 chars alphanumeriques
+            # voice IDs ElevenLabs : 20 chars alphanum standard, mais certains
+            # IDs Voice Library / cloned peuvent etre + longs. On accepte 15-40.
             import re as _re
-            if _re.match(r"^[A-Za-z0-9]{15,30}$", vid):
+            if _re.match(r"^[A-Za-z0-9_-]{15,40}$", vid):
                 set_setting("ai_elevenlabs_voice_id", vid)
         if "ai_elevenlabs_model" in data:
             model = str(data["ai_elevenlabs_model"]).strip()
