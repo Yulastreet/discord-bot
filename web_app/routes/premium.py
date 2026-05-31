@@ -666,8 +666,30 @@ def register_premium_routes(app, deps):
     def owner_premium_analytics_page():
         if not _is_owner_session():
             abort(403)
-        return render_template("owner_premium_analytics.html",
-                               active_nav="owner_premium_analytics")
+        from database import get_setting, DEFAULT_SETTINGS
+        return render_template(
+            "owner_premium_analytics.html",
+            active_nav="owner_premium_analytics",
+            soutien_message=get_setting("soutien_message", DEFAULT_SETTINGS["soutien_message"]),
+            soutien_role_ids=get_setting("soutien_role_ids", ""),
+            soutien_channel_id=get_setting("soutien_channel_id", ""),
+        )
+
+    @app.route("/api/owner/soutien-settings", methods=["POST"])
+    def api_owner_soutien_set():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        from database import set_setting
+        data = request.json or {}
+        if "soutien_message" in data:
+            set_setting("soutien_message", str(data["soutien_message"])[:1000])
+        if "soutien_role_ids" in data:
+            ids = [x.strip() for x in str(data["soutien_role_ids"]).split(",") if x.strip().isdigit()]
+            set_setting("soutien_role_ids", ",".join(ids))
+        if "soutien_channel_id" in data:
+            cid = str(data["soutien_channel_id"]).strip()
+            set_setting("soutien_channel_id", cid if cid.isdigit() else "")
+        return jsonify({"success": True})
 
     @app.route("/api/owner/premium-analytics")
     def api_owner_premium_analytics():

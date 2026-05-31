@@ -66,6 +66,49 @@
     </div>
   </div>
 </section>
+
+<section class="card" style="margin-top: var(--s-6); padding: var(--s-6);">
+  <h2 style="margin:0 0 6px;">❤️ Message de soutien (Ko-fi)</h2>
+  <p class="muted" style="margin:0 0 16px; font-size:13px;">
+    Message posté dans le salon soutien quand un membre reçoit un rôle de donateur.
+  </p>
+  <form id="soutienForm" style="display:grid; gap:16px; max-width:680px;">
+    <label style="display:grid; gap:6px;">
+      <span style="font-weight:600;">Message</span>
+      <textarea id="soutienMessage" rows="3"
+        style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-1); color:var(--text); font-family:inherit; resize:vertical;"
+        placeholder="<user> A décidé de filer un coup de main !">{{ soutien_message }}</textarea>
+      <span class="muted" style="font-size:12px;">
+        Variables : <code>&lt;user&gt;</code> mention · <code>&lt;username&gt;</code> pseudo ·
+        <code>&lt;role&gt;</code> nom du rôle · <code>&lt;server&gt;</code> nom du serveur ·
+        <code>&lt;timestamp&gt;</code> date/heure
+      </span>
+    </label>
+    <label style="display:grid; gap:6px;">
+      <span style="font-weight:600;">IDs des rôles déclencheurs (séparés par virgules)</span>
+      <input id="soutienRoleIds" type="text"
+        style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-1); color:var(--text);"
+        placeholder="ex: 123456789012345678, 987654321098765432"
+        value="{{ soutien_role_ids }}">
+      <span class="muted" style="font-size:12px;">
+        Clic droit sur le rôle &gt; Copier l'identifiant. Vide = utilise les noms
+        "💎 VIP" et "🧡 Super VIP" par défaut (moins fiable).
+      </span>
+    </label>
+    <label style="display:grid; gap:6px;">
+      <span style="font-weight:600;">ID du salon soutien</span>
+      <input id="soutienChannelId" type="text"
+        style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-1); color:var(--text);"
+        placeholder="ID du salon ❤️│soutien"
+        value="{{ soutien_channel_id }}">
+      <span class="muted" style="font-size:12px;">Vide = valeur par défaut.</span>
+    </label>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <span id="soutienSaveStatus" class="muted" style="font-size:13px;"></span>
+    </div>
+  </form>
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -141,5 +184,31 @@ fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
 }).catch(() => {
   document.querySelectorAll('.stat-num').forEach(el => el.textContent = '—');
 });
+
+// Sauvegarde du message de soutien
+(function(){
+  const f = document.getElementById("soutienForm");
+  if (!f) return;
+  f.addEventListener("submit", async function(e){
+    e.preventDefault();
+    const status = document.getElementById("soutienSaveStatus");
+    status.textContent = "Enregistrement...";
+    try {
+      const r = await fetch("/api/owner/soutien-settings", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          soutien_message: document.getElementById("soutienMessage").value,
+          soutien_role_ids: document.getElementById("soutienRoleIds").value,
+          soutien_channel_id: document.getElementById("soutienChannelId").value
+        })
+      });
+      const data = await r.json();
+      status.textContent = data.success ? "Enregistré ✓" : "Échec";
+    } catch (err) {
+      status.textContent = "Erreur réseau";
+    }
+  });
+})();
 </script>
 {% endblock %}

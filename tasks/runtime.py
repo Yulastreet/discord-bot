@@ -487,19 +487,50 @@ def setup_runtime(bot, deps):
         # Detection role soutien (VIP / Super VIP) -> message de remerciement
         try:
             support_guild_id = os.getenv("SUPPORT_GUILD_ID", "1502322150822908115")
-            soutien_chan_id = os.getenv("SOUTIEN_CHANNEL_ID", "1510450694195511436")
+            # Salon : reglage dashboard prioritaire, sinon env, sinon defaut
+            soutien_chan_id = (get_setting("soutien_channel_id", "") or "").strip() \
+                or os.getenv("SOUTIEN_CHANNEL_ID", "1510450694195511436")
+
             if support_guild_id and soutien_chan_id and str(after.guild.id) == support_guild_id:
-                before_names = {r.name for r in (before.roles or [])}
-                after_names  = {r.name for r in (after.roles or [])}
-                gained = after_names - before_names
-                if gained & {"💎 VIP", "🧡 Super VIP"}:
+                before_ids_r = {r.id for r in (before.roles or [])}
+                after_roles  = {r.id: r for r in (after.roles or [])}
+                gained_ids = set(after_roles.keys()) - before_ids_r
+
+                # Roles declencheurs : IDs configures (dashboard) prioritaires, sinon noms par defaut
+                cfg_ids_csv = (get_setting("soutien_role_ids", "") or "").strip()
+                trigger_ids = {int(x) for x in cfg_ids_csv.split(",") if x.strip().isdigit()}
+
+                matched_role = None
+                for rid in gained_ids:
+                    role = after_roles[rid]
+                    if trigger_ids:
+                        if rid in trigger_ids:
+                            matched_role = role
+                            break
+                    else:
+                        # Fallback par nom (defaut)
+                        if role.name in {"💎 VIP", "🧡 Super VIP"}:
+                            matched_role = role
+                            break
+
+                if matched_role:
                     chan = bot.get_channel(int(soutien_chan_id))
                     if chan:
+                        import datetime as _dt2
+                        template = get_setting("soutien_message", "") \
+                            or "<user> A décidé de filer un coup de main ! Merci pour ton soutien !"
+                        msg = (template
+                               .replace("<user>", f"<@{after.id}>")
+                               .replace("<username>", after.display_name)
+                               .replace("<role>", matched_role.name)
+                               .replace("<server>", after.guild.name)
+                               .replace("<timestamp>", f"<t:{int(_dt2.datetime.now().timestamp())}:F>"))
                         await chan.send(
-                            f"<@{after.id}> A décidé de filer un coup de main ! "
-                            "Merci pour ton soutien !",
+                            msg,
                             allowed_mentions=discord.AllowedMentions(users=True, everyone=False, roles=False),
                         )
+                    else:
+                        print(f"[soutien] salon {soutien_chan_id} introuvable (bot pas dans le serveur ou mauvais ID)")
         except Exception as _e:
             print(f"[soutien] notif err: {_e!r}")
 
