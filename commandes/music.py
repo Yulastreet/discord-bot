@@ -1,20 +1,132 @@
+import os
 import asyncio
+import datetime as _dt
+
 import discord
 from discord import app_commands
 
-import yt_dlp
+import wavelink
 
-from .music_voice import connect_to_voice
 
 def setup_music_commands(bot, deps):
     globals().update(deps)
-    # ===== MUSIQUE =====
+    # ===== MUSIQUE (Lavalink + wavelink) =====
+    # Le moteur audio est Lavalink (serveur Java). wavelink est le client Python.
+    # On garde la file et l'etat en DB SQLite pour que le dashboard web reste a jour.
 
-    def _ensure_opus():
-        """Ensure libopus is loaded. Re-tries load if not. Returns True on success."""
-        if discord.opus.is_loaded():
+    LAVALINK_HOST = os.getenv("LAVALINK_HOST", "127.0.0.1")
+    LAVALINK_PORT = os.getenv("LAVALINK_PORT", "2333")
+    LAVALINK_PASSWORD = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
+    LAVALINK_URI = f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
+
+    bot._wavelink_ready = False
+
+    async def _connect_node():
+        """Connecte le bot au node Lavalink. Idempotent, retry court."""
+        if bot._wavelink_ready:
             return True
-        return _load_opus()
+        node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASSWORD)
+        for attempt in range(1, 4):
+            try:
+                await wavelink.Pool.connect(nodes=[node], client=bot)
+                bot._wavelink_ready = True
+                print(f"[wavelink] node connecte ({LAVALINK_URI})")
+                return True
+            except Exception as e:
+                print(f"[wavelink] connexion node {attempt}/3 echouee: {type(e).__name__}: {e}")
+                await asyncio.sleep(3)
+        print("[wavelink] impossible de joindre Lavalink. La musique sera indisponible.")
+        return False
+
+    def _fmt_track(track):
+        """Normalise une Playable wavelink vers le dict attendu par la DB."""
+        return {
+            "title":      track.title or "(sans titre)",
+            "url":        track.uri or "",
+            "source_url": track.uri or "",
+            "duration":   int(track.length / 1000) if track.length else None,
+            "thumbnail":  getattr(track, "artwork", None),
+        }
+
+    async def _get_player(guild, channel) -> wavelink.Player:
+        """Retourne le Player wavelink pour cette guild, en se connectant au besoin."""
+        vc = guild.voice_client
+        if vc and isinstance(vc, wavelink.Player) and vc.connected:
+            if vc.channel and vc.channel.id != channel.id:
+                await vc.move_to(channel)
+            return vc
+        if vc:
+            try:
+                await vc.disconnect(force=True)
+            except Exception:
+                pass
+        return await channel.connect(cls=wavelink.Player, self_deaf=True)
+
+    async def _play_db_next(player: wavelink.Player, text_channel, guild_id):
+        """Pop la prochaine piste de la file DB et la joue via Lavalink."""
+        if not player or not player.connected:
+            print(f"[music] _play_db_next: player non connecte (guild={guild_id})")
+            return
+        track_row = music_queue_pop_next(str(guild_id))
+        if not track_row:
+            music_state_clear_current(str(guild_id))
+            if text_channel:
+                try:
+                    await text_channel.send("✅ File d'attente terminée !")
+                except Exception:
+                    pass
+            return
+        # Re-resout la piste via Lavalink (URL YouTube stockee en DB)
+        try:
+            results = await wavelink.Playable.search(track_row["url"])
+            if not results:
+                raise RuntimeError("introuvable via Lavalink")
+            track = results[0] if isinstance(results, list) else results
+            # Memorise le salon texte pour les notifs de fin de piste
+            player._took_text_channel = text_channel
+            await player.play(track)
+            music_state_set(
+                str(guild_id),
+                current_title=track_row["title"],
+                current_url=track_row["url"],
+                current_thumbnail=track_row.get("thumbnail"),
+                current_duration=track_row.get("duration"),
+                is_playing=1, is_paused=0,
+                started_at=_dt.datetime.utcnow().isoformat(timespec="seconds"),
+            )
+            if text_channel:
+                try:
+                    await text_channel.send(f"🎵 En cours : **{track_row['title']}**")
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[music] _play_db_next error: {e}")
+            # Piste KO : on tente la suivante
+            await _play_db_next(player, text_channel, guild_id)
+
+    # ----- Event : fin de piste -> jouer la suivante depuis la DB -----
+    @bot.listen()
+    async def on_wavelink_track_end(payload: wavelink.TrackEndEventPayload):
+        player = payload.player
+        if not player:
+            return
+        guild_id = player.guild.id if player.guild else None
+        if guild_id is None:
+            return
+        text_channel = getattr(player, "_took_text_channel", None)
+        await _play_db_next(player, text_channel, guild_id)
+
+    @bot.listen()
+    async def on_wavelink_node_ready(payload):
+        bot._wavelink_ready = True
+        print(f"[wavelink] node ready: {getattr(payload.node, 'uri', '?')}")
+
+    # Expose les helpers au worker dashboard (tasks/runtime.py _dispatch_bot_command)
+    bot._wl_connect_node = _connect_node
+    bot._wl_get_player = _get_player
+    bot._wl_play_db_next = _play_db_next
+
+    # ===================== COMMANDES =====================
 
     @bot.tree.command(name="join", description="Rejoindre ton salon vocal")
     async def join(interaction: discord.Interaction):
@@ -22,12 +134,12 @@ def setup_music_commands(bot, deps):
             await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
             return
         await interaction.response.defer()
+        if not await _connect_node():
+            await interaction.followup.send("❌ Le serveur audio (Lavalink) est indisponible. Réessaie dans un instant.")
+            return
         try:
-            if not _ensure_opus():
-                await interaction.followup.send("❌ libopus introuvable sur le serveur. Installe-la (`apt install libopus0`) et redémarre le bot.")
-                return
             channel = interaction.user.voice.channel
-            await connect_to_voice(bot, interaction.guild, channel)
+            await _get_player(interaction.guild, channel)
             music_state_set(str(interaction.guild.id),
                             voice_channel_id=str(channel.id),
                             voice_channel_name=channel.name)
@@ -45,23 +157,33 @@ def setup_music_commands(bot, deps):
             await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
             return
         await interaction.response.defer()
+        if not await _connect_node():
+            await interaction.followup.send("❌ Le serveur audio (Lavalink) est indisponible. Réessaie dans un instant.")
+            return
         try:
-            if not _ensure_opus():
-                await interaction.followup.send("❌ libopus introuvable sur le serveur.")
-                return
             voice_channel = interaction.user.voice.channel
-            vc = await connect_to_voice(bot, interaction.guild, voice_channel)
+            player = await _get_player(interaction.guild, voice_channel)
             music_state_set(str(interaction.guild.id),
                             voice_channel_id=str(voice_channel.id),
                             voice_channel_name=voice_channel.name)
             gid = str(interaction.guild.id)
             await interaction.followup.send(f"🔍 Recherche de **{query}**...")
+
+            # Recherche via Lavalink. Si pas une URL, recherche YouTube.
+            search_query = query if query.startswith("http") else f"ytsearch:{query}"
             try:
-                info = await get_audio_info(query)
+                results = await wavelink.Playable.search(search_query)
             except Exception as e:
-                print(f"[music] yt-dlp error: {e}")
+                print(f"[music] wavelink search error: {e}")
                 await interaction.followup.send(f"❌ Erreur lors de la recherche : {e}")
                 return
+            if not results:
+                await interaction.followup.send("❌ Aucun résultat trouvé.")
+                return
+
+            # Playlist -> on prend la 1ere piste (comportement actuel : noplaylist)
+            track = results[0] if isinstance(results, list) else results.tracks[0]
+            info = _fmt_track(track)
             music_queue_add(gid,
                             title=info["title"], url=info["url"],
                             source_url=info.get("source_url"),
@@ -69,8 +191,8 @@ def setup_music_commands(bot, deps):
                             thumbnail=info.get("thumbnail"),
                             requested_by=interaction.user.id)
             await interaction.followup.send(f"✅ Ajouté à la file : **{info['title']}**")
-            if vc.is_connected() and not vc.is_playing():
-                await play_next(vc, interaction.channel, interaction.guild.id)
+            if player.connected and not player.playing:
+                await _play_db_next(player, interaction.channel, interaction.guild.id)
         except Exception as e:
             import traceback
             print(f"[music /play] error: {e}")
@@ -82,8 +204,9 @@ def setup_music_commands(bot, deps):
 
     @bot.tree.command(name="skip", description="Passer à la musique suivante")
     async def skip(interaction: discord.Interaction):
-        if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
-            interaction.guild.voice_client.stop()
+        vc = interaction.guild.voice_client
+        if vc and isinstance(vc, wavelink.Player) and vc.playing:
+            await vc.stop()  # declenche on_wavelink_track_end -> piste suivante
             await interaction.response.send_message("⏭️ Musique passée !")
         else:
             await interaction.response.send_message("❌ Aucune musique en cours !", ephemeral=True)
@@ -106,27 +229,28 @@ def setup_music_commands(bot, deps):
     async def stop(interaction: discord.Interaction):
         gid = str(interaction.guild.id)
         music_queue_clear(gid)
-        if interaction.guild.voice_client:
-            interaction.guild.voice_client.stop()
+        vc = interaction.guild.voice_client
+        if vc and isinstance(vc, wavelink.Player):
+            await vc.stop()
         music_state_clear_current(gid)
         await interaction.response.send_message("⏹️ Musique stoppée et file vidée !")
 
     @bot.tree.command(name="leave", description="Quitter le salon vocal")
     async def leave(interaction: discord.Interaction):
-        if interaction.guild.voice_client:
+        vc = interaction.guild.voice_client
+        if vc and isinstance(vc, wavelink.Player):
             gid = str(interaction.guild.id)
             music_queue_clear(gid)
-            await interaction.guild.voice_client.disconnect()
+            await vc.disconnect()
             music_state_disconnect(gid)
             await interaction.response.send_message("👋 Déconnecté du salon vocal !")
         else:
             await interaction.response.send_message("❌ Je ne suis pas dans un salon vocal !", ephemeral=True)
 
-
     async def _resume_music():
-        """Au boot, rejoindre les vocals connus + relancer la queue si elle n'est pas vide.
-        Lit music_state pour chaque guild où le bot est présent."""
-        from database import music_state_get, music_state_disconnect, music_queue_list
+        """Au boot : connecte le node Lavalink, rejoint les vocals connus,
+        relance la file si non vide. Lit music_state pour chaque guild."""
+        await _connect_node()
         for guild in bot.guilds:
             gid = str(guild.id)
             st = music_state_get(gid)
@@ -135,18 +259,15 @@ def setup_music_commands(bot, deps):
             ch_id = st.get("voice_channel_id")
             if not ch_id:
                 continue
-            # Le voice channel existe-t-il toujours ?
             channel = guild.get_channel(int(ch_id))
             if not channel or not isinstance(channel, discord.VoiceChannel):
                 music_state_disconnect(gid)
-
                 continue
             try:
-                vc = await connect_to_voice(bot, guild, channel)
+                player = await _get_player(guild, channel)
                 print(f"[resume] {guild.name} : reconnecté à {channel.name}")
-                # Relancer la queue si non vide
                 if music_queue_list(gid):
-                    await play_next(vc, None, guild.id)
+                    await _play_db_next(player, None, guild.id)
             except Exception as e:
                 print(f"[resume] {guild.name} : échec reconnexion {channel.name}: {e}")
                 music_state_disconnect(gid)

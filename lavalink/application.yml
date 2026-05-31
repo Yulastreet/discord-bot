@@ -1,0 +1,78 @@
+server:
+  port: 2333
+  address: 127.0.0.1
+  http2:
+    enabled: false
+
+plugins:
+  youtube:
+    enabled: true
+    # Clients YouTube essayes dans l'ordre. MUSIC + WEB + multiples mobiles =
+    # meilleure resilience contre "Sign in to confirm you're not a bot".
+    clients:
+      - MUSIC
+      - WEB
+      - WEBEMBEDDED
+      - MWEB
+      - TVHTML5EMBEDDED
+      - ANDROID_MUSIC
+      - ANDROID_VR
+      - IOS
+    # OAuth : decommente/active via le 1er lancement. Voir lavalink/README.md.
+    # Le refreshToken sera affiche dans les logs au 1er login, a coller ici.
+    oauth:
+      enabled: true
+      # refreshToken: "COLLE_ICI_APRES_PREMIER_LOGIN"
+      skipInitialization: false
+
+lavalink:
+  plugins:
+    # Plugin youtube-source (remplace le support YT natif retire de Lavalink).
+    # Verifie la derniere version : https://github.com/lavalink-devs/youtube-source/releases
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
+      snapshot: false
+  server:
+    # MOT DE PASSE : doit matcher LAVALINK_PASSWORD dans le .env du bot.
+    password: "${LAVALINK_PASSWORD:youshallnotpass}"
+    sources:
+      # YouTube gere par le plugin youtube-source, pas le source natif.
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: HIGH
+    trackStuckThresholdMs: 10000
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+
+metrics:
+  prometheus:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
+  file:
+    path: ./logs/
+    max-history: 7
+    max-size: 25MB
