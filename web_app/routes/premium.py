@@ -324,6 +324,34 @@ def register_premium_routes(app, deps):
         return jsonify({"ok": ok})
 
 
+    @app.route("/api/owner/donations", methods=["POST"])
+    def api_owner_donation_add():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        from database import donation_add
+        import time as _t
+        data = request.json or {}
+        try:
+            amount = float(data.get("amount") or 0)
+        except (TypeError, ValueError):
+            amount = 0
+        if amount <= 0:
+            return jsonify({"ok": False, "error": "bad_amount"}), 400
+        # txn_id unique pour un ajout manuel (pas de doublon avec les webhooks)
+        txn_id = f"manual-{int(_t.time()*1000)}"
+        ok = donation_add(
+            txn_id=txn_id,
+            kofi_type="Manual",
+            donor_name=(data.get("donor_name") or "").strip() or None,
+            amount=amount,
+            currency=(data.get("currency") or "EUR").strip()[:8],
+            message=(data.get("message") or "").strip() or None,
+            is_public=1,
+            is_subscription=0,
+        )
+        return jsonify({"ok": ok})
+
+
     # ===== Owner : IA Groq config =====
     @app.route("/owner/ai")
     def owner_ai_page():
