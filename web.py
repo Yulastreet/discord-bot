@@ -331,7 +331,7 @@ def needs_guild(path):
     return True
 
 PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms", "/api/public-stats"}
-PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/")
+PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/")
 
 
 def _current_user_id():
