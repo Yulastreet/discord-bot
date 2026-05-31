@@ -29,7 +29,7 @@ lavalink:
   plugins:
     # Plugin youtube-source (remplace le support YT natif retire de Lavalink).
     # Verifie la derniere version : https://github.com/lavalink-devs/youtube-source/releases
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.5"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
       snapshot: false
   server:
     # MOT DE PASSE : doit matcher LAVALINK_PASSWORD dans le .env du bot.
