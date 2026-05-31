@@ -125,6 +125,8 @@ def setup_music_commands(bot, deps):
     @bot.listen()
     async def on_wavelink_track_end(payload: wavelink.TrackEndEventPayload):
         player = payload.player
+        reason = getattr(payload, "reason", "?")
+        print(f"[wavelink] track_end reason={reason}")
         if not player:
             return
         guild_id = player.guild.id if player.guild else None
@@ -132,6 +134,15 @@ def setup_music_commands(bot, deps):
             return
         text_channel = getattr(player, "_took_text_channel", None)
         await _play_db_next(player, text_channel, guild_id)
+
+    # ----- Event : exception piste (load/play KO) -----
+    @bot.listen()
+    async def on_wavelink_track_exception(payload):
+        print(f"[wavelink] track_exception: {getattr(payload, 'exception', payload)!r}")
+
+    @bot.listen()
+    async def on_wavelink_track_stuck(payload):
+        print(f"[wavelink] track_stuck: {payload!r}")
 
     @bot.listen()
     async def on_wavelink_node_ready(payload):
