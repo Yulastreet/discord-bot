@@ -1569,6 +1569,23 @@ def _ensure_analytics_tables():
     c.execute('CREATE INDEX IF NOT EXISTS idx_pv_site_ts ON page_views(site, ts)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid)')
 
+    # Dons Ko-fi (recus via webhook). txn_id unique pour eviter les doublons.
+    c.execute('''CREATE TABLE IF NOT EXISTS donations (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        txn_id      TEXT UNIQUE,
+        kofi_type   TEXT,
+        donor_name  TEXT,
+        amount      REAL DEFAULT 0,
+        currency    TEXT,
+        message     TEXT,
+        is_public   INTEGER DEFAULT 1,
+        is_subscription INTEGER DEFAULT 0,
+        tier_name   TEXT,
+        email       TEXT,
+        ts          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_don_ts ON donations(ts)')
+
     conn.commit()
     conn.close()
 
@@ -1822,6 +1839,107 @@ def pageview_stats(site: str):
     ).fetchall()
     hour_map = {int(r["h"]): int(r["n"]) for r in hours}
     out["by_hour_30d"] = [{"hour": h, "n": hour_map.get(h, 0)} for h in range(24)]
+
+    conn.close()
+    return out
+
+
+def donation_add(txn_id, kofi_type=None, donor_name=None, amount=0, currency=None,
+                 message=None, is_public=1, is_subscription=0, tier_name=None, email=None):
+    """Enregistre un don Ko-fi. Idempotent via txn_id (ON CONFLICT IGNORE).
+
+    Retourne True si insere, False si doublon (txn_id deja vu).
+    """
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute('''INSERT OR IGNORE INTO donations
+                     (txn_id, kofi_type, donor_name, amount, currency, message,
+                      is_public, is_subscription, tier_name, email)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (txn_id, kofi_type,
+                   (donor_name or "")[:100] or None,
+                   float(amount or 0),
+                   (currency or "")[:8] or None,
+                   (message or "")[:500] or None,
+                   1 if is_public else 0,
+                   1 if is_subscription else 0,
+                   (tier_name or "")[:60] or None,
+                   (email or "")[:120] or None))
+        inserted = c.rowcount > 0
+        conn.commit()
+        return inserted
+    finally:
+        conn.close()
+
+
+def donations_stats():
+    """Stats dons : totaux par periode, compteurs, top donateurs, liste recente, par jour."""
+    conn = get_db()
+    c = conn.cursor()
+    out = {}
+    for label, since in (("h24", "-1 day"), ("d7", "-7 days"),
+                         ("d30", "-30 days"), ("total", None)):
+        if since:
+            row = c.execute(
+                "SELECT COALESCE(SUM(amount),0) AS s, COUNT(*) AS n "
+                "FROM donations WHERE ts >= datetime('now', ?)", (since,)
+            ).fetchone()
+        else:
+            row = c.execute(
+                "SELECT COALESCE(SUM(amount),0) AS s, COUNT(*) AS n FROM donations"
+            ).fetchone()
+        out[label] = {"amount": round(float(row["s"]), 2), "count": int(row["n"])}
+
+    # Devise principale (la plus frequente)
+    cur = c.execute(
+        "SELECT currency, COUNT(*) AS n FROM donations WHERE currency IS NOT NULL "
+        "GROUP BY currency ORDER BY n DESC LIMIT 1"
+    ).fetchone()
+    out["currency"] = cur["currency"] if cur else "EUR"
+
+    # Don moyen (total)
+    avg = c.execute("SELECT COALESCE(AVG(amount),0) AS a FROM donations").fetchone()
+    out["avg_amount"] = round(float(avg["a"]), 2)
+
+    # Top donateurs (cumul, tous temps)
+    top = c.execute(
+        '''SELECT COALESCE(donor_name,'Anonyme') AS name,
+                  SUM(amount) AS total, COUNT(*) AS n
+           FROM donations GROUP BY name ORDER BY total DESC LIMIT 10'''
+    ).fetchall()
+    out["top_donors"] = [
+        {"name": r["name"], "total": round(float(r["total"]), 2), "count": int(r["n"])}
+        for r in top
+    ]
+
+    # Dons recents (50 derniers)
+    recent = c.execute(
+        '''SELECT donor_name, amount, currency, message, is_subscription,
+                  tier_name, ts
+           FROM donations ORDER BY ts DESC LIMIT 50'''
+    ).fetchall()
+    out["recent"] = [
+        {"name": r["donor_name"] or "Anonyme",
+         "amount": round(float(r["amount"]), 2),
+         "currency": r["currency"] or "EUR",
+         "message": r["message"],
+         "is_subscription": bool(r["is_subscription"]),
+         "tier_name": r["tier_name"],
+         "ts": r["ts"]}
+        for r in recent
+    ]
+
+    # Par jour (30j)
+    by_day = c.execute(
+        '''SELECT DATE(ts) AS day, COALESCE(SUM(amount),0) AS s, COUNT(*) AS n
+           FROM donations WHERE ts >= datetime('now','-30 days')
+           GROUP BY day ORDER BY day'''
+    ).fetchall()
+    out["by_day_30d"] = [
+        {"day": r["day"], "amount": round(float(r["s"]), 2), "count": int(r["n"])}
+        for r in by_day
+    ]
 
     conn.close()
     return out

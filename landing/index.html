@@ -1478,6 +1478,21 @@
     font-weight: 700;
   }
 
+  .nav-support {
+    border-color: rgba(185, 255, 36, .45) !important;
+    color: var(--green-2) !important;
+    font-weight: 800;
+  }
+  .nav-support:hover {
+    background: rgba(185, 255, 36, .14) !important;
+  }
+  html[data-theme="dark"] .nav-support {
+    color: var(--green) !important;
+  }
+  @media (max-width: 720px) {
+    .nav-support { display: none; }
+  }
+
   .footer a.footer-support {
     display: inline-flex;
     align-items: center;
@@ -2064,6 +2079,9 @@
           </svg>
         </button>
 
+        <a class="btn btn-secondary btn-small nav-support" href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">
+          ☕ Soutenir
+        </a>
         <a class="btn btn-primary btn-small" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">
           Inviter
           <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">

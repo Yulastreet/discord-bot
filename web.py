@@ -569,6 +569,44 @@ def api_track_pv():
     return _track_cors(jsonify({"ok": True}))
 
 
+@app.route("/api/kofi/webhook", methods=["POST"])
+def api_kofi_webhook():
+    """Webhook Ko-fi : recoit les dons et les enregistre.
+
+    Ko-fi POST un champ form `data` contenant un JSON. On verifie le
+    verification_token (configure cote Ko-fi + env KOFI_VERIFICATION_TOKEN).
+    Doc payload : https://ko-fi.com/manage/webhooks
+    """
+    try:
+        from database import donation_add
+        raw = request.form.get("data") or request.get_data(as_text=True) or "{}"
+        payload = json.loads(raw)
+    except Exception:
+        return jsonify({"ok": False, "error": "bad_payload"}), 400
+
+    expected = os.getenv("KOFI_VERIFICATION_TOKEN", "")
+    token = payload.get("verification_token", "")
+    if expected and token != expected:
+        return jsonify({"ok": False, "error": "bad_token"}), 403
+
+    try:
+        donation_add(
+            txn_id=str(payload.get("message_id") or payload.get("kofi_transaction_id") or "")[:80] or None,
+            kofi_type=payload.get("type"),
+            donor_name=payload.get("from_name"),
+            amount=payload.get("amount") or 0,
+            currency=payload.get("currency"),
+            message=payload.get("message"),
+            is_public=1 if payload.get("is_public", True) else 0,
+            is_subscription=1 if payload.get("is_subscription_payment") else 0,
+            tier_name=payload.get("tier_name"),
+            email=payload.get("email"),
+        )
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
 @app.before_request
 def _log_dashboard_visit():
     """Log les pageviews dashboard (HTML, pas API/static)."""

@@ -287,7 +287,7 @@ def register_premium_routes(app, deps):
     def owner_analytics_page():
         if not _is_owner_session():
             abort(403)
-        from database import visits_stats, ai_usage_stats, pageview_stats
+        from database import visits_stats, ai_usage_stats, pageview_stats, donations_stats
         return render_template(
             "owner_analytics.html",
             active_nav="owner_analytics",
@@ -296,6 +296,7 @@ def register_premium_routes(app, deps):
             eng_landing=pageview_stats("landing"),
             eng_dashboard=pageview_stats("dashboard"),
             ai=ai_usage_stats(),
+            donations=donations_stats(),
         )
 
 
@@ -303,13 +304,14 @@ def register_premium_routes(app, deps):
     def api_owner_analytics():
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
-        from database import visits_stats, ai_usage_stats, pageview_stats
+        from database import visits_stats, ai_usage_stats, pageview_stats, donations_stats
         return jsonify({
             "landing":   visits_stats("landing"),
             "dashboard": visits_stats("dashboard"),
             "eng_landing":   pageview_stats("landing"),
             "eng_dashboard": pageview_stats("dashboard"),
             "ai":        ai_usage_stats(),
+            "donations": donations_stats(),
         })
 
 
