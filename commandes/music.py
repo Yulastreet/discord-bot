@@ -19,23 +19,40 @@ def setup_music_commands(bot, deps):
     LAVALINK_PASSWORD = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
     LAVALINK_URI = f"http://{LAVALINK_HOST}:{LAVALINK_PORT}"
 
-    bot._wavelink_ready = False
+    def _node_connected():
+        """True si au moins un node wavelink est en etat CONNECTED."""
+        try:
+            for node in wavelink.Pool.nodes.values():
+                if node.status == wavelink.NodeStatus.CONNECTED:
+                    return True
+        except Exception:
+            pass
+        return False
 
     async def _connect_node():
-        """Connecte le bot au node Lavalink. Idempotent, retry court."""
-        if bot._wavelink_ready:
+        """Connecte le bot au node Lavalink et ATTEND qu'il soit CONNECTED.
+
+        Pool.connect() retourne avant que la connexion websocket soit etablie ;
+        on poll le status jusqu'a CONNECTED (sinon Playable.search leve
+        InvalidNodeException : node pas pret).
+        """
+        if _node_connected():
             return True
-        node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASSWORD)
-        for attempt in range(1, 4):
-            try:
+        # Lance la connexion si aucun node n'existe encore dans le pool
+        try:
+            if not wavelink.Pool.nodes:
+                node = wavelink.Node(uri=LAVALINK_URI, password=LAVALINK_PASSWORD)
                 await wavelink.Pool.connect(nodes=[node], client=bot)
+        except Exception as e:
+            print(f"[wavelink] Pool.connect erreur: {type(e).__name__}: {e}")
+        # Attend la connexion effective (max ~15s)
+        for _ in range(30):
+            if _node_connected():
                 bot._wavelink_ready = True
                 print(f"[wavelink] node connecte ({LAVALINK_URI})")
                 return True
-            except Exception as e:
-                print(f"[wavelink] connexion node {attempt}/3 echouee: {type(e).__name__}: {e}")
-                await asyncio.sleep(3)
-        print("[wavelink] impossible de joindre Lavalink. La musique sera indisponible.")
+            await asyncio.sleep(0.5)
+        print("[wavelink] node pas CONNECTED apres attente. Lavalink lance ? Mot de passe correct ?")
         return False
 
     def _fmt_track(track):
