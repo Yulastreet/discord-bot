@@ -23,10 +23,13 @@ async def groq_chat(prompt: str, *,
                     model: str = "llama-3.3-70b-versatile",
                     max_tokens: int = 400,
                     temperature: float = 0.7,
+                    history: Optional[list] = None,
                     timeout_sec: float = 20.0) -> str:
     """Appelle Groq et retourne le texte de la réponse.
 
-    Lève RuntimeError si la clé manque ou si l'API renvoie une erreur.
+    `history` : liste de messages precedents [{"role": "user"/"assistant", "content": ...}]
+    pour donner du contexte conversationnel au modele. Lève RuntimeError si la
+    clé manque ou si l'API renvoie une erreur.
     """
     key = get_groq_api_key()
     if not key:
@@ -35,6 +38,12 @@ async def groq_chat(prompt: str, *,
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
+    if history:
+        for h in history:
+            role = h.get("role")
+            content = h.get("content")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": prompt})
 
     payload = {

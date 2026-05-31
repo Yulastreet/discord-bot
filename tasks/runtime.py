@@ -2,6 +2,7 @@ import asyncio
 import collections as _col
 import datetime as _dt
 import os
+import re as _re
 import time as _time
 
 import discord
@@ -11,6 +12,12 @@ from discord.ext import tasks
 
 # Cooldown anti-spam XP : (guild_id, user_id) -> ts du dernier gain
 _XP_LAST_GAIN: dict = {}
+
+# Memoire conversation IA par salon : channel_id -> {"history": [...], "ts": epoch}
+# Reset auto apres 1h sans message (limite la conso de tokens).
+_AI_MEMORY: dict = {}
+_AI_MEMORY_TTL = 3600        # 1h d'inactivite => reset
+_AI_MEMORY_MAX_MSGS = 12     # garde 12 derniers messages (6 echanges)
 
 
 def setup_runtime(bot, deps):
@@ -1034,25 +1041,72 @@ def setup_runtime(bot, deps):
                         await message.reply("⚠️ IA pas configurée (clé Groq manquante).",
                                             mention_author=False)
                     else:
-                        # Strip toutes les mentions du contenu pour avoir le prompt brut
+                        # Strip la mention du bot ; remplace les autres mentions par
+                        # @PseudoAffiche pour que le modele sache de qui on parle.
                         prompt = message.content
+                        mention_map = {}   # display_name.lower() -> Member
                         for m in message.mentions:
-                            prompt = prompt.replace(f"<@{m.id}>", "").replace(f"<@!{m.id}>", "")
+                            if m.id == bot.user.id:
+                                prompt = prompt.replace(f"<@{m.id}>", "").replace(f"<@!{m.id}>", "")
+                            else:
+                                nm = m.display_name
+                                prompt = (prompt.replace(f"<@{m.id}>", f"@{nm}")
+                                                .replace(f"<@!{m.id}>", f"@{nm}"))
+                                mention_map[nm.lower()] = m
                         prompt = prompt.strip()
                         if not prompt:
                             await message.reply("Tu m'as ping mais sans question 🤔",
                                                 mention_author=False)
                         else:
+                            # Memoire conversation par salon, reset apres 1h d'inactivite
+                            now_ai = _time.time()
+                            chan_id = message.channel.id
+                            mem = _AI_MEMORY.get(chan_id)
+                            if mem is None or (now_ai - mem["ts"]) > _AI_MEMORY_TTL:
+                                mem = {"history": [], "ts": now_ai}
+                                _AI_MEMORY[chan_id] = mem
+                            mem["ts"] = now_ai
+
+                            # Construit le system prompt + liste des personnes mentionnables
+                            sys_prompt = get_setting("ai_system_prompt", "") or ""
+                            if mention_map:
+                                who = ", ".join(sorted({m.display_name for m in mention_map.values()}))
+                                sys_prompt += (
+                                    f"\n\nPersonnes mentionnees dans ce salon : {who}. "
+                                    f"Pour mentionner quelqu'un dans ta reponse, ecris son pseudo "
+                                    f"precede de @ (exemple : @{next(iter(mention_map.values())).display_name})."
+                                )
                             try:
                                 async with message.channel.typing():
                                     res = await groq_chat(
                                         prompt,
-                                        system_prompt=get_setting("ai_system_prompt", "") or "",
+                                        system_prompt=sys_prompt,
                                         model=get_setting("ai_model", "llama-3.3-70b-versatile"),
                                         max_tokens=int(get_setting("ai_max_tokens", "400") or "400"),
+                                        history=list(mem["history"]),
                                     )
                                 txt = res["text"] if isinstance(res, dict) else str(res)
-                                await message.reply(txt[:2000], mention_author=False)
+
+                                # Memorise l'echange (texte brut, avant conversion mentions)
+                                mem["history"].append({"role": "user", "content": prompt})
+                                mem["history"].append({"role": "assistant", "content": txt})
+                                if len(mem["history"]) > _AI_MEMORY_MAX_MSGS:
+                                    mem["history"] = mem["history"][-_AI_MEMORY_MAX_MSGS:]
+
+                                # Convertit les @Pseudo de la reponse en vraies mentions Discord
+                                if mention_map:
+                                    for nm in sorted(mention_map.keys(), key=len, reverse=True):
+                                        member = mention_map[nm]
+                                        txt = _re.sub(
+                                            r"@" + _re.escape(member.display_name),
+                                            f"<@{member.id}>", txt, flags=_re.IGNORECASE,
+                                        )
+
+                                allowed_m = discord.AllowedMentions(
+                                    everyone=False, roles=False, users=True, replied_user=False,
+                                )
+                                await message.reply(txt[:2000], mention_author=False,
+                                                    allowed_mentions=allowed_m)
                                 # Log usage
                                 try:
                                     from database import ai_usage_add
