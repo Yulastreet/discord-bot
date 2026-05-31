@@ -1239,8 +1239,31 @@ def setup_runtime(bot, deps):
                                 allowed_m = discord.AllowedMentions(
                                     everyone=False, roles=False, users=True, replied_user=False,
                                 )
-                                await message.reply(txt[:2000], mention_author=False,
-                                                    allowed_mentions=allowed_m)
+
+                                # Mode vocal : si active, on synthese la reponse en MP3
+                                # (Microsoft Edge TTS) et on l'envoie en attachment.
+                                voice_sent = False
+                                if get_setting("ai_voice_enabled", "0") == "1":
+                                    try:
+                                        from services.tts import synthesize_voice
+                                        import io as _io
+                                        voice_name = get_setting("ai_voice_name", "fr-FR-DeniseNeural")
+                                        audio_bytes = await synthesize_voice(txt, voice=voice_name)
+                                        audio_file = discord.File(
+                                            _io.BytesIO(audio_bytes), filename="reponse-tookbot.mp3"
+                                        )
+                                        await message.reply(
+                                            file=audio_file,
+                                            mention_author=False,
+                                            allowed_mentions=allowed_m,
+                                        )
+                                        voice_sent = True
+                                    except Exception as _te:
+                                        print(f"[ai] TTS fail -> fallback texte: {_te!r}")
+
+                                if not voice_sent:
+                                    await message.reply(txt[:2000], mention_author=False,
+                                                        allowed_mentions=allowed_m)
                                 # Log usage
                                 try:
                                     from database import ai_usage_add

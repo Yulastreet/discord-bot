@@ -362,6 +362,11 @@ def register_premium_routes(app, deps):
         s = get_all_settings()
         allowed_csv = s.get("ai_allowed_user_ids", "") or ""
         ids = [x.strip() for x in allowed_csv.split(",") if x.strip()]
+        try:
+            from services.tts import is_available as _tts_available
+            tts_available = _tts_available()
+        except Exception:
+            tts_available = False
         return render_template(
             "owner_ai.html",
             active_nav="owner_ai",
@@ -369,6 +374,9 @@ def register_premium_routes(app, deps):
             ai_model=s.get("ai_model", DEFAULT_SETTINGS["ai_model"]),
             ai_system_prompt=s.get("ai_system_prompt", DEFAULT_SETTINGS["ai_system_prompt"]),
             ai_max_tokens=s.get("ai_max_tokens", DEFAULT_SETTINGS["ai_max_tokens"]),
+            ai_voice_enabled=(s.get("ai_voice_enabled") == "1"),
+            ai_voice_name=s.get("ai_voice_name", DEFAULT_SETTINGS["ai_voice_name"]),
+            tts_available=tts_available,
             allowed_ids=ids,
             api_key_present=bool(get_groq_api_key()),
             defaults=DEFAULT_SETTINGS,
@@ -400,6 +408,18 @@ def register_premium_routes(app, deps):
             else:
                 ids = [x.strip() for x in str(raw).split(",") if x.strip().isdigit()]
             set_setting("ai_allowed_user_ids", ",".join(ids))
+        if "ai_voice_enabled" in data:
+            set_setting("ai_voice_enabled",
+                        "1" if str(data["ai_voice_enabled"]) in ("1", "true", "True", "on") else "0")
+        if "ai_voice_name" in data:
+            # Whitelist voix FR pour eviter abus
+            voice = str(data["ai_voice_name"]).strip()
+            allowed_voices = {
+                "fr-FR-DeniseNeural", "fr-FR-HenriNeural",
+                "fr-FR-EloiseNeural", "fr-FR-VivienneMultilingualNeural",
+            }
+            if voice in allowed_voices:
+                set_setting("ai_voice_name", voice)
         return jsonify({"success": True})
 
 

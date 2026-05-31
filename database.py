@@ -1995,6 +1995,12 @@ DEFAULT_SETTINGS = {
     # Modele vision (utilise si l'utilisateur joint une image/GIF a son message).
     # Doit etre un modele Groq qui supporte la vision (multimodal).
     "ai_vision_model":      "meta-llama/llama-4-scout-17b-16e-instruct",
+    # Mode vocal IA : si "1", l'IA repond avec un message vocal (TTS) au lieu de texte.
+    # Voix Microsoft Edge TTS (gratuit). Voix FR dispo :
+    #   fr-FR-DeniseNeural (femme), fr-FR-HenriNeural (homme),
+    #   fr-FR-EloiseNeural (jeune femme), fr-FR-VivienneMultilingualNeural (multi).
+    "ai_voice_enabled":     "0",
+    "ai_voice_name":        "fr-FR-DeniseNeural",
     # Message soutien Ko-fi (poste quand un membre recoit un role de donateur)
     "soutien_message":      "<user> A décidé de filer un coup de main ! Merci pour ton soutien !",
     "soutien_role_ids":     "",   # CSV d'IDs de roles ; vide = fallback noms par defaut

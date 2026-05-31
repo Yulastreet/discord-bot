@@ -136,6 +136,48 @@
     <div id="idList" class="id-list"></div>
   </div>
 
+  <div class="ai-card">
+    <h2>🎙️ Mode vocal</h2>
+    <div class="sub">
+      Quand activé, l'IA répond avec un message vocal (MP3 synthétisé via Microsoft Edge TTS, gratuit)
+      au lieu de texte. Le texte est nettoyé (mentions, URLs, markdown) avant synthèse.
+      {% if not tts_available %}
+      <br><strong style="color:#ff6b6b;">⚠️ La lib edge-tts n'est pas installée sur le VPS — fais
+      <code>pip install edge-tts</code> puis restart le bot.</strong>
+      {% endif %}
+    </div>
+    <div class="row gap-3" style="margin-top:10px;align-items:center;flex-wrap:wrap;">
+      <label class="row gap-2" style="align-items:center;">
+        <span style="font-weight:600;">Réponse en :</span>
+        <select id="ai_voice_enabled" style="min-width:160px;">
+          <option value="0" {{ 'selected' if not ai_voice_enabled }}>📝 Texte</option>
+          <option value="1" {{ 'selected' if ai_voice_enabled }}>🎙️ Vocal (MP3)</option>
+        </select>
+      </label>
+      <label class="row gap-2" style="align-items:center;">
+        <span style="font-weight:600;">Voix :</span>
+        <select id="ai_voice_name" style="min-width:280px;">
+          <option value="fr-FR-DeniseNeural" {{ 'selected' if ai_voice_name == 'fr-FR-DeniseNeural' }}>
+            Denise — femme, naturelle (FR)
+          </option>
+          <option value="fr-FR-HenriNeural" {{ 'selected' if ai_voice_name == 'fr-FR-HenriNeural' }}>
+            Henri — homme, posée (FR)
+          </option>
+          <option value="fr-FR-EloiseNeural" {{ 'selected' if ai_voice_name == 'fr-FR-EloiseNeural' }}>
+            Eloïse — jeune femme, énergique (FR)
+          </option>
+          <option value="fr-FR-VivienneMultilingualNeural" {{ 'selected' if ai_voice_name == 'fr-FR-VivienneMultilingualNeural' }}>
+            Vivienne — multilingue
+          </option>
+        </select>
+      </label>
+    </div>
+    <div class="sub" style="margin-top:8px;">
+      Note : limite ~600 caractères par message vocal pour garder l'audio court (et éviter les pavés).
+      Si la synthèse échoue, le bot retombe automatiquement sur du texte.
+    </div>
+  </div>
+
   <div class="row end gap-3">
     <button class="btn btn-primary" onclick="saveAI()">
       <svg class="ic"><use href="#i-check"/></svg> Enregistrer
@@ -186,6 +228,8 @@ async function saveAI() {
     ai_max_tokens:      document.getElementById('ai_max_tokens').value,
     ai_system_prompt:   document.getElementById('ai_system_prompt').value,
     ai_allowed_user_ids: ALLOWED_IDS,
+    ai_voice_enabled:   document.getElementById('ai_voice_enabled').value,
+    ai_voice_name:      document.getElementById('ai_voice_name').value,
   };
   try {
     const r = await fetch('/api/owner/ai-settings', {
