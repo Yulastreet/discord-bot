@@ -484,6 +484,25 @@ def setup_runtime(bot, deps):
         except Exception:
             pass
 
+        # Detection role soutien (VIP / Super VIP) -> message de remerciement
+        try:
+            support_guild_id = os.getenv("SUPPORT_GUILD_ID", "")
+            soutien_chan_id = os.getenv("SOUTIEN_CHANNEL_ID", "")
+            if support_guild_id and soutien_chan_id and str(after.guild.id) == support_guild_id:
+                before_names = {r.name for r in (before.roles or [])}
+                after_names  = {r.name for r in (after.roles or [])}
+                gained = after_names - before_names
+                if gained & {"💎 VIP", "🧡 Super VIP"}:
+                    chan = bot.get_channel(int(soutien_chan_id))
+                    if chan:
+                        await chan.send(
+                            f"<@{after.id}> A décidé de filer un coup de main ! "
+                            "Merci pour ton soutien !",
+                            allowed_mentions=discord.AllowedMentions(users=True, everyone=False, roles=False),
+                        )
+        except Exception as _e:
+            print(f"[soutien] notif err: {_e!r}")
+
     @bot.tree.command(name="sync", description="sync les slash commands manuellement (owner uniquement)")
     @commands.is_owner()
     async def sync_commands(ctx):
@@ -1902,6 +1921,86 @@ def setup_runtime(bot, deps):
                 await channel.send(embed=embed)
             except Exception as e:
                 print(f"[gb-notify] envoi fail {gid}: {e}")
+
+        elif name == "kofi_donation_notify":
+            # payload: {donor_name, amount, currency, message, is_subscription, tier_name}
+            # 1) Notifie le salon #owner. 2) Tente d'attribuer le role VIP/Super VIP
+            #    si le donateur a mis son ID/pseudo Discord dans le message Ko-fi.
+            donor = payload.get("donor_name") or "Anonyme"
+            amount = float(payload.get("amount") or 0)
+            currency = payload.get("currency") or "EUR"
+            don_msg = (payload.get("message") or "").strip()
+            is_sub = bool(payload.get("is_subscription"))
+
+            support_guild_id = os.getenv("SUPPORT_GUILD_ID", "")
+            support_guild = None
+            if support_guild_id:
+                try:
+                    support_guild = bot.get_guild(int(support_guild_id))
+                except (TypeError, ValueError):
+                    support_guild = None
+
+            # --- Notif #owner ---
+            owner_chan_id = os.getenv("OWNER_NOTIFY_CHANNEL_ID", "")
+            owner_chan = None
+            if owner_chan_id:
+                try:
+                    owner_chan = bot.get_channel(int(owner_chan_id))
+                except (TypeError, ValueError):
+                    owner_chan = None
+            if owner_chan:
+                kind = "abonnement" if is_sub else "don"
+                desc = f"**{donor}** vient de faire un {kind} de **{amount:.2f} {currency}** sur Ko-fi."
+                if don_msg:
+                    desc += f"\n\n> {don_msg[:500]}"
+                emb = discord.Embed(title="💚 Nouveau don Ko-fi", description=desc, color=0xB9F23A)
+                try:
+                    await owner_chan.send(embed=emb)
+                except Exception as e:
+                    print(f"[kofi] owner notif fail: {e}")
+            else:
+                print("[kofi] OWNER_NOTIFY_CHANNEL_ID non configure ou introuvable")
+
+            # --- Attribution auto du role selon le montant ---
+            # VIP >= 5 EUR, Super VIP >= 20 EUR.
+            if support_guild and amount > 0:
+                target_role_name = None
+                if amount >= 20:
+                    target_role_name = "🧡 Super VIP"
+                elif amount >= 5:
+                    target_role_name = "💎 VIP"
+
+                if target_role_name:
+                    # Resout le membre : ID numerique d'abord, sinon pseudo, dans le message Ko-fi.
+                    member = None
+                    if don_msg:
+                        m_id = _re.search(r"\b(\d{17,20})\b", don_msg)
+                        if m_id:
+                            try:
+                                member = support_guild.get_member(int(m_id.group(1)))
+                            except (TypeError, ValueError):
+                                member = None
+                        if member is None:
+                            # cherche par pseudo : @pseudo, name, ou display_name
+                            cand = don_msg.lower()
+                            for mb in support_guild.members:
+                                names = {mb.name.lower(), mb.display_name.lower(),
+                                         f"@{mb.name.lower()}"}
+                                if any(n and n in cand for n in names):
+                                    member = mb
+                                    break
+                    if member:
+                        role = discord.utils.get(support_guild.roles, name=target_role_name)
+                        if role:
+                            try:
+                                await member.add_roles(role, reason=f"Don Ko-fi {amount} {currency}")
+                                print(f"[kofi] role {target_role_name} attribue a {member}")
+                            except Exception as e:
+                                print(f"[kofi] add_role fail: {e}")
+                        else:
+                            print(f"[kofi] role '{target_role_name}' introuvable")
+                    else:
+                        print(f"[kofi] donateur '{donor}' non lie a un membre Discord (pas d'ID/pseudo dans le message)")
 
         else:
             raise ValueError(f"commande inconnue: {name}")

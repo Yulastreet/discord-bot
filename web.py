@@ -590,7 +590,7 @@ def api_kofi_webhook():
         return jsonify({"ok": False, "error": "bad_token"}), 403
 
     try:
-        donation_add(
+        inserted = donation_add(
             txn_id=str(payload.get("message_id") or payload.get("kofi_transaction_id") or "")[:80] or None,
             kofi_type=payload.get("type"),
             donor_name=payload.get("from_name"),
@@ -602,8 +602,20 @@ def api_kofi_webhook():
             tier_name=payload.get("tier_name"),
             email=payload.get("email"),
         )
-    except Exception:
-        pass
+        # Notifie le bot (seulement si nouveau don, pas un doublon de webhook).
+        if inserted:
+            from database import bot_command_enqueue
+            support_guild = os.getenv("SUPPORT_GUILD_ID", "")
+            bot_command_enqueue(support_guild or "0", "kofi_donation_notify", {
+                "donor_name": payload.get("from_name") or "Anonyme",
+                "amount": float(payload.get("amount") or 0),
+                "currency": payload.get("currency") or "EUR",
+                "message": payload.get("message") or "",
+                "is_subscription": bool(payload.get("is_subscription_payment")),
+                "tier_name": payload.get("tier_name") or "",
+            })
+    except Exception as e:
+        print(f"[kofi webhook] error: {e!r}")
     return jsonify({"ok": True})
 
 
