@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ - TookBot</title>
+<meta name="description" content="Questions fréquentes sur TookBot : ajout du bot, fonctionnalités, XP, modération, musique, premium, dashboard et support.">
+<meta property="og:title" content="FAQ - TookBot">
+<meta property="og:description" content="Toutes les réponses sur TookBot : installation, fonctions, premium et support.">
+<meta property="og:url" content="https://tookbot.click/faq.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TookBot">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:image" content="https://tookbot.click/previewdiscord.png">
+<meta name="theme-color" content="#f6ffe7">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    const saved = localStorage.getItem('tookbot-theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = saved || (prefersDark ? 'dark' : 'light');
+  })();
+</script>
+<style>
+  :root {
+    --bg: #f7fbe8;
+    --paper: #ffffff;
+    --ink: #090d08;
+    --muted: #68705f;
+    --soft: #dfe8c8;
+    --soft-2: #f0f7db;
+    --green: #b9ff24;
+    --green-2: #64d91b;
+    --green-deep: #163d12;
+    --night: #071006;
+    --shadow: 0 28px 90px rgba(55, 86, 21, .16);
+    --shadow-soft: 0 18px 50px rgba(44, 63, 15, .11);
+    --radius-lg: 28px;
+    --radius-md: 18px;
+    --radius-pill: 999px;
+    --max: 880px;
+    color-scheme: light;
+  }
+  html[data-theme="dark"] {
+    --bg: #0b1208;
+    --paper: #101a0d;
+    --ink: #f7ffe8;
+    --muted: #bac9aa;
+    --soft: rgba(207, 255, 129, .20);
+    --soft-2: rgba(255, 255, 255, .08);
+    --green: #c6ff35;
+    --green-2: #73e327;
+    --green-deep: #1e4a16;
+    --night: #030701;
+    --shadow: 0 28px 90px rgba(0,0,0,.5);
+    --shadow-soft: 0 18px 50px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .nav {
+    width: min(calc(100% - 32px), 1180px);
+    margin: 18px auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--paper);
+    border: 1px solid var(--soft);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-soft);
+    position: sticky;
+    top: 14px;
+    z-index: 50;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 900; font-size: 18px; letter-spacing: -.02em;
+  }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--green), var(--green-2));
+    box-shadow: 0 4px 12px rgba(185,255,36,.4);
+  }
+  .nav-links { display: flex; gap: 22px; font-weight: 600; font-size: 14px; }
+  .nav-links a { color: var(--muted); transition: color .15s; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: var(--radius-pill);
+    font-weight: 700; font-size: 14px; cursor: pointer;
+    border: 1px solid transparent; transition: transform .15s, box-shadow .15s, background .15s;
+  }
+  .btn-small { padding: 7px 14px; font-size: 13px; }
+  .btn-primary {
+    background: linear-gradient(180deg, var(--green), var(--green-2));
+    color: #13220b;
+    box-shadow: 0 6px 18px rgba(185,255,36,.32);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(185,255,36,.42); }
+  .btn-secondary {
+    background: transparent; color: var(--ink);
+    border-color: var(--soft);
+  }
+  .btn-secondary:hover { background: var(--soft-2); }
+  .nav-support {
+    border-color: rgba(185,255,36,.45);
+    color: var(--green-2);
+    font-weight: 800;
+  }
+  html[data-theme="dark"] .nav-support { color: var(--green); }
+  .theme-toggle {
+    width: 38px; height: 38px; padding: 0;
+    display: grid; place-items: center; border-radius: 50%;
+    background: transparent; border: 1px solid var(--soft); cursor: pointer;
+    color: var(--ink);
+  }
+  .theme-toggle svg { width: 18px; height: 18px; }
+  .theme-toggle .moon { display: none; }
+  html[data-theme="dark"] .theme-toggle .sun { display: none; }
+  html[data-theme="dark"] .theme-toggle .moon { display: block; }
+
+  main {
+    width: min(calc(100% - 32px), var(--max));
+    margin: 0 auto;
+    padding: 56px 0 80px;
+    flex: 1;
+  }
+  .faq-head { text-align: center; margin-bottom: 44px; }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--green-2);
+    background: var(--soft-2);
+    padding: 5px 14px; border-radius: var(--radius-pill);
+    margin-bottom: 16px;
+  }
+  html[data-theme="dark"] .eyebrow { color: var(--green); }
+  .faq-head h1 { font-size: clamp(32px, 6vw, 52px); font-weight: 900; letter-spacing: -.03em; line-height: 1.1; }
+  .faq-head p { color: var(--muted); margin-top: 14px; font-size: 17px; }
+
+  .faq-section-title {
+    font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 36px 0 12px; padding-left: 4px;
+  }
+  .faq-section-title:first-of-type { margin-top: 0; }
+
+  details.faq-item {
+    background: var(--paper);
+    border: 1px solid var(--soft);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  details.faq-item[open] { border-color: rgba(185,255,36,.5); box-shadow: var(--shadow-soft); }
+  details.faq-item summary {
+    list-style: none; cursor: pointer;
+    padding: 18px 22px;
+    font-weight: 700; font-size: 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  details.faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary .chev {
+    flex-shrink: 0; width: 20px; height: 20px;
+    transition: transform .2s; color: var(--green-2);
+  }
+  html[data-theme="dark"] .faq-item summary .chev { color: var(--green); }
+  details.faq-item[open] summary .chev { transform: rotate(180deg); }
+  .faq-item .faq-body {
+    padding: 0 22px 20px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .faq-item .faq-body a { color: var(--green-2); font-weight: 600; }
+  html[data-theme="dark"] .faq-item .faq-body a { color: var(--green); }
+  .faq-item .faq-body code {
+    background: var(--soft-2); padding: 2px 7px; border-radius: 6px;
+    font-size: 13px; font-family: ui-monospace, monospace; color: var(--ink);
+  }
+
+  .faq-cta {
+    margin-top: 48px; text-align: center;
+    background: var(--paper); border: 1px solid var(--soft);
+    border-radius: var(--radius-lg); padding: 40px 28px;
+    box-shadow: var(--shadow-soft);
+  }
+  .faq-cta h2 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .faq-cta p { color: var(--muted); margin: 10px 0 22px; }
+  .faq-cta .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .footer {
+    width: min(calc(100% - 32px), 1180px);
+    margin: 0 auto;
+    padding: 28px 0 42px;
+    display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    color: var(--muted); font-size: 13px;
+    border-top: 1px solid var(--soft);
+  }
+  .footer-links { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+  .footer-links a { font-weight: 700; color: var(--ink); }
+  .footer-support {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 14px; border-radius: var(--radius-pill);
+    background: linear-gradient(180deg, #caff37, #75d91b); color: #13220b !important;
+  }
+
+  @media (max-width: 720px) {
+    .nav-links, .nav-support { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header class="nav" aria-label="Navigation principale">
+    <a class="brand" href="/" aria-label="Accueil TookBot">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>TookBot</span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="/#features">Features</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" aria-label="Changer le thème" onclick="toggleTheme()">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.4-6.4 1.4-1.4M4.2 19.8l1.4-1.4m0-12.8L4.2 4.2m15.6 15.6-1.4-1.4" stroke="currentColor" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="4" stroke="currentColor"/>
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20 14.4A7.8 7.8 0 0 1 9.6 4a8.2 8.2 0 1 0 10.4 10.4Z" stroke="currentColor" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <a class="btn btn-secondary btn-small nav-support" href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">☕ Soutenir</a>
+      <a class="btn btn-primary btn-small" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="faq-head">
+      <span class="eyebrow">Questions fréquentes</span>
+      <h1>On répond à tout.</h1>
+      <p>Tout ce qu'il faut savoir pour bien démarrer avec TookBot.</p>
+    </div>
+
+    <h2 class="faq-section-title">Démarrage</h2>
+
+    <details class="faq-item">
+      <summary>C'est quoi TookBot ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">TookBot est un bot Discord tout-en-un : système d'XP et niveaux, modération, musique YouTube, duels de sabres laser, giveaways, tickets, rôles-réaction, alertes réseaux, mini-jeux, et un dashboard web complet pour tout configurer. Plus de 30 commandes slash.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment ajouter TookBot à mon serveur ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Clique sur le bouton <strong>Inviter</strong> en haut de la page, choisis ton serveur, et autorise les permissions. Une fois ajouté, tape <code>/setup</code> pour configurer les salons de base (bienvenue, logs, alertes, admin).</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Est-ce que TookBot est gratuit ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Oui. Toutes les fonctionnalités principales sont gratuites, sans paywall sur l'essentiel. Des options premium existent pour soutenir le projet, mais le bot reste utilisable gratuitement. Tu peux aussi <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">offrir un café</a> pour aider à payer l'hébergement.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment voir la liste des commandes ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Tape <code>/commandes</code> dans n'importe quel salon. Discord propose aussi l'autocomplétion : tape <code>/</code> et sélectionne TookBot pour voir toutes les commandes disponibles.</div>
+    </details>
+
+    <h2 class="faq-section-title">Fonctionnalités</h2>
+
+    <details class="faq-item">
+      <summary>Comment fonctionne le système d'XP ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Les membres gagnent de l'XP en discutant. Plus ils sont actifs, plus ils montent de niveau. Tape <code>/niveau</code> pour voir ta carte de progression. Tu peux régler le gain d'XP et le cooldown anti-spam depuis le dashboard.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Le bot peut jouer de la musique ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Oui, TookBot lit de la musique depuis YouTube dans les salons vocaux. File d'attente, contrôle de lecture, le tout via commandes slash.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Quels outils de modération sont disponibles ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Avertissements, notes, expulsions, bannissements, exclusions temporaires, logs détaillés, et un système de permissions modérateurs configurable. Tu peux donner accès à certaines fonctions à un rôle modérateur sans donner les droits admin Discord.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>C'est quoi les tickets et les rôles-réaction ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body"><strong>Tickets</strong> : un panneau où les membres ouvrent un salon privé pour contacter le staff (avec transcripts). <strong>Rôles-réaction</strong> : un message où les membres cliquent (réaction ou bouton) pour s'attribuer un rôle eux-mêmes. Configurables via <code>/ticket</code> et <code>/rolereaction</code> ou le dashboard.</div>
+    </details>
+
+    <h2 class="faq-section-title">Dashboard & config</h2>
+
+    <details class="faq-item">
+      <summary>Comment accéder au dashboard web ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Va sur <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a> et connecte-toi avec Discord. Tu y configures l'XP, le message de bienvenue, les fonctionnalités, les permissions modérateurs, et plus encore, sans taper de commandes.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment activer ou désactiver une fonctionnalité ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Sur le dashboard, page <strong>Fonctionnalités</strong> : un interrupteur on/off par fonction, propre à chaque serveur. Si un membre utilise une commande désactivée, il reçoit un message discret.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Mes données sont-elles en sécurité ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">TookBot ne stocke que le strict nécessaire au fonctionnement (XP, config serveur). Consulte la <a href="https://dashboard.tookbot.click/privacy" target="_blank" rel="noopener">politique de confidentialité</a> pour le détail.</div>
+    </details>
+
+    <h2 class="faq-section-title">Soutien & aide</h2>
+
+    <details class="faq-item">
+      <summary>Comment soutenir le projet ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">TookBot est développé en solo et tourne sur un serveur payé de ma poche. Si le bot rend ton serveur plus vivant, tu peux <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">offrir un café sur Ko-fi</a>. Chaque don aide à garder le bot en ligne 24/7 et à développer de nouvelles fonctions.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>J'ai un bug ou une question, où demander ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Rejoins le <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">serveur de support</a>. Tu peux y signaler un bug, poser une question ou proposer une idée. On répond vite.</div>
+    </details>
+
+    <div class="faq-cta">
+      <h2>Une autre question ?</h2>
+      <p>Le serveur de support est là pour ça.</p>
+      <div class="row">
+        <a class="btn btn-primary" href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">Rejoindre le support</a>
+        <a class="btn btn-secondary" href="/">Retour à l'accueil</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span>© TookBot - Bot Discord personnel</span>
+    <div class="footer-links">
+      <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="footer-support">☕ Soutenir TookBot</a>
+      <a href="/">Accueil</a>
+      <a href="https://dashboard.tookbot.click">Dashboard</a>
+      <a href="https://dashboard.tookbot.click/privacy">Privacy</a>
+    </div>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const cur = document.documentElement.dataset.theme;
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('tookbot-theme', next);
+    }
+  </script>
+</body>
+</html>
