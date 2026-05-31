@@ -149,6 +149,12 @@
   .don-sub { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
   .don-msg { font-size: 12px; color: var(--text-2); margin-top: 5px; font-style: italic; }
   .don-date { font-size: 10px; color: var(--text-3); margin-top: 5px; }
+  .don-del {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--text-3); font-size: 13px; margin-left: 8px; padding: 0 4px;
+    border-radius: 4px; transition: color 120ms, background 120ms;
+  }
+  .don-del:hover { color: #ff5b5b; background: oklch(0.6 0.2 25 / 0.12); }
 </style>
 {% endblock %}
 
@@ -413,10 +419,12 @@
       {% if donations.recent %}
       <div class="don-list">
         {% for d in donations.recent %}
-        <div class="don-row">
+        <div class="don-row" data-don-id="{{ d.id }}">
           <div class="don-head">
             <span class="don-name">{{ d.name }}{% if d.is_subscription %} <span class="don-sub">abonnement</span>{% endif %}</span>
-            <span class="don-amt">{{ d.amount }} {{ d.currency }}</span>
+            <span class="don-amt">{{ d.amount }} {{ d.currency }}
+              <button class="don-del" title="Supprimer ce don" onclick="deleteDonation({{ d.id }}, this)">✕</button>
+            </span>
           </div>
           {% if d.message %}<div class="don-msg">« {{ d.message }} »</div>{% endif %}
           <div class="don-date">{{ d.ts }}{% if d.tier_name %} · {{ d.tier_name }}{% endif %}</div>
@@ -490,4 +498,25 @@
     · Engagement (temps/scroll/device) base sur le tracker JS, donnees disponibles apres deploiement.
   </p>
 </div>
+
+<script>
+async function deleteDonation(id, btn) {
+  if (!confirm("Supprimer ce don ? (utile pour les dons de test)")) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/owner/donations/" + id, { method: "DELETE" });
+    const data = await r.json();
+    if (data.ok) {
+      const row = document.querySelector('.don-row[data-don-id="' + id + '"]');
+      if (row) row.remove();
+    } else {
+      alert("Echec de la suppression.");
+      btn.disabled = false;
+    }
+  } catch (e) {
+    alert("Erreur reseau.");
+    btn.disabled = false;
+  }
+}
+</script>
 {% endblock %}

@@ -1873,6 +1873,19 @@ def donation_add(txn_id, kofi_type=None, donor_name=None, amount=0, currency=Non
         conn.close()
 
 
+def donation_delete(donation_id):
+    """Supprime un don par son id. Retourne True si supprime."""
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute("DELETE FROM donations WHERE id = ?", (int(donation_id),))
+        deleted = c.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        conn.close()
+
+
 def donations_stats():
     """Stats dons : totaux par periode, compteurs, top donateurs, liste recente, par jour."""
     conn = get_db()
@@ -1915,12 +1928,13 @@ def donations_stats():
 
     # Dons recents (50 derniers)
     recent = c.execute(
-        '''SELECT donor_name, amount, currency, message, is_subscription,
+        '''SELECT id, donor_name, amount, currency, message, is_subscription,
                   tier_name, ts
            FROM donations ORDER BY ts DESC LIMIT 50'''
     ).fetchall()
     out["recent"] = [
-        {"name": r["donor_name"] or "Anonyme",
+        {"id": int(r["id"]),
+         "name": r["donor_name"] or "Anonyme",
          "amount": round(float(r["amount"]), 2),
          "currency": r["currency"] or "EUR",
          "message": r["message"],

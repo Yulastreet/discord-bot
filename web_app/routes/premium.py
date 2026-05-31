@@ -315,6 +315,15 @@ def register_premium_routes(app, deps):
         })
 
 
+    @app.route("/api/owner/donations/<int:donation_id>", methods=["DELETE"])
+    def api_owner_donation_delete(donation_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        from database import donation_delete
+        ok = donation_delete(donation_id)
+        return jsonify({"ok": ok})
+
+
     # ===== Owner : IA Groq config =====
     @app.route("/owner/ai")
     def owner_ai_page():
