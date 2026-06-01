@@ -6,6 +6,15 @@ import yt_dlp
 
 from .music_voice import connect_to_voice
 
+
+def _is_playlist_url(query):
+    """True si l'URL est une playlist YouTube (contient list=...)."""
+    if not isinstance(query, str) or not query.startswith("http"):
+        return False
+    q = query.lower()
+    return ("youtube.com/playlist" in q or
+            ("list=" in q and ("youtube.com" in q or "youtu.be" in q)))
+
 # Message friendly pour tous les soucis musique. Les vraies erreurs sont
 # loggees pour debug owner. L'utilisateur final voit juste un message
 # rassurant + pas de stack trace cryptique.
@@ -48,8 +57,8 @@ def setup_music_commands(bot, deps):
             traceback.print_exc()
             await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
 
-    @bot.tree.command(name="play", description="Jouer une musique")
-    @app_commands.describe(query="Titre ou lien YouTube")
+    @bot.tree.command(name="play", description="Jouer une musique (lien ou titre, playlist YouTube supportee)")
+    @app_commands.describe(query="Titre, lien vidéo ou lien playlist YouTube")
     async def play(interaction: discord.Interaction, query: str):
         if not interaction.user.voice:
             await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
@@ -66,6 +75,36 @@ def setup_music_commands(bot, deps):
                             voice_channel_id=str(voice_channel.id),
                             voice_channel_name=voice_channel.name)
             gid = str(interaction.guild.id)
+
+            # --- Playlist YouTube : on ajoute toutes les pistes ---
+            if _is_playlist_url(query):
+                await interaction.followup.send(f"🔍 Chargement de la playlist...")
+                try:
+                    pl = await get_playlist_info(query, max_items=50)
+                except Exception as e:
+                    print(f"[music] playlist error: {e}")
+                    await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+                    return
+                entries = pl.get("entries") or []
+                if not entries:
+                    await interaction.followup.send("❌ Playlist vide ou inaccessible.")
+                    return
+                for entry in entries:
+                    music_queue_add(gid,
+                                    title=entry["title"],
+                                    url=entry["url"],
+                                    source_url=entry.get("source_url"),
+                                    duration=entry.get("duration"),
+                                    thumbnail=entry.get("thumbnail"),
+                                    requested_by=interaction.user.id)
+                await interaction.followup.send(
+                    f"📋 **{len(entries)}** pistes ajoutées depuis **{pl.get('playlist_title','Playlist')}**"
+                )
+                if vc.is_connected() and not vc.is_playing():
+                    await play_next(vc, interaction.channel, interaction.guild.id)
+                return
+
+            # --- Track unique (titre ou lien vidéo) ---
             await interaction.followup.send(f"🔍 Recherche de **{query}**...")
             try:
                 info = await get_audio_info(query)
@@ -90,6 +129,91 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
             except Exception:
                 pass
+
+
+    def _fmt_duration(seconds):
+        if not seconds or seconds <= 0:
+            return "—"
+        s = int(seconds)
+        h, rem = divmod(s, 3600)
+        m, sec = divmod(rem, 60)
+        if h:
+            return f"{h}h{m:02d}m{sec:02d}s"
+        return f"{m}:{sec:02d}"
+
+
+    @bot.tree.command(name="nowplaying", description="Voir la musique en cours")
+    async def nowplaying(interaction: discord.Interaction):
+        gid = str(interaction.guild.id)
+        st = music_state_get(gid) or {}
+        title = st.get("current_title")
+        if not title:
+            await interaction.response.send_message("🔇 Aucune musique en cours.", ephemeral=True)
+            return
+
+        url = st.get("current_url") or ""
+        duration = st.get("current_duration")
+        thumb = st.get("current_thumbnail")
+        started_at = st.get("started_at")
+        is_paused = bool(st.get("is_paused"))
+        voice_chan_name = st.get("voice_channel_name") or "?"
+
+        # Calcule position si started_at present
+        position_str = "—"
+        progress_bar = ""
+        if started_at:
+            try:
+                import datetime as _dt
+                if "T" in started_at:
+                    start_dt = _dt.datetime.fromisoformat(started_at)
+                    if start_dt.tzinfo is None:
+                        start_dt = start_dt.replace(tzinfo=_dt.timezone.utc)
+                    now = _dt.datetime.now(_dt.timezone.utc)
+                    elapsed = int((now - start_dt).total_seconds())
+                    if elapsed >= 0 and duration:
+                        elapsed = min(elapsed, int(duration))
+                        position_str = f"{_fmt_duration(elapsed)} / {_fmt_duration(duration)}"
+                        # Progress bar 20 chars
+                        ratio = elapsed / max(1, int(duration))
+                        filled = int(ratio * 20)
+                        progress_bar = "▰" * filled + "▱" * (20 - filled)
+                    elif duration:
+                        position_str = f"— / {_fmt_duration(duration)}"
+            except Exception:
+                pass
+        if position_str == "—" and duration:
+            position_str = _fmt_duration(duration)
+
+        embed = discord.Embed(
+            title=("⏸️ " if is_paused else "🎵 ") + title[:240],
+            url=url if url.startswith("http") else None,
+            color=discord.Color.blurple() if not is_paused else discord.Color.orange(),
+        )
+        if thumb:
+            embed.set_thumbnail(url=thumb)
+        embed.add_field(name="Durée", value=position_str, inline=True)
+        embed.add_field(name="Salon vocal", value=f"🔊 {voice_chan_name}", inline=True)
+        if progress_bar:
+            embed.add_field(name="​", value=f"`{progress_bar}`", inline=False)
+
+        # File suivante (3 premieres)
+        try:
+            q = music_queue_list(gid) or []
+        except Exception:
+            q = []
+        if q:
+            next_lines = []
+            for i, t in enumerate(q[:3], 1):
+                dur = _fmt_duration(t.get("duration")) if t.get("duration") else "—"
+                next_lines.append(f"`{i}.` {t['title'][:60]} · `{dur}`")
+            embed.add_field(
+                name=f"🎶 À suivre ({len(q)} en file)",
+                value="\n".join(next_lines) + (f"\n_… +{len(q)-3} autres_" if len(q) > 3 else ""),
+                inline=False,
+            )
+
+        embed.set_footer(text="TookBot · /queue pour la file complète · /skip pour passer")
+        await interaction.response.send_message(embed=embed)
 
     @bot.tree.command(name="skip", description="Passer à la musique suivante")
     async def skip(interaction: discord.Interaction):

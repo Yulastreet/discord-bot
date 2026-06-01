@@ -509,6 +509,56 @@ def _extract_audio_info_sync(query):
     raise RuntimeError("Aucun resultat YouTube trouve pour cette recherche.")
 
 
+def _is_playlist_url(query):
+    """True si l'URL est une playlist YouTube (contient list=...)."""
+    if not isinstance(query, str) or not query.startswith("http"):
+        return False
+    q = query.lower()
+    return ("youtube.com/playlist" in q or
+            ("list=" in q and "youtube.com" in q) or
+            ("list=" in q and "youtu.be" in q))
+
+
+def _extract_playlist_sync(url, max_items=50):
+    """Extrait la liste des entries d'une playlist YouTube.
+
+    Retourne une liste de dicts avec metadata minimale (title, url, duration).
+    On utilise extract_flat pour eviter de tout resoudre maintenant : on
+    resout chaque entry au moment de la lecture (play_next).
+    """
+    opts = dict(YDL_OPTIONS)
+    opts["noplaylist"] = False
+    opts["extract_flat"] = "in_playlist"
+    opts["playlistend"] = max_items
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    entries = info.get("entries") or []
+    out = []
+    for e in entries:
+        if not e:
+            continue
+        entry_url = _entry_url(e)
+        if not entry_url:
+            continue
+        out.append({
+            "title":      e.get("title") or "(sans titre)",
+            "url":        entry_url,
+            "source_url": entry_url,
+            "duration":   e.get("duration"),
+            "thumbnail":  None,  # resolu plus tard par play_next via extract_info
+        })
+    return {
+        "playlist_title": info.get("title") or "Playlist YouTube",
+        "entries":        out,
+    }
+
+
+async def get_playlist_info(url, max_items=50):
+    """Retourne {playlist_title, entries:[{title,url,duration,...}, ...]}."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: _extract_playlist_sync(url, max_items))
+
+
 async def get_audio_info(query):
     """Retourne dict {url, title, duration, thumbnail, source_url} depuis yt-dlp."""
     loop = asyncio.get_event_loop()
