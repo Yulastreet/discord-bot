@@ -570,8 +570,28 @@ async def get_audio_info(query):
             raise RuntimeError(f"YouTube demande une verification anti-bot.{_music_auth_hint()} Erreur yt-dlp: {msg}") from e
         raise
 
+# Compteur de fails consecutifs par guild : evite spam quand TOUTE une playlist
+# foire (genre tous les liens sont des pages YT non resolvables).
+_PLAY_FAIL_COUNTER: dict = {}
+_PLAY_FAIL_MAX = 5
+
+
+def _is_webpage_url(url):
+    """True si l'URL est une page YouTube/YT Music (pas un stream audio direct)."""
+    if not url:
+        return False
+    u = url.lower()
+    return ("youtube.com/watch" in u or "youtu.be/" in u or
+            "music.youtube.com" in u)
+
+
 async def play_next(voice_client, channel, guild_id):
-    """Pop next track from DB queue and play. channel optional (for chat notif)."""
+    """Pop next track from DB queue and play. channel optional (for chat notif).
+
+    Resout les URLs webpage YouTube en stream audio via yt-dlp avant lecture
+    (cas typique : tracks ajoutees depuis une playlist en mode extract_flat).
+    Circuit breaker apres N fails consecutifs pour eviter spam de la file.
+    """
     if not voice_client or not voice_client.is_connected():
         print(f"[music] play_next skipped: voice client not connected (guild={guild_id})")
         if channel:
@@ -584,32 +604,77 @@ async def play_next(voice_client, channel, guild_id):
     track = music_queue_pop_next(str(guild_id))
     if not track:
         music_state_clear_current(str(guild_id))
+        _PLAY_FAIL_COUNTER.pop(str(guild_id), None)
         if channel:
             try: await channel.send("✅ File d'attente terminée !")
             except Exception: pass
         return
 
+    # Si l'URL stockee est une page YouTube (cas playlist extract_flat),
+    # on re-resout via yt-dlp pour obtenir un vrai stream audio.
+    stream_url = track.get("url")
+    thumbnail = track.get("thumbnail")
+    duration = track.get("duration")
+    if _is_webpage_url(stream_url):
+        try:
+            resolved = await get_audio_info(stream_url)
+            stream_url = resolved.get("url") or stream_url
+            if not thumbnail:
+                thumbnail = resolved.get("thumbnail")
+            if not duration:
+                duration = resolved.get("duration")
+        except Exception as e:
+            print(f"[music] resolve fail for {track.get('title')!r}: {type(e).__name__}: {e}")
+            _PLAY_FAIL_COUNTER[str(guild_id)] = _PLAY_FAIL_COUNTER.get(str(guild_id), 0) + 1
+            if _PLAY_FAIL_COUNTER[str(guild_id)] >= _PLAY_FAIL_MAX:
+                music_queue_clear(str(guild_id))
+                music_state_clear_current(str(guild_id))
+                _PLAY_FAIL_COUNTER.pop(str(guild_id), None)
+                if channel:
+                    try:
+                        await channel.send(
+                            "⚠️ Trop d'erreurs de lecture consécutives. File vidée pour éviter le spam."
+                        )
+                    except Exception:
+                        pass
+                return
+            # Track suivante (silencieux, pas de notif)
+            return await play_next(voice_client, channel, guild_id)
+
     try:
-        source = discord.FFmpegPCMAudio(track["url"], **FFMPEG_OPTIONS)
+        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
         voice_client.play(
             source,
             after=lambda e: asyncio.run_coroutine_threadsafe(
                 play_next(voice_client, channel, guild_id), bot.loop
             )
         )
+        # Reset compteur fails sur succes
+        _PLAY_FAIL_COUNTER.pop(str(guild_id), None)
         music_state_set(str(guild_id),
             current_title=track["title"],
-            current_url=track["url"],
-            current_thumbnail=track.get("thumbnail"),
-            current_duration=track.get("duration"),
+            current_url=track.get("source_url") or track.get("url"),
+            current_thumbnail=thumbnail,
+            current_duration=duration,
             is_playing=1, is_paused=0,
             started_at=_dt.datetime.utcnow().isoformat(timespec="seconds"))
         if channel:
             try: await channel.send(f"🎵 En cours : **{track['title']}**")
             except Exception: pass
     except Exception as e:
-        print(f"[music] play_next error: {e}")
-        music_state_clear_current(str(guild_id))
+        print(f"[music] play_next error: {type(e).__name__}: {e}")
+        _PLAY_FAIL_COUNTER[str(guild_id)] = _PLAY_FAIL_COUNTER.get(str(guild_id), 0) + 1
+        if _PLAY_FAIL_COUNTER[str(guild_id)] >= _PLAY_FAIL_MAX:
+            music_queue_clear(str(guild_id))
+            music_state_clear_current(str(guild_id))
+            _PLAY_FAIL_COUNTER.pop(str(guild_id), None)
+            if channel:
+                try:
+                    await channel.send(
+                        "⚠️ Trop d'erreurs de lecture consécutives. File vidée pour éviter le spam."
+                    )
+                except Exception:
+                    pass
 
 
 # ===== FEATURE GUARD TREE =====
