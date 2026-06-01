@@ -528,39 +528,54 @@
 
   .stats-strip {
     width: min(calc(100% - 32px), var(--max));
-    margin: -48px auto 0;
+    margin: clamp(56px, 8vw, 96px) auto;
     position: relative;
     z-index: 5;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: clamp(20px, 4vw, 60px);
+    text-align: center;
   }
 
   .stat {
-    min-height: 116px;
-    padding: 22px;
-    border: 1px solid rgba(8, 9, 12, .08);
-    border-radius: 28px;
-    background: rgba(255,255,255,.72);
-    box-shadow: var(--shadow-soft);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .stat strong {
+    display: block;
+    font-size: clamp(54px, 9vw, 110px);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(180deg, var(--green) 0%, var(--green-2) 60%, var(--green-deep) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 38px rgba(185,255,36,.18);
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   .stat span {
     display: block;
     color: var(--muted);
-    font-size: 13px;
+    font-size: clamp(14px, 1.2vw, 17px);
     font-weight: 700;
+    letter-spacing: 0.02em;
   }
 
-  .stat strong {
-    display: block;
-    margin-top: 8px;
-    color: var(--ink);
-    font-size: clamp(28px, 4vw, 46px);
-    line-height: 1;
-    letter-spacing: 0;
+  @media (max-width: 720px) {
+    .stats-strip { grid-template-columns: 1fr; gap: 36px; }
   }
 
   section {
@@ -2172,18 +2187,18 @@
         </div>
       </section>
 
-      <div class="stats-strip reveal" aria-label="Statistiques TookBot">
-        <div class="stat tilt-ready">
-          <span>Serveurs</span>
-          <strong id="statGuilds">-</strong>
+      <div class="stats-strip reveal" id="statsStrip" aria-label="Statistiques TookBot">
+        <div class="stat">
+          <strong id="statGuilds" data-count="0">0</strong>
+          <span>Serveurs Discord</span>
         </div>
-        <div class="stat tilt-ready">
+        <div class="stat">
+          <strong id="statUsers" data-count="0">0</strong>
           <span>Comptes suivis</span>
-          <strong id="statUsers">-</strong>
         </div>
-        <div class="stat tilt-ready">
+        <div class="stat">
+          <strong id="statSlash" data-count="76" data-suffix="+">0</strong>
           <span>Commandes slash</span>
-          <strong>70+</strong>
         </div>
       </div>
 
@@ -2522,28 +2537,81 @@
   function animateNumber(element, value) {
     if (!element || value == null) return;
     if (reduceMotion || !window.gsap) {
-      element.textContent = fmtNum(value);
+      element.textContent = fmtNum(value) + (element.dataset.suffix || '');
       return;
     }
     const counter = { value: 0 };
+    const suffix = element.dataset.suffix || '';
     gsap.to(counter, {
       value,
-      duration: 1.4,
+      duration: 1.8,
       ease: 'power3.out',
       onUpdate: () => {
-        element.textContent = fmtNum(Math.round(counter.value));
+        element.textContent = fmtNum(Math.round(counter.value)) + suffix;
       }
     });
   }
 
-  fetch('https://dashboard.tookbot.click/api/public-stats')
-    .then((response) => response.ok ? response.json() : null)
-    .then((data) => {
-      if (!data) return;
-      animateNumber(document.getElementById('statGuilds'), data.guilds);
-      animateNumber(document.getElementById('statUsers'), data.users);
-    })
-    .catch(() => {});
+  // ===== Stats count-up : declenche au scroll dans la viewport =====
+  // Pour les 3 chiffres : valeurs definies via data-count (slash) ou
+  // injectees apres fetch dashboard.tookbot.click/api/public-stats.
+  // L'animation tourne UNE seule fois quand la strip devient visible
+  // ET que la data finale est connue.
+  (function() {
+    const strip = document.getElementById('statsStrip');
+    if (!strip) return;
+    let visible = false;
+    let played = { statGuilds: false, statUsers: false, statSlash: false };
+
+    function tryAnimate(id) {
+      if (played[id]) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      const target = parseInt(el.dataset.count || '0', 10);
+      if (!visible) return;
+      played[id] = true;
+      animateNumber(el, target);
+    }
+
+    function playAll() {
+      tryAnimate('statGuilds');
+      tryAnimate('statUsers');
+      tryAnimate('statSlash');
+    }
+
+    if ('IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            visible = true;
+            playAll();
+            obs.disconnect();
+          }
+        });
+      }, { threshold: 0.35 });
+      obs.observe(strip);
+    } else {
+      visible = true;
+      playAll();
+    }
+
+    fetch('https://dashboard.tookbot.click/api/public-stats')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data) return;
+        const g = document.getElementById('statGuilds');
+        const u = document.getElementById('statUsers');
+        if (g && typeof data.guilds === 'number') {
+          g.dataset.count = String(data.guilds);
+          tryAnimate('statGuilds');
+        }
+        if (u && typeof data.users === 'number') {
+          u.dataset.count = String(data.users);
+          tryAnimate('statUsers');
+        }
+      })
+      .catch(() => {});
+  })();
 
   window.addEventListener('load', () => {
     document.querySelectorAll('.reveal').forEach((element) => {
