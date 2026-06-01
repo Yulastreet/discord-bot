@@ -1,4 +1,4 @@
-﻿import os
+import os
 # Nettoyer les env vars Node IPC heritees de pm2 â€” sinon Deno (utilise par yt-dlp
 # pour resoudre les JS challenges YouTube) crash avec "fd is not from BiPipe".
 for _v in ("NODE_CHANNEL_FD", "NODE_UNIQUE_ID", "NODE_OPTIONS",
@@ -142,7 +142,11 @@ from commandes.custom_cmd import setup_custom_cmd_commands
 from commandes.lol import setup_lol_commands
 from cards.niveau import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
-from services.status_utils import best_firefox_cookie_profile
+from services.status_utils import (
+    best_firefox_auth_cookie_profile,
+    best_firefox_cookie_profile,
+    bgutil_plugin_status,
+)
 from tasks.runtime import setup_runtime
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
@@ -363,6 +367,10 @@ YDL_OPTIONS = {
     'source_address': '0.0.0.0',
     'youtube_include_dash_manifest': True,
     'prefer_free_formats': True,
+    # Proxy SOCKS5 vers Cloudflare WARP local : YouTube voit une IP Cloudflare
+    # (rarement bloquee) au lieu de l'IP datacenter du VPS. Reglable via env
+    # YT_PROXY="" pour desactiver.
+    'proxy': os.getenv("YT_PROXY", "socks5://127.0.0.1:40000") or None,
     # Clients YouTube : web/mweb consomment le po_token fourni par bgutil.
     # Fallbacks ios/android/tv pour cas ou web echoue.
     'extractor_args': {
@@ -377,29 +385,41 @@ YDL_OPTIONS = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
 }
+# Nettoie si proxy vide (cas YT_PROXY="" explicite)
+if not YDL_OPTIONS.get('proxy'):
+    YDL_OPTIONS.pop('proxy', None)
 
 # Cookies : priorite Firefox live (auto-rotation par le browser sur le VPS),
 # fallback cookies.txt manuel.
 _USE_FIREFOX_COOKIES = os.getenv("YT_USE_FIREFOX_COOKIES", "1") == "1"
-_FIREFOX_COOKIE_PROFILE = os.getenv("YT_FIREFOX_PROFILE") or best_firefox_cookie_profile()
-if _USE_FIREFOX_COOKIES:
+_BGUTIL_PLUGIN = bgutil_plugin_status()
+_FIREFOX_COOKIE_PROFILE = os.getenv("YT_FIREFOX_PROFILE") or best_firefox_auth_cookie_profile()
+_FIREFOX_FALLBACK_PROFILE = None if _FIREFOX_COOKIE_PROFILE else best_firefox_cookie_profile()
+if _USE_FIREFOX_COOKIES and _FIREFOX_COOKIE_PROFILE:
     # yt-dlp lit cookies.sqlite live du profil par defaut.
-    YDL_OPTIONS['cookiesfrombrowser'] = ('firefox', _FIREFOX_COOKIE_PROFILE) if _FIREFOX_COOKIE_PROFILE else ('firefox',)
-    print(f"[yt-dlp] cookies-from-browser: firefox ({_FIREFOX_COOKIE_PROFILE or 'profil par defaut'})")
+    YDL_OPTIONS['cookiesfrombrowser'] = ('firefox', _FIREFOX_COOKIE_PROFILE)
+    print(f"[yt-dlp] cookies-from-browser: firefox ({_FIREFOX_COOKIE_PROFILE})")
 elif os.path.exists(_COOKIES_PATH):
     YDL_OPTIONS['cookiefile'] = _COOKIES_PATH
     print(f"[yt-dlp] cookies loaded from {_COOKIES_PATH}")
 else:
-    print(f"[yt-dlp] aucun cookies.txt detecte ({_COOKIES_PATH}) â€” bgutil pot provider doit suffire.")
+    if _USE_FIREFOX_COOKIES and _FIREFOX_FALLBACK_PROFILE:
+        print(f"[yt-dlp] profil Firefox detecte sans auth YouTube exploitable: {_FIREFOX_FALLBACK_PROFILE}")
+    print(f"[yt-dlp] aucun cookie YouTube authentifie detecte ({_COOKIES_PATH})")
 
-print(f"[yt-dlp] bgutil pot provider endpoint: {_BGUTIL_POT_URL}")
+if not _BGUTIL_PLUGIN["installed"]:
+    print("[yt-dlp] bgutil-ytdlp-pot-provider manquant - installe requirements.txt pour activer le PO token provider.")
+
+print(f"[yt-dlp] bgutil pot provider endpoint: {_BGUTIL_POT_URL} (plugin={_BGUTIL_PLUGIN['version'] or 'missing'})")
 BOT_STATE["youtube"] = {
     "yt_use_firefox_cookies": _USE_FIREFOX_COOKIES,
     "bgutil_pot_url": _BGUTIL_POT_URL,
+    "bgutil_plugin": _BGUTIL_PLUGIN,
     "cookies_path": _COOKIES_PATH,
     "cookies_txt_exists": os.path.exists(_COOKIES_PATH),
     "firefox_profile": _FIREFOX_COOKIE_PROFILE,
-    "effective_mode": "firefox" if _USE_FIREFOX_COOKIES else ("cookies.txt" if os.path.exists(_COOKIES_PATH) else "bgutil_only"),
+    "firefox_fallback_profile": _FIREFOX_FALLBACK_PROFILE,
+    "effective_mode": "firefox" if (_USE_FIREFOX_COOKIES and _FIREFOX_COOKIE_PROFILE) else ("cookies.txt" if os.path.exists(_COOKIES_PATH) else "bgutil_only"),
 }
 
 FFMPEG_OPTIONS = {
@@ -416,22 +436,74 @@ FFMPEG_OPTIONS = {
     'options': '-vn -bufsize 1024k',
 }
 
+def _music_auth_hint():
+    if YDL_OPTIONS.get('cookiesfrombrowser') or YDL_OPTIONS.get('cookiefile'):
+        return ""
+    if not _BGUTIL_PLUGIN.get("installed"):
+        return " Installe `bgutil-ytdlp-pot-provider` avec `pip install -r requirements.txt`."
+    return f" Le plugin bgutil est installe, mais verifie que le provider HTTP repond sur `{_BGUTIL_POT_URL}`."
+
+
+def _format_audio_info(info):
+    if 'entries' in info:
+        info = info['entries'][0]
+    return {
+        "url":        info.get("url"),
+        "title":      info.get("title") or "(sans titre)",
+        "duration":   info.get("duration"),
+        "thumbnail":  info.get("thumbnail"),
+        "source_url": info.get("webpage_url") or info.get("original_url"),
+    }
+
+
+def _entry_url(entry):
+    url = entry.get("webpage_url") or entry.get("url")
+    if url and str(url).startswith("http"):
+        return url
+    video_id = entry.get("id") or entry.get("url")
+    if video_id:
+        return f"https://www.youtube.com/watch?v={video_id}"
+    return None
+
+
+def _extract_audio_info_sync(query):
+    if query.startswith("http"):
+        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+            return _format_audio_info(ydl.extract_info(query, download=False))
+
+    flat_options = dict(YDL_OPTIONS)
+    flat_options["extract_flat"] = "in_playlist"
+    with yt_dlp.YoutubeDL(flat_options) as ydl:
+        search = ydl.extract_info(f"ytsearch5:{query}", download=False)
+        candidates = [_entry_url(e) for e in (search.get("entries") or [])]
+        candidates = [u for u in candidates if u]
+
+    last_error = None
+    with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+        for candidate in candidates:
+            try:
+                info = _format_audio_info(ydl.extract_info(candidate, download=False))
+                if info.get("url"):
+                    return info
+            except Exception as e:
+                last_error = e
+                print(f"[music] candidate failed: {candidate} -> {type(e).__name__}: {e}")
+
+    if last_error:
+        raise RuntimeError(f"Aucun resultat YouTube lisible pour cette recherche.{_music_auth_hint()} Derniere erreur: {last_error}")
+    raise RuntimeError("Aucun resultat YouTube trouve pour cette recherche.")
+
+
 async def get_audio_info(query):
     """Retourne dict {url, title, duration, thumbnail, source_url} depuis yt-dlp."""
     loop = asyncio.get_event_loop()
-    with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-        if not query.startswith("http"):
-            query = f"ytsearch:{query}"
-        info = await loop.run_in_executor(None, lambda: ydl.extract_info(query, download=False))
-        if 'entries' in info:
-            info = info['entries'][0]
-        return {
-            "url":        info.get("url"),
-            "title":      info.get("title") or "(sans titre)",
-            "duration":   info.get("duration"),
-            "thumbnail":  info.get("thumbnail"),
-            "source_url": info.get("webpage_url") or info.get("original_url"),
-        }
+    try:
+        return await loop.run_in_executor(None, lambda: _extract_audio_info_sync(query))
+    except Exception as e:
+        msg = str(e)
+        if "Sign in to confirm" in msg or "not a bot" in msg:
+            raise RuntimeError(f"YouTube demande une verification anti-bot.{_music_auth_hint()} Erreur yt-dlp: {msg}") from e
+        raise
 
 async def play_next(voice_client, channel, guild_id):
     """Pop next track from DB queue and play. channel optional (for chat notif)."""

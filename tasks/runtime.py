@@ -1522,91 +1522,76 @@ def setup_runtime(bot, deps):
             raise RuntimeError(f"guild {gid} introuvable (bot pas dans ce serveur ?)")
         vc = guild.voice_client
 
-        if name in ("music_play", "music_skip", "music_stop", "music_pause",
-                     "music_resume", "music_join", "music_leave"):
-            # Moteur audio = Lavalink/wavelink. Les helpers vivent dans commandes/music.py
-            # et sont exposes sur le bot au setup (bot._wl_*).
-            import wavelink as _wl
-            wl_connect = getattr(bot, "_wl_connect_node", None)
-            wl_get_player = getattr(bot, "_wl_get_player", None)
-            wl_play_next = getattr(bot, "_wl_play_db_next", None)
-            if not (wl_connect and wl_get_player and wl_play_next):
-                raise RuntimeError("moteur musique (wavelink) non initialise")
-
-            player = vc if isinstance(vc, _wl.Player) else None
-
-            if name == "music_play":
-                query = payload.get("query")
-                if not query:
-                    raise ValueError("query manquant")
-                if not await wl_connect():
-                    raise RuntimeError("Lavalink indisponible")
-                # Resout le salon vocal
-                if player is None:
-                    ch_id = payload.get("voice_channel_id")
-                    if ch_id:
-                        channel = guild.get_channel(int(ch_id))
-                    else:
-                        channel = next((c for c in guild.voice_channels), None)
-                    if not channel or not isinstance(channel, discord.VoiceChannel):
-                        raise ValueError("salon vocal introuvable")
-                    player = await wl_get_player(guild, channel)
-                    music_state_set(gid, voice_channel_id=str(channel.id),
-                                    voice_channel_name=channel.name)
-                # Recherche Lavalink
-                search_query = query if str(query).startswith("http") else f"ytsearch:{query}"
-                results = await _wl.Playable.search(search_query)
-                if not results:
-                    raise RuntimeError("aucun resultat")
-                track = results[0] if isinstance(results, list) else results.tracks[0]
-                music_queue_add(gid,
-                                title=track.title or "(sans titre)",
-                                url=track.uri or "",
-                                source_url=track.uri or "",
-                                duration=int(track.length / 1000) if track.length else None,
-                                thumbnail=getattr(track, "artwork", None),
-                                requested_by="web")
-                if not player.playing:
-                    await wl_play_next(player, None, int(gid))
-
-            elif name == "music_skip":
-                if player and player.playing:
-                    await player.stop()
-
-            elif name == "music_stop":
-                music_queue_clear(gid)
-                if player:
-                    await player.stop()
-                music_state_clear_current(gid)
-
-            elif name == "music_pause":
-                if player and player.playing:
-                    await player.pause(True)
-                    music_state_set(gid, is_paused=1, is_playing=0)
-
-            elif name == "music_resume":
-                if player and player.paused:
-                    await player.pause(False)
-                    music_state_set(gid, is_paused=0, is_playing=1)
-
-            elif name == "music_join":
+        if name == "music_play":
+            # payload: {query, voice_channel_id (optional)}
+            if not _ensure_opus():
+                raise RuntimeError("libopus pas chargee sur le serveur")
+            query = payload.get("query")
+            if not query:
+                raise ValueError("query manquant")
+            if not vc:
                 ch_id = payload.get("voice_channel_id")
-                if not ch_id:
-                    raise ValueError("voice_channel_id manquant")
-                channel = guild.get_channel(int(ch_id))
-                if not channel:
-                    raise ValueError("salon vocal introuvable")
-                if not await wl_connect():
-                    raise RuntimeError("Lavalink indisponible")
-                await wl_get_player(guild, channel)
-                music_state_set(gid, voice_channel_id=str(channel.id),
-                                voice_channel_name=channel.name)
+                if ch_id:
+                    channel = guild.get_channel(int(ch_id))
+                    if channel and isinstance(channel, discord.VoiceChannel):
+                        vc = await channel.connect()
+                        music_state_set(gid, voice_channel_id=str(channel.id), voice_channel_name=channel.name)
+                    else:
+                        raise ValueError("salon vocal introuvable")
+                else:
+                    vchan = next((c for c in guild.voice_channels), None)
+                    if not vchan:
+                        raise ValueError("aucun salon vocal disponible")
+                    vc = await vchan.connect()
+                    music_state_set(gid, voice_channel_id=str(vchan.id), voice_channel_name=vchan.name)
+            info = await get_audio_info(query)
+            music_queue_add(gid,
+                            title=info["title"], url=info["url"],
+                            source_url=info.get("source_url"),
+                            duration=info.get("duration"),
+                            thumbnail=info.get("thumbnail"),
+                            requested_by="web")
+            if not vc.is_playing():
+                await play_next(vc, None, int(gid))
 
-            elif name == "music_leave":
-                if player:
-                    music_queue_clear(gid)
-                    await player.disconnect()
-                    music_state_disconnect(gid)
+        elif name == "music_skip":
+            if vc and vc.is_playing():
+                vc.stop()
+
+        elif name == "music_stop":
+            music_queue_clear(gid)
+            if vc:
+                vc.stop()
+            music_state_clear_current(gid)
+
+        elif name == "music_pause":
+            if vc and vc.is_playing():
+                vc.pause()
+                music_state_set(gid, is_paused=1, is_playing=0)
+
+        elif name == "music_resume":
+            if vc and vc.is_paused():
+                vc.resume()
+                music_state_set(gid, is_paused=0, is_playing=1)
+
+        elif name == "music_join":
+            ch_id = payload.get("voice_channel_id")
+            if not ch_id:
+                raise ValueError("voice_channel_id manquant")
+            channel = guild.get_channel(int(ch_id))
+            if not channel:
+                raise ValueError("salon vocal introuvable")
+            if vc:
+                await vc.move_to(channel)
+            else:
+                await channel.connect()
+            music_state_set(gid, voice_channel_id=str(channel.id), voice_channel_name=channel.name)
+
+        elif name == "music_leave":
+            if vc:
+                music_queue_clear(gid)
+                await vc.disconnect()
+                music_state_disconnect(gid)
 
         elif name == "music_remove_track":
             from database import music_queue_remove
