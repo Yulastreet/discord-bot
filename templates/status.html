@@ -58,7 +58,10 @@
   </div>
 
   <div class="card">
-    <h2>VPS Oracle Cloud</h2>
+    <h2>VPS Hetzner Cloud</h2>
+    <div class="muted" style="font-size:var(--t-xs);margin-top:4px;">
+      CPX22 · Falkenstein (DE) · 2 vCPU AMD · 4 GB RAM · 80 GB SSD · IP <code>167.233.18.223</code>
+    </div>
     <div id="systemInfo" class="mt-2"></div>
   </div>
 
@@ -324,6 +327,7 @@ function render(d) {
     })
     .join('<br>') || 'Aucun profil Firefox avec cookies détecté';
   const bins = yt.firefox_bins || {};
+  const bgutilPlugin = yt.bgutil_plugin || botYt.bgutil_plugin || {};
   const warnings = (yt.warnings || []).map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('');
   yEl.innerHTML = `
     <div class="kv-row"><span class="kv-key">Mode web détecté</span><span class="kv-val">${escapeHtml(yt.effective_mode || '—')}</span></div>
@@ -334,6 +338,7 @@ function render(d) {
     <div class="kv-row"><span class="kv-key">Racines Firefox</span><span class="kv-val">${roots}</span></div>
     <div class="kv-row"><span class="kv-key">Profils Firefox</span><span class="kv-val">${profiles}</span></div>
     <div class="kv-row"><span class="kv-key">cookies.txt</span><span class="kv-val">${yt.cookies_txt?.exists ? `${escapeHtml(yt.cookies_txt.path)} · ${fmtBytes(yt.cookies_txt.size_bytes)} · ${new Date(yt.cookies_txt.modified_at * 1000).toLocaleString('fr-FR')}` : 'absent'}</span></div>
+    <div class="kv-row"><span class="kv-key">Plugin bgutil</span><span class="kv-val">${bgutilPlugin.installed ? `installé ${escapeHtml(bgutilPlugin.version || '')}` : 'absent'}</span></div>
     <div class="kv-row"><span class="kv-key">bgutil</span><span class="kv-val">${escapeHtml(yt.bgutil?.url || '—')} · ${yt.bgutil?.reachable ? 'reachable' : 'indisponible'}${yt.bgutil?.status ? ` · HTTP ${escapeHtml(yt.bgutil.status)}` : ''}${yt.bgutil?.error ? ` · ${escapeHtml(yt.bgutil.error)}` : ''}</span></div>
     ${warnings ? `<div class="warn-list">${warnings}</div>` : ''}
   `;
