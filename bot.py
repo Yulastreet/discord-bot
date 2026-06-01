@@ -432,6 +432,11 @@ BOT_STATE["youtube"] = {
     "effective_mode": "firefox" if (_USE_FIREFOX_COOKIES and _FIREFOX_COOKIE_PROFILE) else ("cookies.txt" if os.path.exists(_COOKIES_PATH) else "bgutil_only"),
 }
 
+# Proxy HTTP local (Privoxy) qui bridge vers SOCKS5 WARP.
+# ffmpeg ne supporte que HTTP proxy, donc on passe par Privoxy pour rejoindre WARP.
+# Configurable via env FFMPEG_HTTP_PROXY="" pour desactiver.
+_FFMPEG_HTTP_PROXY = os.getenv("FFMPEG_HTTP_PROXY", "http://127.0.0.1:8118")
+
 FFMPEG_OPTIONS = {
     # before_options : passe en CLI a ffmpeg AVANT -i (input)
     # - reconnect : auto-reconnect sur drop
@@ -441,6 +446,7 @@ FFMPEG_OPTIONS = {
         '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
         '-thread_queue_size 1024 '
         '-probesize 1M -analyzeduration 0'
+        + (f' -http_proxy {_FFMPEG_HTTP_PROXY}' if _FFMPEG_HTTP_PROXY else '')
     ),
     # options : -vn = pas de video. -bufsize = tampon de sortie plus gros, evite sous-tampons.
     'options': '-vn -bufsize 1024k',
