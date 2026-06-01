@@ -64,7 +64,44 @@
     background: var(--bg); color: var(--ink); line-height: 1.6;
     -webkit-font-smoothing: antialiased; min-height: 100vh;
     display: flex; flex-direction: column;
+    position: relative; overflow-x: hidden;
   }
+
+  /* ===== BG decoratif : graph lime glowy qui defile ===== */
+  .bg-graph {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .bg-graph svg {
+    width: 200%; height: 100%; display: block;
+    opacity: .18;
+  }
+  html[data-theme="dark"] .bg-graph svg { opacity: .28; }
+  .bg-graph .grid line { stroke: var(--green-2); stroke-width: .5; opacity: .25; }
+  .bg-graph .glow-line {
+    fill: none; stroke: var(--green); stroke-width: 2.4;
+    filter: drop-shadow(0 0 6px var(--green)) drop-shadow(0 0 14px rgba(185,255,36,.55));
+    stroke-linejoin: round; stroke-linecap: round;
+  }
+  .bg-graph .glow-line.l1 {
+    animation: graph-scroll 18s linear infinite;
+  }
+  .bg-graph .glow-line.l2 {
+    stroke-width: 1.6; opacity: .55;
+    animation: graph-scroll 26s linear infinite reverse;
+  }
+  .bg-graph .pulse {
+    fill: var(--green); r: 5;
+    filter: drop-shadow(0 0 8px var(--green));
+  }
+  @keyframes graph-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-graph .glow-line, .bg-graph .pulse { animation: none !important; }
+  }
+  .nav, main, .footer { position: relative; z-index: 1; }
   a { color: inherit; text-decoration: none; }
 
   .nav {
@@ -167,10 +204,18 @@
   }
   .sidebar a:hover { background: var(--soft-2); }
   .sidebar a.active { background: linear-gradient(180deg, rgba(185,255,36,.18), rgba(100,217,27,.12)); }
+  .sidebar a.active .side-ico { color: var(--green-2); }
+  html[data-theme="dark"] .sidebar a.active .side-ico { color: var(--green); }
   .sidebar a .pill {
     font-size: 11px; font-weight: 700; color: var(--muted);
     background: var(--soft-2); padding: 2px 8px; border-radius: 999px;
   }
+  .side-row { display: inline-flex; align-items: center; gap: 10px; }
+  .side-ico {
+    display: inline-grid; place-items: center; color: var(--muted);
+    width: 18px; height: 18px;
+  }
+  .side-ico svg { width: 18px; height: 18px; }
 
   .panel { display: none; }
   .panel.active { display: block; animation: fadein .25s; }
@@ -304,6 +349,40 @@
 </style>
 </head>
 <body>
+  <div class="bg-graph" aria-hidden="true">
+    <svg viewBox="0 0 2400 800" preserveAspectRatio="none">
+      <g class="grid">
+        <!-- horizontales -->
+        <line x1="0" y1="100"  x2="2400" y2="100"/>
+        <line x1="0" y1="200"  x2="2400" y2="200"/>
+        <line x1="0" y1="300"  x2="2400" y2="300"/>
+        <line x1="0" y1="400"  x2="2400" y2="400"/>
+        <line x1="0" y1="500"  x2="2400" y2="500"/>
+        <line x1="0" y1="600"  x2="2400" y2="600"/>
+        <line x1="0" y1="700"  x2="2400" y2="700"/>
+        <!-- verticales -->
+        <line x1="120"  y1="0" x2="120"  y2="800"/>
+        <line x1="240"  y1="0" x2="240"  y2="800"/>
+        <line x1="360"  y1="0" x2="360"  y2="800"/>
+        <line x1="480"  y1="0" x2="480"  y2="800"/>
+        <line x1="600"  y1="0" x2="600"  y2="800"/>
+        <line x1="720"  y1="0" x2="720"  y2="800"/>
+        <line x1="840"  y1="0" x2="840"  y2="800"/>
+        <line x1="960"  y1="0" x2="960"  y2="800"/>
+        <line x1="1080" y1="0" x2="1080" y2="800"/>
+        <line x1="1200" y1="0" x2="1200" y2="800"/>
+      </g>
+      <!-- Path principal : "graph" qui defile en boucle.
+           Le path est dupliqué sur 2400px (200% viewport) puis translateX(-50%)
+           anime infiniment, ce qui donne l'illusion d'un defilement continu. -->
+      <path class="glow-line l1"
+            d="M0,500 L80,500 L120,420 L180,480 L220,360 L280,440 L340,300 L400,400 L440,260 L520,520 L580,440 L640,540 L700,360 L760,460 L820,300 L880,420 L940,340 L1000,520 L1080,440 L1140,500 L1200,500 L1280,500 L1320,420 L1380,480 L1420,360 L1480,440 L1540,300 L1600,400 L1640,260 L1720,520 L1780,440 L1840,540 L1900,360 L1960,460 L2020,300 L2080,420 L2140,340 L2200,520 L2280,440 L2340,500 L2400,500" />
+      <!-- Second path : amplitude differente, moins visible -->
+      <path class="glow-line l2"
+            d="M0,300 L100,280 L180,360 L260,220 L340,340 L420,180 L500,360 L580,260 L660,400 L740,240 L820,360 L900,200 L1000,340 L1080,260 L1180,420 L1260,300 L1360,200 L1440,360 L1520,240 L1620,400 L1700,260 L1800,340 L1900,180 L2000,360 L2100,260 L2200,400 L2300,300 L2400,300" />
+    </svg>
+  </div>
+
   <header class="nav" aria-label="Navigation principale">
     <a class="brand" href="/" aria-label="Accueil TookBot">
       <span class="brand-mark" aria-hidden="true"></span>
@@ -331,7 +410,6 @@
 
   <main>
     <div class="head">
-      <span class="eyebrow">Toutes les commandes</span>
       <h1>70+ commandes slash. Pas de prise de tête.</h1>
       <p>Chaque commande TookBot est conçue pour faire UNE chose, et la faire bien. Pas de paywall sur l'essentiel, pas de pub, pas de préfixe à retenir.</p>
       <div class="counter">Total : <strong>70+</strong> commandes</div>
@@ -437,8 +515,21 @@
     }
 
     // ============ DONNEES COMMANDES ============
+    // SVG icons par catégorie (inline, stroke currentColor)
+    const ICONS = {
+      musique:    '<svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="16" r="3" stroke="currentColor" stroke-width="2"/></svg>',
+      moderation: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      xp:         '<svg viewBox="0 0 24 24" fill="none"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.5l-5.2 2.6 1-5.8-4.3-4.1 5.9-.9L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+      duel:       '<svg viewBox="0 0 24 24" fill="none"><path d="m14.5 17.5 5-5M4 20l6-6M14 6l4 4M6 18l-2 2v-2h2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m14.5 4.5 5 5L9 20H4v-5L14.5 4.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+      cs2:        '<svg viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 12h3M9 10v4M14 11h.01M17 13h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      lol:        '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 11h3v6M13 11h3l-2 3 2 3h-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      social:     '<svg viewBox="0 0 24 24" fill="none"><path d="M3 11a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2a7 7 0 0 1-7 7H7l-4 3v-12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 11h8M8 14h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      fun:        '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      utils:      '<svg viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a4 4 0 1 0 3 3l-4 4-1.5-.5L11 10.7l-4 4a3 3 0 1 0 3 3l4-4 1.1 1.2 1.5.5 4-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+    };
+
     const CATS = [
-      { id: 'musique', icon: '🎵', title: 'Musique', intro: 'Lecture multi-sources (YouTube, SoundCloud, Spotify, Bandcamp), file complète, contrôles précis et stats d\'écoute par serveur.', cmds: [
+      { id: 'musique', title: 'Musique', intro: 'Lecture multi-sources (YouTube, SoundCloud, Spotify, Bandcamp), file complète, contrôles précis et stats d\'écoute par serveur.', cmds: [
         { name:'/play', syntax:'/play <titre|lien>', desc:'Joue depuis YouTube, SoundCloud, Spotify ou Bandcamp. Accepte aussi les playlists.', why:'<strong>Plus puissant que la plupart :</strong> Spotify gratuit, jusqu\'à 50 tracks par playlist, reconnect auto si la connexion drop.' },
         { name:'/search', syntax:'/search <query>', desc:'Cherche sur YouTube et te laisse choisir parmi 5 résultats via menu déroulant.', why:'<strong>Évite les mauvaises pioches :</strong> tu vois titre, chaîne, durée avant de lancer la lecture.', badge:'new' },
         { name:'/volume', syntax:'/volume <0-200>', desc:'Règle le volume musique du bot (0 = muet, 100 = normal, 200 = boost).', why:'<strong>Gratuit chez TookBot :</strong> sur Jockie/Hydra c\'est payant.', badge:'new' },
@@ -453,12 +544,7 @@
         { name:'/leave', syntax:'/leave', desc:'Quitte le salon vocal.' },
         { name:'/musicstats', syntax:'/musicstats [période]', desc:'Top tracks, top auditeurs, temps total d\'écoute sur N jours.', why:'<strong>Unique :</strong> aucun autre bot musique grand public ne sort ces stats par défaut.', badge:'new' },
       ]},
-      { id: 'ia', icon: '🤖', title: 'IA & TTS', intro: 'IA conversationnelle Groq avec mémoire de contexte, vision d\'images et synthèse vocale via ElevenLabs.', cmds: [
-        { name:'@TookBot', syntax:'@TookBot <question>', desc:'Mention le bot pour discuter. Comprend le contexte, peut analyser des images attachées.', why:'<strong>Gratuit + privé :</strong> tourne sur Groq (rapide), aucune donnée vendue.' },
-        { name:'Mode TTS', syntax:'Toggle dans dashboard', desc:'Le bot lit ses réponses à voix haute dans ton salon vocal via ElevenLabs.', badge:'prem' },
-        { name:'Vision', syntax:'@TookBot + image', desc:'Décrit, analyse, transcrit le contenu d\'images.', why:'<strong>Modèle Llama-4-Scout :</strong> vision rapide, gratuit.' },
-      ]},
-      { id: 'moderation', icon: '🛡️', title: 'Modération', intro: 'Outils de mod nets, avec permissions par rôle configurables depuis le dashboard.', cmds: [
+      { id: 'moderation', title: 'Modération', intro: 'Outils de mod nets, avec permissions par rôle configurables depuis le dashboard.', cmds: [
         { name:'/warn', syntax:'/warn <membre> <raison>', desc:'Avertit un membre. Auto-timeout au seuil configurable.', why:'<strong>Modlogs persistants :</strong> historique consultable par serveur.' },
         { name:'/kick', syntax:'/kick <membre> [raison]', desc:'Expulse un membre du serveur.' },
         { name:'/ban', syntax:'/ban <membre> [raison]', desc:'Bannit un membre.' },
@@ -469,7 +555,7 @@
         { name:'/poll', syntax:'/poll <question> <options>', desc:'Sondage avec réactions auto.' },
         { name:'/setwelcome', syntax:'/setwelcome [salon]', desc:'Builder visuel pour message de bienvenue (image, texte, mentions).' },
       ]},
-      { id: 'xp', icon: '⭐', title: 'XP & Niveaux', intro: 'Système d\'XP par message avec cartes profil personnalisables et leaderboard serveur.', cmds: [
+      { id: 'xp', title: 'XP & Niveaux', intro: 'Système d\'XP par message avec cartes profil personnalisables et leaderboard serveur.', cmds: [
         { name:'/niveau', syntax:'/niveau [membre]', desc:'Affiche la carte profil avec niveau, XP, rang.', why:'<strong>Cartes générées :</strong> background, couleur, bordure customisables (Premium).' },
         { name:'/leaderboard', syntax:'/leaderboard', desc:'Top 10 XP du serveur.' },
         { name:'/xp', syntax:'/xp <action>', desc:'Admin : ajuste l\'XP d\'un membre.' },
@@ -477,7 +563,7 @@
         { name:'/daily', syntax:'/daily', desc:'Récompense quotidienne + streak.' },
         { name:'/redeem', syntax:'/redeem <code>', desc:'Utilise un code promo.' },
       ]},
-      { id: 'duel', icon: '⚔️', title: 'Duels Sabres', intro: 'Mini-jeu RPG : combats tour par tour, sabres laser, XP combat, boutique et collection.', cmds: [
+      { id: 'duel', title: 'Duels Sabres', intro: 'Mini-jeu RPG : combats tour par tour, sabres laser, XP combat, boutique et collection.', cmds: [
         { name:'/duel fight', syntax:'/duel fight <adversaire>', desc:'Défi un autre membre. Mindgame attaque/défense.', why:'<strong>Plus stratégique qu\'un coinflip :</strong> tu choisis attaque + défense chaque tour, l\'autre tente de bloquer.' },
         { name:'/duel info', syntax:'/duel info', desc:'Guide complet du système de combat.' },
         { name:'/profil', syntax:'/profil [membre]', desc:'Stats duel : victoires, défaites, tookcoins, sabre équipé.' },
@@ -486,7 +572,7 @@
         { name:'/historique', syntax:'/historique [membre]', desc:'Liste des derniers duels.' },
         { name:'/collection', syntax:'/collection', desc:'Tous tes sabres collectionnés.' },
       ]},
-      { id: 'cs2', icon: '🎮', title: 'Counter-Strike 2', intro: 'Stats Steam + Faceit, rank roles auto, prix de skins, queues de vocal et ban/pick maps.', cmds: [
+      { id: 'cs2', title: 'Counter-Strike 2', intro: 'Stats Steam + Faceit, rank roles auto, prix de skins, queues de vocal et ban/pick maps.', cmds: [
         { name:'/cs link', syntax:'/cs link <plateforme> <id>', desc:'Lie ton compte Steam ou Faceit.' },
         { name:'/cs stats', syntax:'/cs stats [membre]', desc:'Stats Steam (premier rank, hours, K/D) et Faceit (elo, lvl, matchs).' },
         { name:'/cs setrank', syntax:'/cs setrank <elo>', desc:'Déclare ton Premier ELO. Auto-attribution du rank role.', why:'<strong>Rank role auto :</strong> les rôles couleur se synchronisent avec ton elo Faceit.' },
@@ -496,13 +582,13 @@
         { name:'/cs map', syntax:'/cs map', desc:'Ban/pick maps entre membres du vocal.' },
         { name:'/cs loadout', syntax:'/cs loadout', desc:'Loadout aléatoire (challenge fun).' },
       ]},
-      { id: 'lol', icon: '🛡️', title: 'League of Legends', intro: 'Profil Riot, rangs, masteries et scout sessions pour previewer une équipe.', cmds: [
+      { id: 'lol', title: 'League of Legends', intro: 'Profil Riot, rangs, masteries et scout sessions pour previewer une équipe.', cmds: [
         { name:'/lol link', syntax:'/lol link <riotid>', desc:'Lie ton Riot ID.' },
         { name:'/lol rank', syntax:'/lol rank [membre]', desc:'Rang Solo/Flex actuels.' },
         { name:'/lol mastery', syntax:'/lol mastery [membre]', desc:'Top champions par mastery points.' },
         { name:'/lol live', syntax:'/lol live [membre]', desc:'Game en cours détectée.' },
       ]},
-      { id: 'social', icon: '📢', title: 'Tickets, rôles, alertes', intro: 'Builders visuels pour panneaux de tickets, rôles-réaction et alertes Twitch / YouTube / Reddit.', cmds: [
+      { id: 'social', title: 'Tickets, rôles, alertes', intro: 'Builders visuels pour panneaux de tickets, rôles-réaction et alertes Twitch / YouTube / Reddit.', cmds: [
         { name:'/ticket', syntax:'/ticket', desc:'Builder panneau de tickets avec catégories et transcripts.' },
         { name:'/rolereaction', syntax:'/rolereaction create', desc:'Builder rôles-réaction (réaction emoji ou boutons).' },
         { name:'/socialalert', syntax:'/socialalert add/list/remove', desc:'Alertes auto Twitch live, YouTube upload, Reddit post.' },
@@ -512,7 +598,7 @@
         { name:'/reaction_remove', syntax:'/reaction_remove', desc:'Retire une auto-réaction.' },
         { name:'/cmd', syntax:'/cmd <nom>', desc:'Exécute une commande custom (créée depuis le dashboard).' },
       ]},
-      { id: 'fun', icon: '🎉', title: 'Fun & social', intro: 'Mini-commandes sociales pour animer le chat.', cmds: [
+      { id: 'fun', title: 'Fun & social', intro: 'Mini-commandes sociales pour animer le chat.', cmds: [
         { name:'/8ball', syntax:'/8ball <question>', desc:'Boule magique répond oui/non/peut-être.' },
         { name:'/dé', syntax:'/dé', desc:'Lance un dé.' },
         { name:'/coinflip', syntax:'/coinflip', desc:'Pile ou face.' },
@@ -526,7 +612,7 @@
         { name:'/citation', syntax:'/citation', desc:'Citation inspirante aléatoire.' },
         { name:'/zgeg', syntax:'/zgeg [membre]', desc:'Mesure la taille de... bon.' },
       ]},
-      { id: 'utils', icon: '🔧', title: 'Utilitaires', intro: 'Infos serveur, membres, et accès à toute la liste de commandes.', cmds: [
+      { id: 'utils', title: 'Utilitaires', intro: 'Infos serveur, membres, et accès à toute la liste de commandes.', cmds: [
         { name:'/avatar', syntax:'/avatar [membre]', desc:'Affiche l\'avatar HD d\'un membre.' },
         { name:'/userinfo', syntax:'/userinfo [membre]', desc:'Infos détaillées : ID, date création, date join, rôle principal.' },
         { name:'/serverinfo', syntax:'/serverinfo', desc:'Infos serveur : propriétaire, membres, salons, rôles.' },
@@ -546,7 +632,7 @@
 
     function renderSidebar() {
       catNav.innerHTML = CATS.map(c =>
-        `<a data-cat="${c.id}"><span>${c.icon}  ${c.title}</span><span class="pill">${c.cmds.length}</span></a>`
+        `<a data-cat="${c.id}"><span class="side-row"><span class="side-ico">${ICONS[c.id] || ''}</span>${c.title}</span><span class="pill">${c.cmds.length}</span></a>`
       ).join('');
       catNav.querySelectorAll('a').forEach(a => {
         a.addEventListener('click', () => activate(a.dataset.cat));
@@ -557,7 +643,7 @@
       panels.innerHTML = CATS.map(c => `
         <div class="panel" id="panel-${c.id}">
           <div class="panel-head">
-            <div class="icon">${c.icon}</div>
+            <div class="icon">${ICONS[c.id] || ''}</div>
             <h2>${c.title}</h2>
           </div>
           <p class="panel-intro">${c.intro}</p>
