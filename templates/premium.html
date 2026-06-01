@@ -230,43 +230,14 @@
   .gb-slot-counter .num { color: oklch(0.86 0.20 130); font-weight: 800; }
 </style>
 
-<div class="gb-card" id="gbCard">
-  <div class="gb-head">
-    <div>
-      <h2>🛡️ Guild Boost +</h2>
-      <p class="gb-sub" style="margin: 6px 0 0;">
-        Débloque pour un serveur entier : commandes custom, alertes Twitch/YouTube/Reddit,
-        tickets, logs étendus. Achète Solo, Duo ou Squad selon le nombre de serveurs à booster.
-      </p>
-    </div>
-    <div id="gbStatusBadge"></div>
-  </div>
-
-  <!-- Tiers -->
-  <div class="gb-tiers" id="gbTiers">
-    <div class="gb-tier" data-tier="solo">
-      <div class="tier-name">Solo</div>
-      <div class="tier-slots">1 serveur</div>
-      <div class="tier-price">3,99 $<span class="per"> /mois</span></div>
-      <div class="tier-status off" id="gbTierStatus-solo">Non débloqué</div>
-    </div>
-    <div class="gb-tier" data-tier="duo">
-      <div class="tier-name">Duo</div>
-      <div class="tier-slots">2 serveurs</div>
-      <div class="tier-price">6,99 $<span class="per"> /mois</span></div>
-      <div class="tier-status off" id="gbTierStatus-duo">Non débloqué</div>
-    </div>
-    <div class="gb-tier" data-tier="squad">
-      <div class="tier-name">Squad</div>
-      <div class="tier-slots">5 serveurs</div>
-      <div class="tier-price">14,99 $<span class="per"> /mois</span></div>
-      <div class="tier-status off" id="gbTierStatus-squad">Non débloqué</div>
-    </div>
-  </div>
-
-  <div id="gbContent" style="margin-top: 18px;">
-    <div class="muted" style="font-size:13px;">Chargement…</div>
-  </div>
+<!-- Guild Boost retire : toutes les features sont gratuites pour tous les serveurs. -->
+<div class="gb-card" style="background: var(--bg-2); border-radius: var(--r-2); padding: var(--s-5) var(--s-6);">
+  <h2 style="margin: 0 0 6px;">Toutes les features sont gratuites</h2>
+  <p class="muted" style="font-size: var(--t-sm); margin: 0;">
+    Commandes custom, alertes Twitch/YouTube/Reddit, tickets, logs : disponibles sur tous les serveurs
+    où TookBot est invité. L'activation / désactivation par serveur reste pilotée par les admins
+    depuis l'onglet <a href="/features"><strong>Fonctionnalités</strong></a>.
+  </p>
 </div>
 
 <div class="toast" id="toast">Sauvegardé ✓</div>
@@ -343,14 +314,9 @@
 </script>
 {% endif %}
 
-<!-- ============ GUILD BOOST + : JS ============ -->
+<!-- Guild Boost JS retire. -->
 <script>
-(function() {
-  const card    = document.getElementById('gbCard');
-  const badge   = document.getElementById('gbStatusBadge');
-  const content = document.getElementById('gbContent');
-  if (!card) return;
-
+(function() { return; /* legacy stub */
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c =>
       ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

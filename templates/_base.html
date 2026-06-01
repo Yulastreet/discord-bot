@@ -1004,7 +1004,8 @@
   var meta = document.querySelector('meta[name="feature-key"]');
   if (!meta || !meta.content) return;
   var key = meta.content;
-  var GUILD_BOOST_FEATURES = { custom_commands: 1, social_alerts: 1, tickets: 1 };
+  // Guild Boost retire : toutes les features sont gratuites desormais.
+  var GUILD_BOOST_FEATURES = {};
 
   function showOverlay(opts) {
     var main = document.querySelector('main.main');

@@ -95,13 +95,8 @@
         <button id="passToggleBtn" class="btn btn-secondary" type="button" disabled>
           <svg class="ic"><use href="#i-swords"/></svg> <span id="passToggleLabel">Pass…</span>
         </button>
-        <div id="guildBoostBtnGroup" class="row" style="gap:6px;flex-wrap:wrap;align-items:center;">
-          <span style="font-size:11px;color:var(--text-3);letter-spacing:0.05em;text-transform:uppercase;font-weight:700;">Guild Boost +</span>
-          <button class="btn btn-secondary btn-sm gb-tier-btn" data-tier="solo"  type="button" disabled>Solo</button>
-          <button class="btn btn-secondary btn-sm gb-tier-btn" data-tier="duo"   type="button" disabled>Duo</button>
-          <button class="btn btn-secondary btn-sm gb-tier-btn" data-tier="squad" type="button" disabled>Squad</button>
-          <span id="guildBoostHint" class="muted" style="font-size:11px;"></span>
-        </div>
+        <!-- Guild Boost retire : plus de grant tier solo/duo/squad. -->
+        <div id="guildBoostBtnGroup" hidden></div>
       {% endif %}
     </div>
   </div>

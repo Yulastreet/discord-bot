@@ -855,26 +855,9 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
             )
             return False
 
-        # Gating Guild Boost + : certaines features ne sont accessibles que si la
-        # guild a au moins un Guild Boost + actif (achete OU offert OU owner).
-        GUILD_BOOST_FEATURES = {"custom_commands", "social_alerts", "tickets"}
-        if feature_key in GUILD_BOOST_FEATURES:
-            boosted = guild_has_active_boost(
-                interaction.guild.id,
-                sku_solo=SKU_GUILD_BOOST_PLUS,
-                sku_duo=SKU_GUILD_BOOST_DUO,
-                sku_squad=SKU_GUILD_BOOST_SQUAD,
-                owner_id=DISCORD_OWNER_ID,
-            )
-            if not boosted:
-                label = get_feature_label(feature_key)
-                await interaction.response.send_message(
-                    f"Cette fonctionnalité **{label}** nécessite **Guild Boost +** sur ce serveur.\n"
-                    "Un membre doit acheter Guild Boost + dans la boutique du bot, puis l'assigner "
-                    "à ce serveur depuis `dashboard.tookbot.click/premium`.",
-                    ephemeral=True,
-                )
-                return False
+        # Plus de gating Guild Boost : toutes les features sont gratuites,
+        # le gating reste juste l'interrupteur on/off par feature + les
+        # permissions roles configurees par les admins.
         return True
 
 
