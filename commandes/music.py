@@ -198,7 +198,10 @@ def setup_music_commands(bot, deps):
             await interaction.followup.send(f"🔍 Recherche de **{query}**...")
 
             # Recherche via Lavalink. Si pas une URL, recherche YouTube.
-            search_query = query if query.startswith("http") else f"ytsearch:{query}"
+            # Pas de prefix "ytsearch:" : wavelink 3.x prefix automatiquement
+            # avec son default (ytmsearch). Ajouter "ytsearch:" produit
+            # "ytmsearch:ytsearch:..." qui ne matche rien.
+            search_query = query
             try:
                 results = await wavelink.Playable.search(search_query)
             except Exception as e:
