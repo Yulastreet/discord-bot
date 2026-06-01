@@ -364,8 +364,7 @@ _COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookie
 _BGUTIL_POT_URL = os.getenv("BGUTIL_POT_URL", "http://127.0.0.1:4416")
 
 YDL_OPTIONS = {
-    # Selecteur audio seulement, evite les flux video DRM.
-    'format': 'bestaudio[acodec^=opus]/bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
+    'format': 'bestaudio/best',
     'noplaylist': True,
     'quiet': False,            # passe a False pour voir les details d'erreur dans les logs
     'no_warnings': False,
@@ -389,8 +388,6 @@ YDL_OPTIONS = {
             'base_url': [_BGUTIL_POT_URL],
         },
     },
-    # Force format audio only pour eviter les video formats DRM/SABR
-    'format_sort': ['acodec:opus', 'acodec:aac', 'acodec:mp3'],
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
