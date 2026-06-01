@@ -1544,13 +1544,49 @@ def setup_runtime(bot, deps):
                         raise ValueError("aucun salon vocal disponible")
                     vc = await vchan.connect()
                     music_state_set(gid, voice_channel_id=str(vchan.id), voice_channel_name=vchan.name)
-            info = await get_audio_info(query)
-            music_queue_add(gid,
-                            title=info["title"], url=info["url"],
-                            source_url=info.get("source_url"),
-                            duration=info.get("duration"),
-                            thumbnail=info.get("thumbnail"),
-                            requested_by="web")
+            # Detection multi-source : playlist YouTube, Spotify, ou track unique
+            q_low = (query or "").lower()
+            is_yt_playlist = ("youtube.com/playlist" in q_low or
+                              ("list=" in q_low and ("youtube.com" in q_low or "youtu.be" in q_low)))
+            is_spotify = "open.spotify.com/" in q_low
+
+            if is_yt_playlist:
+                from bot import get_playlist_info
+                pl = await get_playlist_info(query, max_items=50)
+                entries = pl.get("entries") or []
+                for e in entries:
+                    music_queue_add(gid,
+                                    title=e["title"], url=e["url"],
+                                    source_url=e.get("source_url"),
+                                    duration=e.get("duration"),
+                                    thumbnail=e.get("thumbnail"),
+                                    requested_by="web")
+            elif is_spotify:
+                from services.spotify_resolver import resolve_spotify_url
+                import asyncio as _aio
+                sp = await _aio.to_thread(resolve_spotify_url, query, 50)
+                for tm in (sp.get("tracks") or []):
+                    if not tm.get("query"):
+                        continue
+                    try:
+                        info = await get_audio_info(tm["query"])
+                    except Exception as e:
+                        print(f"[music web] spotify track fail {tm['query']!r}: {e}")
+                        continue
+                    music_queue_add(gid,
+                                    title=info["title"], url=info["url"],
+                                    source_url=info.get("source_url"),
+                                    duration=info.get("duration"),
+                                    thumbnail=info.get("thumbnail"),
+                                    requested_by="web")
+            else:
+                info = await get_audio_info(query)
+                music_queue_add(gid,
+                                title=info["title"], url=info["url"],
+                                source_url=info.get("source_url"),
+                                duration=info.get("duration"),
+                                thumbnail=info.get("thumbnail"),
+                                requested_by="web")
             if not vc.is_playing():
                 await play_next(vc, None, int(gid))
 

@@ -48,15 +48,68 @@
     <div class="row gap-3">
       <div class="input-search" style="flex: 1;">
         <svg class="ic"><use href="#i-music"/></svg>
-        <input type="text" id="addInput" placeholder="Titre, recherche ou lien YouTube..." onkeydown="if (event.key === 'Enter') addTrack();">
+        <input type="text" id="addInput" placeholder="Titre, lien YouTube/SoundCloud/Bandcamp, playlist YouTube, ou URL Spotify (track/album/playlist)..." onkeydown="if (event.key === 'Enter') addTrack();">
       </div>
       <button class="btn btn-primary" onclick="addTrack()">
         <svg class="ic"><use href="#i-plus"/></svg> Ajouter à la file
       </button>
     </div>
     <p class="faint mt-2" style="font-size:var(--t-xs);">
-      Le bot doit être connecté à un salon vocal. Si non, lance la commande <code>/join</code> dans Discord depuis ton salon.
+      Multi-source : YouTube, SoundCloud, Bandcamp, Spotify (track/album/playlist), playlists YouTube (jusqu'à 50 pistes).
+      Le bot doit être connecté à un salon vocal. Si non, lance <code>/join</code> dans Discord depuis ton salon.
     </p>
+  </div>
+
+  <!-- ====== Stats lecture ====== -->
+  <div class="card padless">
+    <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+      <h2>Statistiques d'écoute</h2>
+      <div class="row gap-2">
+        <select id="statsDays" class="input" onchange="loadStats()" style="padding:6px 10px;font-size:var(--t-sm);">
+          <option value="7">7 jours</option>
+          <option value="30" selected>30 jours</option>
+          <option value="90">90 jours</option>
+          <option value="365">1 an</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadStats()">
+          <svg class="ic"><use href="#i-refresh-cw"/></svg> Rafraîchir
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-tile">
+        <span class="eyebrow">Lectures totales</span>
+        <strong id="stTotal">—</strong>
+      </div>
+      <div class="stat-tile">
+        <span class="eyebrow">Pistes uniques</span>
+        <strong id="stUniq">—</strong>
+      </div>
+      <div class="stat-tile">
+        <span class="eyebrow">Auditeurs</span>
+        <strong id="stUsers">—</strong>
+      </div>
+      <div class="stat-tile">
+        <span class="eyebrow">Temps total</span>
+        <strong id="stTime">—</strong>
+      </div>
+    </div>
+
+    <div class="stats-cols">
+      <div class="stats-col">
+        <h3>Top pistes</h3>
+        <div id="statsTopTracks"><div class="queue-empty">Aucune donnée pour la période.</div></div>
+      </div>
+      <div class="stats-col">
+        <h3>Top auditeurs</h3>
+        <div id="statsTopUsers"><div class="queue-empty">Aucune donnée pour la période.</div></div>
+      </div>
+      <div class="stats-col">
+        <h3>Par source</h3>
+        <div id="statsBySource"><div class="queue-empty">Aucune donnée pour la période.</div></div>
+      </div>
+    </div>
   </div>
 
   <!-- ====== Queue ====== -->
@@ -135,6 +188,51 @@
   .queue-row .qr-dur { font-family: var(--font-mono); color: var(--text-2); text-align: right; font-size: 12px; }
   .queue-row .qr-rm { display: flex; justify-content: flex-end; }
   .queue-empty { padding: var(--s-9); text-align: center; color: var(--text-3); font-size: var(--t-sm); }
+
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: var(--s-3); padding: var(--s-5) var(--s-6);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  @media (max-width: 720px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat-tile {
+    background: var(--bg-2); border-radius: var(--r-2);
+    padding: var(--s-4); display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-tile strong { font-size: var(--t-xl); font-weight: 800; }
+  .stats-cols {
+    display: grid; grid-template-columns: 2fr 1.2fr 1fr;
+    gap: 0;
+  }
+  @media (max-width: 880px) { .stats-cols { grid-template-columns: 1fr; } }
+  .stats-col { padding: var(--s-5) var(--s-6); border-right: 1px solid var(--border-soft); }
+  .stats-col:last-child { border-right: none; }
+  @media (max-width: 880px) {
+    .stats-col { border-right: none; border-bottom: 1px solid var(--border-soft); }
+    .stats-col:last-child { border-bottom: none; }
+  }
+  .stats-col h3 {
+    font-size: var(--t-xs); font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--text-2); margin-bottom: var(--s-3);
+  }
+  .stats-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: var(--s-2); padding: 8px 0; border-bottom: 1px solid var(--border-soft);
+    font-size: var(--t-sm);
+  }
+  .stats-row:last-child { border-bottom: none; }
+  .stats-row .lbl {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; min-width: 0;
+  }
+  .stats-row .val {
+    font-family: var(--font-mono); color: var(--accent);
+    font-weight: 700; font-size: 13px;
+  }
+  .stats-row .rank {
+    font-family: var(--font-mono); color: var(--text-3); font-size: 12px;
+    width: 22px; text-align: right;
+  }
 </style>
 
 {% endblock %}
@@ -266,8 +364,62 @@
   }
   window.removeTrack = removeTrack;
 
+  // ============ STATS ============
+  function fmtHours(seconds) {
+    if (!seconds || seconds <= 0) return '0m';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h) return `${h}h${String(m).padStart(2,'0')}`;
+    return `${m}m`;
+  }
+
+  async function loadStats() {
+    const days = parseInt(document.getElementById('statsDays').value || '30', 10);
+    try {
+      const res = await fetch(`/api/music/stats?days=${days}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const sum = data.summary || {};
+      document.getElementById('stTotal').textContent = sum.total_plays || 0;
+      document.getElementById('stUniq').textContent  = sum.unique_tracks || 0;
+      document.getElementById('stUsers').textContent = sum.unique_users || 0;
+      document.getElementById('stTime').textContent  = fmtHours(sum.total_seconds || 0);
+
+      const tt = data.top_tracks || [];
+      document.getElementById('statsTopTracks').innerHTML = tt.length
+        ? tt.map((t, i) => `
+          <div class="stats-row">
+            <span class="rank">${i+1}.</span>
+            <span class="lbl" title="${escapeHtml(t.track_title || '')}">${escapeHtml(t.track_title || '?')}</span>
+            <span class="val">${t.plays}</span>
+          </div>`).join('')
+        : '<div class="queue-empty">Aucune donnée pour la période.</div>';
+
+      const tu = data.top_requesters || [];
+      document.getElementById('statsTopUsers').innerHTML = tu.length
+        ? tu.map((u, i) => `
+          <div class="stats-row">
+            <span class="rank">${i+1}.</span>
+            <span class="lbl"><code>${escapeHtml(u.user_id || '?')}</code></span>
+            <span class="val">${u.plays}</span>
+          </div>`).join('')
+        : '<div class="queue-empty">Aucune donnée pour la période.</div>';
+
+      const bs = sum.by_source || [];
+      document.getElementById('statsBySource').innerHTML = bs.length
+        ? bs.map(s => `
+          <div class="stats-row">
+            <span class="lbl">${escapeHtml(s.source || 'youtube')}</span>
+            <span class="val">${s.plays}</span>
+          </div>`).join('')
+        : '<div class="queue-empty">Aucune donnée pour la période.</div>';
+    } catch (e) { /* swallow */ }
+  }
+  window.loadStats = loadStats;
+
   // Polling
   refresh();
+  loadStats();
   pollTimer = setInterval(refresh, POLL_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && pollTimer) { clearInterval(pollTimer); pollTimer = null; }

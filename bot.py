@@ -552,6 +552,37 @@ async def search_youtube(query, max_results=5):
     return await loop.run_in_executor(None, lambda: _search_youtube_sync(query, max_results))
 
 
+def _search_soundcloud_sync(query, max_results=5):
+    """Recherche SoundCloud via yt-dlp scsearch. Stack proxy/POT n'est pas utilise (SC pas concerne)."""
+    opts = {
+        'quiet': True, 'no_warnings': True,
+        'extract_flat': 'in_playlist',
+        'default_search': 'scsearch',
+        'source_address': '0.0.0.0',
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(f"scsearch{int(max_results)}:{query}", download=False)
+    out = []
+    for e in info.get("entries") or []:
+        if not e:
+            continue
+        url = e.get("webpage_url") or e.get("url")
+        if not url or not str(url).startswith("http"):
+            continue
+        out.append({
+            "title":    e.get("title") or "(sans titre)",
+            "url":      url,
+            "duration": e.get("duration"),
+            "uploader": e.get("uploader") or e.get("channel"),
+        })
+    return out
+
+
+async def search_soundcloud(query, max_results=5):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: _search_soundcloud_sync(query, max_results))
+
+
 async def get_audio_info(query):
     """Retourne dict {url, title, duration, thumbnail, source_url} depuis yt-dlp."""
     loop = asyncio.get_event_loop()
@@ -570,12 +601,14 @@ _PLAY_FAIL_MAX = 5
 
 
 def _is_webpage_url(url):
-    """True si l'URL est une page YouTube/YT Music (pas un stream audio direct)."""
+    """True si l'URL est une page web (YouTube/SoundCloud/Bandcamp) pas un stream audio direct."""
     if not url:
         return False
     u = url.lower()
     return ("youtube.com/watch" in u or "youtu.be/" in u or
-            "music.youtube.com" in u)
+            "music.youtube.com" in u or
+            "soundcloud.com/" in u or
+            "bandcamp.com/" in u)
 
 
 async def play_next(voice_client, channel, guild_id):

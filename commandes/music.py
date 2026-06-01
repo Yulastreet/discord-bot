@@ -27,6 +27,25 @@ def _is_spotify_url(query):
         return False
     return "open.spotify.com/" in query.lower()
 
+
+# Mapping nom emoji custom -> fallback unicode si introuvable
+_PLATFORM_EMOJI_FALLBACK = {
+    "youtube":    "▶️",
+    "spotify":    "🎧",
+    "soundcloud": "🟧",
+    "bandcamp":   "🎵",
+}
+
+
+def _platform_emoji(bot, name):
+    """Cherche emoji custom 'name' dans toutes les guilds du bot.
+    Retourne string Discord (<:name:id>) ou fallback unicode."""
+    name_low = (name or "").lower()
+    for em in bot.emojis:
+        if (em.name or "").lower() == name_low:
+            return str(em)
+    return _PLATFORM_EMOJI_FALLBACK.get(name_low, "•")
+
 # Message friendly pour tous les soucis musique. Les vraies erreurs sont
 # loggees pour debug owner. L'utilisateur final voit juste un message
 # rassurant + pas de stack trace cryptique.
@@ -383,97 +402,221 @@ def setup_music_commands(bot, deps):
             f"🗑️ Retire de la file : **{track['title'][:120]}** (position {position})"
         )
 
-    @bot.tree.command(name="search", description="Chercher sur YouTube et choisir parmi 5 resultats")
+    # ----- View boutons plateformes pour /search -----
+    class _PlatformPickerView(discord.ui.View):
+        def __init__(self, bot, query, owner_id, voice_channel, guild, text_channel, _ensure_opus):
+            super().__init__(timeout=60)
+            self.bot = bot
+            self.query = query
+            self.owner_id = owner_id
+            self.voice_channel = voice_channel
+            self.guild = guild
+            self.text_channel = text_channel
+            self._ensure_opus = _ensure_opus
+            self.chosen = False
+            self._origin_interaction = None
+            self._build_buttons()
+
+        def _build_buttons(self):
+            specs = [
+                ("youtube",    "YouTube",    discord.ButtonStyle.danger),
+                ("spotify",    "Spotify",    discord.ButtonStyle.success),
+                ("soundcloud", "SoundCloud", discord.ButtonStyle.primary),  # blue (orange pas dispo)
+                ("bandcamp",   "Bandcamp",   discord.ButtonStyle.secondary),
+            ]
+            for plat, label, style in specs:
+                em_str = _platform_emoji(self.bot, plat)
+                # Discord button emoji : doit etre PartialEmoji ou str unicode.
+                # Si custom <:name:id>, on extrait id via PartialEmoji.from_str.
+                try:
+                    emoji = discord.PartialEmoji.from_str(em_str) if em_str else None
+                except Exception:
+                    emoji = None
+                btn = discord.ui.Button(label=f" {label}", style=style, custom_id=f"search:{plat}", emoji=emoji)
+                btn.callback = self._make_cb(plat)
+                self.add_item(btn)
+
+        def _make_cb(self, platform):
+            async def cb(inter: discord.Interaction):
+                if inter.user.id != self.owner_id:
+                    await inter.response.send_message("❌ Seul l'auteur peut choisir.", ephemeral=True)
+                    return
+                self.chosen = True
+                # Disable les autres boutons
+                for child in self.children:
+                    child.disabled = True
+                try:
+                    await inter.message.edit(view=self)
+                except Exception:
+                    pass
+                await inter.response.defer()
+                await self._run_search(inter, platform)
+            return cb
+
+        async def _run_search(self, inter, platform):
+            results = []
+            error_msg = None
+            try:
+                if platform == "youtube":
+                    results = await search_youtube(self.query, max_results=5)
+                elif platform == "soundcloud":
+                    results = await search_soundcloud(self.query, max_results=5)
+                elif platform == "spotify":
+                    from services.spotify_resolver import search_spotify
+                    sp_results = await asyncio.to_thread(search_spotify, self.query, 5)
+                    # Format : [{title, artists, url(spotify), duration_ms, thumbnail, query}]
+                    for r in sp_results:
+                        results.append({
+                            "title":    f"{r['title']} - {r['artists']}",
+                            "url":      r["url"] or r.get("query"),
+                            "duration": int((r.get("duration_ms") or 0) / 1000) or None,
+                            "uploader": r.get("artists") or "",
+                            "thumbnail": r.get("thumbnail"),
+                            "spotify_query": r.get("query"),  # marqueur : on resoudra via YT
+                        })
+                elif platform == "bandcamp":
+                    # Pas de native search bandcamp dans yt-dlp. Fallback : ytsearch sur "bandcamp <query>"
+                    # puis on filtre les URLs bandcamp.com. Pas top mais marche pour les noms d'albums connus.
+                    yt = await search_youtube(f"bandcamp {self.query}", max_results=10)
+                    results = [r for r in yt if "bandcamp.com" in (r.get("url") or "")][:5]
+                    if not results:
+                        error_msg = ("Bandcamp n'a pas de recherche native dans yt-dlp. "
+                                     "Colle directement une URL bandcamp.com dans `/play`.")
+            except Exception as e:
+                print(f"[music /search {platform}] {type(e).__name__}: {e}")
+                error_msg = f"Erreur recherche {platform} : {type(e).__name__}"
+
+            if error_msg:
+                await inter.followup.send(f"⚠️ {error_msg}", ephemeral=True)
+                return
+            if not results:
+                await inter.followup.send(f"❌ Aucun resultat {platform} pour `{self.query[:80]}`.", ephemeral=True)
+                return
+            await self._send_results_picker(inter, platform, results)
+
+        async def _send_results_picker(self, inter, platform, results):
+            options = []
+            for i, r in enumerate(results):
+                label = (r.get("title") or "(sans titre)")[:95]
+                dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
+                up = (r.get("uploader") or "")[:50]
+                desc = f"{up} · {dur}"[:95] if up else f"durée : {dur}"
+                options.append(discord.SelectOption(label=label, value=str(i), description=desc))
+
+            outer = self
+            class ResultsView(discord.ui.View):
+                def __init__(self):
+                    super().__init__(timeout=60)
+                    self.picked = False
+
+                @discord.ui.select(placeholder=f"Choisis une piste {platform}...", options=options)
+                async def pick(self, sel_inter: discord.Interaction, sel: discord.ui.Select):
+                    if sel_inter.user.id != outer.owner_id:
+                        await sel_inter.response.send_message("❌ Pas ton menu.", ephemeral=True)
+                        return
+                    self.picked = True
+                    idx = int(sel.values[0])
+                    chosen = results[idx]
+                    await sel_inter.response.defer()
+                    try:
+                        if not outer._ensure_opus():
+                            await sel_inter.followup.send(MUSIC_TROUBLE_MESSAGE, ephemeral=True)
+                            return
+                        if not outer.voice_channel:
+                            await sel_inter.followup.send("❌ Tu n'es plus dans un vocal.", ephemeral=True)
+                            return
+                        vc = await connect_to_voice(outer.bot, outer.guild, outer.voice_channel)
+                        gid = str(outer.guild.id)
+                        music_state_set(gid,
+                                        voice_channel_id=str(outer.voice_channel.id),
+                                        voice_channel_name=outer.voice_channel.name)
+                        # Spotify : on doit resoudre via YouTube search
+                        target_url = chosen.get("spotify_query") or chosen["url"]
+                        info = await get_audio_info(target_url)
+                        music_queue_add(gid,
+                                        title=info["title"], url=info["url"],
+                                        source_url=info.get("source_url"),
+                                        duration=info.get("duration"),
+                                        thumbnail=info.get("thumbnail") or chosen.get("thumbnail"),
+                                        requested_by=outer.owner_id)
+                        await sel_inter.followup.send(f"✅ Ajoute : **{info['title']}**")
+                        if vc.is_connected() and not vc.is_playing():
+                            await play_next(vc, outer.text_channel, outer.guild.id)
+                    except Exception as e:
+                        print(f"[music /search pick {platform}] {type(e).__name__}: {e}")
+                        await sel_inter.followup.send(MUSIC_TROUBLE_MESSAGE, ephemeral=True)
+                    self.stop()
+
+            embed = discord.Embed(
+                title=f"Résultats {platform} pour : {outer.query[:80]}",
+                color=discord.Color.blurple(),
+            )
+            for i, r in enumerate(results, 1):
+                dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
+                embed.add_field(
+                    name=f"`{i}.` {(r.get('title') or '(sans titre)')[:80]}",
+                    value=f"{(r.get('uploader') or 'Inconnu')[:40]} · `{dur}`",
+                    inline=False,
+                )
+            await inter.followup.send(embed=embed, view=ResultsView())
+
+        async def on_timeout(self):
+            if not self.chosen and self._origin_interaction:
+                try:
+                    for child in self.children:
+                        child.disabled = True
+                    await self._origin_interaction.edit_original_response(
+                        content="⌛ Choix de plateforme expiré (60s). Relance `/search`.",
+                        view=self,
+                    )
+                except Exception:
+                    pass
+
+    @bot.tree.command(name="search", description="Chercher sur YouTube / SoundCloud / Spotify / Bandcamp")
     @app_commands.describe(query="Titre, artiste, ou mots-cles a chercher")
     async def search(interaction: discord.Interaction, query: str):
         if not interaction.user.voice:
             await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
             return
         await interaction.response.defer()
+
+        # Quick preview : 1er hit YouTube pour avoir titre/artiste/thumbnail
+        preview = None
         try:
-            results = await search_youtube(query, max_results=5)
+            yt_top = await search_youtube(query, max_results=1)
+            if yt_top:
+                preview = yt_top[0]
         except Exception as e:
-            print(f"[music /search] error: {type(e).__name__}: {e}")
-            await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
-            return
-        if not results:
-            await interaction.followup.send("❌ Aucun resultat YouTube.")
-            return
-
-        # Select menu Discord
-        options = []
-        for i, r in enumerate(results):
-            label = (r.get("title") or "(sans titre)")[:95]
-            dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
-            uploader = (r.get("uploader") or "")[:50]
-            desc = f"{uploader} · {dur}"[:95]
-            options.append(discord.SelectOption(label=label, value=str(i), description=desc))
-
-        class SearchView(discord.ui.View):
-            def __init__(self):
-                super().__init__(timeout=60)
-                self.chosen = False
-
-            @discord.ui.select(placeholder="Choisis une piste...", options=options)
-            async def pick(self, sel_inter: discord.Interaction, sel: discord.ui.Select):
-                if sel_inter.user.id != interaction.user.id:
-                    await sel_inter.response.send_message("❌ Seul l'auteur de /search peut choisir.", ephemeral=True)
-                    return
-                self.chosen = True
-                idx = int(sel.values[0])
-                chosen = results[idx]
-                await sel_inter.response.defer()
-                # Reuse logique /play
-                try:
-                    if not _ensure_opus():
-                        await sel_inter.followup.send(MUSIC_TROUBLE_MESSAGE)
-                        return
-                    voice_channel = interaction.user.voice.channel if interaction.user.voice else None
-                    if not voice_channel:
-                        await sel_inter.followup.send("❌ Tu n'es plus dans un vocal.")
-                        return
-                    vc = await connect_to_voice(bot, interaction.guild, voice_channel)
-                    gid = str(interaction.guild.id)
-                    music_state_set(gid,
-                                    voice_channel_id=str(voice_channel.id),
-                                    voice_channel_name=voice_channel.name)
-                    info = await get_audio_info(chosen["url"])
-                    music_queue_add(gid,
-                                    title=info["title"], url=info["url"],
-                                    source_url=info.get("source_url"),
-                                    duration=info.get("duration"),
-                                    thumbnail=info.get("thumbnail"),
-                                    requested_by=interaction.user.id)
-                    await sel_inter.followup.send(f"✅ Ajoute : **{info['title']}**")
-                    if vc.is_connected() and not vc.is_playing():
-                        await play_next(vc, interaction.channel, interaction.guild.id)
-                except Exception as e:
-                    print(f"[music /search pick] error: {type(e).__name__}: {e}")
-                    await sel_inter.followup.send(MUSIC_TROUBLE_MESSAGE)
-                self.stop()
-
-            async def on_timeout(self):
-                if not self.chosen:
-                    try:
-                        await interaction.edit_original_response(
-                            content="⌛ Choix expire (60s). Relance `/search`.",
-                            view=None,
-                        )
-                    except Exception:
-                        pass
+            print(f"[music /search preview] {e}")
 
         embed = discord.Embed(
-            title=f"🔍 Resultats YouTube pour : {query[:80]}",
+            title=f"Recherche : {query[:120]}",
+            description=(
+                "Choisis la plateforme sur laquelle chercher.\n"
+                "Le bot proposera 5 resultats au clic."
+            ),
             color=discord.Color.blurple(),
         )
-        for i, r in enumerate(results, 1):
-            dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
+        if preview:
             embed.add_field(
-                name=f"`{i}.` {(r.get('title') or '(sans titre)')[:80]}",
-                value=f"{(r.get('uploader') or 'Inconnu')[:40]} · `{dur}`",
+                name="Aperçu (top YouTube)",
+                value=f"**{(preview.get('title') or '?')[:120]}**\n"
+                      f"{(preview.get('uploader') or 'Inconnu')[:60]} · "
+                      f"`{_fmt_duration(preview.get('duration')) if preview.get('duration') else '?'}`",
                 inline=False,
             )
-        await interaction.followup.send(embed=embed, view=SearchView())
+            if preview.get("thumbnail"):
+                embed.set_thumbnail(url=preview["thumbnail"])
+        embed.set_footer(text="60s pour choisir une plateforme")
+
+        view = _PlatformPickerView(
+            bot=bot, query=query, owner_id=interaction.user.id,
+            voice_channel=interaction.user.voice.channel,
+            guild=interaction.guild, text_channel=interaction.channel,
+            _ensure_opus=_ensure_opus,
+        )
+        await interaction.followup.send(embed=embed, view=view)
+        view._origin_interaction = interaction
 
     @bot.tree.command(name="pause", description="Mettre la musique en pause")
     async def pause(interaction: discord.Interaction):

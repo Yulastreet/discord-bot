@@ -66,6 +66,24 @@ def register_music_routes(app, deps):
         cid = bot_command_enqueue(gid(), "music_remove_track", {"track_id": track_id})
         return jsonify({"success": True, "command_id": cid})
 
+    @app.route("/api/music/stats")
+    def api_music_stats():
+        """Stats lecture : summary, top tracks, top requesters. ?days=30 par defaut."""
+        from database import (music_stats_summary, music_stats_top_tracks,
+                              music_stats_top_requesters)
+        try:
+            days = int(request.args.get("days", 30))
+        except Exception:
+            days = 30
+        days = max(1, min(365, days))
+        g_id = gid()
+        return jsonify({
+            "days":           days,
+            "summary":        music_stats_summary(g_id, days) or {},
+            "top_tracks":     music_stats_top_tracks(g_id, days, 10),
+            "top_requesters": music_stats_top_requesters(g_id, days, 10),
+        })
+
     @app.route("/api/music/command/<int:cmd_id>")
     def api_music_command_status(cmd_id):
         row = bot_command_get(cmd_id)

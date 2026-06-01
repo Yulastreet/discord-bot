@@ -41,15 +41,43 @@ def _spotify_client():
         raise RuntimeError(
             "spotipy non installe. pip install spotipy"
         ) from e
-    cid = os.getenv("SPOTIPY_CLIENT_ID")
-    csec = os.getenv("SPOTIPY_CLIENT_SECRET")
+    # Accepte SPOTIPY_* (officiel spotipy) ou SPOTIFY_* (commun) ou KOFI-style
+    cid = (os.getenv("SPOTIPY_CLIENT_ID")
+           or os.getenv("SPOTIFY_CLIENT_ID")
+           or os.getenv("SPOTIFY_ID"))
+    csec = (os.getenv("SPOTIPY_CLIENT_SECRET")
+            or os.getenv("SPOTIFY_CLIENT_SECRET")
+            or os.getenv("SPOTIFY_SECRET"))
     if not cid or not csec:
+        present = [k for k in os.environ if k.startswith("SPOTI")]
         raise RuntimeError(
-            "Variables SPOTIPY_CLIENT_ID / SPOTIPY_CLIENT_SECRET absentes."
+            "Clefs Spotify introuvables. Cherche les noms : SPOTIPY_CLIENT_ID, "
+            "SPOTIPY_CLIENT_SECRET. Vars SPOTI* presentes dans l'env du process : "
+            f"{present or 'aucune'}. (Si tu viens d'editer .env, fais pm2 restart all)"
         )
     auth = SpotifyClientCredentials(client_id=cid, client_secret=csec)
     _CLIENT = spotipy.Spotify(auth_manager=auth, requests_timeout=10, retries=2)
     return _CLIENT
+
+
+def search_spotify(query, limit=5):
+    """Cherche tracks Spotify. Retourne liste [{title, artists, url, duration_ms, thumbnail}]."""
+    sp = _spotify_client()
+    res = sp.search(q=query, limit=limit, type="track")
+    out = []
+    for t in (res.get("tracks", {}).get("items") or []):
+        thumb = None
+        if t.get("album", {}).get("images"):
+            thumb = t["album"]["images"][0].get("url")
+        out.append({
+            "title": t.get("name") or "(sans titre)",
+            "artists": ", ".join(a.get("name", "") for a in (t.get("artists") or [])),
+            "url": t.get("external_urls", {}).get("spotify"),
+            "duration_ms": t.get("duration_ms"),
+            "thumbnail": thumb,
+            "query": _track_to_query(t),
+        })
+    return out
 
 
 def _track_to_query(track: dict) -> str:
