@@ -1523,13 +1523,9 @@ def setup_runtime(bot, deps):
         vc = guild.voice_client
 
         if name in ("music_play", "music_skip", "music_stop", "music_pause",
-                     "music_resume", "music_join", "music_leave",
-                     "music_remove_track", "music_clear"):
-            # Module musique en MAINTENANCE -> no-op cote bot. Le dashboard
-            # affichera juste un message indisponible si l'utilisateur tente.
-            print(f"[music] commande '{name}' ignoree (mode maintenance)")
-            return
-            # --- ANCIEN CODE wavelink (a restaurer quand on remet la musique) ---
+                     "music_resume", "music_join", "music_leave"):
+            # Moteur audio = Lavalink/wavelink. Les helpers vivent dans commandes/music.py
+            # et sont exposes sur le bot au setup (bot._wl_*).
             import wavelink as _wl
             wl_connect = getattr(bot, "_wl_connect_node", None)
             wl_get_player = getattr(bot, "_wl_get_player", None)
