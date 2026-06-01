@@ -142,15 +142,17 @@ from commandes.custom_cmd import setup_custom_cmd_commands
 from commandes.lol import setup_lol_commands
 from cards.niveau import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
-from services.status_utils import bgutil_plugin_status
-
-# Helpers Firefox cookies retires (strategie : pas de cookies, juste bgutil+WARP).
-# Si tu veux reactiver les cookies, restaure ces fonctions dans services/status_utils.py.
+# Helpers retires : Firefox cookies + bgutil plugin status (pas necessaires
+# pour notre strategie sans cookies + bgutil HTTP server).
 def best_firefox_auth_cookie_profile():
     return None
 
 def best_firefox_cookie_profile():
     return None
+
+def bgutil_plugin_status():
+    """Plugin yt-dlp bgutil : on n'utilise pas le plugin pip, on parle au HTTP server direct."""
+    return {"installed": False, "version": None}
 from tasks.runtime import setup_runtime
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
