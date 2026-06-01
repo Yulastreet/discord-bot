@@ -66,8 +66,11 @@
   </div>
 
   <div class="card">
-    <h2>YouTube / cookies</h2>
-    <div id="youtubeInfo" class="mt-2"></div>
+    <h2>🎵 Moteur musique</h2>
+    <div class="muted" style="font-size:var(--t-xs);margin-top:4px;">
+      yt-dlp + ffmpeg + Cloudflare WARP (SOCKS5) + bgutil-pot HTTP (PoToken) + Privoxy (HTTP→SOCKS5 bridge)
+    </div>
+    <div id="musicEngineInfo" class="mt-2"></div>
   </div>
 
   <div class="card">
@@ -310,37 +313,22 @@ function render(d) {
     `;
   }
 
-  // YouTube / cookies
-  const yt = d.youtube || {};
-  const botYt = bot.youtube || {};
-  const yEl = document.getElementById('youtubeInfo');
-  const roots = (yt.firefox_roots || [])
-    .map(r => `${escapeHtml(r.source)}: ${r.exists ? 'OK' : 'absent'} (${escapeHtml(r.path)})`)
-    .join('<br>') || '—';
-  const profiles = (yt.firefox_profiles || [])
-    .map(p => {
-      const auth = p.youtube_auth || {};
-      const authText = auth.has_auth
-        ? `auth YouTube OK (${escapeHtml((auth.auth_cookie_names || []).join(', '))})`
-        : `auth YouTube absente (${auth.youtube_cookie_count || 0} cookie(s) YouTube)`;
-      return `${escapeHtml(p.source)}: ${p.cookies_exists ? 'cookies OK' : 'sans cookies'} · ${authText} · ${escapeHtml(p.path)}`;
-    })
-    .join('<br>') || 'Aucun profil Firefox avec cookies détecté';
-  const bins = yt.firefox_bins || {};
-  const bgutilPlugin = yt.bgutil_plugin || botYt.bgutil_plugin || {};
-  const warnings = (yt.warnings || []).map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('');
-  yEl.innerHTML = `
-    <div class="kv-row"><span class="kv-key">Mode web détecté</span><span class="kv-val">${escapeHtml(yt.effective_mode || '—')}</span></div>
-    <div class="kv-row"><span class="kv-key">Mode bot déclaré</span><span class="kv-val">${escapeHtml(botYt.effective_mode || '—')}</span></div>
-    <div class="kv-row"><span class="kv-key">Profil Firefox bot</span><span class="kv-val">${escapeHtml(botYt.firefox_profile || 'auto/default')}</span></div>
-    <div class="kv-row"><span class="kv-key">User web / bot</span><span class="kv-val">${escapeHtml(yt.web_user || '—')} / ${escapeHtml(yt.bot_user || '—')}</span></div>
-    <div class="kv-row"><span class="kv-key">Firefox binaire</span><span class="kv-val">${escapeHtml(bins.firefox || bins['firefox-esr'] || 'non trouvé dans PATH')}</span></div>
-    <div class="kv-row"><span class="kv-key">Racines Firefox</span><span class="kv-val">${roots}</span></div>
-    <div class="kv-row"><span class="kv-key">Profils Firefox</span><span class="kv-val">${profiles}</span></div>
-    <div class="kv-row"><span class="kv-key">cookies.txt</span><span class="kv-val">${yt.cookies_txt?.exists ? `${escapeHtml(yt.cookies_txt.path)} · ${fmtBytes(yt.cookies_txt.size_bytes)} · ${new Date(yt.cookies_txt.modified_at * 1000).toLocaleString('fr-FR')}` : 'absent'}</span></div>
-    <div class="kv-row"><span class="kv-key">Plugin bgutil</span><span class="kv-val">${bgutilPlugin.installed ? `installé ${escapeHtml(bgutilPlugin.version || '')}` : 'absent'}</span></div>
-    <div class="kv-row"><span class="kv-key">bgutil</span><span class="kv-val">${escapeHtml(yt.bgutil?.url || '—')} · ${yt.bgutil?.reachable ? 'reachable' : 'indisponible'}${yt.bgutil?.status ? ` · HTTP ${escapeHtml(yt.bgutil.status)}` : ''}${yt.bgutil?.error ? ` · ${escapeHtml(yt.bgutil.error)}` : ''}</span></div>
-    ${warnings ? `<div class="warn-list">${warnings}</div>` : ''}
+  // Moteur musique (WARP + bgutil + Privoxy + yt-dlp + ffmpeg)
+  const mus = d.music || {};
+  const mEl = document.getElementById('musicEngineInfo');
+  const warp = mus.warp || {};
+  const bgu  = mus.bgutil_pot || {};
+  const prx  = mus.privoxy || {};
+  const dot  = ok => `<span style="color:${ok ? '#3fb950' : '#f85149'};">●</span>`;
+  const musicWarnings = (mus.warnings || []).map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('');
+  mEl.innerHTML = `
+    <div class="kv-row"><span class="kv-key">yt-dlp</span><span class="kv-val">${mus.yt_dlp_version ? escapeHtml(mus.yt_dlp_version) : '<span style="color:#f85149;">non installé</span>'}</span></div>
+    <div class="kv-row"><span class="kv-key">ffmpeg</span><span class="kv-val">${mus.ffmpeg ? escapeHtml(mus.ffmpeg) : '<span style="color:#f85149;">absent du PATH</span>'}</span></div>
+    <div class="kv-row"><span class="kv-key">Cloudflare WARP</span><span class="kv-val">${dot(warp.connected)} ${escapeHtml(warp.status_text || (warp.installed === false ? 'non installé' : '—'))}</span></div>
+    <div class="kv-row"><span class="kv-key">YT proxy (yt-dlp)</span><span class="kv-val">${escapeHtml(mus.yt_proxy || '—')}</span></div>
+    <div class="kv-row"><span class="kv-key">bgutil-pot HTTP</span><span class="kv-val">${dot(bgu.ok)} ${escapeHtml(bgu.url || '—')}${bgu.status ? ` · HTTP ${escapeHtml(String(bgu.status))}` : ''}${bgu.version ? ` · ${escapeHtml(bgu.version)}` : ''}${bgu.error ? ` · <span style="color:#f85149;">${escapeHtml(bgu.error)}</span>` : ''}</span></div>
+    <div class="kv-row"><span class="kv-key">Privoxy (ffmpeg bridge)</span><span class="kv-val">${dot(prx.ok)} ${escapeHtml(prx.url || '—')}${prx.exit_ip ? ` · sortie IP ${escapeHtml(prx.exit_ip)}` : ''}${prx.error ? ` · <span style="color:#f85149;">${escapeHtml(prx.error)}</span>` : ''}</span></div>
+    ${musicWarnings ? `<div class="warn-list">${musicWarnings}</div>` : ''}
   `;
 
   // Last error

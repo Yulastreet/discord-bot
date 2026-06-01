@@ -6,6 +6,7 @@ import time
 import getpass
 import urllib.error
 import urllib.request
+import importlib.metadata
 from pathlib import Path
 
 
@@ -203,6 +204,27 @@ def best_firefox_cookie_profile(home_path=None):
     return profiles[0]["path"]
 
 
+def best_firefox_auth_cookie_profile(home_path=None):
+    home = Path(home_path) if home_path is not None else Path.home()
+    profiles = [
+        p for p in _firefox_profiles(home)
+        if p["cookies_exists"] and p.get("youtube_auth", {}).get("has_auth")
+    ]
+    if not profiles:
+        return None
+    profiles.sort(key=lambda p: p.get("cookies_modified_at") or 0, reverse=True)
+    return profiles[0]["path"]
+
+
+def bgutil_plugin_status():
+    package_name = "bgutil-ytdlp-pot-provider"
+    try:
+        version = importlib.metadata.version(package_name)
+        return {"installed": True, "package": package_name, "version": version}
+    except importlib.metadata.PackageNotFoundError:
+        return {"installed": False, "package": package_name, "version": None}
+
+
 def _process_user(pid):
     if not pid:
         return None
@@ -274,12 +296,17 @@ def youtube_diagnostics(env=None, home_path=None, bot_state=None, check_bgutil=T
     if bot_user and web_user and bot_user != web_user:
         warnings.append("bot_web_user_mismatch")
 
-    if use_firefox:
+    has_firefox_auth = any(p.get("youtube_auth", {}).get("has_auth") for p in profiles)
+    if use_firefox and has_firefox_auth:
         effective_mode = "firefox"
     elif cookies["exists"]:
         effective_mode = "cookies.txt"
     else:
         effective_mode = "bgutil_only"
+
+    bgutil_plugin = bgutil_plugin_status()
+    if not bgutil_plugin["installed"] and not cookies["exists"] and not has_firefox_auth:
+        warnings.append("bgutil_plugin_missing")
 
     return {
         "effective_mode": effective_mode,
@@ -295,6 +322,7 @@ def youtube_diagnostics(env=None, home_path=None, bot_state=None, check_bgutil=T
         "firefox_profiles": profiles,
         "firefox_cookies_accessible": firefox_cookies_accessible,
         "cookies_txt": cookies,
+        "bgutil_plugin": bgutil_plugin,
         "bgutil": _bgutil_status(bgutil_url, bgutil_timeout) if check_bgutil else {
             "configured": bool(bgutil_url),
             "reachable": None,
@@ -302,4 +330,93 @@ def youtube_diagnostics(env=None, home_path=None, bot_state=None, check_bgutil=T
             "skipped": True,
         },
         "warnings": warnings,
+    }
+
+
+# ===== Moteur musique (post-Lavalink, juin 2026) =====
+# Stack actif : yt-dlp + ffmpeg + WARP (SOCKS5 :40000) + bgutil-pot HTTP (:4416)
+# + Privoxy (HTTP :8118 bridge vers WARP). Toutes les pieces tournent en local sur le VPS.
+
+def _http_check(url, timeout=1.0, proxy=None):
+    """GET simple. Retourne dict {ok, status, error, ip(opt)}. Optionnellement via proxy HTTP."""
+    try:
+        if proxy:
+            req = urllib.request.Request(url)
+            handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+            opener = urllib.request.build_opener(handler)
+            resp = opener.open(req, timeout=timeout)
+        else:
+            resp = urllib.request.urlopen(url, timeout=timeout)
+        body = resp.read(256).decode("utf-8", errors="replace").strip()
+        return {"ok": True, "status": resp.getcode(), "body": body}
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "status": e.code, "error": str(e)}
+    except Exception as e:
+        return {"ok": False, "status": None, "error": f"{type(e).__name__}: {e}"}
+
+
+def _warp_status():
+    """Lance `warp-cli status`. Renvoie {connected, status_text}."""
+    warp = shutil.which("warp-cli")
+    if not warp:
+        return {"connected": False, "status_text": "warp-cli non installe", "installed": False}
+    try:
+        import subprocess
+        r = subprocess.run([warp, "status"], capture_output=True, text=True, timeout=3)
+        out = (r.stdout + r.stderr).strip()
+        return {
+            "connected": "Connected" in out,
+            "status_text": out.splitlines()[0] if out else "",
+            "installed": True,
+        }
+    except Exception as e:
+        return {"connected": False, "status_text": f"{type(e).__name__}", "installed": True}
+
+
+def _ytdlp_version():
+    try:
+        return importlib.metadata.version("yt-dlp")
+    except Exception:
+        return None
+
+
+def music_engine_diagnostics(env=None, timeout=1.0):
+    """Etat du stack musique : yt-dlp, ffmpeg, WARP, bgutil-pot HTTP, Privoxy."""
+    env = env or os.environ
+    bgutil_url = env.get("BGUTIL_POT_URL", "http://127.0.0.1:4416")
+    privoxy_url = env.get("FFMPEG_HTTP_PROXY", "http://127.0.0.1:8118")
+    yt_proxy = env.get("YT_PROXY", "socks5://127.0.0.1:40000")
+
+    warp = _warp_status()
+    bgutil = _http_check(bgutil_url.rstrip("/") + "/ping", timeout=timeout)
+    # Privoxy : test via curl vers un endpoint qui revoit l'IP
+    privoxy = _http_check("https://api.ipify.org", timeout=timeout, proxy=privoxy_url)
+
+    warnings = []
+    if not warp["connected"]:
+        warnings.append("warp_disconnected")
+    if not bgutil["ok"]:
+        warnings.append("bgutil_pot_unreachable")
+    if not privoxy["ok"]:
+        warnings.append("privoxy_unreachable")
+
+    return {
+        "yt_dlp_version": _ytdlp_version(),
+        "ffmpeg":         shutil.which("ffmpeg"),
+        "warp":           warp,
+        "bgutil_pot":     {
+            "url":     bgutil_url,
+            "ok":      bgutil["ok"],
+            "status":  bgutil.get("status"),
+            "version": bgutil.get("body"),  # /ping renvoie JSON avec version
+            "error":   bgutil.get("error"),
+        },
+        "privoxy":        {
+            "url":   privoxy_url,
+            "ok":    privoxy["ok"],
+            "exit_ip": privoxy.get("body") if privoxy["ok"] else None,
+            "error": privoxy.get("error"),
+        },
+        "yt_proxy":       yt_proxy,
+        "warnings":       warnings,
     }
