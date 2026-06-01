@@ -443,9 +443,34 @@ def _entry_url(entry):
     return None
 
 
+def _is_youtube_target(s):
+    """True si query/URL cible YouTube (donc besoin du proxy WARP + bgutil POT)."""
+    if not s:
+        return False
+    s_low = s.lower()
+    if s_low.startswith("ytsearch") or s_low.startswith("http") is False:
+        # Recherche par mots-cles -> default_search ytsearch -> YouTube
+        return True
+    return ("youtube.com/" in s_low or "youtu.be/" in s_low or
+            "music.youtube.com" in s_low)
+
+
+def _ydl_opts_for(url_or_query):
+    """Retourne YDL_OPTIONS adapte a la cible : retire proxy/POT/clients YT
+    pour SoundCloud / Bandcamp / autres (WARP SOCKS5 bloque chez certains hosts)."""
+    if _is_youtube_target(url_or_query):
+        return YDL_OPTIONS
+    opts = dict(YDL_OPTIONS)
+    opts.pop("proxy", None)
+    opts.pop("extractor_args", None)
+    opts.pop("remote_components", None)
+    return opts
+
+
 def _extract_audio_info_sync(query):
     if query.startswith("http"):
-        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+        opts = _ydl_opts_for(query)
+        with yt_dlp.YoutubeDL(opts) as ydl:
             return _format_audio_info(ydl.extract_info(query, download=False))
 
     flat_options = dict(YDL_OPTIONS)
@@ -668,7 +693,17 @@ async def play_next(voice_client, channel, guild_id):
             return await play_next(voice_client, channel, guild_id)
 
     try:
-        raw_source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+        # ffmpeg : passe par Privoxy (-> WARP) uniquement pour YouTube.
+        # SoundCloud/Bandcamp servent en direct, le proxy WARP bloque chez eux.
+        src_for_proxy = track.get("source_url") or track.get("url") or stream_url
+        if _is_youtube_target(src_for_proxy) or "googlevideo.com" in (stream_url or "").lower():
+            ff_opts = FFMPEG_OPTIONS
+        else:
+            ff_opts = dict(FFMPEG_OPTIONS)
+            ff_opts["before_options"] = ff_opts.get("before_options", "").replace(
+                f" -http_proxy {_FFMPEG_HTTP_PROXY}" if _FFMPEG_HTTP_PROXY else "", ""
+            )
+        raw_source = discord.FFmpegPCMAudio(stream_url, **ff_opts)
         # Volume guild : persiste via guild_setting (default 1.0 = 100%)
         try:
             from database import guild_setting_get
