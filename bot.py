@@ -364,8 +364,8 @@ _COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookie
 _BGUTIL_POT_URL = os.getenv("BGUTIL_POT_URL", "http://127.0.0.1:4416")
 
 YDL_OPTIONS = {
-    # Selecteur ultra-permissif : prend ce qui existe.
-    'format': 'bestaudio/best',
+    # Selecteur audio seulement, evite les flux video DRM.
+    'format': 'bestaudio[acodec^=opus]/bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
     'noplaylist': True,
     'quiet': False,            # passe a False pour voir les details d'erreur dans les logs
     'no_warnings': False,
@@ -377,16 +377,20 @@ YDL_OPTIONS = {
     # (rarement bloquee) au lieu de l'IP datacenter du VPS. Reglable via env
     # YT_PROXY="" pour desactiver.
     'proxy': os.getenv("YT_PROXY", "socks5://127.0.0.1:40000") or None,
-    # Clients YouTube : web/mweb consomment le po_token fourni par bgutil.
-    # Fallbacks ios/android/tv pour cas ou web echoue.
+    # Clients YouTube : on restreint a ceux qui exploitent les PO tokens bgutil.
+    # web_safari + tv_simply marchent bien avec WARP + PoToken sans nécessiter de login.
+    # On retire android/ios qui exigent un PoToken specifique qu'on n'a pas, et qui
+    # produisent des URLs 403 quand ffmpeg les fetch.
     'extractor_args': {
         'youtube': {
-            'player_client': ['tv_simply', 'web_safari', 'web_embedded', 'web', 'mweb', 'tv', 'ios', 'android'],
+            'player_client': ['web_safari', 'tv_simply', 'web', 'mweb'],
         },
         'youtubepot-bgutilhttp': {
             'base_url': [_BGUTIL_POT_URL],
         },
     },
+    # Force format audio only pour eviter les video formats DRM/SABR
+    'format_sort': ['acodec:opus', 'acodec:aac', 'acodec:mp3'],
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
