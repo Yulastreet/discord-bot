@@ -82,6 +82,21 @@ def init_db():
         updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ===== Telemetry lectures musique (stats top tracks / top requesters) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS music_plays (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id     TEXT NOT NULL,
+        user_id      TEXT,
+        track_title  TEXT NOT NULL,
+        track_url    TEXT,
+        source       TEXT,
+        duration     INTEGER,
+        played_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_guild_ts ON music_plays(guild_id, played_at DESC)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_title    ON music_plays(guild_id, track_title)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_user     ON music_plays(guild_id, user_id)")
+
     # ===== Table bot_commands (queue web -> bot, polling 1.5s) =====
     c.execute('''CREATE TABLE IF NOT EXISTS bot_commands (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1143,6 +1158,84 @@ def music_state_disconnect(guild_id):
                     voice_channel_id=None, voice_channel_name=None,
                     current_title=None, current_url=None, current_thumbnail=None,
                     current_duration=None, is_playing=0, is_paused=0, started_at=None)
+
+
+# ===== Music plays telemetry =====
+def music_play_log(guild_id, user_id, track_title, track_url=None, source=None, duration=None):
+    """Enregistre une lecture musicale (appele depuis play_next sur succes)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""INSERT INTO music_plays
+                 (guild_id, user_id, track_title, track_url, source, duration)
+                 VALUES (?, ?, ?, ?, ?, ?)""",
+              (str(guild_id), str(user_id) if user_id else None,
+               (track_title or "")[:500], track_url, source, duration))
+    conn.commit()
+    conn.close()
+
+
+def music_stats_top_tracks(guild_id=None, days=30, limit=10):
+    conn = get_db()
+    c = conn.cursor()
+    where = "played_at >= datetime('now', ?)"
+    params = [f"-{int(days)} days"]
+    if guild_id:
+        where += " AND guild_id = ?"
+        params.append(str(guild_id))
+    c.execute(f"""SELECT track_title, COUNT(*) AS plays, MAX(track_url) AS url
+                  FROM music_plays
+                  WHERE {where}
+                  GROUP BY track_title
+                  ORDER BY plays DESC
+                  LIMIT ?""", (*params, int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def music_stats_top_requesters(guild_id=None, days=30, limit=10):
+    conn = get_db()
+    c = conn.cursor()
+    where = "played_at >= datetime('now', ?) AND user_id IS NOT NULL"
+    params = [f"-{int(days)} days"]
+    if guild_id:
+        where += " AND guild_id = ?"
+        params.append(str(guild_id))
+    c.execute(f"""SELECT user_id, COUNT(*) AS plays
+                  FROM music_plays
+                  WHERE {where}
+                  GROUP BY user_id
+                  ORDER BY plays DESC
+                  LIMIT ?""", (*params, int(limit)))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def music_stats_summary(guild_id=None, days=30):
+    """Retourne {total_plays, unique_tracks, unique_users, total_seconds, by_source}."""
+    conn = get_db()
+    c = conn.cursor()
+    where = "played_at >= datetime('now', ?)"
+    params = [f"-{int(days)} days"]
+    if guild_id:
+        where += " AND guild_id = ?"
+        params.append(str(guild_id))
+    c.execute(f"""SELECT COUNT(*) AS total_plays,
+                         COUNT(DISTINCT track_title) AS unique_tracks,
+                         COUNT(DISTINCT user_id) AS unique_users,
+                         COALESCE(SUM(duration), 0) AS total_seconds
+                  FROM music_plays
+                  WHERE {where}""", tuple(params))
+    base = dict(c.fetchone() or {})
+    c.execute(f"""SELECT COALESCE(source, 'youtube') AS source, COUNT(*) AS plays
+                  FROM music_plays
+                  WHERE {where}
+                  GROUP BY source
+                  ORDER BY plays DESC""", tuple(params))
+    base["by_source"] = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return base
 
 
 # ===== BOT COMMANDS — file d'attente web -> bot =====

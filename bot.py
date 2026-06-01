@@ -142,17 +142,6 @@ from commandes.custom_cmd import setup_custom_cmd_commands
 from commandes.lol import setup_lol_commands
 from cards.niveau import render_niveau_card, render_levelup_card_premium, preload_backgrounds
 from services.emoji import parse_emoji_input as _parse_emoji_input
-# Helpers retires : Firefox cookies + bgutil plugin status (pas necessaires
-# pour notre strategie sans cookies + bgutil HTTP server).
-def best_firefox_auth_cookie_profile():
-    return None
-
-def best_firefox_cookie_profile():
-    return None
-
-def bgutil_plugin_status():
-    """Plugin yt-dlp bgutil : on n'utilise pas le plugin pip, on parle au HTTP server direct."""
-    return {"installed": False, "version": None}
 from tasks.runtime import setup_runtime
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
@@ -357,9 +346,7 @@ def get_progress(xp):
 # ===== MUSIQUE (DB-backed) =====
 import datetime as _dt
 
-_COOKIES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-
-# PO Token provider (bgutil) â€” bypass anti-bot YouTube sans cookies.
+# PO Token provider (bgutil) : bypass anti-bot YouTube sans cookies.
 # Endpoint configurable via env BGUTIL_POT_URL (defaut: container Docker local).
 _BGUTIL_POT_URL = os.getenv("BGUTIL_POT_URL", "http://127.0.0.1:4416")
 
@@ -399,37 +386,12 @@ YDL_OPTIONS = {
 if not YDL_OPTIONS.get('proxy'):
     YDL_OPTIONS.pop('proxy', None)
 
-# Cookies : priorite Firefox live (auto-rotation par le browser sur le VPS),
-# fallback cookies.txt manuel.
-_USE_FIREFOX_COOKIES = os.getenv("YT_USE_FIREFOX_COOKIES", "1") == "1"
-_BGUTIL_PLUGIN = bgutil_plugin_status()
-_FIREFOX_COOKIE_PROFILE = os.getenv("YT_FIREFOX_PROFILE") or best_firefox_auth_cookie_profile()
-_FIREFOX_FALLBACK_PROFILE = None if _FIREFOX_COOKIE_PROFILE else best_firefox_cookie_profile()
-if _USE_FIREFOX_COOKIES and _FIREFOX_COOKIE_PROFILE:
-    # yt-dlp lit cookies.sqlite live du profil par defaut.
-    YDL_OPTIONS['cookiesfrombrowser'] = ('firefox', _FIREFOX_COOKIE_PROFILE)
-    print(f"[yt-dlp] cookies-from-browser: firefox ({_FIREFOX_COOKIE_PROFILE})")
-elif os.path.exists(_COOKIES_PATH):
-    YDL_OPTIONS['cookiefile'] = _COOKIES_PATH
-    print(f"[yt-dlp] cookies loaded from {_COOKIES_PATH}")
-else:
-    if _USE_FIREFOX_COOKIES and _FIREFOX_FALLBACK_PROFILE:
-        print(f"[yt-dlp] profil Firefox detecte sans auth YouTube exploitable: {_FIREFOX_FALLBACK_PROFILE}")
-    print(f"[yt-dlp] aucun cookie YouTube authentifie detecte ({_COOKIES_PATH})")
-
-if not _BGUTIL_PLUGIN["installed"]:
-    print("[yt-dlp] bgutil-ytdlp-pot-provider manquant - installe requirements.txt pour activer le PO token provider.")
-
-print(f"[yt-dlp] bgutil pot provider endpoint: {_BGUTIL_POT_URL} (plugin={_BGUTIL_PLUGIN['version'] or 'missing'})")
-BOT_STATE["youtube"] = {
-    "yt_use_firefox_cookies": _USE_FIREFOX_COOKIES,
+# Stack actuel : pas de cookies, pas de Firefox, juste bgutil HTTP + WARP.
+# Suffit largement pour YouTube non-age-gated / non-restreint geographiquement.
+print(f"[yt-dlp] bgutil pot provider endpoint: {_BGUTIL_POT_URL}")
+BOT_STATE["music"] = {
     "bgutil_pot_url": _BGUTIL_POT_URL,
-    "bgutil_plugin": _BGUTIL_PLUGIN,
-    "cookies_path": _COOKIES_PATH,
-    "cookies_txt_exists": os.path.exists(_COOKIES_PATH),
-    "firefox_profile": _FIREFOX_COOKIE_PROFILE,
-    "firefox_fallback_profile": _FIREFOX_FALLBACK_PROFILE,
-    "effective_mode": "firefox" if (_USE_FIREFOX_COOKIES and _FIREFOX_COOKIE_PROFILE) else ("cookies.txt" if os.path.exists(_COOKIES_PATH) else "bgutil_only"),
+    "yt_proxy":       YDL_OPTIONS.get('proxy'),
 }
 
 # Proxy HTTP local (Privoxy) qui bridge vers SOCKS5 WARP.
@@ -559,6 +521,37 @@ async def get_playlist_info(url, max_items=50):
     return await loop.run_in_executor(None, lambda: _extract_playlist_sync(url, max_items))
 
 
+def _search_youtube_sync(query, max_results=5):
+    """Cherche sur YouTube et retourne metadonnees minimales (sans resolve stream).
+
+    Plus rapide que extract complet : on resout le stream seulement quand
+    l'utilisateur a choisi (cf. /search dans commandes/music.py).
+    """
+    opts = dict(YDL_OPTIONS)
+    opts["extract_flat"] = "in_playlist"
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(f"ytsearch{int(max_results)}:{query}", download=False)
+    out = []
+    for e in info.get("entries") or []:
+        if not e:
+            continue
+        url = _entry_url(e)
+        if not url:
+            continue
+        out.append({
+            "title":    e.get("title") or "(sans titre)",
+            "url":      url,
+            "duration": e.get("duration"),
+            "uploader": e.get("uploader") or e.get("channel"),
+        })
+    return out
+
+
+async def search_youtube(query, max_results=5):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: _search_youtube_sync(query, max_results))
+
+
 async def get_audio_info(query):
     """Retourne dict {url, title, duration, thumbnail, source_url} depuis yt-dlp."""
     loop = asyncio.get_event_loop()
@@ -642,7 +635,15 @@ async def play_next(voice_client, channel, guild_id):
             return await play_next(voice_client, channel, guild_id)
 
     try:
-        source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+        raw_source = discord.FFmpegPCMAudio(stream_url, **FFMPEG_OPTIONS)
+        # Volume guild : persiste via guild_setting (default 1.0 = 100%)
+        try:
+            from database import guild_setting_get
+            vol_str = guild_setting_get(str(guild_id), "music_volume", "1.0")
+            volume = max(0.0, min(2.0, float(vol_str)))
+        except Exception:
+            volume = 1.0
+        source = discord.PCMVolumeTransformer(raw_source, volume=volume)
         voice_client.play(
             source,
             after=lambda e: asyncio.run_coroutine_threadsafe(
@@ -658,6 +659,28 @@ async def play_next(voice_client, channel, guild_id):
             current_duration=duration,
             is_playing=1, is_paused=0,
             started_at=_dt.datetime.utcnow().isoformat(timespec="seconds"))
+        # Telemetry : log lecture (best-effort, ne bloque pas la lecture si echec)
+        try:
+            from database import music_play_log
+            src_url = (track.get("source_url") or track.get("url") or "").lower()
+            if "soundcloud.com" in src_url:
+                source = "soundcloud"
+            elif "bandcamp.com" in src_url:
+                source = "bandcamp"
+            elif "twitch.tv" in src_url:
+                source = "twitch"
+            else:
+                source = "youtube"
+            music_play_log(
+                guild_id=str(guild_id),
+                user_id=track.get("requested_by"),
+                track_title=track["title"],
+                track_url=track.get("source_url") or track.get("url"),
+                source=source,
+                duration=duration,
+            )
+        except Exception as e:
+            print(f"[music telemetry] log fail: {e}")
         if channel:
             try: await channel.send(f"🎵 En cours : **{track['title']}**")
             except Exception: pass

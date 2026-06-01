@@ -237,7 +237,7 @@
       <span>TookBot</span>
     </a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="/#features">Features</a>
+      <a href="/commandes.html">Commandes</a>
       <a href="/faq.html">FAQ</a>
       <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
     </nav>
@@ -269,7 +269,7 @@
       <summary>C'est quoi TookBot ?
         <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </summary>
-      <div class="faq-body">TookBot est un bot Discord tout-en-un : système d'XP et niveaux, modération, musique YouTube, duels de sabres laser, giveaways, tickets, rôles-réaction, alertes réseaux, mini-jeux, et un dashboard web complet pour tout configurer. Plus de 30 commandes slash.</div>
+      <div class="faq-body">TookBot est un bot Discord tout-en-un : système d'XP et niveaux, modération, musique multi-sources (YouTube, SoundCloud, Spotify, Bandcamp), duels de sabres laser, giveaways, tickets, rôles-réaction, alertes réseaux, mini-jeux, IA conversationnelle avec vision et TTS, et un dashboard web complet pour tout configurer. Plus de 70 commandes slash.</div>
     </details>
 
     <details class="faq-item">
@@ -306,7 +306,21 @@
       <summary>Le bot peut jouer de la musique ?
         <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </summary>
-      <div class="faq-body">Oui, TookBot lit de la musique depuis YouTube dans les salons vocaux. File d'attente, contrôle de lecture, le tout via commandes slash.</div>
+      <div class="faq-body">Oui. TookBot lit depuis <strong>YouTube</strong>, <strong>SoundCloud</strong>, <strong>Bandcamp</strong> et <strong>Spotify</strong> (tracks, albums et playlists). Commandes principales : <code>/play</code>, <code>/search</code>, <code>/queue</code>, <code>/nowplaying</code>, <code>/skip</code>, <code>/remove</code>, <code>/volume</code>, <code>/pause</code>, <code>/resume</code>, <code>/musicstats</code>. Pour Spotify, les pistes sont résolues vers leur équivalent YouTube (limitation API publique).</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Quelle est la qualité audio de TookBot ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">TookBot streame via <code>yt-dlp</code> + <code>ffmpeg</code> en sélectionnant la meilleure source audio disponible (typiquement Opus 128–160 kbps depuis YouTube), puis re-encode pour Discord. Le bot tourne sur un VPS dédié en Allemagne (Hetzner) avec un proxy Cloudflare WARP pour contourner les blocages anti-bot YouTube. Pas de coupures, reconnect automatique en cas de drop, et reprise auto de la file après redémarrage.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Pourquoi pas une intégration Spotify directe ?
+        <svg class="chev" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="faq-body">Spotify n'autorise pas l'API publique à streamer l'audio (DRM). Comme la quasi-totalité des bots musique Discord, TookBot lit les métadonnées Spotify (titres, artistes) puis trouve l'équivalent YouTube. Tu colles un lien track / album / playlist Spotify dans <code>/play</code>, le reste est transparent.</div>
     </details>
 
     <details class="faq-item">

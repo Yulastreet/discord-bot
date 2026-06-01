@@ -141,7 +141,13 @@ def _build_command_pages() -> list:
     p2.add_field(
         name="🎵 Musique",
         value=(
-            "**/join** **/play `<titre|lien>`** **/queue** **/skip** **/stop** **/leave**"
+            "**/join** **/leave** — rejoindre / quitter ton vocal\n"
+            "**/play `<titre|lien>`** — YouTube, SoundCloud, Bandcamp, Spotify (track/album/playlist)\n"
+            "**/search `<query>`** — choisir parmi 5 resultats YouTube\n"
+            "**/queue** **/nowplaying** — file complete / piste en cours\n"
+            "**/skip `[position]`** **/remove `<position>`** — passer / retirer une piste\n"
+            "**/volume `<0-200>`** **/pause** **/resume** **/stop**\n"
+            "**/musicstats `[periode]`** — top tracks et top auditeurs"
         ),
         inline=False,
     )

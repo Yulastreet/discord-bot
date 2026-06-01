@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commandes - TookBot</title>
+<meta name="description" content="Toutes les commandes slash de TookBot, expliquees par categorie : musique, IA, modération, XP, duels, jeux, utilitaires. Plus de 70 commandes.">
+<meta property="og:title" content="Commandes - TookBot">
+<meta property="og:description" content="Toutes les commandes TookBot avec explications et comparatif vs autres bots.">
+<meta property="og:url" content="https://tookbot.click/commandes.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TookBot">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:image" content="https://tookbot.click/previewdiscord.png">
+<meta name="theme-color" content="#f6ffe7">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    const saved = localStorage.getItem('tookbot-theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = saved || (prefersDark ? 'dark' : 'light');
+  })();
+</script>
+<style>
+  :root {
+    --bg: #f7fbe8;
+    --paper: #ffffff;
+    --ink: #090d08;
+    --muted: #68705f;
+    --soft: #dfe8c8;
+    --soft-2: #f0f7db;
+    --green: #b9ff24;
+    --green-2: #64d91b;
+    --green-deep: #163d12;
+    --shadow: 0 28px 90px rgba(55, 86, 21, .16);
+    --shadow-soft: 0 18px 50px rgba(44, 63, 15, .11);
+    --radius-lg: 28px;
+    --radius-md: 18px;
+    --radius-sm: 12px;
+    --radius-pill: 999px;
+    color-scheme: light;
+  }
+  html[data-theme="dark"] {
+    --bg: #0b1208;
+    --paper: #101a0d;
+    --ink: #f7ffe8;
+    --muted: #bac9aa;
+    --soft: rgba(207, 255, 129, .20);
+    --soft-2: rgba(255, 255, 255, .08);
+    --green: #c6ff35;
+    --green-2: #73e327;
+    --shadow: 0 28px 90px rgba(0,0,0,.5);
+    --shadow-soft: 0 18px 50px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.6;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .nav {
+    width: min(calc(100% - 32px), 1180px); margin: 18px auto 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 12px 20px; background: var(--paper);
+    border: 1px solid var(--soft); border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-soft); position: sticky; top: 14px; z-index: 50;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 18px; letter-spacing: -.02em; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--green), var(--green-2));
+    box-shadow: 0 4px 12px rgba(185,255,36,.4);
+  }
+  .nav-links { display: flex; gap: 22px; font-weight: 600; font-size: 14px; }
+  .nav-links a { color: var(--muted); transition: color .15s; }
+  .nav-links a:hover, .nav-links a.active { color: var(--ink); }
+  .nav-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: var(--radius-pill);
+    font-weight: 700; font-size: 14px; cursor: pointer;
+    border: 1px solid transparent; transition: transform .15s, box-shadow .15s, background .15s;
+  }
+  .btn-small { padding: 7px 14px; font-size: 13px; }
+  .btn-primary {
+    background: linear-gradient(180deg, var(--green), var(--green-2));
+    color: #13220b; box-shadow: 0 6px 18px rgba(185,255,36,.32);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(185,255,36,.42); }
+  .btn-secondary { background: transparent; color: var(--ink); border-color: var(--soft); }
+  .btn-secondary:hover { background: var(--soft-2); }
+  .nav-support { border-color: rgba(185,255,36,.45); color: var(--green-2); font-weight: 800; }
+  html[data-theme="dark"] .nav-support { color: var(--green); }
+  .theme-toggle {
+    width: 38px; height: 38px; padding: 0; display: grid; place-items: center;
+    border-radius: 50%; background: transparent; border: 1px solid var(--soft);
+    cursor: pointer; color: var(--ink);
+  }
+  .theme-toggle svg { width: 18px; height: 18px; }
+  .theme-toggle .moon { display: none; }
+  html[data-theme="dark"] .theme-toggle .sun { display: none; }
+  html[data-theme="dark"] .theme-toggle .moon { display: block; }
+
+  main {
+    width: min(calc(100% - 32px), 1180px);
+    margin: 0 auto; padding: 56px 0 80px; flex: 1;
+  }
+  .head { text-align: center; margin-bottom: 36px; }
+  .eyebrow {
+    display: inline-block; font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--green-2);
+    background: var(--soft-2); padding: 5px 14px; border-radius: var(--radius-pill); margin-bottom: 16px;
+  }
+  html[data-theme="dark"] .eyebrow { color: var(--green); }
+  .head h1 { font-size: clamp(34px, 6vw, 54px); font-weight: 900; letter-spacing: -.03em; line-height: 1.1; }
+  .head p { color: var(--muted); margin-top: 14px; font-size: 17px; max-width: 640px; margin-inline: auto; }
+  .head .counter {
+    display: inline-flex; align-items: baseline; gap: 8px;
+    background: var(--paper); border: 1px solid var(--soft);
+    padding: 8px 18px; border-radius: var(--radius-pill);
+    margin-top: 16px; font-weight: 700; box-shadow: var(--shadow-soft);
+  }
+  .head .counter strong { font-size: 22px; color: var(--green-2); }
+  html[data-theme="dark"] .head .counter strong { color: var(--green); }
+
+  .search-bar {
+    max-width: 580px; margin: 28px auto 0;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--paper); border: 1px solid var(--soft);
+    border-radius: var(--radius-pill); padding: 6px 6px 6px 18px;
+    box-shadow: var(--shadow-soft);
+  }
+  .search-bar input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    color: var(--ink); font-size: 15px; font-family: inherit; padding: 8px 0;
+  }
+  .search-bar input::placeholder { color: var(--muted); }
+  .search-bar .count-live { font-size: 13px; color: var(--muted); padding-right: 8px; }
+
+  .layout {
+    display: grid; grid-template-columns: 240px 1fr; gap: 32px; margin-top: 36px;
+  }
+  .sidebar {
+    position: sticky; top: 90px; align-self: start;
+    background: var(--paper); border: 1px solid var(--soft);
+    border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-soft);
+  }
+  .sidebar h3 {
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); padding: 8px 10px 12px;
+  }
+  .sidebar a {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; border-radius: var(--radius-sm);
+    font-weight: 600; font-size: 14px; color: var(--ink);
+    transition: background .15s; cursor: pointer;
+  }
+  .sidebar a:hover { background: var(--soft-2); }
+  .sidebar a.active { background: linear-gradient(180deg, rgba(185,255,36,.18), rgba(100,217,27,.12)); }
+  .sidebar a .pill {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    background: var(--soft-2); padding: 2px 8px; border-radius: 999px;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadein .25s; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .panel-head {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 6px;
+  }
+  .panel-head .icon {
+    width: 44px; height: 44px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--green), var(--green-2));
+    border-radius: 14px; color: #13220b; box-shadow: 0 4px 16px rgba(185,255,36,.3);
+  }
+  .panel-head .icon svg { width: 22px; height: 22px; }
+  .panel-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+  .panel-intro { color: var(--muted); font-size: 15px; margin-bottom: 20px; }
+
+  .cmd-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 14px;
+  }
+  .cmd-card {
+    background: var(--paper); border: 1px solid var(--soft);
+    border-radius: var(--radius-md); padding: 18px;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .cmd-card:hover { border-color: rgba(185,255,36,.5); transform: translateY(-3px); box-shadow: var(--shadow-soft); }
+  .cmd-card .slash {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--ink); color: var(--green);
+    padding: 4px 10px; border-radius: 8px;
+    font-family: ui-monospace, 'JetBrains Mono', monospace;
+    font-size: 13px; font-weight: 700;
+  }
+  html[data-theme="dark"] .cmd-card .slash { background: #050a04; }
+  .cmd-card h4 {
+    margin: 12px 0 6px; font-size: 16px; font-weight: 800;
+  }
+  .cmd-card p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .cmd-card .why {
+    margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--soft);
+    font-size: 13px; color: var(--ink);
+  }
+  .cmd-card .why strong { color: var(--green-2); font-weight: 800; }
+  html[data-theme="dark"] .cmd-card .why strong { color: var(--green); }
+
+  .cmd-card.is-premium { border-color: rgba(255, 200, 50, .4); }
+  .cmd-card.is-premium::after {
+    content: "PREMIUM"; position: absolute; font-size: 9px;
+  }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .08em;
+    padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle;
+  }
+  .badge-new { background: var(--green); color: #13220b; }
+  .badge-prem { background: linear-gradient(135deg, #ffd45e, #ff9d2e); color: #4a2a00; }
+
+  .compare {
+    margin-top: 64px; background: var(--paper); border: 1px solid var(--soft);
+    border-radius: var(--radius-lg); padding: 36px 28px; box-shadow: var(--shadow-soft);
+  }
+  .compare h2 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+  .compare > p { color: var(--muted); margin: 10px 0 24px; max-width: 640px; }
+  .compare-table {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+    overflow: hidden; border-radius: var(--radius-md); border: 1px solid var(--soft);
+  }
+  .compare-table th, .compare-table td {
+    padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--soft);
+  }
+  .compare-table th {
+    background: var(--soft-2); font-weight: 800; font-size: 13px;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .compare-table tr:last-child td { border-bottom: 0; }
+  .compare-table .yes { color: var(--green-2); font-weight: 800; }
+  html[data-theme="dark"] .compare-table .yes { color: var(--green); }
+  .compare-table .no { color: #d54a4a; font-weight: 700; opacity: .8; }
+  .compare-table .partial { color: #d9892a; font-weight: 700; }
+  .compare-table th:first-child, .compare-table td:first-child { font-weight: 700; }
+  .compare-table th.us { background: linear-gradient(180deg, rgba(185,255,36,.25), rgba(100,217,27,.15)); }
+
+  .why-us {
+    margin-top: 48px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;
+  }
+  .why-card {
+    background: var(--paper); border: 1px solid var(--soft);
+    border-radius: var(--radius-md); padding: 22px;
+  }
+  .why-card .ico {
+    width: 36px; height: 36px; display: grid; place-items: center;
+    background: var(--soft-2); border-radius: 10px; margin-bottom: 12px;
+  }
+  .why-card .ico svg { width: 18px; height: 18px; color: var(--green-2); }
+  html[data-theme="dark"] .why-card .ico svg { color: var(--green); }
+  .why-card h3 { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+  .why-card p { color: var(--muted); font-size: 14px; }
+
+  .cta {
+    margin-top: 56px; text-align: center;
+    background: linear-gradient(135deg, var(--paper), var(--soft-2));
+    border: 1px solid var(--soft); border-radius: var(--radius-lg);
+    padding: 40px 28px; box-shadow: var(--shadow-soft);
+  }
+  .cta h2 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .cta p { color: var(--muted); margin: 10px 0 22px; }
+  .cta .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  .footer {
+    width: min(calc(100% - 32px), 1180px); margin: 0 auto;
+    padding: 28px 0 42px; display: flex; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap; color: var(--muted); font-size: 13px;
+    border-top: 1px solid var(--soft);
+  }
+  .footer-links { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+  .footer-links a { font-weight: 700; color: var(--ink); }
+  .footer-support {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 14px; border-radius: var(--radius-pill);
+    background: linear-gradient(180deg, #caff37, #75d91b); color: #13220b !important;
+  }
+
+  @media (max-width: 880px) {
+    .nav-links { display: none; }
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; }
+    .sidebar nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  }
+</style>
+</head>
+<body>
+  <header class="nav" aria-label="Navigation principale">
+    <a class="brand" href="/" aria-label="Accueil TookBot">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>TookBot</span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="/commandes.html" class="active">Commandes</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" aria-label="Changer le thème" onclick="toggleTheme()">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.4-6.4 1.4-1.4M4.2 19.8l1.4-1.4m0-12.8L4.2 4.2m15.6 15.6-1.4-1.4" stroke="currentColor" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="4" stroke="currentColor"/>
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20 14.4A7.8 7.8 0 0 1 9.6 4a8.2 8.2 0 1 0 10.4 10.4Z" stroke="currentColor" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <a class="btn btn-secondary btn-small nav-support" href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">☕ Soutenir</a>
+      <a class="btn btn-primary btn-small" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="head">
+      <span class="eyebrow">Toutes les commandes</span>
+      <h1>70+ commandes slash. Pas de prise de tête.</h1>
+      <p>Chaque commande TookBot est conçue pour faire UNE chose, et la faire bien. Pas de paywall sur l'essentiel, pas de pub, pas de préfixe à retenir.</p>
+      <div class="counter">Total : <strong>70+</strong> commandes</div>
+      <div class="search-bar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="color:var(--muted)"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="text" placeholder="Cherche une commande (ex: play, warn, niveau...)" autocomplete="off">
+        <span class="count-live" id="searchCount"></span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar" aria-label="Catégories">
+        <h3>Catégories</h3>
+        <nav id="catNav"></nav>
+      </aside>
+
+      <section id="panels"></section>
+    </div>
+
+    <section class="compare" aria-labelledby="compare-title">
+      <h2 id="compare-title">TookBot vs les gros bots musique</h2>
+      <p>Quand Groovy et Rythm ont fermé en 2021, les serveurs Discord se sont rabattus sur des solutions souvent payantes. TookBot reste gratuit pour l'essentiel, et combine musique + tout le reste.</p>
+      <div style="overflow-x:auto">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Fonctionnalité</th>
+            <th class="us">TookBot</th>
+            <th>Jockie Music</th>
+            <th>Hydra</th>
+            <th>FredBoat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Musique YouTube</td><td class="yes us">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td></tr>
+          <tr><td>SoundCloud / Bandcamp</td><td class="yes us">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td></tr>
+          <tr><td>Spotify (résolution YT)</td><td class="yes us">Oui</td><td class="yes">Premium</td><td class="yes">Premium</td><td class="yes">Oui</td></tr>
+          <tr><td>Volume + queue avancée</td><td class="yes us">Gratuit</td><td class="partial">Premium</td><td class="partial">Premium</td><td class="yes">Gratuit</td></tr>
+          <tr><td>XP / niveaux</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
+          <tr><td>Modération (warn, ban, kick)</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
+          <tr><td>IA conversationnelle + vision</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
+          <tr><td>Tickets / rôles-réaction</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
+          <tr><td>Dashboard web complet</td><td class="yes us">Oui</td><td class="partial">Limité</td><td class="partial">Limité</td><td class="no">Non</td></tr>
+          <tr><td>Stats d'écoute par serveur</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
+          <tr><td>Hébergé en Europe</td><td class="yes us">Allemagne</td><td class="partial">US</td><td class="partial">US</td><td class="yes">UK</td></tr>
+          <tr><td>Open / dev solo accessible</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="partial">Open-src</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="why-us" aria-label="Pourquoi TookBot">
+      <article class="why-card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.5 2.8 8.4 7 10 4.2-1.6 7-5.5 7-10V6l-7-3Z" stroke="currentColor" stroke-linejoin="round"/></svg></div>
+        <h3>Tout-en-un, vraiment</h3>
+        <p>Pas besoin d'inviter 5 bots différents. TookBot gère musique, modération, XP, IA, tickets, alertes et jeux dans une seule instance.</p>
+      </article>
+      <article class="why-card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" stroke="currentColor" stroke-linejoin="round"/></svg></div>
+        <h3>Rapide et stable</h3>
+        <p>VPS dédié Hetzner en Allemagne, auto-reconnect ffmpeg, reprise de file après reboot, monitoring uptime 24/7.</p>
+      </article>
+      <article class="why-card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2 2 7l10 5 10-5-10-5Z M2 17l10 5 10-5 M2 12l10 5 10-5" stroke="currentColor" stroke-linejoin="round"/></svg></div>
+        <h3>Pas de paywall</h3>
+        <p>Les commandes essentielles (musique complète, modération, XP) sont 100% gratuites. Premium = cosmétiques et bonus, jamais des features bloquées.</p>
+      </article>
+      <article class="why-card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-linecap="round"/></svg></div>
+        <h3>Réactif</h3>
+        <p>Bug ou idée ? Le dev répond en moins de 24h sur le serveur de support. Les mises à jour sortent toutes les semaines.</p>
+      </article>
+    </section>
+
+    <div class="cta">
+      <h2>Prêt à tester ?</h2>
+      <p>Invitation en un clic, configurable en 2 minutes.</p>
+      <div class="row">
+        <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter TookBot</a>
+        <a class="btn btn-secondary" href="/faq.html">Lire la FAQ</a>
+        <a class="btn btn-secondary" href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">Serveur de support</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span>© TookBot - Bot Discord personnel</span>
+    <div class="footer-links">
+      <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="footer-support">☕ Soutenir TookBot</a>
+      <a href="/">Accueil</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="https://dashboard.tookbot.click">Dashboard</a>
+      <a href="https://dashboard.tookbot.click/privacy">Privacy</a>
+    </div>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const cur = document.documentElement.dataset.theme;
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('tookbot-theme', next);
+    }
+
+    // ============ DONNEES COMMANDES ============
+    const CATS = [
+      { id: 'musique', icon: '🎵', title: 'Musique', intro: 'Lecture multi-sources (YouTube, SoundCloud, Spotify, Bandcamp), file complète, contrôles précis et stats d\'écoute par serveur.', cmds: [
+        { name:'/play', syntax:'/play <titre|lien>', desc:'Joue depuis YouTube, SoundCloud, Spotify ou Bandcamp. Accepte aussi les playlists.', why:'<strong>Plus puissant que la plupart :</strong> Spotify gratuit, jusqu\'à 50 tracks par playlist, reconnect auto si la connexion drop.' },
+        { name:'/search', syntax:'/search <query>', desc:'Cherche sur YouTube et te laisse choisir parmi 5 résultats via menu déroulant.', why:'<strong>Évite les mauvaises pioches :</strong> tu vois titre, chaîne, durée avant de lancer la lecture.', badge:'new' },
+        { name:'/volume', syntax:'/volume <0-200>', desc:'Règle le volume musique du bot (0 = muet, 100 = normal, 200 = boost).', why:'<strong>Gratuit chez TookBot :</strong> sur Jockie/Hydra c\'est payant.', badge:'new' },
+        { name:'/queue', syntax:'/queue', desc:'Affiche la file d\'attente complète.' },
+        { name:'/nowplaying', syntax:'/nowplaying', desc:'Embed riche : titre, barre de progression, durée, salon vocal, 3 prochaines pistes.' },
+        { name:'/skip', syntax:'/skip [position]', desc:'Passe la piste en cours. Avec position N : saute directement à la Nème piste.' },
+        { name:'/remove', syntax:'/remove <position>', desc:'Retire une piste précise de la file sans interrompre la lecture.', badge:'new' },
+        { name:'/pause', syntax:'/pause', desc:'Met en pause la lecture en cours.' },
+        { name:'/resume', syntax:'/resume', desc:'Reprend une lecture en pause.' },
+        { name:'/stop', syntax:'/stop', desc:'Arrête tout et vide la file.' },
+        { name:'/join', syntax:'/join', desc:'Rejoint ton salon vocal sans lancer de musique.' },
+        { name:'/leave', syntax:'/leave', desc:'Quitte le salon vocal.' },
+        { name:'/musicstats', syntax:'/musicstats [période]', desc:'Top tracks, top auditeurs, temps total d\'écoute sur N jours.', why:'<strong>Unique :</strong> aucun autre bot musique grand public ne sort ces stats par défaut.', badge:'new' },
+      ]},
+      { id: 'ia', icon: '🤖', title: 'IA & TTS', intro: 'IA conversationnelle Groq avec mémoire de contexte, vision d\'images et synthèse vocale via ElevenLabs.', cmds: [
+        { name:'@TookBot', syntax:'@TookBot <question>', desc:'Mention le bot pour discuter. Comprend le contexte, peut analyser des images attachées.', why:'<strong>Gratuit + privé :</strong> tourne sur Groq (rapide), aucune donnée vendue.' },
+        { name:'Mode TTS', syntax:'Toggle dans dashboard', desc:'Le bot lit ses réponses à voix haute dans ton salon vocal via ElevenLabs.', badge:'prem' },
+        { name:'Vision', syntax:'@TookBot + image', desc:'Décrit, analyse, transcrit le contenu d\'images.', why:'<strong>Modèle Llama-4-Scout :</strong> vision rapide, gratuit.' },
+      ]},
+      { id: 'moderation', icon: '🛡️', title: 'Modération', intro: 'Outils de mod nets, avec permissions par rôle configurables depuis le dashboard.', cmds: [
+        { name:'/warn', syntax:'/warn <membre> <raison>', desc:'Avertit un membre. Auto-timeout au seuil configurable.', why:'<strong>Modlogs persistants :</strong> historique consultable par serveur.' },
+        { name:'/kick', syntax:'/kick <membre> [raison]', desc:'Expulse un membre du serveur.' },
+        { name:'/ban', syntax:'/ban <membre> [raison]', desc:'Bannit un membre.' },
+        { name:'/clear', syntax:'/clear <n>', desc:'Supprime les N derniers messages (max 100).' },
+        { name:'/modlogs', syntax:'/modlogs <membre>', desc:'Historique des sanctions d\'un membre.' },
+        { name:'/clearwarns', syntax:'/clearwarns <membre> [raison]', desc:'Révoque tous les warns d\'un membre.' },
+        { name:'/note', syntax:'/note <membre> <texte>', desc:'Note interne mod, pas de DM envoyé au membre.' },
+        { name:'/poll', syntax:'/poll <question> <options>', desc:'Sondage avec réactions auto.' },
+        { name:'/setwelcome', syntax:'/setwelcome [salon]', desc:'Builder visuel pour message de bienvenue (image, texte, mentions).' },
+      ]},
+      { id: 'xp', icon: '⭐', title: 'XP & Niveaux', intro: 'Système d\'XP par message avec cartes profil personnalisables et leaderboard serveur.', cmds: [
+        { name:'/niveau', syntax:'/niveau [membre]', desc:'Affiche la carte profil avec niveau, XP, rang.', why:'<strong>Cartes générées :</strong> background, couleur, bordure customisables (Premium).' },
+        { name:'/leaderboard', syntax:'/leaderboard', desc:'Top 10 XP du serveur.' },
+        { name:'/xp', syntax:'/xp <action>', desc:'Admin : ajuste l\'XP d\'un membre.' },
+        { name:'/pass', syntax:'/pass', desc:'Pass saisonnier : missions, récompenses, cosmétiques.' },
+        { name:'/daily', syntax:'/daily', desc:'Récompense quotidienne + streak.' },
+        { name:'/redeem', syntax:'/redeem <code>', desc:'Utilise un code promo.' },
+      ]},
+      { id: 'duel', icon: '⚔️', title: 'Duels Sabres', intro: 'Mini-jeu RPG : combats tour par tour, sabres laser, XP combat, boutique et collection.', cmds: [
+        { name:'/duel fight', syntax:'/duel fight <adversaire>', desc:'Défi un autre membre. Mindgame attaque/défense.', why:'<strong>Plus stratégique qu\'un coinflip :</strong> tu choisis attaque + défense chaque tour, l\'autre tente de bloquer.' },
+        { name:'/duel info', syntax:'/duel info', desc:'Guide complet du système de combat.' },
+        { name:'/profil', syntax:'/profil [membre]', desc:'Stats duel : victoires, défaites, tookcoins, sabre équipé.' },
+        { name:'/sabre', syntax:'/sabre', desc:'Menu : sabre équipé, collection, boutique.' },
+        { name:'/statpoint', syntax:'/statpoint <stat>', desc:'Attribuer un point gagné en levelant.' },
+        { name:'/historique', syntax:'/historique [membre]', desc:'Liste des derniers duels.' },
+        { name:'/collection', syntax:'/collection', desc:'Tous tes sabres collectionnés.' },
+      ]},
+      { id: 'cs2', icon: '🎮', title: 'Counter-Strike 2', intro: 'Stats Steam + Faceit, rank roles auto, prix de skins, queues de vocal et ban/pick maps.', cmds: [
+        { name:'/cs link', syntax:'/cs link <plateforme> <id>', desc:'Lie ton compte Steam ou Faceit.' },
+        { name:'/cs stats', syntax:'/cs stats [membre]', desc:'Stats Steam (premier rank, hours, K/D) et Faceit (elo, lvl, matchs).' },
+        { name:'/cs setrank', syntax:'/cs setrank <elo>', desc:'Déclare ton Premier ELO. Auto-attribution du rank role.', why:'<strong>Rank role auto :</strong> les rôles couleur se synchronisent avec ton elo Faceit.' },
+        { name:'/cs price', syntax:'/cs price <arme> <skin>', desc:'Prix Steam + Skinport pour un skin (avec usure et StatTrak).' },
+        { name:'/cs inventory', syntax:'/cs inventory [membre]', desc:'Inventaire CS2 + valeur totale en euros.' },
+        { name:'/cs queue', syntax:'/cs queue', desc:'Voice channel temporaire 5 slots pour matchmaking.' },
+        { name:'/cs map', syntax:'/cs map', desc:'Ban/pick maps entre membres du vocal.' },
+        { name:'/cs loadout', syntax:'/cs loadout', desc:'Loadout aléatoire (challenge fun).' },
+      ]},
+      { id: 'lol', icon: '🛡️', title: 'League of Legends', intro: 'Profil Riot, rangs, masteries et scout sessions pour previewer une équipe.', cmds: [
+        { name:'/lol link', syntax:'/lol link <riotid>', desc:'Lie ton Riot ID.' },
+        { name:'/lol rank', syntax:'/lol rank [membre]', desc:'Rang Solo/Flex actuels.' },
+        { name:'/lol mastery', syntax:'/lol mastery [membre]', desc:'Top champions par mastery points.' },
+        { name:'/lol live', syntax:'/lol live [membre]', desc:'Game en cours détectée.' },
+      ]},
+      { id: 'social', icon: '📢', title: 'Tickets, rôles, alertes', intro: 'Builders visuels pour panneaux de tickets, rôles-réaction et alertes Twitch / YouTube / Reddit.', cmds: [
+        { name:'/ticket', syntax:'/ticket', desc:'Builder panneau de tickets avec catégories et transcripts.' },
+        { name:'/rolereaction', syntax:'/rolereaction create', desc:'Builder rôles-réaction (réaction emoji ou boutons).' },
+        { name:'/socialalert', syntax:'/socialalert add/list/remove', desc:'Alertes auto Twitch live, YouTube upload, Reddit post.' },
+        { name:'/giveaway', syntax:'/giveaway create', desc:'Tirage au sort avec entries, reroll et fin auto.' },
+        { name:'/reaction_add', syntax:'/reaction_add', desc:'Réaction auto sur les messages d\'un membre.' },
+        { name:'/reaction_list', syntax:'/reaction_list', desc:'Liste des auto-réactions actives.' },
+        { name:'/reaction_remove', syntax:'/reaction_remove', desc:'Retire une auto-réaction.' },
+        { name:'/cmd', syntax:'/cmd <nom>', desc:'Exécute une commande custom (créée depuis le dashboard).' },
+      ]},
+      { id: 'fun', icon: '🎉', title: 'Fun & social', intro: 'Mini-commandes sociales pour animer le chat.', cmds: [
+        { name:'/8ball', syntax:'/8ball <question>', desc:'Boule magique répond oui/non/peut-être.' },
+        { name:'/dé', syntax:'/dé', desc:'Lance un dé.' },
+        { name:'/coinflip', syntax:'/coinflip', desc:'Pile ou face.' },
+        { name:'/blague', syntax:'/blague', desc:'Blague aléatoire (API blagues-api.fr).' },
+        { name:'/ship', syntax:'/ship <a> <b>', desc:'Calcule compatibilité entre 2 membres.' },
+        { name:'/choix', syntax:'/choix <opt1, opt2, ...>', desc:'Choisit aléatoirement dans une liste.' },
+        { name:'/random', syntax:'/random <min> <max>', desc:'Nombre aléatoire.' },
+        { name:'/qui', syntax:'/qui <action>', desc:'Qui est le/la plus... ?' },
+        { name:'/clap', syntax:'/clap <texte>', desc:'Texte 👏 avec 👏 emojis 👏.' },
+        { name:'/rate', syntax:'/rate <truc>', desc:'Note un truc de 0 à 10.' },
+        { name:'/citation', syntax:'/citation', desc:'Citation inspirante aléatoire.' },
+        { name:'/zgeg', syntax:'/zgeg [membre]', desc:'Mesure la taille de... bon.' },
+      ]},
+      { id: 'utils', icon: '🔧', title: 'Utilitaires', intro: 'Infos serveur, membres, et accès à toute la liste de commandes.', cmds: [
+        { name:'/avatar', syntax:'/avatar [membre]', desc:'Affiche l\'avatar HD d\'un membre.' },
+        { name:'/userinfo', syntax:'/userinfo [membre]', desc:'Infos détaillées : ID, date création, date join, rôle principal.' },
+        { name:'/serverinfo', syntax:'/serverinfo', desc:'Infos serveur : propriétaire, membres, salons, rôles.' },
+        { name:'/ping', syntax:'/ping', desc:'Latence du bot en ms.' },
+        { name:'/commandes', syntax:'/commandes', desc:'Liste des commandes envoyée en MP (paginée).' },
+        { name:'/setup', syntax:'/setup', desc:'Configure les salons clés (bienvenue, logs, alertes, admin).' },
+      ]},
+    ];
+
+    // ============ RENDER ============
+    const catNav  = document.getElementById('catNav');
+    const panels  = document.getElementById('panels');
+    const searchI = document.getElementById('searchInput');
+    const searchC = document.getElementById('searchCount');
+
+    function totalCmds() { return CATS.reduce((s,c) => s + c.cmds.length, 0); }
+
+    function renderSidebar() {
+      catNav.innerHTML = CATS.map(c =>
+        `<a data-cat="${c.id}"><span>${c.icon}  ${c.title}</span><span class="pill">${c.cmds.length}</span></a>`
+      ).join('');
+      catNav.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => activate(a.dataset.cat));
+      });
+    }
+
+    function renderPanels() {
+      panels.innerHTML = CATS.map(c => `
+        <div class="panel" id="panel-${c.id}">
+          <div class="panel-head">
+            <div class="icon">${c.icon}</div>
+            <h2>${c.title}</h2>
+          </div>
+          <p class="panel-intro">${c.intro}</p>
+          <div class="cmd-grid">
+            ${c.cmds.map(cmd => `
+              <div class="cmd-card" data-name="${cmd.name.toLowerCase()}" data-desc="${cmd.desc.toLowerCase()}">
+                <div class="slash">${escapeHtml(cmd.syntax)}</div>
+                <h4>${escapeHtml(cmd.name)}${cmd.badge === 'new' ? '<span class="badge badge-new">Nouveau</span>' : ''}${cmd.badge === 'prem' ? '<span class="badge badge-prem">Premium</span>' : ''}</h4>
+                <p>${cmd.desc}</p>
+                ${cmd.why ? `<div class="why">${cmd.why}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function activate(catId) {
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.toggle('active', a.dataset.cat === catId));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === `panel-${catId}`));
+      // Update URL hash (no scroll jump : preserve y)
+      const y = window.scrollY;
+      history.replaceState(null, '', `#${catId}`);
+      window.scrollTo(0, y);
+    }
+
+    function escapeHtml(s) {
+      return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function applySearch() {
+      const q = (searchI.value || '').trim().toLowerCase();
+      if (!q) {
+        document.querySelectorAll('.cmd-card').forEach(el => el.style.display = '');
+        searchC.textContent = '';
+        // Restore active panel display
+        document.querySelectorAll('.panel').forEach(p => p.style.removeProperty('display'));
+        const act = document.querySelector('.sidebar a.active');
+        if (act) activate(act.dataset.cat);
+        return;
+      }
+      let matched = 0;
+      document.querySelectorAll('.panel').forEach(panel => {
+        let visibleInPanel = 0;
+        panel.querySelectorAll('.cmd-card').forEach(card => {
+          const hit = card.dataset.name.includes(q) || card.dataset.desc.includes(q);
+          card.style.display = hit ? '' : 'none';
+          if (hit) { matched++; visibleInPanel++; }
+        });
+        panel.style.display = visibleInPanel > 0 ? 'block' : 'none';
+      });
+      searchC.textContent = `${matched} résultat${matched > 1 ? 's' : ''}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSidebar();
+      renderPanels();
+      const initial = (location.hash || '#musique').slice(1);
+      activate(CATS.find(c => c.id === initial) ? initial : 'musique');
+      searchI.addEventListener('input', applySearch);
+      // Update total counter to real value
+      const counters = document.querySelectorAll('.head .counter strong');
+      if (counters.length) counters[0].textContent = totalCmds() + '+';
+    });
+  </script>
+</body>
+</html>

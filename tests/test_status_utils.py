@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services.status_utils import create_db_backup, db_info, read_backup_meta, youtube_diagnostics, best_firefox_cookie_profile
+from services.status_utils import (
+    create_db_backup,
+    db_info,
+    music_engine_diagnostics,
+    read_backup_meta,
+)
 
 
 class StatusUtilsTests(unittest.TestCase):
@@ -45,63 +50,24 @@ class StatusUtilsTests(unittest.TestCase):
         self.assertFalse(info["exists"])
         self.assertIsNone(info["size_bytes"])
 
-    def test_youtube_diagnostics_finds_snap_firefox_cookies(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            profile = home / "snap" / "firefox" / "common" / ".mozilla" / "firefox" / "abc.default-release"
-            profile.mkdir(parents=True)
-            conn = sqlite3.connect(profile / "cookies.sqlite")
-            conn.execute("CREATE TABLE moz_cookies (host TEXT, name TEXT)")
-            conn.execute("INSERT INTO moz_cookies VALUES ('.youtube.com', 'SID')")
-            conn.execute("INSERT INTO moz_cookies VALUES ('.youtube.com', 'SAPISID')")
-            conn.execute("INSERT INTO moz_cookies VALUES ('.google.com', 'HSID')")
-            conn.commit()
-            conn.close()
-
-            info = youtube_diagnostics(
-                env={"YT_USE_FIREFOX_COOKIES": "1", "BGUTIL_POT_URL": "http://127.0.0.1:9"},
-                home_path=home,
-                check_bgutil=False,
-            )
-            self.assertEqual(best_firefox_cookie_profile(home), str(profile))
-
-            self.assertEqual(info["effective_mode"], "firefox")
-            self.assertTrue(info["firefox_cookies_accessible"])
-            self.assertEqual(info["firefox_profiles"][0]["source"], "snap")
-            self.assertTrue(info["firefox_profiles"][0]["youtube_auth"]["has_auth"])
-            self.assertGreaterEqual(info["firefox_profiles"][0]["youtube_auth"]["auth_cookie_count"], 2)
-
-    def test_youtube_diagnostics_warns_when_firefox_mode_has_no_profile(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            info = youtube_diagnostics(
-                env={"YT_USE_FIREFOX_COOKIES": "1"},
-                home_path=Path(tmp),
-                check_bgutil=False,
-            )
-
-        self.assertFalse(info["firefox_cookies_accessible"])
-        self.assertIn("firefox_cookies_missing", info["warnings"])
-
-    def test_youtube_diagnostics_warns_when_profile_has_no_youtube_auth(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            profile = home / ".mozilla" / "firefox" / "abc.default-release"
-            profile.mkdir(parents=True)
-            conn = sqlite3.connect(profile / "cookies.sqlite")
-            conn.execute("CREATE TABLE moz_cookies (host TEXT, name TEXT)")
-            conn.execute("INSERT INTO moz_cookies VALUES ('.example.com', 'SID')")
-            conn.commit()
-            conn.close()
-
-            info = youtube_diagnostics(
-                env={"YT_USE_FIREFOX_COOKIES": "1"},
-                home_path=home,
-                check_bgutil=False,
-            )
-
-        self.assertTrue(info["firefox_cookies_accessible"])
-        self.assertFalse(info["firefox_profiles"][0]["youtube_auth"]["has_auth"])
-        self.assertIn("firefox_youtube_auth_missing", info["warnings"])
+    def test_music_engine_diagnostics_returns_expected_shape(self):
+        # Ports impossibles a joindre : on verifie juste la structure de retour
+        # et que les warnings sont leves quand rien n'est joignable.
+        info = music_engine_diagnostics(
+            env={
+                "BGUTIL_POT_URL": "http://127.0.0.1:1",
+                "FFMPEG_HTTP_PROXY": "http://127.0.0.1:1",
+                "YT_PROXY": "socks5://127.0.0.1:1",
+            },
+            timeout=0.2,
+        )
+        for key in ("yt_dlp_version", "ffmpeg", "warp", "bgutil_pot", "privoxy",
+                    "yt_proxy", "warnings"):
+            self.assertIn(key, info)
+        self.assertFalse(info["bgutil_pot"]["ok"])
+        self.assertFalse(info["privoxy"]["ok"])
+        self.assertIn("bgutil_pot_unreachable", info["warnings"])
+        self.assertIn("privoxy_unreachable", info["warnings"])
 
 
 if __name__ == "__main__":
