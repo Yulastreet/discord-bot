@@ -215,13 +215,49 @@ def setup_music_commands(bot, deps):
         embed.set_footer(text="TookBot · /queue pour la file complète · /skip pour passer")
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="skip", description="Passer à la musique suivante")
-    async def skip(interaction: discord.Interaction):
-        if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
-            interaction.guild.voice_client.stop()
-            await interaction.response.send_message("⏭️ Musique passée !")
-        else:
-            await interaction.response.send_message("❌ Aucune musique en cours !", ephemeral=True)
+    @bot.tree.command(name="skip", description="Passer la musique en cours (ou jusqu'a une position de la file)")
+    @app_commands.describe(position="Numero dans la file vers lequel sauter (1 = la prochaine). Vide = juste skip la courante.")
+    async def skip(interaction: discord.Interaction, position: int = None):
+        vc = interaction.guild.voice_client
+        gid = str(interaction.guild.id)
+
+        # Skip simple
+        if position is None:
+            if vc and vc.is_playing():
+                vc.stop()
+                await interaction.response.send_message("⏭️ Musique passée !")
+            else:
+                await interaction.response.send_message("❌ Aucune musique en cours !", ephemeral=True)
+            return
+
+        # Skip vers position N : pop (N-1) tracks silencieusement, puis stop la courante
+        if position < 1:
+            await interaction.response.send_message("❌ La position doit être >= 1.", ephemeral=True)
+            return
+
+        q = music_queue_list(gid) or []
+        if not q:
+            await interaction.response.send_message("❌ La file est vide.", ephemeral=True)
+            return
+
+        skipped_count = min(position - 1, len(q))
+        # Pop silencieusement les tracks 1 a (position-1)
+        for _ in range(skipped_count):
+            music_queue_pop_next(gid)
+
+        # Stop la courante pour declencher play_next sur ce qu'il reste
+        was_playing = bool(vc and vc.is_playing())
+        if vc and vc.is_playing():
+            vc.stop()
+
+        total_skipped = skipped_count + (1 if was_playing else 0)
+        target_msg = ""
+        if position > len(q):
+            target_msg = f" (position {position} dépassait la file de {len(q)}, file vidée)"
+
+        await interaction.response.send_message(
+            f"⏭️ **{total_skipped}** musique(s) passée(s){target_msg}"
+        )
 
     @bot.tree.command(name="queue", description="Voir la file d'attente musicale")
     async def queue_cmd(interaction: discord.Interaction):
