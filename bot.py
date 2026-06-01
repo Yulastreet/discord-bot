@@ -366,6 +366,9 @@ _BGUTIL_POT_URL = os.getenv("BGUTIL_POT_URL", "http://127.0.0.1:4416")
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
+    # Telecharge le solver EJS depuis GitHub : necessaire pour resoudre les
+    # challenges JS (sig + n) de YouTube. Deno seul ne suffit pas.
+    'remote_components': ['ejs:github'],
     'quiet': False,            # passe a False pour voir les details d'erreur dans les logs
     'no_warnings': False,
     'default_search': 'ytsearch',
