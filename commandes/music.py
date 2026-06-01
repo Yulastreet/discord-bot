@@ -6,6 +6,15 @@ import yt_dlp
 
 from .music_voice import connect_to_voice
 
+# Message friendly pour tous les soucis musique. Les vraies erreurs sont
+# loggees pour debug owner. L'utilisateur final voit juste un message
+# rassurant + pas de stack trace cryptique.
+MUSIC_TROUBLE_MESSAGE = (
+    "⚠️ **Cette fonctionnalité a quelques soucis pour l'instant.**\n"
+    "On s'en occupe ! Réessaie dans quelques minutes ou tente une autre vidéo."
+)
+
+
 def setup_music_commands(bot, deps):
     globals().update(deps)
     # ===== MUSIQUE =====
@@ -24,7 +33,8 @@ def setup_music_commands(bot, deps):
         await interaction.response.defer()
         try:
             if not _ensure_opus():
-                await interaction.followup.send("❌ libopus introuvable sur le serveur. Installe-la (`apt install libopus0`) et redémarre le bot.")
+                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+                print("[music /join] libopus non charge")
                 return
             channel = interaction.user.voice.channel
             await connect_to_voice(bot, interaction.guild, channel)
@@ -34,9 +44,9 @@ def setup_music_commands(bot, deps):
             await interaction.followup.send(f"✅ Connecté à **{channel.name}** !")
         except Exception as e:
             import traceback
-            print(f"[music /join] error: {e}")
+            print(f"[music /join] error: {type(e).__name__}: {e}")
             traceback.print_exc()
-            await interaction.followup.send(f"❌ Erreur connexion vocal : {type(e).__name__} — {e}")
+            await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
 
     @bot.tree.command(name="play", description="Jouer une musique")
     @app_commands.describe(query="Titre ou lien YouTube")
@@ -47,7 +57,8 @@ def setup_music_commands(bot, deps):
         await interaction.response.defer()
         try:
             if not _ensure_opus():
-                await interaction.followup.send("❌ libopus introuvable sur le serveur.")
+                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+                print("[music /play] libopus non charge")
                 return
             voice_channel = interaction.user.voice.channel
             vc = await connect_to_voice(bot, interaction.guild, voice_channel)
@@ -60,7 +71,7 @@ def setup_music_commands(bot, deps):
                 info = await get_audio_info(query)
             except Exception as e:
                 print(f"[music] yt-dlp error: {e}")
-                await interaction.followup.send(f"❌ Erreur lors de la recherche : {e}")
+                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
                 return
             music_queue_add(gid,
                             title=info["title"], url=info["url"],
@@ -73,10 +84,10 @@ def setup_music_commands(bot, deps):
                 await play_next(vc, interaction.channel, interaction.guild.id)
         except Exception as e:
             import traceback
-            print(f"[music /play] error: {e}")
+            print(f"[music /play] error: {type(e).__name__}: {e}")
             traceback.print_exc()
             try:
-                await interaction.followup.send(f"❌ Erreur interne : {type(e).__name__} — {e}")
+                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
             except Exception:
                 pass
 

@@ -453,11 +453,10 @@ FFMPEG_OPTIONS = {
 }
 
 def _music_auth_hint():
-    if YDL_OPTIONS.get('cookiesfrombrowser') or YDL_OPTIONS.get('cookiefile'):
-        return ""
-    if not _BGUTIL_PLUGIN.get("installed"):
-        return " Installe `bgutil-ytdlp-pot-provider` avec `pip install -r requirements.txt`."
-    return f" Le plugin bgutil est installe, mais verifie que le provider HTTP repond sur `{_BGUTIL_POT_URL}`."
+    # Hint volontairement vide cote user-facing : les messages d'erreur musique
+    # sont remplaces par un message friendly dans commandes/music.py
+    # (MUSIC_TROUBLE_MESSAGE). Le detail technique reste dans les logs pm2.
+    return ""
 
 
 def _format_audio_info(info):
