@@ -13,6 +13,7 @@ def setup_niveau_commands(bot, deps):
         gid = str(interaction.guild.id)
         xp = get_xp(gid, membre.id)
         level, progress_xp, needed_xp, percent = get_progress(xp)
+        print(f"[/niveau] guild={gid} user={membre.id} xp={xp} level={level} percent={percent}")
 
         # On regarde les entitlements du *membre affiche*, pas de l'auteur,
         # afin que tout le monde puisse voir la jolie carte du premium.
