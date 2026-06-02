@@ -26,6 +26,7 @@ def setup_utility_commands(bot):
         serveur = interaction.guild
         embed = discord.Embed(title=f"Infos de {serveur.name}", color=discord.Color.blue())
         embed.set_thumbnail(url=serveur.icon.url if serveur.icon else None)
+        embed.add_field(name="ID", value=f"`{serveur.id}`", inline=False)
         embed.add_field(name="Proprietaire", value=serveur.owner)
         embed.add_field(name="Membres", value=serveur.member_count)
         embed.add_field(name="Cree le", value=serveur.created_at.strftime("%d/%m/%Y"))
