@@ -60,25 +60,43 @@
 
   /* Tabs periodes */
   .sub-billing-tabs {
-    display: flex; justify-content: center; gap: 10px;
+    display: flex; justify-content: center; gap: 12px;
     margin: 24px auto 0; flex-wrap: wrap;
-    max-width: 640px;
+    max-width: 720px;
   }
   .sub-billing-tab {
-    flex: 1; min-width: 110px; max-width: 150px;
-    padding: 14px 12px; border-radius: 12px; cursor: pointer;
-    font-size: 13px; font-weight: 700; color: var(--text-2);
+    position: relative;
+    flex: 1; min-width: 140px; max-width: 170px;
+    padding: 22px 18px; border-radius: 14px; cursor: pointer;
     border: 1px solid var(--border); background: var(--bg-2);
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    display: flex; align-items: center; justify-content: center;
     transition: border-color .15s, transform .12s, background .15s;
+    overflow: visible;
   }
   .sub-billing-tab:hover { border-color: rgba(255,167,38,.4); transform: translateY(-1px); }
-  .sub-billing-tab .tab-period { font-size: 14px; color: var(--text); }
-  .sub-billing-tab .tab-saving { font-size: 11px; color: #23a55a; font-weight: 700; }
+  .sub-billing-tab .tab-period {
+    font-size: 20px; font-weight: 800; color: var(--text);
+    letter-spacing: -.01em;
+  }
+  .sub-billing-tab .tab-saving {
+    position: absolute; top: -8px; right: -8px;
+    background: linear-gradient(135deg, #23a55a, #198642);
+    color: #fff; font-size: 11px; font-weight: 900;
+    padding: 4px 8px; border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(35,165,90,.45), 0 0 0 2px var(--bg-1);
+    animation: sub-saving-pulse 1.8s ease-in-out infinite;
+    letter-spacing: .02em;
+  }
+  @keyframes sub-saving-pulse {
+    0%, 100% { transform: scale(1);    box-shadow: 0 4px 12px rgba(35,165,90,.45), 0 0 0 2px var(--bg-1); }
+    50%      { transform: scale(1.10); box-shadow: 0 6px 18px rgba(35,165,90,.70), 0 0 0 2px var(--bg-1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sub-billing-tab .tab-saving { animation: none; }
+  }
   .sub-billing-tab.active {
     background: linear-gradient(180deg, rgba(255,167,38,.20), rgba(255,138,0,.10));
     border-color: rgba(255,167,38,.65);
-    color: #ffa726;
   }
   .sub-billing-tab.active .tab-period { color: #ffa726; }
 
@@ -93,7 +111,7 @@
     color: var(--text); line-height: 1;
     font-variant-numeric: tabular-nums;
   }
-  .sub-price-cur { font-size: 0.55em; vertical-align: top; margin-right: 4px; opacity: .65; }
+  .sub-price-cur { font-size: 0.6em; opacity: .75; font-weight: 700; margin-left: 4px; }
   .sub-price-billed {
     color: var(--text-2); font-size: 13px; margin-top: 10px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -222,10 +240,10 @@
 
   <div class="sub-price-hero">
     <div class="sub-price-total">
-      <span class="sub-price-cur">$</span><span id="subPriceTotal">11.97</span>
+      <span id="subPriceTotal">11,97</span><span class="sub-price-cur"> €</span>
     </div>
     <div class="sub-price-billed"   id="subPriceBilled">facturé tous les 3 mois</div>
-    <div class="sub-price-permonth" id="subPricePerMonth">soit <strong>$3.99</strong> par mois</div>
+    <div class="sub-price-permonth" id="subPricePerMonth">soit <strong>3,99 €</strong> par mois</div>
   </div>
 
   <div class="sub-features-block">
@@ -264,7 +282,7 @@
 
   <div class="sub-cta-block">
     <button class="sub-cta" id="subCta">
-      Passer à TookBot+ · <strong id="subCtaPrice">$11.97</strong>
+      Passer à TookBot+ · <strong id="subCtaPrice">11,97 €</strong>
     </button>
     <p class="sub-foot-note">Paiement sécurisé via Discord Store. Annulable à tout moment.</p>
   </div>
@@ -281,22 +299,24 @@
   const ctaPrice   = document.getElementById('subCtaPrice');
   if (!tabs.length) return;
 
+  function fmtEur(v) {
+    // Format francais : virgule decimale, espace insecable + €
+    return v.toFixed(2).replace('.', ',');
+  }
   function render(tab) {
     const months = parseInt(tab.dataset.period, 10);
     const perM   = parseFloat(tab.dataset.permonth);
-    const total  = (perM * months).toFixed(2);
-    if (elTotal) elTotal.textContent = total;
+    const total  = perM * months;
+    if (elTotal) elTotal.textContent = fmtEur(total);
     if (elBilled) {
       elBilled.textContent = months === 1
         ? 'facturé mensuellement'
         : `facturé tous les ${months} mois`;
     }
     if (elPerMonth) {
-      elPerMonth.innerHTML = months === 1
-        ? `soit <strong>$${perM.toFixed(2)}</strong> par mois`
-        : `soit <strong>$${perM.toFixed(2)}</strong> par mois`;
+      elPerMonth.innerHTML = `soit <strong>${fmtEur(perM)} €</strong> par mois`;
     }
-    if (ctaPrice) ctaPrice.textContent = '$' + total;
+    if (ctaPrice) ctaPrice.textContent = fmtEur(total) + ' €';
   }
 
   tabs.forEach(t => t.addEventListener('click', () => {
