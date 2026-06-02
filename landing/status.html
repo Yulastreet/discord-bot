@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status - TookBot</title>
+<meta name="description" content="Statut en temps réel de TookBot : bot Discord, dashboard web, moteur musique. Surveillance live, latence et incidents.">
+<meta property="og:title" content="Status - TookBot">
+<meta property="og:description" content="Statut live des services TookBot : bot, dashboard, musique.">
+<meta property="og:url" content="https://tookbot.click/status.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TookBot">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:image" content="https://tookbot.click/previewdiscord.png">
+<meta name="theme-color" content="#0b1208">
+<link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png?v=2">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png?v=2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1208;
+    --bg-2: #101a0d;
+    --bg-3: #18241310;
+    --ink: #f7ffe8;
+    --ink-2: #d4e0c2;
+    --muted: #9aa988;
+    --muted-2: #6b7a5d;
+    --border: rgba(255,255,255,.08);
+    --green: #b9ff24;
+    --green-2: #64d91b;
+    --green-deep: #163d12;
+    --amber: #ffb84e;
+    --red: #ff5e5e;
+    --shadow: 0 24px 80px rgba(0,0,0,.5);
+    --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  a { color: var(--green); text-decoration: none; transition: color .15s; }
+  a:hover { color: var(--green-2); }
+
+  /* Top bar (identical au docs) */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 22px;
+    background: rgba(11, 18, 8, .85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 15px; letter-spacing: -.01em;
+  }
+  .topbar-brand-mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: url('/tookbot-avatar.png') center/cover no-repeat,
+                linear-gradient(135deg, var(--green), var(--green-2));
+    box-shadow: 0 4px 12px rgba(185,255,36,.3);
+  }
+  .topbar-brand .page-tag {
+    color: var(--muted); font-weight: 600; font-size: 13px;
+    padding-left: 10px; margin-left: 6px;
+    border-left: 1px solid var(--border);
+  }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .topbar-link {
+    color: var(--muted); font-size: 13px; font-weight: 600;
+    padding: 6px 10px; border-radius: 8px;
+    transition: color .15s, background .15s;
+  }
+  .topbar-link:hover { color: var(--ink); background: var(--bg-2); text-decoration: none; }
+  .topbar-cta {
+    background: linear-gradient(180deg, var(--green), var(--green-2));
+    color: #13220b !important; font-weight: 800; font-size: 13px;
+    padding: 8px 16px; border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(185,255,36,.28);
+  }
+  .topbar-cta:hover { transform: translateY(-1px); }
+  @media (max-width: 640px) { .topbar-link { display: none; } }
+
+  main {
+    width: min(calc(100% - 32px), 980px);
+    margin: 0 auto;
+    padding: 56px 0 80px;
+    flex: 1;
+  }
+  .page-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 22px; margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .page-head h1 {
+    font-size: clamp(28px, 3.6vw, 40px);
+    font-weight: 800; letter-spacing: -.02em;
+  }
+  .page-head .muted { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .updated-at {
+    color: var(--muted); font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Big banner status */
+  .status-banner {
+    border-radius: 18px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 22px;
+    border: 1px solid var(--border);
+  }
+  .status-banner.ok {
+    background: linear-gradient(135deg, rgba(185,255,36,.18) 0%, rgba(100,217,27,.08) 100%);
+    border-color: rgba(185,255,36,.32);
+  }
+  .status-banner.deg {
+    background: linear-gradient(135deg, rgba(255,184,78,.18) 0%, rgba(255,184,78,.05) 100%);
+    border-color: rgba(255,184,78,.32);
+  }
+  .status-banner.down {
+    background: linear-gradient(135deg, rgba(255,94,94,.18) 0%, rgba(255,94,94,.05) 100%);
+    border-color: rgba(255,94,94,.32);
+  }
+  .status-banner .pulse-wrap {
+    flex-shrink: 0;
+    position: relative; width: 48px; height: 48px;
+    display: grid; place-items: center;
+  }
+  .status-banner .pulse-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    position: relative;
+  }
+  .status-banner.ok   .pulse-dot { background: var(--green);  box-shadow: 0 0 16px var(--green); }
+  .status-banner.deg  .pulse-dot { background: var(--amber);  box-shadow: 0 0 16px var(--amber); }
+  .status-banner.down .pulse-dot { background: var(--red);    box-shadow: 0 0 16px var(--red); }
+  .status-banner .pulse-dot::before {
+    content: ""; position: absolute; inset: -10px;
+    border-radius: 50%; background: inherit; opacity: 0;
+    animation: pulse-ring 1.8s ease-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%   { transform: scale(.6); opacity: .55; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  .status-banner .text h2 {
+    font-size: clamp(20px, 2.2vw, 26px);
+    font-weight: 800; letter-spacing: -.01em;
+    margin-bottom: 4px;
+  }
+  .status-banner .text p { color: var(--ink-2); font-size: 14px; }
+
+  /* Component cards */
+  .cards-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px; margin-bottom: 28px;
+  }
+  .card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 14px;
+  }
+  .card-head h3 {
+    font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px;
+  }
+  .card-head .ico {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    border-radius: 8px;
+    background: rgba(185,255,36,.08);
+  }
+  .card-head .ico svg { width: 14px; height: 14px; color: var(--green); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .08em;
+    border: 1px solid;
+  }
+  .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-pill.ok   { color: var(--green);  border-color: rgba(185,255,36,.32);  background: rgba(185,255,36,.08); }
+  .status-pill.ok .dot   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-pill.deg  { color: var(--amber);  border-color: rgba(255,184,78,.32);  background: rgba(255,184,78,.08); }
+  .status-pill.deg .dot  { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .status-pill.down { color: var(--red);    border-color: rgba(255,94,94,.32);   background: rgba(255,94,94,.08); }
+  .status-pill.down .dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-pill.unknown { color: var(--muted); border-color: var(--border); background: var(--bg-3); }
+  .status-pill.unknown .dot { background: var(--muted); }
+
+  .kv {
+    display: grid; grid-template-columns: auto 1fr;
+    gap: 8px 14px; font-size: 13px;
+  }
+  .kv .k { color: var(--muted); font-weight: 500; }
+  .kv .v { color: var(--ink-2); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; text-align: right; }
+  .kv .v.good { color: var(--green); }
+  .kv .v.bad  { color: var(--red); }
+
+  /* Sub-component badges (under music engine) */
+  .sub-row {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+  }
+  .sub-row .sub-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600;
+    background: var(--bg-3); border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .sub-row .sub-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .sub-row .sub-badge.ok   .dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .sub-row .sub-badge.down .dot { background: var(--red);   box-shadow: 0 0 5px var(--red); }
+  .sub-row .sub-badge.ok   { color: var(--ink-2); }
+
+  /* Footer info */
+  .footer-info {
+    text-align: center; color: var(--muted); font-size: 13px;
+    margin-top: 28px; padding: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .footer-info p { margin-bottom: 8px; }
+
+  .refresh-btn {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--ink); padding: 7px 14px;
+    border-radius: 999px; font-size: 12px; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color .15s, transform .15s;
+  }
+  .refresh-btn:hover { border-color: rgba(185,255,36,.45); transform: translateY(-1px); }
+  .refresh-btn svg { width: 12px; height: 12px; }
+  .refresh-btn.spinning svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Skeleton loader */
+  .skel {
+    background: linear-gradient(90deg, var(--bg-2) 0%, var(--bg-3) 50%, var(--bg-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 4px;
+    color: transparent;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar-brand" href="/">
+    <span class="topbar-brand-mark" aria-hidden="true"></span>
+    <span>TookBot</span>
+    <span class="page-tag">Status</span>
+  </a>
+  <div class="topbar-actions">
+    <a class="topbar-link" href="/commandes.html">Commandes</a>
+    <a class="topbar-link" href="/docs.html">Docs</a>
+    <a class="topbar-link" href="/faq.html">FAQ</a>
+    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+  </div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div>
+      <h1>Statut TookBot</h1>
+      <p class="muted">Surveillance en temps réel des composants principaux. Auto-refresh toutes les 30 secondes.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+      <button class="refresh-btn" id="refreshBtn" onclick="loadStatus(true)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Rafraîchir
+      </button>
+      <span class="updated-at" id="lastCheck">Chargement...</span>
+    </div>
+  </div>
+
+  <div class="status-banner" id="banner">
+    <div class="pulse-wrap"><div class="pulse-dot"></div></div>
+    <div class="text">
+      <h2 id="bannerTitle">Vérification du statut...</h2>
+      <p id="bannerSub">Récupération des données live, patiente quelques secondes.</p>
+    </div>
+  </div>
+
+  <div class="cards-grid">
+
+    <article class="card">
+      <div class="card-head">
+        <h3>
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+          Bot Discord
+        </h3>
+        <span class="status-pill unknown" id="pillBot"><span class="dot"></span>—</span>
+      </div>
+      <div class="kv">
+        <span class="k">État</span><span class="v" id="botState">—</span>
+        <span class="k">Latence WS</span><span class="v" id="botLatency">—</span>
+        <span class="k">Serveurs</span><span class="v" id="botGuilds">—</span>
+        <span class="k">Vocaux actifs</span><span class="v" id="botVoice">—</span>
+        <span class="k">Dernier ping</span><span class="v" id="botAge">—</span>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-head">
+        <h3>
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+          Dashboard web
+        </h3>
+        <span class="status-pill unknown" id="pillDash"><span class="dot"></span>—</span>
+      </div>
+      <div class="kv">
+        <span class="k">URL</span><span class="v">dashboard.tookbot.click</span>
+        <span class="k">OAuth Discord</span><span class="v good">Opérationnel</span>
+        <span class="k">API REST</span><span class="v good">Joignable</span>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-head">
+        <h3>
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+          Moteur musique
+        </h3>
+        <span class="status-pill unknown" id="pillMusic"><span class="dot"></span>—</span>
+      </div>
+      <div class="kv">
+        <span class="k">yt-dlp</span><span class="v" id="musYtdlp">—</span>
+        <span class="k">Sources</span><span class="v">YT · SC · Spotify · Bandcamp</span>
+      </div>
+      <div class="sub-row">
+        <span class="sub-badge" id="badgeWarp"><span class="dot"></span>WARP</span>
+        <span class="sub-badge" id="badgeBgutil"><span class="dot"></span>bgutil-pot</span>
+        <span class="sub-badge" id="badgePrivoxy"><span class="dot"></span>Privoxy</span>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="footer-info">
+    <p>Status mis à jour toutes les 30 secondes côté serveur, refresh navigateur toutes les 30s.</p>
+    <p>Un souci persistant ? Rejoins le <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">serveur de support</a> pour signaler le bug.</p>
+  </div>
+</main>
+
+<script>
+  const API = (window.location.hostname.includes('localhost') ? '' : 'https://dashboard.tookbot.click') + '/api/public-status';
+  let timer = null;
+
+  function fmtAge(sec) {
+    if (sec == null) return '—';
+    if (sec < 60)    return sec + 's';
+    if (sec < 3600)  return Math.floor(sec/60) + 'm';
+    return Math.floor(sec/3600) + 'h';
+  }
+
+  function setPill(el, state, label) {
+    el.className = 'status-pill ' + state;
+    el.innerHTML = '<span class="dot"></span>' + label;
+  }
+
+  function setBadge(id, ok, name) {
+    const b = document.getElementById(id);
+    b.className = 'sub-badge ' + (ok ? 'ok' : 'down');
+    b.innerHTML = '<span class="dot"></span>' + name + (ok ? '' : ' down');
+  }
+
+  async function loadStatus(manual) {
+    const btn = document.getElementById('refreshBtn');
+    if (manual) btn.classList.add('spinning');
+    try {
+      const r = await fetch(API, { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      render(d);
+    } catch (e) {
+      renderError(e);
+    } finally {
+      setTimeout(() => btn.classList.remove('spinning'), 400);
+    }
+  }
+
+  function render(d) {
+    const banner = document.getElementById('banner');
+    const t = document.getElementById('bannerTitle');
+    const s = document.getElementById('bannerSub');
+
+    if (d.overall === 'operational') {
+      banner.className = 'status-banner ok';
+      t.textContent = 'Tous les systèmes sont opérationnels';
+      s.textContent = 'TookBot fonctionne normalement.';
+    } else if (d.overall === 'degraded') {
+      banner.className = 'status-banner deg';
+      t.textContent = 'Service partiellement dégradé';
+      s.textContent = 'Le bot répond mais une partie du moteur musique a un souci.';
+    } else {
+      banner.className = 'status-banner down';
+      t.textContent = 'Service indisponible';
+      s.textContent = 'Le bot ne répond plus côté serveur. Surveillance en cours.';
+    }
+
+    const b = d.components.bot || {};
+    setPill(document.getElementById('pillBot'),
+      b.online ? 'ok' : 'down', b.online ? 'Online' : 'Offline');
+    document.getElementById('botState').textContent    = b.online ? 'En ligne' : 'Hors ligne';
+    document.getElementById('botState').className      = 'v ' + (b.online ? 'good' : 'bad');
+    document.getElementById('botLatency').textContent  = (b.latency_ms != null ? b.latency_ms + ' ms' : '—');
+    document.getElementById('botGuilds').textContent   = b.guild_count != null ? b.guild_count : '—';
+    document.getElementById('botVoice').textContent    = b.voice_count != null ? b.voice_count : '—';
+    document.getElementById('botAge').textContent      = 'il y a ' + fmtAge(b.age_sec);
+
+    const ds = d.components.dashboard || {};
+    setPill(document.getElementById('pillDash'),
+      ds.online ? 'ok' : 'down', ds.online ? 'Online' : 'Offline');
+
+    const m = d.components.music_engine || {};
+    setPill(document.getElementById('pillMusic'),
+      m.operational ? 'ok' : 'deg', m.operational ? 'Opérationnel' : 'Dégradé');
+    document.getElementById('musYtdlp').textContent = m.yt_dlp_version || '—';
+    setBadge('badgeWarp',    m.warp,        'WARP');
+    setBadge('badgeBgutil',  m.bgutil_pot,  'bgutil-pot');
+    setBadge('badgePrivoxy', m.privoxy,     'Privoxy');
+
+    const dt = new Date((d.checked_at || 0) * 1000);
+    document.getElementById('lastCheck').textContent =
+      'MAJ : ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function renderError(e) {
+    const banner = document.getElementById('banner');
+    banner.className = 'status-banner down';
+    document.getElementById('bannerTitle').textContent = 'Impossible de joindre le status API';
+    document.getElementById('bannerSub').textContent   = 'Endpoint /api/public-status injoignable. Le dashboard est peut-être down. (' + e + ')';
+    setPill(document.getElementById('pillBot'),   'unknown', 'Inconnu');
+    setPill(document.getElementById('pillDash'),  'down',    'Offline');
+    setPill(document.getElementById('pillMusic'), 'unknown', 'Inconnu');
+    document.getElementById('lastCheck').textContent = 'MAJ : échec';
+  }
+
+  loadStatus();
+  timer = setInterval(loadStatus, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && timer) { clearInterval(timer); timer = null; }
+    else if (!timer) { loadStatus(); timer = setInterval(loadStatus, 30000); }
+  });
+</script>
+</body>
+</html>
