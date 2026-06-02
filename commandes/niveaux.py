@@ -19,6 +19,7 @@ def setup_niveau_commands(bot, deps):
         gid = str(interaction.guild.id)
         xp = get_xp(gid, membre.id)
         level, progress_xp, needed_xp, percent = get_progress(xp)
+        print(f"[/niveau] guild={gid} user={membre.id} xp={xp} level={level}", flush=True)
 
         # Premium ? Carte image. Sinon embed simple.
         if is_premium_user(membre.id):
