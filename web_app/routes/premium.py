@@ -532,40 +532,23 @@ def register_premium_routes(app, deps):
         return jsonify({"ok": True})
 
 
-    # ===== Admin (owner ou admin Discord du serveur) : edit XP/niveau d'un membre =====
-
-    def _level_to_min_xp(level: int) -> int:
-        """Inverse de get_level (xp -> level = int(xp**0.2))."""
-        if level <= 0:
-            return 0
-        # Plus petit xp tel que int(xp**0.2) == level => xp = level**5
-        return level ** 5
-
-
+    # ===== Admin : edit XP/niveau d'un membre (refonte clean juin 2026) =====
     @app.route("/api/user/<user_id>/xp", methods=["POST"])
     def api_user_xp_set(user_id):
         """Modifie XP (ou niveau) d'un membre sur le serveur courant.
 
-        Accepte JSON {xp: int} OU {level: int}. Si level fourni, on calcule
-        le minimum d'XP requis pour ce niveau. Recalcule level depuis xp via
-        set_xp() qui applique la formule canonique.
+        Accepte JSON {xp: int} OU {level: int}. Si level fourni, calcule l'XP
+        minimum pour ce niveau via xp_for_level() (formule canonique level^5).
+        Utilise set_xp() de database.py qui UPSERT et recalcule level.
+        Cree le row si l'user n'a pas encore d'XP sur ce serveur.
         """
         if not _is_admin_of_current_guild():
             return jsonify({"error": "admin_only"}), 403
         g_id = gid()
         if not g_id:
             return jsonify({"error": "no_guild_selected"}), 400
-        db = get_db()
-        row = db.execute(
-            "SELECT username, xp, level FROM users WHERE guild_id = ? AND user_id = ?",
-            (g_id, str(user_id)),
-        ).fetchone()
-        db.close()
-        if not row:
-            return jsonify({"error": "user_not_found_on_guild"}), 404
 
         data = request.get_json(silent=True) or {}
-        new_xp = None
         if "xp" in data and data["xp"] is not None:
             try:
                 new_xp = max(0, int(data["xp"]))
@@ -576,13 +559,21 @@ def register_premium_routes(app, deps):
                 target_level = max(0, int(data["level"]))
             except (TypeError, ValueError):
                 return jsonify({"error": "bad_level"}), 400
-            new_xp = _level_to_min_xp(target_level)
+            new_xp = xp_for_level(target_level)
         else:
             return jsonify({"error": "missing_xp_or_level"}), 400
 
-        set_xp(g_id, user_id, new_xp, username=row["username"])
-        # Recompute pour reponse (formule int(xp**0.2))
-        new_level = int(new_xp ** 0.2) if new_xp > 0 else 0
+        # Recupere username existant si row deja la, sinon None (set_xp accepte)
+        db = get_db()
+        row = db.execute(
+            "SELECT username FROM users WHERE guild_id = ? AND user_id = ?",
+            (g_id, str(user_id)),
+        ).fetchone()
+        db.close()
+        username = row["username"] if row else None
+
+        set_xp(g_id, user_id, new_xp, username=username)
+        new_level = get_level(new_xp)
         return jsonify({
             "ok":       True,
             "user_id":  str(user_id),

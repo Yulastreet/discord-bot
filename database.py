@@ -954,45 +954,68 @@ def admin_lister_duel_users():
     return rows
 
 
-# ===== XP MESSAGES (per-guild) =====
-def get_level(xp):
+# ===== XP MESSAGES (per-guild) — refonte clean 2026-06 =====
+# Formule canonique : xp_for_level(L) = L^5 ; get_level(xp) = floor(xp^0.2)
+# Donc xp_for_level(get_level(xp)) <= xp < xp_for_level(get_level(xp)+1)
+
+def get_level(xp) -> int:
+    xp = int(xp or 0)
+    if xp <= 0:
+        return 0
     return int(xp ** 0.2)
 
-def get_xp(guild_id, user_id):
-    conn = get_db()
-    c = conn.cursor()
+def xp_for_level(level) -> int:
+    level = max(0, int(level or 0))
+    return level ** 5
+
+def get_xp(guild_id, user_id) -> int:
+    conn = get_db(); c = conn.cursor()
     c.execute("SELECT xp FROM users WHERE guild_id = ? AND user_id = ?",
               (str(guild_id), str(user_id)))
-    row = c.fetchone()
-    conn.close()
-    return row["xp"] if row else 0
+    r = c.fetchone(); conn.close()
+    return int(r["xp"]) if r else 0
 
 def set_xp(guild_id, user_id, xp, username=None):
-    conn = get_db()
-    c = conn.cursor()
+    """Upsert canonical : recalcule level depuis xp via formule."""
+    xp = max(0, int(xp or 0))
     level = get_level(xp)
-    if username:
-        c.execute("""INSERT INTO users (guild_id, user_id, username, xp, level)
-                     VALUES (?, ?, ?, ?, ?)
-                     ON CONFLICT(guild_id, user_id) DO UPDATE SET
-                       username = excluded.username,
-                       xp       = excluded.xp,
-                       level    = excluded.level""",
-                  (str(guild_id), str(user_id), username, xp, level))
-    else:
-        c.execute("UPDATE users SET xp = ?, level = ? WHERE guild_id = ? AND user_id = ?",
-                  (xp, level, str(guild_id), str(user_id)))
-    conn.commit()
-    conn.close()
+    conn = get_db(); c = conn.cursor()
+    c.execute("""INSERT INTO users (guild_id, user_id, username, xp, level)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                   xp       = excluded.xp,
+                   level    = excluded.level,
+                   username = COALESCE(excluded.username, users.username)""",
+              (str(guild_id), str(user_id), username, xp, level))
+    conn.commit(); conn.close()
 
-def get_leaderboard(guild_id, limit=10):
-    conn = get_db()
-    c = conn.cursor()
+def add_xp(guild_id, user_id, delta, username=None) -> tuple:
+    """Increment XP. Retourne (new_xp, old_level, new_level, leveled_up)."""
+    cur = get_xp(guild_id, user_id)
+    old_level = get_level(cur)
+    new_xp = max(0, cur + int(delta or 0))
+    set_xp(guild_id, user_id, new_xp, username=username)
+    new_level = get_level(new_xp)
+    return (new_xp, old_level, new_level, new_level > old_level)
+
+def get_progress(xp) -> tuple:
+    """Retourne (level, xp_in_level, xp_needed_in_level, percent_0_100)."""
+    xp = int(xp or 0)
+    level = get_level(xp)
+    start = xp_for_level(level)
+    end   = xp_for_level(level + 1)
+    span  = max(1, end - start)
+    in_lvl = max(0, xp - start)
+    pct = int(round(100 * in_lvl / span))
+    return (level, in_lvl, end - start, max(0, min(100, pct)))
+
+def get_leaderboard(guild_id, limit=10) -> list:
+    conn = get_db(); c = conn.cursor()
     c.execute("""SELECT user_id, username, xp, level FROM users
-                 WHERE guild_id = ? ORDER BY xp DESC LIMIT ?""",
-              (str(guild_id), limit))
-    rows = [dict(r) for r in c.fetchall()]
-    conn.close()
+                 WHERE guild_id = ? AND xp > 0
+                 ORDER BY xp DESC LIMIT ?""",
+              (str(guild_id), int(limit)))
+    rows = [dict(r) for r in c.fetchall()]; conn.close()
     return rows
 
 def get_all_users_for_guild(guild_id):

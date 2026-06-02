@@ -1343,67 +1343,78 @@ def setup_runtime(bot, deps):
             except discord.HTTPException as e:
                 print(f"❌ Erreur réaction : {e}")
 
-        # XP per-guild (skip si admin du serveur a desactive via /xp off ou dashboard)
-        if not message.author.bot and guild_setting_get(guild_id_str, "xp_enabled", "1") == "1":
-            # Cooldown anti-spam : evite que spammer un salon ne grind l'XP
+        # ===== XP gain (refonte clean juin 2026) =====
+        # Une seule helper canonique : add_xp() qui upsert + retourne level diff.
+        # Pas de double lecture/ecriture. Cooldown anti-spam par (guild, user).
+        if (not message.author.bot
+                and guild_setting_get(guild_id_str, "xp_enabled", "1") == "1"):
             try:
-                cooldown_sec = max(0, int(guild_setting_get(guild_id_str, "xp_cooldown_seconds", "30")))
+                cd = max(0, int(guild_setting_get(guild_id_str, "xp_cooldown_seconds", "30") or 30))
             except (TypeError, ValueError):
-                cooldown_sec = 30
+                cd = 30
             cd_key = (guild_id_str, message.author.id)
             now_ts = _time.time()
             last_ts = _XP_LAST_GAIN.get(cd_key, 0)
-            if cooldown_sec > 0 and (now_ts - last_ts) < cooldown_sec:
+            if cd > 0 and (now_ts - last_ts) < cd:
                 await bot.process_commands(message)
                 return
             _XP_LAST_GAIN[cd_key] = now_ts
 
-            xp = get_xp(guild_id_str, message.author.id)
-            old_level = get_level(xp)
             try:
-                xp_min = max(0, int(guild_setting_get(guild_id_str, "xp_min", "1")))
-                xp_max = max(xp_min, int(guild_setting_get(guild_id_str, "xp_max", "5")))
+                xp_min = max(0, int(guild_setting_get(guild_id_str, "xp_min", "1") or 1))
+                xp_max = max(xp_min, int(guild_setting_get(guild_id_str, "xp_max", "5") or 5))
             except (TypeError, ValueError):
                 xp_min, xp_max = 1, 5
-            xp_gain = random.randint(xp_min, xp_max)
-            # Boost XP Pass (recompense palier) — multiplicateur s'applique sur le gain
+            gain = random.randint(xp_min, xp_max)
+
+            # Boost XP Pass (multiplicateur)
             try:
                 boost = get_active_xp_boost_multiplier(message.author.id)
-                if boost > 1.0:
-                    xp_gain = int(xp_gain * boost)
-            except Exception:
-                pass
-            xp += xp_gain
-            set_xp(guild_id_str, message.author.id, xp, username=message.author.name)
-            new_level = get_level(xp)
-            try:
-                _track_pass_quest(message.author.id, "send_messages", 1)
-                _track_pass_quest(message.author.id, "earn_xp", xp_gain)
+                if boost and boost > 1.0:
+                    gain = int(gain * boost)
             except Exception:
                 pass
 
-            if new_level > old_level:
-                level, progress_xp, needed_xp, percent = get_progress(xp)
-                # Premium ? Carte HD avec son background choisi
-                if is_premium_user(message.author.id):
-                    try:
-                        bg = (get_premium_settings(message.author.id) or {}).get("niveau_background") or "default"
-                        image = await render_levelup_card_premium(
-                            username=message.author.display_name,
-                            avatar_url=str(message.author.display_avatar.url),
-                            new_level=new_level,
-                            percent=percent,
-                            background=bg,
-                        )
-                    except Exception as e:
-                        print(f"[levelup premium] render error: {e!r} — fallback")
-                        image = await generate_levelup_card(message.author, new_level, percent)
-                else:
-                    image = await generate_levelup_card(message.author, new_level, percent)
-                await message.channel.send(
-                    content=f"🎉 {message.author.mention}",
-                    file=discord.File(image, filename=f"levelup-{int(_time.time()*1000)}.png")
+            try:
+                new_xp, old_level, new_level, leveled_up = add_xp(
+                    guild_id_str, message.author.id, gain,
+                    username=message.author.name,
                 )
+            except Exception as e:
+                print(f"[xp gain] add_xp fail: {type(e).__name__}: {e}")
+                await bot.process_commands(message)
+                return
+
+            try:
+                _track_pass_quest(message.author.id, "send_messages", 1)
+                _track_pass_quest(message.author.id, "earn_xp", gain)
+            except Exception:
+                pass
+
+            if leveled_up:
+                try:
+                    _, _, _, percent = get_progress(new_xp)
+                    if is_premium_user(message.author.id):
+                        try:
+                            bg = (get_premium_settings(message.author.id) or {}).get("niveau_background") or "default"
+                            image = await render_levelup_card_premium(
+                                username=message.author.display_name,
+                                avatar_url=str(message.author.display_avatar.url),
+                                new_level=new_level,
+                                percent=percent,
+                                background=bg,
+                            )
+                        except Exception as e:
+                            print(f"[levelup premium render] {e!r} — fallback")
+                            image = await generate_levelup_card(message.author, new_level, percent)
+                    else:
+                        image = await generate_levelup_card(message.author, new_level, percent)
+                    await message.channel.send(
+                        content=f"🎉 {message.author.mention}",
+                        file=discord.File(image, filename=f"levelup-{int(_time.time()*1000)}.png"),
+                    )
+                except Exception as e:
+                    print(f"[levelup notif] {type(e).__name__}: {e}")
         await bot.process_commands(message)
 
 

@@ -18,7 +18,8 @@ except ImportError:
 from database import (
     init_db, get_db,
     # XP per-guild
-    get_xp, set_xp, get_leaderboard, get_all_users_for_guild, get_global_xp_stats,
+    get_xp, set_xp, add_xp, get_level, get_progress, xp_for_level,
+    get_leaderboard, get_all_users_for_guild, get_global_xp_stats,
     # Reactions per-guild
     get_all_reactions,
     # Guilds

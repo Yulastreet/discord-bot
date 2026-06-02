@@ -83,6 +83,7 @@ def _ensure_opus():
 
 from cards.rank import generate_levelup_card, generate_rank_card
 from database import (init_db, get_xp, set_xp, get_leaderboard,
+                      add_xp, get_level, get_progress, xp_for_level,
                       get_all_reactions_index, set_reaction, remove_reaction, get_all_reactions,
                       get_welcome, set_welcome,
                       get_duel_profil, creer_duel_profil, ajouter_tookcoins,
@@ -330,17 +331,8 @@ class DuelDB:
 
 
 # ===== XP =====
-def get_level(xp):
-    return int(xp ** 0.2)
-
-def get_progress(xp):
-    level = get_level(xp)
-    current_level_xp = int(level ** (1 / 0.2))
-    next_level_xp = int((level + 1) ** (1 / 0.2))
-    progress_xp = xp - current_level_xp
-    needed_xp = next_level_xp - current_level_xp
-    percent = min(int((progress_xp / needed_xp) * 100), 100)
-    return level, progress_xp, needed_xp, percent
+# get_level + get_progress + add_xp + xp_for_level fournis par database.py
+# (formule canonique level^5). Pas de redéfinition locale.
 
 
 # ===== MUSIQUE (DB-backed) =====
