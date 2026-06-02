@@ -64,7 +64,8 @@ def setup_runtime(bot, deps):
             upsert_guild(
                 guild.id, guild.name,
                 icon_url=str(guild.icon.url) if guild.icon else None,
-                member_count=guild.member_count or 0
+                member_count=guild.member_count or 0,
+                owner_id=guild.owner_id,
             )
             try:
                 _sync_guild_channels(guild)
@@ -203,7 +204,8 @@ def setup_runtime(bot, deps):
     async def on_guild_join(guild):
         upsert_guild(guild.id, guild.name,
                      icon_url=str(guild.icon.url) if guild.icon else None,
-                     member_count=guild.member_count or 0)
+                     member_count=guild.member_count or 0,
+                     owner_id=guild.owner_id)
         _sync_guild_channels(guild)
         # Sync global uniquement (per-guild sync sans copy_global_to creait
         # un double jeu de commandes -> handlers fire 2 fois)

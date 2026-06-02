@@ -51,9 +51,16 @@ def init_db():
         name         TEXT,
         icon_url     TEXT,
         member_count INTEGER DEFAULT 0,
+        owner_id     TEXT,
         last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         active       INTEGER DEFAULT 1
     )''')
+    # Migration : ajoute owner_id si table existait deja sans cette colonne.
+    if "owner_id" not in _table_columns(c, "guilds"):
+        try:
+            c.execute("ALTER TABLE guilds ADD COLUMN owner_id TEXT")
+        except Exception as _e:
+            print(f"[db migration] add guilds.owner_id : {_e}")
 
     # ===== Tables musique =====
     c.execute('''CREATE TABLE IF NOT EXISTS music_queue (
@@ -1047,18 +1054,20 @@ def remove_reaction(guild_id, user_id):
 
 
 # ===== GUILDS (registre Discord) =====
-def upsert_guild(guild_id, name, icon_url=None, member_count=0):
+def upsert_guild(guild_id, name, icon_url=None, member_count=0, owner_id=None):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""INSERT INTO guilds (guild_id, name, icon_url, member_count, last_seen_at, active)
-                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 1)
+    c.execute("""INSERT INTO guilds (guild_id, name, icon_url, member_count, owner_id, last_seen_at, active)
+                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)
                  ON CONFLICT(guild_id) DO UPDATE SET
                    name = excluded.name,
                    icon_url = excluded.icon_url,
                    member_count = excluded.member_count,
+                   owner_id = COALESCE(excluded.owner_id, guilds.owner_id),
                    last_seen_at = CURRENT_TIMESTAMP,
                    active = 1""",
-              (str(guild_id), name, icon_url, int(member_count or 0)))
+              (str(guild_id), name, icon_url, int(member_count or 0),
+               str(owner_id) if owner_id else None))
     conn.commit()
     conn.close()
 

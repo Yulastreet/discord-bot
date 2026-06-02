@@ -339,7 +339,10 @@ def register_server_tool_routes(app, deps):
         """True si l'owner du serveur selectionne a TookBot+.
 
         Pour le dashboard on check l'owner du SERVEUR (pas l'user connecte),
-        coherent avec la gate cote Discord /cmd."""
+        coherent avec la gate cote Discord /cmd. Si l'owner_id du serveur n'est
+        pas connu en DB (sync pas encore fait), on REFUSE par defaut au lieu de
+        fall back sur DISCORD_OWNER_ID (qui ferait bypass total).
+        """
         import os as _os2
         g_id = gid()
         if not g_id:
@@ -349,12 +352,11 @@ def register_server_tool_routes(app, deps):
             guild_row = _gg(g_id) or {}
         except Exception:
             guild_row = {}
-        owner_id = str(guild_row.get("owner_id") or "")
+        owner_id = str(guild_row.get("owner_id") or "").strip()
         if not owner_id:
-            # Fallback : owner du bot
-            owner_id = str(_os2.getenv("DISCORD_OWNER_ID", "").strip() or "")
-            if not owner_id:
-                return False
+            # Owner inconnu -> on refuse (mieux sur que ouvert). Le sync au boot
+            # du bot remplit owner_id pour toutes les guilds connues.
+            return False
         if has_premium_grant(owner_id, feature="tookbot_plus", inherit_all=False):
             return True
         sku = _os2.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
