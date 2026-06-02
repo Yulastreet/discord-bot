@@ -536,8 +536,14 @@
         <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
           <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
         </a>
+        <a href="/bot-profile" class="nav-item {{ 'active' if active_nav == 'bot-profile' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Bot Personalizer ✦
+        </a>
         <a href="/my-pass" class="nav-item {{ 'active' if active_nav == 'my_pass' }}">
           <svg class="ic"><use href="#i-swords"/></svg> Mon Pass 🎟️
+        </a>
+        <a href="/subscription" class="nav-item {{ 'active' if active_nav == 'subscription' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Abonnement ✦
         </a>
       </details>
       {% endif %}
@@ -564,6 +570,9 @@
     <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="kofi-btn">
       <span class="kofi-ico">☕</span>
       Soutenir TookBot
+    </a>
+    <a href="/subscription" class="tookbot-plus-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 12px;padding:11px 14px;background:linear-gradient(180deg,#ffa726,#ff8a00);color:#2a1a00;text-decoration:none;font-weight:800;font-size:13px;border-radius:10px;box-shadow:0 6px 18px rgba(255,167,38,.32);transition:transform .12s;">
+      <span>✦</span> TookBot+
     </a>
     <div class="sidebar-foot">
       <button class="theme-cycle" id="themeCycle" aria-label="Changer le thème" title="Cycler le thème">

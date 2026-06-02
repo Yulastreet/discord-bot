@@ -98,6 +98,17 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_title    ON music_plays(guild_id, track_title)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_user     ON music_plays(guild_id, user_id)")
 
+    # ===== Bot personalizer : profil bot custom par serveur =====
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_bot_profile (
+        guild_id    TEXT PRIMARY KEY,
+        nick        TEXT,
+        avatar_url  TEXT,
+        banner_url  TEXT,
+        about_me    TEXT,
+        applied_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Uptime checks (page /status.html, barres heure par heure) =====
     c.execute('''CREATE TABLE IF NOT EXISTS service_uptime_check (
         component   TEXT NOT NULL,
@@ -1174,6 +1185,48 @@ def music_state_disconnect(guild_id):
 
 
 # ===== Music plays telemetry =====
+def guild_bot_profile_get(guild_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM guild_bot_profile WHERE guild_id = ?", (str(guild_id),))
+    r = c.fetchone(); conn.close()
+    return dict(r) if r else None
+
+
+def guild_bot_profile_set(guild_id, *, nick=None, avatar_url=None, banner_url=None, about_me=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO guild_bot_profile (guild_id) VALUES (?)", (str(guild_id),))
+    fields, values = [], []
+    if nick is not None:       fields.append("nick = ?");       values.append(nick or None)
+    if avatar_url is not None: fields.append("avatar_url = ?"); values.append(avatar_url or None)
+    if banner_url is not None: fields.append("banner_url = ?"); values.append(banner_url or None)
+    if about_me is not None:   fields.append("about_me = ?");   values.append(about_me or None)
+    if fields:
+        fields.append("updated_at = CURRENT_TIMESTAMP")
+        c.execute(f"UPDATE guild_bot_profile SET {', '.join(fields)} WHERE guild_id = ?",
+                  (*values, str(guild_id)))
+    conn.commit(); conn.close()
+
+
+def guild_bot_profile_mark_applied(guild_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE guild_bot_profile SET applied_at = CURRENT_TIMESTAMP WHERE guild_id = ?", (str(guild_id),))
+    conn.commit(); conn.close()
+
+
+def guild_bot_profile_clear(guild_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM guild_bot_profile WHERE guild_id = ?", (str(guild_id),))
+    conn.commit(); conn.close()
+
+
+def guild_bot_profile_list_all():
+    """Pour le re-apply au boot : retourne tous les profils enregistres."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM guild_bot_profile")
+    rows = [dict(r) for r in c.fetchall()]; conn.close()
+    return rows
+
+
 def service_uptime_log(component: str, ok: bool):
     """Enregistre un check uptime pour un component dans le bucket de l'heure courante.
 

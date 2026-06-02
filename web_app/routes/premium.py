@@ -23,6 +23,44 @@ def register_premium_routes(app, deps):
         )
 
 
+    @app.route("/subscription")
+    def subscription_page():
+        uid = _current_user_id()
+        if not uid:
+            return redirect(url_for("oauth_login"))
+        # User a TookBot+ ?
+        is_tookbot_plus = (
+            has_premium_grant(uid, feature="tookbot_plus", inherit_all=True)
+            or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
+        )
+        return render_template(
+            "subscription.html",
+            is_tookbot_plus=bool(is_tookbot_plus),
+            user=session.get("discord") or {},
+            active_nav="subscription",
+        )
+
+    @app.route("/api/owner/user/<user_id>/tookbot-plus", methods=["POST"])
+    def api_owner_grant_tookbot_plus(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        add_premium_grant(user_id, feature="tookbot_plus", granted_by=_current_user_id(), note="owner grant")
+        return jsonify({"ok": True, "granted": True})
+
+    @app.route("/api/owner/user/<user_id>/tookbot-plus", methods=["DELETE"])
+    def api_owner_revoke_tookbot_plus(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        remove_premium_grant(user_id, feature="tookbot_plus")
+        return jsonify({"ok": True, "revoked": True})
+
+    @app.route("/api/owner/user/<user_id>/tookbot-plus", methods=["GET"])
+    def api_owner_check_tookbot_plus(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        has = has_premium_grant(user_id, feature="tookbot_plus", inherit_all=False)
+        return jsonify({"user_id": str(user_id), "has_tookbot_plus": bool(has)})
+
     @app.route("/api/premium/status", methods=["GET"])
     def api_premium_status():
         uid = _current_user_id()

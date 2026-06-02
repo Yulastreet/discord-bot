@@ -97,6 +97,9 @@
         </button>
         <!-- Guild Boost retire : plus de grant tier solo/duo/squad. -->
         <div id="guildBoostBtnGroup" hidden></div>
+        <button id="tookbotPlusBtn" class="btn btn-secondary" type="button" data-state="unknown" style="--ico:#ffa726;">
+          <svg class="ic"><use href="#i-bolt"/></svg> <span id="tookbotPlusLabel">TookBot+...</span>
+        </button>
       {% endif %}
     </div>
   </div>
@@ -575,6 +578,44 @@ function setupXpEdit() {
     if (!confirm('Remettre l\'XP de cet utilisateur à 0 sur ce serveur ?')) return;
     save(0);
   });
+}
+
+// ===== TOOKBOT+ (owner-only) =====
+const _tbpBtn   = document.getElementById('tookbotPlusBtn');
+const _tbpLabel = document.getElementById('tookbotPlusLabel');
+let   _tbpActive = false;
+
+async function loadTookbotPlus() {
+  if (!_tbpBtn) return;
+  try {
+    const r = await fetch(`/api/owner/user/${userId}/tookbot-plus`);
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    _tbpActive = !!d.has_tookbot_plus;
+    _tbpLabel.textContent = _tbpActive ? 'TookBot+ ✦ ON' : 'Donner TookBot+';
+    _tbpBtn.style.background = _tbpActive ? 'linear-gradient(180deg,#ffa726,#ff8a00)' : '';
+    _tbpBtn.style.color      = _tbpActive ? '#2a1a00' : '';
+    _tbpBtn.disabled = false;
+  } catch (e) {
+    _tbpLabel.textContent = 'TookBot+ ?';
+    _tbpBtn.disabled = true;
+  }
+}
+
+if (_tbpBtn) {
+  _tbpBtn.addEventListener('click', async () => {
+    _tbpBtn.disabled = true;
+    const method = _tbpActive ? 'DELETE' : 'POST';
+    try {
+      const r = await fetch(`/api/owner/user/${userId}/tookbot-plus`, { method });
+      if (!r.ok) throw new Error(r.status);
+      await loadTookbotPlus();
+    } catch (e) {
+      alert('Erreur : ' + e.message);
+      _tbpBtn.disabled = false;
+    }
+  });
+  loadTookbotPlus();
 }
 
 // ===== PREMIUM (owner-only) =====

@@ -1,0 +1,205 @@
+{% extends "_base.html" %}
+{% set active_nav = 'subscription' %}
+{% block title %}Abonnement · Bot Console{% endblock %}
+{% block crumb %}Abonnement{% endblock %}
+
+{% block content %}
+<style>
+  .sub-hero { margin-bottom: var(--s-6); }
+  .sub-hero h1 { font-size: clamp(28px, 3vw, 38px); letter-spacing: -.02em; font-weight: 800; }
+  .sub-hero p { color: var(--text-2); margin-top: 6px; }
+
+  .sub-current {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: var(--r-3); padding: var(--s-5) var(--s-6);
+    margin-bottom: var(--s-5);
+  }
+  .sub-current h2 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .sub-current-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg-2); border: 1px solid var(--border-soft);
+    border-radius: var(--r-2); padding: 18px 22px;
+  }
+  .sub-current-row .plan-name { font-size: 18px; font-weight: 700; }
+  .sub-current-row .plan-desc { color: var(--text-2); font-size: 13px; margin-top: 4px; }
+  .sub-current-row .plan-price { font-size: 26px; font-weight: 800; color: var(--text); }
+  .sub-current-row.is-premium { border-color: rgba(255, 167, 38, .35); background: linear-gradient(135deg, rgba(255, 167, 38, .08), rgba(255, 167, 38, .02)); }
+
+  .sub-upgrade {
+    border: 1.5px solid rgba(255, 167, 38, .35);
+    background: linear-gradient(135deg, rgba(255, 167, 38, .06), transparent 60%), var(--bg-1);
+    border-radius: var(--r-3); padding: var(--s-6); position: relative;
+    box-shadow: 0 12px 40px rgba(255, 167, 38, .08);
+  }
+  .sub-upgrade h2 { font-size: 24px; font-weight: 800; color: #ffa726; margin-bottom: 4px; }
+  .sub-upgrade .lead { color: var(--text-2); margin-bottom: 22px; font-size: 14px; }
+  .sub-billing-label { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+  .sub-billing-tabs {
+    display: inline-flex; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px; gap: 2px;
+    margin-bottom: 22px;
+  }
+  .sub-billing-tab {
+    padding: 8px 18px; border-radius: 999px; cursor: pointer;
+    font-size: 13px; font-weight: 700; color: var(--text-2);
+    border: 0; background: transparent;
+  }
+  .sub-billing-tab.active {
+    background: linear-gradient(180deg, #ffa726, #ff8a00); color: #2a1a00;
+    box-shadow: 0 4px 12px rgba(255, 167, 38, .35);
+  }
+  .sub-price-block { display: flex; align-items: baseline; gap: 10px; margin-bottom: 22px; }
+  .sub-price { font-size: 44px; font-weight: 900; letter-spacing: -.02em; color: var(--text); }
+  .sub-price-per { color: var(--text-2); font-size: 13px; }
+
+  .sub-includes {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255, 167, 38, .12); border: 1px solid rgba(255, 167, 38, .25);
+    border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 700;
+    color: #ffa726; margin-bottom: 16px;
+  }
+  .sub-features { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; margin-bottom: 24px; }
+  @media (max-width: 720px) { .sub-features { grid-template-columns: 1fr; } }
+  .sub-feature { display: flex; gap: 12px; align-items: flex-start; }
+  .sub-feature .ico {
+    flex-shrink: 0; width: 28px; height: 28px;
+    background: rgba(255, 167, 38, .12); color: #ffa726;
+    border-radius: 8px; display: grid; place-items: center;
+    font-size: 14px; font-weight: 800;
+  }
+  .sub-feature .feat-title { font-weight: 700; font-size: 14px; color: var(--text); }
+  .sub-feature .feat-sub { color: var(--text-2); font-size: 12px; margin-top: 2px; }
+
+  .sub-cta {
+    width: 100%; padding: 16px;
+    background: linear-gradient(180deg, #ffa726, #ff8a00); color: #2a1a00;
+    border: 0; border-radius: 12px;
+    font-weight: 800; font-size: 14px; cursor: pointer;
+    box-shadow: 0 12px 32px rgba(255, 167, 38, .32);
+    transition: transform .12s;
+  }
+  .sub-cta:hover { transform: translateY(-2px); }
+  .sub-cta:disabled { opacity: .55; cursor: not-allowed; }
+
+  .sub-foot-note {
+    color: var(--text-3); font-size: 12px; text-align: center;
+    margin-top: 14px;
+  }
+</style>
+
+<div class="sub-hero">
+  <h1>Ton abonnement</h1>
+  <p>Soutiens TookBot et débloque les features premium réservées aux abonnés TookBot+.</p>
+</div>
+
+<div class="sub-current">
+  <h2>Ton plan actuel</h2>
+  {% if is_tookbot_plus %}
+  <div class="sub-current-row is-premium">
+    <div>
+      <div class="plan-name">TookBot+ <span style="color:#ffa726;">✦</span></div>
+      <div class="plan-desc">Toutes les features premium débloquées. Merci !</div>
+    </div>
+    <div class="plan-price" style="color:#ffa726;">Actif</div>
+  </div>
+  {% else %}
+  <div class="sub-current-row">
+    <div>
+      <div class="plan-name">Gratuit</div>
+      <div class="plan-desc">Toutes les features essentielles pour démarrer.</div>
+    </div>
+    <div class="plan-price">0 €<span style="font-size:13px;color:var(--text-2);"> /mois</span></div>
+  </div>
+  {% endif %}
+</div>
+
+{% if not is_tookbot_plus %}
+<div class="sub-upgrade">
+  <h2>Passer à TookBot+</h2>
+  <p class="lead">Débloque les features premium. Choisis la durée d'abonnement.</p>
+
+  <div class="sub-billing-label">Période</div>
+  <div class="sub-billing-tabs" role="tablist">
+    <button class="sub-billing-tab active" data-period="1"  data-price="4.39" data-suffix="mois">1 mo</button>
+    <button class="sub-billing-tab"        data-period="3"  data-price="3.99" data-suffix="mois">3 mo</button>
+    <button class="sub-billing-tab"        data-period="6"  data-price="3.49" data-suffix="mois">6 mo</button>
+    <button class="sub-billing-tab"        data-period="12" data-price="2.99" data-suffix="mois">12 mo</button>
+  </div>
+
+  <div class="sub-price-block">
+    <span class="sub-price" id="subPrice">$4.39</span>
+    <span class="sub-price-per" id="subPriceSuffix">facturé mensuellement</span>
+  </div>
+
+  <div class="sub-includes">✦ Inclus dans TookBot+</div>
+
+  <div class="sub-features">
+    <div class="sub-feature">
+      <span class="ico">🎨</span>
+      <div>
+        <div class="feat-title">Bot Personalizer</div>
+        <div class="feat-sub">Nick, avatar et bannière custom du bot par serveur</div>
+      </div>
+    </div>
+    <div class="sub-feature">
+      <span class="ico">⭐</span>
+      <div>
+        <div class="feat-title">/niveau Premium</div>
+        <div class="feat-sub">Cartes de profil avec backgrounds custom et badges</div>
+      </div>
+    </div>
+    <div class="sub-feature">
+      <span class="ico">🎮</span>
+      <div>
+        <div class="feat-title">TookBot Battle Pass</div>
+        <div class="feat-sub">Missions saisonnières, récompenses exclusives, cosmétiques</div>
+      </div>
+    </div>
+    <div class="sub-feature">
+      <span class="ico">💚</span>
+      <div>
+        <div class="feat-title">Soutien direct</div>
+        <div class="feat-sub">Tu finances l'hébergement et le développement solo</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="sub-cta" id="subCta">
+    Passer à TookBot+ — <span id="subCtaPrice">$4.39</span> / mois
+  </button>
+  <p class="sub-foot-note">Paiement sécurisé via Discord Store. Annulable à tout moment.</p>
+</div>
+{% endif %}
+
+<script>
+(function() {
+  const tabs    = document.querySelectorAll('.sub-billing-tab');
+  const price   = document.getElementById('subPrice');
+  const suffix  = document.getElementById('subPriceSuffix');
+  const cta     = document.getElementById('subCta');
+  const ctaPrice = document.getElementById('subCtaPrice');
+  if (!tabs.length) return;
+
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(o => o.classList.remove('active'));
+    t.classList.add('active');
+    const p = t.dataset.price;
+    const months = parseInt(t.dataset.period, 10);
+    if (price) price.textContent = '$' + p;
+    if (suffix) {
+      suffix.textContent = months === 1 ? 'facturé mensuellement' :
+        `facturé tous les ${months} mois ($${(p * months).toFixed(2)} total)`;
+    }
+    if (ctaPrice) ctaPrice.textContent = '$' + p;
+  }));
+
+  if (cta) cta.addEventListener('click', () => {
+    // TODO : déclencher Discord SKU purchase flow.
+    // Pour l'instant : message simple. Quand SKU_TOOKBOT_PLUS sera configure,
+    // rediriger vers la boutique Discord du bot.
+    alert('TookBot+ sera bientôt disponible via la boutique Discord. Pour soutenir maintenant : Ko-fi.');
+    window.open('https://ko-fi.com/tookbot', '_blank');
+  });
+})();
+</script>
+{% endblock %}

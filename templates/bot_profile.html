@@ -1,0 +1,342 @@
+{% extends "_base.html" %}
+{% set active_nav = 'bot-profile' %}
+{% block title %}Bot Personalizer · Bot Console{% endblock %}
+{% block crumb %}Bot Personalizer{% endblock %}
+
+{% block content %}
+<style>
+  .bp-head h1 { font-size: clamp(28px, 3vw, 38px); font-weight: 800; letter-spacing: -.02em; }
+  .bp-head p  { color: var(--text-2); margin-top: 6px; }
+
+  .bp-layout {
+    display: grid; grid-template-columns: 1fr 360px;
+    gap: var(--s-6); margin-top: var(--s-5);
+    position: relative;
+  }
+  @media (max-width: 960px) { .bp-layout { grid-template-columns: 1fr; } }
+
+  .bp-section { margin-bottom: var(--s-6); }
+  .bp-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .bp-section .hint { color: var(--text-2); font-size: 12px; margin-bottom: 10px; }
+  .bp-input, .bp-textarea {
+    width: 100%; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text);
+    font-family: inherit; font-size: 14px; outline: 0;
+    transition: border-color .12s;
+  }
+  .bp-input:focus, .bp-textarea:focus { border-color: rgba(255,167,38,.4); }
+  .bp-textarea { resize: vertical; min-height: 100px; }
+  .bp-counter { color: var(--text-3); font-size: 11px; text-align: right; margin-top: 4px; }
+
+  .bp-file {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .bp-file-thumb {
+    width: 64px; height: 64px; border-radius: 12px;
+    background: var(--bg-3); border: 1px solid var(--border-soft);
+    display: grid; place-items: center; color: var(--text-3);
+    overflow: hidden; flex-shrink: 0;
+  }
+  .bp-file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .bp-file label.bp-file-btn {
+    display: inline-block; padding: 8px 16px;
+    background: var(--bg-3); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+    color: var(--text);
+  }
+  .bp-file label.bp-file-btn:hover { background: var(--bg-1); }
+  .bp-file input[type=file] { display: none; }
+  .bp-file-hint { color: var(--text-3); font-size: 11px; margin-top: 4px; }
+
+  .bp-actions { display: flex; gap: 10px; margin-top: var(--s-4); }
+
+  /* Preview */
+  .bp-preview-wrap {
+    position: sticky; top: var(--s-5); align-self: start;
+  }
+  .bp-preview-wrap h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .bp-preview-wrap .hint { color: var(--text-2); font-size: 12px; margin-bottom: 12px; }
+  .bp-preview-card {
+    background: #232428; border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+  }
+  .bp-preview-banner {
+    height: 100px; background: #4f545c;
+    background-size: cover; background-position: center;
+  }
+  .bp-preview-body { padding: 0 16px 16px; position: relative; }
+  .bp-preview-avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: url('/static/icon-landing.png') center/cover, #4f545c;
+    background-size: cover; background-position: center;
+    border: 6px solid #232428; margin-top: -40px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  }
+  .bp-preview-name {
+    display: flex; align-items: center; gap: 6px; margin-top: 10px;
+    color: #fff; font-weight: 800; font-size: 18px;
+  }
+  .bp-preview-badge {
+    background: #5865f2; color: #fff;
+    font-size: 10px; font-weight: 600; padding: 2px 5px;
+    border-radius: 3px; letter-spacing: .01em;
+  }
+  .bp-preview-tag { color: #b5bac1; font-size: 13px; margin-top: 2px; }
+  .bp-preview-section {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .bp-preview-section h5 {
+    color: #b5bac1; font-size: 11px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .06em;
+    margin-bottom: 6px;
+  }
+  .bp-preview-section p {
+    color: #dbdee1; font-size: 13.5px; line-height: 1.45;
+    word-wrap: break-word;
+  }
+
+  /* Paywall overlay */
+  .bp-paywall-scrim {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(6px);
+    z-index: 200; display: grid; place-items: center;
+    padding: 22px;
+  }
+  .bp-paywall-modal {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px 28px;
+    max-width: 440px; text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,.55);
+  }
+  .bp-paywall-modal .ico {
+    font-size: 36px; margin-bottom: 12px;
+  }
+  .bp-paywall-modal h2 {
+    font-size: 22px; font-weight: 800; letter-spacing: -.01em;
+    margin-bottom: 8px;
+  }
+  .bp-paywall-modal p {
+    color: var(--text-2); font-size: 14px; line-height: 1.5;
+    margin-bottom: 22px;
+  }
+  .bp-paywall-actions { display: flex; gap: 10px; flex-direction: column; }
+  .bp-btn-subscribe {
+    width: 100%; padding: 12px; border: 0; border-radius: 10px;
+    background: linear-gradient(180deg, #ffa726, #ff8a00);
+    color: #2a1a00; font-weight: 800; font-size: 14px; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,167,38,.32);
+  }
+  .bp-btn-preview {
+    width: 100%; padding: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); border-radius: 10px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  .bp-btn-preview:hover { background: var(--bg-2); }
+
+  /* Preview mode banner (bottom) */
+  .bp-preview-mode-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, #2a1a00, #1a1000);
+    border-top: 1px solid rgba(255,167,38,.4);
+    color: #ffa726; padding: 12px 22px;
+    font-size: 13px; font-weight: 700; text-align: center;
+    z-index: 100; display: none;
+  }
+  .bp-preview-mode-banner a {
+    color: #ffa726; text-decoration: underline; margin-left: 8px;
+  }
+
+  /* Preview mode = pas d'interaction */
+  body.bp-preview-mode .bp-form-content { pointer-events: none; user-select: none; opacity: .65; }
+</style>
+
+<div class="bp-head">
+  <h1>Bot Personalizer</h1>
+  <p>Personnalise le nom, l'avatar et la bannière de TookBot sur ce serveur.</p>
+</div>
+
+<form id="bpForm" class="bp-layout" enctype="multipart/form-data">
+  <div class="bp-form-content">
+
+    <div class="bp-section">
+      <h3>Nom du bot</h3>
+      <div class="hint">Le surnom affiché sur ce serveur (max 32 caractères).</div>
+      <input type="text" name="nick" id="bpNick" class="bp-input" maxlength="32" placeholder="TookBot">
+      <div class="bp-counter"><span id="bpNickCount">0</span>/32</div>
+    </div>
+
+    <div class="bp-section">
+      <h3>À propos (bio)</h3>
+      <div class="hint">Modifie la bio affichée sur le profil du bot. <em>Note : la bio est globale (même sur tous les serveurs), limitation Discord.</em></div>
+      <textarea name="about_me" id="bpAbout" class="bp-textarea" maxlength="190" placeholder="Bot tout-en-un : musique, modération, XP, mini-jeux."></textarea>
+      <div class="bp-counter"><span id="bpAboutCount">0</span>/190</div>
+    </div>
+
+    <div class="bp-section">
+      <h3>Avatar</h3>
+      <div class="hint">Upload une image PNG/JPG/GIF/WebP, max 5 Mo.</div>
+      <div class="bp-file">
+        <div class="bp-file-thumb" id="bpAvatarThumb">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+        </div>
+        <div>
+          <label class="bp-file-btn" for="bpAvatarFile">Choisir un fichier</label>
+          <input type="file" name="avatar" id="bpAvatarFile" accept="image/png,image/jpeg,image/gif,image/webp">
+          <div class="bp-file-hint">PNG, JPG, GIF, WebP · Max 5 Mo</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bp-section">
+      <h3>Bannière</h3>
+      <div class="hint">Bannière du profil bot, format paysage recommandé.</div>
+      <div class="bp-file">
+        <div class="bp-file-thumb" id="bpBannerThumb" style="aspect-ratio:16/9;width:120px;height:auto;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        </div>
+        <div>
+          <label class="bp-file-btn" for="bpBannerFile">Choisir un fichier</label>
+          <input type="file" name="banner" id="bpBannerFile" accept="image/png,image/jpeg,image/gif,image/webp">
+          <div class="bp-file-hint">PNG, JPG, GIF, WebP · Max 5 Mo</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bp-actions">
+      <button type="submit" class="btn btn-primary" id="bpSave">Sauvegarder & appliquer</button>
+      <button type="button" class="btn btn-secondary" id="bpReset">Réinitialiser</button>
+    </div>
+  </div>
+
+  <div class="bp-preview-wrap">
+    <h3>Aperçu profil Discord</h3>
+    <div class="hint">À quoi ça ressemblera sur ce serveur.</div>
+    <div class="bp-preview-card">
+      <div class="bp-preview-banner" id="bpPreviewBanner"></div>
+      <div class="bp-preview-body">
+        <div class="bp-preview-avatar" id="bpPreviewAvatar"></div>
+        <div class="bp-preview-name">
+          <span id="bpPreviewName">TookBot</span>
+          <span class="bp-preview-badge">APP</span>
+        </div>
+        <div class="bp-preview-tag">TookBot#9730</div>
+        <div class="bp-preview-section">
+          <h5>À propos</h5>
+          <p id="bpPreviewAbout">Bot tout-en-un : musique, modération, XP, mini-jeux.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if not is_premium %}
+<!-- Paywall overlay -->
+<div class="bp-paywall-scrim" id="bpPaywall">
+  <div class="bp-paywall-modal">
+    <div class="ico">✦</div>
+    <h2>Feature TookBot+ uniquement</h2>
+    <p>Le Bot Personalizer est réservé aux abonnés TookBot+. Choisis ton option ci-dessous.</p>
+    <div class="bp-paywall-actions">
+      <button class="bp-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
+      <button class="bp-btn-preview" id="bpPreviewModeBtn">Voir un aperçu de la feature</button>
+    </div>
+  </div>
+</div>
+
+<div class="bp-preview-mode-banner" id="bpPreviewBanner-bottom">
+  ✦ Tu es en aperçu de la feature TookBot+ · Les actions sont désactivées.
+  <a href="/subscription">S'abonner pour débloquer</a>
+</div>
+
+<script>
+(function() {
+  // Pre-rempli avec exemples pour le mode preview
+  document.getElementById('bpNick').value = 'Aspect Helper';
+  document.getElementById('bpAbout').value = '24/7 Support Bot pour notre communauté.';
+  document.getElementById('bpNickCount').textContent  = '13';
+  document.getElementById('bpAboutCount').textContent = '43';
+  document.getElementById('bpPreviewName').textContent  = 'Aspect Helper';
+  document.getElementById('bpPreviewAbout').textContent = '24/7 Support Bot pour notre communauté.';
+
+  document.getElementById('bpPreviewModeBtn').addEventListener('click', () => {
+    document.getElementById('bpPaywall').style.display = 'none';
+    document.getElementById('bpPreviewBanner-bottom').style.display = 'block';
+    document.body.classList.add('bp-preview-mode');
+  });
+})();
+</script>
+{% endif %}
+
+<script>
+// Counters + preview live
+function bind(id, counterId, previewId) {
+  const el = document.getElementById(id);
+  const cnt = document.getElementById(counterId);
+  const prev = previewId ? document.getElementById(previewId) : null;
+  if (!el) return;
+  function upd() {
+    cnt.textContent = el.value.length;
+    if (prev) prev.textContent = el.value || prev.dataset.placeholder || prev.textContent;
+  }
+  el.addEventListener('input', upd); upd();
+}
+bind('bpNick',  'bpNickCount',  'bpPreviewName');
+bind('bpAbout', 'bpAboutCount', 'bpPreviewAbout');
+
+function bindFile(id, thumbId, previewBg, isAvatar) {
+  const inp = document.getElementById(id);
+  const thumb = document.getElementById(thumbId);
+  const prev  = document.getElementById(previewBg);
+  if (!inp) return;
+  inp.addEventListener('change', () => {
+    const f = inp.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    thumb.innerHTML = `<img src="${url}" alt="">`;
+    if (prev) prev.style.backgroundImage = `url(${url})`;
+  });
+}
+bindFile('bpAvatarFile', 'bpAvatarThumb', 'bpPreviewAvatar', true);
+bindFile('bpBannerFile', 'bpBannerThumb', 'bpPreviewBanner', false);
+
+// Pre-fill depuis DB si data existante
+fetch('/api/bot-profile').then(r => r.ok ? r.json() : null).then(d => {
+  if (!d) return;
+  if (d.nick)       { document.getElementById('bpNick').value = d.nick; document.getElementById('bpNickCount').textContent = d.nick.length; document.getElementById('bpPreviewName').textContent = d.nick; }
+  if (d.about_me)   { document.getElementById('bpAbout').value = d.about_me; document.getElementById('bpAboutCount').textContent = d.about_me.length; document.getElementById('bpPreviewAbout').textContent = d.about_me; }
+  if (d.avatar_url) { document.getElementById('bpAvatarThumb').innerHTML = `<img src="${d.avatar_url}" alt="">`; document.getElementById('bpPreviewAvatar').style.backgroundImage = `url(${d.avatar_url})`; }
+  if (d.banner_url) { document.getElementById('bpBannerThumb').innerHTML = `<img src="${d.banner_url}" alt="">`; document.getElementById('bpPreviewBanner').style.backgroundImage = `url(${d.banner_url})`; }
+}).catch(() => {});
+
+// Submit
+document.getElementById('bpForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (document.body.classList.contains('bp-preview-mode')) return;
+  const btn = document.getElementById('bpSave');
+  btn.disabled = true; btn.textContent = 'Application...';
+  try {
+    const fd = new FormData(e.target);
+    const r = await fetch('/api/bot-profile', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (r.ok && d.ok) { btn.textContent = 'Appliqué ✓'; setTimeout(() => { btn.textContent = 'Sauvegarder & appliquer'; btn.disabled = false; }, 1800); }
+    else { alert('Erreur : ' + (d.error || d.body || r.status)); btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer'; }
+  } catch (err) { alert('Erreur : ' + err.message); btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer'; }
+});
+
+document.getElementById('bpReset').addEventListener('click', async () => {
+  if (document.body.classList.contains('bp-preview-mode')) return;
+  if (!confirm('Réinitialiser le profil bot sur ce serveur ?')) return;
+  try {
+    const r = await fetch('/api/bot-profile/reset', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok && d.ok) location.reload();
+    else alert('Erreur : ' + (d.error || r.status));
+  } catch (e) { alert('Erreur : ' + e.message); }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,151 @@
+"""Bot Personalizer : permet d'avoir un nick + avatar + banner custom par serveur.
+
+Feature payante (TookBot+). Gated via has_premium_grant ou user_has_active_entitlement
+sur SKU_TOOKBOT_PLUS.
+"""
+
+import os
+from flask import render_template, request, jsonify, g, redirect, url_for, send_from_directory
+from werkzeug.utils import secure_filename
+
+
+# Repo root pour stocker les uploads
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_UPLOAD_DIR = os.path.join(_ROOT, "uploads", "bot_profile")
+os.makedirs(_UPLOAD_DIR, exist_ok=True)
+
+_ALLOWED_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
+_MAX_SIZE = 5 * 1024 * 1024  # 5 Mo
+
+
+def _ext_ok(filename):
+    return "." in filename and filename.rsplit(".", 1)[-1].lower() in _ALLOWED_EXT
+
+
+def register_bot_profile_routes(app, deps):
+    globals().update(deps)
+
+    def _is_tookbot_plus(uid):
+        """Verifie si user a TookBot+ (grant manuel owner ou entitlement Discord)."""
+        try:
+            if has_premium_grant(uid, feature="tookbot_plus", inherit_all=True):
+                return True
+            sku = os.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
+            if sku and user_has_active_entitlement(uid, sku_id=sku):
+                return True
+            owner_id = os.getenv("DISCORD_OWNER_ID", "").strip() or None
+            if owner_id and str(uid) == str(owner_id):
+                return True
+        except Exception:
+            return False
+        return False
+
+    @app.route("/bot-profile")
+    def bot_profile_page():
+        uid = _current_user_id() if "_current_user_id" in globals() else g.discord_user.get("id") if g.discord_user else None
+        if not uid:
+            return redirect("/")
+        return render_template(
+            "bot_profile.html",
+            is_premium=_is_tookbot_plus(uid),
+            user=session_user() if "session_user" in globals() else (g.discord_user or {}),
+            active_nav="bot-profile",
+        )
+
+    @app.route("/api/bot-profile", methods=["GET"])
+    def api_bot_profile_get():
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        p = guild_bot_profile_get(g_id) or {}
+        return jsonify(p)
+
+    @app.route("/api/bot-profile", methods=["POST"])
+    def api_bot_profile_set():
+        uid = g.discord_user.get("id") if g.discord_user else None
+        if not uid or not _is_tookbot_plus(uid):
+            return jsonify({"error": "TookBot+ requis"}), 402
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+
+        # multipart/form-data : nick + about_me + avatar (file) + banner (file)
+        nick     = (request.form.get("nick") or "").strip()
+        about_me = (request.form.get("about_me") or "").strip()
+
+        avatar_path = None
+        banner_path = None
+        for field, label in (("avatar", "avatar"), ("banner", "banner")):
+            f = request.files.get(field)
+            if f and f.filename:
+                if not _ext_ok(f.filename):
+                    return jsonify({"error": f"{label}: extension non supportee"}), 400
+                f.stream.seek(0, 2); size = f.stream.tell(); f.stream.seek(0)
+                if size > _MAX_SIZE:
+                    return jsonify({"error": f"{label}: max 5 Mo"}), 400
+                safe = secure_filename(f"{g_id}_{label}_{f.filename}")
+                dest = os.path.join(_UPLOAD_DIR, safe)
+                f.save(dest)
+                if label == "avatar": avatar_path = dest
+                else:                 banner_path = dest
+
+        # Save metadata DB (urls relatives pour preview cote web)
+        kw = {}
+        if nick:           kw["nick"] = nick
+        if about_me:       kw["about_me"] = about_me
+        if avatar_path:    kw["avatar_url"] = "/uploads/bot_profile/" + os.path.basename(avatar_path)
+        if banner_path:    kw["banner_url"] = "/uploads/bot_profile/" + os.path.basename(banner_path)
+        guild_bot_profile_set(g_id, **kw)
+
+        # Apply via Discord API (sync via asyncio.run dans helper)
+        from services.bot_personalizer import apply_profile_sync, apply_about_me_sync
+        token = os.getenv("DISCORD_TOKEN", "")
+        if not token:
+            return jsonify({"error": "DISCORD_TOKEN absent cote serveur"}), 500
+        try:
+            status, body = apply_profile_sync(
+                token, g_id,
+                nick=nick or None,
+                avatar_path=avatar_path,
+                banner_path=banner_path,
+            )
+        except Exception as e:
+            return jsonify({"error": f"Discord API: {type(e).__name__}: {e}"}), 500
+
+        # About me global (impacte tous les serveurs - on previent dans la doc)
+        about_status = None
+        if about_me:
+            try:
+                about_status, _ = apply_about_me_sync(token, about_me)
+            except Exception as e:
+                about_status = f"err:{e}"
+
+        if status in (200, 204):
+            guild_bot_profile_mark_applied(g_id)
+            return jsonify({"ok": True, "status": status, "about_me_status": about_status})
+        return jsonify({"ok": False, "status": status, "body": body, "about_me_status": about_status}), 502
+
+    @app.route("/api/bot-profile/reset", methods=["POST"])
+    def api_bot_profile_reset():
+        uid = g.discord_user.get("id") if g.discord_user else None
+        if not uid or not _is_tookbot_plus(uid):
+            return jsonify({"error": "TookBot+ requis"}), 402
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        from services.bot_personalizer import apply_profile_sync
+        token = os.getenv("DISCORD_TOKEN", "")
+        try:
+            status, body = apply_profile_sync(
+                token, g_id,
+                nick="",  # reset au vrai nom du bot
+                clear_avatar=True, clear_banner=True,
+            )
+        except Exception as e:
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        guild_bot_profile_clear(g_id)
+        return jsonify({"ok": status in (200, 204), "status": status, "body": body})
+
+    @app.route("/uploads/bot_profile/<path:filename>")
+    def uploads_bot_profile(filename):
+        return send_from_directory(_UPLOAD_DIR, filename, max_age=300)
