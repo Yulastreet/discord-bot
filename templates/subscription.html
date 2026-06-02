@@ -105,16 +105,27 @@
 
   /* Features list horizontale */
   .sub-features-block { padding: 8px 28px 28px; }
+  /* Eyebrow "Inclus dans TookBot+" : texte centre avec lignes glow lateral */
   .sub-features-title {
-    text-align: center; font-size: 12px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .1em; color: var(--text-2);
-    margin-bottom: 18px;
+    position: relative;
+    text-align: center;
+    margin: 4px 0 22px;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  .sub-features-title::before,
+  .sub-features-title::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,167,38,.45), transparent);
+    max-width: 220px;
   }
   .sub-features-title span {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 12px; border-radius: 999px;
-    background: rgba(255,167,38,.08); border: 1px solid rgba(255,167,38,.2);
+    font-size: 12px; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase;
     color: #ffa726;
+    text-shadow: 0 0 16px rgba(255,167,38,.55), 0 0 32px rgba(255,167,38,.25);
+    padding: 0 4px;
+    background: transparent;
+    border: 0;
   }
   .sub-features {
     display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px;
@@ -187,7 +198,6 @@
 <div class="sub-upgrade">
 
   <div class="sub-upgrade-top">
-    <span class="sub-upgrade-eyebrow">+ Premium</span>
     <h2 class="sub-upgrade-title">Passer à <strong>TookBot+</strong></h2>
     <p class="sub-upgrade-lead">Débloque le Bot Personalizer, les cartes Niveau Premium et le Battle Pass saisonnier. Annulable à tout moment.</p>
 
@@ -219,7 +229,7 @@
   </div>
 
   <div class="sub-features-block">
-    <div class="sub-features-title"><span>+ Inclus dans TookBot+</span></div>
+    <div class="sub-features-title"><span>★ Inclus dans TookBot+</span></div>
     <div class="sub-features">
       <div class="sub-feature">
         <span class="ico">🎨</span>
