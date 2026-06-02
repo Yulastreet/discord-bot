@@ -1,4 +1,5 @@
 import asyncio
+import time as _time
 import discord
 from discord import app_commands
 
@@ -37,7 +38,7 @@ def setup_niveau_commands(bot, deps):
                     title=cosmetic.get("title"),
                     emoji_prefix=cosmetic.get("emoji"),
                 )
-                file = discord.File(buf, filename="niveau.png")
+                file = discord.File(buf, filename=f"niveau-{int(_time.time()*1000)}.png")
                 await interaction.followup.send(file=file)
                 return
             except Exception as e:

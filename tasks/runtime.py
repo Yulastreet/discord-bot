@@ -1402,7 +1402,7 @@ def setup_runtime(bot, deps):
                     image = await generate_levelup_card(message.author, new_level, percent)
                 await message.channel.send(
                     content=f"🎉 {message.author.mention}",
-                    file=discord.File(image, filename="levelup.png")
+                    file=discord.File(image, filename=f"levelup-{int(_time.time()*1000)}.png")
                 )
         await bot.process_commands(message)
 
