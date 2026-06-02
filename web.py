@@ -330,8 +330,11 @@ def needs_guild(path):
         return False  # DMs / status / settings = global
     return True
 
-PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms", "/api/public-stats"}
-PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/")
+PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms",
+                        "/api/public-stats", "/api/public-status",
+                        "/api/public-status/history"}
+PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/",
+                           "/api/public-status/")
 
 
 def _current_user_id():
