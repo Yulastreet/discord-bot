@@ -35,6 +35,40 @@
   })();
 </script>
 <style>
+  /* ===== BG decoratif : graph lime glowy qui defile lentement, fixed ===== */
+  .bg-graph {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .bg-graph svg {
+    width: 200%; height: 100%; display: block;
+    opacity: .35;
+  }
+  html[data-theme="dark"] .bg-graph svg { opacity: .55; }
+  .bg-graph .glow-line {
+    fill: none;
+    stroke: #b9ff24;
+    stroke-width: 2.4;
+    filter: drop-shadow(0 0 6px #b9ff24) drop-shadow(0 0 14px rgba(185,255,36,.55));
+    stroke-linejoin: round; stroke-linecap: round;
+  }
+  .bg-graph .glow-line.l1 {
+    animation: graph-scroll-slow 55s linear infinite;
+  }
+  .bg-graph .glow-line.l2 {
+    stroke-width: 1.6; opacity: .55;
+    animation: graph-scroll-slow 80s linear infinite reverse;
+  }
+  @keyframes graph-scroll-slow {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-graph .glow-line { animation: none !important; }
+  }
+  /* Tout le contenu doit passer au-dessus du bg fixed */
+  body > .site-shell, body > footer { position: relative; z-index: 1; }
+
   :root {
     --bg: #f7fbe8;
     --paper: #ffffff;
@@ -124,8 +158,13 @@
 
   html[data-theme="dark"] .site-shell {
     border-color: rgba(255, 255, 255, .10);
-    background: rgba(10, 18, 8, .76);
+    background: rgba(10, 18, 8, .58);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, .08) inset, var(--shadow);
+  }
+  html[data-theme="dark"] body {
+    background: #050a04;
   }
 
   .nav {
@@ -1080,6 +1119,35 @@
 
   .feature.is-wide {
     grid-column: span 2;
+  }
+
+  /* Chips dans les feature cards (multi-source, perms, etc.) */
+  .chip-row {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 18px;
+  }
+  .chip {
+    display: inline-flex; align-items: center;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(202,255,55,.10);
+    border: 1px solid rgba(202,255,55,.28);
+    font-size: 12px; font-weight: 700;
+    color: var(--green-deep);
+    letter-spacing: .01em;
+  }
+  html[data-theme="dark"] .chip {
+    background: rgba(202,255,55,.10);
+    border-color: rgba(202,255,55,.32);
+    color: #d9ff8a;
+  }
+  .chip.chip-accent {
+    background: linear-gradient(180deg, var(--green), var(--green-2));
+    color: #13220b;
+    border-color: transparent;
+  }
+  html[data-theme="dark"] .chip.chip-accent {
+    color: #13220b;
   }
 
   .feature-console {
@@ -2097,6 +2165,14 @@
 <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
 </head>
 <body>
+  <div class="bg-graph" aria-hidden="true">
+    <svg viewBox="0 0 2400 800" preserveAspectRatio="none">
+      <path class="glow-line l1"
+            d="M0,500 L80,500 L120,420 L180,480 L220,360 L280,440 L340,300 L400,400 L440,260 L520,520 L580,440 L640,540 L700,360 L760,460 L820,300 L880,420 L940,340 L1000,520 L1080,440 L1140,500 L1200,500 L1280,500 L1320,420 L1380,480 L1420,360 L1480,440 L1540,300 L1600,400 L1640,260 L1720,520 L1780,440 L1840,540 L1900,360 L1960,460 L2020,300 L2080,420 L2140,340 L2200,520 L2280,440 L2340,500 L2400,500" />
+      <path class="glow-line l2"
+            d="M0,300 L100,280 L180,360 L260,220 L340,340 L420,180 L500,360 L580,260 L660,400 L740,240 L820,360 L900,200 L1000,340 L1080,260 L1180,420 L1260,300 L1360,200 L1440,360 L1520,240 L1620,400 L1700,260 L1800,340 L1900,180 L2000,360 L2100,260 L2200,400 L2300,300 L2400,300" />
+    </svg>
+  </div>
   <div class="site-shell">
     <header class="nav" aria-label="Navigation principale">
       <a class="brand" href="/" aria-label="Accueil TookBot">
@@ -2232,72 +2308,75 @@
             <span class="eyebrow">Features</span>
             <h2 id="features-title">Tout ce qu'il faut pour animer ton Discord.</h2>
           </div>
-          <p>Tape <strong>/commandes</strong> dans Discord pour retrouver la liste complète. TookBot garde les actions simples : pas de préfixe, pas de pub, pas de setup interminable.</p>
+          <p>Tape <strong>/commandes</strong> dans Discord pour la liste complète, ou <a href="/commandes.html"><strong>parcoure la page Commandes</strong></a>. Pas de préfixe, pas de pub, pas de setup interminable.</p>
         </div>
 
         <div class="feature-grid">
-          <article class="feature is-primary reveal tilt-ready" style="--spot-x:32%;--icon:#caff37">
-            <div>
-              <span class="feature-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 21c1.7 0 3-1.1 3-2.5S7.7 16 6 16s-3 1.1-3 2.5S4.3 21 6 21Zm12-2c1.7 0 3-1.1 3-2.5S19.7 14 18 14s-3 1.1-3 2.5 1.3 2.5 3 2.5Z" stroke="currentColor"/></svg>
-              </span>
-              <h3>Une régie musique dans ton salon vocal.</h3>
-              <p>Recherche YouTube, file d'attente, skip, stop et leave. TookBot garde la lecture simple et lisible, même quand tout le serveur ajoute des sons.</p>
-            </div>
-            <div class="feature-console" aria-hidden="true">
-              <div class="console-line"><span>/play</span> lofi duel theme</div>
-              <div class="console-line"><span>/queue</span> 7 titres en attente</div>
-              <div class="console-line"><span>/skip</span> vote validé</div>
-              <div class="signal-stack"><i></i><i></i><i></i></div>
-            </div>
-          </article>
 
-          <article class="feature is-tall reveal tilt-ready" style="--spot-x:76%;--icon:#caff37">
+          <article class="feature is-primary reveal" style="--spot-x:32%;--icon:#caff37">
             <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="m14.5 4.5 5 5M4 20l6.5-6.5M13 6 6 13l5 5 7-7-5-5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 15 9 9" stroke="currentColor" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="16" r="3" stroke="currentColor" stroke-width="2"/></svg>
             </span>
-            <h3>Duels qui ressemblent à un vrai mini-jeu.</h3>
-            <p>Combat tour par tour, XP de combat, sabres spéciaux et stats à attribuer.</p>
-            <div class="feature-stats">
-              <span><strong>12+</strong> sabres</span>
-              <span><strong>5</strong> stats</span>
-              <span><strong>XP</strong> combat</span>
-              <span><strong>Mini</strong> jeux</span>
+            <h3>Musique multi-sources, totalement gratuite.</h3>
+            <p>YouTube, SoundCloud, Spotify (track / album / playlist) et Bandcamp dans le même <code>/play</code>. Volume, skip à la position, queue, /nowplaying avec barre de progression, stats d'écoute par serveur. Là où Jockie et Hydra exigent un abonnement, TookBot reste gratuit.</p>
+            <div class="chip-row">
+              <span class="chip">YouTube</span>
+              <span class="chip">SoundCloud</span>
+              <span class="chip">Spotify</span>
+              <span class="chip">Bandcamp</span>
+              <span class="chip chip-accent">Playlists 50 pistes</span>
             </div>
           </article>
 
-          <article class="feature reveal tilt-ready" style="--spot-x:55%;--icon:#caff37">
+          <article class="feature is-tall reveal" style="--spot-x:76%;--icon:#caff37">
             <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 8h14M7 16h10" stroke="currentColor" stroke-linecap="round"/><path d="M12 3c2.8 2.3 4.2 5.3 4.2 9S14.8 18.7 12 21C9.2 18.7 7.8 15.7 7.8 12S9.2 5.3 12 3Z" stroke="currentColor"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 2 3 5v6c0 5 3.5 9.5 9 11 5.5-1.5 9-6 9-11V5l-9-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            <h3>XP vivant</h3>
-            <p>Chaque message nourrit les niveaux, les cartes profil et le classement serveur via <code>/leaderboard</code>.</p>
-            <div class="feature-meter" aria-hidden="true"></div>
+            <h3>Modération propre, permissions fines.</h3>
+            <p>Warns, kick, ban, clear, modlogs persistants, notes internes, auto-timeout au seuil. Les permissions par rôle donnent un accès cadré à tes mods sans leur filer les droits Admin Discord.</p>
+            <div class="chip-row">
+              <span class="chip">/warn</span>
+              <span class="chip">/modlogs</span>
+              <span class="chip">/kick</span>
+              <span class="chip">/ban</span>
+              <span class="chip">/clear</span>
+              <span class="chip">/poll</span>
+              <span class="chip">/setwelcome</span>
+            </div>
           </article>
 
-          <article class="feature reveal tilt-ready" style="--spot-x:20%;--icon:#caff37">
+          <article class="feature reveal" style="--spot-x:55%;--icon:#caff37">
             <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.5 2.8 8.4 7 10 4.2-1.6 7-5.5 7-10V6l-7-3Z" stroke="currentColor" stroke-linejoin="round"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.5l-5.2 2.6 1-5.8-4.3-4.1 5.9-.9L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
             </span>
-            <h3>Modération nette</h3>
-            <p><code>/kick</code>, <code>/ban</code>, <code>/clear</code>, <code>/poll</code>, <code>/setwelcome</code> et réactions automatiques sur mesure.</p>
+            <h3>XP & cartes profil</h3>
+            <p>XP par message avec cooldown anti-spam, leaderboard, daily streak, pass saisonnier avec missions. Cartes profil avec backgrounds custom (Premium optionnel).</p>
           </article>
 
-          <article class="feature reveal tilt-ready" style="--spot-x:80%;--icon:#caff37">
+          <article class="feature reveal" style="--spot-x:20%;--icon:#caff37">
             <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6M21 12a8 8 0 0 1-8 8H5l-2 2v-9a8 8 0 1 1 18-1Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M21 11a7 7 0 0 1-7 7H7l-4 3v-12a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 11h8M8 14h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </span>
-            <h3>Commandes sociales</h3>
-            <p><code>/8ball</code>, <code>/dé</code>, <code>/coinflip</code>, <code>/blague</code>, <code>/ship</code>, <code>/choix</code>, <code>/random</code>, <code>/rate</code> et plus.</p>
+            <h3>Tickets, rôles-réaction, alertes</h3>
+            <p>Panneau de tickets avec transcripts, rôles-réaction par emoji ou boutons, alertes auto Twitch live / YouTube upload / Reddit, giveaways et commandes custom.</p>
           </article>
 
-          <article class="feature is-wide reveal tilt-ready" style="--spot-x:64%;--icon:#caff37">
+          <article class="feature reveal" style="--spot-x:80%;--icon:#caff37">
             <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H4z" stroke="currentColor" stroke-linejoin="round"/><path d="M8 20h8M12 16v4M8 9h8M8 12h5" stroke="currentColor" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none"><path d="m14.5 4.5 5 5L9 20H4v-5L14.5 4.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m4 20 6.5-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </span>
-            <h3>Dashboard pour les admins.</h3>
-            <p>OAuth Discord, stats temps réel, logs, modération et embed builder. Le panneau web reste séparé du chat, mais connecté à tout ce qui compte.</p>
+            <h3>Mini-jeux : duels, CS2, LoL</h3>
+            <p>Duels sabres laser (mindgame tour par tour, collection, boutique, pass saisonnier). Stats Counter-Strike 2 + Faceit, prix de skins live, inventaire en euros. Rangs LoL et masteries.</p>
           </article>
+
+          <article class="feature is-wide reveal" style="--spot-x:64%;--icon:#caff37">
+            <span class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 9h4M7 12h6M14 9h3M14 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <h3>Dashboard web complet</h3>
+            <p>OAuth Discord, stats temps réel, builders visuels (tickets, alertes, rôles-réaction, welcome), gestion XP, queue musique en live avec contrôles depuis le navigateur, permissions par rôle, promo codes. Hébergé en Allemagne, 24/7.</p>
+          </article>
+
         </div>
       </section>
 
