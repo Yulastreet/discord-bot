@@ -4,23 +4,25 @@ from discord import app_commands
 
 def setup_niveau_commands(bot, deps):
     globals().update(deps)
-    print(f"[boot] setup_niveau_commands appele (bot id={id(bot)})", flush=True)
     # ===== NIVEAUX / XP =====
 
     @bot.tree.command(name="niveau", description="Voir ton niveau et XP (sur ce serveur)")
     @app_commands.describe(membre="Le membre dont tu veux voir le niveau")
     async def niveau(interaction: discord.Interaction, membre: discord.Member = None):
+        # ACK immediatement : interaction expire en ~3s sinon (NotFound 10062).
+        try:
+            await interaction.response.defer()
+        except Exception:
+            pass  # deja ack par autre chose, on continue avec followup
+
         membre = membre or interaction.user
         gid = str(interaction.guild.id)
         xp = get_xp(gid, membre.id)
         level, progress_xp, needed_xp, percent = get_progress(xp)
-        print(f"[/niveau] guild={gid} user={membre.id} xp={xp} level={level} percent={percent}")
 
-        # On regarde les entitlements du *membre affiche*, pas de l'auteur,
-        # afin que tout le monde puisse voir la jolie carte du premium.
+        # Premium ? Carte image. Sinon embed simple.
         if is_premium_user(membre.id):
             try:
-                await interaction.response.defer()
                 settings = get_premium_settings(membre.id)
                 cosmetic = get_user_cosmetic(membre.id)
                 buf = await render_niveau_card(
@@ -49,13 +51,13 @@ def setup_niveau_commands(bot, deps):
         embed.add_field(
             name="📈 Progression",
             value=f"`{bar}` **{percent}%**\n`{progress_xp} / {needed_xp} XP`",
-            inline=False
+            inline=False,
         )
         embed.set_thumbnail(url=membre.display_avatar.url)
-        if interaction.response.is_done():
+        try:
             await interaction.followup.send(embed=embed)
-        else:
-            await interaction.response.send_message(embed=embed)
+        except Exception as e:
+            print(f"[/niveau] followup fail: {e!r}")
 
     @bot.tree.command(name="leaderboard", description="Classement XP de ce serveur")
     async def leaderboard(interaction: discord.Interaction):
