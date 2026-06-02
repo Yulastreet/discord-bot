@@ -275,4 +275,64 @@ async function loadList() {
 
 window.addEventListener('DOMContentLoaded', loadList);
 </script>
+
+{% if not is_premium %}
+<style>
+  .cc-paywall-scrim {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(6px);
+    z-index: 200; display: grid; place-items: center;
+    padding: 22px;
+  }
+  .cc-paywall-modal {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px 28px;
+    max-width: 440px; text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,.55);
+  }
+  .cc-paywall-modal .ico { font-size: 36px; margin-bottom: 12px; color: #ffa726; }
+  .cc-paywall-modal h2 { font-size: 22px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 8px; }
+  .cc-paywall-modal p  { color: var(--text-2); font-size: 14px; line-height: 1.5; margin-bottom: 22px; }
+  .cc-paywall-actions { display: flex; gap: 10px; flex-direction: column; }
+  .cc-btn-subscribe {
+    width: 100%; padding: 12px; border: 0; border-radius: 10px;
+    background: linear-gradient(180deg, #ffa726, #ff8a00);
+    color: #2a1a00; font-weight: 800; font-size: 14px; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,167,38,.32);
+  }
+  .cc-btn-preview {
+    width: 100%; padding: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); border-radius: 10px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  .cc-btn-preview:hover { background: var(--bg-2); }
+  .cc-preview-mode-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, #2a1a00, #1a1000);
+    border-top: 1px solid rgba(255,167,38,.4);
+    color: #ffa726; padding: 12px 22px;
+    font-size: 13px; font-weight: 700; text-align: center;
+    z-index: 100; display: none;
+  }
+  .cc-preview-mode-banner a { color: #ffa726; text-decoration: underline; margin-left: 8px; }
+  body.cc-preview-mode .main > *:not(.cc-preview-mode-banner) { pointer-events: none; user-select: none; opacity: .65; }
+</style>
+<div class="cc-paywall-scrim" id="ccPaywall">
+  <div class="cc-paywall-modal">
+    <div class="ico">✦</div>
+    <h2>Feature TookBot+ uniquement</h2>
+    <p>Les commandes custom sont réservées aux serveurs dont le propriétaire a un abonnement TookBot+.</p>
+    <div class="cc-paywall-actions">
+      <button class="cc-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
+      <button class="cc-btn-preview" onclick="document.getElementById('ccPaywall').style.display='none';document.getElementById('ccPreviewBanner').style.display='block';document.body.classList.add('cc-preview-mode');">Voir un aperçu de la feature</button>
+    </div>
+  </div>
+</div>
+<div class="cc-preview-mode-banner" id="ccPreviewBanner">
+  ✦ Tu es en aperçu de la feature TookBot+ · Aucune modification ne sera enregistrée.
+  <a href="/subscription">S'abonner pour débloquer</a>
+</div>
+{% endif %}
+
 {% endblock %}

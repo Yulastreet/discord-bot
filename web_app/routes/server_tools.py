@@ -335,9 +335,43 @@ def register_server_tool_routes(app, deps):
         "sync", "cmd",  # commandes globales sans entry dans feature_map
     }
 
+    def _has_tookbot_plus_for_current_guild():
+        """True si l'owner du serveur selectionne a TookBot+.
+
+        Pour le dashboard on check l'owner du SERVEUR (pas l'user connecte),
+        coherent avec la gate cote Discord /cmd."""
+        import os as _os2
+        g_id = gid()
+        if not g_id:
+            return False
+        try:
+            from database import get_guild as _gg
+            guild_row = _gg(g_id) or {}
+        except Exception:
+            guild_row = {}
+        owner_id = str(guild_row.get("owner_id") or "")
+        if not owner_id:
+            # Fallback : owner du bot
+            owner_id = str(_os2.getenv("DISCORD_OWNER_ID", "").strip() or "")
+            if not owner_id:
+                return False
+        if has_premium_grant(owner_id, feature="tookbot_plus", inherit_all=False):
+            return True
+        sku = _os2.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
+        if sku and user_has_active_entitlement(owner_id, sku_id=sku):
+            return True
+        bot_owner = _os2.getenv("DISCORD_OWNER_ID", "").strip() or None
+        if bot_owner and owner_id == bot_owner:
+            return True
+        return False
+
     @app.route("/custom-commands")
     def custom_commands_page():
-        return render_template("custom_commands.html", active_nav="custom_commands")
+        return render_template(
+            "custom_commands.html",
+            active_nav="custom_commands",
+            is_premium=_has_tookbot_plus_for_current_guild(),
+        )
 
     @app.route("/api/custom-commands", methods=["GET"])
     def api_custom_commands_list():
@@ -351,6 +385,8 @@ def register_server_tool_routes(app, deps):
         g_id = gid()
         if not g_id:
             return jsonify({"error": "no_guild"}), 400
+        if not _has_tookbot_plus_for_current_guild():
+            return jsonify({"error": "TookBot+ requis pour ce serveur. Abonnement : /subscription"}), 402
         data = request.json or {}
         name = (data.get("name") or "").strip().lower()
         if not _cc_name_re.match(name):
@@ -397,6 +433,8 @@ def register_server_tool_routes(app, deps):
         g_id = gid()
         if not g_id:
             return jsonify({"error": "no_guild"}), 400
+        if not _has_tookbot_plus_for_current_guild():
+            return jsonify({"error": "TookBot+ requis pour ce serveur. Abonnement : /subscription"}), 402
         ok = _cc_delete(g_id, name.lower())
         if ok:
             bot_command_enqueue(g_id, "custom_cmd_sync", {})

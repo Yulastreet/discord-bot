@@ -22,9 +22,33 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import os as _os
+
 from database import (
     custom_cmds_list, custom_cmd_get, custom_cmd_increment_uses,
+    has_premium_grant, user_has_active_entitlement,
 )
+
+
+_SKU_TOOKBOT_PLUS  = _os.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
+_DISCORD_OWNER_ID  = _os.getenv("DISCORD_OWNER_ID", "").strip() or None
+
+
+def _owner_has_tookbot_plus(guild) -> bool:
+    """True si l'owner du serveur a TookBot+ (grant manuel OU SKU OR owner global)."""
+    if not guild:
+        return False
+    owner_id = getattr(guild, "owner_id", None)
+    if not owner_id:
+        return False
+    oid = str(owner_id)
+    if has_premium_grant(oid, feature="tookbot_plus", inherit_all=False):
+        return True
+    if _SKU_TOOKBOT_PLUS and user_has_active_entitlement(oid, sku_id=_SKU_TOOKBOT_PLUS):
+        return True
+    if _DISCORD_OWNER_ID and oid == _DISCORD_OWNER_ID:
+        return True
+    return False
 
 
 def _interpolate(s: str, *, user: discord.abc.User, guild: discord.Guild,
@@ -79,6 +103,21 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
     """Logique d'execution partagee : recupere la commande en DB et repond."""
     if not interaction.guild:
         await interaction.response.send_message("❌ Pas dispo en DM.", ephemeral=True)
+        return
+    # Gate TookBot+ : les commandes custom sont payantes. Owner du serveur doit avoir TookBot+.
+    if not _owner_has_tookbot_plus(interaction.guild):
+        embed = discord.Embed(
+            title="✦ Feature TookBot+",
+            description=(
+                "Les commandes custom (`/" + name + "`) sont reservees aux serveurs "
+                "dont le proprietaire a un abonnement **TookBot+**.\n\n"
+                "Le proprietaire peut s'abonner ici :\n"
+                "**https://dashboard.tookbot.click/subscription**"
+            ),
+            color=0xffa726,
+        )
+        embed.set_footer(text="TookBot+ : Bot Personalizer + Commandes custom + Soutien direct")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     row = custom_cmd_get(interaction.guild.id, name)
     if not row or not row.get("enabled"):
