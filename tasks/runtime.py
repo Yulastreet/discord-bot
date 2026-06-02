@@ -1215,6 +1215,10 @@ def setup_runtime(bot, deps):
                                 f"\n\nMessage courant envoye par l'utilisateur '{author_name}'."
                                 " Reponds-lui directement, ne commence JAMAIS ta reponse par son pseudo"
                                 " (ni '{author_name}:' ni '@{author_name}'). Discord affiche deja un reply."
+                                "\n\nSI on te demande de transmettre un message a un autre membre"
+                                " (genre 'dis a @X que...', 'demande a @Y de...'), parle DIRECTEMENT a cette"
+                                " personne avec sa mention @X, sans repeter la demande a l'auteur ('Wesh frr"
+                                " dis a @X...' = INTERDIT). Tu t'adresses a la cible, pas a l'envoyeur."
                             )
                             prompt_for_model = prompt
                             try:
@@ -1280,8 +1284,21 @@ def setup_runtime(bot, deps):
                                         print(f"[ai] TTS fail -> fallback texte: {_te!r}")
 
                                 if not voice_sent:
-                                    await message.reply(txt[:2000], mention_author=False,
-                                                        allowed_mentions=allowed_m)
+                                    # Si la reponse mentionne un autre user que l'auteur
+                                    # (cas : "dis a @SENSIBY de..."), on poste un message
+                                    # standalone au lieu d'un reply qui ping l'auteur inutilement.
+                                    target_other = False
+                                    if mention_map:
+                                        for member in mention_map.values():
+                                            if member.id != message.author.id and f"<@{member.id}>" in txt:
+                                                target_other = True
+                                                break
+                                    if target_other:
+                                        await message.channel.send(txt[:2000],
+                                                                   allowed_mentions=allowed_m)
+                                    else:
+                                        await message.reply(txt[:2000], mention_author=False,
+                                                            allowed_mentions=allowed_m)
                                 # Log usage
                                 try:
                                     from database import ai_usage_add
