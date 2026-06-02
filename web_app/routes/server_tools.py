@@ -335,36 +335,48 @@ def register_server_tool_routes(app, deps):
         "sync", "cmd",  # commandes globales sans entry dans feature_map
     }
 
-    def _has_tookbot_plus_for_current_guild():
-        """True si l'owner du serveur selectionne a TookBot+.
+    def _user_has_tookbot_plus(uid):
+        """True si l'user uid a TookBot+ (grant manuel OU SKU OR owner bot)."""
+        if not uid:
+            return False
+        import os as _os3
+        uid = str(uid)
+        if has_premium_grant(uid, feature="tookbot_plus", inherit_all=False):
+            return True
+        sku = _os3.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
+        if sku and user_has_active_entitlement(uid, sku_id=sku):
+            return True
+        bot_owner = _os3.getenv("DISCORD_OWNER_ID", "").strip() or None
+        if bot_owner and uid == bot_owner:
+            return True
+        return False
 
-        Pour le dashboard on check l'owner du SERVEUR (pas l'user connecte),
-        coherent avec la gate cote Discord /cmd. Si l'owner_id du serveur n'est
-        pas connu en DB (sync pas encore fait), on REFUSE par defaut au lieu de
-        fall back sur DISCORD_OWNER_ID (qui ferait bypass total).
+
+    def _has_tookbot_plus_for_current_guild():
+        """True si l'owner du serveur OU l'user connecte a TookBot+.
+
+        Plus permissif que owner-only : un user abonne peut piloter les
+        commandes custom des serveurs auxquels il a acces.
         """
-        import os as _os2
         g_id = gid()
         if not g_id:
             return False
+
+        # 1) Owner du serveur (en DB, populated via on_ready / on_guild_join)
         try:
             from database import get_guild as _gg
             guild_row = _gg(g_id) or {}
         except Exception:
             guild_row = {}
         owner_id = str(guild_row.get("owner_id") or "").strip()
-        if not owner_id:
-            # Owner inconnu -> on refuse (mieux sur que ouvert). Le sync au boot
-            # du bot remplit owner_id pour toutes les guilds connues.
-            return False
-        if has_premium_grant(owner_id, feature="tookbot_plus", inherit_all=False):
+        if owner_id and _user_has_tookbot_plus(owner_id):
             return True
-        sku = _os2.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
-        if sku and user_has_active_entitlement(owner_id, sku_id=sku):
+
+        # 2) User connecte (session)
+        sess_uid = (g.discord_user or {}).get("id") if hasattr(g, "discord_user") else None
+        if sess_uid and _user_has_tookbot_plus(sess_uid):
             return True
-        bot_owner = _os2.getenv("DISCORD_OWNER_ID", "").strip() or None
-        if bot_owner and owner_id == bot_owner:
-            return True
+
         return False
 
     @app.route("/custom-commands")
