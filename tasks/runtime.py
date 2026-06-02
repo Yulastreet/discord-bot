@@ -1069,10 +1069,23 @@ def setup_runtime(bot, deps):
             print(f"[entitlement] delete error: {e!r}")
 
 
+    # Anti-double-dispatch : Discord peut re-deliver MESSAGE_CREATE apres reconnect
+    # ou si le gateway timeout. Cache les message_id deja traites (max 2048, LRU naive).
+    _MSG_SEEN = _col.OrderedDict()
+    _MSG_SEEN_MAX = 2048
+
     @bot.event
     async def on_message(message):
         if message.author == bot.user:
             return
+        # Dedup
+        mid = getattr(message, "id", None)
+        if mid is not None:
+            if mid in _MSG_SEEN:
+                return
+            _MSG_SEEN[mid] = True
+            if len(_MSG_SEEN) > _MSG_SEEN_MAX:
+                _MSG_SEEN.popitem(last=False)
         if message.guild is None:
             # DM (user -> bot) : on ne stocke plus rien (raison vie privee).
             await bot.process_commands(message)
