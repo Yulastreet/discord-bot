@@ -1209,8 +1209,14 @@ def setup_runtime(bot, deps):
                                 used_model = base_model
                                 history_to_send = list(mem["history"])
 
-                            # Message courant prefixe de l'auteur
-                            prompt_for_model = f"{author_name}: {prompt}"
+                            # Auteur passe en system prompt comme contexte, PAS en prefixe
+                            # du message (sinon l'IA repete le pseudo au debut de sa reponse).
+                            sys_prompt += (
+                                f"\n\nMessage courant envoye par l'utilisateur '{author_name}'."
+                                " Reponds-lui directement, ne commence JAMAIS ta reponse par son pseudo"
+                                " (ni '{author_name}:' ni '@{author_name}'). Discord affiche deja un reply."
+                            )
+                            prompt_for_model = prompt
                             try:
                                 async with message.channel.typing():
                                     res = await groq_chat(
