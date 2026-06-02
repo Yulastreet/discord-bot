@@ -4,6 +4,7 @@ from discord import app_commands
 
 def setup_niveau_commands(bot, deps):
     globals().update(deps)
+    print(f"[boot] setup_niveau_commands appele (bot id={id(bot)})", flush=True)
     # ===== NIVEAUX / XP =====
 
     @bot.tree.command(name="niveau", description="Voir ton niveau et XP (sur ce serveur)")
