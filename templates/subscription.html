@@ -148,7 +148,17 @@
   .sub-features {
     display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px;
   }
-  @media (max-width: 720px) { .sub-features { grid-template-columns: 1fr; } }
+  /* Si nombre impair de cards : dernière card prend toute la largeur et centre son contenu */
+  .sub-features .sub-feature:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    max-width: calc(50% - 10px);
+    margin-left: auto; margin-right: auto;
+    width: 100%;
+  }
+  @media (max-width: 720px) {
+    .sub-features { grid-template-columns: 1fr; }
+    .sub-features .sub-feature:last-child:nth-child(odd) { max-width: 100%; }
+  }
   .sub-feature {
     display: flex; gap: 12px; align-items: flex-start;
     padding: 14px; border-radius: 10px;

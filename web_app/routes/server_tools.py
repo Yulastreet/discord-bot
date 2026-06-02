@@ -367,10 +367,12 @@ def register_server_tool_routes(app, deps):
 
     @app.route("/custom-commands")
     def custom_commands_page():
+        # ?preview=1 force le paywall (utile pour QA / non-premium check)
+        force_paywall = request.args.get("preview") in ("1", "true")
         return render_template(
             "custom_commands.html",
             active_nav="custom_commands",
-            is_premium=_has_tookbot_plus_for_current_guild(),
+            is_premium=(False if force_paywall else _has_tookbot_plus_for_current_guild()),
         )
 
     @app.route("/api/custom-commands", methods=["GET"])
