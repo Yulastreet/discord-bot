@@ -85,13 +85,13 @@ def register_stripe_routes(app, deps):
         customer = existing.get("stripe_customer_id") or None
 
         try:
-            sess = _stripe.checkout.Session.create(
+            # En mode subscription Stripe cree automatiquement un Customer si pas fourni.
+            # customer_creation est interdit en mode subscription (seulement payment one-shot).
+            kwargs = dict(
                 mode="subscription",
                 payment_method_types=["card"],
                 line_items=[{"price": price_id, "quantity": 1}],
                 client_reference_id=str(uid),
-                customer=customer,
-                customer_creation=None if customer else "always",
                 metadata={"discord_user_id": str(uid), "plan_months": months},
                 subscription_data={
                     "metadata": {"discord_user_id": str(uid), "plan_months": months},
@@ -101,6 +101,9 @@ def register_stripe_routes(app, deps):
                 allow_promotion_codes=True,
                 locale="fr",
             )
+            if customer:
+                kwargs["customer"] = customer
+            sess = _stripe.checkout.Session.create(**kwargs)
         except Exception as e:
             print(f"[stripe checkout] err: {type(e).__name__}: {e}")
             return jsonify({"error": f"Stripe error: {type(e).__name__}: {e}"}), 500
