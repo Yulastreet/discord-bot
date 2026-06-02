@@ -178,13 +178,6 @@
     </div>
 
     <div class="bp-section">
-      <h3>À propos (bio)</h3>
-      <div class="hint">Modifie la bio affichée sur le profil du bot. <em>Note : la bio est globale (même sur tous les serveurs), limitation Discord.</em></div>
-      <textarea name="about_me" id="bpAbout" class="bp-textarea" maxlength="400" placeholder="Bot tout-en-un : musique, modération, XP, mini-jeux.&#10;&#10;Markdown Discord supporté : **gras** *italique* __souligné__ ~~barré~~ `code` ```bloc```"></textarea>
-      <div class="bp-counter"><span id="bpAboutCount">0</span>/400</div>
-    </div>
-
-    <div class="bp-section">
       <h3>Avatar</h3>
       <div class="hint">Upload une image PNG/JPG/GIF/WebP, max 5 Mo.</div>
       <div class="bp-file">
@@ -232,10 +225,6 @@
           <span class="bp-preview-badge">APP</span>
         </div>
         <div class="bp-preview-tag">TookBot#9730</div>
-        <div class="bp-preview-section">
-          <h5>À propos</h5>
-          <p id="bpPreviewAbout">Bot tout-en-un : musique, modération, XP, mini-jeux.</p>
-        </div>
       </div>
     </div>
   </div>
@@ -264,11 +253,8 @@
 (function() {
   // Pre-rempli avec exemples pour le mode preview
   document.getElementById('bpNick').value = 'Aspect Helper';
-  document.getElementById('bpAbout').value = '24/7 Support Bot pour notre communauté.';
   document.getElementById('bpNickCount').textContent  = '13';
-  document.getElementById('bpAboutCount').textContent = '43';
   document.getElementById('bpPreviewName').textContent  = 'Aspect Helper';
-  document.getElementById('bpPreviewAbout').textContent = '24/7 Support Bot pour notre communauté.';
 
   document.getElementById('bpPreviewModeBtn').addEventListener('click', () => {
     document.getElementById('bpPaywall').style.display = 'none';
@@ -324,7 +310,7 @@ function bind(id, counterId, previewId, isMarkdown) {
   el.addEventListener('input', upd); upd();
 }
 bind('bpNick',  'bpNickCount',  'bpPreviewName',  false);
-bind('bpAbout', 'bpAboutCount', 'bpPreviewAbout', true);
+// bpAbout retire : la bio Discord est globale (pas per-server), trop risque
 
 function bindFile(id, thumbId, previewBg, isAvatar) {
   const inp = document.getElementById(id);
@@ -346,7 +332,6 @@ bindFile('bpBannerFile', 'bpBannerThumb', 'bpPreviewBanner', false);
 fetch('/api/bot-profile').then(r => r.ok ? r.json() : null).then(d => {
   if (!d) return;
   if (d.nick)       { document.getElementById('bpNick').value = d.nick; document.getElementById('bpNickCount').textContent = d.nick.length; document.getElementById('bpPreviewName').textContent = d.nick; }
-  if (d.about_me)   { document.getElementById('bpAbout').value = d.about_me; document.getElementById('bpAboutCount').textContent = d.about_me.length; document.getElementById('bpPreviewAbout').textContent = d.about_me; }
   if (d.avatar_url) { document.getElementById('bpAvatarThumb').innerHTML = `<img src="${d.avatar_url}" alt="">`; document.getElementById('bpPreviewAvatar').style.backgroundImage = `url(${d.avatar_url})`; }
   if (d.banner_url) { document.getElementById('bpBannerThumb').innerHTML = `<img src="${d.banner_url}" alt="">`; document.getElementById('bpPreviewBanner').style.backgroundImage = `url(${d.banner_url})`; }
 }).catch(() => {});

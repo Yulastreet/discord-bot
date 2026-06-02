@@ -90,9 +90,10 @@ def register_bot_profile_routes(app, deps):
         if not g_id:
             return jsonify({"error": "no_guild"}), 400
 
-        # multipart/form-data : nick + about_me + avatar (file) + banner (file)
-        nick     = (request.form.get("nick") or "").strip()
-        about_me = (request.form.get("about_me") or "").strip()
+        # multipart/form-data : nick + avatar (file) + banner (file)
+        # About Me retire : la description bot Discord est GLOBALE (impact tous
+        # les serveurs), trop dangereux a exposer par serveur.
+        nick = (request.form.get("nick") or "").strip()
 
         avatar_path = None
         banner_path = None
@@ -113,7 +114,6 @@ def register_bot_profile_routes(app, deps):
         # Save metadata DB (urls relatives pour preview cote web)
         kw = {}
         if nick:           kw["nick"] = nick
-        if about_me:       kw["about_me"] = about_me
         if avatar_path:    kw["avatar_url"] = "/uploads/bot_profile/" + os.path.basename(avatar_path)
         if banner_path:    kw["banner_url"] = "/uploads/bot_profile/" + os.path.basename(banner_path)
         guild_bot_profile_set(g_id, **kw)
@@ -133,18 +133,10 @@ def register_bot_profile_routes(app, deps):
         except Exception as e:
             return jsonify({"error": f"Discord API: {type(e).__name__}: {e}"}), 500
 
-        # About me global (impacte tous les serveurs - on previent dans la doc)
-        about_status = None
-        if about_me:
-            try:
-                about_status, _ = apply_about_me_sync(token, about_me)
-            except Exception as e:
-                about_status = f"err:{e}"
-
         if status in (200, 204):
             guild_bot_profile_mark_applied(g_id)
-            return jsonify({"ok": True, "status": status, "about_me_status": about_status})
-        return jsonify({"ok": False, "status": status, "body": body, "about_me_status": about_status}), 502
+            return jsonify({"ok": True, "status": status})
+        return jsonify({"ok": False, "status": status, "body": body}), 502
 
     @app.route("/api/bot-profile/reset", methods=["POST"])
     def api_bot_profile_reset():
