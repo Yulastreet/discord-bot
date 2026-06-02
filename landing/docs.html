@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation - TookBot</title>
+<meta name="description" content="Documentation complète TookBot : installation, configuration, commandes musique / modération / XP / duels / CS2 / LoL, dashboard web, dépannage et FAQ.">
+<meta property="og:title" content="Documentation - TookBot">
+<meta property="og:description" content="Guide complet pour bien démarrer avec TookBot : setup, toutes les commandes expliquées, dépannage.">
+<meta property="og:url" content="https://tookbot.click/docs.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TookBot">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:image" content="https://tookbot.click/previewdiscord.png">
+<meta name="theme-color" content="#0b1208">
+<link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png?v=2">
+<link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png?v=2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b1208;
+    --bg-2: #101a0d;
+    --bg-3: #18241310;
+    --ink: #f7ffe8;
+    --ink-2: #d4e0c2;
+    --muted: #9aa988;
+    --muted-2: #6b7a5d;
+    --border: rgba(255,255,255,.07);
+    --border-hover: rgba(185,255,36,.30);
+    --green: #b9ff24;
+    --green-2: #64d91b;
+    --green-deep: #163d12;
+    --shadow: 0 24px 80px rgba(0,0,0,.5);
+    --code-bg: rgba(185,255,36,.08);
+    --code-fg: #d9ff8a;
+    --radius: 12px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  a { color: var(--green); text-decoration: none; transition: color .15s; }
+  a:hover { color: var(--green-2); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ===== Layout principal ===== */
+  .docs-shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 240px;
+    gap: 0;
+    min-height: 100vh;
+  }
+  @media (max-width: 1180px) { .docs-shell { grid-template-columns: 260px 1fr; } .toc-wrap { display: none; } }
+  @media (max-width: 880px)  { .docs-shell { grid-template-columns: 1fr; } .sidebar-wrap { display: none; } }
+
+  /* ===== Top bar (visible mobile + desktop) ===== */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 22px;
+    background: rgba(11, 18, 8, .85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 15px; letter-spacing: -.01em;
+  }
+  .topbar-brand-mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: url('/tookbot-avatar.png') center/cover no-repeat,
+                linear-gradient(135deg, var(--green), var(--green-2));
+    box-shadow: 0 4px 12px rgba(185,255,36,.3);
+  }
+  .topbar-brand .docs-tag {
+    color: var(--muted); font-weight: 600; font-size: 13px;
+    padding-left: 10px; margin-left: 6px;
+    border-left: 1px solid var(--border);
+  }
+  .topbar-search {
+    flex: 1; max-width: 420px;
+    margin: 0 22px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer; transition: border-color .15s;
+  }
+  .topbar-search:hover { border-color: var(--border-hover); }
+  .topbar-search svg { width: 14px; height: 14px; color: var(--muted); }
+  .topbar-search input {
+    flex: 1; border: 0; background: transparent; outline: 0;
+    color: var(--ink); font-family: inherit; font-size: 13px;
+  }
+  .topbar-search input::placeholder { color: var(--muted); }
+  .topbar-search kbd {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    padding: 2px 6px;
+    background: var(--bg-3); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--muted);
+  }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .topbar-link {
+    color: var(--muted); font-size: 13px; font-weight: 600;
+    padding: 6px 10px; border-radius: 8px;
+    transition: color .15s, background .15s;
+  }
+  .topbar-link:hover { color: var(--ink); background: var(--bg-2); text-decoration: none; }
+  .topbar-cta {
+    background: linear-gradient(180deg, var(--green), var(--green-2));
+    color: #13220b !important; font-weight: 800; font-size: 13px;
+    padding: 8px 16px; border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(185,255,36,.28);
+  }
+  .topbar-cta:hover { transform: translateY(-1px); }
+  .mobile-menu-btn {
+    display: none; width: 36px; height: 36px;
+    border: 1px solid var(--border); background: var(--bg-2);
+    border-radius: 8px; color: var(--ink); cursor: pointer;
+    align-items: center; justify-content: center;
+  }
+  @media (max-width: 880px) {
+    .mobile-menu-btn { display: inline-flex; }
+    .topbar-search, .topbar-link { display: none; }
+  }
+
+  /* ===== Sidebar gauche ===== */
+  .sidebar-wrap {
+    position: sticky; top: 61px; align-self: start;
+    height: calc(100vh - 61px); overflow-y: auto;
+    padding: 22px 16px 32px 22px;
+    border-right: 1px solid var(--border);
+    background: rgba(11, 18, 8, .6);
+  }
+  .sidebar-wrap::-webkit-scrollbar { width: 6px; }
+  .sidebar-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .sidebar-title {
+    color: var(--green);
+    background: linear-gradient(180deg, rgba(185,255,36,.16), rgba(100,217,27,.08));
+    border: 1px solid rgba(185,255,36,.20);
+    padding: 9px 14px; border-radius: 8px;
+    font-weight: 700; font-size: 13px;
+    margin-bottom: 18px;
+    display: block;
+  }
+  .sidebar-section {
+    color: var(--muted-2);
+    font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .12em;
+    padding: 16px 14px 8px;
+  }
+  .sidebar-link {
+    display: block; padding: 7px 14px;
+    color: var(--ink-2); font-size: 13.5px; font-weight: 500;
+    border-radius: 6px; transition: background .12s, color .12s;
+    margin-bottom: 1px;
+  }
+  .sidebar-link:hover { background: var(--bg-2); color: var(--ink); text-decoration: none; }
+  .sidebar-link.active {
+    background: linear-gradient(180deg, rgba(185,255,36,.14), rgba(100,217,27,.08));
+    color: var(--green); font-weight: 600;
+  }
+
+  /* ===== Contenu principal ===== */
+  .content-wrap {
+    padding: 40px clamp(24px, 4vw, 56px) 96px;
+    max-width: 920px;
+    width: 100%;
+  }
+  .breadcrumb {
+    color: var(--muted); font-size: 12px;
+    margin-bottom: 14px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .breadcrumb a { color: var(--muted); }
+  .breadcrumb svg { width: 12px; height: 12px; opacity: .6; }
+  .content-wrap h1 {
+    font-size: clamp(32px, 4vw, 44px);
+    font-weight: 800; letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .content-wrap .lead {
+    color: var(--muted); font-size: clamp(15px, 1.3vw, 17px);
+    margin-bottom: 32px;
+  }
+  .content-wrap h2 {
+    font-size: clamp(22px, 2.4vw, 28px);
+    font-weight: 800; letter-spacing: -0.01em;
+    margin: 48px 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 80px;
+  }
+  .content-wrap h3 {
+    font-size: clamp(17px, 1.8vw, 20px);
+    font-weight: 700;
+    margin: 32px 0 10px;
+    scroll-margin-top: 80px;
+  }
+  .content-wrap h4 {
+    font-size: 15px; font-weight: 700;
+    margin: 22px 0 8px;
+    color: var(--green);
+  }
+  .content-wrap p { color: var(--ink-2); margin-bottom: 14px; }
+  .content-wrap ul, .content-wrap ol { margin: 8px 0 18px 22px; color: var(--ink-2); }
+  .content-wrap li { margin-bottom: 6px; }
+  .content-wrap li::marker { color: var(--green); }
+  .content-wrap strong { color: var(--ink); font-weight: 700; }
+  .content-wrap code {
+    background: var(--code-bg); color: var(--code-fg);
+    padding: 2px 7px; border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; font-weight: 500;
+    border: 1px solid rgba(185,255,36,.12);
+  }
+  .content-wrap pre {
+    background: #060c04; border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 16px 0 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .content-wrap pre code {
+    background: transparent; border: 0; padding: 0;
+    color: var(--ink-2); font-size: inherit;
+  }
+
+  /* Hero card (intro page) */
+  .hero-banner {
+    background:
+      radial-gradient(circle at 18% 24%, rgba(185,255,36,.18), transparent 18rem),
+      linear-gradient(135deg, var(--bg-2) 0%, #0d1809 100%);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 38px 36px;
+    margin-bottom: 38px;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .hero-banner::before {
+    content: ""; position: absolute; inset: 0;
+    background: url('/tookbot-avatar.png') center/contain no-repeat;
+    opacity: .08; filter: blur(2px);
+  }
+  .hero-banner h1 { font-size: clamp(28px, 3.5vw, 38px); margin-bottom: 8px; position: relative; }
+  .hero-banner p { color: var(--muted); margin: 0; position: relative; }
+  .hero-banner .brand-icon {
+    width: 72px; height: 72px;
+    background: url('/tookbot-avatar.png') center/cover no-repeat;
+    border-radius: 18px;
+    margin: 0 auto 18px;
+    box-shadow: 0 12px 36px rgba(185,255,36,.32);
+    position: relative;
+  }
+
+  /* Callouts */
+  .callout {
+    margin: 20px 0;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    border-left: 3px solid;
+    background: var(--bg-2);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout .ico { flex-shrink: 0; font-size: 18px; line-height: 1.4; }
+  .callout p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .callout strong { color: var(--ink); }
+  .callout.info    { border-color: #4ea8ff; background: rgba(78,168,255,.05); }
+  .callout.tip     { border-color: var(--green); background: rgba(185,255,36,.05); }
+  .callout.warning { border-color: #ffb84e; background: rgba(255,184,78,.05); }
+  .callout.danger  { border-color: #ff5e5e; background: rgba(255,94,94,.05); }
+
+  /* Cmd tables */
+  .cmd-table {
+    width: 100%; border-collapse: collapse;
+    margin: 14px 0 24px;
+    font-size: 13.5px;
+  }
+  .cmd-table th, .cmd-table td {
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .cmd-table th {
+    color: var(--muted); font-size: 11px;
+    text-transform: uppercase; letter-spacing: .08em;
+    font-weight: 800;
+  }
+  .cmd-table td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--green); font-size: 12.5px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .cmd-table td { color: var(--ink-2); }
+  .cmd-table tr:hover td { background: rgba(185,255,36,.03); }
+
+  /* Step cards (Getting Started) */
+  .step-list {
+    list-style: none; margin: 0; padding: 0;
+    counter-reset: step;
+  }
+  .step-list li {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    margin: 0;
+  }
+  .step-list li:last-child { border-bottom: 0; }
+  .step-list li::before {
+    counter-increment: step;
+    content: counter(step, decimal-leading-zero);
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--green), var(--green-2));
+    color: #13220b;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-weight: 900; font-size: 12px;
+    box-shadow: 0 6px 18px rgba(185,255,36,.22);
+  }
+  .step-list li::marker { display: none; }
+  .step-list h4 { margin: 2px 0 6px; color: var(--ink); }
+  .step-list p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* Feature pills */
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 20px; }
+  .pill {
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--code-bg); border: 1px solid rgba(185,255,36,.18);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: var(--code-fg); font-weight: 500;
+  }
+
+  /* Next/Prev nav */
+  .pager {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px; margin-top: 56px;
+  }
+  .pager a {
+    display: block; padding: 16px 18px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color .15s, transform .15s;
+  }
+  .pager a:hover { border-color: var(--border-hover); transform: translateY(-2px); text-decoration: none; }
+  .pager .lbl { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 4px; }
+  .pager .ttl { color: var(--ink); font-weight: 700; font-size: 14px; }
+  .pager .next { text-align: right; }
+  @media (max-width: 640px) { .pager { grid-template-columns: 1fr; } }
+
+  /* TOC droite */
+  .toc-wrap {
+    position: sticky; top: 61px; align-self: start;
+    height: calc(100vh - 61px); overflow-y: auto;
+    padding: 38px 22px 32px 12px;
+  }
+  .toc-title {
+    color: var(--muted); font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .14em;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .toc-title svg { width: 12px; height: 12px; }
+  .toc-list { list-style: none; padding: 0; }
+  .toc-list li { margin: 2px 0; }
+  .toc-list a {
+    display: block; padding: 4px 10px;
+    color: var(--muted); font-size: 12.5px;
+    border-left: 2px solid transparent;
+    border-radius: 0 6px 6px 0;
+    transition: color .12s, border-color .12s;
+  }
+  .toc-list a:hover { color: var(--ink); text-decoration: none; }
+  .toc-list a.active { color: var(--green); border-left-color: var(--green); }
+  .toc-list .toc-sub { padding-left: 14px; }
+  .toc-list .toc-sub a { font-size: 11.5px; padding-left: 16px; }
+
+  /* Section panels (highlighted blocks for important content) */
+  .panel {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    margin: 18px 0 24px;
+  }
+  .panel h3 { margin-top: 0; }
+  .panel h3:first-child { margin-top: 0; }
+
+  /* Mobile sidebar drawer */
+  .mobile-drawer {
+    display: none;
+    position: fixed; inset: 61px 0 0 0;
+    background: rgba(11, 18, 8, .98);
+    backdrop-filter: blur(12px);
+    z-index: 49; overflow-y: auto;
+    padding: 22px 22px 32px;
+  }
+  .mobile-drawer.open { display: block; }
+  body.drawer-open { overflow: hidden; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="topbar-brand" href="/">
+    <span class="topbar-brand-mark" aria-hidden="true"></span>
+    <span>TookBot</span>
+    <span class="docs-tag">Documentation</span>
+  </a>
+
+  <div class="topbar-search" onclick="document.getElementById('searchInput').focus()">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <input id="searchInput" type="text" placeholder="Chercher dans la doc...">
+    <kbd>Ctrl K</kbd>
+  </div>
+
+  <div class="topbar-actions">
+    <a class="topbar-link" href="/commandes.html">Commandes</a>
+    <a class="topbar-link" href="/faq.html">FAQ</a>
+    <a class="topbar-link" href="https://dashboard.tookbot.click" target="_blank" rel="noopener">Dashboard</a>
+    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+    <button class="mobile-menu-btn" onclick="toggleDrawer()" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="docs-shell">
+
+  <!-- ===== Sidebar gauche ===== -->
+  <aside class="sidebar-wrap">
+    <a class="sidebar-title" href="#top">📚 TookBot Documentation</a>
+
+    <div class="sidebar-section">Quick Start</div>
+    <a class="sidebar-link" href="#about">À propos de TookBot</a>
+    <a class="sidebar-link" href="#invite">Inviter TookBot</a>
+    <a class="sidebar-link" href="#setup">Configuration initiale</a>
+    <a class="sidebar-link" href="#dashboard">Dashboard web</a>
+    <a class="sidebar-link" href="#permissions">Permissions et rôles</a>
+
+    <div class="sidebar-section">Musique</div>
+    <a class="sidebar-link" href="#music-overview">Vue d'ensemble</a>
+    <a class="sidebar-link" href="#music-sources">Sources supportées</a>
+    <a class="sidebar-link" href="#music-commands">Commandes musique</a>
+    <a class="sidebar-link" href="#music-stats">Stats d'écoute</a>
+    <a class="sidebar-link" href="#music-dashboard">Pilotage web</a>
+
+    <div class="sidebar-section">Modération</div>
+    <a class="sidebar-link" href="#mod-overview">Vue d'ensemble</a>
+    <a class="sidebar-link" href="#mod-commands">Commandes mod</a>
+    <a class="sidebar-link" href="#mod-warns">Système de warns</a>
+    <a class="sidebar-link" href="#mod-perms">Permissions par rôle</a>
+    <a class="sidebar-link" href="#mod-welcome">Message de bienvenue</a>
+
+    <div class="sidebar-section">XP & Niveaux</div>
+    <a class="sidebar-link" href="#xp-overview">Vue d'ensemble</a>
+    <a class="sidebar-link" href="#xp-commands">Commandes XP</a>
+    <a class="sidebar-link" href="#xp-cards">Cartes profil</a>
+    <a class="sidebar-link" href="#xp-pass">Pass saisonnier</a>
+
+    <div class="sidebar-section">Engagement</div>
+    <a class="sidebar-link" href="#tickets">Tickets</a>
+    <a class="sidebar-link" href="#rolereaction">Rôles-réaction</a>
+    <a class="sidebar-link" href="#socialalert">Alertes Twitch / YT / Reddit</a>
+    <a class="sidebar-link" href="#giveaway">Giveaways</a>
+    <a class="sidebar-link" href="#customcmd">Commandes custom</a>
+
+    <div class="sidebar-section">Mini-jeux</div>
+    <a class="sidebar-link" href="#duel">Duels de sabres</a>
+    <a class="sidebar-link" href="#cs2">Counter-Strike 2</a>
+    <a class="sidebar-link" href="#lol">League of Legends</a>
+    <a class="sidebar-link" href="#fun">Commandes fun</a>
+
+    <div class="sidebar-section">Dashboard</div>
+    <a class="sidebar-link" href="#dash-overview">Connexion & overview</a>
+    <a class="sidebar-link" href="#dash-features">Activer une feature</a>
+    <a class="sidebar-link" href="#dash-music">Onglet musique</a>
+    <a class="sidebar-link" href="#dash-promo">Promo codes</a>
+
+    <div class="sidebar-section">Premium & support</div>
+    <a class="sidebar-link" href="#premium">Premium (cosmétique)</a>
+    <a class="sidebar-link" href="#donations">Soutenir via Ko-fi</a>
+
+    <div class="sidebar-section">Dépannage</div>
+    <a class="sidebar-link" href="#trouble-music">Musique ne marche pas</a>
+    <a class="sidebar-link" href="#trouble-perms">Commande désactivée</a>
+    <a class="sidebar-link" href="#trouble-bot">Bot inactif</a>
+    <a class="sidebar-link" href="#contact">Contact support</a>
+  </aside>
+
+  <!-- ===== Contenu principal ===== -->
+  <main class="content-wrap" id="content">
+    <nav class="breadcrumb">
+      <a href="/">Accueil</a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <span>Documentation</span>
+    </nav>
+
+    <div class="hero-banner" id="top">
+      <div class="brand-icon"></div>
+      <h1>TookBot Documentation</h1>
+      <p>Le guide complet pour bien démarrer et exploiter tout le potentiel de TookBot.</p>
+    </div>
+
+    <section id="about">
+      <h2>À propos de TookBot</h2>
+      <p>Bienvenue sur la documentation officielle de <strong>TookBot</strong>, un bot Discord tout-en-un développé en solo et hébergé sur un VPS dédié en Allemagne. Que tu gères une petite communauté ou un serveur de plusieurs milliers de membres, TookBot fournit les outils pour animer, modérer et configurer ton serveur sans prise de tête.</p>
+
+      <h4>Points clés</h4>
+      <ul>
+        <li><strong>76+ commandes slash</strong> couvrant musique, modération, XP, mini-jeux, tickets, alertes sociales et plus</li>
+        <li><strong>Gratuit et sans paywall</strong> sur l'essentiel : volume musique, skip, multi-source Spotify, modération, XP</li>
+        <li><strong>Hébergé en Europe</strong> (Hetzner Cloud, Falkenstein) avec auto-restart et monitoring 24/7</li>
+        <li><strong>Dashboard web complet</strong> via OAuth Discord pour configurer sans taper de commandes</li>
+        <li><strong>Dev solo accessible</strong> : support direct, réponses en moins de 24h sur le serveur</li>
+      </ul>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p><strong>Nouveau ?</strong> Commence par <a href="#invite">Inviter TookBot</a> puis suis les 4 étapes de <a href="#setup">Configuration initiale</a>. Tu seras opérationnel en moins de 5 minutes.</p>
+      </div>
+    </section>
+
+    <section id="invite">
+      <h2>Inviter TookBot</h2>
+      <p>Pour ajouter TookBot à ton serveur, tu dois être <strong>Administrateur</strong> ou avoir la permission "Gérer le serveur".</p>
+
+      <ol>
+        <li>Clique sur le bouton <a href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=8&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><strong>Inviter TookBot</strong></a></li>
+        <li>Choisis ton serveur dans la liste déroulante</li>
+        <li>Vérifie les permissions demandées (Admin recommandé pour simplifier, sinon coche au minimum : Lire les messages, Envoyer messages, Embed Links, Gérer rôles, Bannir, Expulser)</li>
+        <li>Clique <strong>Autoriser</strong></li>
+        <li>Complète le captcha Discord si demandé</li>
+      </ol>
+
+      <div class="callout warning">
+        <span class="ico">⚠️</span>
+        <p><strong>Permissions minimales requises pour fonctionner pleinement :</strong> <code>Manage Roles</code>, <code>Manage Channels</code> (pour tickets), <code>Connect</code> et <code>Speak</code> (pour musique), <code>Ban Members</code> + <code>Kick Members</code> (pour modération).</p>
+      </div>
+
+      <h4>Vérifier que TookBot est bien connecté</h4>
+      <p>Après l'invitation, tape <code>/ping</code> dans n'importe quel salon. TookBot doit répondre avec sa latence en millisecondes. Si rien ne se passe, vérifie que le bot est en ligne dans la liste des membres et qu'il a accès au salon.</p>
+    </section>
+
+    <section id="setup">
+      <h2>Configuration initiale</h2>
+      <p>Une fois TookBot invité, la configuration de base se fait via la commande <code>/setup</code> directement sur Discord, ou depuis le <a href="#dashboard">dashboard web</a>.</p>
+
+      <ol class="step-list">
+        <li>
+          <div>
+            <h4>Lance <code>/setup</code></h4>
+            <p>Un embed apparaît avec des menus déroulants pour chaque salon clé.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h4>Définis le salon de bienvenue</h4>
+            <p>C'est là que les nouveaux membres seront accueillis. Tu pourras customiser le message via <code>/setwelcome</code> ou le builder du dashboard.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h4>Définis le salon de logs</h4>
+            <p>Sanctions, actions modération, joins/leaves seront publiés ici. Crée un salon <code>#logs-mod</code> visible uniquement par tes mods.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h4>Configure le rôle modérateur</h4>
+            <p>Sélectionne le rôle qui aura accès aux commandes mod (warn, kick, ban, etc.) sans lui filer les droits Admin Discord.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout info">
+        <span class="ico">ℹ️</span>
+        <p>Tout ce que <code>/setup</code> configure peut être modifié plus tard depuis le dashboard, onglet <strong>Fonctionnalités</strong> et <strong>Permissions</strong>.</p>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <h2>Dashboard web</h2>
+      <p>Le dashboard web est disponible sur <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a>. Connexion via OAuth Discord (aucun mot de passe à créer).</p>
+
+      <h4>Ce que tu peux faire depuis le dashboard</h4>
+      <ul>
+        <li>Activer / désactiver chaque feature par serveur via des toggles on/off</li>
+        <li>Configurer les permissions par rôle pour chaque commande mod</li>
+        <li>Builders visuels : tickets, rôles-réaction, alertes social, commandes custom</li>
+        <li>Consulter les stats temps réel : membres actifs, top commandes, heatmap d'activité, top pistes musicales</li>
+        <li>Piloter la musique : voir la queue live, pause/resume/skip depuis le navigateur</li>
+        <li>Gérer les promo codes (générer, distribuer, suivre les redemptions)</li>
+        <li>Modération : consulter les warns, logs, gérer les sanctions</li>
+      </ul>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p>Garde le dashboard ouvert dans un onglet pour les modifications fréquentes. Les changements sont appliqués en temps réel sans redémarrer TookBot.</p>
+      </div>
+    </section>
+
+    <section id="permissions">
+      <h2>Permissions et rôles</h2>
+      <p>TookBot utilise deux niveaux de permissions distincts :</p>
+
+      <h4>1. Permissions Discord natives</h4>
+      <p>Les commandes qui modifient ton serveur (kick, ban, clear) nécessitent les permissions Discord correspondantes sur l'utilisateur ET sur TookBot. Si TookBot ne peut pas bannir quelqu'un, son rôle est probablement trop bas dans la hiérarchie.</p>
+
+      <h4>2. Permissions par rôle TookBot</h4>
+      <p>Depuis le dashboard, onglet <strong>Permissions</strong>, tu peux donner accès à certaines commandes mod (warn, modlogs, clear) à un rôle modérateur, <em>sans</em> lui filer les droits Admin Discord. C'est la méthode recommandée pour avoir une équipe staff cadrée.</p>
+
+      <div class="callout warning">
+        <span class="ico">⚠️</span>
+        <p><strong>Hiérarchie des rôles :</strong> place le rôle <code>TookBot</code> au-dessus de tous les rôles qu'il doit gérer. Sinon Discord refuse l'action et tu auras une erreur "Missing permissions" dans les logs.</p>
+      </div>
+    </section>
+
+    <!-- ===== MUSIQUE ===== -->
+    <section id="music-overview">
+      <h2>🎵 Musique : vue d'ensemble</h2>
+      <p>TookBot lit de la musique dans tes salons vocaux depuis <strong>4 sources gratuites</strong> : YouTube, SoundCloud, Spotify (track / album / playlist) et Bandcamp. Aucune feature musique n'est derrière un paywall, contrairement à Jockie ou Hydra.</p>
+
+      <h4>Points forts</h4>
+      <ul>
+        <li>File d'attente jusqu'à <strong>50 pistes</strong> par playlist YouTube ou Spotify</li>
+        <li>Volume ajustable de 0 à 200% (gratuit, là où c'est Premium chez les concurrents)</li>
+        <li>Skip à la position N (saute directement au Nème titre de la queue)</li>
+        <li>Reconnect auto si la connexion vocale drop</li>
+        <li>Reprise auto de la file après redémarrage du bot</li>
+        <li>Stats d'écoute persistantes par serveur (top pistes, top auditeurs, temps total)</li>
+      </ul>
+    </section>
+
+    <section id="music-sources">
+      <h2>Sources musicales supportées</h2>
+
+      <h3>YouTube</h3>
+      <p>Source principale. Accepte les liens vidéo (<code>youtube.com/watch?v=...</code>), les liens courts (<code>youtu.be/...</code>) et les playlists (<code>youtube.com/playlist?list=...</code>). Les recherches par mots-clés font un <code>/search</code> automatique sur YouTube.</p>
+      <pre><code>/play https://www.youtube.com/watch?v=dQw4w9WgXcQ
+/play https://www.youtube.com/playlist?list=PLxxxx
+/play never gonna give you up</code></pre>
+
+      <h3>SoundCloud</h3>
+      <p>Pistes individuelles et sets supportés. Colle directement l'URL <code>soundcloud.com/artist/track</code> dans <code>/play</code>.</p>
+      <pre><code>/play https://soundcloud.com/artist/track-name</code></pre>
+
+      <h3>Spotify</h3>
+      <p>Spotify ne permet pas de streamer son audio (DRM). TookBot extrait les métadonnées Spotify (titre + artiste) puis joue l'équivalent depuis YouTube. Tracks, albums et playlists supportés.</p>
+      <pre><code>/play https://open.spotify.com/track/xxx
+/play https://open.spotify.com/album/xxx
+/play https://open.spotify.com/playlist/xxx</code></pre>
+
+      <h3>Bandcamp</h3>
+      <p>Pistes individuelles et albums. Colle l'URL Bandcamp directement.</p>
+      <pre><code>/play https://artist.bandcamp.com/track/song</code></pre>
+    </section>
+
+    <section id="music-commands">
+      <h2>Commandes musique</h2>
+
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/play &lt;lien|titre&gt;</td><td>Joue une piste, playlist ou cherche par mots-clés</td></tr>
+          <tr><td>/search &lt;query&gt;</td><td>Preview + 4 boutons pour choisir la plateforme (YT / Spotify / SC / Bandcamp)</td></tr>
+          <tr><td>/queue</td><td>Affiche la file d'attente complète</td></tr>
+          <tr><td>/nowplaying</td><td>Embed avec titre, thumbnail, barre de progression et 3 pistes suivantes</td></tr>
+          <tr><td>/skip [position]</td><td>Passe la piste en cours, ou saute directement à la position N</td></tr>
+          <tr><td>/remove &lt;position&gt;</td><td>Retire une piste précise de la file par sa position</td></tr>
+          <tr><td>/volume &lt;0-200&gt;</td><td>Règle le volume musique (persistant par serveur)</td></tr>
+          <tr><td>/pause</td><td>Met la lecture en pause</td></tr>
+          <tr><td>/resume</td><td>Reprend une lecture en pause</td></tr>
+          <tr><td>/stop</td><td>Arrête la lecture et vide la file</td></tr>
+          <tr><td>/join</td><td>Rejoint ton salon vocal</td></tr>
+          <tr><td>/leave</td><td>Quitte le salon vocal</td></tr>
+          <tr><td>/musicstats [période]</td><td>Top pistes, top auditeurs, temps total d'écoute sur N jours</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p>Le <code>/search</code> est utile quand tu ne veux pas le premier résultat YouTube et préfères choisir parmi 5. Les emojis custom de plateforme s'affichent sur les boutons si le bot est dans le serveur de support TookBot.</p>
+      </div>
+    </section>
+
+    <section id="music-stats">
+      <h2>Statistiques d'écoute</h2>
+      <p>TookBot enregistre chaque lecture musicale dans une table dédiée. Tu peux consulter les stats avec <code>/musicstats</code> sur Discord ou depuis le dashboard onglet <strong>Musique</strong>.</p>
+
+      <h4>Ce que /musicstats affiche</h4>
+      <ul>
+        <li>Total de lectures sur la période</li>
+        <li>Nombre de pistes uniques jouées</li>
+        <li>Nombre d'auditeurs uniques (ceux qui ont ajouté au moins une piste)</li>
+        <li>Temps total d'écoute cumulé</li>
+        <li>Top 10 pistes les plus jouées</li>
+        <li>Top 5 auditeurs (utilisateurs qui ont fait jouer le plus de pistes)</li>
+        <li>Breakdown par source (YouTube / SoundCloud / Bandcamp / Twitch)</li>
+      </ul>
+
+      <pre><code>/musicstats             # 30 derniers jours par defaut
+/musicstats periode:7   # 7 derniers jours
+/musicstats periode:365 # 1 an</code></pre>
+    </section>
+
+    <section id="music-dashboard">
+      <h2>Pilotage musique depuis le dashboard</h2>
+      <p>L'onglet <strong>Musique</strong> du dashboard te permet de tout faire depuis le navigateur, sans avoir à ouvrir Discord.</p>
+
+      <ul>
+        <li>Voir le titre en cours avec thumbnail et durée</li>
+        <li>Boutons Pause / Resume / Skip / Stop / Leave</li>
+        <li>Ajouter une piste via le champ "Ajouter une musique" (accepte tout : lien, titre, playlist YT, URL Spotify)</li>
+        <li>Voir la file d'attente complète avec possibilité de retirer une piste précise</li>
+        <li>Stats d'écoute avec sélecteur de période (7 / 30 / 90 / 365 jours)</li>
+      </ul>
+
+      <div class="callout info">
+        <span class="ico">ℹ️</span>
+        <p>Pour que les contrôles fonctionnent, TookBot doit déjà être connecté à un salon vocal. Si non, lance <code>/join</code> dans Discord depuis ton salon vocal.</p>
+      </div>
+    </section>
+
+    <!-- ===== MODÉRATION ===== -->
+    <section id="mod-overview">
+      <h2>🛡️ Modération : vue d'ensemble</h2>
+      <p>TookBot fournit les outils de modération classiques (warn, kick, ban, clear) avec un système de logs persistants et des permissions par rôle configurables depuis le dashboard.</p>
+    </section>
+
+    <section id="mod-commands">
+      <h2>Commandes de modération</h2>
+
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/warn &lt;membre&gt; &lt;raison&gt;</td><td>Avertit un membre. Auto-timeout au seuil configurable.</td></tr>
+          <tr><td>/clearwarns &lt;membre&gt; [raison]</td><td>Révoque tous les warns d'un membre</td></tr>
+          <tr><td>/modlogs &lt;membre&gt;</td><td>Historique des sanctions d'un membre</td></tr>
+          <tr><td>/note &lt;membre&gt; &lt;texte&gt;</td><td>Note interne mod (pas de DM envoyé)</td></tr>
+          <tr><td>/kick &lt;membre&gt; [raison]</td><td>Expulse un membre du serveur</td></tr>
+          <tr><td>/ban &lt;membre&gt; [raison]</td><td>Bannit un membre</td></tr>
+          <tr><td>/clear &lt;n&gt;</td><td>Supprime les N derniers messages (max 100)</td></tr>
+          <tr><td>/poll &lt;question&gt; &lt;options&gt;</td><td>Sondage avec réactions automatiques</td></tr>
+          <tr><td>/setwelcome [salon]</td><td>Builder visuel du message de bienvenue</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="mod-warns">
+      <h2>Système de warns</h2>
+      <p>Les warns sont persistants par serveur et consultables via <code>/modlogs &lt;membre&gt;</code>. Tu peux configurer un seuil d'auto-timeout depuis le dashboard.</p>
+
+      <h4>Comportement par défaut</h4>
+      <ul>
+        <li>1 warn → DM envoyé au membre avec la raison</li>
+        <li>3 warns → timeout 1h auto (configurable)</li>
+        <li>5 warns → timeout 24h auto (configurable)</li>
+        <li>Les warns expirés peuvent être révoqués via <code>/clearwarns</code></li>
+      </ul>
+
+      <div class="callout warning">
+        <span class="ico">⚠️</span>
+        <p>Pour que l'auto-timeout fonctionne, TookBot doit avoir la permission <code>Moderate Members</code> et son rôle doit être au-dessus du membre warned dans la hiérarchie.</p>
+      </div>
+    </section>
+
+    <section id="mod-perms">
+      <h2>Permissions par rôle</h2>
+      <p>Plutôt que de filer les droits Admin Discord à tes mods, TookBot te permet de mapper chaque commande mod à un rôle précis depuis le dashboard.</p>
+
+      <h4>Exemples de mapping</h4>
+      <ul>
+        <li>Rôle <code>Helper</code> → accès à <code>/warn</code>, <code>/note</code>, <code>/clear</code></li>
+        <li>Rôle <code>Mod</code> → tout Helper + <code>/kick</code>, <code>/modlogs</code>, <code>/clearwarns</code></li>
+        <li>Rôle <code>Admin</code> → tout Mod + <code>/ban</code>, <code>/setup</code>, <code>/setwelcome</code></li>
+      </ul>
+
+      <p>Configure ça depuis dashboard → onglet <strong>Permissions</strong>.</p>
+    </section>
+
+    <section id="mod-welcome">
+      <h2>Message de bienvenue</h2>
+      <p>Tape <code>/setwelcome [salon]</code> pour ouvrir un builder visuel. Tu peux configurer :</p>
+      <ul>
+        <li>Texte du message (avec variables <code>{user}</code>, <code>{server}</code>, <code>{count}</code>)</li>
+        <li>Image / bannière custom</li>
+        <li>Couleur de l'embed</li>
+        <li>Mention automatique du nouveau membre</li>
+        <li>Rôle attribué automatiquement à l'arrivée (autorole)</li>
+      </ul>
+    </section>
+
+    <!-- ===== XP ===== -->
+    <section id="xp-overview">
+      <h2>⭐ XP & Niveaux : vue d'ensemble</h2>
+      <p>Système d'XP par message avec cooldown anti-spam. Chaque message gagne de l'XP qui fait monter le membre en niveau. Les niveaux peuvent débloquer des rôles automatiques.</p>
+    </section>
+
+    <section id="xp-commands">
+      <h2>Commandes XP</h2>
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/niveau [membre]</td><td>Carte profil avec niveau, XP et rang</td></tr>
+          <tr><td>/leaderboard</td><td>Top 10 XP du serveur</td></tr>
+          <tr><td>/xp &lt;action&gt;</td><td>Admin : ajuster l'XP d'un membre</td></tr>
+          <tr><td>/daily</td><td>Récompense quotidienne + streak</td></tr>
+          <tr><td>/redeem &lt;code&gt;</td><td>Utiliser un code promo</td></tr>
+          <tr><td>/pass</td><td>Pass saisonnier : missions et récompenses</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="xp-cards">
+      <h2>Cartes profil personnalisables</h2>
+      <p><code>/niveau</code> affiche une carte avec ton avatar, ton niveau, ta progression vers le suivant et ton rang serveur. Les utilisateurs Premium peuvent personnaliser le background, la couleur et les badges depuis l'onglet <strong>Premium</strong> du dashboard.</p>
+    </section>
+
+    <section id="xp-pass">
+      <h2>Pass saisonnier</h2>
+      <p>Chaque mois un pass avec missions et récompenses débloquables (XP boost, sabres rares, cosmétiques). Tape <code>/pass</code> pour voir ta progression et claim tes récompenses.</p>
+
+      <div class="callout info">
+        <span class="ico">ℹ️</span>
+        <p>Les missions du pass se complètent en utilisant les features TookBot : jouer de la musique, faire des duels, rester actif sur le chat, etc.</p>
+      </div>
+    </section>
+
+    <!-- ===== ENGAGEMENT ===== -->
+    <section id="tickets">
+      <h2>🎫 Tickets</h2>
+      <p>Panneau de tickets pour que tes membres ouvrent un salon privé avec le staff. Transcripts auto à la fermeture, claim mod, catégories multiples.</p>
+
+      <h4>Setup en 30 secondes</h4>
+      <ol>
+        <li>Tape <code>/ticket</code> dans le salon où tu veux le panneau</li>
+        <li>Builder visuel : choisis titre, description, catégories (Support / Report / Partenariat / etc.)</li>
+        <li>Le panneau est posté avec un bouton "Ouvrir un ticket"</li>
+        <li>Quand un membre clique, TookBot crée un salon privé visible par lui et le rôle staff</li>
+      </ol>
+
+      <p>À la fermeture, TookBot génère un fichier HTML transcript et le poste dans le salon de logs.</p>
+    </section>
+
+    <section id="rolereaction">
+      <h2>🎨 Rôles-réaction</h2>
+      <p>Permet aux membres de s'attribuer eux-mêmes des rôles en cliquant sur des emojis ou des boutons.</p>
+
+      <pre><code>/rolereaction create</code></pre>
+
+      <p>Le builder propose 2 modes :</p>
+      <ul>
+        <li><strong>Reaction emoji</strong> : ajoute des réactions sur un message, chaque réaction = un rôle</li>
+        <li><strong>Boutons</strong> : message avec boutons colorés, chaque bouton = un rôle</li>
+      </ul>
+
+      <p>Tu peux créer des <strong>groupes exclusifs</strong> (un seul rôle du groupe à la fois, ex : un seul pronoun, un seul jeu favori).</p>
+    </section>
+
+    <section id="socialalert">
+      <h2>📢 Alertes Twitch / YouTube / Reddit</h2>
+      <p>TookBot surveille les comptes de ton choix et envoie une notification dans le salon désigné quand :</p>
+      <ul>
+        <li>Un streamer Twitch passe en live</li>
+        <li>Un YouTuber upload une nouvelle vidéo</li>
+        <li>Un compte Reddit poste sur un subreddit donné</li>
+      </ul>
+
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/socialalert add</td><td>Ajouter une alerte (plateforme + compte + salon)</td></tr>
+          <tr><td>/socialalert list</td><td>Liste des alertes actives sur ce serveur</td></tr>
+          <tr><td>/socialalert remove</td><td>Retirer une alerte par ID</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="giveaway">
+      <h2>🎉 Giveaways</h2>
+      <p>Tirages au sort avec entries par réaction, reroll, cancel et fin programmée.</p>
+
+      <pre><code>/giveaway create
+  prize: Nitro Boost 1 mois
+  winners: 1
+  duration: 24h</code></pre>
+
+      <p>Les membres réagissent au message pour participer. À la fin, TookBot pick le ou les gagnants aléatoirement et les annonce.</p>
+    </section>
+
+    <section id="customcmd">
+      <h2>⚙️ Commandes custom</h2>
+      <p>Crée tes propres commandes <code>/cmd &lt;nom&gt;</code> avec une réponse texte ou un embed depuis le dashboard onglet <strong>Commandes custom</strong>. Utile pour les FAQ, règles, liens utiles.</p>
+    </section>
+
+    <!-- ===== MINI-JEUX ===== -->
+    <section id="duel">
+      <h2>⚔️ Duels de sabres laser</h2>
+      <p>Mini-jeu RPG complet avec combat tour par tour, mindgame attaque/défense, collection de sabres, boutique, missions de pass.</p>
+
+      <h4>Principe</h4>
+      <p>Chaque tour, les deux joueurs choisissent secrètement une attaque (haute / médiane / basse) et une défense. Si l'adversaire attaque où tu défends, tu bloques. Sinon il touche. Le premier à 0 PV perd.</p>
+
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/duel fight @adversaire</td><td>Défi un autre membre</td></tr>
+          <tr><td>/duel info</td><td>Guide complet du système</td></tr>
+          <tr><td>/profil [membre]</td><td>Stats duel : victoires, défaites, tookcoins, sabre équipé</td></tr>
+          <tr><td>/sabre</td><td>Menu sabre : équipé, collection, boutique</td></tr>
+          <tr><td>/statpoint &lt;stat&gt;</td><td>Attribuer un point gagné en levelant</td></tr>
+          <tr><td>/historique [membre]</td><td>Liste des derniers duels</td></tr>
+          <tr><td>/collection</td><td>Tous tes sabres collectionnés</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cs2">
+      <h2>🎮 Counter-Strike 2</h2>
+      <p>Intégration complète Steam + Faceit avec rank role auto, prix de skins en temps réel et inventaire valorisé.</p>
+
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/cs link &lt;plateforme&gt; &lt;id&gt;</td><td>Lier ton compte Steam ou Faceit</td></tr>
+          <tr><td>/cs unlink &lt;plateforme&gt;</td><td>Retirer un lien</td></tr>
+          <tr><td>/cs stats [membre]</td><td>Stats Steam (rank, hours, K/D) et Faceit (elo, lvl)</td></tr>
+          <tr><td>/cs setrank &lt;elo&gt;</td><td>Déclarer ton Premier ELO + rank role auto</td></tr>
+          <tr><td>/cs rankrole on|off</td><td>Admin : auto-attribution du rank role</td></tr>
+          <tr><td>/cs price &lt;arme&gt; &lt;skin&gt;</td><td>Prix Steam + Skinport (usure et StatTrak supportés)</td></tr>
+          <tr><td>/cs inventory [membre]</td><td>Inventaire CS2 + valeur totale en euros</td></tr>
+          <tr><td>/cs queue</td><td>Voice channel temporaire 5 slots</td></tr>
+          <tr><td>/cs map</td><td>Ban/pick maps entre membres du vocal</td></tr>
+          <tr><td>/cs loadout</td><td>Loadout aléatoire (challenge fun)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="lol">
+      <h2>🛡️ League of Legends</h2>
+      <p>Profil Riot, rangs Solo/Flex, top masteries et détection de game en cours.</p>
+
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/lol link &lt;riotid&gt;</td><td>Lier ton Riot ID</td></tr>
+          <tr><td>/lol rank [membre]</td><td>Rang Solo/Flex actuels</td></tr>
+          <tr><td>/lol mastery [membre]</td><td>Top champions par mastery points</td></tr>
+          <tr><td>/lol live [membre]</td><td>Game en cours détectée</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="fun">
+      <h2>🎉 Commandes fun</h2>
+      <p>Mini-commandes sociales pour animer le chat.</p>
+
+      <div class="pill-row">
+        <span class="pill">/8ball</span>
+        <span class="pill">/dé</span>
+        <span class="pill">/coinflip</span>
+        <span class="pill">/blague</span>
+        <span class="pill">/ship</span>
+        <span class="pill">/choix</span>
+        <span class="pill">/random</span>
+        <span class="pill">/qui</span>
+        <span class="pill">/clap</span>
+        <span class="pill">/rate</span>
+        <span class="pill">/citation</span>
+        <span class="pill">/zgeg</span>
+      </div>
+    </section>
+
+    <!-- ===== DASHBOARD ===== -->
+    <section id="dash-overview">
+      <h2>🎛️ Dashboard : connexion & overview</h2>
+      <p>Va sur <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a> et clique <strong>Connexion Discord</strong>. Tu autorises l'accès en lecture à ta liste de serveurs Discord (uniquement les serveurs où tu es Admin/Owner et où TookBot est invité).</p>
+
+      <p>L'overview te montre :</p>
+      <ul>
+        <li>Stats activité du serveur sélectionné (7 / 30 derniers jours)</li>
+        <li>Heatmap d'activité par heure × jour de la semaine</li>
+        <li>Top commandes utilisées</li>
+        <li>Top auditeurs musique</li>
+        <li>Derniers événements de modération</li>
+      </ul>
+    </section>
+
+    <section id="dash-features">
+      <h2>Activer une fonctionnalité</h2>
+      <p>Onglet <strong>Fonctionnalités</strong>. Chaque feature a un toggle on/off propre au serveur. Si un membre tente d'utiliser une commande désactivée, il reçoit un message discret en MP (pas de spam dans le chat).</p>
+    </section>
+
+    <section id="dash-music">
+      <h2>Onglet musique</h2>
+      <p>Voir <a href="#music-dashboard">Pilotage musique depuis le dashboard</a>.</p>
+    </section>
+
+    <section id="dash-promo">
+      <h2>Promo codes</h2>
+      <p>Onglet <strong>Promo codes</strong> (admin owner uniquement). Génère des codes à distribuer à tes utilisateurs pour leur offrir Premium, XP boost, ou cosmétiques.</p>
+    </section>
+
+    <!-- ===== PREMIUM ===== -->
+    <section id="premium">
+      <h2>💎 Premium (cosmétique uniquement)</h2>
+      <p>Premium TookBot débloque uniquement des <strong>cosmétiques</strong> (background de carte de niveau, badges, couleurs custom). Aucune feature fonctionnelle n'est gated derrière Premium.</p>
+
+      <p>Pour acheter : ouvre le profil Discord de TookBot → onglet <strong>Boutique</strong>.</p>
+
+      <div class="callout tip">
+        <span class="ico">💡</span>
+        <p>Tu peux aussi soutenir le projet sans passer par Premium en faisant un don Ko-fi : <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">ko-fi.com/tookbot</a>. Chaque don finance l'hébergement du VPS.</p>
+      </div>
+    </section>
+
+    <section id="donations">
+      <h2>☕ Soutenir via Ko-fi</h2>
+      <p>TookBot est développé en solo et tourne sur un VPS payé de ma poche (~6€/mois). Si le bot te rend service, tu peux offrir un café : <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">ko-fi.com/tookbot</a>.</p>
+
+      <p>Les donateurs sont reconnus :</p>
+      <ul>
+        <li>Notification dans le salon support quand un don arrive (avec rôle Donateur)</li>
+        <li>Affichage dans le mur des soutiens sur le site</li>
+        <li>Premium gratuit à vie pour les dons >= 10€</li>
+      </ul>
+    </section>
+
+    <!-- ===== TROUBLESHOOTING ===== -->
+    <section id="trouble-music">
+      <h2>🛠 Musique ne marche pas</h2>
+
+      <h4>Symptôme : "Cette fonctionnalité a quelques soucis"</h4>
+      <p>Message friendly affiché quand yt-dlp ou ffmpeg échoue. Causes possibles :</p>
+      <ul>
+        <li>Vidéo YouTube privée, supprimée ou age-restricted</li>
+        <li>WARP (proxy contournement anti-bot YouTube) déconnecté côté VPS</li>
+        <li>bgutil-pot HTTP server inaccessible</li>
+        <li>yt-dlp pas à jour (rare, auto-update hebdomadaire)</li>
+      </ul>
+
+      <p>Solution rapide : réessaie dans quelques minutes, ou avec une autre vidéo. Si ça persiste, signale sur le serveur support.</p>
+
+      <h4>Symptôme : Spotify "pas configuré"</h4>
+      <p>Les clés API Spotify ne sont pas définies côté serveur. Contacte le support pour corriger.</p>
+
+      <h4>Symptôme : SoundCloud "Host unreachable"</h4>
+      <p>Le proxy WARP est routé pour YouTube uniquement maintenant. SoundCloud passe en direct. Si l'erreur revient, c'est probablement temporaire (DNS / réseau).</p>
+    </section>
+
+    <section id="trouble-perms">
+      <h2>Commande désactivée</h2>
+      <p>Si une commande répond "<em>Cette fonctionnalité est désactivée sur ce serveur</em>" :</p>
+      <ol>
+        <li>Va sur dashboard.tookbot.click → ton serveur → onglet <strong>Fonctionnalités</strong></li>
+        <li>Active le toggle de la feature concernée</li>
+        <li>Réessaie la commande (effet immédiat)</li>
+      </ol>
+
+      <p>Si une commande mod répond "<em>Tu n'as pas la permission</em>", vérifie le mapping rôle → commande dans l'onglet <strong>Permissions</strong>.</p>
+    </section>
+
+    <section id="trouble-bot">
+      <h2>Bot inactif / ne répond pas</h2>
+      <ul>
+        <li>Vérifie que TookBot est en ligne dans la liste des membres Discord</li>
+        <li>Vérifie qu'il a accès au salon (permissions Voir le salon + Envoyer messages)</li>
+        <li>Vérifie le statut sur <a href="/status">tookbot.click/status</a> (à venir)</li>
+        <li>Si offline depuis longtemps, le VPS a probablement un souci. Contacte le support.</li>
+      </ul>
+    </section>
+
+    <section id="contact">
+      <h2>Contact support</h2>
+      <p>Bug, question, suggestion : rejoins le <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener"><strong>serveur de support TookBot</strong></a>.</p>
+
+      <p>Réponses en moins de 24h, souvent dans l'heure. Dev solo accessible directement.</p>
+
+      <div class="panel">
+        <h3>Avant de demander de l'aide</h3>
+        <ul>
+          <li>Vérifie d'abord la <a href="/faq.html">FAQ</a></li>
+          <li>Précise le nom de ton serveur Discord (pour reproduction)</li>
+          <li>Si erreur : screenshot ou message d'erreur exact</li>
+          <li>Si bug musique : URL de la piste qui pose souci</li>
+        </ul>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a href="/commandes.html" class="prev">
+        <span class="lbl">← Voir aussi</span>
+        <span class="ttl">Page Commandes (vitrine)</span>
+      </a>
+      <a href="/faq.html" class="next">
+        <span class="lbl">Suivant →</span>
+        <span class="ttl">FAQ</span>
+      </a>
+    </nav>
+  </main>
+
+  <!-- ===== TOC droite ===== -->
+  <aside class="toc-wrap">
+    <div class="toc-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Sur cette page
+    </div>
+    <ul class="toc-list" id="tocList">
+      <li><a href="#about">À propos de TookBot</a></li>
+      <li><a href="#invite">Inviter TookBot</a></li>
+      <li><a href="#setup">Configuration initiale</a></li>
+      <li><a href="#dashboard">Dashboard web</a></li>
+      <li><a href="#permissions">Permissions et rôles</a></li>
+      <li><a href="#music-overview">Musique : vue d'ensemble</a></li>
+      <li><a href="#music-sources">Sources musicales</a></li>
+      <li><a href="#music-commands">Commandes musique</a></li>
+      <li><a href="#music-stats">Stats d'écoute</a></li>
+      <li><a href="#mod-overview">Modération</a></li>
+      <li><a href="#xp-overview">XP & Niveaux</a></li>
+      <li><a href="#tickets">Tickets</a></li>
+      <li><a href="#rolereaction">Rôles-réaction</a></li>
+      <li><a href="#socialalert">Alertes social</a></li>
+      <li><a href="#duel">Duels sabres</a></li>
+      <li><a href="#cs2">Counter-Strike 2</a></li>
+      <li><a href="#lol">League of Legends</a></li>
+      <li><a href="#premium">Premium</a></li>
+      <li><a href="#contact">Contact support</a></li>
+    </ul>
+  </aside>
+</div>
+
+<!-- Mobile drawer (copie de la sidebar pour mobile) -->
+<div class="mobile-drawer" id="mobileDrawer"></div>
+
+<script>
+  // ===== Toggle theme (optional, force dark for docs)
+  // Docs reste en dark theme pour matcher Ticket King
+
+  // ===== Sidebar : active link selon scroll
+  const sections = document.querySelectorAll('section[id]');
+  const sidebarLinks = document.querySelectorAll('.sidebar-link[href^="#"]');
+  const tocLinks = document.querySelectorAll('.toc-list a[href^="#"]');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(s => {
+      const top = s.getBoundingClientRect().top;
+      if (top < 120) current = s.id;
+    });
+    sidebarLinks.forEach(l => {
+      l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+    });
+    tocLinks.forEach(l => {
+      l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+    });
+  }
+  document.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+
+  // ===== Search bar : Ctrl+K focus
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      document.getElementById('searchInput').focus();
+    }
+  });
+
+  // ===== Search live filter (sidebar + TOC + sections)
+  const input = document.getElementById('searchInput');
+  if (input) {
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      // Filtre sidebar links
+      sidebarLinks.forEach(l => {
+        const visible = !q || l.textContent.toLowerCase().includes(q);
+        l.style.display = visible ? '' : 'none';
+      });
+      // Scroll vers la premiere section qui match si query non vide
+      if (q && q.length >= 2) {
+        for (const s of sections) {
+          if (s.textContent.toLowerCase().includes(q)) {
+            // ne scroll pas auto, juste highlight
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  // ===== Mobile drawer
+  function toggleDrawer() {
+    const d = document.getElementById('mobileDrawer');
+    const sidebar = document.querySelector('.sidebar-wrap');
+    if (!d.dataset.populated) {
+      d.innerHTML = sidebar ? sidebar.innerHTML : '';
+      d.dataset.populated = '1';
+      // Close drawer on link click
+      d.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+        d.classList.remove('open');
+        document.body.classList.remove('drawer-open');
+      }));
+    }
+    d.classList.toggle('open');
+    document.body.classList.toggle('drawer-open');
+  }
+  window.toggleDrawer = toggleDrawer;
+</script>
+
+</body>
+</html>

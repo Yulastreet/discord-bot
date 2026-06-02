@@ -1153,143 +1153,6 @@
     color: #13220b;
   }
 
-  /* ===== Section "Comment ça marche" ===== */
-  .how-section { padding-top: clamp(40px, 6vw, 80px); }
-  .how-intro {
-    color: var(--muted); font-size: clamp(15px, 1.3vw, 17px);
-    max-width: 720px; margin-top: 8px;
-  }
-  .how-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 18px; margin-top: 32px;
-  }
-  @media (max-width: 1080px) { .how-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 640px)  { .how-grid { grid-template-columns: 1fr; } }
-  .how-card {
-    background: rgba(255,255,255,.72);
-    border: 1px solid rgba(8,9,12,.06);
-    border-radius: 22px;
-    padding: 22px;
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  html[data-theme="dark"] .how-card {
-    background: rgba(16, 26, 13, .56);
-    border-color: rgba(255,255,255,.08);
-  }
-  .how-card .how-step {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 38px; height: 38px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--green), var(--green-2));
-    color: #13220b;
-    font-weight: 900; font-size: 14px; letter-spacing: 0;
-    box-shadow: 0 6px 18px rgba(185,255,36,.28);
-  }
-  .how-card h3 { font-size: 19px; font-weight: 800; margin-top: 4px; }
-  .how-card p  { color: var(--muted); font-size: 14px; line-height: 1.55; }
-  html[data-theme="dark"] .how-card p { color: #c6d3b8; }
-
-  /* Placeholders pour screens à fournir */
-  .screen-placeholder {
-    margin-top: 12px;
-    aspect-ratio: 16 / 9;
-    border-radius: 14px;
-    background:
-      repeating-linear-gradient(45deg, rgba(185,255,36,.04) 0 10px, transparent 10px 20px),
-      rgba(16, 26, 13, .35);
-    border: 1.5px dashed rgba(185,255,36,.45);
-    display: grid; place-items: center;
-    text-align: center; padding: 16px;
-    overflow: hidden;
-  }
-  .screen-placeholder.big { aspect-ratio: 16 / 9; min-height: 280px; }
-  .screen-placeholder .ph-label {
-    color: rgba(185,255,36,.85);
-    font-family: ui-monospace, 'JetBrains Mono', monospace;
-    font-size: 12px; font-weight: 600;
-    line-height: 1.4; max-width: 90%;
-  }
-  html[data-theme="dark"] .screen-placeholder {
-    background:
-      repeating-linear-gradient(45deg, rgba(185,255,36,.05) 0 10px, transparent 10px 20px),
-      rgba(8, 14, 6, .55);
-  }
-
-  /* ===== Section Showcase ===== */
-  .showcase-section { padding-top: clamp(40px, 6vw, 80px); }
-  .showcase-row {
-    display: grid; grid-template-columns: 1fr 1.2fr;
-    gap: clamp(28px, 5vw, 72px);
-    align-items: center;
-    margin-top: 56px;
-  }
-  .showcase-row.reverse { grid-template-columns: 1.2fr 1fr; }
-  .showcase-row.reverse .showcase-copy { order: 2; }
-  .showcase-row.reverse .showcase-visual { order: 1; }
-  @media (max-width: 880px) {
-    .showcase-row, .showcase-row.reverse { grid-template-columns: 1fr; gap: 24px; }
-    .showcase-row.reverse .showcase-copy,
-    .showcase-row.reverse .showcase-visual { order: 0; }
-  }
-  .showcase-copy h3 {
-    font-size: clamp(22px, 2.4vw, 30px);
-    font-weight: 800; line-height: 1.15;
-    letter-spacing: -.01em;
-    margin-bottom: 12px;
-  }
-  .showcase-copy p {
-    color: var(--muted); font-size: clamp(14px, 1.1vw, 16px);
-    line-height: 1.6; margin-bottom: 18px;
-  }
-  html[data-theme="dark"] .showcase-copy p { color: #c6d3b8; }
-  .showcase-copy code {
-    background: rgba(185,255,36,.12); color: var(--green-deep);
-    padding: 2px 7px; border-radius: 5px; font-size: 13px;
-  }
-  html[data-theme="dark"] .showcase-copy code { color: #d9ff8a; }
-  .showcase-visual .screen-placeholder { margin-top: 0; min-height: 320px; }
-
-  /* ===== Section Comparaison ===== */
-  .compare-section { padding-top: clamp(40px, 6vw, 80px); }
-  .compare-card {
-    background: rgba(255,255,255,.72);
-    border: 1px solid rgba(8,9,12,.06);
-    border-radius: 28px;
-    padding: 36px 28px;
-    overflow-x: auto;
-  }
-  html[data-theme="dark"] .compare-card {
-    background: rgba(16,26,13,.56);
-    border-color: rgba(255,255,255,.08);
-  }
-  .compare-table {
-    width: 100%; border-collapse: collapse;
-    font-size: 14px;
-    min-width: 540px;
-  }
-  .compare-table th, .compare-table td {
-    padding: 12px 14px; text-align: left;
-    border-bottom: 1px solid rgba(8,9,12,.08);
-  }
-  html[data-theme="dark"] .compare-table th,
-  html[data-theme="dark"] .compare-table td {
-    border-bottom-color: rgba(255,255,255,.08);
-  }
-  .compare-table th {
-    font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
-    font-weight: 800; color: var(--muted);
-  }
-  .compare-table th.us {
-    background: linear-gradient(180deg, rgba(185,255,36,.18), rgba(100,217,27,.10));
-    color: var(--green-deep); border-radius: 12px 12px 0 0;
-  }
-  html[data-theme="dark"] .compare-table th.us { color: var(--green); }
-  .compare-table td.us { background: rgba(185,255,36,.06); font-weight: 700; }
-  .compare-table .yes { color: var(--green-2); font-weight: 800; }
-  html[data-theme="dark"] .compare-table .yes { color: var(--green); }
-  .compare-table .no  { color: #d54a4a; font-weight: 600; opacity: .85; }
-  .compare-table .partial { color: #d9892a; font-weight: 700; }
-
   .feature-console {
     position: relative;
     z-index: 1;
@@ -2322,6 +2185,7 @@
 
       <nav class="nav-links" aria-label="Sections">
         <a href="/commandes.html">Commandes</a>
+        <a href="/docs.html">Docs</a>
         <a href="/faq.html">FAQ</a>
         <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
         <a href="https://dashboard.tookbot.click/privacy">Privacy</a>
@@ -2357,6 +2221,7 @@
 
     <div id="nav-drawer" class="nav-drawer" hidden>
       <a href="/commandes.html">Commandes</a>
+      <a href="/docs.html">Docs</a>
       <a href="/faq.html">FAQ</a>
       <a href="#dashboard">Dashboard preview</a>
       <a href="https://dashboard.tookbot.click/dashboard">Dashboard web</a>
@@ -2442,117 +2307,6 @@
         </div>
       </div>
 
-      <!-- ===== Comment ça marche : 4 steps ===== -->
-      <section class="reveal how-section" aria-labelledby="how-title">
-        <div class="section-head" style="grid-template-columns: 1fr;">
-          <div>
-            <span class="eyebrow">Comment ça marche</span>
-            <h2 id="how-title">De l'invitation au premier message, 2 minutes max.</h2>
-            <p class="how-intro">Aucune commande à apprendre. TookBot configure les bases tout seul et tu actives ce que tu veux depuis le dashboard.</p>
-          </div>
-        </div>
-
-        <div class="how-grid">
-          <article class="how-card reveal">
-            <div class="how-step">01</div>
-            <h3>Invite TookBot</h3>
-            <p>Un clic sur <strong>Inviter</strong>, choisis ton serveur, autorise les permissions. TookBot rejoint et envoie un message de bienvenue dans #général.</p>
-            <div class="screen-placeholder" data-screen="01-invite">
-              <span class="ph-label">Screen 01 : capture du modal d'invitation Discord avec TookBot sélectionné</span>
-            </div>
-          </article>
-
-          <article class="how-card reveal">
-            <div class="how-step">02</div>
-            <h3>Lance <code>/setup</code></h3>
-            <p>TookBot te propose une checklist : salon de bienvenue, salon de logs, salon d'alertes, rôle modérateur. Cliques, c'est fait.</p>
-            <div class="screen-placeholder" data-screen="02-setup">
-              <span class="ph-label">Screen 02 : embed Discord de /setup avec menus déroulants pour chaque salon</span>
-            </div>
-          </article>
-
-          <article class="how-card reveal">
-            <div class="how-step">03</div>
-            <h3>Configure depuis le dashboard</h3>
-            <p>Connecte-toi avec Discord sur <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a>. Toggle on/off par feature, builders visuels, stats temps réel.</p>
-            <div class="screen-placeholder" data-screen="03-dashboard-features">
-              <span class="ph-label">Screen 03 : page dashboard /features avec toggles on/off colorés</span>
-            </div>
-          </article>
-
-          <article class="how-card reveal">
-            <div class="how-step">04</div>
-            <h3>Tes membres profitent</h3>
-            <p>Musique, XP, duels, tickets, alertes Twitch. 76+ commandes slash disponibles. Aucun préfixe à mémoriser, tout passe par l'autocomplétion Discord.</p>
-            <div class="screen-placeholder" data-screen="04-members-using">
-              <span class="ph-label">Screen 04 : capture chat Discord avec plusieurs membres utilisant /play, /niveau, /duel</span>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <!-- ===== Showcase : grands mockups par section ===== -->
-      <section class="reveal showcase-section" aria-labelledby="showcase-section-title">
-        <div class="section-head" style="grid-template-columns: 1fr;">
-          <div>
-            <span class="eyebrow">En images</span>
-            <h2 id="showcase-section-title">Ce que ça donne, vraiment.</h2>
-          </div>
-        </div>
-
-        <div class="showcase-row">
-          <div class="showcase-copy">
-            <h3>🎵 Musique multi-sources</h3>
-            <p>YouTube, SoundCloud, Spotify, Bandcamp. File complète, barre de progression live, contrôles précis (skip à la position N, volume gratuit, queue clear, pause/resume). Stats d'écoute persistantes par serveur.</p>
-            <a class="btn btn-secondary" href="/commandes.html#musique">Voir les commandes musique →</a>
-          </div>
-          <div class="showcase-visual">
-            <div class="screen-placeholder big" data-screen="showcase-music">
-              <span class="ph-label">Screen showcase-music : embed /nowplaying complet avec thumbnail, barre de progression, 3 next tracks</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="showcase-row reverse">
-          <div class="showcase-copy">
-            <h3>⭐ XP, niveaux et cartes profil</h3>
-            <p>Chaque message nourrit l'XP avec un anti-spam cooldown. Carte profil personnalisable (background, couleur, badges). Leaderboard serveur via <code>/leaderboard</code>. Daily streak et pass saisonnier avec missions et récompenses.</p>
-            <a class="btn btn-secondary" href="/commandes.html#xp">Voir les commandes XP →</a>
-          </div>
-          <div class="showcase-visual">
-            <div class="screen-placeholder big" data-screen="showcase-xp">
-              <span class="ph-label">Screen showcase-xp : carte /niveau premium avec background custom + barre de progression vers level up</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="showcase-row">
-          <div class="showcase-copy">
-            <h3>🎛️ Dashboard web complet</h3>
-            <p>Stats temps réel (heatmap d'activité, top commandes, top pistes musicales), builders visuels pour tickets et rôles-réaction, modération avec config seuils, queue musique pilotable depuis le navigateur. OAuth Discord, hébergé en Allemagne.</p>
-            <a class="btn btn-secondary" href="https://dashboard.tookbot.click" target="_blank" rel="noopener">Ouvrir le dashboard →</a>
-          </div>
-          <div class="showcase-visual">
-            <div class="screen-placeholder big" data-screen="showcase-dashboard">
-              <span class="ph-label">Screen showcase-dashboard : page overview du dashboard avec graphs + sidebar nav visible</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="showcase-row reverse">
-          <div class="showcase-copy">
-            <h3>⚔️ Mini-jeux et trackers</h3>
-            <p>Duels de sabres laser (combat tour par tour, mindgame attaque/défense, collection, boutique, pass saisonnier). Stats Counter-Strike 2 + Faceit avec rank role auto, prix de skins live et inventaire valorisé en euros. Rangs LoL et masteries.</p>
-            <a class="btn btn-secondary" href="/commandes.html#duel">Voir tous les jeux →</a>
-          </div>
-          <div class="showcase-visual">
-            <div class="screen-placeholder big" data-screen="showcase-games">
-              <span class="ph-label">Screen showcase-games : embed /duel fight en cours avec stats des deux joueurs + boutons attaque/défense</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="features" class="reveal" aria-labelledby="features-title">
         <div class="section-head">
           <div>
@@ -2628,46 +2382,6 @@
             <p>OAuth Discord, stats temps réel, builders visuels (tickets, alertes, rôles-réaction, welcome), gestion XP, queue musique en live avec contrôles depuis le navigateur, permissions par rôle, promo codes. Hébergé en Allemagne, 24/7.</p>
           </article>
 
-        </div>
-      </section>
-
-      <!-- ===== Comparaison vs autres bots ===== -->
-      <section class="reveal compare-section" aria-labelledby="compare-title">
-        <div class="section-head" style="grid-template-columns: 1fr;">
-          <div>
-            <span class="eyebrow">Vs les gros bots</span>
-            <h2 id="compare-title">Tout-en-un, sans paywall sur l'essentiel.</h2>
-            <p class="how-intro">Là où la plupart des bots séparent musique, modération et XP en plusieurs apps payantes, TookBot garde tout gratuit et regroupé.</p>
-          </div>
-        </div>
-
-        <div class="compare-card">
-          <table class="compare-table">
-            <thead>
-              <tr>
-                <th>Fonctionnalité</th>
-                <th class="us">TookBot</th>
-                <th>Jockie Music</th>
-                <th>Hydra</th>
-                <th>MEE6</th>
-                <th>Carl-bot</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Musique YouTube + SoundCloud</td><td class="us"><span class="yes">Oui</span></td><td><span class="yes">Oui</span></td><td><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
-              <tr><td>Spotify (track / album / playlist)</td><td class="us"><span class="yes">Oui · gratuit</span></td><td><span class="partial">Premium</span></td><td><span class="partial">Premium</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
-              <tr><td>Volume + skip à la position</td><td class="us"><span class="yes">Gratuit</span></td><td><span class="partial">Premium</span></td><td><span class="partial">Premium</span></td><td><span class="no">N/A</span></td><td><span class="no">N/A</span></td></tr>
-              <tr><td>Stats d'écoute par serveur</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
-              <tr><td>XP + cartes profil custom</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="partial">Limité gratuit</span></td><td><span class="no">Non</span></td></tr>
-              <tr><td>Modération (warn, ban, kick, logs)</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="yes">Oui</span></td><td><span class="yes">Oui</span></td></tr>
-              <tr><td>Tickets + transcripts</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="partial">Premium</span></td><td><span class="yes">Oui</span></td></tr>
-              <tr><td>Rôles-réaction (emoji + boutons)</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="partial">Premium</span></td><td><span class="yes">Oui</span></td></tr>
-              <tr><td>Mini-jeux RPG (duels)</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
-              <tr><td>Trackers CS2 + LoL</td><td class="us"><span class="yes">Oui</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td><td><span class="no">Non</span></td></tr>
-              <tr><td>Dashboard web complet</td><td class="us"><span class="yes">Oui</span></td><td><span class="partial">Limité</span></td><td><span class="partial">Limité</span></td><td><span class="yes">Oui</span></td><td><span class="yes">Oui</span></td></tr>
-              <tr><td>Hébergé en Europe (RGPD)</td><td class="us"><span class="yes">Allemagne</span></td><td><span class="partial">US</span></td><td><span class="partial">US</span></td><td><span class="partial">US</span></td><td><span class="partial">US</span></td></tr>
-            </tbody>
-          </table>
         </div>
       </section>
 
