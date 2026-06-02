@@ -8,6 +8,14 @@ import os
 from flask import render_template, request, jsonify, g, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 
+# Imports DB directs (pas via deps : ces fonctions sont propres a cette page).
+from database import (
+    guild_bot_profile_get, guild_bot_profile_set,
+    guild_bot_profile_mark_applied, guild_bot_profile_clear,
+    guild_bot_profile_list_all,
+    has_premium_grant, user_has_active_entitlement,
+)
+
 
 # Repo root pour stocker les uploads
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
