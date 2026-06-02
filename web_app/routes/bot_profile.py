@@ -67,6 +67,14 @@ def register_bot_profile_routes(app, deps):
 
     @app.route("/api/bot-profile", methods=["POST"])
     def api_bot_profile_set():
+        try:
+            return _api_bot_profile_set_impl()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({"error": f"Exception serveur : {type(e).__name__}: {e}"}), 500
+
+    def _api_bot_profile_set_impl():
         uid = (g.discord_user.get("user_id") or g.discord_user.get("id")) if g.discord_user else None
         if not uid or not _is_tookbot_plus(uid):
             return jsonify({"error": "TookBot+ requis"}), 402

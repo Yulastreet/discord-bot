@@ -96,8 +96,15 @@
   }
   .bp-preview-section p {
     color: #dbdee1; font-size: 13.5px; line-height: 1.45;
-    word-wrap: break-word;
+    word-wrap: break-word; white-space: pre-wrap;
   }
+  .bp-preview-section p strong { color: #fff; font-weight: 700; }
+  .bp-preview-section p em     { font-style: italic; }
+  .bp-preview-section p u      { text-decoration: underline; }
+  .bp-preview-section p s      { text-decoration: line-through; opacity: .75; }
+  .bp-preview-section p code   { background: #1e1f22; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 12px; color: #dbdee1; }
+  .bp-preview-section p pre    { background: #1e1f22; padding: 8px 10px; border-radius: 4px; margin: 4px 0; font-family: ui-monospace, monospace; font-size: 12px; color: #dbdee1; white-space: pre-wrap; }
+  .bp-preview-section p a      { color: #00a8fc; text-decoration: none; }
 
   /* Paywall overlay */
   .bp-paywall-scrim {
@@ -173,8 +180,8 @@
     <div class="bp-section">
       <h3>À propos (bio)</h3>
       <div class="hint">Modifie la bio affichée sur le profil du bot. <em>Note : la bio est globale (même sur tous les serveurs), limitation Discord.</em></div>
-      <textarea name="about_me" id="bpAbout" class="bp-textarea" maxlength="190" placeholder="Bot tout-en-un : musique, modération, XP, mini-jeux."></textarea>
-      <div class="bp-counter"><span id="bpAboutCount">0</span>/190</div>
+      <textarea name="about_me" id="bpAbout" class="bp-textarea" maxlength="400" placeholder="Bot tout-en-un : musique, modération, XP, mini-jeux.&#10;&#10;Markdown Discord supporté : **gras** *italique* __souligné__ ~~barré~~ `code` ```bloc```"></textarea>
+      <div class="bp-counter"><span id="bpAboutCount">0</span>/400</div>
     </div>
 
     <div class="bp-section">
@@ -273,20 +280,51 @@
 {% endif %}
 
 <script>
+// Markdown Discord -> HTML pour preview (subset : bold, italic, underline, strike, code, codeblock, link)
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function discordMarkdown(raw) {
+  if (!raw) return '';
+  let s = escapeHtml(raw);
+  // Codeblock ``` (avant inline code)
+  s = s.replace(/```([\s\S]*?)```/g, (_, c) => '<pre>' + c + '</pre>');
+  // Inline code `...`
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Bold + italic ***...***
+  s = s.replace(/\*\*\*([^*\n]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+  // Bold **...**
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  // Underline __...__
+  s = s.replace(/__([^_\n]+)__/g, '<u>$1</u>');
+  // Strike ~~...~~
+  s = s.replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
+  // Italic *...* (apres bold)
+  s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  // Italic _..._  (single underscore)
+  s = s.replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, '$1<em>$2</em>');
+  // Link [text](url)
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s;
+}
+
 // Counters + preview live
-function bind(id, counterId, previewId) {
+function bind(id, counterId, previewId, isMarkdown) {
   const el = document.getElementById(id);
   const cnt = document.getElementById(counterId);
   const prev = previewId ? document.getElementById(previewId) : null;
   if (!el) return;
   function upd() {
-    cnt.textContent = el.value.length;
-    if (prev) prev.textContent = el.value || prev.dataset.placeholder || prev.textContent;
+    if (cnt) cnt.textContent = el.value.length;
+    if (prev) {
+      if (isMarkdown) prev.innerHTML = discordMarkdown(el.value) || prev.dataset.placeholder || '';
+      else            prev.textContent = el.value || prev.dataset.placeholder || prev.textContent;
+    }
   }
   el.addEventListener('input', upd); upd();
 }
-bind('bpNick',  'bpNickCount',  'bpPreviewName');
-bind('bpAbout', 'bpAboutCount', 'bpPreviewAbout');
+bind('bpNick',  'bpNickCount',  'bpPreviewName',  false);
+bind('bpAbout', 'bpAboutCount', 'bpPreviewAbout', true);
 
 function bindFile(id, thumbId, previewBg, isAvatar) {
   const inp = document.getElementById(id);
@@ -318,14 +356,21 @@ document.getElementById('bpForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (document.body.classList.contains('bp-preview-mode')) return;
   const btn = document.getElementById('bpSave');
-  btn.disabled = true; btn.textContent = 'Application...';
+  btn.disabled = true; btn.textContent = 'Application en cours...';
   try {
     const fd = new FormData(e.target);
     const r = await fetch('/api/bot-profile', { method: 'POST', body: fd });
-    const d = await r.json();
+    // Lire texte brut puis tenter JSON (evite "Unexpected token <" si HTML retourne)
+    const rawText = await r.text();
+    let d;
+    try { d = JSON.parse(rawText); }
+    catch (_) { d = { error: `Reponse non-JSON (HTTP ${r.status}). Detail : ${rawText.slice(0, 200)}` }; }
     if (r.ok && d.ok) { btn.textContent = 'Appliqué ✓'; setTimeout(() => { btn.textContent = 'Sauvegarder & appliquer'; btn.disabled = false; }, 1800); }
-    else { alert('Erreur : ' + (d.error || d.body || r.status)); btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer'; }
-  } catch (err) { alert('Erreur : ' + err.message); btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer'; }
+    else {
+      alert('Erreur : ' + (d.error || (d.body && JSON.stringify(d.body)) || ('HTTP ' + r.status)));
+      btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer';
+    }
+  } catch (err) { alert('Erreur réseau : ' + err.message); btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer'; }
 });
 
 document.getElementById('bpReset').addEventListener('click', async () => {
