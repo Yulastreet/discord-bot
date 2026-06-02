@@ -1,4 +1,5 @@
 import sqlite3
+import datetime as _dt
 from typing import Optional
 
 def get_db():
@@ -96,6 +97,18 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_guild_ts ON music_plays(guild_id, played_at DESC)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_title    ON music_plays(guild_id, track_title)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_user     ON music_plays(guild_id, user_id)")
+
+    # ===== Uptime checks (page /status.html, barres heure par heure) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS service_uptime_check (
+        component   TEXT NOT NULL,
+        hour_bucket TEXT NOT NULL,
+        checks      INTEGER DEFAULT 0,
+        oks         INTEGER DEFAULT 0,
+        last_ok     INTEGER DEFAULT 0,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (component, hour_bucket)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_uptime_component_ts ON service_uptime_check(component, hour_bucket DESC)")
 
     # ===== Table bot_commands (queue web -> bot, polling 1.5s) =====
     c.execute('''CREATE TABLE IF NOT EXISTS bot_commands (
@@ -1161,6 +1174,48 @@ def music_state_disconnect(guild_id):
 
 
 # ===== Music plays telemetry =====
+def service_uptime_log(component: str, ok: bool):
+    """Enregistre un check uptime pour un component dans le bucket de l'heure courante.
+
+    UPSERT par (component, hour_bucket). On garde checks total + oks pour calculer
+    le ratio par heure, et last_ok pour determiner la couleur de la barre.
+    """
+    conn = get_db()
+    c = conn.cursor()
+    hour_bucket = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:00")
+    c.execute("""
+        INSERT INTO service_uptime_check (component, hour_bucket, checks, oks, last_ok, updated_at)
+        VALUES (?, ?, 1, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(component, hour_bucket) DO UPDATE SET
+            checks  = checks + 1,
+            oks     = oks + ?,
+            last_ok = ?,
+            updated_at = CURRENT_TIMESTAMP
+    """, (component, hour_bucket, int(bool(ok)), int(bool(ok)), int(bool(ok)), int(bool(ok))))
+    conn.commit()
+    conn.close()
+
+
+def service_uptime_history(component: str, hours: int = 24) -> list:
+    """Retourne les checks des N dernieres heures pour un component.
+
+    Liste de dicts {hour_bucket, checks, oks, last_ok}. Ordre chronologique ascendant.
+    Les heures sans check sont absentes (a padder cote frontend si besoin).
+    """
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        SELECT hour_bucket, checks, oks, last_ok
+        FROM service_uptime_check
+        WHERE component = ?
+          AND hour_bucket >= strftime('%Y-%m-%d %H:00', datetime('now', ?))
+        ORDER BY hour_bucket ASC
+    """, (component, f"-{int(hours)} hours"))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
 def music_play_log(guild_id, user_id, track_title, track_url=None, source=None, duration=None):
     """Enregistre une lecture musicale (appele depuis play_next sur succes)."""
     conn = get_db()

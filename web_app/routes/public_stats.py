@@ -117,7 +117,80 @@ def register_public_stats_routes(app, deps):
             _PUBLIC_STATUS_CACHE["data"]    = data
             _PUBLIC_STATUS_CACHE["expires"] = now + _PUBLIC_STATUS_TTL_SEC
 
+            # Log uptime checks par component (best-effort, ne casse pas la reponse si echec)
+            try:
+                from database import service_uptime_log
+                service_uptime_log("bot",          bot_online)
+                service_uptime_log("dashboard",    True)
+                service_uptime_log("music_engine", music_ok)
+            except Exception as e:
+                print(f"[uptime log] {e}")
+
         resp = jsonify(data)
+        resp.headers["Access-Control-Allow-Origin"]  = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "GET"
+        resp.headers["Cache-Control"]                = "public, max-age=30"
+        return resp
+
+
+    @app.route("/api/public-status/history", methods=["GET"])
+    def api_public_status_history():
+        """Historique uptime par component pour les N dernieres heures (default 48).
+
+        Reponse : {hours, components: {bot: [...], dashboard: [...], music_engine: [...]}}
+        Chaque entry : {hour_offset, ok, oks, checks}. hour_offset 0 = heure courante,
+        -1 = il y a 1h, etc. Les heures sans data sont incluses avec ok=null.
+        """
+        import datetime as _dt2
+        try:
+            hours = int(request.args.get("hours", 48))
+        except Exception:
+            hours = 48
+        hours = max(1, min(168, hours))  # cap 1 semaine
+
+        from database import service_uptime_history
+
+        # Build dict hour_bucket -> {ok, oks, checks} par component
+        now_hour = _dt2.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        out = {"hours": hours, "components": {}}
+        for comp in ("bot", "dashboard", "music_engine"):
+            raw = service_uptime_history(comp, hours)
+            by_bucket = {row["hour_bucket"]: row for row in raw}
+            series = []
+            for h in range(hours, -1, -1):
+                bucket_dt = now_hour - _dt2.timedelta(hours=h)
+                key = bucket_dt.strftime("%Y-%m-%d %H:00")
+                row = by_bucket.get(key)
+                if row:
+                    series.append({
+                        "hour":   key,
+                        "offset": -h,
+                        "ok":     bool(row.get("last_ok")),
+                        "oks":    int(row.get("oks") or 0),
+                        "checks": int(row.get("checks") or 0),
+                    })
+                else:
+                    series.append({
+                        "hour":   key,
+                        "offset": -h,
+                        "ok":     None,
+                        "oks":    0,
+                        "checks": 0,
+                    })
+            # Uptime % sur la fenetre (que sur les heures avec data)
+            with_data = [s for s in series if s["checks"] > 0]
+            if with_data:
+                total_checks = sum(s["checks"] for s in with_data)
+                total_oks    = sum(s["oks"]    for s in with_data)
+                uptime_pct   = round(100.0 * total_oks / total_checks, 2)
+            else:
+                uptime_pct = None
+            out["components"][comp] = {
+                "series":     series,
+                "uptime_pct": uptime_pct,
+            }
+
+        resp = jsonify(out)
         resp.headers["Access-Control-Allow-Origin"]  = "*"
         resp.headers["Access-Control-Allow-Methods"] = "GET"
         resp.headers["Cache-Control"]                = "public, max-age=30"

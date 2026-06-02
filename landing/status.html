@@ -233,6 +233,58 @@
   .sub-row .sub-badge.down .dot { background: var(--red);   box-shadow: 0 0 5px var(--red); }
   .sub-row .sub-badge.ok   { color: var(--ink-2); }
 
+  /* ===== Uptime bars (1 trait = 1h) ===== */
+  .uptime-block {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .uptime-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 8px;
+  }
+  .uptime-head .lbl {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--muted);
+  }
+  .uptime-head .pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 700; color: var(--green);
+  }
+  .uptime-bars {
+    display: flex; align-items: stretch; gap: 2px;
+    height: 28px;
+  }
+  .uptime-bars .bar {
+    flex: 1; min-width: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.08);
+    position: relative;
+    transition: transform .12s;
+    cursor: help;
+  }
+  .uptime-bars .bar.ok   { background: linear-gradient(180deg, #b9ff24, #64d91b); box-shadow: 0 0 4px rgba(185,255,36,.4); }
+  .uptime-bars .bar.down { background: linear-gradient(180deg, #ff7a7a, #d54a4a); box-shadow: 0 0 4px rgba(255,94,94,.5); }
+  .uptime-bars .bar.partial { background: linear-gradient(180deg, #ffb84e, #d9892a); }
+  .uptime-bars .bar.empty { background: rgba(255,255,255,.06); }
+  .uptime-bars .bar:hover { transform: scaleY(1.15); }
+  .uptime-bars .bar[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%);
+    background: #060c04; color: var(--ink-2);
+    padding: 5px 9px; border-radius: 5px;
+    font-size: 10.5px; font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+    border: 1px solid var(--border); z-index: 10;
+    pointer-events: none;
+  }
+  .uptime-axis {
+    display: flex; justify-content: space-between;
+    margin-top: 6px;
+    font-size: 10px; color: var(--muted-2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
   /* Footer info */
   .footer-info {
     text-align: center; color: var(--muted); font-size: 13px;
@@ -321,6 +373,14 @@
         <span class="k">Vocaux actifs</span><span class="v" id="botVoice">—</span>
         <span class="k">Dernier ping</span><span class="v" id="botAge">—</span>
       </div>
+      <div class="uptime-block">
+        <div class="uptime-head">
+          <span class="lbl">Uptime 48h</span>
+          <span class="pct" id="upBotPct">—</span>
+        </div>
+        <div class="uptime-bars" id="upBotBars"></div>
+        <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+      </div>
     </article>
 
     <article class="card">
@@ -335,6 +395,14 @@
         <span class="k">URL</span><span class="v">dashboard.tookbot.click</span>
         <span class="k">OAuth Discord</span><span class="v good">Opérationnel</span>
         <span class="k">API REST</span><span class="v good">Joignable</span>
+      </div>
+      <div class="uptime-block">
+        <div class="uptime-head">
+          <span class="lbl">Uptime 48h</span>
+          <span class="pct" id="upDashPct">—</span>
+        </div>
+        <div class="uptime-bars" id="upDashBars"></div>
+        <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
       </div>
     </article>
 
@@ -355,6 +423,14 @@
         <span class="sub-badge" id="badgeBgutil"><span class="dot"></span>bgutil-pot</span>
         <span class="sub-badge" id="badgePrivoxy"><span class="dot"></span>Privoxy</span>
       </div>
+      <div class="uptime-block">
+        <div class="uptime-head">
+          <span class="lbl">Uptime 48h</span>
+          <span class="pct" id="upMusicPct">—</span>
+        </div>
+        <div class="uptime-bars" id="upMusicBars"></div>
+        <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+      </div>
     </article>
 
   </div>
@@ -366,7 +442,9 @@
 </main>
 
 <script>
-  const API = (window.location.hostname.includes('localhost') ? '' : 'https://dashboard.tookbot.click') + '/api/public-status';
+  const API_BASE     = window.location.hostname.includes('localhost') ? '' : 'https://dashboard.tookbot.click';
+  const API_STATUS   = API_BASE + '/api/public-status';
+  const API_HISTORY  = API_BASE + '/api/public-status/history?hours=48';
   let timer = null;
 
   function fmtAge(sec) {
@@ -391,15 +469,72 @@
     const btn = document.getElementById('refreshBtn');
     if (manual) btn.classList.add('spinning');
     try {
-      const r = await fetch(API, { cache: 'no-store' });
-      if (!r.ok) throw new Error(r.status);
-      const d = await r.json();
+      const [statusRes, historyRes] = await Promise.all([
+        fetch(API_STATUS,  { cache: 'no-store' }),
+        fetch(API_HISTORY, { cache: 'no-store' }).catch(() => null),
+      ]);
+      if (!statusRes.ok) throw new Error(statusRes.status);
+      const d = await statusRes.json();
       render(d);
+      if (historyRes && historyRes.ok) {
+        const h = await historyRes.json();
+        renderHistory(h);
+      } else {
+        // history pas dispo (endpoint pas encore deploy) : bars vides
+        renderHistoryEmpty();
+      }
     } catch (e) {
       renderError(e);
+      renderHistoryEmpty();
     } finally {
       setTimeout(() => btn.classList.remove('spinning'), 400);
     }
+  }
+
+  function buildBars(containerId, pctId, series, uptimePct) {
+    const c = document.getElementById(containerId);
+    const p = document.getElementById(pctId);
+    if (!c) return;
+    if (!series || !series.length) {
+      // 48 bars vides (placeholder)
+      c.innerHTML = Array(49).fill('<span class="bar empty" data-tooltip="Aucune donnée"></span>').join('');
+      if (p) p.textContent = '—';
+      return;
+    }
+    c.innerHTML = series.map(s => {
+      let cls = 'empty';
+      let tip;
+      if (s.checks > 0) {
+        const ratio = s.oks / s.checks;
+        if      (ratio >= 0.95) cls = 'ok';
+        else if (ratio <  0.10) cls = 'down';
+        else                    cls = 'partial';
+        tip = `${s.hour.split(' ')[1]} · ${s.oks}/${s.checks} OK`;
+      } else {
+        tip = `${s.hour.split(' ')[1]} · pas de check`;
+      }
+      return `<span class="bar ${cls}" data-tooltip="${tip}"></span>`;
+    }).join('');
+    if (p) {
+      if (uptimePct == null) p.textContent = '—';
+      else {
+        p.textContent = uptimePct.toFixed(2) + ' %';
+        p.style.color = uptimePct >= 99 ? 'var(--green)' : (uptimePct >= 95 ? 'var(--amber)' : 'var(--red)');
+      }
+    }
+  }
+
+  function renderHistory(h) {
+    const comps = h.components || {};
+    buildBars('upBotBars',   'upBotPct',   (comps.bot          || {}).series, (comps.bot          || {}).uptime_pct);
+    buildBars('upDashBars',  'upDashPct',  (comps.dashboard    || {}).series, (comps.dashboard    || {}).uptime_pct);
+    buildBars('upMusicBars', 'upMusicPct', (comps.music_engine || {}).series, (comps.music_engine || {}).uptime_pct);
+  }
+
+  function renderHistoryEmpty() {
+    buildBars('upBotBars',   'upBotPct',   null, null);
+    buildBars('upDashBars',  'upDashPct',  null, null);
+    buildBars('upMusicBars', 'upMusicPct', null, null);
   }
 
   function render(d) {
