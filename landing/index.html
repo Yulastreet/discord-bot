@@ -1153,6 +1153,149 @@
     color: #13220b;
   }
 
+  /* ============ Discord-style showcase (marquees) ============ */
+  .discord-showcase {
+    padding: clamp(60px, 8vw, 100px) 0 clamp(40px, 6vw, 70px);
+    overflow: hidden;
+  }
+  .discord-showcase .showcase-inner {
+    width: min(calc(100% - 32px), var(--max));
+    margin: 0 auto 38px;
+    text-align: center;
+  }
+  .discord-showcase .showcase-inner .eyebrow { display: inline-block; }
+  .discord-showcase h2 {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800; letter-spacing: -0.02em;
+    margin-top: 14px;
+  }
+  .discord-showcase .showcase-sub {
+    color: var(--muted); font-size: clamp(14px, 1.2vw, 16px);
+    max-width: 620px; margin: 12px auto 0;
+  }
+  .marquee {
+    overflow: hidden;
+    position: relative;
+    margin: 12px 0;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%);
+  }
+  .marquee-track { display: flex; gap: 18px; width: max-content; will-change: transform; }
+  .marquee-left  .marquee-track { animation: marquee-l 70s linear infinite; }
+  .marquee-right .marquee-track { animation: marquee-r 80s linear infinite; }
+  @keyframes marquee-l { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes marquee-r { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+  .marquee:hover .marquee-track { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .marquee-track { animation: none !important; } }
+  .dc-card {
+    flex: 0 0 auto;
+    width: 420px; max-width: 92vw;
+    background: #313338;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #dbdee1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+  }
+  .dc-msg { display: flex; gap: 12px; align-items: flex-start; }
+  .dc-avatar { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #4f545c; }
+  .dc-msg-body { flex: 1; min-width: 0; }
+  .dc-msg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .dc-name { color: #fff; font-weight: 600; font-size: 15px; }
+  .dc-badge-bot { background: #5865f2; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 3px; line-height: 14px; }
+  .dc-time { color: #949ba4; font-size: 12px; }
+  .dc-embed { margin-top: 4px; background: #2b2d31; border-left: 4px solid #5865f2; border-radius: 4px; padding: 12px 14px; display: flex; gap: 14px; max-width: 100%; }
+  .dc-embed-content { flex: 1; min-width: 0; }
+  .dc-embed-title { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 6px; line-height: 1.3; }
+  .dc-embed-desc { color: #dbdee1; font-size: 13px; line-height: 1.4; margin-bottom: 8px; }
+  .dc-embed-row { display: flex; flex-direction: column; gap: 1px; margin: 6px 0; }
+  .dc-embed-label { color: #fff; font-weight: 600; font-size: 12px; }
+  .dc-embed-value { color: #dbdee1; font-size: 13px; }
+  .dc-embed-progress { height: 5px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .dc-embed-progress span { display: block; height: 100%; background: linear-gradient(90deg, #b9ff24, #64d91b); box-shadow: 0 0 6px rgba(185,255,36,.5); }
+  .dc-embed-foot { color: #949ba4; font-size: 11px; margin-top: 8px; }
+  .dc-embed-thumb { flex-shrink: 0; width: 76px; height: 76px; border-radius: 4px; background: #4f545c; }
+  .dc-btn-green, .dc-btn-blue, .dc-btn-red, .dc-btn-grey {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 3px;
+    font-size: 12.5px; font-weight: 500;
+    margin-right: 6px; margin-top: 6px;
+  }
+  .dc-btn-green { background: #248046; color: #fff; }
+  .dc-btn-blue  { background: #5865f2; color: #fff; }
+  .dc-btn-red   { background: #da373c; color: #fff; }
+  .dc-btn-grey  { background: #4e5058; color: #fff; }
+  .dc-xp-card { margin-top: 6px; background: linear-gradient(135deg, #1a1d24, #2b2d31); border: 1px solid rgba(185,255,36,.18); border-radius: 10px; padding: 14px; display: flex; gap: 14px; align-items: center; }
+  .dc-xp-avatar { flex-shrink: 0; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #b9ff24, #64d91b); border: 3px solid #b9ff24; box-shadow: 0 0 22px rgba(185,255,36,.5); }
+  .dc-xp-info { flex: 1; min-width: 0; }
+  .dc-xp-name { color: #fff; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .dc-xp-prem { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: linear-gradient(135deg, #ffd45e, #ff9d2e); color: #4a2a00; font-size: 9px; font-weight: 800; letter-spacing: .04em; vertical-align: middle; }
+  .dc-xp-stats { display: flex; gap: 12px; margin: 6px 0; font-size: 10px; color: #949ba4; text-transform: uppercase; letter-spacing: .06em; }
+  .dc-xp-stats strong { display: block; color: #fff; font-size: 13px; margin-top: 2px; }
+  .dc-xp-bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; margin: 4px 0; }
+  .dc-xp-bar span { display: block; height: 100%; background: linear-gradient(90deg, #b9ff24, #64d91b); box-shadow: 0 0 6px rgba(185,255,36,.5); }
+  .dc-xp-sub { color: #949ba4; font-size: 11px; margin-top: 4px; }
+  .dc-duel { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 10px 0; }
+  .dc-duel-side { text-align: center; }
+  .dc-duel-avatar { width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 6px; background: linear-gradient(135deg, #b9ff24, #64d91b); border: 2px solid rgba(255,255,255,.1); }
+  .dc-duel-name { color: #fff; font-weight: 600; font-size: 12.5px; }
+  .dc-duel-hp { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; margin: 5px 0 3px; }
+  .dc-duel-hp span { display: block; height: 100%; background: linear-gradient(90deg, #b9ff24, #64d91b); }
+  .dc-duel-sub { color: #949ba4; font-size: 10.5px; }
+  .dc-duel-vs { color: #fff; font-weight: 900; font-size: 16px; opacity: .4; }
+  .dc-duel-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .dc-duel-actions .dc-btn-blue { padding: 4px 8px; font-size: 11px; margin: 0; }
+  .dc-search { margin-top: 6px; background: #2b2d31; border-left: 4px solid #b9ff24; border-radius: 4px; padding: 12px 14px; }
+  .dc-search-title { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .dc-search-hint { color: #949ba4; font-size: 12px; margin-bottom: 8px; }
+  .dc-search-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dc-search-buttons > span { padding: 5px 12px; font-size: 12px; margin: 0; }
+  .dc-mod-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 12.5px; }
+  .dc-mod-row:last-child { border-bottom: 0; }
+  .dc-mod-tag { flex-shrink: 0; font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 3px; letter-spacing: .04em; }
+  .dc-mod-warn { background: #f59e0b; color: #fff; }
+  .dc-mod-mute { background: #ef4444; color: #fff; }
+  .dc-mod-text { flex: 1; color: #dbdee1; }
+  .dc-mod-time { color: #949ba4; font-size: 10.5px; }
+  .dc-welcome { margin-top: 6px; background: #2b2d31; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.05); }
+  .dc-welcome-banner { height: 76px; background: radial-gradient(circle at 25% 50%, rgba(185,255,36,.5), transparent 50%), linear-gradient(135deg, #1a1d24, #2b2d31); }
+  .dc-welcome-body { padding: 12px 14px; }
+  .dc-welcome-title { color: #fff; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .dc-welcome-sub { color: #b5bac1; font-size: 12.5px; line-height: 1.45; }
+  .dc-poll-opt { display: grid; grid-template-columns: 130px 1fr 40px; gap: 8px; align-items: center; margin: 6px 0; font-size: 12px; color: #dbdee1; }
+  .dc-poll-bar { height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; overflow: hidden; }
+  .dc-poll-bar span { display: block; height: 100%; background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+  .dc-poll-opt span:last-child { text-align: right; color: #949ba4; font-size: 11px; }
+  .dc-ticket-buttons, .dc-role-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  /* ============ Support card ============ */
+  .support-section { padding: clamp(60px, 8vw, 100px) 0; }
+  .support-card {
+    max-width: 580px; margin: 36px auto 0;
+    background: linear-gradient(180deg, #313338, #232428);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.5);
+    position: relative;
+  }
+  .support-card-banner { height: 100px; background: radial-gradient(circle at 20% 60%, rgba(185,255,36,.55), transparent 55%), linear-gradient(135deg, #0a1006 0%, #163d12 70%, #0a1006 100%); position: relative; overflow: hidden; }
+  .support-card-banner-glow { position: absolute; inset: 0; background: radial-gradient(circle at 80% 40%, rgba(255,255,255,.10), transparent 30%); }
+  .support-card-icon { position: absolute; top: 64px; left: 22px; width: 80px; height: 80px; border-radius: 22px; background: url('/tookbot-avatar.png') center/cover no-repeat, linear-gradient(135deg, var(--green), var(--green-2)); border: 5px solid #232428; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+  .support-online-dot { position: absolute; bottom: 4px; right: 4px; width: 18px; height: 18px; background: #23a55a; border: 4px solid #232428; border-radius: 50%; }
+  .support-card-body { padding: 56px 24px 24px; }
+  .support-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .support-card-head h3 { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -.01em; }
+  .support-tag { background: rgba(185,255,36,.12); color: var(--green); border: 1px solid rgba(185,255,36,.22); font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; letter-spacing: .08em; }
+  .support-desc { color: #b5bac1; font-size: 14px; line-height: 1.55; margin-bottom: 16px; }
+  .support-meta { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; font-size: 13px; color: #b5bac1; }
+  .support-meta strong { color: #fff; font-weight: 700; margin-right: 4px; }
+  .support-meta .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .support-meta .dot-green { background: #23a55a; box-shadow: 0 0 6px rgba(35,165,90,.6); }
+  .support-meta .dot-gray  { background: #80848e; }
+  .support-cta { width: 100%; justify-content: center; }
+
   .feature-console {
     position: relative;
     z-index: 1;
@@ -2598,130 +2741,449 @@
         </div>
       </section>
 
-      <section class="command-showcase cv-auto" aria-labelledby="showcase-title">
-        <div class="showcase-inner reveal">
-          <span class="eyebrow">Aperçus</span>
+      <!-- ===== Apercus Discord : 2 marquees auto (haut droite vers gauche, bas gauche vers droite) ===== -->
+      <section class="discord-showcase reveal" aria-labelledby="showcase-title">
+        <div class="showcase-inner">
+          <span class="eyebrow">Apercus</span>
           <h2 id="showcase-title">Le bot prend vie dans Discord.</h2>
+          <p class="showcase-sub">Embeds reels, commandes interactives, moderation, mini-jeux : un echantillon de ce que tes membres voient au quotidien.</p>
         </div>
 
-        <div class="horizontal-scroll" data-horizontal-scroll>
-          <div class="horizontal-sticky">
-            <div class="horizontal-track">
-              <article class="bot-screen compact discord-profile tilt-ready">
-                <div class="profile-cover"></div>
-                <div class="profile-avatar"><span class="status-dot"></span></div>
-                <div class="profile-body">
-                  <h3>TookBot <span class="discord-badge">APP</span></h3>
-                  <p>TookBot#9730</p>
-                  <div class="profile-tabs">
-                    <span>Bio</span>
-                    <span>4 serveurs en commun</span>
-                    <span>Données</span>
-                  </div>
-                  <p class="profile-bio">Préfixe : / · Liste complète : /commandes<br>Admin or Mods get access here :<br>https://dashboard.tookbot.click/</p>
-                </div>
-              </article>
-
-              <article class="bot-screen wide xp-banner tilt-ready">
-                <div class="rank-avatar" aria-hidden="true"></div>
-                <div>
-                  <div class="rank-title">
-                    <h3>Tookyn</h3>
-                    <span class="premium-pill">PREMIUM</span>
-                  </div>
-                  <div class="rank-metrics">
-                    <span>NIVEAU<strong>4</strong></span>
-                    <span>XP TOTAL<strong>1 625</strong></span>
-                  </div>
-                  <div class="xp-bar"><span></span></div>
-                  <p>601 / 2 101 XP <strong style="float:right">29%</strong></p>
-                </div>
-              </article>
-
-              <article class="bot-screen commands-screen tilt-ready">
-                <h3>Liste des commandes</h3>
-                <p>Toutes les commandes disponibles, par catégorie.</p>
-                <div class="command-columns">
-                  <div class="command-group">
-                    <strong>Modération</strong>
-                    <code>/clear &lt;nombre&gt;</code>
-                    <code>/kick &lt;membre&gt;</code>
-                    <code>/ban &lt;membre&gt;</code>
-                    <code>/poll &lt;question&gt;</code>
-                    <code>/setwelcome &lt;salon&gt;</code>
-                  </div>
-                  <div class="command-group">
-                    <strong>Fun</strong>
-                    <code>/8ball &lt;question&gt;</code>
-                    <code>/dé</code>
-                    <code>/coinflip</code>
-                    <code>/ship &lt;membre1&gt;</code>
-                    <code>/rate &lt;truc&gt;</code>
-                  </div>
-                  <div class="command-group">
-                    <strong>Niveaux & XP</strong>
-                    <code>/niveau [membre]</code>
-                    <code>/leaderboard</code>
-                    <code>/avatar [membre]</code>
-                  </div>
-                  <div class="command-group">
-                    <strong>Musique</strong>
-                    <code>/join</code>
-                    <code>/play &lt;titre ou lien&gt;</code>
-                    <code>/queue</code>
-                    <code>/skip</code>
-                    <code>/leave</code>
+        <div class="marquee marquee-left">
+          <div class="marquee-track">
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">aujourd'hui a 21:42</span></div>
+                  <div class="dc-embed" style="border-color:#5865f2;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎵 Smokin Love (feat. Collie Buddz)</div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Duree</span><span class="dc-embed-value">1:02 / 3:37</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Salon vocal</span><span class="dc-embed-value">🔊 General</span></div>
+                      <div class="dc-embed-progress"><span style="width:29%"></span></div>
+                      <div class="dc-embed-foot">TookBot · /queue pour la file complete · /skip pour passer</div>
+                    </div>
+                    <div class="dc-embed-thumb" style="background:linear-gradient(135deg,#ff6b6b,#ffa726);"></div>
                   </div>
                 </div>
-              </article>
+              </div>
+            </article>
 
-              <article class="bot-screen compact duel-screen tilt-ready">
-                <div class="duel-grid">
-                  <div>
-                    <h3>Profil de Tookyn</h3>
-                    <p>Statistiques de duel et progression combat.</p>
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">a utilise /niveau</span></div>
+                  <div class="dc-xp-card">
+                    <div class="dc-xp-avatar"></div>
+                    <div class="dc-xp-info">
+                      <div class="dc-xp-name">Tookyn <span class="dc-xp-prem">PREMIUM</span></div>
+                      <div class="dc-xp-stats"><span>NIVEAU<strong>4</strong></span><span>XP TOTAL<strong>1 625</strong></span><span>RANG<strong>#1</strong></span></div>
+                      <div class="dc-xp-bar"><span style="width:29%"></span></div>
+                      <div class="dc-xp-sub">601 / 2 101 XP · 29%</div>
+                    </div>
                   </div>
-                  <div class="duel-avatar" aria-hidden="true"></div>
                 </div>
-                <div class="duel-stats">
-                  <span>TookCoins<strong>800</strong></span>
-                  <span>Victoires<strong>8</strong></span>
-                  <span>Défaites<strong>5</strong></span>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/duel fight</span></div>
+                  <div class="dc-embed" style="border-color:#b9ff24;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">⚔️ Duel en cours</div>
+                      <div class="dc-duel">
+                        <div class="dc-duel-side"><div class="dc-duel-avatar"></div><div class="dc-duel-name">tookyn</div><div class="dc-duel-hp"><span style="width:80%"></span></div><div class="dc-duel-sub">80/100 PV</div></div>
+                        <div class="dc-duel-vs">VS</div>
+                        <div class="dc-duel-side"><div class="dc-duel-avatar" style="background:linear-gradient(135deg,#ff6b6b,#c44);"></div><div class="dc-duel-name">sensiby</div><div class="dc-duel-hp"><span style="width:55%;background:linear-gradient(90deg,#ff6b6b,#d54a4a);"></span></div><div class="dc-duel-sub">55/100 PV</div></div>
+                      </div>
+                      <div class="dc-duel-actions"><span class="dc-btn-blue">Attaque haute</span><span class="dc-btn-blue">Attaque mediane</span><span class="dc-btn-blue">Attaque basse</span></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="duel-progress"><span></span></div>
-                <p><strong>Niveau de Combat : 2</strong><br>Force 0 · Agilité 0 · Défense 0 · Endurance 0 · Chance 0</p>
-              </article>
-            </div>
+              </div>
+            </article>
 
-            <div class="horizontal-track-alt">
-              <article class="feature-sweep tilt-ready">
-                <span class="sweep-tag">Rôles-réaction</span>
-                <h3>Les membres choisissent leurs rôles sans ping un admin.</h3>
-                <p>TookBot peut transformer un simple message Discord en panneau de rôles. Les membres réagissent, le rôle s'applique, et ton serveur reste organisé sans manipulation manuelle.</p>
-              </article>
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/cs stats</span></div>
+                  <div class="dc-embed" style="border-color:#f59e0b;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎮 tookyn · Counter-Strike 2</div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Premier ELO</span><span class="dc-embed-value">14 832</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Faceit Level</span><span class="dc-embed-value">8 (1 720 elo)</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Hours CS2</span><span class="dc-embed-value">1 247h</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">K/D ratio</span><span class="dc-embed-value">1.32</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
 
-              <article class="feature-sweep tilt-ready">
-                <span class="sweep-tag">Alertes live & réseaux</span>
-                <h3>Ta communauté sait quand quelque chose bouge.</h3>
-                <p>Préviens ton serveur quand tu pars en live, publies une vidéo ou postes une annonce. TookBot centralise les alertes importantes pour éviter que tes actus se perdent.</p>
-              </article>
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/search</span></div>
+                  <div class="dc-search">
+                    <div class="dc-search-title">Recherche : lofi beats</div>
+                    <div class="dc-search-hint">Choisis la plateforme pour 5 resultats</div>
+                    <div class="dc-search-buttons">
+                      <span class="dc-btn-red">YouTube</span>
+                      <span class="dc-btn-green">Spotify</span>
+                      <span class="dc-btn-blue">SoundCloud</span>
+                      <span class="dc-btn-grey">Bandcamp</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
 
-              <article class="feature-sweep tilt-ready">
-                <span class="sweep-tag">Tickets support</span>
-                <h3>Un vrai flux d'aide, pas un salon qui déborde.</h3>
-                <p>Les membres ouvrent une demande, TookBot crée un espace dédié, et les modérateurs gardent le suivi au propre. Plus simple pour répondre vite, plus clair pour tout le monde.</p>
-              </article>
-            </div>
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">aujourd'hui a 21:42</span></div>
+                  <div class="dc-embed" style="border-color:#5865f2;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎵 Smokin Love (feat. Collie Buddz)</div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Duree</span><span class="dc-embed-value">1:02 / 3:37</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Salon vocal</span><span class="dc-embed-value">🔊 General</span></div>
+                      <div class="dc-embed-progress"><span style="width:29%"></span></div>
+                      <div class="dc-embed-foot">TookBot · /queue pour la file complete · /skip pour passer</div>
+                    </div>
+                    <div class="dc-embed-thumb" style="background:linear-gradient(135deg,#ff6b6b,#ffa726);"></div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">a utilise /niveau</span></div>
+                  <div class="dc-xp-card">
+                    <div class="dc-xp-avatar"></div>
+                    <div class="dc-xp-info">
+                      <div class="dc-xp-name">Tookyn <span class="dc-xp-prem">PREMIUM</span></div>
+                      <div class="dc-xp-stats"><span>NIVEAU<strong>4</strong></span><span>XP TOTAL<strong>1 625</strong></span><span>RANG<strong>#1</strong></span></div>
+                      <div class="dc-xp-bar"><span style="width:29%"></span></div>
+                      <div class="dc-xp-sub">601 / 2 101 XP · 29%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/duel fight</span></div>
+                  <div class="dc-embed" style="border-color:#b9ff24;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">⚔️ Duel en cours</div>
+                      <div class="dc-duel">
+                        <div class="dc-duel-side"><div class="dc-duel-avatar"></div><div class="dc-duel-name">tookyn</div><div class="dc-duel-hp"><span style="width:80%"></span></div><div class="dc-duel-sub">80/100 PV</div></div>
+                        <div class="dc-duel-vs">VS</div>
+                        <div class="dc-duel-side"><div class="dc-duel-avatar" style="background:linear-gradient(135deg,#ff6b6b,#c44);"></div><div class="dc-duel-name">sensiby</div><div class="dc-duel-hp"><span style="width:55%;background:linear-gradient(90deg,#ff6b6b,#d54a4a);"></span></div><div class="dc-duel-sub">55/100 PV</div></div>
+                      </div>
+                      <div class="dc-duel-actions"><span class="dc-btn-blue">Attaque haute</span><span class="dc-btn-blue">Attaque mediane</span><span class="dc-btn-blue">Attaque basse</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/cs stats</span></div>
+                  <div class="dc-embed" style="border-color:#f59e0b;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎮 tookyn · Counter-Strike 2</div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Premier ELO</span><span class="dc-embed-value">14 832</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Faceit Level</span><span class="dc-embed-value">8 (1 720 elo)</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Hours CS2</span><span class="dc-embed-value">1 247h</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">K/D ratio</span><span class="dc-embed-value">1.32</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/search</span></div>
+                  <div class="dc-search">
+                    <div class="dc-search-title">Recherche : lofi beats</div>
+                    <div class="dc-search-hint">Choisis la plateforme pour 5 resultats</div>
+                    <div class="dc-search-buttons">
+                      <span class="dc-btn-red">YouTube</span>
+                      <span class="dc-btn-green">Spotify</span>
+                      <span class="dc-btn-blue">SoundCloud</span>
+                      <span class="dc-btn-grey">Bandcamp</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+          </div>
+        </div>
+
+        <div class="marquee marquee-right">
+          <div class="marquee-track">
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/modlogs @baduser</span></div>
+                  <div class="dc-embed" style="border-color:#ef4444;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🛡️ Modlogs · baduser</div>
+                      <div class="dc-mod-row"><span class="dc-mod-tag dc-mod-warn">WARN</span><span class="dc-mod-text">spam dans #general</span><span class="dc-mod-time">il y a 2h</span></div>
+                      <div class="dc-mod-row"><span class="dc-mod-tag dc-mod-warn">WARN</span><span class="dc-mod-text">lien externe non autorise</span><span class="dc-mod-time">il y a 1j</span></div>
+                      <div class="dc-mod-row"><span class="dc-mod-tag dc-mod-mute">MUTE 1h</span><span class="dc-mod-text">seuil 2 warns atteint</span><span class="dc-mod-time">il y a 2h</span></div>
+                      <div class="dc-embed-foot">3 sanctions · 2 actives</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">a souhaite la bienvenue</span></div>
+                  <div class="dc-welcome">
+                    <div class="dc-welcome-banner"></div>
+                    <div class="dc-welcome-body">
+                      <div class="dc-welcome-title">👋 Bienvenue @newmember !</div>
+                      <div class="dc-welcome-sub">Tu es le 142e membre de TookBot Community. N oublie pas de lire #regles et de te choisir des roles dans #salon-roles.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/giveaway create</span></div>
+                  <div class="dc-embed" style="border-color:#ec4899;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎉 GIVEAWAY · Nitro Boost 1 mois</div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Participants</span><span class="dc-embed-value">47</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Gagnants</span><span class="dc-embed-value">1</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Fin</span><span class="dc-embed-value">dans 6h 12min</span></div>
+                      <div class="dc-embed-foot">Reagis avec 🎉 pour participer</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/poll</span></div>
+                  <div class="dc-embed" style="border-color:#8b5cf6;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">📊 Sondage : Prochain event ?</div>
+                      <div class="dc-poll-opt"><span>🅰️ Tournoi CS2</span><div class="dc-poll-bar"><span style="width:62%"></span></div><span>62%</span></div>
+                      <div class="dc-poll-opt"><span>🅱️ Movie Night</span><div class="dc-poll-bar"><span style="width:24%"></span></div><span>24%</span></div>
+                      <div class="dc-poll-opt"><span>🅲 Karaoke vocal</span><div class="dc-poll-bar"><span style="width:14%"></span></div><span>14%</span></div>
+                      <div class="dc-embed-foot">38 votes · cloture demain 20h</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/ticket</span></div>
+                  <div class="dc-embed" style="border-color:#10b981;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎫 Support TookBot</div>
+                      <div class="dc-embed-desc">Besoin d aide ? Ouvre un ticket prive avec le staff. Categorise, transcripts auto a la fermeture.</div>
+                      <div class="dc-ticket-buttons"><span class="dc-btn-green">Support general</span><span class="dc-btn-blue">Report bug</span><span class="dc-btn-grey">Partenariat</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/rolereaction</span></div>
+                  <div class="dc-embed" style="border-color:#3b82f6;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎨 Choisis tes roles</div>
+                      <div class="dc-embed-desc">Clique sur les boutons pour t attribuer un role. Re-clique pour le retirer.</div>
+                      <div class="dc-role-buttons"><span class="dc-btn-green">🎮 Gamer</span><span class="dc-btn-blue">🎵 Music</span><span class="dc-btn-grey">📣 Annonces</span><span class="dc-btn-red">🎬 Movies</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/modlogs @baduser</span></div>
+                  <div class="dc-embed" style="border-color:#ef4444;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🛡️ Modlogs · baduser</div>
+                      <div class="dc-mod-row"><span class="dc-mod-tag dc-mod-warn">WARN</span><span class="dc-mod-text">spam dans #general</span><span class="dc-mod-time">il y a 2h</span></div>
+                      <div class="dc-mod-row"><span class="dc-mod-tag dc-mod-warn">WARN</span><span class="dc-mod-text">lien externe non autorise</span><span class="dc-mod-time">il y a 1j</span></div>
+                      <div class="dc-mod-row"><span class="dc-mod-tag dc-mod-mute">MUTE 1h</span><span class="dc-mod-text">seuil 2 warns atteint</span><span class="dc-mod-time">il y a 2h</span></div>
+                      <div class="dc-embed-foot">3 sanctions · 2 actives</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">a souhaite la bienvenue</span></div>
+                  <div class="dc-welcome">
+                    <div class="dc-welcome-banner"></div>
+                    <div class="dc-welcome-body">
+                      <div class="dc-welcome-title">👋 Bienvenue @newmember !</div>
+                      <div class="dc-welcome-sub">Tu es le 142e membre de TookBot Community. N oublie pas de lire #regles et de te choisir des roles dans #salon-roles.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/giveaway create</span></div>
+                  <div class="dc-embed" style="border-color:#ec4899;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎉 GIVEAWAY · Nitro Boost 1 mois</div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Participants</span><span class="dc-embed-value">47</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Gagnants</span><span class="dc-embed-value">1</span></div>
+                      <div class="dc-embed-row"><span class="dc-embed-label">Fin</span><span class="dc-embed-value">dans 6h 12min</span></div>
+                      <div class="dc-embed-foot">Reagis avec 🎉 pour participer</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/poll</span></div>
+                  <div class="dc-embed" style="border-color:#8b5cf6;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">📊 Sondage : Prochain event ?</div>
+                      <div class="dc-poll-opt"><span>🅰️ Tournoi CS2</span><div class="dc-poll-bar"><span style="width:62%"></span></div><span>62%</span></div>
+                      <div class="dc-poll-opt"><span>🅱️ Movie Night</span><div class="dc-poll-bar"><span style="width:24%"></span></div><span>24%</span></div>
+                      <div class="dc-poll-opt"><span>🅲 Karaoke vocal</span><div class="dc-poll-bar"><span style="width:14%"></span></div><span>14%</span></div>
+                      <div class="dc-embed-foot">38 votes · cloture demain 20h</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/ticket</span></div>
+                  <div class="dc-embed" style="border-color:#10b981;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎫 Support TookBot</div>
+                      <div class="dc-embed-desc">Besoin d aide ? Ouvre un ticket prive avec le staff. Categorise, transcripts auto a la fermeture.</div>
+                      <div class="dc-ticket-buttons"><span class="dc-btn-green">Support general</span><span class="dc-btn-blue">Report bug</span><span class="dc-btn-grey">Partenariat</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="dc-card">
+              <div class="dc-msg">
+                <div class="dc-avatar dc-avatar-bot" style="background-image:url(/tookbot-avatar.png);background-size:cover;background-position:center;"></div>
+                <div class="dc-msg-body">
+                  <div class="dc-msg-head"><span class="dc-name">TookBot</span><span class="dc-badge-bot">APP</span><span class="dc-time">/rolereaction</span></div>
+                  <div class="dc-embed" style="border-color:#3b82f6;">
+                    <div class="dc-embed-content">
+                      <div class="dc-embed-title">🎨 Choisis tes roles</div>
+                      <div class="dc-embed-desc">Clique sur les boutons pour t attribuer un role. Re-clique pour le retirer.</div>
+                      <div class="dc-role-buttons"><span class="dc-btn-green">🎮 Gamer</span><span class="dc-btn-blue">🎵 Music</span><span class="dc-btn-grey">📣 Annonces</span><span class="dc-btn-red">🎬 Movies</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+
           </div>
         </div>
       </section>
 
-      <section id="prix" class="pricing reveal" aria-labelledby="pricing-title">
-        <span class="eyebrow">Communauté</span>
-        <h2 id="pricing-title" style="margin-left:auto;margin-right:auto;">Rejoins le serveur support.</h2>
-        <p style="max-width:48ch;margin:14px auto 0;color:var(--muted);font-size:16px;">Une question, un bug, une idée ? Viens en discuter avec nous en direct.</p>
-        <div class="widget-wrap">
-          <iframe src="https://discord.com/widget?id=1502322150822908115&theme=dark" width="650" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts" title="Serveur Discord TookBot"></iframe>
+      <!-- ===== Section serveur support (carte custom, pas iframe Discord) ===== -->
+      <section id="prix" class="reveal support-section" aria-labelledby="support-title">
+        <div class="section-head" style="grid-template-columns: 1fr;">
+          <div>
+            <span class="eyebrow">Communaute</span>
+            <h2 id="support-title">Rejoins le serveur support.</h2>
+            <p class="how-intro" style="text-align:center;margin:14px auto 0;max-width:560px;">Une question, un bug, une idee ? Reponses en moins de 24h, souvent dans l heure.</p>
+          </div>
+        </div>
+
+        <div class="support-card">
+          <div class="support-card-banner" aria-hidden="true">
+            <div class="support-card-banner-glow"></div>
+          </div>
+          <div class="support-card-icon">
+            <span class="support-online-dot"></span>
+          </div>
+          <div class="support-card-body">
+            <div class="support-card-head">
+              <h3>TookBot Support</h3>
+              <span class="support-tag">SERVEUR</span>
+            </div>
+            <p class="support-desc">Le hub officiel TookBot. Annonces de nouvelles features, signalements de bugs, suggestions et entraide entre owners de serveurs.</p>
+            <div class="support-meta">
+              <span><span class="dot dot-green"></span><strong id="supOnline">--</strong> en ligne</span>
+              <span><span class="dot dot-gray"></span><strong id="supTotal">--</strong> membres</span>
+            </div>
+            <a class="btn btn-primary support-cta" href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">
+              Rejoindre le serveur
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
+            </a>
+          </div>
         </div>
       </section>
 
@@ -2902,6 +3364,22 @@
         }
       })
       .catch((e) => { console.warn('public-stats fetch fail', e); });
+  })();
+
+  // ===== Fetch Discord widget JSON pour member count support card =====
+  (function() {
+    const elOnline = document.getElementById('supOnline');
+    const elTotal  = document.getElementById('supTotal');
+    if (!elOnline) return;
+    fetch('https://discord.com/api/guilds/1502322150822908115/widget.json', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        if (typeof d.presence_count === 'number') elOnline.textContent = d.presence_count;
+        const total = (d.members && d.members.length) || null;
+        if (total != null) elTotal.textContent = '~' + total;
+      })
+      .catch(() => {});
   })();
 
   // ===== Heatmap mockup dashboard : peuple cellules =====
