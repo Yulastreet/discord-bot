@@ -57,17 +57,27 @@ def register_public_stats_routes(app, deps):
         if _PUBLIC_STATUS_CACHE["data"] and _PUBLIC_STATUS_CACHE["expires"] > now:
             data = _PUBLIC_STATUS_CACHE["data"]
         else:
-            # Bot state via bot_state.json
-            bot_state_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                "bot_state.json",
-            )
+            # Bot state via bot_state.json. Tente plusieurs chemins car selon
+            # la maniere dont pm2 lance le process, cwd peut differer.
+            candidate_paths = [
+                "bot_state.json",  # cwd
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "bot_state.json"),
+                "/home/ubuntu/discord-bot/bot_state.json",
+            ]
             bot_state = {}
-            try:
-                with open(bot_state_path, "r", encoding="utf-8") as f:
-                    bot_state = _json2.load(f) or {}
-            except Exception:
-                pass
+            for p in candidate_paths:
+                try:
+                    with open(p, "r", encoding="utf-8") as f:
+                        bot_state = _json2.load(f) or {}
+                    bot_state["_loaded_from"] = p
+                    break
+                except FileNotFoundError:
+                    continue
+                except Exception as e:
+                    print(f"[public-status] read fail {p}: {type(e).__name__}: {e}")
+                    continue
+            if not bot_state:
+                print(f"[public-status] bot_state.json NOT FOUND. Tried: {candidate_paths}")
 
             updated_at = float(bot_state.get("updated_at") or 0)
             bot_fresh  = (now - updated_at) < 120 if updated_at else False
