@@ -28,7 +28,10 @@ def register_bot_profile_routes(app, deps):
     def _is_tookbot_plus(uid):
         """Verifie si user a TookBot+ (grant manuel owner ou entitlement Discord)."""
         try:
-            if has_premium_grant(uid, feature="tookbot_plus", inherit_all=True):
+            # inherit_all=False : un grant feature="all" (Premium niveau) ne doit
+            # PAS debloquer TookBot+. Les 3 features payantes (niveau / pass /
+            # tookbot_plus) restent independantes.
+            if has_premium_grant(uid, feature="tookbot_plus", inherit_all=False):
                 return True
             sku = os.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
             if sku and user_has_active_entitlement(uid, sku_id=sku):

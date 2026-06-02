@@ -29,8 +29,9 @@ def register_premium_routes(app, deps):
         if not uid:
             return redirect(url_for("oauth_login"))
         # User a TookBot+ ?
+        # inherit_all=False : grant "all" (Premium niveau) ne debloque pas TookBot+.
         is_tookbot_plus = (
-            has_premium_grant(uid, feature="tookbot_plus", inherit_all=True)
+            has_premium_grant(uid, feature="tookbot_plus", inherit_all=False)
             or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
         )
         return render_template(
