@@ -45,7 +45,7 @@ def register_bot_profile_routes(app, deps):
 
     @app.route("/bot-profile")
     def bot_profile_page():
-        uid = _current_user_id() if "_current_user_id" in globals() else g.discord_user.get("id") if g.discord_user else None
+        uid = _current_user_id() if "_current_user_id" in globals() else ((g.discord_user.get("user_id") or g.discord_user.get("id")) if g.discord_user else None)
         if not uid:
             return redirect("/")
         # ?preview=1 force le paywall meme pour owner / abonnes (utile pour QA)
@@ -67,7 +67,7 @@ def register_bot_profile_routes(app, deps):
 
     @app.route("/api/bot-profile", methods=["POST"])
     def api_bot_profile_set():
-        uid = g.discord_user.get("id") if g.discord_user else None
+        uid = (g.discord_user.get("user_id") or g.discord_user.get("id")) if g.discord_user else None
         if not uid or not _is_tookbot_plus(uid):
             return jsonify({"error": "TookBot+ requis"}), 402
         g_id = gid()
@@ -132,7 +132,7 @@ def register_bot_profile_routes(app, deps):
 
     @app.route("/api/bot-profile/reset", methods=["POST"])
     def api_bot_profile_reset():
-        uid = g.discord_user.get("id") if g.discord_user else None
+        uid = (g.discord_user.get("user_id") or g.discord_user.get("id")) if g.discord_user else None
         if not uid or not _is_tookbot_plus(uid):
             return jsonify({"error": "TookBot+ requis"}), 402
         g_id = gid()

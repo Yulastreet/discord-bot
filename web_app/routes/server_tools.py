@@ -372,8 +372,9 @@ def register_server_tool_routes(app, deps):
         if owner_id and _user_has_tookbot_plus(owner_id):
             return True
 
-        # 2) User connecte (session)
-        sess_uid = (g.discord_user or {}).get("id") if hasattr(g, "discord_user") else None
+        # 2) User connecte (session). Cle 'user_id' (pas 'id', cf auth.py).
+        du = g.discord_user if hasattr(g, "discord_user") else {}
+        sess_uid = (du or {}).get("user_id") or (du or {}).get("id")
         if sess_uid and _user_has_tookbot_plus(sess_uid):
             return True
 
