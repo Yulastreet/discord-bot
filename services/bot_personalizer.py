@@ -106,7 +106,7 @@ async def patch_server_profile(token: str, guild_id, *,
     headers = {
         "Authorization": f"Bot {token}",
         "Content-Type":  "application/json",
-        "User-Agent":    "TookBot Personalizer (https://tookbot.click, 1.0)",
+        "User-Agent":    "TookBot Customization (https://tookbot.click, 1.0)",
     }
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as s:
@@ -124,7 +124,7 @@ async def patch_about_me(token: str, description: str) -> tuple[int, dict]:
     headers = {
         "Authorization": f"Bot {token}",
         "Content-Type":  "application/json",
-        "User-Agent":    "TookBot Personalizer (https://tookbot.click, 1.0)",
+        "User-Agent":    "TookBot Customization (https://tookbot.click, 1.0)",
     }
     payload = {"description": (description or "")[:400]}
     timeout = aiohttp.ClientTimeout(total=10)

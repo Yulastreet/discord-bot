@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = 'bot-profile' %}
-{% block title %}Bot Personalizer · Bot Console{% endblock %}
-{% block crumb %}Bot Personalizer{% endblock %}
+{% block title %}Bot Customization · Bot Console{% endblock %}
+{% block crumb %}Bot Customization{% endblock %}
 
 {% block content %}
 <style>
@@ -163,7 +163,7 @@
 </style>
 
 <div class="bp-head">
-  <h1>Bot Personalizer</h1>
+  <h1>Bot Customization</h1>
   <p>Personnalise le nom, l'avatar et la bannière de TookBot sur ce serveur.</p>
 </div>
 
@@ -171,38 +171,10 @@
   <div class="bp-form-content">
 
     <div class="bp-section">
-      <h3>Nom du bot</h3>
-      <div class="hint">Le surnom affiché sur ce serveur (max 32 caractères).</div>
+      <h3>Nickname du bot</h3>
+      <div class="hint">Le nickname affiché sur ce serveur (max 32 caractères).</div>
       <input type="text" name="nick" id="bpNick" class="bp-input" maxlength="32" placeholder="TookBot">
       <div class="bp-counter"><span id="bpNickCount">0</span>/32</div>
-    </div>
-
-    <div class="bp-section">
-      <h3>Statut du bot</h3>
-      <div class="hint">Statut affiché à côté du nom (En ligne, Inactif, Ne pas déranger, Invisible).</div>
-      <select name="status" id="bpStatus" class="bp-input">
-        <option value="online">🟢 En ligne</option>
-        <option value="idle">🟡 Inactif</option>
-        <option value="dnd">🔴 Ne pas déranger</option>
-        <option value="invisible">⚫ Invisible</option>
-      </select>
-    </div>
-
-    <div class="bp-section">
-      <h3>Activité du bot</h3>
-      <div class="hint">Affiche "<em>Joue à ...</em>" / "<em>Écoute ...</em>" sous le nom du bot.</div>
-      <div style="display:grid;grid-template-columns:200px 1fr;gap:10px;">
-        <select name="activity_type" id="bpActType" class="bp-input">
-          <option value="">— Aucune —</option>
-          <option value="playing">Joue à</option>
-          <option value="streaming">Stream</option>
-          <option value="listening">Écoute</option>
-          <option value="watching">Regarde</option>
-          <option value="competing">Participe à</option>
-          <option value="custom">Statut perso</option>
-        </select>
-        <input type="text" name="activity_text" id="bpActText" class="bp-input" maxlength="128" placeholder="/help">
-      </div>
     </div>
 
     <div class="bp-section">
@@ -258,10 +230,8 @@
         <div class="bp-preview-name">
           <span id="bpPreviewName">TookBot</span>
           <span class="bp-preview-badge">APP</span>
-          <span id="bpPreviewStatus" style="width:10px;height:10px;border-radius:50%;background:#23a55a;display:inline-block;margin-left:6px;"></span>
         </div>
         <div class="bp-preview-tag">TookBot#9730</div>
-        <div id="bpPreviewActivity" style="color:#b5bac1;font-size:12.5px;margin-top:4px;display:none;"></div>
         <div class="bp-preview-section" id="bpPreviewBioWrap" hidden>
           <h5>À propos</h5>
           <p id="bpPreviewBio"></p>
@@ -277,7 +247,7 @@
   <div class="bp-paywall-modal">
     <div class="ico">✦</div>
     <h2>Feature TookBot+ uniquement</h2>
-    <p>Le Bot Personalizer est réservé aux abonnés TookBot+. Choisis ton option ci-dessous.</p>
+    <p>Le Bot Customization est réservé aux abonnés TookBot+. Choisis ton option ci-dessous.</p>
     <div class="bp-paywall-actions">
       <button class="bp-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
       <button class="bp-btn-preview" id="bpPreviewModeBtn">Voir un aperçu de la feature</button>
@@ -351,33 +321,6 @@ function bind(id, counterId, previewId, isMarkdown) {
   el.addEventListener('input', upd); upd();
 }
 bind('bpNick',  'bpNickCount',  'bpPreviewName',  false);
-// Statut couleur preview
-(function() {
-  const sel = document.getElementById('bpStatus');
-  const dot = document.getElementById('bpPreviewStatus');
-  if (!sel || !dot) return;
-  const colors = { online: '#23a55a', idle: '#f0b232', dnd: '#f23f43', invisible: '#80848e' };
-  function upd() { dot.style.background = colors[sel.value] || '#23a55a'; }
-  sel.addEventListener('change', upd); upd();
-})();
-
-// Activite preview live
-(function() {
-  const type = document.getElementById('bpActType');
-  const text = document.getElementById('bpActText');
-  const prev = document.getElementById('bpPreviewActivity');
-  if (!type || !text || !prev) return;
-  const labels = { playing:'Joue à', streaming:'Stream', listening:'Écoute', watching:'Regarde', competing:'Participe à', custom:'' };
-  function upd() {
-    const t = type.value;
-    const txt = text.value.trim();
-    if (!t || !txt) { prev.style.display = 'none'; return; }
-    prev.style.display = 'block';
-    prev.textContent = t === 'custom' ? txt : `${labels[t] || ''} ${txt}`.trim();
-  }
-  type.addEventListener('change', upd); text.addEventListener('input', upd); upd();
-})();
-
 // Bio : preview live avec markdown Discord
 (function() {
   const el = document.getElementById('bpBio');
@@ -417,9 +360,6 @@ fetch('/api/bot-profile').then(r => r.ok ? r.json() : null).then(d => {
   if (!d) return;
   if (d.nick)       { document.getElementById('bpNick').value = d.nick; document.getElementById('bpNickCount').textContent = d.nick.length; document.getElementById('bpPreviewName').textContent = d.nick; }
   if (d.about_me)   { const b = document.getElementById('bpBio'); b.value = d.about_me; b.dispatchEvent(new Event('input')); }
-  if (d.status)        { const s = document.getElementById('bpStatus'); s.value = d.status; s.dispatchEvent(new Event('change')); }
-  if (d.activity_type) { const t = document.getElementById('bpActType'); t.value = d.activity_type; t.dispatchEvent(new Event('change')); }
-  if (d.activity_text) { const t = document.getElementById('bpActText'); t.value = d.activity_text; t.dispatchEvent(new Event('input')); }
   if (d.avatar_url) { document.getElementById('bpAvatarThumb').innerHTML = `<img src="${d.avatar_url}" alt="">`; document.getElementById('bpPreviewAvatar').style.backgroundImage = `url(${d.avatar_url})`; }
   if (d.banner_url) { document.getElementById('bpBannerThumb').innerHTML = `<img src="${d.banner_url}" alt="">`; document.getElementById('bpPreviewBanner').style.backgroundImage = `url(${d.banner_url})`; }
 }).catch(() => {});

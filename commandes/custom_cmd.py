@@ -116,7 +116,7 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
             ),
             color=0xffa726,
         )
-        embed.set_footer(text="TookBot+ : Bot Personalizer + Commandes custom + Soutien direct")
+        embed.set_footer(text="TookBot+ : Bot Customization + Commandes custom + Soutien direct")
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     row = custom_cmd_get(interaction.guild.id, name)
