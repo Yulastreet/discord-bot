@@ -45,19 +45,26 @@ def _file_to_data_uri(path: str) -> str | None:
 
 async def patch_server_profile(token: str, guild_id, *,
                                 nick: str | None = None,
+                                bio:  str | None = None,
                                 avatar_path: str | None = None,
                                 banner_path: str | None = None,
                                 clear_avatar: bool = False,
                                 clear_banner: bool = False) -> tuple[int, dict]:
     """PATCH /guilds/{guild_id}/members/@me. Retourne (status_code, json_body).
 
-    - nick : string (max 32 chars). None = pas de changement, '' = reset au nom du bot.
-    - avatar_path / banner_path : chemin local d'un fichier image. None = pas de changement.
-    - clear_avatar / clear_banner : True = explicitement reset (envoie null a Discord).
+    Champs Discord supportes pour bot self-member :
+    - nick   : string (max 32 chars). None = pas de changement, '' = reset.
+    - bio    : string (max ~190 chars). EXPERIMENTAL - Discord ne documente pas
+               officiellement bio per-guild pour bots. Si l'endpoint refuse,
+               on remonte l'erreur dans body.
+    - avatar / banner : data URI base64.
+    - clear_avatar / clear_banner : True = explicitement reset (null).
     """
     payload = {}
     if nick is not None:
         payload["nick"] = (nick or "")[:32]
+    if bio is not None:
+        payload["bio"] = (bio or "")[:190]
     if clear_avatar:
         payload["avatar"] = None
     elif avatar_path:
@@ -111,12 +118,13 @@ async def patch_about_me(token: str, description: str) -> tuple[int, dict]:
 
 # ----- Helpers synchrones (pour Flask web)
 
-def apply_profile_sync(token: str, guild_id, *, nick=None, avatar_path=None,
-                       banner_path=None, clear_avatar=False, clear_banner=False) -> dict:
+def apply_profile_sync(token: str, guild_id, *, nick=None, bio=None,
+                       avatar_path=None, banner_path=None,
+                       clear_avatar=False, clear_banner=False) -> dict:
     """Wrapper sync : lance la coro patch_server_profile dans un loop one-shot."""
     return asyncio.run(patch_server_profile(
         token, guild_id,
-        nick=nick, avatar_path=avatar_path, banner_path=banner_path,
+        nick=nick, bio=bio, avatar_path=avatar_path, banner_path=banner_path,
         clear_avatar=clear_avatar, clear_banner=clear_banner,
     ))
 

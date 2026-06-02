@@ -178,6 +178,13 @@
     </div>
 
     <div class="bp-section">
+      <h3>À propos (bio) <span style="color:#ffa726;font-size:11px;font-weight:600;">(expérimental)</span></h3>
+      <div class="hint">Bio affichée sur le profil bot dans ce serveur. <em>Test : Discord ne documente pas officiellement la bio per-server pour les bots ; si l'API refuse, tu verras une erreur explicite et seuls nick/avatar/bannière passeront.</em></div>
+      <textarea name="bio" id="bpBio" class="bp-textarea" maxlength="190" placeholder="Bot tout-en-un : musique, modération, XP."></textarea>
+      <div class="bp-counter"><span id="bpBioCount">0</span>/190</div>
+    </div>
+
+    <div class="bp-section">
       <h3>Avatar</h3>
       <div class="hint">Upload une image PNG/JPG/GIF/WebP, max 5 Mo.</div>
       <div class="bp-file">
@@ -225,6 +232,10 @@
           <span class="bp-preview-badge">APP</span>
         </div>
         <div class="bp-preview-tag">TookBot#9730</div>
+        <div class="bp-preview-section" id="bpPreviewBioWrap" hidden>
+          <h5>À propos</h5>
+          <p id="bpPreviewBio"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -310,7 +321,23 @@ function bind(id, counterId, previewId, isMarkdown) {
   el.addEventListener('input', upd); upd();
 }
 bind('bpNick',  'bpNickCount',  'bpPreviewName',  false);
-// bpAbout retire : la bio Discord est globale (pas per-server), trop risque
+// Bio : preview live avec markdown Discord
+(function() {
+  const el = document.getElementById('bpBio');
+  const cnt = document.getElementById('bpBioCount');
+  const wrap = document.getElementById('bpPreviewBioWrap');
+  const prev = document.getElementById('bpPreviewBio');
+  if (!el) return;
+  function upd() {
+    if (cnt) cnt.textContent = el.value.length;
+    if (wrap && prev) {
+      const v = el.value.trim();
+      wrap.hidden = !v;
+      prev.innerHTML = v ? discordMarkdown(v) : '';
+    }
+  }
+  el.addEventListener('input', upd); upd();
+})();
 
 function bindFile(id, thumbId, previewBg, isAvatar) {
   const inp = document.getElementById(id);
@@ -332,6 +359,7 @@ bindFile('bpBannerFile', 'bpBannerThumb', 'bpPreviewBanner', false);
 fetch('/api/bot-profile').then(r => r.ok ? r.json() : null).then(d => {
   if (!d) return;
   if (d.nick)       { document.getElementById('bpNick').value = d.nick; document.getElementById('bpNickCount').textContent = d.nick.length; document.getElementById('bpPreviewName').textContent = d.nick; }
+  if (d.about_me)   { const b = document.getElementById('bpBio'); b.value = d.about_me; b.dispatchEvent(new Event('input')); }
   if (d.avatar_url) { document.getElementById('bpAvatarThumb').innerHTML = `<img src="${d.avatar_url}" alt="">`; document.getElementById('bpPreviewAvatar').style.backgroundImage = `url(${d.avatar_url})`; }
   if (d.banner_url) { document.getElementById('bpBannerThumb').innerHTML = `<img src="${d.banner_url}" alt="">`; document.getElementById('bpPreviewBanner').style.backgroundImage = `url(${d.banner_url})`; }
 }).catch(() => {});

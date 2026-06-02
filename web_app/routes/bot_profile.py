@@ -90,10 +90,12 @@ def register_bot_profile_routes(app, deps):
         if not g_id:
             return jsonify({"error": "no_guild"}), 400
 
-        # multipart/form-data : nick + avatar (file) + banner (file)
-        # About Me retire : la description bot Discord est GLOBALE (impact tous
-        # les serveurs), trop dangereux a exposer par serveur.
+        # multipart/form-data : nick + bio + avatar (file) + banner (file)
+        # bio per-guild = experimental (endpoint Discord pas officiellement
+        # documente pour bots). On l'envoie quand meme dans PATCH ; si Discord
+        # refuse, on remonte body dans la reponse.
         nick = (request.form.get("nick") or "").strip()
+        bio  = (request.form.get("bio")  or "").strip()
 
         avatar_path = None
         banner_path = None
@@ -114,12 +116,13 @@ def register_bot_profile_routes(app, deps):
         # Save metadata DB (urls relatives pour preview cote web)
         kw = {}
         if nick:           kw["nick"] = nick
+        if bio:            kw["about_me"] = bio
         if avatar_path:    kw["avatar_url"] = "/uploads/bot_profile/" + os.path.basename(avatar_path)
         if banner_path:    kw["banner_url"] = "/uploads/bot_profile/" + os.path.basename(banner_path)
         guild_bot_profile_set(g_id, **kw)
 
         # Apply via Discord API (sync via asyncio.run dans helper)
-        from services.bot_personalizer import apply_profile_sync, apply_about_me_sync
+        from services.bot_personalizer import apply_profile_sync
         token = os.getenv("DISCORD_TOKEN", "")
         if not token:
             return jsonify({"error": "DISCORD_TOKEN absent cote serveur"}), 500
@@ -127,11 +130,33 @@ def register_bot_profile_routes(app, deps):
             status, body = apply_profile_sync(
                 token, g_id,
                 nick=nick or None,
+                bio=bio or None,
                 avatar_path=avatar_path,
                 banner_path=banner_path,
             )
         except Exception as e:
             return jsonify({"error": f"Discord API: {type(e).__name__}: {e}"}), 500
+
+        # Si Discord refuse seulement le bio (champ pas supporte), retry sans bio
+        if status not in (200, 204) and bio and isinstance(body, dict):
+            err_str = str(body).lower()
+            if "bio" in err_str:
+                print(f"[bot-profile] Discord refuse bio per-guild : {body}. Retry sans bio.")
+                try:
+                    status, body = apply_profile_sync(
+                        token, g_id,
+                        nick=nick or None,
+                        avatar_path=avatar_path,
+                        banner_path=banner_path,
+                    )
+                    if status in (200, 204):
+                        guild_bot_profile_mark_applied(g_id)
+                        return jsonify({
+                            "ok": True, "status": status,
+                            "warning": "Discord ne supporte pas bio per-server pour bots. Nick/avatar/banniere appliques, bio sauvee en DB uniquement.",
+                        })
+                except Exception as e:
+                    return jsonify({"error": f"Discord API retry: {type(e).__name__}: {e}"}), 500
 
         if status in (200, 204):
             guild_bot_profile_mark_applied(g_id)
