@@ -35,6 +35,23 @@ _PRICE_BY_MONTHS = {
 }
 
 
+def _g(obj, key, default=None):
+    """Safe getter pour StripeObject (qui n'a pas .get dict-style en v15+).
+
+    Tente __getitem__, sinon getattr, sinon default.
+    """
+    if obj is None:
+        return default
+    try:
+        return obj[key]
+    except (KeyError, TypeError):
+        pass
+    try:
+        return getattr(obj, key, default)
+    except AttributeError:
+        return default
+
+
 def _stripe_ready():
     if _stripe is None:
         return False, "Module stripe non installe. pip install stripe"
@@ -176,10 +193,11 @@ def register_stripe_routes(app, deps):
 
     def _handle_checkout_completed(sess):
         """Premier paiement reussi : enregistre customer + subscription + grant tookbot_plus."""
-        uid       = (sess.get("metadata") or {}).get("discord_user_id") or sess.get("client_reference_id")
-        months    = int((sess.get("metadata") or {}).get("plan_months") or 1)
-        customer  = sess.get("customer")
-        sub_id    = sess.get("subscription")
+        meta      = _g(sess, "metadata") or {}
+        uid       = _g(meta, "discord_user_id") or _g(sess, "client_reference_id")
+        months    = int(_g(meta, "plan_months") or 1)
+        customer  = _g(sess, "customer")
+        sub_id    = _g(sess, "subscription")
         if not uid:
             print("[stripe checkout.completed] discord_user_id manquant, skip")
             return
@@ -196,11 +214,12 @@ def register_stripe_routes(app, deps):
 
     def _handle_subscription_updated(sub):
         """Subscription state change : sync DB + grant/revoke selon status."""
-        uid_meta = (sub.get("metadata") or {}).get("discord_user_id")
-        customer = sub.get("customer")
-        sub_id   = sub.get("id")
-        status   = sub.get("status")
-        cpe      = sub.get("current_period_end")
+        meta     = _g(sub, "metadata") or {}
+        uid_meta = _g(meta, "discord_user_id")
+        customer = _g(sub, "customer")
+        sub_id   = _g(sub, "id")
+        status   = _g(sub, "status")
+        cpe      = _g(sub, "current_period_end")
         # Resolve uid via metadata ou DB lookup
         uid = uid_meta
         if not uid and customer:
@@ -224,8 +243,9 @@ def register_stripe_routes(app, deps):
         print(f"[stripe sub.updated] uid={uid} status={status}")
 
     def _handle_subscription_deleted(sub):
-        uid_meta = (sub.get("metadata") or {}).get("discord_user_id")
-        customer = sub.get("customer")
+        meta     = _g(sub, "metadata") or {}
+        uid_meta = _g(meta, "discord_user_id")
+        customer = _g(sub, "customer")
         uid = uid_meta
         if not uid and customer:
             row = stripe_subscription_get_by_customer(customer) or {}
@@ -238,7 +258,7 @@ def register_stripe_routes(app, deps):
 
     def _handle_invoice_paid(inv):
         # Met a jour current_period_end via la sub
-        sub_id = inv.get("subscription")
+        sub_id = _g(inv, "subscription")
         if not sub_id:
             return
         try:
@@ -248,7 +268,7 @@ def register_stripe_routes(app, deps):
             print(f"[stripe invoice.paid] retrieve fail: {e}")
 
     def _handle_invoice_failed(inv):
-        sub_id = inv.get("subscription")
+        sub_id = _g(inv, "subscription")
         if not sub_id:
             return
         row = stripe_subscription_get_by_subscription(sub_id) or {}
