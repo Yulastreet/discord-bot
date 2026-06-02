@@ -1409,7 +1409,7 @@ def setup_runtime(bot, deps):
 
     # ===== ANTI-SPAM SLASH COMMANDS =====
     # Limite : max N commandes par user dans une fenetre glissante
-    import collections as _col
+    # (_col deja importe au top du module)
     _USER_CMD_TIMES = _col.defaultdict(list)  # user_id -> [timestamp, ...]
     _RATE_LIMIT_N      = 6        # 6 commandes
     _RATE_LIMIT_WINDOW = 30.0     # par 30 secondes
