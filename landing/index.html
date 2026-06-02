@@ -1350,6 +1350,134 @@
     color: #ffffff;
   }
 
+  /* ===== Dashboard mockup minimaliste (nouvelle version) ===== */
+  .dash-mockup {
+    border-radius: 22px;
+    background: rgba(8, 14, 6, .92);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 24px 70px rgba(0,0,0,.5), inset 0 0 0 1px rgba(185,255,36,.04);
+    padding: 14px;
+    overflow: hidden;
+    aspect-ratio: 16 / 11;
+    min-height: 320px;
+  }
+  html[data-theme="light"] .dash-mockup {
+    background: #0b1208;
+    border-color: rgba(185,255,36,.18);
+  }
+  .dash-mock-shell {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 12px;
+    width: 100%; height: 100%;
+    background: #050a04;
+    border-radius: 14px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.05);
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #f7ffe8;
+  }
+  .dash-mock-sidebar {
+    display: flex; flex-direction: column; gap: 2px;
+    border-right: 1px solid rgba(255,255,255,.06);
+    padding-right: 8px;
+    overflow: hidden;
+  }
+  .dash-mock-brand {
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 800; font-size: 11px; margin-bottom: 8px;
+  }
+  .dash-mock-brand-icon {
+    width: 14px; height: 14px; border-radius: 4px;
+    background: url('/tookbot-avatar.png') center/cover no-repeat,
+                linear-gradient(135deg, #b9ff24, #64d91b);
+  }
+  .dash-mock-section {
+    font-size: 8px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .08em; color: #6b7a5d;
+    padding: 6px 6px 2px;
+  }
+  .dash-mock-nav {
+    display: block;
+    padding: 4px 8px;
+    font-size: 10px; font-weight: 500;
+    color: #c6d3b8;
+    border-radius: 4px;
+  }
+  .dash-mock-nav.active {
+    background: linear-gradient(180deg, rgba(185,255,36,.18), rgba(100,217,27,.08));
+    color: #b9ff24; font-weight: 700;
+  }
+  .dash-mock-main {
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 0;
+  }
+  .dash-mock-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 2px;
+  }
+  .dash-mock-crumb { font-size: 11px; font-weight: 700; color: #9aa988; }
+  .dash-mock-chip {
+    font-size: 9px; font-weight: 700;
+    padding: 3px 9px; border-radius: 999px;
+    background: rgba(185,255,36,.12);
+    color: #b9ff24;
+    border: 1px solid rgba(185,255,36,.22);
+  }
+  .dash-mock-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .dash-mock-tile {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.05);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .dash-mock-tile .lbl {
+    font-size: 8px; font-weight: 700;
+    color: #6b7a5d; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .dash-mock-tile strong {
+    font-size: 16px; font-weight: 800; letter-spacing: -.02em;
+    color: #f7ffe8;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-mock-tile.accent {
+    background: linear-gradient(135deg, rgba(185,255,36,.10), rgba(100,217,27,.04));
+    border-color: rgba(185,255,36,.22);
+  }
+  .dash-mock-tile.accent strong { color: #b9ff24; font-size: 13px; }
+  .dash-mock-chart {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.05);
+    border-radius: 8px;
+    padding: 8px 10px;
+    flex: 1;
+    display: flex; flex-direction: column; gap: 4px;
+    min-height: 0;
+  }
+  .dash-mock-chart-head {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 8px; color: #6b7a5d; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+  }
+  .dash-mock-chart-total { color: #b9ff24; }
+  .dash-mock-chart svg { width: 100%; height: 100%; flex: 1; }
+  .dash-mock-heatmap {
+    display: grid; grid-template-columns: repeat(18, 1fr);
+    grid-auto-rows: 6px; gap: 2px;
+  }
+  .dash-mock-heatmap span {
+    border-radius: 1.5px;
+    background: rgba(185,255,36,.06);
+  }
+  .dash-mock-heatmap span.h1 { background: rgba(185,255,36,.18); }
+  .dash-mock-heatmap span.h2 { background: rgba(185,255,36,.38); }
+  .dash-mock-heatmap span.h3 { background: rgba(185,255,36,.60); }
+  .dash-mock-heatmap span.h4 { background: rgba(185,255,36,.85); box-shadow: 0 0 4px rgba(185,255,36,.5); }
+
+  /* Ancien mockup (legacy, garde pour compat si réutilisé ailleurs) */
   .dashboard-visual {
     position: relative;
     min-height: 430px;
@@ -2398,21 +2526,72 @@
             </ul>
           </div>
 
-          <div class="dashboard-visual tilt-ready" aria-hidden="true">
-            <div class="profile-card">
-              <div class="profile-line">
-                <div class="avatar"></div>
-                <span class="level">Niveau 24</span>
-              </div>
-              <h3>Profil serveur</h3>
-              <p>XP, rangs et activité visibles en un coup d'oeil.</p>
-            </div>
-            <div class="xp-card">
-              <strong>Progression XP</strong>
-              <div class="progress"><span></span></div>
-              <div class="usage-foot" style="color:#586348">
-                <span>Prochain niveau</span>
-                <strong>68%</strong>
+          <div class="dash-mockup tilt-ready" aria-hidden="true">
+            <div class="dash-mock-shell">
+              <!-- Sidebar mock -->
+              <aside class="dash-mock-sidebar">
+                <div class="dash-mock-brand">
+                  <span class="dash-mock-brand-icon"></span>
+                  <span>TookBot</span>
+                </div>
+                <span class="dash-mock-section">Modération</span>
+                <span class="dash-mock-nav">Fonctionnalités</span>
+                <span class="dash-mock-nav">Logs</span>
+                <span class="dash-mock-nav">Tickets</span>
+                <span class="dash-mock-section">Outils</span>
+                <span class="dash-mock-nav active">Dashboard</span>
+                <span class="dash-mock-nav">Musique</span>
+                <span class="dash-mock-nav">Giveaways</span>
+                <span class="dash-mock-section">Jeux</span>
+                <span class="dash-mock-nav">CS2 · LoL</span>
+              </aside>
+
+              <!-- Main mock -->
+              <div class="dash-mock-main">
+                <div class="dash-mock-top">
+                  <span class="dash-mock-crumb">Dashboard</span>
+                  <span class="dash-mock-chip">tookyn</span>
+                </div>
+                <div class="dash-mock-stats">
+                  <div class="dash-mock-tile">
+                    <span class="lbl">Utilisateurs</span>
+                    <strong>3</strong>
+                  </div>
+                  <div class="dash-mock-tile">
+                    <span class="lbl">XP cumulé</span>
+                    <strong>112</strong>
+                  </div>
+                  <div class="dash-mock-tile">
+                    <span class="lbl">Niveau moyen</span>
+                    <strong>1.3</strong>
+                  </div>
+                  <div class="dash-mock-tile accent">
+                    <span class="lbl">#1 classement</span>
+                    <strong>tookyn</strong>
+                  </div>
+                </div>
+                <div class="dash-mock-chart">
+                  <div class="dash-mock-chart-head">
+                    <span>Activité · 14j</span>
+                    <span class="dash-mock-chart-total">41 events</span>
+                  </div>
+                  <svg viewBox="0 0 320 90" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="dashLineGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"  stop-color="#b9ff24" stop-opacity=".35"/>
+                        <stop offset="100%" stop-color="#b9ff24" stop-opacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M0,68 L26,62 L52,52 L78,58 L104,46 L130,52 L156,42 L182,24 L208,18 L234,30 L260,46 L286,58 L320,70 L320,90 L0,90 Z"
+                          fill="url(#dashLineGrad)"/>
+                    <path d="M0,68 L26,62 L52,52 L78,58 L104,46 L130,52 L156,42 L182,24 L208,18 L234,30 L260,46 L286,58 L320,70"
+                          fill="none" stroke="#b9ff24" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"
+                          style="filter: drop-shadow(0 0 4px #b9ff24);"/>
+                  </svg>
+                </div>
+                <div class="dash-mock-heatmap" aria-hidden="true">
+                  <!-- 7 lignes × 18 cellules generees inline -->
+                </div>
               </div>
             </div>
           </div>
@@ -2723,6 +2902,32 @@
         }
       })
       .catch((e) => { console.warn('public-stats fetch fail', e); });
+  })();
+
+  // ===== Heatmap mockup dashboard : peuple cellules =====
+  (function() {
+    const hm = document.querySelector('.dash-mock-heatmap');
+    if (!hm) return;
+    const rows = 7, cols = 18;
+    const cells = rows * cols;
+    // Pattern : pics aux heures de soirée (cols 11-15), creux la nuit (0-6).
+    let html = '';
+    for (let i = 0; i < cells; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      let intensity = 0;
+      // Base : pic du soir
+      if (col >= 10 && col <= 15) intensity = 1 + Math.floor(Math.random() * 3);
+      else if (col >= 6 && col <= 9) intensity = Math.floor(Math.random() * 2);
+      else if (Math.random() < 0.15) intensity = 1;
+      // Weekend (lignes 5,6) un peu plus actif
+      if (row >= 5 && intensity > 0) intensity = Math.min(4, intensity + 1);
+      // Quelques spikes aléatoires
+      if (Math.random() < 0.04) intensity = 4;
+      const cls = intensity > 0 ? ` class="h${Math.min(4, intensity)}"` : '';
+      html += `<span${cls}></span>`;
+    }
+    hm.innerHTML = html;
   })();
 
   window.addEventListener('load', () => {
