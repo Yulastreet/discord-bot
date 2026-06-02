@@ -43,11 +43,24 @@ def _file_to_data_uri(path: str) -> str | None:
     return f"data:{mime};base64,{data}"
 
 
+_ACTIVITY_TYPE_MAP = {
+    "playing":   0,
+    "streaming": 1,
+    "listening": 2,
+    "watching":  3,
+    "custom":    4,
+    "competing": 5,
+}
+
+
 async def patch_server_profile(token: str, guild_id, *,
                                 nick: str | None = None,
                                 bio:  str | None = None,
                                 avatar_path: str | None = None,
                                 banner_path: str | None = None,
+                                status: str | None = None,
+                                activity_type: str | None = None,
+                                activity_text: str | None = None,
                                 clear_avatar: bool = False,
                                 clear_banner: bool = False) -> tuple[int, dict]:
     """PATCH /guilds/{guild_id}/members/@me. Retourne (status_code, json_body).
@@ -77,6 +90,14 @@ async def patch_server_profile(token: str, guild_id, *,
         uri = _file_to_data_uri(banner_path)
         if uri:
             payload["banner"] = uri
+
+    # Status + activity per-guild : EXPERIMENTAL. Discord ne documente pas
+    # officiellement ces champs sur PATCH guild member. Tente quand meme.
+    if status:
+        payload["status"] = status  # online | idle | dnd | invisible
+    if activity_type and activity_text:
+        atype = _ACTIVITY_TYPE_MAP.get(activity_type.lower(), 0)
+        payload["activities"] = [{"name": activity_text[:128], "type": atype}]
 
     if not payload:
         return 0, {"error": "rien a patcher"}
@@ -120,11 +141,14 @@ async def patch_about_me(token: str, description: str) -> tuple[int, dict]:
 
 def apply_profile_sync(token: str, guild_id, *, nick=None, bio=None,
                        avatar_path=None, banner_path=None,
+                       status=None, activity_type=None, activity_text=None,
                        clear_avatar=False, clear_banner=False) -> dict:
     """Wrapper sync : lance la coro patch_server_profile dans un loop one-shot."""
     return asyncio.run(patch_server_profile(
         token, guild_id,
-        nick=nick, bio=bio, avatar_path=avatar_path, banner_path=banner_path,
+        nick=nick, bio=bio,
+        avatar_path=avatar_path, banner_path=banner_path,
+        status=status, activity_type=activity_type, activity_text=activity_text,
         clear_avatar=clear_avatar, clear_banner=clear_banner,
     ))
 

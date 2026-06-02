@@ -107,14 +107,25 @@ def init_db():
 
     # ===== Bot personalizer : profil bot custom par serveur =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_bot_profile (
-        guild_id    TEXT PRIMARY KEY,
-        nick        TEXT,
-        avatar_url  TEXT,
-        banner_url  TEXT,
-        about_me    TEXT,
-        applied_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        guild_id      TEXT PRIMARY KEY,
+        nick          TEXT,
+        avatar_url    TEXT,
+        banner_url    TEXT,
+        about_me      TEXT,
+        status        TEXT,     -- online | idle | dnd | invisible
+        activity_type TEXT,     -- playing | streaming | listening | watching | competing | custom
+        activity_text TEXT,
+        applied_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+    # Migration : ajoute colonnes status/activity si table existait deja
+    _bp_cols = _table_columns(c, "guild_bot_profile")
+    for _col in ("status", "activity_type", "activity_text"):
+        if _col not in _bp_cols:
+            try:
+                c.execute(f"ALTER TABLE guild_bot_profile ADD COLUMN {_col} TEXT")
+            except Exception as _e:
+                print(f"[db migration] add guild_bot_profile.{_col} : {_e}")
 
     # ===== Uptime checks (page /status.html, barres heure par heure) =====
     c.execute('''CREATE TABLE IF NOT EXISTS service_uptime_check (
@@ -1201,14 +1212,18 @@ def guild_bot_profile_get(guild_id):
     return dict(r) if r else None
 
 
-def guild_bot_profile_set(guild_id, *, nick=None, avatar_url=None, banner_url=None, about_me=None):
+def guild_bot_profile_set(guild_id, *, nick=None, avatar_url=None, banner_url=None,
+                          about_me=None, status=None, activity_type=None, activity_text=None):
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO guild_bot_profile (guild_id) VALUES (?)", (str(guild_id),))
     fields, values = [], []
-    if nick is not None:       fields.append("nick = ?");       values.append(nick or None)
-    if avatar_url is not None: fields.append("avatar_url = ?"); values.append(avatar_url or None)
-    if banner_url is not None: fields.append("banner_url = ?"); values.append(banner_url or None)
-    if about_me is not None:   fields.append("about_me = ?");   values.append(about_me or None)
+    if nick          is not None: fields.append("nick = ?");          values.append(nick or None)
+    if avatar_url    is not None: fields.append("avatar_url = ?");    values.append(avatar_url or None)
+    if banner_url    is not None: fields.append("banner_url = ?");    values.append(banner_url or None)
+    if about_me      is not None: fields.append("about_me = ?");      values.append(about_me or None)
+    if status        is not None: fields.append("status = ?");        values.append(status or None)
+    if activity_type is not None: fields.append("activity_type = ?"); values.append(activity_type or None)
+    if activity_text is not None: fields.append("activity_text = ?"); values.append(activity_text or None)
     if fields:
         fields.append("updated_at = CURRENT_TIMESTAMP")
         c.execute(f"UPDATE guild_bot_profile SET {', '.join(fields)} WHERE guild_id = ?",
