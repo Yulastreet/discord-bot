@@ -207,10 +207,25 @@
   <div class="sub-current-row is-premium">
     <div>
       <div class="plan-name">TookBot+ <span style="color:#ffa726;">✦</span></div>
-      <div class="plan-desc">Toutes les features premium débloquées. Merci !</div>
+      <div class="plan-desc">Toutes les features premium débloquées. Merci pour ton soutien !</div>
     </div>
     <div class="plan-price" style="color:#ffa726;">Actif</div>
   </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+    <button class="btn btn-secondary" id="subPortalBtn" type="button">Gérer mon abonnement (Stripe)</button>
+  </div>
+  <script>
+    document.getElementById('subPortalBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('subPortalBtn');
+      btn.disabled = true; btn.textContent = 'Chargement...';
+      try {
+        const r = await fetch('/api/subscribe/portal', { method: 'POST' });
+        const d = await r.json();
+        if (d.url) window.location.href = d.url;
+        else { alert(d.error || 'Erreur'); btn.disabled = false; btn.textContent = 'Gérer mon abonnement (Stripe)'; }
+      } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = 'Gérer mon abonnement (Stripe)'; }
+    });
+  </script>
   {% else %}
   <div class="sub-current-row">
     <div>
@@ -287,7 +302,7 @@
     <button class="sub-cta" id="subCta">
       Passer à TookBot+ · <strong id="subCtaPrice">11,97 €</strong>
     </button>
-    <p class="sub-foot-note">Paiement sécurisé via Discord Store. Annulable à tout moment.</p>
+    <p class="sub-foot-note">Paiement sécurisé via Stripe. Annulable à tout moment depuis le portail client.</p>
   </div>
 </div>
 {% endif %}
@@ -331,10 +346,43 @@
   const initial = document.querySelector('.sub-billing-tab.active') || tabs[0];
   if (initial) render(initial);
 
-  if (cta) cta.addEventListener('click', () => {
-    alert('TookBot+ sera bientôt disponible via la boutique Discord. Pour soutenir maintenant : Ko-fi.');
-    window.open('https://ko-fi.com/tookbot', '_blank');
+  if (cta) cta.addEventListener('click', async () => {
+    const tab = document.querySelector('.sub-billing-tab.active');
+    const months = tab ? parseInt(tab.dataset.period, 10) : 1;
+    const original = cta.innerHTML;
+    cta.disabled = true; cta.innerHTML = 'Redirection Stripe...';
+    try {
+      const r = await fetch('/api/subscribe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ months }),
+      });
+      const d = await r.json();
+      if (d.url) {
+        window.location.href = d.url;
+      } else {
+        alert('Erreur : ' + (d.error || 'unknown'));
+        cta.disabled = false; cta.innerHTML = original;
+      }
+    } catch (e) {
+      alert('Erreur réseau : ' + e.message);
+      cta.disabled = false; cta.innerHTML = original;
+    }
   });
+
+  // Bannieres ?paid=1 ou ?canceled=1 apres retour Stripe
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('paid') === '1') {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:linear-gradient(180deg,#23a55a,#198642);color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:18px;font-weight:700;text-align:center;';
+    banner.textContent = '✓ Paiement confirmé. TookBot+ sera actif dans quelques secondes.';
+    document.querySelector('main')?.prepend(banner);
+  } else if (params.get('canceled') === '1') {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:var(--bg-2);color:var(--text-2);padding:14px 20px;border-radius:12px;margin-bottom:18px;text-align:center;border:1px solid var(--border);';
+    banner.textContent = 'Paiement annulé. Tu peux réessayer quand tu veux.';
+    document.querySelector('main')?.prepend(banner);
+  }
 })();
 </script>
 {% endblock %}

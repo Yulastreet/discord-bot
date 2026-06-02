@@ -127,6 +127,20 @@ def init_db():
             except Exception as _e:
                 print(f"[db migration] add guild_bot_profile.{_col} : {_e}")
 
+    # ===== Stripe subscriptions (TookBot+) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS stripe_subscriptions (
+        discord_user_id        TEXT PRIMARY KEY,
+        stripe_customer_id     TEXT,
+        stripe_subscription_id TEXT,
+        plan_months            INTEGER,
+        status                 TEXT,    -- active | past_due | canceled | incomplete | etc
+        current_period_end     INTEGER, -- epoch seconds
+        created_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at             TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_stripe_sub_customer ON stripe_subscriptions(stripe_customer_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_stripe_sub_status   ON stripe_subscriptions(status)")
+
     # ===== Uptime checks (page /status.html, barres heure par heure) =====
     c.execute('''CREATE TABLE IF NOT EXISTS service_uptime_check (
         component   TEXT NOT NULL,
@@ -1205,6 +1219,47 @@ def music_state_disconnect(guild_id):
 
 
 # ===== Music plays telemetry =====
+def stripe_subscription_upsert(discord_user_id, *, stripe_customer_id=None,
+                                stripe_subscription_id=None, plan_months=None,
+                                status=None, current_period_end=None):
+    """UPSERT par discord_user_id. Champs None ignores (preserve existing)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO stripe_subscriptions (discord_user_id) VALUES (?)",
+              (str(discord_user_id),))
+    fields, values = [], []
+    if stripe_customer_id     is not None: fields.append("stripe_customer_id = ?");     values.append(stripe_customer_id)
+    if stripe_subscription_id is not None: fields.append("stripe_subscription_id = ?"); values.append(stripe_subscription_id)
+    if plan_months            is not None: fields.append("plan_months = ?");            values.append(int(plan_months))
+    if status                 is not None: fields.append("status = ?");                 values.append(status)
+    if current_period_end     is not None: fields.append("current_period_end = ?");     values.append(int(current_period_end))
+    if fields:
+        fields.append("updated_at = CURRENT_TIMESTAMP")
+        c.execute(f"UPDATE stripe_subscriptions SET {', '.join(fields)} WHERE discord_user_id = ?",
+                  (*values, str(discord_user_id)))
+    conn.commit(); conn.close()
+
+
+def stripe_subscription_get(discord_user_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM stripe_subscriptions WHERE discord_user_id = ?", (str(discord_user_id),))
+    r = c.fetchone(); conn.close()
+    return dict(r) if r else None
+
+
+def stripe_subscription_get_by_customer(stripe_customer_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM stripe_subscriptions WHERE stripe_customer_id = ?", (stripe_customer_id,))
+    r = c.fetchone(); conn.close()
+    return dict(r) if r else None
+
+
+def stripe_subscription_get_by_subscription(stripe_subscription_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("SELECT * FROM stripe_subscriptions WHERE stripe_subscription_id = ?", (stripe_subscription_id,))
+    r = c.fetchone(); conn.close()
+    return dict(r) if r else None
+
+
 def guild_bot_profile_get(guild_id):
     conn = get_db(); c = conn.cursor()
     c.execute("SELECT * FROM guild_bot_profile WHERE guild_id = ?", (str(guild_id),))

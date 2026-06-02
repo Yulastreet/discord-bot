@@ -332,7 +332,8 @@ def needs_guild(path):
 
 PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms",
                         "/api/public-stats", "/api/public-status",
-                        "/api/public-status/history"}
+                        "/api/public-status/history",
+                        "/api/stripe/webhook"}
 PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/",
                            "/api/public-status/", "/uploads/bot_profile/")
 
@@ -742,6 +743,7 @@ from web_app.routes.admin import register_admin_routes
 from web_app.routes.premium import register_premium_routes
 from web_app.routes.public_stats import register_public_stats_routes
 from web_app.routes.bot_profile import register_bot_profile_routes
+from web_app.routes.stripe_routes import register_stripe_routes
 from web_app.routes.server_tools import register_server_tool_routes
 from web_app.routes.pass_routes import register_pass_routes
 from web_app.routes.lol_scout import register_lol_scout_routes
@@ -751,6 +753,7 @@ for _register_routes in (
     register_duel_routes, register_music_routes, register_admin_routes,
     register_premium_routes, register_public_stats_routes, register_server_tool_routes,
     register_pass_routes, register_lol_scout_routes, register_bot_profile_routes,
+    register_stripe_routes,
 ):
     _register_routes(app, globals())
 

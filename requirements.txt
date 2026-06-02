@@ -14,3 +14,4 @@ requests
 psutil
 curl_cffi>=0.7.0
 spotipy>=2.23
+stripe>=8.0
