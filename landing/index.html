@@ -527,13 +527,13 @@
   }
 
   .stats-strip {
-    width: min(calc(100% - 32px), var(--max));
+    width: min(calc(100% - 32px), 760px);
     margin: clamp(56px, 8vw, 96px) auto;
     position: relative;
     z-index: 5;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: clamp(20px, 4vw, 60px);
+    gap: clamp(8px, 1.4vw, 18px);
     text-align: center;
   }
 
@@ -541,7 +541,7 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 14px !important;
+    gap: 10px !important;
     padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -554,7 +554,7 @@
 
   .stat strong {
     display: block;
-    font-size: clamp(48px, 8vw, 92px);
+    font-size: clamp(46px, 7vw, 84px);
     line-height: 1;
     letter-spacing: -0.02em;
     font-weight: 600;
@@ -569,13 +569,24 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  .stat span {
+  .stat .stat-label {
     display: block;
-    color: var(--muted);
-    font-size: clamp(12px, 1vw, 14px);
+    font-size: clamp(13px, 1vw, 15px);
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink);
+  }
+  html[data-theme="dark"] .stat .stat-label { color: #f7ffe8; }
+
+  .stat .stat-sub {
+    display: block;
+    margin-top: -2px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    line-height: 1.35;
+    color: var(--muted);
+    max-width: 200px;
   }
 
   @media (max-width: 720px) {
@@ -2200,15 +2211,18 @@
       <div class="stats-strip reveal" id="statsStrip" aria-label="Statistiques TookBot">
         <div class="stat">
           <strong id="statGuilds" data-count="0">0</strong>
-          <span>Serveurs Discord</span>
+          <span class="stat-label">Serveurs Discord</span>
+          <span class="stat-sub">Communautés qui font tourner TookBot</span>
         </div>
         <div class="stat">
           <strong id="statUsers" data-count="0">0</strong>
-          <span>Comptes suivis</span>
+          <span class="stat-label">Comptes suivis</span>
+          <span class="stat-sub">Membres avec un profil enregistré</span>
         </div>
         <div class="stat">
           <strong id="statSlash" data-count="76" data-suffix="+">0</strong>
-          <span>Commandes slash</span>
+          <span class="stat-label">Commandes slash</span>
+          <span class="stat-sub">Disponibles dès l'invitation, sans setup</span>
         </div>
       </div>
 
