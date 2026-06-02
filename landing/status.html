@@ -97,7 +97,7 @@
   @media (max-width: 640px) { .topbar-link { display: none; } }
 
   main {
-    width: min(calc(100% - 32px), 980px);
+    width: min(calc(100% - 32px), 1280px);
     margin: 0 auto;
     padding: 56px 0 80px;
     flex: 1;
@@ -166,16 +166,26 @@
   }
   .status-banner .text p { color: var(--ink-2); font-size: 14px; }
 
-  /* Component cards */
+  /* Component cards : empilées full-width */
   .cards-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: grid; grid-template-columns: 1fr;
     gap: 14px; margin-bottom: 28px;
   }
   .card {
     background: var(--bg-2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 18px 20px;
+    padding: 20px 26px;
+  }
+  /* Layout interne 2 colonnes : meta a gauche, uptime bars a droite */
+  .card-grid-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px) 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  @media (max-width: 820px) {
+    .card-grid-row { grid-template-columns: 1fr; gap: 16px; }
   }
   .card-head {
     display: flex; align-items: center; justify-content: space-between;
@@ -235,9 +245,20 @@
 
   /* ===== Uptime bars (1 trait = 1h) ===== */
   .uptime-block {
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+    padding-left: 28px;
+  }
+  @media (max-width: 820px) {
+    .uptime-block {
+      border-left: 0;
+      padding-left: 0;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
   }
   .uptime-head {
     display: flex; align-items: center; justify-content: space-between;
@@ -252,8 +273,8 @@
     font-size: 12px; font-weight: 700; color: var(--green);
   }
   .uptime-bars {
-    display: flex; align-items: stretch; gap: 2px;
-    height: 28px;
+    display: flex; align-items: stretch; gap: 3px;
+    height: 38px;
   }
   .uptime-bars .bar {
     flex: 1; min-width: 3px;
@@ -366,20 +387,22 @@
         </h3>
         <span class="status-pill unknown" id="pillBot"><span class="dot"></span>—</span>
       </div>
-      <div class="kv">
-        <span class="k">État</span><span class="v" id="botState">—</span>
-        <span class="k">Latence WS</span><span class="v" id="botLatency">—</span>
-        <span class="k">Serveurs</span><span class="v" id="botGuilds">—</span>
-        <span class="k">Vocaux actifs</span><span class="v" id="botVoice">—</span>
-        <span class="k">Dernier ping</span><span class="v" id="botAge">—</span>
-      </div>
-      <div class="uptime-block">
-        <div class="uptime-head">
-          <span class="lbl">Uptime 48h</span>
-          <span class="pct" id="upBotPct">—</span>
+      <div class="card-grid-row">
+        <div class="kv">
+          <span class="k">État</span><span class="v" id="botState">—</span>
+          <span class="k">Latence WS</span><span class="v" id="botLatency">—</span>
+          <span class="k">Serveurs</span><span class="v" id="botGuilds">—</span>
+          <span class="k">Vocaux actifs</span><span class="v" id="botVoice">—</span>
+          <span class="k">Dernier ping</span><span class="v" id="botAge">—</span>
         </div>
-        <div class="uptime-bars" id="upBotBars"></div>
-        <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+        <div class="uptime-block">
+          <div class="uptime-head">
+            <span class="lbl">Uptime 48h</span>
+            <span class="pct" id="upBotPct">—</span>
+          </div>
+          <div class="uptime-bars" id="upBotBars"></div>
+          <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+        </div>
       </div>
     </article>
 
@@ -391,18 +414,20 @@
         </h3>
         <span class="status-pill unknown" id="pillDash"><span class="dot"></span>—</span>
       </div>
-      <div class="kv">
-        <span class="k">URL</span><span class="v">dashboard.tookbot.click</span>
-        <span class="k">OAuth Discord</span><span class="v good">Opérationnel</span>
-        <span class="k">API REST</span><span class="v good">Joignable</span>
-      </div>
-      <div class="uptime-block">
-        <div class="uptime-head">
-          <span class="lbl">Uptime 48h</span>
-          <span class="pct" id="upDashPct">—</span>
+      <div class="card-grid-row">
+        <div class="kv">
+          <span class="k">URL</span><span class="v">dashboard.tookbot.click</span>
+          <span class="k">OAuth Discord</span><span class="v good">Opérationnel</span>
+          <span class="k">API REST</span><span class="v good">Joignable</span>
         </div>
-        <div class="uptime-bars" id="upDashBars"></div>
-        <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+        <div class="uptime-block">
+          <div class="uptime-head">
+            <span class="lbl">Uptime 48h</span>
+            <span class="pct" id="upDashPct">—</span>
+          </div>
+          <div class="uptime-bars" id="upDashBars"></div>
+          <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+        </div>
       </div>
     </article>
 
@@ -414,22 +439,26 @@
         </h3>
         <span class="status-pill unknown" id="pillMusic"><span class="dot"></span>—</span>
       </div>
-      <div class="kv">
-        <span class="k">yt-dlp</span><span class="v" id="musYtdlp">—</span>
-        <span class="k">Sources</span><span class="v">YT · SC · Spotify · Bandcamp</span>
-      </div>
-      <div class="sub-row">
-        <span class="sub-badge" id="badgeWarp"><span class="dot"></span>WARP</span>
-        <span class="sub-badge" id="badgeBgutil"><span class="dot"></span>bgutil-pot</span>
-        <span class="sub-badge" id="badgePrivoxy"><span class="dot"></span>Privoxy</span>
-      </div>
-      <div class="uptime-block">
-        <div class="uptime-head">
-          <span class="lbl">Uptime 48h</span>
-          <span class="pct" id="upMusicPct">—</span>
+      <div class="card-grid-row">
+        <div>
+          <div class="kv">
+            <span class="k">yt-dlp</span><span class="v" id="musYtdlp">—</span>
+            <span class="k">Sources</span><span class="v">YT · SC · Spotify · Bandcamp</span>
+          </div>
+          <div class="sub-row">
+            <span class="sub-badge" id="badgeWarp"><span class="dot"></span>WARP</span>
+            <span class="sub-badge" id="badgeBgutil"><span class="dot"></span>bgutil-pot</span>
+            <span class="sub-badge" id="badgePrivoxy"><span class="dot"></span>Privoxy</span>
+          </div>
         </div>
-        <div class="uptime-bars" id="upMusicBars"></div>
-        <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+        <div class="uptime-block">
+          <div class="uptime-head">
+            <span class="lbl">Uptime 48h</span>
+            <span class="pct" id="upMusicPct">—</span>
+          </div>
+          <div class="uptime-bars" id="upMusicBars"></div>
+          <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+        </div>
       </div>
     </article>
 
