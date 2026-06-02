@@ -538,40 +538,44 @@
   }
 
   .stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    min-height: 0 !important;
   }
 
   .stat strong {
     display: block;
-    font-size: clamp(54px, 9vw, 110px);
+    font-size: clamp(48px, 8vw, 92px);
     line-height: 1;
-    letter-spacing: -0.04em;
-    font-weight: 900;
+    letter-spacing: -0.02em;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    background: linear-gradient(180deg, var(--green) 0%, var(--green-2) 60%, var(--green-deep) 100%);
+    background: linear-gradient(180deg, #d9ff5a 0%, var(--green) 45%, var(--green-2) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 38px rgba(185,255,36,.18);
+    color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 0 22px rgba(185,255,36,.18));
     font-family: 'Inter', system-ui, sans-serif;
   }
 
   .stat span {
     display: block;
     color: var(--muted);
-    font-size: clamp(14px, 1.2vw, 17px);
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-size: clamp(12px, 1vw, 14px);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   @media (max-width: 720px) {
@@ -1540,7 +1544,6 @@
     color: #13220b;
   }
 
-  html[data-theme="dark"] .stat,
   html[data-theme="dark"] .feature,
   html[data-theme="dark"] .wide-panel,
   html[data-theme="dark"] .price-card,
@@ -1550,6 +1553,13 @@
       radial-gradient(circle at 80% 18%, rgba(202, 255, 55, .13), transparent 20rem),
       rgba(16, 26, 13, .78);
     box-shadow: var(--shadow-soft);
+  }
+
+  /* Stats premium : pas de carte, juste gros chiffres en lime. */
+  html[data-theme="dark"] .stat {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
 
   html[data-theme="dark"] .hero-card {
@@ -1584,10 +1594,10 @@
   }
 
   html[data-theme="dark"] .check-list li,
-  html[data-theme="dark"] .footer a,
-  html[data-theme="dark"] .stat strong {
+  html[data-theme="dark"] .footer a {
     color: #f7ffe8;
   }
+  /* On laisse .stat strong garder son gradient lime, pas de color override. */
 
   html[data-theme="dark"] .price-card::before {
     background:
@@ -2601,16 +2611,20 @@
         if (!data) return;
         const g = document.getElementById('statGuilds');
         const u = document.getElementById('statUsers');
-        if (g && typeof data.guilds === 'number') {
-          g.dataset.count = String(data.guilds);
+        const gv = Number(data.guilds);
+        const uv = Number(data.users);
+        if (g && Number.isFinite(gv)) {
+          g.dataset.count = String(gv);
+          played.statGuilds = false; // permet rejouer si val updated apres fade in
           tryAnimate('statGuilds');
         }
-        if (u && typeof data.users === 'number') {
-          u.dataset.count = String(data.users);
+        if (u && Number.isFinite(uv)) {
+          u.dataset.count = String(uv);
+          played.statUsers = false;
           tryAnimate('statUsers');
         }
       })
-      .catch(() => {});
+      .catch((e) => { console.warn('public-stats fetch fail', e); });
   })();
 
   window.addEventListener('load', () => {
