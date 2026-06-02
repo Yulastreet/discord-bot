@@ -45,9 +45,11 @@ def register_bot_profile_routes(app, deps):
         uid = _current_user_id() if "_current_user_id" in globals() else g.discord_user.get("id") if g.discord_user else None
         if not uid:
             return redirect("/")
+        # ?preview=1 force le paywall meme pour owner / abonnes (utile pour QA)
+        force_paywall = request.args.get("preview") in ("1", "true")
         return render_template(
             "bot_profile.html",
-            is_premium=_is_tookbot_plus(uid),
+            is_premium=(False if force_paywall else _is_tookbot_plus(uid)),
             user=session_user() if "session_user" in globals() else (g.discord_user or {}),
             active_nav="bot-profile",
         )
