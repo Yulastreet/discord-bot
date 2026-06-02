@@ -103,6 +103,10 @@ def setup_runtime(bot, deps):
         gw_loop = globals().get("giveaway_finalize_loop")
         if gw_loop is not None and not gw_loop.is_running():
             gw_loop.start()
+        # bot_state heartbeat (pour page /status sache que le bot est vivant)
+        heartbeat_loop = globals().get("bot_state_heartbeat_loop")
+        if heartbeat_loop is not None and not heartbeat_loop.is_running():
+            heartbeat_loop.start()
         # Resume music: disabled by default. Discord voice handshakes can stall the
         # gateway at boot if the saved channel state is stale.
         if MUSIC_RESUME and os.getenv("MUSIC_RESUME_ON_BOOT", "0") == "1":

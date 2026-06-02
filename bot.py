@@ -912,6 +912,18 @@ async def _before_gw_finalize():
     await bot.wait_until_ready()
 
 
+# Refresh bot_state.json toutes les 30s pour que la page /status sache
+# que le bot est toujours en vie (sinon le fichier n'est ecrit qu'au boot).
+@tasks.loop(seconds=30)
+async def bot_state_heartbeat_loop():
+    _write_bot_state()
+
+
+@bot_state_heartbeat_loop.before_loop
+async def _before_bot_state_heartbeat():
+    await bot.wait_until_ready()
+
+
 # NB : la loop est demarree dans tasks/runtime.py on_ready pour eviter le crash
 # 'no current event loop' au chargement du module (avant bot.run).
 setup_runtime(bot, globals())
