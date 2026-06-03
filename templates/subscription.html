@@ -304,45 +304,47 @@
     </button>
     <p class="sub-foot-note">Paiement sécurisé via Stripe. Annulable à tout moment depuis le portail client.</p>
   </div>
+</div>
 
-  {% if trial_eligible %}
-  <div class="sub-trial-block" style="margin-top:18px;padding:18px 22px;border:1px dashed oklch(0.86 0.20 130 / 0.55);border-radius:14px;background:oklch(0.86 0.20 130 / 0.06);text-align:center;">
-    <div style="font-weight:700;font-size:15px;margin-bottom:4px;color:var(--text);">Pas encore convaincu ?</div>
-    <div style="font-size:13px;color:var(--text-2);margin-bottom:12px;">Essaye TookBot+ <strong>7 jours gratuits</strong>. Aucune carte bancaire requise. Un seul essai par compte.</div>
-    <button class="btn btn-secondary" id="trialBtn" type="button" style="min-width:220px;">
-      ✦ Demarrer mon essai 7 jours
-    </button>
-    <div id="trialMsg" style="margin-top:10px;font-size:12px;color:var(--text-2);"></div>
+{% if trial_eligible %}
+<div class="sub-trial-card" style="margin-top:40px;padding:24px 28px;border:1px dashed oklch(0.86 0.20 130 / 0.55);border-radius:18px;background:oklch(0.86 0.20 130 / 0.06);text-align:center;">
+  <div style="font-weight:800;font-size:18px;margin-bottom:6px;color:var(--text);">Pas encore convaincu ?</div>
+  <div style="font-size:14px;color:var(--text-2);margin-bottom:16px;max-width:520px;margin-left:auto;margin-right:auto;">
+    Essaye TookBot+ <strong>7 jours gratuits</strong>. Aucune carte bancaire requise. Un seul essai par compte.
   </div>
-  <script>
-    document.getElementById('trialBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('trialBtn');
-      const msg = document.getElementById('trialMsg');
-      btn.disabled = true; btn.textContent = 'Activation...';
-      try {
-        const r = await fetch('/api/subscription/start-trial', { method: 'POST' });
-        const d = await r.json();
-        if (d.ok) {
-          msg.textContent = d.message || 'Trial active.';
-          msg.style.color = '#2ecc71';
-          btn.textContent = 'Active ✓';
-          setTimeout(() => window.location.reload(), 1800);
-        } else {
-          msg.textContent = d.message || d.error || 'Erreur.';
-          msg.style.color = '#e74c3c';
-          btn.disabled = false;
-          btn.textContent = '✦ Demarrer mon essai 7 jours';
-        }
-      } catch (e) {
-        msg.textContent = e.message;
+  <button class="btn btn-secondary" id="trialBtn" type="button" style="min-width:240px;">
+    ✦ Demarrer mon essai 7 jours
+  </button>
+  <div id="trialMsg" style="margin-top:12px;font-size:13px;color:var(--text-2);"></div>
+</div>
+<script>
+  document.getElementById('trialBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('trialBtn');
+    const msg = document.getElementById('trialMsg');
+    btn.disabled = true; btn.textContent = 'Activation...';
+    try {
+      const r = await fetch('/api/subscription/start-trial', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        msg.textContent = d.message || 'Trial active.';
+        msg.style.color = '#2ecc71';
+        btn.textContent = 'Active ✓';
+        setTimeout(() => window.location.reload(), 1800);
+      } else {
+        msg.textContent = d.message || d.error || 'Erreur.';
         msg.style.color = '#e74c3c';
         btn.disabled = false;
         btn.textContent = '✦ Demarrer mon essai 7 jours';
       }
-    });
-  </script>
-  {% endif %}
-</div>
+    } catch (e) {
+      msg.textContent = e.message;
+      msg.style.color = '#e74c3c';
+      btn.disabled = false;
+      btn.textContent = '✦ Demarrer mon essai 7 jours';
+    }
+  });
+</script>
+{% endif %}
 {% endif %}
 
 <script>
