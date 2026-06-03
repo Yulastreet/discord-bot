@@ -462,45 +462,88 @@ def _ydl_opts_for(url_or_query):
 
 
 def _extract_audio_info_fast_sync(query):
-    """Version legere : pour les playlists Spotify (mass-add).
-    Retourne juste {title, url (webpage), duration, thumbnail} via ytsearch1
-    flat. play_next re-resoudra l'URL en stream au moment de jouer (cf.
-    _is_webpage_url check). Evite N x 1s yt-dlp extract complet.
+    """Search YouTube via HTML scrape directe (PAS yt-dlp pour eviter
+    bgutil-pot-provider plugin qui fait asyncio.run en parallel context).
 
-    Utilise un YDL OPTS minimal SANS proxy/PoToken/extractor_args qui
-    causent 'asyncio.run() cannot be called from a running event loop'
-    en parallel calls. Le search YT public marche sans authentification
-    YouTube particuliere."""
+    Parse le JSON ytInitialData de la page de resultats. Retourne juste
+    {title, url, duration}. play_next re-resoudra l'URL en stream complet
+    au moment de jouer la track (cf. _is_webpage_url check).
+
+    Rapide (~200ms par appel), thread-safe, pas de plugin yt-dlp."""
     if query.startswith("http"):
         return {"title": query, "url": query, "source_url": query}
-    minimal_opts = {
-        'format': 'bestaudio/best',
-        'noplaylist': True,
-        'quiet': True,
-        'no_warnings': True,
-        'default_search': 'ytsearch',
-        'extract_flat': 'in_playlist',
-        'skip_download': True,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
+    import json
+    import re as _re
+    import urllib.parse
+    import urllib.request
+    q = urllib.parse.quote_plus(query)
+    url = f"https://www.youtube.com/results?search_query={q}"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        raise RuntimeError(f"yt search fetch fail: {type(e).__name__}: {e}")
+    m = _re.search(r"var ytInitialData = (\{.*?\});</script>", html, _re.DOTALL)
+    if not m:
+        raise RuntimeError("yt search: ytInitialData introuvable")
+    try:
+        data = json.loads(m.group(1))
+    except Exception as e:
+        raise RuntimeError(f"yt search json parse: {e}")
+    # Cherche le premier videoRenderer dans les contents
+    def _walk_for_video(obj):
+        if isinstance(obj, dict):
+            if "videoRenderer" in obj:
+                return obj["videoRenderer"]
+            for v in obj.values():
+                r = _walk_for_video(v)
+                if r:
+                    return r
+        elif isinstance(obj, list):
+            for it in obj:
+                r = _walk_for_video(it)
+                if r:
+                    return r
+        return None
+    vr = _walk_for_video(data)
+    if not vr:
+        raise RuntimeError("yt search: aucun videoRenderer trouve")
+    vid = vr.get("videoId")
+    title = ""
+    title_runs = (vr.get("title") or {}).get("runs") or []
+    if title_runs:
+        title = title_runs[0].get("text") or ""
+    duration_text = (vr.get("lengthText") or {}).get("simpleText") or ""
+    duration = None
+    if duration_text and ":" in duration_text:
+        try:
+            parts = [int(x) for x in duration_text.split(":")]
+            if len(parts) == 2:
+                duration = parts[0] * 60 + parts[1]
+            elif len(parts) == 3:
+                duration = parts[0] * 3600 + parts[1] * 60 + parts[2]
+        except ValueError:
+            pass
+    thumb = None
+    thumbs = (vr.get("thumbnail") or {}).get("thumbnails") or []
+    if thumbs:
+        thumb = thumbs[-1].get("url")
+    if not vid:
+        raise RuntimeError("yt search: pas de videoId")
+    yt_url = f"https://www.youtube.com/watch?v={vid}"
+    return {
+        "title": title or query,
+        "url": yt_url,
+        "source_url": yt_url,
+        "duration": duration,
+        "thumbnail": thumb,
     }
-    with yt_dlp.YoutubeDL(minimal_opts) as ydl:
-        search = ydl.extract_info(f"ytsearch1:{query}", download=False)
-        entries = (search.get("entries") or [])
-        if not entries:
-            raise RuntimeError("Aucun resultat YouTube pour cette recherche.")
-        e = entries[0]
-        url = _entry_url(e)
-        if not url:
-            raise RuntimeError("Pas d'URL exploitable.")
-        return {
-            "title": e.get("title") or query,
-            "url": url,
-            "source_url": url,
-            "duration": e.get("duration"),
-            "thumbnail": (e.get("thumbnails") or [{}])[0].get("url") if e.get("thumbnails") else None,
-        }
 
 
 async def get_audio_info_fast(query):
