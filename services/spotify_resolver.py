@@ -198,12 +198,24 @@ def _extract_tracks_from_main_page(spid: str) -> tuple[str, list[dict]]:
 def _get_anon_access_token() -> str:
     """Recupere le token anonyme du web player Spotify.
 
-    L'endpoint /get_access_token est bloque (403 URL Blocked). On
-    extrait a la place le token embed dans le HTML de la page
-    open.spotify.com (script id=\"session\" type=\"application/json\")
-    qui contient accessToken + expiration.
+    Spotify embed le token dans `<script id="appServerConfig" type="text/plain">`
+    sous forme de blob base64 (commence par 'eyJ...'). Decode -> JSON
+    contenant accessToken + accessTokenExpirationTimestampMs.
+
+    Le token est valable ~1h. Cache simple module-level pour eviter
+    de re-fetch la page a chaque appel.
     """
+    global _ANON_TOKEN, _ANON_TOKEN_EXP
+    import time
+    now = time.time()
+    try:
+        if _ANON_TOKEN and _ANON_TOKEN_EXP > now + 30:
+            return _ANON_TOKEN
+    except NameError:
+        pass
+
     import json
+    import base64
     import re as _re
     import urllib.request
     req = urllib.request.Request(
@@ -217,24 +229,47 @@ def _get_anon_access_token() -> str:
     )
     with urllib.request.urlopen(req, timeout=10) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
-    # Cherche le script session (JSON inline)
+
+    # Cherche le blob appServerConfig (base64 encoded JSON)
     m = _re.search(
-        r'<script id="session"[^>]*type="application/json"[^>]*>(\{.+?\})</script>',
-        html, _re.DOTALL,
+        r'<script id="appServerConfig"[^>]*>([A-Za-z0-9+/=]+)</script>',
+        html,
     )
     if m:
         try:
-            data = json.loads(m.group(1))
+            decoded = base64.b64decode(m.group(1)).decode("utf-8")
+            data = json.loads(decoded)
+            tok = data.get("accessToken")
+            exp = data.get("accessTokenExpirationTimestampMs")
+            if tok:
+                _ANON_TOKEN = tok
+                _ANON_TOKEN_EXP = (exp / 1000) if exp else (now + 1800)
+                return tok
+        except Exception as e:
+            print(f"[spotify anon] decode appServerConfig fail: {e}")
+
+    # Fallback : ancien script session
+    m_s = _re.search(
+        r'<script id="session"[^>]*type="application/json"[^>]*>(\{.+?\})</script>',
+        html, _re.DOTALL,
+    )
+    if m_s:
+        try:
+            data = json.loads(m_s.group(1))
             tok = data.get("accessToken")
             if tok:
+                _ANON_TOKEN = tok
+                _ANON_TOKEN_EXP = now + 1800
                 return tok
         except Exception:
             pass
-    # Fallback : cherche directement accessToken via regex
+    # Fallback regex pure
     m2 = _re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
     if m2:
-        return m2.group(1)
-    raise RuntimeError("anon token introuvable dans la page open.spotify.com")
+        _ANON_TOKEN = m2.group(1)
+        _ANON_TOKEN_EXP = now + 1800
+        return _ANON_TOKEN
+    raise RuntimeError("anon token introuvable (appServerConfig + session + regex tous KO)")
 
 
 def _resolve_playlist_via_anon_api(spid: str, max_tracks: int = 1000) -> tuple[str, list[dict]]:
