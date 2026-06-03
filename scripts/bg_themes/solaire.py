@@ -83,56 +83,119 @@ def _bg_aurore_solaire(palette, seed):
 
 
 def _bg_coulee_de_lave(palette, seed):
-    """Flux de lave incandescent : noir profond avec coulees rouge/orange
-    qui craquellent comme du magma refroidi."""
-    primary, secondary, accent = palette
+    """Flux de lave reconnaissable : terrain rocheux noir + 4 coulees
+    horizontales sinueuses larges (halo orange + coeur blanc-jaune
+    incandescent) + craquelures sombres + etincelles montantes."""
     rng = random.Random(seed)
 
-    # Fond noir tres sombre
-    img = Image.new("RGB", (W, H), (12, 8, 6))
+    # Fond rocheux : marron-noir avec texture granuleuse
+    img = Image.new("RGB", (W, H), (28, 18, 14))
+    px = img.load()
+    for y in range(H):
+        for x in range(W):
+            n = rng.randint(-8, 8)
+            px[x, y] = (
+                max(0, min(255, 28 + n)),
+                max(0, min(255, 18 + n)),
+                max(0, min(255, 14 + n)),
+            )
     img = img.convert("RGBA")
 
-    # Coulees de lave : forme organique avec un masque flou
-    lava = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ld = ImageDraw.Draw(lava)
-    # 3-4 grosses coulees en serpentin
-    for _ in range(4):
-        x0 = rng.randint(0, W)
-        y0 = rng.randint(0, H)
-        for step in range(120):
-            angle = rng.uniform(-math.pi/2 + 0.2, math.pi/2 - 0.2)
-            x0 += math.cos(angle) * rng.uniform(3, 8)
-            y0 += abs(math.sin(angle)) * rng.uniform(2, 5)
-            x0 = max(0, min(W, x0))
-            y0 = max(0, min(H, y0))
-            r = rng.randint(14, 28)
-            ld.ellipse((x0 - r, y0 - r, x0 + r, y0 + r),
-                       fill=(255, 100, 30, 200))
-    lava = lava.filter(ImageFilter.GaussianBlur(12))
+    # 4 coulees horizontales, chacune sur un Y different. Trajectoire
+    # sinusoidale large, epaisseur variable. Composition en 3 passes
+    # par coulee : halo orange flou (large) -> orange net (mid) ->
+    # coeur blanc-jaune (etroit).
+    streams_y = [int(H * y) for y in (0.18, 0.40, 0.62, 0.85)]
+    rng.shuffle(streams_y)
 
-    # Coeur brillant blanc/jaune par-dessus
-    core = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    cd = ImageDraw.Draw(core)
-    for _ in range(40):
-        cx = rng.randint(0, W)
-        cy = rng.randint(0, H)
-        cd.ellipse((cx - 5, cy - 5, cx + 5, cy + 5),
-                   fill=(255, 240, 180, 220))
-    core = core.filter(ImageFilter.GaussianBlur(4))
+    for s_idx, base_y in enumerate(streams_y):
+        # Genere trajectoire (liste de points x,y)
+        amp = rng.randint(18, 35)
+        freq = rng.uniform(0.006, 0.012)
+        phase = rng.uniform(0, 2 * math.pi)
+        traj = []
+        for x in range(-30, W + 30, 4):
+            y = base_y + int(math.sin(x * freq + phase) * amp)
+            traj.append((x, y))
 
-    img.alpha_composite(lava)
-    img.alpha_composite(core)
+        # Passe 1 : halo flou large (orange profond)
+        halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        hd = ImageDraw.Draw(halo)
+        for (x, y) in traj:
+            r = rng.randint(40, 55)
+            hd.ellipse((x - r, y - r, x + r, y + r),
+                       fill=(220, 70, 20, 140))
+        halo = halo.filter(ImageFilter.GaussianBlur(22))
+        img.alpha_composite(halo)
 
-    # Etincelles
+        # Passe 2 : corps orange vif (largeur moyenne)
+        body = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(body)
+        for (x, y) in traj:
+            r = rng.randint(18, 24)
+            bd.ellipse((x - r, y - r, x + r, y + r),
+                       fill=(255, 130, 40, 230))
+        body = body.filter(ImageFilter.GaussianBlur(6))
+        img.alpha_composite(body)
+
+        # Passe 3 : coeur incandescent blanc-jaune (etroit, net)
+        core = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        cd = ImageDraw.Draw(core)
+        for (x, y) in traj:
+            r = rng.randint(6, 10)
+            cd.ellipse((x - r, y - r, x + r, y + r),
+                       fill=(255, 245, 200, 255))
+        core = core.filter(ImageFilter.GaussianBlur(2))
+        img.alpha_composite(core)
+
+        # Passe 4 : craquelures sombres dans le coeur (lignes noires
+        # transverses qui evoquent le magma qui refroidit en surface)
+        cracks = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ckd = ImageDraw.Draw(cracks)
+        n_cracks = rng.randint(8, 14)
+        for _ in range(n_cracks):
+            # Position le long du tracé
+            idx = rng.randint(0, len(traj) - 1)
+            (cx, cy) = traj[idx]
+            angle = rng.uniform(0, math.pi)  # transversal
+            length = rng.randint(10, 24)
+            x1 = cx + math.cos(angle) * length
+            y1 = cy + math.sin(angle) * length
+            x2 = cx - math.cos(angle) * length
+            y2 = cy - math.sin(angle) * length
+            ckd.line([(x1, y1), (x2, y2)], fill=(40, 15, 8, 220), width=2)
+        img.alpha_composite(cracks)
+
+    # Etincelles : petits points jaunes ascendants (entre les coulees,
+    # densite plus elevee pres des sources de chaleur)
     sparks = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     sd = ImageDraw.Draw(sparks)
-    for _ in range(180):
+    for _ in range(120):
         x = rng.randint(0, W - 1)
         y = rng.randint(0, H - 1)
-        sd.ellipse((x, y, x + 2, y + 2), fill=(255, 220, 140, 220))
+        sz = rng.choice([1, 1, 2, 2, 3])
+        col = rng.choice([
+            (255, 220, 130, 230),
+            (255, 180, 80,  220),
+            (255, 240, 180, 230),
+        ])
+        sd.ellipse((x, y, x + sz, y + sz), fill=col)
     img.alpha_composite(sparks)
 
-    return vignette(img.convert("RGB"), 0.55)
+    # Quelques rochers sombres en silhouette (taches noires irregulieres
+    # par-dessus pour donner texture/relief sans cacher les coulees)
+    rocks = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    rd = ImageDraw.Draw(rocks)
+    for _ in range(12):
+        x = rng.randint(0, W)
+        y = rng.randint(0, H)
+        w = rng.randint(20, 60)
+        h = rng.randint(10, 28)
+        rd.ellipse((x - w, y - h, x + w, y + h), fill=(8, 5, 3, 120))
+    rocks = rocks.filter(ImageFilter.GaussianBlur(8))
+    img.alpha_composite(rocks)
+
+    return vignette(img.convert("RGB"), 0.5)
 
 
 def _bg_couronne(palette, seed):
