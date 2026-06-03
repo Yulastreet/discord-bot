@@ -324,6 +324,8 @@ async def render_niveau_card(
     `title` (str) : titre Pass affiche sous le pseudo (ex: "Maître").
     `emoji_prefix` (str) : emoji Pass affiche devant le pseudo (ex: "🌟").
     """
+    print(f"[render_niveau_card] user={username} level={level} xp_total={xp_total} "
+          f"xp_in_level={xp_in_level} xp_needed={xp_needed} bg={background}", flush=True)
     raw_avatar = await _fetch_avatar_bytes(avatar_url) if avatar_url else None
     return await asyncio.to_thread(
         _render_niveau_sync,
