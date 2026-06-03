@@ -877,17 +877,9 @@ setup_custom_cmd_commands(bot)
 setup_lol_commands(bot)
 
 
-@bot.event
-async def on_voice_state_update(member, before, after):
-    """Hub central voice events : CS2 cleanup + tempvoice + voice_idle disconnect."""
-    try:
-        await cs2_on_voice(member, before, after, bot)
-    except Exception as e:
-        print(f"[cs2/voice-hook] {type(e).__name__}: {e}")
-    try:
-        await tempvoice_on_voice(member, before, after, bot)
-    except Exception as e:
-        print(f"[tempvoice/voice-hook] {type(e).__name__}: {e}")
+# on_voice_state_update central : voir tasks/runtime.py (handler unique
+# qui log les voice changes + appelle cs2 + tempvoice hooks). Pas de
+# decorator ici sinon il overrideait le handler runtime au boot.
 
 
 @tasks.loop(minutes=2)

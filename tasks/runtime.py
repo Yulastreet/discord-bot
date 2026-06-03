@@ -461,24 +461,35 @@ def setup_runtime(bot, deps):
     async def on_voice_state_update(member, before, after):
         if not member.guild:
             return
-        if before.channel == after.channel:
-            return  # mute/deaf etc., pas de move
-        if before.channel is None and after.channel is not None:
-            # join
-            add_log(member.guild.id, "action_voice_join",
-                    user_id=member.id, username=str(member),
-                    channel_id=after.channel.id, channel_name=after.channel.name)
-        elif before.channel is not None and after.channel is None:
-            # leave
-            add_log(member.guild.id, "action_voice_leave",
-                    user_id=member.id, username=str(member),
-                    channel_id=before.channel.id, channel_name=before.channel.name)
-        else:
-            # move
-            add_log(member.guild.id, "action_voice_move",
-                    user_id=member.id, username=str(member),
-                    channel_id=after.channel.id, channel_name=after.channel.name,
-                    meta={"from": before.channel.name, "to": after.channel.name})
+        # 1) Log voice changes (join/leave/move) — utile pour analytics
+        if before.channel != after.channel:
+            if before.channel is None and after.channel is not None:
+                add_log(member.guild.id, "action_voice_join",
+                        user_id=member.id, username=str(member),
+                        channel_id=after.channel.id, channel_name=after.channel.name)
+            elif before.channel is not None and after.channel is None:
+                add_log(member.guild.id, "action_voice_leave",
+                        user_id=member.id, username=str(member),
+                        channel_id=before.channel.id, channel_name=before.channel.name)
+            else:
+                add_log(member.guild.id, "action_voice_move",
+                        user_id=member.id, username=str(member),
+                        channel_id=after.channel.id, channel_name=after.channel.name,
+                        meta={"from": before.channel.name, "to": after.channel.name})
+
+        # 2) CS2 voice hook (cleanup voice channels CS2 vides)
+        try:
+            from commandes.cs2 import on_voice_state_update as _cs2_voice
+            await _cs2_voice(member, before, after, bot)
+        except Exception as e:
+            print(f"[cs2/voice-hook] {type(e).__name__}: {e}")
+
+        # 3) Tempvoice (lobby -> creation salon perso + cleanup vide)
+        try:
+            from commandes.tempvoice import tempvoice_on_voice_state_update as _tv_voice
+            await _tv_voice(member, before, after, bot)
+        except Exception as e:
+            print(f"[tempvoice/voice-hook] {type(e).__name__}: {e}")
 
     @bot.event
     async def on_member_remove(member):
