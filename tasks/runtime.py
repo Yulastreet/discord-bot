@@ -216,7 +216,14 @@ def setup_runtime(bot, deps):
         except Exception:
             pass
 
-        # DM presentation au membre qui a invite le bot (fallback : owner)
+        # ===== ONBOARDING DM : 1 message consolide a l'inviteur + 1 a l'owner =====
+        # Refonte juin 2026 : moins de wall-of-text, plus de hierarchie visuelle,
+        # boutons URL directs vers dashboard / commandes / support.
+        DASHBOARD_URL = "https://dashboard.tookbot.click"
+        LANDING_URL   = "https://tookbot.click"
+        SUPPORT_URL   = "https://discord.gg/hx4KEFSGJA"
+
+        # Recherche de l'inviter via audit log (fallback owner)
         inviter = None
         try:
             async for entry in guild.audit_logs(limit=8, action=discord.AuditLogAction.bot_add):
@@ -228,57 +235,64 @@ def setup_runtime(bot, deps):
         if inviter is None:
             inviter = guild.owner
 
+        def _build_invite_view():
+            v = discord.ui.View(timeout=None)
+            v.add_item(discord.ui.Button(label="Ouvrir le dashboard", style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
+            v.add_item(discord.ui.Button(label="Voir toutes les commandes", style=discord.ButtonStyle.link, url=f"{LANDING_URL}/commandes.html", emoji="📚"))
+            v.add_item(discord.ui.Button(label="Serveur support", style=discord.ButtonStyle.link, url=SUPPORT_URL, emoji="💬"))
+            return v
+
         if inviter is not None and not inviter.bot:
             embed = discord.Embed(
-                title="👋 Merci de m'avoir invité !",
+                title=f"👋 Bienvenue sur TookBot — {guild.name}",
                 description=(
-                    f"Salut **{inviter.display_name}** ! Je suis maintenant sur **{guild.name}**.\n\n"
-                    "Je propose un système de **niveaux/XP**, des **duels** PvP fun, "
-                    "des outils de **modération**, des **giveaways**, des **commandes custom**, "
-                    "de l'intégration **CS2** (stats, inventaire, prix, queue), et plus encore.\n\n"
-                    "🛠️ **Pour découvrir toutes les commandes** : `/commandes`\n"
-                    "⚔️ **Pour de l'aide sur les duels** : `/duel info`\n\n"
-                    "⭐ Le **système d'XP** est **activé par défaut** sur ton serveur. "
-                    "Si tu préfères ne pas l'utiliser, désactive-le avec `/xp off` "
-                    "ou depuis le dashboard web (les niveaux acquis restent conservés). "
-                    "Réactive avec `/xp on`.\n\n"
-                    "Pense à régler les permissions du bot et à configurer "
-                    "les options dans le **dashboard web** si tu en as un."
+                    f"Salut **{inviter.display_name}**, merci de m'avoir invité.\n"
+                    "Tout est pret a tourner. Voici ce qu'il te reste a faire."
                 ),
                 color=0xB9F23A,
             )
-            embed.set_footer(text=f"Serveur : {guild.name} • {guild.member_count or 0} membre(s)")
+            embed.add_field(
+                name="⚙️ 1 — Lance le setup obligatoire",
+                value=(
+                    "Tape `/setup` sur le serveur (admin requis).\n"
+                    "Tu choisiras les 4 salons : **Bienvenue**, **Logs**, **Alertes**, **Admin/Modo**.\n"
+                    "Sans ca, certaines features ne savent pas ou poster."
+                ),
+                inline=False,
+            )
+            embed.add_field(
+                name="🎛️ 2 — Configure depuis le dashboard",
+                value=(
+                    f"[Ouvre {DASHBOARD_URL.replace('https://', '')}]({DASHBOARD_URL}) "
+                    "pour ajuster XP, message de bienvenue, fonctionnalites, "
+                    "permissions modos, custom commands, alertes Twitch/YouTube/Reddit, etc."
+                ),
+                inline=False,
+            )
+            embed.add_field(
+                name="🚀 3 — Decouvre les commandes",
+                value=(
+                    "`/commandes` pour la liste, `/duel info` pour les duels PvP, "
+                    "`/play` pour la musique, `/niveau` pour ton XP."
+                ),
+                inline=False,
+            )
+            embed.add_field(
+                name="💡 A savoir",
+                value=(
+                    "Le **systeme XP** est **active par defaut**. Pour le couper : "
+                    "`/xp off` ou via le dashboard (XP acquise conservee)."
+                ),
+                inline=False,
+            )
+            embed.set_footer(text=f"{guild.name} • {guild.member_count or 0} membre(s)")
             if guild.icon:
                 embed.set_thumbnail(url=str(guild.icon.url))
-            try:
-                await inviter.send(embed=embed)
-            except (discord.Forbidden, discord.HTTPException):
-                pass
 
-            # === Second message TRES VISIBLE pour forcer le /setup ===
-            embed_setup = discord.Embed(
-                title="⚠️ NE PAS SKIP — Initialisation requise",
-                description=(
-                    "**Avant d'utiliser le bot**, un **admin ou modérateur** du serveur "
-                    "doit faire la commande :\n\n"
-                    "## `/setup`\n\n"
-                    "Cette commande ouvre un **builder de configuration** où tu choisis "
-                    "les 4 salons essentiels du bot :\n\n"
-                    "📥 **Bienvenue** — messages d'arrivée des nouveaux membres\n"
-                    "📜 **Logs** — historique d'activité (commandes, modération)\n"
-                    "🔴 **Alertes** — notifications Twitch / YouTube / Reddit\n"
-                    "🛡️ **Admin/Modo** — notifications internes du staff\n\n"
-                    "Sans cette étape, certaines fonctionnalités ne pourront pas "
-                    "envoyer leurs messages au bon endroit.\n\n"
-                    "💡 *Tu peux refaire `/setup` à tout moment pour modifier la config.*"
-                ),
-                color=0xFF6B35,
-            )
-            embed_setup.set_footer(text="Étape obligatoire — Configuration initiale")
             try:
-                await inviter.send(embed=embed_setup)
+                await inviter.send(embed=embed, view=_build_invite_view())
             except (discord.Forbidden, discord.HTTPException):
-                # Fallback : essaye d'envoyer dans le premier channel writable
+                # Fallback : poste dans system_channel ou 1er salon writable
                 try:
                     target = None
                     if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
@@ -289,37 +303,50 @@ def setup_runtime(bot, deps):
                                 target = ch
                                 break
                     if target:
-                        await target.send(embed=embed_setup)
+                        await target.send(embed=embed, view=_build_invite_view())
                 except Exception:
                     pass
 
-        # === 3e message : DM SERVER OWNER (different du inviter) pour config perms modos ===
+        # DM OWNER (different de l'inviter) : focus permissions modos
         server_owner = guild.owner
-        if server_owner and not server_owner.bot:
+        if server_owner and not server_owner.bot and (
+            inviter is None or server_owner.id != inviter.id
+        ):
             embed_owner = discord.Embed(
-                title="🔐 Configuration des permissions modérateurs",
+                title="🔐 Action requise — Permissions modos",
                 description=(
-                    f"Bonjour **{server_owner.display_name}** !\n\n"
-                    f"TookBot a été ajouté à ton serveur **{guild.name}**.\n\n"
-                    "## ⚠️ Étape obligatoire pour toi (proprio du serveur)\n\n"
-                    "Par défaut, **les modérateurs ont accès à TOUT** (commandes et dashboard).\n"
-                    "Tu peux restreindre leurs droits feature par feature.\n\n"
-                    "**Tant que tu ne fais pas cette config :**\n"
-                    "• Les modos ne peuvent **utiliser aucune** commande slash de modération\n"
-                    "• Les modos ne peuvent **accéder à aucune** page du dashboard "
-                    "(sauf leur Premium/Pass perso)\n\n"
-                    "**Deux façons de configurer :**\n\n"
-                    "**1.** Sur le **dashboard web** : un popup apparaîtra à ta 1re connexion\n"
-                    "→ <https://dashboard.tookbot.click>\n\n"
-                    "**2.** Sur Discord : fais `/setup` pour choisir le rôle des modérateurs, "
-                    "puis un salon privé temporaire sera créé pour cocher les permissions\n\n"
-                    "💡 *Tu pourras modifier ces droits à tout moment via le dashboard.*"
+                    f"Salut **{server_owner.display_name}**, TookBot est sur **{guild.name}**.\n"
+                    "Une seule action obligatoire pour toi en tant que proprio :"
                 ),
                 color=0xB9F23A,
             )
-            embed_owner.set_footer(text="Configuration permission modérateurs — Obligatoire")
+            embed_owner.add_field(
+                name="⚠️ Par defaut, les modos ont acces a tout",
+                value=(
+                    "Tant que tu n'as pas configure leurs droits feature par feature :\n"
+                    "• ils ne peuvent **utiliser aucune commande de moderation**\n"
+                    "• ils ne peuvent **acceder a aucune page** du dashboard "
+                    "(sauf leur Premium/Pass perso)"
+                ),
+                inline=False,
+            )
+            embed_owner.add_field(
+                name="🎯 Comment configurer",
+                value=(
+                    f"**Dashboard** : ouvre [{DASHBOARD_URL.replace('https://', '')}]({DASHBOARD_URL}) "
+                    "et un popup t'aide a la 1re connexion.\n"
+                    "**Discord** : `/setup` pour choisir le role modo, "
+                    "puis un salon prive temporaire te laisse cocher les droits."
+                ),
+                inline=False,
+            )
+            embed_owner.set_footer(text="Tu peux modifier ces droits a tout moment")
+
+            owner_view = discord.ui.View(timeout=None)
+            owner_view.add_item(discord.ui.Button(label="Configurer dashboard", style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
+
             try:
-                await server_owner.send(embed=embed_owner)
+                await server_owner.send(embed=embed_owner, view=owner_view)
             except (discord.Forbidden, discord.HTTPException):
                 pass
 
