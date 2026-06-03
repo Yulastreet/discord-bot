@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Documentation - TookBot</title>
-<meta name="description" content="Documentation complète TookBot : installation, configuration, commandes musique / modération / XP / duels / CS2 / LoL, dashboard web, dépannage et FAQ.">
+<meta name="description" content="Documentation complète TookBot : installation, configuration, commandes musique / modération / automod TookBot+ / salons vocaux temp / XP / duels / CS2 / LoL, analytics, dashboard web, dépannage et FAQ.">
 <meta property="og:title" content="Documentation - TookBot">
 <meta property="og:description" content="Guide complet pour bien démarrer avec TookBot : setup, toutes les commandes expliquées, dépannage.">
 <meta property="og:url" content="https://tookbot.click/docs.html">
@@ -468,9 +468,16 @@
     <div class="sidebar-section">Modération</div>
     <a class="sidebar-link" href="#mod-overview">Vue d'ensemble</a>
     <a class="sidebar-link" href="#mod-commands">Commandes mod</a>
+    <a class="sidebar-link" href="#mod-automod">Automod (TookBot+)</a>
     <a class="sidebar-link" href="#mod-warns">Système de warns</a>
     <a class="sidebar-link" href="#mod-perms">Permissions par rôle</a>
     <a class="sidebar-link" href="#mod-welcome">Message de bienvenue</a>
+
+    <div class="sidebar-section">Salons vocaux</div>
+    <a class="sidebar-link" href="#tempvoice-overview">Tempvoice (setup + /voc)</a>
+
+    <div class="sidebar-section">Analytics</div>
+    <a class="sidebar-link" href="#server-analytics">Stats serveur live</a>
 
     <div class="sidebar-section">XP & Niveaux</div>
     <a class="sidebar-link" href="#xp-overview">Vue d'ensemble</a>
@@ -529,7 +536,7 @@
 
       <h4>Points clés</h4>
       <ul>
-        <li><strong>76+ commandes slash</strong> couvrant musique, modération, XP, mini-jeux, tickets, alertes sociales et plus</li>
+        <li><strong>80+ commandes slash</strong> couvrant musique, modération, automod, salons vocaux temp, XP, mini-jeux, tickets, alertes sociales et plus</li>
         <li><strong>Gratuit et sans paywall</strong> sur l'essentiel : volume musique, skip, multi-source Spotify, modération, XP</li>
         <li><strong>Hébergé en Europe</strong> (Hetzner Cloud, Falkenstein) avec auto-restart et monitoring 24/7</li>
         <li><strong>Dashboard web complet</strong> via OAuth Discord pour configurer sans taper de commandes</li>
@@ -762,10 +769,64 @@
           <tr><td>/kick &lt;membre&gt; [raison]</td><td>Expulse un membre du serveur</td></tr>
           <tr><td>/ban &lt;membre&gt; [raison]</td><td>Bannit un membre</td></tr>
           <tr><td>/clear &lt;n&gt;</td><td>Supprime les N derniers messages (max 100)</td></tr>
-          <tr><td>/poll &lt;question&gt; &lt;options&gt;</td><td>Sondage avec réactions automatiques</td></tr>
+          <tr><td>/poll (modal)</td><td>Builder modal : question + 2-10 options + durée 1-168h. Sondage natif Discord avec vote live.</td></tr>
           <tr><td>/setwelcome [salon]</td><td>Builder visuel du message de bienvenue</td></tr>
+          <tr><td>Automod (dashboard)</td><td><strong>TookBot+</strong> : mots interdits, anti-pub Discord, anti-spam mentions, anti-raid. Configurable depuis <code>/automod</code> sur le dashboard.</td></tr>
         </tbody>
       </table>
+    </section>
+
+    <section id="mod-automod">
+      <h2>🤖 Modération automatique (TookBot+)</h2>
+      <p>L'automod tourne en arrière-plan et applique 4 règles toggleables sur chaque message / nouveau membre. Les admins et users avec la permission <code>Manage Messages</code> sont exempts automatiquement.</p>
+
+      <h4>Règles disponibles</h4>
+      <ul>
+        <li><strong>Mots interdits</strong> : liste CSV de mots interdits, match du mot entier, case-insensitive. Action : delete message + log embed.</li>
+        <li><strong>Anti-invites Discord</strong> : detecte tout lien <code>discord.gg/*</code> ou <code>discord.com/invite/*</code>. Action : delete + log.</li>
+        <li><strong>Spam mentions</strong> : seuil configurable (2-50). Si le message contient ≥ seuil mentions (users + rôles), il est supprimé.</li>
+        <li><strong>Anti-raid</strong> : seuil joins/minute. Si dépassé, log une alerte dans le salon admin (pas de kick auto pour éviter les faux positifs).</li>
+      </ul>
+
+      <div class="callout">
+        <p>Toutes les actions sont loggées dans un salon dédié configurable depuis le dashboard. Idéal pour avoir une trace sans polluer les channels.</p>
+      </div>
+    </section>
+
+    <section id="tempvoice-overview">
+      <h2>🔊 Salons vocaux temporaires</h2>
+      <p>Configure un salon vocal "lobby" : quand un membre le rejoint, le bot crée un vocal perso à son nom dans la catégorie configurée et l'y déplace automatiquement. Le salon est détruit dès qu'il est vide.</p>
+
+      <h4>Setup admin</h4>
+      <ol>
+        <li>Crée un vocal style <code>➕ Créer ton salon</code></li>
+        <li>(Optionnel) Crée une catégorie <code>Vocaux temp</code></li>
+        <li>Tape <code>/tempvoice setup lobby:&lt;lobby&gt; categorie:&lt;cat&gt; nom_par_defaut:Vocal de {user}</code></li>
+      </ol>
+
+      <h4>Commandes user (owner du salon)</h4>
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/voc rename &lt;nom&gt;</td><td>Renomme ton salon temp</td></tr>
+          <tr><td>/voc limit &lt;nombre&gt;</td><td>Limite le nombre de membres (0 = illimité)</td></tr>
+          <tr><td>/voc lock</td><td>Verrouille le salon (empêche les nouveaux joins)</td></tr>
+          <tr><td>/voc unlock</td><td>Re-ouvre le salon</td></tr>
+          <tr><td>/voc kick &lt;membre&gt;</td><td>Vire un membre du salon</td></tr>
+          <tr><td>/voc transfer &lt;membre&gt;</td><td>Transfère la propriété (transfert auto si owner part)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="server-analytics">
+      <h2>📊 Analytics serveur</h2>
+      <p>Page dashboard <code>/analytics</code> avec stats live calculées depuis les logs : activité par jour, croissance membres (joins/leaves/net cumulé), heatmap 7×24, top commandes et top users sur 30 jours.</p>
+      <ul>
+        <li>5 stat cards avec delta vs hier</li>
+        <li>Line chart activité 7/30/90 jours</li>
+        <li>Bar chart joins/leaves + ligne nette cumulée</li>
+        <li>Heatmap colorée pour repérer les pics horaires</li>
+      </ul>
     </section>
 
     <section id="mod-warns">
