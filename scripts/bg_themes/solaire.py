@@ -136,57 +136,75 @@ def _bg_coulee_de_lave(palette, seed):
 
 
 def _bg_couronne(palette, seed):
-    """Soleil styliste avec couronne de rayons triangulaires reguliers,
-    style affiche-emblème dore sur fond degrade."""
+    """Halo solaire diffus : centre lumineux avec rayons irreguliers en
+    longueurs variees, particules dorees flottantes. Atmosphere de halo
+    de lumiere plutot que d'embleme heraldique."""
     primary, secondary, accent = palette
     rng = random.Random(seed)
 
-    # Fond degrade radial : centre jaune chaud, bord rouge sombre
-    img = radial_gradient((W * 0.5, H * 0.5), accent, shade(secondary, 0.5),
-                          radius=W * 0.6)
+    # Fond degrade radial : centre jaune chaud, bord brun-rouge profond
+    img = radial_gradient((W * 0.5, H * 0.5), accent, shade(secondary, 0.4),
+                          radius=W * 0.65)
     img = img.convert("RGBA")
 
     cx, cy = W // 2, H // 2
 
-    # Rayons triangulaires en couronne
-    rays = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    rd = ImageDraw.Draw(rays)
-    n_rays = 24
-    r_inner = 90
-    r_outer = 280
-    for i in range(n_rays):
-        ang = (i / n_rays) * 2 * math.pi
-        # 2 sommets a r_inner, 1 a r_outer (triangle pointu vers ext)
-        a1 = ang - math.pi / n_rays * 0.6
-        a2 = ang + math.pi / n_rays * 0.6
-        pts = [
-            (cx + math.cos(a1) * r_inner, cy + math.sin(a1) * r_inner),
-            (cx + math.cos(a2) * r_inner, cy + math.sin(a2) * r_inner),
-            (cx + math.cos(ang) * r_outer, cy + math.sin(ang) * r_outer),
-        ]
-        col = (255, 220, 100, 200) if i % 2 == 0 else (255, 180, 60, 220)
-        rd.polygon(pts, fill=col)
-    img.alpha_composite(rays)
+    # Rayons LUMINEUX irreguliers : 60 rayons fins de longueurs et
+    # opacites variees, traces avec un blur leger pour donner un effet
+    # de lumiere divergente plutot que de triangles rigides.
+    rays_far = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    rd_far = ImageDraw.Draw(rays_far)
+    for _ in range(70):
+        ang = rng.uniform(0, 2 * math.pi)
+        length = rng.uniform(140, 360)
+        width = rng.choice([1, 1, 1, 2, 2, 3])
+        alpha = rng.randint(40, 130)
+        ex = cx + math.cos(ang) * length
+        ey = cy + math.sin(ang) * length
+        rd_far.line([(cx, cy), (ex, ey)],
+                    fill=(255, 230, 160, alpha), width=width)
+    rays_far = rays_far.filter(ImageFilter.GaussianBlur(2.5))
+    img.alpha_composite(rays_far)
 
-    # Disque central
+    # Halo central tres flou (brouillard chaud)
+    halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    hd = ImageDraw.Draw(halo)
+    hd.ellipse((cx - 220, cy - 220, cx + 220, cy + 220),
+               fill=(255, 220, 150, 160))
+    halo = halo.filter(ImageFilter.GaussianBlur(60))
+    img.alpha_composite(halo)
+
+    # Disque solaire flou (pas de contour net)
     disk = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     dd = ImageDraw.Draw(disk)
     dd.ellipse((cx - 80, cy - 80, cx + 80, cy + 80),
-               fill=(255, 240, 200, 255), outline=(255, 200, 120, 255), width=3)
+               fill=(255, 245, 210, 255))
+    disk = disk.filter(ImageFilter.GaussianBlur(6))
     img.alpha_composite(disk)
+    # Coeur brillant net plus petit
+    core = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    cd = ImageDraw.Draw(core)
+    cd.ellipse((cx - 40, cy - 40, cx + 40, cy + 40),
+               fill=(255, 255, 240, 255))
+    img.alpha_composite(core)
 
-    # Petits cercles points sur le disque (motif decoratif)
-    deco = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    dco = ImageDraw.Draw(deco)
-    for i in range(12):
-        ang = i * (2 * math.pi / 12)
-        px = cx + math.cos(ang) * 55
-        py = cy + math.sin(ang) * 55
-        dco.ellipse((px - 4, py - 4, px + 4, py + 4),
-                    fill=(255, 180, 80, 255))
-    img.alpha_composite(deco)
+    # Particules dorees flottantes en suspension
+    parts = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(parts)
+    for _ in range(220):
+        x = rng.randint(0, W - 1)
+        y = rng.randint(0, H - 1)
+        d_to_center = math.hypot(x - cx, y - cy)
+        if d_to_center < 60:
+            continue  # pas au coeur
+        sz = rng.choice([1, 1, 2, 2, 3])
+        a = max(20, int(220 - d_to_center * 0.4))
+        pd.ellipse((x, y, x + sz, y + sz),
+                   fill=(255, 235, 170, a))
+    parts = parts.filter(ImageFilter.GaussianBlur(0.8))
+    img.alpha_composite(parts)
 
-    return vignette(img.convert("RGB"), 0.45)
+    return vignette(img.convert("RGB"), 0.42)
 
 
 def _bg_mirage_desert(palette, seed):
@@ -251,68 +269,114 @@ def _bg_mirage_desert(palette, seed):
 
 
 def _bg_soleil_couchant(palette, seed):
-    """Soleil couchant : ciel bande horizontales (haut violet -> bas orange),
-    mer sombre en bas avec reflet vertical du soleil."""
+    """Soleil couchant atmospherique : gradient continu violet -> orange -> jaune,
+    mer en bas avec reflet ondulant, nuages striees diffus, silhouettes
+    d'oiseaux. Pas de bandes droites."""
     primary, secondary, accent = palette
     rng = random.Random(seed)
 
-    # Bandes de ciel
-    bands = [
-        (60,  20,  90,  int(H * 0.20)),   # haut profond violet
-        (140, 60,  120, int(H * 0.40)),   # rose-violet
-        (220, 100, 100, int(H * 0.55)),   # rose-rouge
-        (255, 150, 80,  int(H * 0.70)),   # orange chaud
-        (255, 200, 100, int(H * 0.78)),   # jaune-orange
+    # Ciel : gradient continu sans bandes (5 stops interpoles smooth)
+    stops = [
+        (0.00, (40,  15,  70)),    # haut violet profond
+        (0.25, (110, 50,  110)),   # violet-rose
+        (0.45, (210, 95,  100)),   # rose chaud
+        (0.62, (255, 150, 80)),    # orange ardent
+        (0.74, (255, 210, 130)),   # jaune-orange
     ]
-    img = Image.new("RGB", (W, H), bands[0][:3])
+    sea_start = 0.74
+    sea_end_col = (15, 12, 30)
+
+    img = Image.new("RGB", (W, H))
     px = img.load()
-    last_y = 0
-    last_col = bands[0][:3]
-    for r, g, b, end_y in bands[1:]:
-        col = (r, g, b)
-        for y in range(last_y, end_y):
-            t = (y - last_y) / max(1, end_y - last_y)
-            interp = lerp_rgb(last_col, col, t)
-            for x in range(W):
-                px[x, y] = interp
-        last_y = end_y
-        last_col = col
-    # Bas : mer sombre
-    sea_top = last_col
-    sea_bot = (20, 15, 35)
-    for y in range(last_y, H):
-        t = (y - last_y) / max(1, H - last_y)
-        interp = lerp_rgb(sea_top, sea_bot, t ** 1.3)
+    for y in range(H):
+        t = y / H
+        if t <= sea_start:
+            # Interpole entre les stops
+            col = stops[0][1]
+            for i in range(len(stops) - 1):
+                p0, c0 = stops[i]
+                p1, c1 = stops[i + 1]
+                if p0 <= t <= p1:
+                    local_t = (t - p0) / (p1 - p0)
+                    # Easing smooth
+                    local_t = local_t * local_t * (3 - 2 * local_t)
+                    col = lerp_rgb(c0, c1, local_t)
+                    break
+        else:
+            # Mer : du dernier stop vers fond sombre
+            local_t = (t - sea_start) / (1 - sea_start)
+            local_t = local_t ** 1.4
+            col = lerp_rgb(stops[-1][1], sea_end_col, local_t)
         for x in range(W):
-            px[x, y] = interp
+            px[x, y] = col
+
     img = img.convert("RGBA")
 
-    # Disque soleil dans la bande orange, tangent a la mer
-    sun_y = int(H * 0.72)
-    sun_x = W // 2
-    sun_r = 70
+    # Nuages striees diffus dans le ciel (longues bandes flouttees, opacite faible)
+    clouds = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    cld = ImageDraw.Draw(clouds)
+    for _ in range(7):
+        y0 = rng.randint(int(H * 0.10), int(H * 0.55))
+        thickness = rng.randint(8, 22)
+        x0 = rng.randint(-100, 100)
+        x1 = rng.randint(W - 100, W + 100)
+        col_var = rng.choice([
+            (255, 200, 160, 90),
+            (255, 170, 130, 80),
+            (180, 100, 130, 70),
+        ])
+        cld.ellipse((x0, y0, x1, y0 + thickness), fill=col_var)
+    clouds = clouds.filter(ImageFilter.GaussianBlur(18))
+    img.alpha_composite(clouds)
+
+    # Halo soleil diffus (sans bord net)
+    sun_x = int(W * 0.5)
+    sun_y = int(H * 0.70)
+    big_halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    bhd = ImageDraw.Draw(big_halo)
+    bhd.ellipse((sun_x - 320, sun_y - 320, sun_x + 320, sun_y + 320),
+                fill=(255, 200, 130, 120))
+    big_halo = big_halo.filter(ImageFilter.GaussianBlur(80))
+    img.alpha_composite(big_halo)
+
+    # Soleil
+    sun_r = 60
     sun_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     sd = ImageDraw.Draw(sun_layer)
     sd.ellipse((sun_x - sun_r, sun_y - sun_r, sun_x + sun_r, sun_y + sun_r),
                fill=(255, 240, 180, 255))
-    halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    hd = ImageDraw.Draw(halo)
-    hd.ellipse((sun_x - sun_r * 2, sun_y - sun_r * 2,
-                sun_x + sun_r * 2, sun_y + sun_r * 2),
-               fill=(255, 200, 120, 150))
-    halo = halo.filter(ImageFilter.GaussianBlur(45))
-    img.alpha_composite(halo)
+    sun_layer = sun_layer.filter(ImageFilter.GaussianBlur(3))
     img.alpha_composite(sun_layer)
 
-    # Reflet vertical sur la mer : suite de petits rectangles flous
+    # Reflet ondulant sur la mer (pas de rectangles : utilise petites
+    # ellipses horizontales avec largeur variable + sinusoide)
     refl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     rfd = ImageDraw.Draw(refl)
-    for y in range(sun_y + sun_r // 2, H, 6):
-        w = max(8, int((H - y) * 0.6))
-        rfd.rectangle((sun_x - w, y, sun_x + w, y + 3),
-                      fill=(255, 220, 160, 150))
+    for i, y in enumerate(range(sun_y + 30, H, 5)):
+        # Largeur grandissante puis decroissante par ondulation
+        base_w = max(10, int((H - y) * 0.65))
+        wobble = int(math.sin(i * 0.45) * 8)
+        w = base_w + wobble
+        ox = int(math.cos(i * 0.3) * 6)
+        alpha = max(60, 200 - i * 4)
+        rfd.ellipse((sun_x - w + ox, y, sun_x + w + ox, y + 4),
+                    fill=(255, 220, 160, alpha))
     refl = refl.filter(ImageFilter.GaussianBlur(2))
     img.alpha_composite(refl)
+
+    # Silhouettes oiseaux (3-5 petits V) dans le ciel
+    birds = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(birds)
+    for _ in range(rng.randint(3, 5)):
+        bx = rng.randint(int(W * 0.1), int(W * 0.9))
+        by = rng.randint(int(H * 0.15), int(H * 0.45))
+        sz = rng.randint(8, 14)
+        # Forme en V (2 segments)
+        bd.line([(bx - sz, by), (bx, by - sz // 2)],
+                fill=(20, 10, 25, 220), width=2)
+        bd.line([(bx, by - sz // 2), (bx + sz, by)],
+                fill=(20, 10, 25, 220), width=2)
+    img.alpha_composite(birds)
 
     return vignette(img.convert("RGB"), 0.4)
 
