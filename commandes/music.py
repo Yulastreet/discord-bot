@@ -370,7 +370,7 @@ def setup_music_commands(bot, deps):
         if not q:
             await interaction.response.send_message("📭 La file d'attente est vide !")
             return
-        per_page = 10
+        per_page = 50
         total = len(q)
         total_pages = max(1, (total + per_page - 1) // per_page)
         page = max(1, min(int(page), total_pages))
