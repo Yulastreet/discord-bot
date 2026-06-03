@@ -196,24 +196,45 @@ def _extract_tracks_from_main_page(spid: str) -> tuple[str, list[dict]]:
 
 
 def _get_anon_access_token() -> str:
-    """Recupere le token anonyme que le web player Spotify utilise.
-    Permet d'appeler l'API playlists/{id}/tracks SANS OAuth user.
-    Token typiquement valide ~1h."""
+    """Recupere le token anonyme du web player Spotify.
+
+    L'endpoint /get_access_token est bloque (403 URL Blocked). On
+    extrait a la place le token embed dans le HTML de la page
+    open.spotify.com (script id=\"session\" type=\"application/json\")
+    qui contient accessToken + expiration.
+    """
     import json
-    url = "https://open.spotify.com/get_access_token?reason=transport&productType=web_player"
+    import re as _re
     import urllib.request
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                       "AppleWebKit/537.36 (KHTML, like Gecko) "
-                       "Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-    })
+    req = urllib.request.Request(
+        "https://open.spotify.com/",
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    )
     with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    tok = data.get("accessToken")
-    if not tok:
-        raise RuntimeError("anon token introuvable dans la reponse")
-    return tok
+        html = resp.read().decode("utf-8", errors="ignore")
+    # Cherche le script session (JSON inline)
+    m = _re.search(
+        r'<script id="session"[^>]*type="application/json"[^>]*>(\{.+?\})</script>',
+        html, _re.DOTALL,
+    )
+    if m:
+        try:
+            data = json.loads(m.group(1))
+            tok = data.get("accessToken")
+            if tok:
+                return tok
+        except Exception:
+            pass
+    # Fallback : cherche directement accessToken via regex
+    m2 = _re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
+    if m2:
+        return m2.group(1)
+    raise RuntimeError("anon token introuvable dans la page open.spotify.com")
 
 
 def _resolve_playlist_via_anon_api(spid: str, max_tracks: int = 1000) -> tuple[str, list[dict]]:
