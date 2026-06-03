@@ -32,49 +32,43 @@ def setup_moderation_commands(bot):
             max_length=300,
             required=True,
         )
-        option_1 = discord.ui.TextInput(
-            label="Option 1",
-            placeholder="Ex : 4 fromages",
-            max_length=55,
+        options = discord.ui.TextInput(
+            label="Options (une par ligne, 2 a 10)",
+            style=discord.TextStyle.paragraph,
+            placeholder="4 fromages\nReine\nPepperoni",
+            max_length=600,
             required=True,
         )
-        option_2 = discord.ui.TextInput(
-            label="Option 2",
-            placeholder="Ex : Reine",
-            max_length=55,
-            required=True,
-        )
-        option_3 = discord.ui.TextInput(
-            label="Option 3 (optionnel)",
-            max_length=55,
-            required=False,
-        )
-        option_4 = discord.ui.TextInput(
-            label="Option 4 (optionnel)",
-            max_length=55,
+        duration = discord.ui.TextInput(
+            label="Duree (en heures, 1 a 168)",
+            placeholder="24",
+            default="24",
+            max_length=3,
             required=False,
         )
 
         async def on_submit(self, interaction: discord.Interaction):
             import datetime as _dt
-            opts = [
-                str(self.option_1.value).strip(),
-                str(self.option_2.value).strip(),
-                str(self.option_3.value).strip(),
-                str(self.option_4.value).strip(),
-            ]
-            opts = [o for o in opts if o]
+            opts = [ln.strip() for ln in str(self.options.value).splitlines() if ln.strip()]
             if len(opts) < 2:
                 await interaction.response.send_message(
-                    "Il faut au moins 2 options remplies.", ephemeral=True,
+                    "Il faut au moins 2 options (une par ligne).", ephemeral=True,
                 )
                 return
+            if len(opts) > 10:
+                opts = opts[:10]
+            # Parse duree, clamp [1, 168]h (= 7 jours max, limite Discord)
+            try:
+                dh = int(str(self.duration.value).strip() or "24")
+            except ValueError:
+                dh = 24
+            dh = max(1, min(168, dh))
             try:
                 poll = discord.Poll(
                     question=str(self.question.value).strip()[:300],
-                    duration=_dt.timedelta(hours=24),
+                    duration=_dt.timedelta(hours=dh),
                 )
-                for o in opts[:10]:
+                for o in opts:
                     poll.add_answer(text=o[:55])
                 await interaction.response.send_message(poll=poll)
             except Exception as e:
