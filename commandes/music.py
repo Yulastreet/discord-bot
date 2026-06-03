@@ -125,28 +125,24 @@ def setup_music_commands(bot, deps):
                     await interaction.followup.send("❌ Aucune piste trouvee dans cette ressource Spotify.")
                     return
 
-                # Strategie : 1er track resolu COMPLET pour lecture immediate,
-                # le reste resolu en FAST mode (juste search YT light, sans
-                # extraction complete). play_next re-resoudra l'URL en stream
-                # au moment effectif de jouer (rapide ~1s) ce qui evite
-                # d'attendre N x 1s a l'ajout.
-                async def _resolve_one(tm, fast=False):
+                # Strategie : 1er track resolu pour lecture immediate, le reste
+                # en background SEQUENTIEL (parallel cause asyncio.run race
+                # dans bgutil-pot-provider plugin). Lent mais fiable :
+                # ~1s/track. Pour 100 tracks = ~100s, le bot est deja en
+                # train de jouer la 1ere donc voice_idle ne deconnecte pas.
+                async def _resolve_one(tm):
                     q = tm.get("query")
                     if not q:
                         return None
                     try:
-                        if fast:
-                            from bot import get_audio_info_fast
-                            info = await get_audio_info_fast(q)
-                        else:
-                            info = await get_audio_info(q)
+                        info = await get_audio_info(q)
                     except Exception as e:
                         print(f"[music spotify] yt search fail for {q!r}: {e}")
                         return None
                     return info
 
-                # 1er track : await full pour demarrer lecture asap
-                first_info = await _resolve_one(tracks_meta[0], fast=False)
+                # 1er track : await pour demarrer lecture asap
+                first_info = await _resolve_one(tracks_meta[0])
                 if not first_info:
                     await interaction.followup.send("❌ Premier track Spotify pas trouvable sur YouTube.")
                     return
@@ -160,19 +156,11 @@ def setup_music_commands(bot, deps):
                 if vc.is_connected() and not vc.is_playing():
                     await play_next(vc, interaction.channel, interaction.guild.id)
 
-                # Resolve le reste en background avec parallelisme limite
+                # Resolve le reste en background SEQUENTIEL
                 async def _resolve_rest():
-                    sem = asyncio.Semaphore(5)
-                    rest = tracks_meta[1:]
-
-                    async def _bound(tm):
-                        async with sem:
-                            return await _resolve_one(tm, fast=True)
-
-                    # Lance tout en parallel, attend tous (gather preserve l'ordre)
-                    infos = await asyncio.gather(*[_bound(tm) for tm in rest])
                     added = 1
-                    for info in infos:
+                    for tm in tracks_meta[1:]:
+                        info = await _resolve_one(tm)
                         if not info:
                             continue
                         try:
@@ -191,7 +179,7 @@ def setup_music_commands(bot, deps):
                         )
                     except Exception:
                         pass
-                    print(f"[music spotify] parallel resolve done : {added} tracks", flush=True)
+                    print(f"[music spotify] sequential resolve done : {added} tracks", flush=True)
 
                 if len(tracks_meta) > 1:
                     asyncio.create_task(_resolve_rest())
