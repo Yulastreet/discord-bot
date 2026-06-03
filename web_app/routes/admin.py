@@ -7,6 +7,93 @@ def register_admin_routes(app, deps):
     def logs_page():
         return render_template("logs.html")
 
+
+    @app.route("/analytics")
+    def analytics_page():
+        return render_template("analytics.html", active_nav="analytics")
+
+
+    @app.route("/api/analytics/overview")
+    def api_analytics_overview():
+        from database import get_guild_analytics_overview
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        return jsonify(get_guild_analytics_overview(g_id))
+
+
+    @app.route("/api/analytics/msg-per-day")
+    def api_analytics_msg_per_day():
+        from database import get_msg_per_day
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            days = max(7, min(int(request.args.get("days", 30)), 90))
+        except ValueError:
+            days = 30
+        return jsonify({"series": get_msg_per_day(g_id, days=days)})
+
+
+    @app.route("/api/analytics/member-growth")
+    def api_analytics_member_growth():
+        from database import get_member_growth
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            days = max(7, min(int(request.args.get("days", 30)), 90))
+        except ValueError:
+            days = 30
+        return jsonify({"series": get_member_growth(g_id, days=days)})
+
+
+    @app.route("/api/analytics/heatmap")
+    def api_analytics_heatmap():
+        from database import get_activity_heatmap
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            weeks = max(1, min(int(request.args.get("weeks", 4)), 12))
+        except ValueError:
+            weeks = 4
+        return jsonify({"matrix": get_activity_heatmap(g_id, weeks=weeks)})
+
+
+    @app.route("/api/analytics/top-commands")
+    def api_analytics_top_commands():
+        from database import get_top_commands
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            days = max(1, min(int(request.args.get("days", 30)), 90))
+        except ValueError:
+            days = 30
+        try:
+            limit = max(1, min(int(request.args.get("limit", 10)), 25))
+        except ValueError:
+            limit = 10
+        return jsonify({"rows": get_top_commands(g_id, days=days, limit=limit)})
+
+
+    @app.route("/api/analytics/top-users")
+    def api_analytics_top_users():
+        from database import get_top_active_users
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            days = max(1, min(int(request.args.get("days", 30)), 90))
+        except ValueError:
+            days = 30
+        try:
+            limit = max(1, min(int(request.args.get("limit", 10)), 25))
+        except ValueError:
+            limit = 10
+        return jsonify({"rows": get_top_active_users(g_id, days=days, limit=limit)})
+
     @app.route("/api/logs")
     def api_logs():
         g_id = gid()

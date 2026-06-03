@@ -1705,6 +1705,102 @@ def get_activity_heatmap(guild_id=None, weeks=4):
     conn.close()
     return matrix
 
+def get_guild_analytics_overview(guild_id):
+    """Stats overview pour la page Analytics serveur.
+
+    Compte les logs (toutes activites : commands + actions + msg events)
+    par fenetre temporelle. Active users = distinct user_id avec >= 1 log.
+    """
+    conn = get_db(); c = conn.cursor()
+    g = (str(guild_id),)
+
+    def _count(extra_where, params=()):
+        sql = f"SELECT COUNT(*) AS n FROM logs WHERE guild_id = ? AND {extra_where}"
+        return c.execute(sql, g + params).fetchone()["n"]
+
+    def _distinct_users(extra_where, params=()):
+        sql = f"SELECT COUNT(DISTINCT user_id) AS n FROM logs WHERE guild_id = ? AND user_id IS NOT NULL AND {extra_where}"
+        return c.execute(sql, g + params).fetchone()["n"]
+
+    out = {
+        "msgs_today":         _count("date(ts) = date('now')"),
+        "msgs_yesterday":     _count("date(ts) = date('now', '-1 day')"),
+        "msgs_7d":            _count("ts >= datetime('now', '-7 days')"),
+        "msgs_30d":           _count("ts >= datetime('now', '-30 days')"),
+        "active_users_today": _distinct_users("date(ts) = date('now')"),
+        "active_users_7d":    _distinct_users("ts >= datetime('now', '-7 days')"),
+        "new_members_7d":     _count("type = 'action_member_join' AND ts >= datetime('now', '-7 days')"),
+        "left_members_7d":    _count("type = 'action_member_leave' AND ts >= datetime('now', '-7 days')"),
+    }
+    conn.close()
+    return out
+
+
+def get_msg_per_day(guild_id, days=30):
+    """Series temporelle : nb logs par jour sur les N derniers jours.
+
+    Retourne liste de {date: 'YYYY-MM-DD', count: int} ordonnee du plus ancien
+    au plus recent, avec zeros pour les jours sans activite.
+    """
+    import datetime as _dtmod
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        """SELECT date(ts) AS d, COUNT(*) AS n FROM logs
+           WHERE guild_id = ? AND ts >= datetime('now', ?)
+           GROUP BY d ORDER BY d ASC""",
+        (str(guild_id), f"-{int(days)} days"),
+    ).fetchall()
+    conn.close()
+    counts = {r["d"]: r["n"] for r in rows}
+    # Comble les trous
+    today = _dtmod.date.today()
+    out = []
+    for i in range(days - 1, -1, -1):
+        d = today - _dtmod.timedelta(days=i)
+        ds = d.isoformat()
+        out.append({"date": ds, "count": counts.get(ds, 0)})
+    return out
+
+
+def get_member_growth(guild_id, days=30):
+    """Series temporelle membres : joins, leaves, net cumule par jour.
+
+    Necessite que on_member_join/remove ait loggue action_member_join /
+    action_member_leave avant. Pas de cumul absolu (on n'a pas le total
+    initial), juste les variations.
+    """
+    import datetime as _dtmod
+    conn = get_db(); c = conn.cursor()
+    joins = c.execute(
+        """SELECT date(ts) AS d, COUNT(*) AS n FROM logs
+           WHERE guild_id = ? AND type = 'action_member_join'
+             AND ts >= datetime('now', ?)
+           GROUP BY d""",
+        (str(guild_id), f"-{int(days)} days"),
+    ).fetchall()
+    leaves = c.execute(
+        """SELECT date(ts) AS d, COUNT(*) AS n FROM logs
+           WHERE guild_id = ? AND type = 'action_member_leave'
+             AND ts >= datetime('now', ?)
+           GROUP BY d""",
+        (str(guild_id), f"-{int(days)} days"),
+    ).fetchall()
+    conn.close()
+    j = {r["d"]: r["n"] for r in joins}
+    l = {r["d"]: r["n"] for r in leaves}
+    today = _dtmod.date.today()
+    out = []
+    cum = 0
+    for i in range(days - 1, -1, -1):
+        d = today - _dtmod.timedelta(days=i)
+        ds = d.isoformat()
+        joins_n  = j.get(ds, 0)
+        leaves_n = l.get(ds, 0)
+        cum += (joins_n - leaves_n)
+        out.append({"date": ds, "joins": joins_n, "leaves": leaves_n, "net_cumulative": cum})
+    return out
+
+
 def get_heatmap_cell_detail(guild_id=None, dow=0, hour=0, weeks=4, limit=10):
     """Detail d'une cellule heatmap (dow + hour) sur les dernieres `weeks`
     semaines. dow=0..6 ou 0=Lundi (consistant avec get_activity_heatmap).
