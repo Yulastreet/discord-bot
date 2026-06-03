@@ -357,6 +357,11 @@
     min-height: clamp(560px, 68dvh, 720px);
     border-radius: var(--radius-xl);
     overflow: hidden;
+    /* flex column : permet a la carte d'auto-grandir si le contenu textuel
+       depasse la min-height (sinon h1 etait clip en haut sur certains
+       viewports). hero-copy passe en flow naturel + margin-top auto. */
+    display: flex;
+    flex-direction: column;
     background:
       radial-gradient(circle at 68% 18%, rgba(202, 255, 55, .72), transparent 18rem),
       radial-gradient(circle at 30% 74%, rgba(115, 227, 39, .28), transparent 18rem),
@@ -429,9 +434,12 @@
   .hero-menu a:hover { background: rgba(255,255,255,.12); color: #ffffff; }
 
   .hero-copy {
-    position: absolute;
-    left: clamp(22px, 5vw, 70px);
-    bottom: clamp(26px, 5vw, 72px);
+    /* Etait position absolute + bottom : ne faisait pas grossir le card,
+       d'ou le clipping en haut du h1 sur petits viewports. Maintenant en
+       flow naturel dans le flex column ; margin-top auto pousse en bas. */
+    position: relative;
+    margin: 80px clamp(22px, 5vw, 70px) clamp(26px, 5vw, 72px) clamp(22px, 5vw, 70px);
+    margin-top: auto;
     z-index: 2;
     max-width: 650px;
     color: #ffffff;
@@ -440,7 +448,9 @@
   h1 {
     max-width: 760px;
     margin: 0;
-    font-size: clamp(48px, 8vw, 104px);
+    /* Reduit la borne max pour limiter le risque de depassement sur viewports
+       moyens. clamp(48,8vw,104) -> clamp(44,7vw,88). */
+    font-size: clamp(44px, 7vw, 88px);
     line-height: .92;
     letter-spacing: 0;
     font-weight: 800;
