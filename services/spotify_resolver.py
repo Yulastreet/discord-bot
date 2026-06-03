@@ -195,15 +195,107 @@ def _extract_tracks_from_main_page(spid: str) -> tuple[str, list[dict]]:
     return name, out
 
 
+def _get_anon_access_token() -> str:
+    """Recupere le token anonyme que le web player Spotify utilise.
+    Permet d'appeler l'API playlists/{id}/tracks SANS OAuth user.
+    Token typiquement valide ~1h."""
+    import json
+    url = "https://open.spotify.com/get_access_token?reason=transport&productType=web_player"
+    import urllib.request
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+    })
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    tok = data.get("accessToken")
+    if not tok:
+        raise RuntimeError("anon token introuvable dans la reponse")
+    return tok
+
+
+def _resolve_playlist_via_anon_api(spid: str, max_tracks: int = 1000) -> tuple[str, list[dict]]:
+    """Fetch la full liste de tracks via API Spotify avec le token anon
+    du web player. Pagine par 100 jusqu'a max_tracks (ou epuisement)."""
+    import json
+    import urllib.request
+    tok = _get_anon_access_token()
+    headers = {
+        "Authorization": f"Bearer {tok}",
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json",
+    }
+    # Fetch meta + premiere page
+    pl_name = "Playlist Spotify"
+    try:
+        req = urllib.request.Request(
+            f"https://api.spotify.com/v1/playlists/{spid}?fields=name,tracks.total",
+            headers=headers,
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            meta = json.loads(resp.read().decode("utf-8"))
+        pl_name = meta.get("name") or pl_name
+        total = (meta.get("tracks") or {}).get("total") or 0
+    except Exception as e:
+        print(f"[spotify anon] meta fail: {type(e).__name__}: {e}")
+        total = max_tracks
+
+    tracks = []
+    offset = 0
+    while len(tracks) < max_tracks and offset < total:
+        url = (f"https://api.spotify.com/v1/playlists/{spid}/tracks"
+               f"?limit=100&offset={offset}"
+               f"&fields=items(track(name,artists(name),duration_ms)),next")
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                page = json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            print(f"[spotify anon] page offset={offset} fail: {type(e).__name__}: {e}")
+            break
+        items = page.get("items") or []
+        if not items:
+            break
+        for it in items:
+            t = (it or {}).get("track")
+            if not t:
+                continue
+            artists = ", ".join((a or {}).get("name", "") for a in (t.get("artists") or []))
+            tracks.append({
+                "query": f"{artists} - {t.get('name') or ''}".strip(" -"),
+                "duration_ms": t.get("duration_ms"),
+            })
+            if len(tracks) >= max_tracks:
+                break
+        offset += 100
+        if not page.get("next"):
+            break
+    print(f"[spotify anon] spid={spid} resolved {len(tracks)} tracks (total Spotify={total})", flush=True)
+    return pl_name, tracks
+
+
 def _resolve_playlist_via_embed(spid: str, max_tracks: int = 50) -> dict:
     """Resout une playlist Spotify sans OAuth.
 
     Strategie :
-    1) Tente la page principale open.spotify.com/playlist/<spid> (souvent
-       contient la full track list dans __NEXT_DATA__).
-    2) Fallback sur la page embed (preview ~10-50 tracks).
-    3) Garde le resultat avec le PLUS de tracks.
+    1) PRIORITE : token anonyme du web player + API officielle paginee
+       (permet d'obtenir jusqu'a max_tracks meme pour grosses playlists)
+    2) Fallback : main page scrape + embed scrape
+    3) Garde le resultat avec le PLUS de tracks
     """
+    # 1) Tente anon access token + API officielle
+    try:
+        name_anon, tracks_anon = _resolve_playlist_via_anon_api(spid, max_tracks)
+        if tracks_anon:
+            return {
+                "kind": "playlist",
+                "title": name_anon,
+                "tracks": tracks_anon[:max_tracks],
+            }
+    except Exception as e:
+        print(f"[spotify] anon api spid={spid} fail: {type(e).__name__}: {e}", flush=True)
     pl_name_main, tracks_main = "Playlist Spotify", []
     pl_name_emb, tracks_emb = "Playlist Spotify", []
     try:
