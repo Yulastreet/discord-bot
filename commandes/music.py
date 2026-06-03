@@ -145,8 +145,8 @@ def setup_music_commands(bot, deps):
                     if not q:
                         return None
                     try:
-                        from bot import get_audio_info_fast
-                        return await get_audio_info_fast(q)
+                        from services.yt_fast_search import yt_search_fast
+                        return await yt_search_fast(q)
                     except Exception as e:
                         print(f"[music spotify] fast search fail for {q!r}: {e}")
                         return None
