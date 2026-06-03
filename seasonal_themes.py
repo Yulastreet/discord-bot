@@ -2,12 +2,18 @@
 
 Source unique de verite pour :
 - Nom thematique de la saison (palette + ambiance)
-- Noms+effets sabres saisonniers (R/SR/SSR) — effets restent identiques aux
-  sabres f2p de meme rarete (anti-P2W), seul le visuel/nom change
+- Noms+effets sabres saisonniers (R/SR/SSR) — l'effet COPIE celui d'un sabre
+  f2p existant (anti-P2W) MAIS le sabre f2p source change chaque mois pour
+  apporter variete de gameplay au Pass.
 - Palette de couleurs pour les BG saisonniers (parametrage generateurs)
 - Libelle d'affichage des BG (UI dashboard)
 
 Chaque mois a son theme. Un fallback est applique pour les mois absents.
+
+Pool d'effets f2p source :
+- R   : cyan (overcharge) / rose (lifesteal_75) / jaune (precision_x2)        -> cycle 3
+- SR  : noir (paralyze_next) / argent (reflect_100)                            -> cycle 2
+- SSR : arc_en_ciel (ultimate) / obsidienne (void_strike) / celeste (stellar_burst) -> cycle 3
 """
 from __future__ import annotations
 
@@ -15,10 +21,10 @@ from __future__ import annotations
 # DEFINITION DES THEMES PAR MOIS (clef = "MM")
 # Chaque entree :
 #   - name        : nom thematique (FR)
-#   - sabres      : dict rarete -> (nom_sabre, emoji_sabre, nom_special, desc_special, emoji_special)
-#                   Mecaniques (champ technique) restent fixes : overcharge/reflect_100/ultimate
+#   - sabres      : dict rarete -> {"source_id", "nom", "emoji_sabre", "nom_special", "emoji_special"}
+#       L'effet (mecanique) ET la description detaillee viennent du sabre f2p
+#       source. Le nom + emoji + nom_special sont reskins thematiques.
 #   - bg_palette  : (color_primary, color_secondary, color_accent)
-#                   Utilise par les generateurs BG pour teinter
 #   - bg_labels   : dict style_id -> nom_convivial du BG
 #   - seed_offset : decale les seeds des generateurs pour variation
 # ============================================================
@@ -27,9 +33,9 @@ MONTH_THEMES: dict[str, dict] = {
     "01": {
         "name": "Polaire",
         "sabres": {
-            "R":   ("Lame Polaire",      "❄️", "Surcharge Glaciale",  "Inflige 75% de degats supplementaires et ignore la defense.", "🧊"),
-            "SR":  ("Croissant Boreal",  "🌌", "Reflexion Boreale",   "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Polaire",    "🌠", "Apotheose Polaire",   "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "jaune", "nom": "Eclat Polaire",     "emoji_sabre": "❄️", "nom_special": "Precision Polaire", "emoji_special": "🎯"},
+            "SR":  {"source_id": "argent","nom": "Mirage Boreal",     "emoji_sabre": "🌌", "nom_special": "Mirage Boreal",     "emoji_special": "🪞"},
+            "SSR": {"source_id": "arc_en_ciel","nom": "Etoile Polaire","emoji_sabre": "🌠", "nom_special": "Apotheose Polaire", "emoji_special": "👑"},
         },
         "bg_palette":  ((200, 230, 255), (60, 100, 160),  (180, 220, 255)),
         "bg_labels": {
@@ -44,9 +50,9 @@ MONTH_THEMES: dict[str, dict] = {
     "02": {
         "name": "Auroral",
         "sabres": {
-            "R":   ("Lame Aurore",        "💚", "Surcharge Auroreale", "Inflige 75% de degats supplementaires et ignore la defense.", "🌿"),
-            "SR":  ("Croissant Aurore",   "🟢", "Reflexion Aurore",    "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Aurore",      "💫", "Apotheose Aurore",    "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "rose",  "nom": "Souffle Auroral",   "emoji_sabre": "💚", "nom_special": "Drain Auroral",     "emoji_special": "💗"},
+            "SR":  {"source_id": "noir",  "nom": "Sceau Auroral",     "emoji_sabre": "🟢", "nom_special": "Sceau Auroral",     "emoji_special": "⛓️"},
+            "SSR": {"source_id": "celeste","nom": "Aurore Stellaire", "emoji_sabre": "💫", "nom_special": "Symphonie Aurorale","emoji_special": "✨"},
         },
         "bg_palette":  ((140, 240, 200), (40, 80, 120),   (200, 255, 180)),
         "bg_labels": {
@@ -61,9 +67,9 @@ MONTH_THEMES: dict[str, dict] = {
     "03": {
         "name": "Eveil",
         "sabres": {
-            "R":   ("Lame Sylvestre",     "🌱", "Surcharge Sylvestre", "Inflige 75% de degats supplementaires et ignore la defense.", "🌿"),
-            "SR":  ("Croissant Verdoyant","🍃", "Reflexion Verdoyante","Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Printaniere", "🌸", "Apotheose Florale",   "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "cyan",  "nom": "Eveil Sylvestre",   "emoji_sabre": "🌱", "nom_special": "Surcharge Sylvestre","emoji_special": "🌿"},
+            "SR":  {"source_id": "argent","nom": "Echo Sylvestre",    "emoji_sabre": "🍃", "nom_special": "Echo Sylvestre",    "emoji_special": "🪞"},
+            "SSR": {"source_id": "obsidienne","nom": "Vide Florissant","emoji_sabre": "🌸", "nom_special": "Brisure Florale",   "emoji_special": "🕳️"},
         },
         "bg_palette":  ((180, 240, 130), (60, 140, 80),   (255, 200, 230)),
         "bg_labels": {
@@ -78,9 +84,9 @@ MONTH_THEMES: dict[str, dict] = {
     "04": {
         "name": "Floral",
         "sabres": {
-            "R":   ("Lame Cerisier",      "🌸", "Surcharge Florale",   "Inflige 75% de degats supplementaires et ignore la defense.", "🌷"),
-            "SR":  ("Croissant Petale",   "🌺", "Reflexion Petale",    "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Hanami",      "💮", "Apotheose Hanami",    "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "rose",  "nom": "Petale Drainante",  "emoji_sabre": "🌸", "nom_special": "Drain Floral",      "emoji_special": "💗"},
+            "SR":  {"source_id": "noir",  "nom": "Sceau Cerisier",    "emoji_sabre": "🌺", "nom_special": "Sceau Cerisier",    "emoji_special": "⛓️"},
+            "SSR": {"source_id": "arc_en_ciel","nom": "Hanami Supreme","emoji_sabre": "💮", "nom_special": "Apotheose Hanami",  "emoji_special": "👑"},
         },
         "bg_palette":  ((255, 200, 220), (180, 80, 140),  (255, 230, 180)),
         "bg_labels": {
@@ -95,9 +101,9 @@ MONTH_THEMES: dict[str, dict] = {
     "05": {
         "name": "Lunaire",
         "sabres": {
-            "R":   ("Lame Lunaire",       "🌒", "Surcharge Lunaire",   "Inflige 75% de degats supplementaires et ignore la defense.", "🌙"),
-            "SR":  ("Croissant De Lune",  "🌘", "Reflexion Lunaire",   "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Du Matin",    "🌟", "Apotheose Stellaire", "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "jaune", "nom": "Eclat Lunaire",     "emoji_sabre": "🌒", "nom_special": "Visee Lunaire",     "emoji_special": "🎯"},
+            "SR":  {"source_id": "argent","nom": "Croissant De Lune", "emoji_sabre": "🌘", "nom_special": "Reflet Lunaire",    "emoji_special": "🪞"},
+            "SSR": {"source_id": "celeste","nom": "Etoile Du Matin",  "emoji_sabre": "🌟", "nom_special": "Salve Stellaire",   "emoji_special": "✨"},
         },
         "bg_palette":  ((180, 200, 255), (40, 50, 90),    (220, 220, 240)),
         "bg_labels": {
@@ -112,9 +118,9 @@ MONTH_THEMES: dict[str, dict] = {
     "06": {
         "name": "Solaire",
         "sabres": {
-            "R":   ("Lame Solaire",       "🔥", "Surcharge Solaire",   "Inflige 75% de degats supplementaires et ignore la defense.", "☀️"),
-            "SR":  ("Croissant Ardent",   "🟠", "Reflexion Ardente",   "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Solaire",     "🌞", "Apotheose Solaire",   "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "cyan",  "nom": "Brulot Solaire",    "emoji_sabre": "🔥", "nom_special": "Surcharge Solaire", "emoji_special": "☀️"},
+            "SR":  {"source_id": "noir",  "nom": "Sceau Ardent",      "emoji_sabre": "🟠", "nom_special": "Sceau Ardent",      "emoji_special": "⛓️"},
+            "SSR": {"source_id": "obsidienne","nom": "Eclipse Solaire","emoji_sabre": "🌞", "nom_special": "Vide Solaire",     "emoji_special": "🕳️"},
         },
         "bg_palette":  ((255, 200, 100), (200, 80, 30),   (255, 240, 180)),
         "bg_labels": {
@@ -129,9 +135,9 @@ MONTH_THEMES: dict[str, dict] = {
     "07": {
         "name": "Cramoisi",
         "sabres": {
-            "R":   ("Lame Cramoisie",     "🟥", "Surcharge Cramoisie", "Inflige 75% de degats supplementaires et ignore la defense.", "🔻"),
-            "SR":  ("Croissant Brasier",  "🟧", "Reflexion Brasier",   "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Pyrosphere",  "💥", "Apotheose Pyrosphere","Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "rose",  "nom": "Drain Cramoisi",    "emoji_sabre": "🟥", "nom_special": "Drain Cramoisi",    "emoji_special": "💗"},
+            "SR":  {"source_id": "argent","nom": "Miroir Brasier",    "emoji_sabre": "🟧", "nom_special": "Miroir Brasier",    "emoji_special": "🪞"},
+            "SSR": {"source_id": "arc_en_ciel","nom": "Pyrosphere Supreme","emoji_sabre": "💥", "nom_special": "Apotheose Pyrosphere","emoji_special": "👑"},
         },
         "bg_palette":  ((255, 100, 60),  (140, 30, 30),   (255, 180, 80)),
         "bg_labels": {
@@ -146,9 +152,9 @@ MONTH_THEMES: dict[str, dict] = {
     "08": {
         "name": "Saharien",
         "sabres": {
-            "R":   ("Lame Saharienne",    "🟫", "Surcharge Saharienne","Inflige 75% de degats supplementaires et ignore la defense.", "🏜️"),
-            "SR":  ("Croissant Dore",     "🟡", "Reflexion Doree",     "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Mirage",      "✨", "Apotheose Mirage",    "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "jaune", "nom": "Visee Doree",       "emoji_sabre": "🟫", "nom_special": "Visee Doree",       "emoji_special": "🎯"},
+            "SR":  {"source_id": "noir",  "nom": "Sceau du Mirage",   "emoji_sabre": "🟡", "nom_special": "Sceau du Mirage",   "emoji_special": "⛓️"},
+            "SSR": {"source_id": "celeste","nom": "Mirage Stellaire", "emoji_sabre": "✨", "nom_special": "Salve du Mirage",  "emoji_special": "✨"},
         },
         "bg_palette":  ((230, 200, 120), (160, 100, 60),  (255, 240, 200)),
         "bg_labels": {
@@ -163,9 +169,9 @@ MONTH_THEMES: dict[str, dict] = {
     "09": {
         "name": "Automnal",
         "sabres": {
-            "R":   ("Lame Automnale",     "🍂", "Surcharge Automnale", "Inflige 75% de degats supplementaires et ignore la defense.", "🍁"),
-            "SR":  ("Croissant Rouille",  "🍁", "Reflexion Rouille",   "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Vendanges",   "🍇", "Apotheose Automnale", "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "cyan",  "nom": "Surcharge Rouille", "emoji_sabre": "🍂", "nom_special": "Surcharge Rouille", "emoji_special": "🍁"},
+            "SR":  {"source_id": "argent","nom": "Reflet Automnal",   "emoji_sabre": "🍁", "nom_special": "Reflet Automnal",   "emoji_special": "🪞"},
+            "SSR": {"source_id": "obsidienne","nom": "Vide des Vendanges","emoji_sabre": "🍇", "nom_special": "Brisure Vendange","emoji_special": "🕳️"},
         },
         "bg_palette":  ((220, 130, 60),  (120, 50, 30),   (240, 200, 100)),
         "bg_labels": {
@@ -180,9 +186,9 @@ MONTH_THEMES: dict[str, dict] = {
     "10": {
         "name": "Spectral",
         "sabres": {
-            "R":   ("Lame Spectrale",     "👻", "Surcharge Spectrale", "Inflige 75% de degats supplementaires et ignore la defense.", "🎃"),
-            "SR":  ("Croissant Ombrage",  "🦇", "Reflexion Spectrale", "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Maudite",     "💀", "Apotheose Maudite",   "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "rose",  "nom": "Drain Spectral",    "emoji_sabre": "👻", "nom_special": "Drain Spectral",    "emoji_special": "💗"},
+            "SR":  {"source_id": "noir",  "nom": "Sceau Maudit",      "emoji_sabre": "🦇", "nom_special": "Sceau Maudit",      "emoji_special": "⛓️"},
+            "SSR": {"source_id": "arc_en_ciel","nom": "Lamentation Supreme","emoji_sabre": "💀", "nom_special": "Apotheose Maudite","emoji_special": "👑"},
         },
         "bg_palette":  ((180, 80, 220),  (40, 20, 60),    (255, 150, 80)),
         "bg_labels": {
@@ -197,9 +203,9 @@ MONTH_THEMES: dict[str, dict] = {
     "11": {
         "name": "Crepusculaire",
         "sabres": {
-            "R":   ("Lame Crepusculaire", "🌆", "Surcharge Crepusculaire","Inflige 75% de degats supplementaires et ignore la defense.", "🌫️"),
-            "SR":  ("Croissant Vesperal", "🌃", "Reflexion Vesperale", "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile Vesperale",   "🌌", "Apotheose Vesperale", "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "jaune", "nom": "Visee Vesperale",   "emoji_sabre": "🌆", "nom_special": "Visee Vesperale",   "emoji_special": "🎯"},
+            "SR":  {"source_id": "argent","nom": "Reflet Vesperal",   "emoji_sabre": "🌃", "nom_special": "Reflet Vesperal",   "emoji_special": "🪞"},
+            "SSR": {"source_id": "celeste","nom": "Etoile Vesperale", "emoji_sabre": "🌌", "nom_special": "Symphonie Vesperale","emoji_special": "✨"},
         },
         "bg_palette":  ((140, 80, 160),  (60, 30, 80),    (200, 140, 200)),
         "bg_labels": {
@@ -214,9 +220,9 @@ MONTH_THEMES: dict[str, dict] = {
     "12": {
         "name": "Hivernal",
         "sabres": {
-            "R":   ("Lame Hivernale",     "⛄", "Surcharge Hivernale", "Inflige 75% de degats supplementaires et ignore la defense.", "🎄"),
-            "SR":  ("Croissant Boreal",   "🎁", "Reflexion Boreale",   "Renvoie 100% des degats au prochain coup adverse.",            "🪞"),
-            "SSR": ("Etoile De Noel",     "⭐", "Apotheose Noelique",  "Cumule les effets : 100% degats + ignore defense + lifesteal 100%.", "👑"),
+            "R":   {"source_id": "cyan",  "nom": "Surcharge Givre",   "emoji_sabre": "⛄", "nom_special": "Surcharge Givree",  "emoji_special": "🎄"},
+            "SR":  {"source_id": "noir",  "nom": "Sceau Boreal",      "emoji_sabre": "🎁", "nom_special": "Sceau Boreal",      "emoji_special": "⛓️"},
+            "SSR": {"source_id": "obsidienne","nom": "Etoile De Noel","emoji_sabre": "⭐", "nom_special": "Vide Noelique",    "emoji_special": "🕳️"},
         },
         "bg_palette":  ((230, 230, 255), (50, 80, 120),   (220, 80, 80)),
         "bg_labels": {
@@ -231,16 +237,6 @@ MONTH_THEMES: dict[str, dict] = {
 }
 
 
-# ============================================================
-# Sabres : mecanique technique reste anti-P2W (identique aux f2p de meme rarete)
-# ============================================================
-SABRE_MECHANIC: dict[str, str] = {
-    "R":   "overcharge",
-    "SR":  "reflect_100",
-    "SSR": "ultimate",
-}
-
-
 def _theme_for(month_key: str) -> dict:
     """Recupere le theme pour 'YYYY-MM'. Fallback theme 06 (solaire) si absent."""
     if not month_key or len(month_key) < 7:
@@ -249,15 +245,12 @@ def _theme_for(month_key: str) -> dict:
     return MONTH_THEMES.get(mm, MONTH_THEMES["06"])
 
 
-def sabre_data(month_key: str, rarete: str) -> tuple:
-    """Renvoie tuple (nom, emoji, nom_special, desc_special, emoji_special, mecanique).
+def sabre_skin(month_key: str, rarete: str) -> dict:
+    """Renvoie {source_id, nom, emoji_sabre, nom_special, emoji_special} du theme.
 
     `rarete` doit etre 'R', 'SR' ou 'SSR'.
     """
-    theme = _theme_for(month_key)
-    nom, emoji_sabre, nom_special, desc_special, emoji_special = theme["sabres"][rarete]
-    mec = SABRE_MECHANIC[rarete]
-    return (nom, emoji_sabre, nom_special, desc_special, emoji_special, mec)
+    return _theme_for(month_key)["sabres"][rarete]
 
 
 def bg_palette(month_key: str) -> tuple:

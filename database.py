@@ -752,6 +752,9 @@ def init_db():
 
     # Seed de la table sabres si vide (depuis duel_sabres.SABRES_DEFAULT)
     seed_sabres_si_vide()
+    # Migration : ajoute les nouveaux sabres f2p SSR (obsidienne, celeste)
+    # apparus apres le seed initial des DB existantes.
+    ensure_extra_default_sabres()
     seed_pass_quest_templates_si_vide()
     # Migration : nettoie d'abord les sabres saisonniers casses (raretes invalides)
     cleanup_legacy_seasonal_sabres()
@@ -881,6 +884,36 @@ def seed_sabres_si_vide():
     conn.commit()
     conn.close()
     print(f"[OK] Seed sabres : {len(SABRES_DEFAULT)} sabres importes.")
+
+
+def ensure_extra_default_sabres():
+    """Migration : pour les DB existantes qui datent d'avant l'ajout de nouveaux
+    sabres f2p au pool SSR (obsidienne, celeste). INSERT OR IGNORE pour ne
+    rien ecraser de modifie."""
+    try:
+        from duel.sabres import SABRES_DEFAULT
+    except ImportError:
+        return
+    conn = get_db()
+    c = conn.cursor()
+    for sid in ("obsidienne", "celeste"):
+        s = SABRES_DEFAULT.get(sid)
+        if not s:
+            continue
+        sp = s.get("speciale", {})
+        try:
+            c.execute("""INSERT OR IGNORE INTO sabres
+                (id, nom, emoji, rarete, prix, description,
+                 speciale_nom, speciale_description, speciale_emoji, speciale_effet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (s["id"], s["nom"], s.get("emoji", ""), s["rarete"],
+                 int(s.get("prix", 0)), s.get("description", ""),
+                 sp.get("nom", ""), sp.get("description", ""),
+                 sp.get("emoji", ""), sp.get("effet", "")))
+        except Exception as e:
+            print(f"[ensure_extra_sabres] {sid} error: {e!r}")
+    conn.commit()
+    conn.close()
 
 
 # ===== DUEL - ADMIN (web dashboard) =====
@@ -3749,27 +3782,32 @@ def seed_pass_rewards_for_season(season_id: int, month_key: str):
 
 
 def seed_seasonal_sabres(month_key: str):
-    """Cree 3 sabres cosmetiques (R/SR/SSR) avec stats ET effets equivalents
-    aux sabres f2p de meme rarete (anti-P2W). Seuls le visuel (nom, emoji,
-    description) change. Nom + emoji + nom_special viennent du theme du mois
-    (cf. seasonal_themes.py) pour avoir une vraie identite par saison.
+    """Cree 3 sabres cosmetiques (R/SR/SSR) saisonniers.
 
-    R   -> overcharge   (75% degats sup + ignore defense, comme Sabre Cyan)
-    SR  -> reflect_100  (renvoie 100% degats, comme Sabre Argent)
-    SSR -> ultimate     (combo supreme, comme Sabre Arc-en-Ciel)
+    Pour conserver le principe anti-P2W, chaque sabre saisonnier COPIE l'effet
+    + la description detaillee d'un sabre f2p existant. MAIS le sabre f2p
+    source change chaque mois (cf. seasonal_themes.MONTH_THEMES) ce qui donne
+    une vraie variete gameplay au Pass entre saisons. Le nom du sabre,
+    l'emoji, le nom de la speciale et son emoji viennent du theme du mois.
 
     IDs : season_<YYYY-MM>_<R|SR|SSR>"""
-    from seasonal_themes import sabre_data
+    from seasonal_themes import sabre_skin
     conn = get_db()
     c = conn.cursor()
     rows = []
     for rarete in ("R", "SR", "SSR"):
-        nom, emoji_sabre, nom_special, desc_special, emoji_special, mec = sabre_data(month_key, rarete)
-        desc_generale = f"Skin saisonnier du Battle Pass · stats identiques aux sabres {rarete} classiques."
+        skin = sabre_skin(month_key, rarete)
+        source_id = skin["source_id"]
+        # Lit le sabre f2p source pour copier effet + description
+        src = c.execute("SELECT * FROM sabres WHERE id = ?", (source_id,)).fetchone()
+        if not src:
+            print(f"[seed sabres saisonniers] source f2p manquant: {source_id} (mois {month_key} {rarete}) — skip")
+            continue
+        desc_generale = f"Skin saisonnier du Battle Pass · stats identiques au {src['nom']}."
         rows.append((
             f"season_{month_key}_{rarete}",
-            nom, emoji_sabre, rarete, 0, desc_generale,
-            nom_special, desc_special, emoji_special, mec,
+            skin["nom"], skin["emoji_sabre"], rarete, 0, desc_generale,
+            skin["nom_special"], src["speciale_description"], skin["emoji_special"], src["speciale_effet"],
         ))
     # UPSERT : si le sabre existe deja (saison generee precedemment avec un
     # ancien template) on met a jour ses champs visuels pour refleter le theme

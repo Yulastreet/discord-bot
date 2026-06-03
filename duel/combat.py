@@ -63,6 +63,8 @@ def appliquer_effet(attaquant_stats, defenseur_stats, effet):
         effets["reflect_100"] = True
     elif effet == "ultimate":
         att_effets["ultimate"] = True
+    # void_strike + stellar_burst : effets immediats consommes dans
+    # calculer_degats juste apres appliquer_effet, donc pas besoin de flag.
 
 
 def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sabre_data=None):
@@ -108,6 +110,18 @@ def calculer_degats(attaquant_stats, defenseur_stats, utilise_speciale=False, sa
             degats_base  = defenseur_stats["hp"]
             rapport["soin"] = degats_base
             rapport["messages"].append("👑 Dégâts absolus + soin total !")
+        elif effet == "void_strike":
+            # Au moins 50% des HP max cible, drain total, traverse boucliers + reflect
+            dmg = max(degats_base, int(defenseur_stats["hp_max"] * 0.5))
+            degats_base = dmg
+            attaquant_stats["hp"] = min(attaquant_stats["hp_max"], attaquant_stats["hp"] + dmg)
+            rapport["soin"] = dmg
+            rapport["messages"].append(f"🕳️ Frappe du Vide : {dmg} dégâts + drain total !")
+            effets_def.pop("absorb_next", None)
+            effets_def.pop("reflect_100", None)
+        elif effet == "stellar_burst":
+            degats_base = int(degats_base * 2.5)
+            rapport["messages"].append("✨ Salve Stellaire : 250% dégâts !")
 
     if "rage_next" in effets_att:
         degats_base *= 2

@@ -192,6 +192,36 @@ SABRES_DEFAULT = {
             "effet": "ultimate",
         }
     },
+
+    "obsidienne": {
+        "id": "obsidienne",
+        "nom": "Sabre Laser Obsidienne",
+        "emoji": "⬛",
+        "rarete": "SSR",
+        "prix": 5000,
+        "description": "Lame forgée dans le néant absolu.",
+        "speciale": {
+            "nom": "Frappe du Vide",
+            "description": "Inflige au moins 50% des HP max de la cible + drain total. Ignore boucliers et réflexion.",
+            "emoji": "🕳️",
+            "effet": "void_strike",
+        }
+    },
+
+    "celeste": {
+        "id": "celeste",
+        "nom": "Sabre Laser Céleste",
+        "emoji": "🌠",
+        "rarete": "SSR",
+        "prix": 5000,
+        "description": "Lame tissée dans la trame des étoiles.",
+        "speciale": {
+            "nom": "Salve Stellaire",
+            "description": "Inflige 250% de dégâts brut (touchable par parade et réflexion).",
+            "emoji": "✨",
+            "effet": "stellar_burst",
+        }
+    },
 }
 
 def get_sabre(sabre_id):
