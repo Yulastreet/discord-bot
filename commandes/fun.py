@@ -6,7 +6,76 @@ import discord
 from discord import app_commands
 
 
+_MONTHS_FR = ["janvier", "fevrier", "mars", "avril", "mai", "juin",
+              "juillet", "aout", "septembre", "octobre", "novembre", "decembre"]
+
+
 def setup_fun_commands(bot):
+    @bot.tree.command(name="tweet", description="Genere une image de tweet a partir d'un message")
+    @app_commands.describe(message_id="ID du message a transformer en tweet (clic droit > Copier l'ID, mode dev requis)")
+    async def tweet(interaction: discord.Interaction, message_id: str):
+        try:
+            mid = int(message_id.strip())
+        except ValueError:
+            await interaction.response.send_message(
+                "ID invalide. Active le mode dev Discord et copie l'ID du message.",
+                ephemeral=True,
+            )
+            return
+        await interaction.response.defer()
+        # Cherche le message dans le salon courant + fallback autres salons texte
+        msg = None
+        try:
+            msg = await interaction.channel.fetch_message(mid)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            for ch in interaction.guild.text_channels:
+                if ch.id == interaction.channel.id:
+                    continue
+                try:
+                    msg = await ch.fetch_message(mid)
+                    break
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    continue
+        if msg is None:
+            await interaction.followup.send(
+                "Message introuvable. Lance la commande dans le meme salon que le message cible.",
+                ephemeral=True,
+            )
+            return
+        # Build le timestamp FR (Twitter-like : 'HH:MM · D mois YYYY')
+        ts = msg.created_at
+        try:
+            ts_str = f"{ts.hour:02d}:{ts.minute:02d} · {ts.day} {_MONTHS_FR[ts.month - 1]} {ts.year}"
+        except Exception:
+            ts_str = ts.strftime("%H:%M · %Y-%m-%d")
+
+        author = msg.author
+        display = getattr(author, "display_name", str(author)) or str(author)
+        uname = (getattr(author, "name", "") or str(author)).lower().replace(" ", "_")
+        avatar_url = str(author.display_avatar.url) if author.display_avatar else None
+        text = msg.content or "*[message vide ou contient uniquement des pieces jointes]*"
+
+        try:
+            from cards.tweet import render_tweet_card
+            buf = await render_tweet_card(
+                display_name=display,
+                username=uname,
+                avatar_url=avatar_url,
+                text=text,
+                timestamp_str=ts_str,
+                verified=True,
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                f"Erreur rendu tweet : {type(e).__name__}: {e}",
+                ephemeral=True,
+            )
+            return
+        import time as _t
+        file = discord.File(buf, filename=f"tweet-{int(_t.time()*1000)}.png")
+        await interaction.followup.send(file=file)
+
+
     @bot.tree.command(name="8ball", description="Pose une question a la boule magique")
     @app_commands.describe(question="Ta question")
     async def eight_ball(interaction: discord.Interaction, question: str):
