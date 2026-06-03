@@ -465,13 +465,27 @@ def _extract_audio_info_fast_sync(query):
     """Version legere : pour les playlists Spotify (mass-add).
     Retourne juste {title, url (webpage), duration, thumbnail} via ytsearch1
     flat. play_next re-resoudra l'URL en stream au moment de jouer (cf.
-    _is_webpage_url check). Evite N x 1s yt-dlp extract complet."""
+    _is_webpage_url check). Evite N x 1s yt-dlp extract complet.
+
+    Utilise un YDL OPTS minimal SANS proxy/PoToken/extractor_args qui
+    causent 'asyncio.run() cannot be called from a running event loop'
+    en parallel calls. Le search YT public marche sans authentification
+    YouTube particuliere."""
     if query.startswith("http"):
-        # URL deja resolue : retour minimal sans extraire
         return {"title": query, "url": query, "source_url": query}
-    flat_options = dict(YDL_OPTIONS)
-    flat_options["extract_flat"] = "in_playlist"
-    with yt_dlp.YoutubeDL(flat_options) as ydl:
+    minimal_opts = {
+        'format': 'bestaudio/best',
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+        'default_search': 'ytsearch',
+        'extract_flat': 'in_playlist',
+        'skip_download': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+    }
+    with yt_dlp.YoutubeDL(minimal_opts) as ydl:
         search = ydl.extract_info(f"ytsearch1:{query}", download=False)
         entries = (search.get("entries") or [])
         if not entries:
