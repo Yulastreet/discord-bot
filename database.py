@@ -3938,10 +3938,14 @@ def get_user_cosmetic(user_id) -> dict:
     out = {"title": None, "emoji": None}
     if not (sel_title or sel_emoji):
         return out
-    unlocks = list_user_pass_unlocks(user_id, include_expired=False)
+    # Titles + emojis sont permanents (gardes entre saisons), donc on ignore
+    # expires_at qui pouvait etre set par d'anciens bugs ou rotations de saison.
+    unlocks = list_user_pass_unlocks(user_id, include_expired=True)
     titles_owned = set()
     emojis_owned = set()
     for u in unlocks:
+        if u["type"] not in ("title", "emoji"):
+            continue
         p = u.get("payload") or {}
         if u["type"] == "title" and p.get("title"):
             titles_owned.add(p["title"])
@@ -3955,10 +3959,16 @@ def get_user_cosmetic(user_id) -> dict:
 
 
 def list_user_owned_cosmetics(user_id) -> dict:
-    """Retourne les listes 'titles' et 'emojis' que l'user possede via Pass."""
-    unlocks = list_user_pass_unlocks(user_id, include_expired=False)
+    """Retourne les listes 'titles' et 'emojis' que l'user possede via Pass.
+
+    Permanents : on ignore expires_at (anciens unlocks pouvaient avoir une date
+    set par bug ou par d'anciennes rotations de saison).
+    """
+    unlocks = list_user_pass_unlocks(user_id, include_expired=True)
     titles, emojis = [], []
     for u in unlocks:
+        if u["type"] not in ("title", "emoji"):
+            continue
         p = u.get("payload") or {}
         if u["type"] == "title" and p.get("title") and p["title"] not in titles:
             titles.append(p["title"])

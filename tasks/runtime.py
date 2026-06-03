@@ -754,37 +754,44 @@ def setup_runtime(bot, deps):
           (qui seed pass_rewards + sabres auto)
         """
         import datetime as _dt
-        import os as _os, subprocess as _sp
+        import os as _os, subprocess as _sp, sys as _sys
+        # Root repo : tasks/runtime.py -> tasks/ -> repo root
+        _REPO_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        _BG_SEASONAL_ROOT = _os.path.join(_REPO_ROOT, "assets", "niveau_bg", "seasonal")
+        _BG_SCRIPT = _os.path.join(_REPO_ROOT, "scripts", "generate_seasonal_backgrounds.py")
+
+        def _ensure_bgs(mk: str, label: str):
+            target_dir = _os.path.join(_BG_SEASONAL_ROOT, mk)
+            if _os.path.isdir(target_dir) and len(_os.listdir(target_dir)) >= 5:
+                return
+            if not _os.path.exists(_BG_SCRIPT):
+                print(f"[pass rotation] {label} script absent: {_BG_SCRIPT}")
+                return
+            res = _sp.run(
+                [_sys.executable, _BG_SCRIPT, mk],
+                cwd=_REPO_ROOT, capture_output=True, text=True, check=False,
+            )
+            if res.returncode == 0:
+                print(f"[pass rotation] BGs generated for {mk} ({label})")
+            else:
+                print(f"[pass rotation] BG gen FAILED {mk} ({label}) rc={res.returncode}\n"
+                      f"  stdout: {res.stdout[-400:]}\n  stderr: {res.stderr[-400:]}")
+
         try:
             # Saison courante (creee si manquante, seed auto)
             season = get_or_create_current_season()
             mk = season["month_key"]
 
-            # Genere les BG saisonniers du mois courant si manquants
-            seasonal_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
-                                         "assets", "niveau_bg", "seasonal", mk)
-            if not _os.path.isdir(seasonal_dir) or len(_os.listdir(seasonal_dir)) < 5:
-                script = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
-                                       "scripts", "generate_seasonal_backgrounds.py")
-                if _os.path.exists(script):
-                    _sp.run(["python3", script, mk], check=False)
-                    print(f"[pass rotation] BGs generated for {mk}")
+            _ensure_bgs(mk, "current month")
 
-            # A partir du 25 du mois, pre-genere ceux du mois suivant pour anticiper
+            # A partir du 25 du mois, pre-genere ceux du mois suivant
             now = _dt.datetime.utcnow()
             if now.day >= 25:
                 if now.month == 12:
                     next_mk = f"{now.year + 1}-01"
                 else:
                     next_mk = f"{now.year}-{now.month + 1:02d}"
-                next_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
-                                         "assets", "niveau_bg", "seasonal", next_mk)
-                if not _os.path.isdir(next_dir) or len(_os.listdir(next_dir)) < 5:
-                    script = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
-                                           "scripts", "generate_seasonal_backgrounds.py")
-                    if _os.path.exists(script):
-                        _sp.run(["python3", script, next_mk], check=False)
-                        print(f"[pass rotation] BGs pre-generated for {next_mk}")
+                _ensure_bgs(next_mk, "next month preheat")
         except Exception as e:
             print(f"[pass rotation] error: {e!r}")
 
