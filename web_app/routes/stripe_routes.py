@@ -106,7 +106,7 @@ def register_stripe_routes(app, deps):
             # customer_creation est interdit en mode subscription (seulement payment one-shot).
             kwargs = dict(
                 mode="subscription",
-                payment_method_types=["card"],
+                payment_method_types=["card", "paypal"],
                 line_items=[{"price": price_id, "quantity": 1}],
                 client_reference_id=str(uid),
                 metadata={"discord_user_id": str(uid), "plan_months": months},
