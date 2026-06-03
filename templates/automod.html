@@ -37,13 +37,59 @@
   textarea.am-input { resize: vertical; min-height: 80px; font-family: var(--font-mono); }
   .am-sub-config { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
   .am-sub-config.hidden { display: none; }
-  .am-paywall {
-    padding: 32px 28px; text-align: center;
-    background: var(--bg-1); border: 1px dashed oklch(0.78 0.18 100 / 0.55);
-    border-radius: 16px;
+  /* Paywall overlay — meme style que Bot Customization */
+  .am-paywall-scrim {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(6px);
+    z-index: 200; display: grid; place-items: center;
+    padding: 22px;
   }
-  .am-paywall h2 { margin: 0 0 8px; font-size: 22px; }
-  .am-paywall p { color: var(--text-2); max-width: 520px; margin: 0 auto 18px; }
+  .am-paywall-modal {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px 28px;
+    max-width: 440px; text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,.55);
+  }
+  .am-paywall-modal .ico { font-size: 36px; margin-bottom: 12px; }
+  .am-paywall-modal h2 {
+    font-size: 22px; font-weight: 800; letter-spacing: -.01em;
+    margin-bottom: 8px;
+  }
+  .am-paywall-modal p {
+    color: var(--text-2); font-size: 14px; line-height: 1.5;
+    margin-bottom: 22px;
+  }
+  .am-paywall-actions { display: flex; gap: 10px; flex-direction: column; }
+  .am-btn-subscribe {
+    width: 100%; padding: 12px; border: 0; border-radius: 10px;
+    background: linear-gradient(180deg, #ffa726, #ff8a00);
+    color: #2a1a00; font-weight: 800; font-size: 14px; cursor: pointer;
+  }
+  .am-btn-preview {
+    width: 100%; padding: 12px; border: 1px solid var(--border);
+    border-radius: 10px; background: var(--bg-2);
+    color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer;
+  }
+  .am-preview-banner {
+    display: none;
+    position: sticky; bottom: 0;
+    margin-top: 24px;
+    padding: 12px 18px;
+    text-align: center;
+    background: linear-gradient(180deg, #ffa726, #ff8a00);
+    color: #2a1a00; font-weight: 700; font-size: 13px;
+    border-radius: 12px;
+  }
+  .am-preview-banner a {
+    color: #2a1a00; text-decoration: underline; margin-left: 8px;
+  }
+  /* En mode preview : disable inputs / boutons sans paywall */
+  body.am-preview-mode .am-toggle,
+  body.am-preview-mode .am-input,
+  body.am-preview-mode #amSave {
+    pointer-events: none; opacity: 0.7;
+  }
 </style>
 
 <div class="col gap-7">
@@ -54,17 +100,6 @@
       qui matchent sont supprimés et loggués dans le salon admin.
     </p>
   </div>
-
-  {% if not is_tookbot_plus %}
-  <div class="am-paywall">
-    <h2>✦ Feature TookBot+</h2>
-    <p>
-      L'automod est réservé aux serveurs avec TookBot+. Active ton essai gratuit
-      de 7 jours ou passe en abonnement pour débloquer.
-    </p>
-    <a class="btn btn-primary" href="/subscription">Voir les offres TookBot+</a>
-  </div>
-  {% else %}
 
   <div class="am-card">
     <h2>État général</h2>
@@ -144,14 +179,42 @@
     </button>
   </div>
 
-  {% endif %}
+  <div class="am-preview-banner" id="amPreviewBanner">
+    ✦ Tu es en aperçu de la feature TookBot+ · Les actions sont désactivées.
+    <a href="/subscription">S'abonner pour débloquer</a>
+  </div>
 </div>
+
+{% if not is_tookbot_plus %}
+<!-- Paywall overlay : meme style que Bot Customization -->
+<div class="am-paywall-scrim" id="amPaywall">
+  <div class="am-paywall-modal">
+    <div class="ico">✦</div>
+    <h2>Feature TookBot+ uniquement</h2>
+    <p>L'automod est réservé aux abonnés TookBot+. Choisis ton option ci-dessous.</p>
+    <div class="am-paywall-actions">
+      <button class="am-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
+      <button class="am-btn-preview" id="amPreviewModeBtn">Voir un aperçu de la feature</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if is_tookbot_plus %}
 <script>
 const CURRENT_LOG = {{ (config.log_channel_id or '')|tojson }};
+const IS_TOOKBOT_PLUS = {{ 'true' if is_tookbot_plus else 'false' }};
+
+// Mode preview : dismiss paywall et grise les actions
+const previewBtn = document.getElementById('amPreviewModeBtn');
+if (previewBtn) {
+  previewBtn.addEventListener('click', () => {
+    document.getElementById('amPaywall').style.display = 'none';
+    document.getElementById('amPreviewBanner').style.display = 'block';
+    document.body.classList.add('am-preview-mode');
+  });
+}
 
 (async function loadChannels() {
   const sel = document.getElementById('log_channel_id');
@@ -178,6 +241,10 @@ document.querySelectorAll('.am-toggle[data-rule]').forEach(t => {
 });
 
 document.getElementById('amSave').addEventListener('click', async () => {
+  if (!IS_TOOKBOT_PLUS) {
+    toast('TookBot+ requis pour sauvegarder.', 'error');
+    return;
+  }
   const btn = document.getElementById('amSave');
   btn.disabled = true;
   const orig = btn.innerHTML;
@@ -213,5 +280,4 @@ document.getElementById('amSave').addEventListener('click', async () => {
   }
 });
 </script>
-{% endif %}
 {% endblock %}
