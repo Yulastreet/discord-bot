@@ -80,6 +80,66 @@ def search_spotify(query, limit=5):
     return out
 
 
+def _resolve_playlist_via_embed(spid: str, max_tracks: int = 50) -> dict:
+    """Scrape la page open.spotify.com/embed/playlist/<spid> pour extraire
+    le nom + tracks. Pas d'auth requise (page publique).
+
+    Cherche le JSON next-data __NEXT_DATA__ ou le payload `<script id=...>`.
+    """
+    import json
+    import urllib.request
+    import urllib.error
+
+    url = f"https://open.spotify.com/embed/playlist/{spid}"
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        raise RuntimeError(f"embed fetch fail: {type(e).__name__}: {e}")
+
+    # Cherche le script next-data
+    m = re.search(
+        r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>',
+        html, flags=re.DOTALL,
+    )
+    if not m:
+        raise RuntimeError("embed: __NEXT_DATA__ introuvable")
+    try:
+        data = json.loads(m.group(1))
+    except Exception as e:
+        raise RuntimeError(f"embed: json parse fail: {e}")
+
+    # Chemin typique : props.pageProps.state.data.entity.{name, trackList}
+    state = (((data.get("props") or {}).get("pageProps") or {})
+             .get("state") or {})
+    entity = ((state.get("data") or {}).get("entity") or {})
+    pl_name = entity.get("name") or "Playlist Spotify"
+    raw_tracks = entity.get("trackList") or []
+    tracks = []
+    for t in raw_tracks[:max_tracks]:
+        # Format trackList typique : {uri, uid, title, subtitle, duration, ...}
+        # subtitle = artists. duration = ms.
+        name = t.get("title") or ""
+        artists = t.get("subtitle") or ""
+        q = f"{artists} - {name}".strip(" -")
+        tracks.append({
+            "query": q,
+            "duration_ms": t.get("duration"),
+        })
+    print(f"[spotify] playlist spid={spid} (embed) resolved {len(tracks)} tracks", flush=True)
+    return {
+        "kind": "playlist",
+        "title": pl_name,
+        "tracks": tracks,
+    }
+
+
 def _track_to_query(track: dict) -> str:
     """Convertit un track Spotify en query texte pour YouTube search."""
     name = (track.get("name") or "").strip()
@@ -129,48 +189,9 @@ def resolve_spotify_url(url: str, max_tracks: int = 50) -> dict:
         }
 
     if kind == "playlist":
-        # Fetch nom de la playlist (cheap)
-        try:
-            meta = sp.playlist(spid, fields="name")
-            pl_name = meta.get("name") or "Playlist Spotify"
-        except Exception as e:
-            print(f"[spotify] playlist meta fail spid={spid}: {type(e).__name__}: {e}", flush=True)
-            pl_name = "Playlist Spotify"
-        # Fetch tracks via endpoint dedie + pagination. Le fields= sur playlist()
-        # peut retourner items vide selon la version API ; playlist_items() est
-        # le bon endpoint pour iterer.
-        tracks = []
-        try:
-            results = sp.playlist_items(
-                spid, limit=100, offset=0,
-                fields="items(track(name,artists(name),duration_ms)),next",
-                additional_types=["track"],
-            )
-        except Exception as e:
-            raise RuntimeError(f"playlist_items fail: {type(e).__name__}: {e}")
-        while results and len(tracks) < max_tracks:
-            for it in (results.get("items") or []):
-                t = (it or {}).get("track")
-                if not t:
-                    continue
-                tracks.append({
-                    "query": _track_to_query(t),
-                    "duration_ms": t.get("duration_ms"),
-                })
-                if len(tracks) >= max_tracks:
-                    break
-            if results.get("next") and len(tracks) < max_tracks:
-                try:
-                    results = sp.next(results)
-                except Exception:
-                    break
-            else:
-                break
-        print(f"[spotify] playlist spid={spid} resolved {len(tracks)} tracks", flush=True)
-        return {
-            "kind": "playlist",
-            "title": pl_name,
-            "tracks": tracks,
-        }
+        # Spotify a restreint l'acces playlist_items pour Client Credentials
+        # (Nov 2024 : 401 'Valid user authentication required'). Workaround :
+        # scrape la page publique embed pour extraire la liste de tracks.
+        return _resolve_playlist_via_embed(spid, max_tracks=max_tracks)
 
     raise ValueError(f"Type Spotify non gere : {kind}")
