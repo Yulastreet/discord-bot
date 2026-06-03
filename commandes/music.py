@@ -112,7 +112,7 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send("🎧 Resolution Spotify en cours...")
                 try:
                     from services.spotify_resolver import resolve_spotify_url
-                    sp = await asyncio.to_thread(resolve_spotify_url, query, 200)
+                    sp = await asyncio.to_thread(resolve_spotify_url, query, 1000)
                 except Exception as e:
                     print(f"[music spotify] error: {type(e).__name__}: {e}")
                     await interaction.followup.send(

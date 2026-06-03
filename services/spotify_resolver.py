@@ -80,63 +80,158 @@ def search_spotify(query, limit=5):
     return out
 
 
-def _resolve_playlist_via_embed(spid: str, max_tracks: int = 50) -> dict:
-    """Scrape la page open.spotify.com/embed/playlist/<spid> pour extraire
-    le nom + tracks. Pas d'auth requise (page publique).
-
-    Cherche le JSON next-data __NEXT_DATA__ ou le payload `<script id=...>`.
-    """
-    import json
+def _fetch_html(url: str, timeout: int = 12) -> str:
     import urllib.request
-    import urllib.error
-
-    url = f"https://open.spotify.com/embed/playlist/{spid}"
     req = urllib.request.Request(url, headers={
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                        "AppleWebKit/537.36 (KHTML, like Gecko) "
                        "Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
     })
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
-    except Exception as e:
-        raise RuntimeError(f"embed fetch fail: {type(e).__name__}: {e}")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="ignore")
 
-    # Cherche le script next-data
+
+def _extract_tracks_from_embed_html(html: str) -> tuple[str, list[dict]]:
+    """Cherche __NEXT_DATA__ et extract entity.trackList. Limite par defaut
+    ~10-50 tracks (preview embed)."""
+    import json
     m = re.search(
         r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>',
         html, flags=re.DOTALL,
     )
     if not m:
         raise RuntimeError("embed: __NEXT_DATA__ introuvable")
-    try:
-        data = json.loads(m.group(1))
-    except Exception as e:
-        raise RuntimeError(f"embed: json parse fail: {e}")
-
-    # Chemin typique : props.pageProps.state.data.entity.{name, trackList}
+    data = json.loads(m.group(1))
     state = (((data.get("props") or {}).get("pageProps") or {})
              .get("state") or {})
     entity = ((state.get("data") or {}).get("entity") or {})
-    pl_name = entity.get("name") or "Playlist Spotify"
+    name = entity.get("name") or "Playlist Spotify"
     raw_tracks = entity.get("trackList") or []
-    tracks = []
-    for t in raw_tracks[:max_tracks]:
-        # Format trackList typique : {uri, uid, title, subtitle, duration, ...}
-        # subtitle = artists. duration = ms.
-        name = t.get("title") or ""
-        artists = t.get("subtitle") or ""
-        q = f"{artists} - {name}".strip(" -")
-        tracks.append({
-            "query": q,
+    out = []
+    for t in raw_tracks:
+        n = t.get("title") or ""
+        a = t.get("subtitle") or ""
+        out.append({
+            "query": f"{a} - {n}".strip(" -"),
             "duration_ms": t.get("duration"),
         })
-    print(f"[spotify] playlist spid={spid} (embed) resolved {len(tracks)} tracks", flush=True)
+    return name, out
+
+
+def _extract_tracks_from_main_page(spid: str) -> tuple[str, list[dict]]:
+    """Tente de fetch open.spotify.com/playlist/<spid> (page web complete).
+    Cette page contient typiquement bien plus de tracks que l'embed (full
+    initial state). Le JSON est dans <script id="__NEXT_DATA__"> aussi.
+
+    Spotify peut servir des structures differentes selon le user-agent ;
+    on essaie de parser les chemins typiques.
+    """
+    import json
+    url = f"https://open.spotify.com/playlist/{spid}"
+    html = _fetch_html(url)
+    m = re.search(
+        r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>',
+        html, flags=re.DOTALL,
+    )
+    if not m:
+        # Fallback : Spotify a aussi un JSON-LD script type=application/ld+json
+        ld = re.search(
+            r'<script type="application/ld\+json"[^>]*>(.+?)</script>',
+            html, flags=re.DOTALL,
+        )
+        if not ld:
+            raise RuntimeError("main page: pas de __NEXT_DATA__ ni JSON-LD")
+        meta = json.loads(ld.group(1))
+        name = meta.get("name") or "Playlist Spotify"
+        tracks_list = meta.get("track") or []
+        # JSON-LD structure : track est une list d'objets {name, byArtist}
+        out = []
+        for t in tracks_list:
+            n = t.get("name") or ""
+            artists = t.get("byArtist") or []
+            if isinstance(artists, dict): artists = [artists]
+            a = ", ".join(art.get("name", "") for art in artists)
+            out.append({
+                "query": f"{a} - {n}".strip(" -"),
+                "duration_ms": None,
+            })
+        return name, out
+    data = json.loads(m.group(1))
+    # Chemins possibles pour la full page (varie selon version Spotify) :
+    # 1) props.pageProps.state.data.entity.tracks.items[].track
+    # 2) props.pageProps.fallback['/dynamic/playlist/...']
+    # Try option 1 first.
+    state = (((data.get("props") or {}).get("pageProps") or {})
+             .get("state") or {})
+    entity = ((state.get("data") or {}).get("entity") or {})
+    name = entity.get("name") or "Playlist Spotify"
+
+    out = []
+    # Format detail page: entity.tracks.items = [{track: {name, artists}}]
+    tracks_container = entity.get("tracks") or {}
+    items = tracks_container.get("items") or []
+    if items:
+        for it in items:
+            t = (it or {}).get("track") or it
+            n = t.get("name") or ""
+            artists_arr = t.get("artists") or []
+            a = ", ".join((art or {}).get("name", "") for art in artists_arr)
+            out.append({
+                "query": f"{a} - {n}".strip(" -"),
+                "duration_ms": t.get("duration_ms"),
+            })
+        return name, out
+
+    # Format embed-style fallback (trackList)
+    raw_tracks = entity.get("trackList") or []
+    for t in raw_tracks:
+        n = t.get("title") or ""
+        a = t.get("subtitle") or ""
+        out.append({
+            "query": f"{a} - {n}".strip(" -"),
+            "duration_ms": t.get("duration"),
+        })
+    return name, out
+
+
+def _resolve_playlist_via_embed(spid: str, max_tracks: int = 50) -> dict:
+    """Resout une playlist Spotify sans OAuth.
+
+    Strategie :
+    1) Tente la page principale open.spotify.com/playlist/<spid> (souvent
+       contient la full track list dans __NEXT_DATA__).
+    2) Fallback sur la page embed (preview ~10-50 tracks).
+    3) Garde le resultat avec le PLUS de tracks.
+    """
+    pl_name_main, tracks_main = "Playlist Spotify", []
+    pl_name_emb, tracks_emb = "Playlist Spotify", []
+    try:
+        pl_name_main, tracks_main = _extract_tracks_from_main_page(spid)
+        print(f"[spotify] main page spid={spid} : {len(tracks_main)} tracks", flush=True)
+    except Exception as e:
+        print(f"[spotify] main page spid={spid} fail : {type(e).__name__}: {e}", flush=True)
+    try:
+        html = _fetch_html(f"https://open.spotify.com/embed/playlist/{spid}")
+        pl_name_emb, tracks_emb = _extract_tracks_from_embed_html(html)
+        print(f"[spotify] embed spid={spid} : {len(tracks_emb)} tracks", flush=True)
+    except Exception as e:
+        print(f"[spotify] embed spid={spid} fail : {type(e).__name__}: {e}", flush=True)
+
+    if len(tracks_main) >= len(tracks_emb):
+        chosen = tracks_main[:max_tracks]
+        chosen_name = pl_name_main
+    else:
+        chosen = tracks_emb[:max_tracks]
+        chosen_name = pl_name_emb
+
+    if not chosen:
+        raise RuntimeError("Spotify playlist: aucune piste recuperable (page protegee ?)")
+    print(f"[spotify] playlist spid={spid} resolved {len(chosen)} tracks (cap {max_tracks})", flush=True)
     return {
         "kind": "playlist",
-        "title": pl_name,
-        "tracks": tracks,
+        "title": chosen_name,
+        "tracks": chosen,
     }
 
 
