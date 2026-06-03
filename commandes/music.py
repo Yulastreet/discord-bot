@@ -124,31 +124,59 @@ def setup_music_commands(bot, deps):
                 if not tracks_meta:
                     await interaction.followup.send("❌ Aucune piste trouvee dans cette ressource Spotify.")
                     return
-                added = 0
-                for tm in tracks_meta:
+
+                # Strategie : resolve le 1er track immediat -> demarre lecture,
+                # resolve le reste en background pour eviter idle disconnect
+                # (yt-dlp prend ~1s par track, 50 = >60s).
+                first_added = False
+                async def _resolve_and_add(tm, send_first_msg=False):
+                    nonlocal first_added
                     q = tm.get("query")
                     if not q:
-                        continue
+                        return False
                     try:
                         info = await get_audio_info(q)
                     except Exception as e:
                         print(f"[music spotify] yt search fail for {q!r}: {e}")
-                        continue
+                        return False
                     music_queue_add(gid,
                                     title=info["title"], url=info["url"],
                                     source_url=info.get("source_url"),
                                     duration=info.get("duration"),
                                     thumbnail=info.get("thumbnail"),
                                     requested_by=interaction.user.id)
-                    added += 1
-                if added == 0:
-                    await interaction.followup.send("❌ Aucune piste Spotify n'a pu etre matchee sur YouTube.")
+                    return True
+
+                # 1er track : await pour demarrer lecture asap
+                ok = await _resolve_and_add(tracks_meta[0])
+                if not ok:
+                    await interaction.followup.send("❌ Premier track Spotify pas trouvable sur YouTube.")
                     return
-                await interaction.followup.send(
-                    f"🎧 **{added}** piste(s) ajoutee(s) depuis Spotify : **{sp.get('title','?')}**"
-                )
+                first_added = True
+                # Lance lecture immediate
                 if vc.is_connected() and not vc.is_playing():
                     await play_next(vc, interaction.channel, interaction.guild.id)
+
+                # Resolve le reste en background (n'await pas)
+                async def _resolve_rest():
+                    added = 1
+                    for tm in tracks_meta[1:]:
+                        if await _resolve_and_add(tm):
+                            added += 1
+                    try:
+                        await interaction.followup.send(
+                            f"🎧 **{added}** piste(s) ajoutee(s) depuis Spotify : **{sp.get('title','?')}**"
+                        )
+                    except Exception:
+                        pass
+                    print(f"[music spotify] background resolve done : {added} tracks", flush=True)
+
+                if len(tracks_meta) > 1:
+                    asyncio.create_task(_resolve_rest())
+                else:
+                    await interaction.followup.send(
+                        f"🎧 **1** piste ajoutee depuis Spotify : **{sp.get('title','?')}**"
+                    )
                 return
 
             # --- Playlist YouTube : on ajoute toutes les pistes ---
