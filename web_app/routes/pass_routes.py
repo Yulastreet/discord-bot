@@ -13,6 +13,7 @@ def register_pass_routes(app, deps):
     @app.route("/api/my/pass", methods=["GET"])
     def api_my_pass():
         """Etat complet du Pass pour l'user connecte (lecture seule)."""
+        from seasonal_themes import bg_display_name as _bg_disp
         uid = _current_user_id()
         if not uid:
             return jsonify({"error": "not_logged_in"}), 401
@@ -24,8 +25,29 @@ def register_pass_routes(app, deps):
         has_pass = _has_pass(uid)
         cosmetics_owned = list_user_owned_cosmetics(uid)
         cosmetics_active = get_user_cosmetic(uid)
-        # Roadmap des paliers (rewards definis pour la saison)
+
+        # Enrichit chaque unlock avec un display_name themed (sinon le front
+        # affiche des IDs techniques type 'season_2026-06_R' ou 'liquid_chrome').
         db = get_db()
+        sabre_rows = db.execute("SELECT id, nom FROM sabres").fetchall()
+        sabre_names = {r["id"]: r["nom"] for r in sabre_rows}
+        for u in unlocks:
+            payload = u.get("payload") or {}
+            disp = None
+            t = u.get("type")
+            if t == "bg":
+                disp = _bg_disp(payload.get("bg_id") or "")
+            elif t == "sabre":
+                disp = sabre_names.get(payload.get("sabre_id") or "", payload.get("sabre_id") or "")
+            elif t == "title":
+                disp = payload.get("title") or ""
+            elif t == "emoji":
+                disp = payload.get("emoji") or ""
+            elif t == "boost_xp":
+                disp = f"XP x{payload.get('multiplier')} pendant {payload.get('hours')}h"
+            u["display_name"] = disp
+
+        # Roadmap des paliers (rewards definis pour la saison)
         rows = db.execute(
             "SELECT tier, type, label FROM pass_rewards WHERE season_id = ? ORDER BY tier",
             (sid,),

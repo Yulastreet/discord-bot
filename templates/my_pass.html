@@ -275,12 +275,15 @@ function render(d) {
       const ico = REWARD_ICONS[u.type] || '🎁';
       const typLabel = REWARD_LABELS[u.type] || u.type;
       const p = u.payload || {};
-      let name = typLabel;
-      if (u.type === 'bg')    name = (p.bg_name || p.bg_id || '').replace('seasonal:', '');
-      if (u.type === 'sabre') name = p.sabre_id || '';
-      if (u.type === 'title') name = p.title || '';
-      if (u.type === 'emoji') name = p.emoji || '';
-      if (u.type === 'boost_xp') name = `XP ×${p.multiplier} pendant ${p.hours}h`;
+      let name = u.display_name || typLabel;
+      if (!u.display_name) {
+        // fallback si l'API n'a pas enrichi (compat ascendante)
+        if (u.type === 'bg')    name = (p.bg_name || p.bg_id || '').replace('seasonal:', '');
+        if (u.type === 'sabre') name = p.sabre_id || '';
+        if (u.type === 'title') name = p.title || '';
+        if (u.type === 'emoji') name = p.emoji || '';
+        if (u.type === 'boost_xp') name = `XP ×${p.multiplier} pendant ${p.hours}h`;
+      }
       const exp = u.expires_at ? `Expire ${u.expires_at.slice(0,10)}` : 'Permanent';
       return `<div class="unlock-card">
         <div class="ico">${ico}</div>
