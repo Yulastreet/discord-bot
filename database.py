@@ -3751,41 +3751,45 @@ def seed_pass_rewards_for_season(season_id: int, month_key: str):
 def seed_seasonal_sabres(month_key: str):
     """Cree 3 sabres cosmetiques (R/SR/SSR) avec stats ET effets equivalents
     aux sabres f2p de meme rarete (anti-P2W). Seuls le visuel (nom, emoji,
-    description) change.
+    description) change. Nom + emoji + nom_special viennent du theme du mois
+    (cf. seasonal_themes.py) pour avoir une vraie identite par saison.
 
     R   -> overcharge   (75% degats sup + ignore defense, comme Sabre Cyan)
     SR  -> reflect_100  (renvoie 100% degats, comme Sabre Argent)
     SSR -> ultimate     (combo supreme, comme Sabre Arc-en-Ciel)
 
     IDs : season_<YYYY-MM>_<R|SR|SSR>"""
+    from seasonal_themes import sabre_data
     conn = get_db()
     c = conn.cursor()
-    sabres_data = [
-        (f"season_{month_key}_R",
-         f"Lame Saisonnière {month_key}", "🌒", "R", 0,
-         "Skin saisonnier du Battle Pass · stats identiques aux sabres R classiques.",
-         "Surcharge Saisonnière",
-         "Inflige 75% de dégâts supplémentaires et ignore la défense.",
-         "🌙", "overcharge"),
-        (f"season_{month_key}_SR",
-         f"Croissant Saisonnier {month_key}", "🌘", "SR", 0,
-         "Skin saisonnier du Battle Pass · stats identiques aux sabres SR classiques.",
-         "Réflexion Saisonnière",
-         "Renvoie 100% des dégâts au prochain coup adverse.",
-         "🪞", "reflect_100"),
-        (f"season_{month_key}_SSR",
-         f"Étoile Saisonnière {month_key}", "🌟", "SSR", 0,
-         "Skin saisonnier légendaire du Battle Pass · stats identiques aux sabres SSR classiques.",
-         "Apothéose Saisonnière",
-         "Cumule les effets : 100% de dégâts + ignore défense + lifesteal 100%.",
-         "👑", "ultimate"),
-    ]
-    for s in sabres_data:
+    rows = []
+    for rarete in ("R", "SR", "SSR"):
+        nom, emoji_sabre, nom_special, desc_special, emoji_special, mec = sabre_data(month_key, rarete)
+        desc_generale = f"Skin saisonnier du Battle Pass · stats identiques aux sabres {rarete} classiques."
+        rows.append((
+            f"season_{month_key}_{rarete}",
+            nom, emoji_sabre, rarete, 0, desc_generale,
+            nom_special, desc_special, emoji_special, mec,
+        ))
+    # UPSERT : si le sabre existe deja (saison generee precedemment avec un
+    # ancien template) on met a jour ses champs visuels pour refleter le theme
+    # courant. Mecanique (speciale_effet) reste identique = anti-P2W.
+    for s in rows:
         try:
-            c.execute('''INSERT OR IGNORE INTO sabres
-                        (id, nom, emoji, rarete, prix, description,
-                         speciale_nom, speciale_description, speciale_emoji, speciale_effet)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', s)
+            c.execute('''
+                INSERT INTO sabres
+                    (id, nom, emoji, rarete, prix, description,
+                     speciale_nom, speciale_description, speciale_emoji, speciale_effet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    nom                  = excluded.nom,
+                    emoji                = excluded.emoji,
+                    description          = excluded.description,
+                    speciale_nom         = excluded.speciale_nom,
+                    speciale_description = excluded.speciale_description,
+                    speciale_emoji       = excluded.speciale_emoji,
+                    speciale_effet       = excluded.speciale_effet
+            ''', s)
         except Exception as e:
             print(f"[seed sabres saisonniers] error: {e!r}")
     conn.commit()

@@ -81,6 +81,10 @@ app = Flask(__name__)
 # Cle de session fixe en prod (sinon les sessions sautent a chaque restart).
 # Met FLASK_SECRET dans le .env, sinon clef ephemere.
 app.secret_key = os.getenv("FLASK_SECRET") or os.urandom(24)
+
+# Filtre Jinja : bg_id technique -> nom convivial pour l'UI dashboard.
+from seasonal_themes import bg_display_name as _bg_display_name
+app.jinja_env.filters["bg_display_name"] = _bg_display_name
 PASSWORD = os.getenv("WEB_PASSWORD")  # Fallback si OAuth pas configure (dev)
 
 # ===== OAuth Discord =====

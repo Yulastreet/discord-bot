@@ -126,8 +126,8 @@
   <div class="bg-grid" id="bgGrid" data-current="{{ settings_p.niveau_background or 'default' }}">
     {% for bg in backgrounds %}
       <div class="bg-card {% if settings_p.niveau_background == bg %}selected{% endif %}" data-bg="{{ bg }}">
-        <img src="/api/premium/niveau/preview.png?bg={{ bg }}" alt="{{ bg }}">
-        <div class="name">{{ bg.replace('_', ' ') }}</div>
+        <img src="/api/premium/niveau/preview.png?bg={{ bg }}" alt="{{ bg|bg_display_name }}">
+        <div class="name">{{ bg|bg_display_name }}</div>
       </div>
     {% endfor %}
   </div>
