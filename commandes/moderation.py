@@ -25,21 +25,67 @@ def setup_moderation_commands(bot):
         await interaction.channel.purge(limit=nombre)
         await interaction.followup.send(f"**{nombre}** messages supprimes.", ephemeral=True)
 
-    @bot.tree.command(name="poll", description="Creer un sondage")
-    @app_commands.describe(question="La question", options="Options separees par des virgules")
-    async def poll(interaction: discord.Interaction, question: str, options: str):
-        option_list = [o.strip() for o in options.split(",")]
-        if len(option_list) < 2:
-            await interaction.response.send_message("Donne au moins 2 options separees par des virgules.", ephemeral=True)
-            return
-        if len(option_list) > 9:
-            await interaction.response.send_message("Maximum 9 options.", ephemeral=True)
-            return
-        emojis = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        description = "\n".join([f"{emojis[i]}. {opt}" for i, opt in enumerate(option_list)])
-        embed = discord.Embed(title=question, description=description, color=discord.Color.gold())
-        embed.set_footer(text=f"Sondage cree par {interaction.user.name}")
-        await interaction.response.send_message(embed=embed)
-        msg = await interaction.original_response()
-        for i in range(len(option_list)):
-            await msg.add_reaction(f"{emojis[i]}\ufe0f\u20e3")
+    class PollBuilderModal(discord.ui.Modal, title="Creer un sondage"):
+        question = discord.ui.TextInput(
+            label="Question",
+            placeholder="Ex : Quelle pizza ce soir ?",
+            max_length=300,
+            required=True,
+        )
+        option_1 = discord.ui.TextInput(
+            label="Option 1",
+            placeholder="Ex : 4 fromages",
+            max_length=55,
+            required=True,
+        )
+        option_2 = discord.ui.TextInput(
+            label="Option 2",
+            placeholder="Ex : Reine",
+            max_length=55,
+            required=True,
+        )
+        option_3 = discord.ui.TextInput(
+            label="Option 3 (optionnel)",
+            max_length=55,
+            required=False,
+        )
+        option_4 = discord.ui.TextInput(
+            label="Option 4 (optionnel)",
+            max_length=55,
+            required=False,
+        )
+
+        async def on_submit(self, interaction: discord.Interaction):
+            import datetime as _dt
+            opts = [
+                str(self.option_1.value).strip(),
+                str(self.option_2.value).strip(),
+                str(self.option_3.value).strip(),
+                str(self.option_4.value).strip(),
+            ]
+            opts = [o for o in opts if o]
+            if len(opts) < 2:
+                await interaction.response.send_message(
+                    "Il faut au moins 2 options remplies.", ephemeral=True,
+                )
+                return
+            try:
+                poll = discord.Poll(
+                    question=str(self.question.value).strip()[:300],
+                    duration=_dt.timedelta(hours=24),
+                )
+                for o in opts[:10]:
+                    poll.add_answer(text=o[:55])
+                await interaction.response.send_message(poll=poll)
+            except Exception as e:
+                await interaction.response.send_message(
+                    f"Erreur creation du sondage : {type(e).__name__}: {e}",
+                    ephemeral=True,
+                )
+
+    @bot.tree.command(name="poll", description="Creer un sondage (ouvre un builder)")
+    async def poll(interaction: discord.Interaction):
+        # Ouvre le modal de creation. Le sondage utilise le composant
+        # natif Discord (vote live + UI integree). Pour 5+ options ou
+        # plus de controle, utiliser le builder du dashboard.
+        await interaction.response.send_modal(PollBuilderModal())
