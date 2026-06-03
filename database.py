@@ -1301,6 +1301,34 @@ def music_queue_remove(guild_id, track_id):
     conn.close()
     return deleted
 
+
+def music_queue_move_to_front(guild_id, track_id):
+    """Deplace une track a la position 1 (sera la prochaine jouee).
+    Decale les autres positions de +1. Retourne True si OK."""
+    conn = get_db()
+    c = conn.cursor()
+    # Verifie que la track existe et appartient a la guild
+    row = c.execute(
+        "SELECT id FROM music_queue WHERE guild_id = ? AND id = ?",
+        (str(guild_id), int(track_id)),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return False
+    # Min position actuelle (sera notre nouvelle pos cible - 1)
+    min_pos = c.execute(
+        "SELECT MIN(position) AS p FROM music_queue WHERE guild_id = ?",
+        (str(guild_id),),
+    ).fetchone()["p"] or 1
+    # Pose la track a (min_pos - 1) -> sera sortie en 1er
+    c.execute(
+        "UPDATE music_queue SET position = ? WHERE id = ?",
+        (min_pos - 1, int(track_id)),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
 def music_state_set(guild_id, **kwargs):
     """Upsert music state. Allowed keys: voice_channel_id, voice_channel_name,
        current_title, current_url, current_thumbnail, current_duration,

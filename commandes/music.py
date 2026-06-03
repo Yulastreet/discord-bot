@@ -112,7 +112,7 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send("🎧 Resolution Spotify en cours...")
                 try:
                     from services.spotify_resolver import resolve_spotify_url
-                    sp = await asyncio.to_thread(resolve_spotify_url, query, 50)
+                    sp = await asyncio.to_thread(resolve_spotify_url, query, 200)
                 except Exception as e:
                     print(f"[music spotify] error: {type(e).__name__}: {e}")
                     await interaction.followup.send(
@@ -183,7 +183,7 @@ def setup_music_commands(bot, deps):
             if _is_playlist_url(query):
                 await interaction.followup.send(f"🔍 Chargement de la playlist...")
                 try:
-                    pl = await get_playlist_info(query, max_items=50)
+                    pl = await get_playlist_info(query, max_items=200)
                 except Exception as e:
                     print(f"[music] playlist error: {e}")
                     await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
@@ -362,19 +362,68 @@ def setup_music_commands(bot, deps):
             f"⏭️ **{total_skipped}** musique(s) passée(s){target_msg}"
         )
 
-    @bot.tree.command(name="queue", description="Voir la file d'attente musicale")
-    async def queue_cmd(interaction: discord.Interaction):
+    @bot.tree.command(name="queue", description="Voir la file d'attente musicale (paginee)")
+    @app_commands.describe(page="Numero de page (10 pistes par page)")
+    async def queue_cmd(interaction: discord.Interaction, page: int = 1):
         gid = str(interaction.guild.id)
         q = music_queue_list(gid)
         if not q:
             await interaction.response.send_message("📭 La file d'attente est vide !")
             return
-        embed = discord.Embed(title="🎵 File d'attente", color=discord.Color.blurple())
-        description = ""
-        for i, t in enumerate(q):
-            description += f"**{i+1}.** {t['title']}\n"
-        embed.description = description
+        per_page = 10
+        total = len(q)
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        page = max(1, min(int(page), total_pages))
+        start = (page - 1) * per_page
+        end = min(start + per_page, total)
+        embed = discord.Embed(
+            title=f"🎵 File d'attente ({total} piste(s))",
+            color=discord.Color.blurple(),
+        )
+        lines = []
+        for i in range(start, end):
+            t = q[i]
+            lines.append(f"**{i+1}.** {t['title']}")
+        embed.description = "\n".join(lines) or "*vide*"
+        embed.set_footer(text=f"Page {page}/{total_pages} • /queue page:N pour naviguer • /jump position:N pour jouer une piste")
         await interaction.response.send_message(embed=embed)
+
+
+    @bot.tree.command(name="jump", description="Jouer une piste specifique de la file sans perdre les autres")
+    @app_commands.describe(position="Position dans la file (1 = la prochaine deja en tete)")
+    async def jump(interaction: discord.Interaction, position: int):
+        if position < 1:
+            await interaction.response.send_message("❌ La position doit être >= 1.", ephemeral=True)
+            return
+        gid = str(interaction.guild.id)
+        q = music_queue_list(gid) or []
+        if not q:
+            await interaction.response.send_message("❌ La file est vide.", ephemeral=True)
+            return
+        if position > len(q):
+            await interaction.response.send_message(
+                f"❌ Position {position} hors limites (file = {len(q)} piste(s)).",
+                ephemeral=True,
+            )
+            return
+        target = q[position - 1]
+        try:
+            from database import music_queue_move_to_front
+            ok = music_queue_move_to_front(gid, target["id"])
+        except Exception as e:
+            print(f"[music /jump] move err: {e}")
+            await interaction.response.send_message("❌ Erreur reordonnancement.", ephemeral=True)
+            return
+        if not ok:
+            await interaction.response.send_message("❌ Track introuvable.", ephemeral=True)
+            return
+        vc = interaction.guild.voice_client
+        was_playing = bool(vc and vc.is_playing())
+        if was_playing:
+            vc.stop()  # declenche play_next sur la track maintenant en tete
+        await interaction.response.send_message(
+            f"⏯️ Saut vers **{target['title']}** (les autres pistes sont conservees)."
+        )
 
     @bot.tree.command(name="volume", description="Regler le volume musique (0-200, default 100)")
     @app_commands.describe(niveau="Volume en pourcentage (0 = muet, 100 = normal, 200 = max)")

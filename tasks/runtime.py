@@ -1768,7 +1768,7 @@ def setup_runtime(bot, deps):
 
             if is_yt_playlist:
                 from bot import get_playlist_info
-                pl = await get_playlist_info(query, max_items=50)
+                pl = await get_playlist_info(query, max_items=200)
                 entries = pl.get("entries") or []
                 for e in entries:
                     music_queue_add(gid,
