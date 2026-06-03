@@ -96,6 +96,8 @@ def setup_runtime(bot, deps):
             status_writer.start()
         if not rotate_presence.is_running():
             rotate_presence.start()
+        if not voice_idle_disconnect.is_running():
+            voice_idle_disconnect.start()
         # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
@@ -1478,6 +1480,40 @@ def setup_runtime(bot, deps):
 
     # Hook global : rate-limit + guard chaines sur l'arbre des slash commands
     bot.tree.interaction_check = _global_rate_limit
+
+    # Auto-disconnect voice si idle > 60s (pas de musique jouee ni en pause).
+    # Evite que le bot reste indefiniment dans un vocal apres fin de queue.
+    _VOICE_IDLE_SINCE: dict = {}
+    _VOICE_IDLE_TIMEOUT = 60  # secondes
+
+    @tasks.loop(seconds=20)
+    async def voice_idle_disconnect():
+        now = _time.time()
+        for guild in list(bot.guilds):
+            vc = guild.voice_client
+            if not vc or not vc.is_connected():
+                _VOICE_IDLE_SINCE.pop(guild.id, None)
+                continue
+            if vc.is_playing() or vc.is_paused():
+                _VOICE_IDLE_SINCE.pop(guild.id, None)
+                continue
+            since = _VOICE_IDLE_SINCE.get(guild.id)
+            if since is None:
+                _VOICE_IDLE_SINCE[guild.id] = now
+                continue
+            if (now - since) >= _VOICE_IDLE_TIMEOUT:
+                try:
+                    ch = vc.channel
+                    await vc.disconnect(force=True)
+                    print(f"[voice idle] guild={guild.id} disconnected after {int(now - since)}s idle in #{getattr(ch, 'name', '?')}")
+                except Exception as e:
+                    print(f"[voice idle] disconnect error guild={guild.id}: {type(e).__name__}: {e}")
+                _VOICE_IDLE_SINCE.pop(guild.id, None)
+
+    @voice_idle_disconnect.before_loop
+    async def _before_voice_idle():
+        await bot.wait_until_ready()
+
 
     @tasks.loop(seconds=30)
     async def rotate_presence():
