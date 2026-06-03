@@ -447,11 +447,13 @@ async def render_levelup_card_premium(
 
 
 # ===== LEVELUP CARD : taille native compacte =====
-# Rendue directement a la taille d'affichage Discord (480x150) au lieu de
-# rendre en 1024x320 puis resize (qui rendait l'image compressee/pixelisee).
-LU_W, LU_H = 480, 150
-LU_AVATAR_SIZE = 110
-LU_AVATAR_X = 18
+# Rendue directement a 384x120 (taille d'affichage Discord finale, identique
+# a l'ancienne) au lieu de rendre en 1024x320 puis resize (qui rendait
+# l'image compressee/pixelisee). Discord ne grossit pas les images <400px
+# donc le rendu reste compact dans le chat.
+LU_W, LU_H = 384, 120
+LU_AVATAR_SIZE = 88
+LU_AVATAR_X = 14
 LU_AVATAR_Y = (LU_H - LU_AVATAR_SIZE) // 2
 
 
@@ -480,24 +482,24 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     veil = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 110))
     base.alpha_composite(veil)
 
-    # Fleches vertes UP scattered : 12-14 fleches de tailles variees, opacite
+    # Fleches vertes UP scattered : 13 fleches de tailles variees, opacite
     # faible, reparties sur toute la carte (motif d'ascension).
     arrows = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 0))
     ad = ImageDraw.Draw(arrows)
     arrow_positions = [
-        (40,  120, 12, 60),
-        (90,  30,  10, 50),
-        (150, 130, 14, 70),
-        (210, 22,  11, 55),
-        (260, 130, 13, 60),
-        (320, 30,  15, 75),
-        (380, 125, 12, 60),
-        (430, 35,  14, 70),
-        (15,  70,  9,  45),
-        (110, 88,  10, 50),
-        (240, 75,  11, 55),
-        (350, 80,  12, 60),
-        (460, 95,  10, 50),
+        (32,  96,  10, 60),
+        (72,  24,  8,  50),
+        (120, 104, 11, 70),
+        (168, 18,  9,  55),
+        (208, 104, 10, 60),
+        (256, 24,  12, 75),
+        (304, 100, 10, 60),
+        (344, 28,  11, 70),
+        (12,  56,  7,  45),
+        (88,  70,  8,  50),
+        (192, 60,  9,  55),
+        (280, 64,  10, 60),
+        (368, 76,  8,  50),
     ]
     for ax, ay, asize, aalpha in arrow_positions:
         _draw_up_arrow(ad, ax, ay, asize, ACCENT + (aalpha,))
@@ -517,46 +519,44 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     base.alpha_composite(avatar_img, (LU_AVATAR_X, LU_AVATAR_Y))
 
     # Zone texte : x apres avatar jusqu'au bord droit
-    text_x = LU_AVATAR_X + LU_AVATAR_SIZE + 18
-    text_right = LU_W - 18
+    text_x = LU_AVATAR_X + LU_AVATAR_SIZE + 14
+    text_right = LU_W - 14
     text_zone_w = text_right - text_x
 
-    # LEVEL UP ! enorme et centre verticalement-haut
-    f_title = _font(34, bold=True)
+    # LEVEL UP ! titre centre haut
+    f_title = _font(26, bold=True)
     title = "LEVEL UP !"
-    # Glow flouttee derriere
     glow = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     title_tw = gd.textlength(title, font=f_title)
     title_x = text_x + (text_zone_w - title_tw) / 2
-    gd.text((title_x, 12), title, font=f_title, fill=ACCENT + (200,))
-    glow = glow.filter(ImageFilter.GaussianBlur(4))
+    gd.text((title_x, 8), title, font=f_title, fill=ACCENT + (200,))
+    glow = glow.filter(ImageFilter.GaussianBlur(3))
     base.alpha_composite(glow)
-    draw.text((title_x, 12), title, font=f_title, fill=(250, 255, 230, 255))
+    draw.text((title_x, 8), title, font=f_title, fill=(250, 255, 230, 255))
 
-    # Pseudo (sous title), centre horizontalement dans la zone
-    f_user = _font(18, bold=True)
+    # Pseudo
+    f_user = _font(14, bold=True)
     display = username
     while draw.textlength(display, font=f_user) > text_zone_w and len(display) > 1:
         display = display[:-1]
     if display != username:
         display = display[:-1] + "…"
     user_tw = draw.textlength(display, font=f_user)
-    draw.text((text_x + (text_zone_w - user_tw) / 2, 56), display,
+    draw.text((text_x + (text_zone_w - user_tw) / 2, 44), display,
               font=f_user, fill=TEXT_SECONDARY)
 
-    # NIVEAU label + valeur ENORME centres
-    f_label = _font(14, bold=True)
-    f_value = _font(48, bold=True)
+    # NIVEAU label + valeur grosse, centres horizontalement
+    f_label = _font(11, bold=True)
+    f_value = _font(36, bold=True)
     lbl = "NIVEAU"
     val = str(new_level)
     lbl_tw = draw.textlength(lbl, font=f_label)
     val_tw = draw.textlength(val, font=f_value)
-    # Label + valeur cote a cote, ensemble centre
-    combined_w = lbl_tw + 12 + val_tw
+    combined_w = lbl_tw + 10 + val_tw
     combined_x = text_x + (text_zone_w - combined_w) / 2
-    draw.text((combined_x, 100), lbl, font=f_label, fill=ACCENT)
-    draw.text((combined_x + lbl_tw + 12, 86), val, font=f_value, fill=TEXT_PRIMARY)
+    draw.text((combined_x, 78), lbl, font=f_label, fill=ACCENT)
+    draw.text((combined_x + lbl_tw + 10, 66), val, font=f_value, fill=TEXT_PRIMARY)
 
     buf = io.BytesIO()
     base.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
