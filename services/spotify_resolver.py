@@ -129,20 +129,47 @@ def resolve_spotify_url(url: str, max_tracks: int = 50) -> dict:
         }
 
     if kind == "playlist":
-        pl = sp.playlist(spid, fields="name,tracks.items(track(name,artists,duration_ms))")
-        items = (pl.get("tracks") or {}).get("items") or []
+        # Fetch nom de la playlist (cheap)
+        try:
+            meta = sp.playlist(spid, fields="name")
+            pl_name = meta.get("name") or "Playlist Spotify"
+        except Exception as e:
+            print(f"[spotify] playlist meta fail spid={spid}: {type(e).__name__}: {e}", flush=True)
+            pl_name = "Playlist Spotify"
+        # Fetch tracks via endpoint dedie + pagination. Le fields= sur playlist()
+        # peut retourner items vide selon la version API ; playlist_items() est
+        # le bon endpoint pour iterer.
         tracks = []
-        for it in items[:max_tracks]:
-            t = (it or {}).get("track")
-            if not t:
-                continue
-            tracks.append({
-                "query": _track_to_query(t),
-                "duration_ms": t.get("duration_ms"),
-            })
+        try:
+            results = sp.playlist_items(
+                spid, limit=100, offset=0,
+                fields="items(track(name,artists(name),duration_ms)),next",
+                additional_types=["track"],
+            )
+        except Exception as e:
+            raise RuntimeError(f"playlist_items fail: {type(e).__name__}: {e}")
+        while results and len(tracks) < max_tracks:
+            for it in (results.get("items") or []):
+                t = (it or {}).get("track")
+                if not t:
+                    continue
+                tracks.append({
+                    "query": _track_to_query(t),
+                    "duration_ms": t.get("duration_ms"),
+                })
+                if len(tracks) >= max_tracks:
+                    break
+            if results.get("next") and len(tracks) < max_tracks:
+                try:
+                    results = sp.next(results)
+                except Exception:
+                    break
+            else:
+                break
+        print(f"[spotify] playlist spid={spid} resolved {len(tracks)} tracks", flush=True)
         return {
             "kind": "playlist",
-            "title": pl.get("name") or "Playlist Spotify",
+            "title": pl_name,
             "tracks": tracks,
         }
 
