@@ -83,12 +83,27 @@ def _build_command_pages() -> list:
             "**/clear `<n>`** — supprime les N derniers messages\n"
             "**/kick `<membre>` `[raison]`** — expulse un membre\n"
             "**/ban `<membre>` `[raison]`** — bannit un membre\n"
-            "**/poll `<question>` `<options>`** — sondage avec réactions\n"
+            "**/poll** — ouvre un builder (question + 2-10 options + duree 1-168h, sondage natif Discord)\n"
             "**/setwelcome `[salon]`** — builder message de bienvenue\n"
             "**/warn `<membre>` `<raison>`** — avertit + auto-timeout si seuil\n"
             "**/modlogs `<membre>`** — historique des sanctions\n"
             "**/clearwarns `<membre>` `[raison]`** — révoque tous warns\n"
-            "**/note `<membre>` `<texte>`** — note interne mod (pas de DM)"
+            "**/note `<membre>` `<texte>`** — note interne mod (pas de DM)\n"
+            "**Automod** (TookBot+) — filtres mots interdits, anti-pub, anti-spam mentions, anti-raid configurables depuis le dashboard"
+        ),
+        inline=False,
+    )
+    p1.add_field(
+        name="🔊 Salons vocaux temporaires",
+        value=(
+            "**/tempvoice setup `<lobby>` `[categorie]` `[nom_par_defaut]`** — admin : configure le salon lobby\n"
+            "**/tempvoice info** — admin : voir la config actuelle\n"
+            "**/tempvoice disable** — admin : desactive la feature\n"
+            "**/voc rename `<nom>`** — renomme ton salon temp\n"
+            "**/voc limit `<nombre>`** — limite le nombre de membres\n"
+            "**/voc lock / unlock** — verrouille / re-ouvre le salon\n"
+            "**/voc kick `<membre>`** — vire un membre du salon\n"
+            "**/voc transfer `<membre>`** — transfere la propriete"
         ),
         inline=False,
     )
@@ -100,7 +115,8 @@ def _build_command_pages() -> list:
             "**/socialalert add / list / remove** — alertes Twitch/YT/Reddit\n"
             "**/ticket** — builder panneau de tickets\n"
             "**/giveaway create / list / reroll / cancel** — tirages au sort\n"
-            "**/cmd `<nom>`** — exécute une commande custom (builder sur dashboard)"
+            "**/cmd `<nom>`** — exécute une commande custom (TookBot+, builder dashboard)\n"
+            "**Analytics serveur** — page dashboard avec stats live, heatmap, top commandes / top users"
         ),
         inline=False,
     )
