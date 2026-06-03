@@ -91,9 +91,7 @@ async def tempvoice_on_voice_state_update(member: discord.Member,
         # Cas 1 : user rejoint un salon -> est-ce le lobby ?
         if after.channel and (not before.channel or before.channel.id != after.channel.id):
             cfg = tempvoice_config_get(member.guild.id)
-            print(f"[tempvoice DEBUG] user={member.id} join channel={after.channel.id} cfg_lobby={cfg.get('lobby_channel_id') if cfg else None}", flush=True)
             if cfg and str(after.channel.id) == str(cfg["lobby_channel_id"]):
-                print(f"[tempvoice DEBUG] match lobby, creation pour {member.display_name}", flush=True)
                 await _create_temp_voice(bot, member, cfg)
 
         # Cas 2 : user quitte un salon -> si c'etait un temp et vide, supprime
