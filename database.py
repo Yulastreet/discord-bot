@@ -120,7 +120,7 @@ def init_db():
     )''')
     # Migration : ajoute colonnes status/activity si table existait deja
     _bp_cols = _table_columns(c, "guild_bot_profile")
-    for _col in ("status", "activity_type", "activity_text"):
+    for _col in ("status", "activity_type", "activity_text", "applied_by"):
         if _col not in _bp_cols:
             try:
                 c.execute(f"ALTER TABLE guild_bot_profile ADD COLUMN {_col} TEXT")
@@ -1370,9 +1370,20 @@ def guild_bot_profile_set(guild_id, *, nick=None, avatar_url=None, banner_url=No
     conn.commit(); conn.close()
 
 
-def guild_bot_profile_mark_applied(guild_id):
+def guild_bot_profile_mark_applied(guild_id, applied_by=None):
+    """Marque le profile comme applique. Si applied_by fourni, le trace
+    pour pouvoir le revoke automatiquement a expiration TookBot+ du user."""
     conn = get_db(); c = conn.cursor()
-    c.execute("UPDATE guild_bot_profile SET applied_at = CURRENT_TIMESTAMP WHERE guild_id = ?", (str(guild_id),))
+    if applied_by is not None:
+        c.execute(
+            "UPDATE guild_bot_profile SET applied_at = CURRENT_TIMESTAMP, applied_by = ? WHERE guild_id = ?",
+            (str(applied_by), str(guild_id)),
+        )
+    else:
+        c.execute(
+            "UPDATE guild_bot_profile SET applied_at = CURRENT_TIMESTAMP WHERE guild_id = ?",
+            (str(guild_id),),
+        )
     conn.commit(); conn.close()
 
 

@@ -138,7 +138,7 @@ def register_bot_profile_routes(app, deps):
             return jsonify({"error": f"Discord API: {type(e).__name__}: {e}"}), 500
 
         if status_resp in (200, 204):
-            guild_bot_profile_mark_applied(g_id)
+            guild_bot_profile_mark_applied(g_id, applied_by=uid)
             return jsonify({"ok": True, "status": status_resp})
         return jsonify({"ok": False, "status": status_resp, "body": body}), 502
 

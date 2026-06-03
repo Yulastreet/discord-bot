@@ -98,6 +98,8 @@ def setup_runtime(bot, deps):
             rotate_presence.start()
         if not voice_idle_disconnect.is_running():
             voice_idle_disconnect.start()
+        if not tookbot_plus_expiry_cleanup.is_running():
+            tookbot_plus_expiry_cleanup.start()
         # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
@@ -1507,6 +1509,77 @@ def setup_runtime(bot, deps):
 
     # Hook global : rate-limit + guard chaines sur l'arbre des slash commands
     bot.tree.interaction_check = _global_rate_limit
+
+    # Cleanup TookBot+ expire : detecte les grants tookbot_plus expires
+    # (trial fini, abo termine et non renouvele) puis :
+    # - DELETE custom_commands WHERE created_by = user
+    # - Pour chaque guild_bot_profile applied_by user : revert profile
+    #   via Discord PATCH + DELETE row DB
+    # - DELETE le grant expire (marqueur de cleanup fait)
+    @tasks.loop(minutes=2)
+    async def tookbot_plus_expiry_cleanup():
+        try:
+            from database import get_db, guild_bot_profile_clear
+            from services.bot_personalizer import patch_server_profile
+            conn = get_db(); c = conn.cursor()
+            # Grants expires non encore nettoyes
+            expired = c.execute(
+                """SELECT user_id, expires_at, note FROM premium_grants
+                   WHERE feature = 'tookbot_plus'
+                     AND expires_at IS NOT NULL
+                     AND expires_at <= datetime('now')"""
+            ).fetchall()
+            if not expired:
+                conn.close()
+                return
+            token = os.getenv("DISCORD_TOKEN", "")
+            for row in expired:
+                uid = row["user_id"]
+                # Custom commands : delete toutes celles creees par ce user
+                try:
+                    nb = c.execute(
+                        "DELETE FROM custom_commands WHERE created_by = ?", (uid,),
+                    ).rowcount
+                    print(f"[tookbot_plus expiry] user={uid} custom_commands supprimees: {nb}")
+                except Exception as e:
+                    print(f"[tookbot_plus expiry] custom_commands del err uid={uid}: {e!r}")
+                # Bot profiles : revert chaque guild ou ce user avait applique
+                profiles = c.execute(
+                    "SELECT guild_id FROM guild_bot_profile WHERE applied_by = ?", (uid,),
+                ).fetchall()
+                for p in profiles:
+                    g_id = p["guild_id"]
+                    if token:
+                        try:
+                            await patch_server_profile(
+                                token, g_id, nick="", bio="",
+                                clear_avatar=True, clear_banner=True,
+                            )
+                            print(f"[tookbot_plus expiry] user={uid} bot_profile guild={g_id} reverted")
+                        except Exception as e:
+                            print(f"[tookbot_plus expiry] revert profile guild={g_id} err: {type(e).__name__}: {e}")
+                    try:
+                        guild_bot_profile_clear(g_id)
+                    except Exception:
+                        pass
+                # Supprime le grant expire (marqueur de cleanup fait).
+                # premium_settings.trial_used_at reste -> bloque un nouveau trial.
+                try:
+                    c.execute(
+                        "DELETE FROM premium_grants WHERE user_id = ? AND feature = 'tookbot_plus' AND expires_at <= datetime('now')",
+                        (uid,),
+                    )
+                except Exception as e:
+                    print(f"[tookbot_plus expiry] del grant uid={uid} err: {e!r}")
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[tookbot_plus expiry] loop err: {type(e).__name__}: {e}")
+
+    @tookbot_plus_expiry_cleanup.before_loop
+    async def _before_tookbot_plus_expiry():
+        await bot.wait_until_ready()
+
 
     # Auto-disconnect voice si idle > 60s (pas de musique jouee ni en pause).
     # Evite que le bot reste indefiniment dans un vocal apres fin de queue.
