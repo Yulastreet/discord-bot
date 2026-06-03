@@ -156,6 +156,7 @@ def register_bot_profile_routes(app, deps):
             status, body = apply_profile_sync(
                 token, g_id,
                 nick="",  # reset au vrai nom du bot
+                bio="",   # reset bio per-guild (Discord accepte "" = clear)
                 clear_avatar=True, clear_banner=True,
             )
         except Exception as e:
