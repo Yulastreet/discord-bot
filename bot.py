@@ -136,6 +136,8 @@ from duel.commands import setup_duel_commands
 from commandes.cs2 import (setup_cs2_commands,
                            on_voice_state_update as cs2_on_voice,
                            queue_cleanup_sweep as cs2_queue_sweep)
+from commandes.tempvoice import (setup_tempvoice,
+                                  tempvoice_on_voice_state_update as tempvoice_on_voice)
 from commandes.moderation_pro import setup_mod_commands
 from commandes.giveaway import (setup_giveaway_commands,
                                 giveaway_finalize_sweep as _gw_sweep)
@@ -877,11 +879,15 @@ setup_lol_commands(bot)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    """Auto-cleanup des voice channels CS2 vides."""
+    """Hub central voice events : CS2 cleanup + tempvoice + voice_idle disconnect."""
     try:
         await cs2_on_voice(member, before, after, bot)
     except Exception as e:
         print(f"[cs2/voice-hook] {type(e).__name__}: {e}")
+    try:
+        await tempvoice_on_voice(member, before, after, bot)
+    except Exception as e:
+        print(f"[tempvoice/voice-hook] {type(e).__name__}: {e}")
 
 
 @tasks.loop(minutes=2)

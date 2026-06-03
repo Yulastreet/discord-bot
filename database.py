@@ -105,6 +105,29 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_title    ON music_plays(guild_id, track_title)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_user     ON music_plays(guild_id, user_id)")
 
+    # ===== Tempvoice : salons vocaux temporaires =====
+    # Config par guild : lobby_channel_id = vocal "Creer ton salon" que les
+    # users rejoignent pour declencher la creation ; category_id = categorie
+    # ou poser le salon cree (null = meme categorie que le lobby).
+    c.execute('''CREATE TABLE IF NOT EXISTS tempvoice_config (
+        guild_id          TEXT PRIMARY KEY,
+        lobby_channel_id  TEXT NOT NULL,
+        category_id       TEXT,
+        default_name      TEXT DEFAULT 'Vocal de {user}',
+        updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # Salons tempvoice actifs : track les channels crees pour qu'on sache qui
+    # est owner + cleanup au boot si bot pas la lors du dernier "vide".
+    c.execute('''CREATE TABLE IF NOT EXISTS tempvoice_active (
+        channel_id   TEXT PRIMARY KEY,
+        guild_id     TEXT NOT NULL,
+        owner_id     TEXT NOT NULL,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_tempvoice_guild ON tempvoice_active(guild_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_tempvoice_owner ON tempvoice_active(owner_id)")
+
     # ===== Bot personalizer : profil bot custom par serveur =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_bot_profile (
         guild_id      TEXT PRIMARY KEY,
@@ -1342,6 +1365,72 @@ def stripe_subscription_get_by_subscription(stripe_subscription_id):
     c.execute("SELECT * FROM stripe_subscriptions WHERE stripe_subscription_id = ?", (stripe_subscription_id,))
     r = c.fetchone(); conn.close()
     return dict(r) if r else None
+
+
+# ===== Tempvoice helpers =====
+def tempvoice_config_get(guild_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM tempvoice_config WHERE guild_id = ?", (str(guild_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def tempvoice_config_set(guild_id, lobby_channel_id, category_id=None, default_name=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''
+        INSERT INTO tempvoice_config (guild_id, lobby_channel_id, category_id, default_name, updated_at)
+        VALUES (?, ?, ?, COALESCE(?, 'Vocal de {user}'), CURRENT_TIMESTAMP)
+        ON CONFLICT(guild_id) DO UPDATE SET
+            lobby_channel_id = excluded.lobby_channel_id,
+            category_id      = excluded.category_id,
+            default_name     = COALESCE(excluded.default_name, tempvoice_config.default_name),
+            updated_at       = CURRENT_TIMESTAMP
+    ''', (str(guild_id), str(lobby_channel_id),
+          str(category_id) if category_id else None,
+          default_name))
+    conn.commit(); conn.close()
+
+
+def tempvoice_config_disable(guild_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM tempvoice_config WHERE guild_id = ?", (str(guild_id),))
+    conn.commit(); conn.close()
+
+
+def tempvoice_track(channel_id, guild_id, owner_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT OR REPLACE INTO tempvoice_active (channel_id, guild_id, owner_id, created_at)
+                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)''',
+              (str(channel_id), str(guild_id), str(owner_id)))
+    conn.commit(); conn.close()
+
+
+def tempvoice_untrack(channel_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM tempvoice_active WHERE channel_id = ?", (str(channel_id),))
+    conn.commit(); conn.close()
+
+
+def tempvoice_owner_of(channel_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT owner_id FROM tempvoice_active WHERE channel_id = ?", (str(channel_id),)).fetchone()
+    conn.close()
+    return r["owner_id"] if r else None
+
+
+def tempvoice_transfer(channel_id, new_owner_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE tempvoice_active SET owner_id = ? WHERE channel_id = ?",
+              (str(new_owner_id), str(channel_id)))
+    conn.commit(); conn.close()
+
+
+def tempvoice_list_active(guild_id):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM tempvoice_active WHERE guild_id = ?",
+                     (str(guild_id),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def guild_bot_profile_get(guild_id):
