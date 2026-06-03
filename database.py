@@ -645,10 +645,11 @@ def init_db():
         niveau_background TEXT DEFAULT 'default',
         updated_at        TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
-    # Migration : nouvelles colonnes cosmetiques Pass (titre + emoji selectionnes)
+    # Migration : nouvelles colonnes cosmetiques Pass + flag trial TookBot+
     for col, ddl in [
         ("pass_selected_title", "TEXT DEFAULT NULL"),
         ("pass_selected_emoji", "TEXT DEFAULT NULL"),
+        ("trial_used_at",       "TEXT DEFAULT NULL"),  # ISO timestamp 1er trial
     ]:
         try:
             c.execute(f"ALTER TABLE premium_settings ADD COLUMN {col} {ddl}")
@@ -665,6 +666,11 @@ def init_db():
         note       TEXT,
         PRIMARY KEY (user_id, feature)
     )''')
+    # Migration : expires_at pour les grants temporaires (trial 7j etc.)
+    try:
+        c.execute("ALTER TABLE premium_grants ADD COLUMN expires_at TEXT DEFAULT NULL")
+    except Exception:
+        pass
 
     # Assignations Guild Boost + : un user assigne son achat/grant a une (ou
     # plusieurs si owner) guild. PK composite pour permettre l'owner d'avoir
@@ -3263,18 +3269,22 @@ def get_premium_settings(user_id) -> dict:
     return {"user_id": str(user_id), "niveau_background": "default"}
 
 
-def add_premium_grant(user_id, feature="all", granted_by=None, note=None):
-    """Accorde manuellement la feature premium a un utilisateur."""
+def add_premium_grant(user_id, feature="all", granted_by=None, note=None, expires_at=None):
+    """Accorde manuellement la feature premium a un utilisateur.
+
+    `expires_at` (ISO TEXT) : grant temporaire (trial, abo). None = permanent.
+    """
     conn = get_db()
     c = conn.cursor()
     c.execute('''
-        INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+        INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note, expires_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
         ON CONFLICT(user_id, feature) DO UPDATE SET
             granted_by = excluded.granted_by,
             granted_at = CURRENT_TIMESTAMP,
-            note       = excluded.note
-    ''', (str(user_id), feature, str(granted_by) if granted_by else None, note))
+            note       = excluded.note,
+            expires_at = excluded.expires_at
+    ''', (str(user_id), feature, str(granted_by) if granted_by else None, note, expires_at))
     conn.commit()
     conn.close()
 
@@ -3291,27 +3301,89 @@ def remove_premium_grant(user_id, feature="all"):
 
 
 def has_premium_grant(user_id, feature="all", inherit_all: bool = True) -> bool:
-    """True si l'user a un grant manuel pour cette feature.
+    """True si l'user a un grant manuel pour cette feature, non expire.
 
     Par defaut, un grant feature='all' compte aussi (master pack premium).
     Passer `inherit_all=False` pour exiger un grant strictement sur la feature
     demandee. Utile pour les abonnements distincts (ex. Battle Pass) qui ne
     doivent PAS etre auto-debloques par le grant 'all' du /niveau Premium.
+
+    expires_at NULL = grant permanent. expires_at <= now = expire (ignore).
     """
     conn = get_db()
     c = conn.cursor()
+    # Filtre expires_at : NULL ou futur. Comparaison ISO TEXT lexicographique
+    # OK car format datetime('now') = 'YYYY-MM-DD HH:MM:SS'.
     if inherit_all:
         row = c.execute(
-            "SELECT 1 FROM premium_grants WHERE user_id = ? AND feature IN (?, 'all') LIMIT 1",
+            """SELECT 1 FROM premium_grants
+               WHERE user_id = ? AND feature IN (?, 'all')
+                 AND (expires_at IS NULL OR expires_at > datetime('now'))
+               LIMIT 1""",
             (str(user_id), feature),
         ).fetchone()
     else:
         row = c.execute(
-            "SELECT 1 FROM premium_grants WHERE user_id = ? AND feature = ? LIMIT 1",
+            """SELECT 1 FROM premium_grants
+               WHERE user_id = ? AND feature = ?
+                 AND (expires_at IS NULL OR expires_at > datetime('now'))
+               LIMIT 1""",
             (str(user_id), feature),
         ).fetchone()
     conn.close()
     return bool(row)
+
+
+def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:
+    """Demarre un trial TookBot+ de N jours pour cet user. 1 seul trial / user.
+
+    Retourne {ok: bool, error: str|None, expires_at: str|None}.
+    """
+    import datetime as _dtmod
+    conn = get_db()
+    c = conn.cursor()
+
+    # Verifie qu'il n'y a pas deja un trial use (premium_settings.trial_used_at)
+    row = c.execute(
+        "SELECT trial_used_at FROM premium_settings WHERE user_id = ?",
+        (str(user_id),),
+    ).fetchone()
+    if row and row["trial_used_at"]:
+        conn.close()
+        return {"ok": False, "error": "trial_already_used", "expires_at": None}
+
+    # Verifie qu'il n'a pas deja TookBot+ actif (grant permanent ou trial actif)
+    active = c.execute(
+        """SELECT 1 FROM premium_grants
+           WHERE user_id = ? AND feature = 'tookbot_plus'
+             AND (expires_at IS NULL OR expires_at > datetime('now'))
+           LIMIT 1""",
+        (str(user_id),),
+    ).fetchone()
+    if active:
+        conn.close()
+        return {"ok": False, "error": "already_active", "expires_at": None}
+
+    expires = (_dtmod.datetime.utcnow() + _dtmod.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    # Insere le grant temporaire
+    c.execute('''
+        INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note, expires_at)
+        VALUES (?, 'tookbot_plus', NULL, CURRENT_TIMESTAMP, ?, ?)
+        ON CONFLICT(user_id, feature) DO UPDATE SET
+            granted_at = CURRENT_TIMESTAMP,
+            note       = excluded.note,
+            expires_at = excluded.expires_at
+    ''', (str(user_id), f"trial_{days}j", expires))
+    # Marque trial_used_at dans premium_settings (cree row si absente)
+    now_iso = _dtmod.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    c.execute('''
+        INSERT INTO premium_settings (user_id, trial_used_at)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET trial_used_at = excluded.trial_used_at
+    ''', (str(user_id), now_iso))
+    conn.commit()
+    conn.close()
+    return {"ok": True, "error": None, "expires_at": expires}
 
 
 def list_premium_grants(user_id=None):

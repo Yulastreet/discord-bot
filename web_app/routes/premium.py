@@ -34,12 +34,38 @@ def register_premium_routes(app, deps):
             has_premium_grant(uid, feature="tookbot_plus", inherit_all=False)
             or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
         )
+        # Eligibilite trial : pas deja TookBot+ + jamais utilise de trial
+        settings_p = get_premium_settings(uid) or {}
+        trial_used_at = settings_p.get("trial_used_at")
+        trial_eligible = (not is_tookbot_plus) and (not trial_used_at)
         return render_template(
             "subscription.html",
             is_tookbot_plus=bool(is_tookbot_plus),
+            trial_eligible=trial_eligible,
             user=session.get("discord") or {},
             active_nav="subscription",
         )
+
+    @app.route("/api/subscription/start-trial", methods=["POST"])
+    def api_subscription_start_trial():
+        """Demarre un trial TookBot+ 7 jours pour l'user connecte (1/lifetime)."""
+        from database import start_tookbot_plus_trial
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"ok": False, "error": "not_logged_in"}), 401
+        result = start_tookbot_plus_trial(uid, days=7)
+        if not result["ok"]:
+            err = result["error"]
+            msg = {
+                "trial_already_used": "Tu as deja utilise ton essai gratuit.",
+                "already_active":     "Tu as deja TookBot+ actif.",
+            }.get(err, "Erreur inconnue.")
+            return jsonify({"ok": False, "error": err, "message": msg}), 400
+        return jsonify({
+            "ok": True,
+            "expires_at": result["expires_at"],
+            "message": f"TookBot+ active jusqu'au {result['expires_at']} ! Profite des 7 jours.",
+        })
 
     @app.route("/api/owner/user/<user_id>/tookbot-plus", methods=["POST"])
     def api_owner_grant_tookbot_plus(user_id):
