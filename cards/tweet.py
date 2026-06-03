@@ -206,16 +206,20 @@ async def render_tweet_card(
     timestamp_str: str,
     verified: bool = True,
     counts: Optional[dict] = None,
+    image_url: Optional[str] = None,
 ) -> io.BytesIO:
     """Rend le tweet card -> BytesIO PNG.
 
     `timestamp_str` : deja formate (ex '16:42 · 4 juin 2026').
     `counts` : dict optionnel {reply, retweet, like, views} pour les actions.
+    `image_url` : URL d'une image jointe au message a embed sous le texte.
     """
     raw_avatar = await _fetch_bytes(avatar_url) if avatar_url else None
+    raw_image = await _fetch_bytes(image_url) if image_url else None
     return await asyncio.to_thread(
         _render_tweet_sync,
-        display_name, username, raw_avatar, text, timestamp_str, verified, counts or {},
+        display_name, username, raw_avatar, text, timestamp_str, verified,
+        counts or {}, raw_image,
     )
 
 
@@ -230,7 +234,7 @@ def _fmt_count(n: int) -> str:
 
 
 def _render_tweet_sync(display_name, username, raw_avatar, text,
-                       timestamp_str, verified, counts) -> io.BytesIO:
+                       timestamp_str, verified, counts, raw_image=None) -> io.BytesIO:
     # Pre-calcul des wraps pour determiner la hauteur
     f_name = _font(22, bold=True)
     f_user = _font(18, bold=False)
@@ -253,7 +257,28 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
     body_h = len(body_lines) * line_h + 20
     # Footer = timestamp ligne + separator + row d'actions
     footer_h = 28 + 18 + 38 + TW_PAD
-    total_h = header_h + body_h + footer_h
+
+    # Image embed : resize a largeur = TW_W - 2*TW_PAD, garde ratio,
+    # cap hauteur a 500px (sinon trop grand pour un tweet card).
+    img_block_h = 0
+    img_resized = None
+    if raw_image:
+        try:
+            img = Image.open(io.BytesIO(raw_image)).convert("RGBA")
+            target_w = TW_W - TW_PAD * 2
+            ratio = target_w / img.width
+            new_h = int(img.height * ratio)
+            if new_h > 500:
+                # Cap : on garde le ratio mais on shrink en hauteur
+                new_h = 500
+                target_w = int(img.width * (new_h / img.height))
+            img_resized = img.resize((target_w, new_h), Image.LANCZOS)
+            img_block_h = new_h + 16  # marge avant
+        except Exception as _e:
+            img_resized = None
+            img_block_h = 0
+
+    total_h = header_h + body_h + img_block_h + footer_h
 
     base = Image.new("RGB", (TW_W, total_h), BG)
     draw = ImageDraw.Draw(base)
@@ -286,8 +311,20 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
         draw.text((TW_PAD, body_y), line, font=f_body, fill=TEXT)
         body_y += line_h
 
+    # === Image embed (apres body) ===
+    if img_resized is not None:
+        img_y = header_h + body_h - 4
+        img_x = TW_PAD
+        # Coins arrondis : applique un mask
+        mask = Image.new("L", img_resized.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (0, 0, img_resized.size[0], img_resized.size[1]),
+            radius=16, fill=255,
+        )
+        base.paste(img_resized.convert("RGB"), (img_x, img_y), mask)
+
     # === Footer : timestamp ===
-    tsy = header_h + body_h + 4
+    tsy = header_h + body_h + img_block_h + 4
     draw.text((TW_PAD, tsy),
               f"{timestamp_str} · TookBot",
               font=f_meta, fill=TEXT_MUTED)

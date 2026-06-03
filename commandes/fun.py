@@ -74,6 +74,13 @@ def setup_fun_commands(bot):
             "like":    total_reactions,
             "views":   views_count,
         }
+        # 1ere image attachment du message (png/jpg/webp/gif statique)
+        image_url = None
+        for att in (msg.attachments or []):
+            ct = (att.content_type or "").lower()
+            if ct.startswith("image/"):
+                image_url = att.url
+                break
         try:
             from cards.tweet import render_tweet_card
             buf = await render_tweet_card(
@@ -84,6 +91,7 @@ def setup_fun_commands(bot):
                 timestamp_str=ts_str,
                 verified=True,
                 counts=counts,
+                image_url=image_url,
             )
         except Exception as e:
             await interaction.followup.send(
