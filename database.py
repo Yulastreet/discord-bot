@@ -3697,35 +3697,35 @@ def get_or_create_current_season(name: str = None) -> dict:
 # Format : (tier, type, payload_dict, label)
 _PASS_TIER_MAP = [
     (1,  "boost_xp",  {"hours": 0.5, "multiplier": 2.0}, "Boost XP ×2 pendant 30min"),
-    (2,  "title",     {"title": "Initié"},               "Titre : Initié"),
+    (2,  "title",     {"title_idx": 0},                  None),
     (3,  "boost_xp",  {"hours": 1, "multiplier": 2.0},   "Boost XP ×2 pendant 1h"),
-    (4,  "bg",        {"index": 0},                      "Background saisonnier #1"),
-    (5,  "emoji",     {"emoji": "🌱"},                   "Emoji 🌱"),
-    (6,  "title",     {"title": "Adepte"},               "Titre : Adepte"),
+    (4,  "bg",        {"index": 0},                      None),
+    (5,  "emoji",     {"emoji_idx": 0},                  None),
+    (6,  "title",     {"title_idx": 1},                  None),
     (7,  "boost_xp",  {"hours": 1, "multiplier": 2.0},   "Boost XP ×2 pendant 1h"),
-    (8,  "emoji",     {"emoji": "🔥"},                   "Emoji 🔥"),
-    (9,  "bg",        {"index": 1},                      "Background saisonnier #2"),
-    (10, "sabre",     {"rarete": "R"},                   "Sabre cosmétique R (Rare)"),
-    (11, "emoji",     {"emoji": "⚡"},                   "Emoji ⚡"),
+    (8,  "emoji",     {"emoji_idx": 1},                  None),
+    (9,  "bg",        {"index": 1},                      None),
+    (10, "sabre",     {"rarete": "R"},                   None),
+    (11, "emoji",     {"emoji_idx": 2},                  None),
     (12, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
-    (13, "title",     {"title": "Vétéran"},              "Titre : Vétéran"),
+    (13, "title",     {"title_idx": 2},                  None),
     (14, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
-    (15, "bg",        {"index": 2},                      "Background saisonnier #3"),
-    (16, "emoji",     {"emoji": "💎"},                   "Emoji 💎"),
-    (17, "title",     {"title": "Élu"},                  "Titre : Élu"),
+    (15, "bg",        {"index": 2},                      None),
+    (16, "emoji",     {"emoji_idx": 3},                  None),
+    (17, "title",     {"title_idx": 3},                  None),
     (18, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
     (19, "boost_xp",  {"hours": 2, "multiplier": 2.0},   "Boost XP ×2 pendant 2h"),
-    (20, "sabre",     {"rarete": "SR"},                  "Sabre cosmétique SR (Super Rare)"),
-    (21, "emoji",     {"emoji": "🌊"},                   "Emoji 🌊"),
+    (20, "sabre",     {"rarete": "SR"},                  None),
+    (21, "emoji",     {"emoji_idx": 4},                  None),
     (22, "boost_xp",  {"hours": 3, "multiplier": 2.0},   "Boost XP ×2 pendant 3h"),
-    (23, "bg",        {"index": 3},                      "Background saisonnier #4"),
-    (24, "emoji",     {"emoji": "🎯"},                   "Emoji 🎯"),
-    (25, "title",     {"title": "Maître"},               "Titre : Maître"),
+    (23, "bg",        {"index": 3},                      None),
+    (24, "emoji",     {"emoji_idx": 5},                  None),
+    (25, "title",     {"title_idx": 4},                  None),
     (26, "boost_xp",  {"hours": 3, "multiplier": 2.0},   "Boost XP ×2 pendant 3h"),
-    (27, "title",     {"title": "Légende"},              "Titre : Légende"),
-    (28, "emoji",     {"emoji": "🌟"},                   "Emoji 🌟"),
-    (29, "bg",        {"index": 4},                      "Background saisonnier #5"),
-    (30, "sabre",     {"rarete": "SSR"},                 "Sabre cosmétique SSR (Super Super Rare)"),
+    (27, "title",     {"title_idx": 5},                  None),
+    (28, "emoji",     {"emoji_idx": 6},                  None),
+    (29, "bg",        {"index": 4},                      None),
+    (30, "sabre",     {"rarete": "SSR"},                 None),
 ]
 
 _SEASONAL_BG_NAMES = [
@@ -3760,10 +3760,11 @@ def _migrate_pass_rewards_and_sabres():
 def seed_pass_rewards_for_season(season_id: int, month_key: str):
     """Insere les 30 lignes pass_rewards pour une saison. Idempotent.
 
-    Labels themed : sabres + BGs prennent le nom du theme du mois (via
-    seasonal_themes). Titres/emojis restent generiques (memes nom pour
-    toutes les saisons)."""
-    from seasonal_themes import sabre_skin, _theme_for
+    Tout est themed par mois (titres, emojis, sabres, BGs) : la map
+    _PASS_TIER_MAP utilise des indices (title_idx, emoji_idx) ou des
+    references (rarete, bg index) que seasonal_themes resout en valeurs
+    concretes selon le theme du mois."""
+    from seasonal_themes import sabre_skin, _theme_for, tier_title, tier_emoji
     conn = get_db()
     c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM pass_rewards WHERE season_id = ?", (season_id,)).fetchone()["n"]
@@ -3782,6 +3783,14 @@ def seed_pass_rewards_for_season(season_id: int, month_key: str):
         elif rtype == "sabre":
             skin = sabre_skin(month_key, payload["rarete"])
             label = f"Sabre {payload['rarete']} : {skin['nom']}"
+        elif rtype == "title":
+            t = tier_title(month_key, payload["title_idx"])
+            payload = {"title": t}
+            label = f"Titre : {t}"
+        elif rtype == "emoji":
+            e = tier_emoji(month_key, payload["emoji_idx"])
+            payload = {"emoji": e}
+            label = f"Emoji {e}"
         rows.append((season_id, tier, rtype, _json.dumps(payload), label))
     c.executemany(
         "INSERT INTO pass_rewards (season_id, tier, type, payload, label) VALUES (?, ?, ?, ?, ?)",

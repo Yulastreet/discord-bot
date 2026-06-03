@@ -46,6 +46,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Polaire",
         },
         "seed_offset": 100,
+        "tier_titles": ["Glacon", "Givreux", "Cryomage", "Boreal", "Souverain Givre", "Empereur Polaire"],
+        "tier_emojis": ["❄️", "🧊", "⛄", "💎", "🌊", "🎯", "⭐"],
     },
     "02": {
         "name": "Auroral",
@@ -63,6 +65,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Auroral",
         },
         "seed_offset": 200,
+        "tier_titles": ["Bourgeon", "Pousse Verte", "Druide", "Sylvain", "Maitre Auroral", "Esprit Auroral"],
+        "tier_emojis": ["🌱", "🌿", "💚", "💎", "🌊", "🎯", "💫"],
     },
     "03": {
         "name": "Eveil",
@@ -80,6 +84,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Floral",
         },
         "seed_offset": 300,
+        "tier_titles": ["Germe", "Eveille", "Sylvain", "Floraison", "Maitre Sylvestre", "Verdure Supreme"],
+        "tier_emojis": ["🌱", "🌿", "🌳", "💎", "🌊", "🎯", "🌸"],
     },
     "04": {
         "name": "Floral",
@@ -97,6 +103,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Petale",
         },
         "seed_offset": 400,
+        "tier_titles": ["Petale", "Bouton", "Cerisier", "Floraison", "Maitre Hanami", "Eclos Supreme"],
+        "tier_emojis": ["🌸", "🌺", "🌹", "💎", "🌊", "🎯", "💮"],
     },
     "05": {
         "name": "Lunaire",
@@ -114,6 +122,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Lunaire",
         },
         "seed_offset": 500,
+        "tier_titles": ["Nocturne", "Veilleur", "Sentinelle Lunaire", "Auberiel", "Maitre Stellaire", "Souverain Lunaire"],
+        "tier_emojis": ["🌒", "🌘", "🌖", "💎", "🌊", "🎯", "⭐"],
     },
     "06": {
         "name": "Solaire",
@@ -131,6 +141,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Soleil Couchant",
         },
         "seed_offset": 600,
+        "tier_titles": ["Apprenti Solaire", "Brulant", "Pyrophore", "Heritier Solaire", "Maitre Solaire", "Embrasement"],
+        "tier_emojis": ["🔥", "☀️", "⚡", "💎", "🌋", "🎯", "🌞"],
     },
     "07": {
         "name": "Cramoisi",
@@ -148,6 +160,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Cramoisi",
         },
         "seed_offset": 700,
+        "tier_titles": ["Etincelle", "Brasier", "Pyromage", "Ardent", "Maitre Cramoisi", "Incandescence"],
+        "tier_emojis": ["🔥", "💥", "🟥", "💎", "🌋", "🎯", "💢"],
     },
     "08": {
         "name": "Saharien",
@@ -165,6 +179,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Mirage",
         },
         "seed_offset": 800,
+        "tier_titles": ["Sablier", "Marcheur", "Sentinelle Doree", "Mirage", "Maitre du Desert", "Mirage Souverain"],
+        "tier_emojis": ["🏜️", "🌵", "🟡", "💎", "🌊", "🎯", "✨"],
     },
     "09": {
         "name": "Automnal",
@@ -182,6 +198,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Automnal",
         },
         "seed_offset": 900,
+        "tier_titles": ["Feuille", "Rouille", "Vendangeur", "Vendange", "Maitre Automnal", "Recolte Legendaire"],
+        "tier_emojis": ["🍂", "🍁", "🌰", "💎", "🌊", "🎯", "🍇"],
     },
     "10": {
         "name": "Spectral",
@@ -199,6 +217,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Spectral",
         },
         "seed_offset": 1000,
+        "tier_titles": ["Ombre", "Spectre", "Necro-Adepte", "Hantise", "Maitre Maudit", "Lamentation"],
+        "tier_emojis": ["👻", "💀", "🦇", "💎", "🌊", "🎯", "🎃"],
     },
     "11": {
         "name": "Crepusculaire",
@@ -216,6 +236,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Vesperal",
         },
         "seed_offset": 1100,
+        "tier_titles": ["Crepuscule", "Vespertin", "Sentinelle Nocturne", "Aube Vesperale", "Maitre Vesperal", "Souverain Crepusculaire"],
+        "tier_emojis": ["🌆", "🌃", "🌅", "💎", "🌊", "🎯", "🌌"],
     },
     "12": {
         "name": "Hivernal",
@@ -233,6 +255,8 @@ MONTH_THEMES: dict[str, dict] = {
             "cosmic_vortex": "Vortex Hivernal",
         },
         "seed_offset": 1200,
+        "tier_titles": ["Flocon", "Givre", "Boreal", "Sentinelle Hivernale", "Maitre Noelique", "Etoile de Noel"],
+        "tier_emojis": ["❄️", "⛄", "🎁", "💎", "🌊", "🎯", "⭐"],
     },
 }
 
@@ -251,6 +275,27 @@ def sabre_skin(month_key: str, rarete: str) -> dict:
     `rarete` doit etre 'R', 'SR' ou 'SSR'.
     """
     return _theme_for(month_key)["sabres"][rarete]
+
+
+# Defaults si un theme n'a pas encore ses listes (compat ascendante)
+_DEFAULT_TIER_TITLES = ["Initie", "Adepte", "Veteran", "Elu", "Maitre", "Legende"]
+_DEFAULT_TIER_EMOJIS = ["🌱", "🔥", "⚡", "💎", "🌊", "🎯", "🌟"]
+
+
+def tier_title(month_key: str, idx: int) -> str:
+    """Titre themed pour le tier_title_idx (0..5)."""
+    titles = _theme_for(month_key).get("tier_titles") or _DEFAULT_TIER_TITLES
+    if 0 <= idx < len(titles):
+        return titles[idx]
+    return _DEFAULT_TIER_TITLES[idx % len(_DEFAULT_TIER_TITLES)]
+
+
+def tier_emoji(month_key: str, idx: int) -> str:
+    """Emoji themed pour le tier_emoji_idx (0..6)."""
+    emojis = _theme_for(month_key).get("tier_emojis") or _DEFAULT_TIER_EMOJIS
+    if 0 <= idx < len(emojis):
+        return emojis[idx]
+    return _DEFAULT_TIER_EMOJIS[idx % len(_DEFAULT_TIER_EMOJIS)]
 
 
 def bg_palette(month_key: str) -> tuple:
