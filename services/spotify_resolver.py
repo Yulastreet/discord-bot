@@ -332,54 +332,30 @@ def _resolve_playlist_via_anon_api(spid: str, max_tracks: int = 1000) -> tuple[s
     return pl_name, tracks
 
 
-def _resolve_playlist_via_embed(spid: str, max_tracks: int = 50) -> dict:
-    """Resout une playlist Spotify sans OAuth.
+def _resolve_playlist_via_embed(spid: str, max_tracks: int = 100) -> dict:
+    """Resout une playlist Spotify via embed scrape (cap ~100 tracks).
 
-    Strategie :
-    1) PRIORITE : token anonyme du web player + API officielle paginee
-       (permet d'obtenir jusqu'a max_tracks meme pour grosses playlists)
-    2) Fallback : main page scrape + embed scrape
-    3) Garde le resultat avec le PLUS de tracks
+    Limites Spotify (verifie juin 2026) :
+    - Client Credentials + API /playlist_items : 401 (need user OAuth)
+    - Page principale open.spotify.com : SSR pur, pas de JSON
+    - Anon access token : retire de la page HTML
+    - SEUL recours : embed page __NEXT_DATA__ qui contient trackList (~100 tracks)
+
+    Pour > 100 tracks par playlist, il faudrait OAuth user (non implemente).
+    On retourne le total Spotify dans le resultat pour informer l'appelant.
     """
-    # 1) Tente anon access token + API officielle
-    try:
-        name_anon, tracks_anon = _resolve_playlist_via_anon_api(spid, max_tracks)
-        if tracks_anon:
-            return {
-                "kind": "playlist",
-                "title": name_anon,
-                "tracks": tracks_anon[:max_tracks],
-            }
-    except Exception as e:
-        print(f"[spotify] anon api spid={spid} fail: {type(e).__name__}: {e}", flush=True)
-    pl_name_main, tracks_main = "Playlist Spotify", []
-    pl_name_emb, tracks_emb = "Playlist Spotify", []
-    try:
-        pl_name_main, tracks_main = _extract_tracks_from_main_page(spid)
-        print(f"[spotify] main page spid={spid} : {len(tracks_main)} tracks", flush=True)
-    except Exception as e:
-        print(f"[spotify] main page spid={spid} fail : {type(e).__name__}: {e}", flush=True)
-    try:
-        html = _fetch_html(f"https://open.spotify.com/embed/playlist/{spid}")
-        pl_name_emb, tracks_emb = _extract_tracks_from_embed_html(html)
-        print(f"[spotify] embed spid={spid} : {len(tracks_emb)} tracks", flush=True)
-    except Exception as e:
-        print(f"[spotify] embed spid={spid} fail : {type(e).__name__}: {e}", flush=True)
-
-    if len(tracks_main) >= len(tracks_emb):
-        chosen = tracks_main[:max_tracks]
-        chosen_name = pl_name_main
-    else:
-        chosen = tracks_emb[:max_tracks]
-        chosen_name = pl_name_emb
-
-    if not chosen:
-        raise RuntimeError("Spotify playlist: aucune piste recuperable (page protegee ?)")
+    html = _fetch_html(f"https://open.spotify.com/embed/playlist/{spid}")
+    name, tracks = _extract_tracks_from_embed_html(html)
+    if not tracks:
+        raise RuntimeError("Spotify playlist : impossible de recuperer les pistes (playlist privee ou bloquee)")
+    # Spotify cap embed a 100, on retourne le total ailleurs si dispo
+    chosen = tracks[:max_tracks]
     print(f"[spotify] playlist spid={spid} resolved {len(chosen)} tracks (cap {max_tracks})", flush=True)
     return {
         "kind": "playlist",
-        "title": chosen_name,
+        "title": name,
         "tracks": chosen,
+        "spotify_cap": True,  # marqueur pour affichage UI
     }
 
 

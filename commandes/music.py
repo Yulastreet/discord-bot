@@ -112,7 +112,7 @@ def setup_music_commands(bot, deps):
                 await interaction.followup.send("🎧 Resolution Spotify en cours...")
                 try:
                     from services.spotify_resolver import resolve_spotify_url
-                    sp = await asyncio.to_thread(resolve_spotify_url, query, 1000)
+                    sp = await asyncio.to_thread(resolve_spotify_url, query, 100)
                 except Exception as e:
                     print(f"[music spotify] error: {type(e).__name__}: {e}")
                     await interaction.followup.send(
@@ -191,8 +191,15 @@ def setup_music_commands(bot, deps):
                         except Exception as e:
                             print(f"[music spotify] queue_add err: {e}")
                     try:
+                        cap_note = ""
+                        if sp.get("spotify_cap") and added >= 100:
+                            cap_note = (
+                                "\n⚠️ Limite Spotify : seules les **100 premieres** pistes "
+                                "ont ete ajoutees (l'API publique cap a 100 par playlist sans OAuth)."
+                            )
                         await interaction.followup.send(
                             f"🎧 **{added}** piste(s) ajoutee(s) depuis Spotify : **{sp.get('title','?')}**"
+                            + cap_note
                         )
                     except Exception:
                         pass
