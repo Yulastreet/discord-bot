@@ -378,21 +378,32 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     else:
         sub_y = 100
 
-    # Niveau / XP
-    f_label = _font(20, bold=True)
-    f_value = _font(28, bold=True)
-    # Niveau
-    draw.text((text_x, sub_y), "NIVEAU", font=f_label, fill=ACCENT)
-    draw.text((text_x, sub_y + 26), str(level), font=f_value, fill=TEXT_PRIMARY)
-    # XP total
-    xp_x = text_x + 160
-    draw.text((xp_x, sub_y), "XP TOTAL", font=f_label, fill=ACCENT)
-    draw.text((xp_x, sub_y + 26), f"{xp_total:,}".replace(",", " "), font=f_value, fill=TEXT_PRIMARY)
-    # Rang (optionnel)
+    # Niveau / XP : 2 colonnes recentrees dans la moitie droite de la zone
+    # texte (au lieu de coller a gauche pres de l'avatar). Police plus grosse.
+    f_label = _font(24, bold=True)
+    f_value = _font(40, bold=True)
+    # Centres des 2 colonnes : Niveau a gauche du centre carte, XP TOTAL a droite.
+    # Zone disponible : x = text_x .. CARD_W - 60.
+    zone_left  = text_x
+    zone_right = CARD_W - 60
+    zone_w     = zone_right - zone_left
+    # 1/3 et 2/3 de la zone pour bien espacer
+    col1_cx = zone_left + int(zone_w * 0.30)
+    col2_cx = zone_left + int(zone_w * 0.70)
+
+    def _draw_centered(cx, y, text, font, fill):
+        tw = draw.textlength(text, font=font)
+        draw.text((cx - tw / 2, y), text, font=font, fill=fill)
+
+    _draw_centered(col1_cx, sub_y,      "NIVEAU",                                  f_label, ACCENT)
+    _draw_centered(col1_cx, sub_y + 30, str(level),                                f_value, TEXT_PRIMARY)
+    _draw_centered(col2_cx, sub_y,      "XP TOTAL",                                f_label, ACCENT)
+    _draw_centered(col2_cx, sub_y + 30, f"{xp_total:,}".replace(",", " "),         f_value, TEXT_PRIMARY)
     if rank:
-        rk_x = xp_x + 200
-        draw.text((rk_x, sub_y), "RANG", font=f_label, fill=ACCENT)
-        draw.text((rk_x, sub_y + 26), f"#{rank}", font=f_value, fill=TEXT_PRIMARY)
+        # Rang : insertion entre les 2 si presente (rare). On le met en bas a droite.
+        f_rank = _font(18, bold=True)
+        draw.text((zone_right, sub_y - 4), f"#{rank}", font=f_rank,
+                  fill=TEXT_SECONDARY, anchor="rt")
 
     bar_x = text_x
     bar_y = 200
@@ -435,95 +446,120 @@ async def render_levelup_card_premium(
     )
 
 
-def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -> io.BytesIO:
-    base = _load_background(background).convert("RGBA")
+# ===== LEVELUP CARD : taille native compacte =====
+# Rendue directement a la taille d'affichage Discord (480x150) au lieu de
+# rendre en 1024x320 puis resize (qui rendait l'image compressee/pixelisee).
+LU_W, LU_H = 480, 150
+LU_AVATAR_SIZE = 110
+LU_AVATAR_X = 18
+LU_AVATAR_Y = (LU_H - LU_AVATAR_SIZE) // 2
 
-    # Voile pour lisibilite
-    veil = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
-    ImageDraw.Draw(veil).rectangle((0, 0, CARD_W, CARD_H), fill=(0, 0, 0, 90))
+
+def _draw_up_arrow(draw, cx, cy, size, fill):
+    """Fleche bold pointant vers le haut, polygone simple."""
+    s = size
+    # Triangle pointu + queue rectangulaire
+    pts = [
+        (cx,            cy - s),         # pointe haute
+        (cx + s * 0.75, cy - s * 0.05),  # bord droit
+        (cx + s * 0.30, cy - s * 0.05),  # creux droit
+        (cx + s * 0.30, cy + s * 0.60),  # bas droit queue
+        (cx - s * 0.30, cy + s * 0.60),  # bas gauche queue
+        (cx - s * 0.30, cy - s * 0.05),  # creux gauche
+        (cx - s * 0.75, cy - s * 0.05),  # bord gauche
+    ]
+    draw.polygon(pts, fill=fill)
+
+
+def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -> io.BytesIO:
+    # Background rendu directement a la taille finale
+    base_full = _load_background(background).convert("RGBA")
+    base = base_full.resize((LU_W, LU_H), Image.LANCZOS)
+
+    # Voile sombre pour lisibilite
+    veil = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 110))
     base.alpha_composite(veil)
 
-    # Aura accent autour du centre
-    aura = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
-    ImageDraw.Draw(aura).ellipse(
-        (CARD_W * 0.15, -120, CARD_W * 0.75, CARD_H + 120),
-        fill=ACCENT + (40,),
-    )
-    aura = aura.filter(ImageFilter.GaussianBlur(80))
-    base.alpha_composite(aura)
+    # Fleches vertes UP scattered : 12-14 fleches de tailles variees, opacite
+    # faible, reparties sur toute la carte (motif d'ascension).
+    arrows = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 0))
+    ad = ImageDraw.Draw(arrows)
+    arrow_positions = [
+        (40,  120, 12, 60),
+        (90,  30,  10, 50),
+        (150, 130, 14, 70),
+        (210, 22,  11, 55),
+        (260, 130, 13, 60),
+        (320, 30,  15, 75),
+        (380, 125, 12, 60),
+        (430, 35,  14, 70),
+        (15,  70,  9,  45),
+        (110, 88,  10, 50),
+        (240, 75,  11, 55),
+        (350, 80,  12, 60),
+        (460, 95,  10, 50),
+    ]
+    for ax, ay, asize, aalpha in arrow_positions:
+        _draw_up_arrow(ad, ax, ay, asize, ACCENT + (aalpha,))
+    base.alpha_composite(arrows)
 
     draw = ImageDraw.Draw(base)
 
+    # Avatar
     avatar_img: Optional[Image.Image] = None
     if raw_avatar:
         try:
-            avatar_img = _make_round_avatar(raw_avatar, AVATAR_SIZE)
+            avatar_img = _make_round_avatar(raw_avatar, LU_AVATAR_SIZE)
         except Exception:
             avatar_img = None
     if avatar_img is None:
-        avatar_img = _placeholder_avatar(AVATAR_SIZE)
-    base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
+        avatar_img = _placeholder_avatar(LU_AVATAR_SIZE)
+    base.alpha_composite(avatar_img, (LU_AVATAR_X, LU_AVATAR_Y))
 
-    text_x = AVATAR_X + AVATAR_SIZE + 40
-    f_title = _font(58, bold=True)
+    # Zone texte : x apres avatar jusqu'au bord droit
+    text_x = LU_AVATAR_X + LU_AVATAR_SIZE + 18
+    text_right = LU_W - 18
+    text_zone_w = text_right - text_x
+
+    # LEVEL UP ! enorme et centre verticalement-haut
+    f_title = _font(34, bold=True)
     title = "LEVEL UP !"
-    # Glow (texte derriere flouté)
-    glow_layer = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
-    ImageDraw.Draw(glow_layer).text((text_x, 30), title, font=f_title,
-                                    fill=ACCENT + (180,))
-    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(8))
-    base.alpha_composite(glow_layer)
-    # Texte net par-dessus
-    draw.text((text_x, 30), title, font=f_title, fill=(250, 255, 230, 255))
+    # Glow flouttee derriere
+    glow = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    title_tw = gd.textlength(title, font=f_title)
+    title_x = text_x + (text_zone_w - title_tw) / 2
+    gd.text((title_x, 12), title, font=f_title, fill=ACCENT + (200,))
+    glow = glow.filter(ImageFilter.GaussianBlur(4))
+    base.alpha_composite(glow)
+    draw.text((title_x, 12), title, font=f_title, fill=(250, 255, 230, 255))
 
-    f_user  = _font(28, bold=True)
-    f_label = _font(20, bold=True)
-    f_value = _font(48, bold=True)
-
-    # Pseudo (sous le titre)
-    name_y = 100
+    # Pseudo (sous title), centre horizontalement dans la zone
+    f_user = _font(18, bold=True)
     display = username
-    while draw.textlength(display, font=f_user) > CARD_W - text_x - 40 and len(display) > 1:
+    while draw.textlength(display, font=f_user) > text_zone_w and len(display) > 1:
         display = display[:-1]
     if display != username:
         display = display[:-1] + "…"
-    draw.text((text_x, name_y), display, font=f_user, fill=TEXT_SECONDARY)
+    user_tw = draw.textlength(display, font=f_user)
+    draw.text((text_x + (text_zone_w - user_tw) / 2, 56), display,
+              font=f_user, fill=TEXT_SECONDARY)
 
-    # "NIVEAU" + valeur enorme
-    draw.text((text_x, name_y + 42), "NIVEAU", font=f_label, fill=ACCENT)
-    draw.text((text_x + 110, name_y + 30), str(new_level), font=f_value, fill=TEXT_PRIMARY)
-
-    bar_x = text_x
-    bar_y = 230
-    bar_w = CARD_W - bar_x - 60
-    bar_h = 18
-    _draw_xp_bar(draw, bar_x, bar_y, bar_w, bar_h, percent)
-    f_xp = _font(14, bold=False)
-    draw.text((bar_x, bar_y + bar_h + 6), f"{percent:.0f}% du prochain niveau",
-              font=f_xp, fill=TEXT_MUTED)
-
-    _draw_premium_badge(draw, x=CARD_W - 180, y=24)
-
-    sparkles = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(sparkles)
-    for cx, cy, sz in [(CARD_W - 60, 130, 6), (CARD_W - 110, 170, 4),
-                       (text_x - 18, 60, 5), (text_x - 26, 95, 3),
-                       (CARD_W - 230, 250, 4)]:
-        sd.regular_polygon((cx, cy, sz), n_sides=4, rotation=45, fill=ACCENT + (240,))
-    base.alpha_composite(sparkles)
-
-    f_mention = _font(11, bold=False)
-    mention = "Rendu possible grâce à un achat intégré"
-    draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
-              fill=(200, 215, 180, 130), anchor="rb")
-
-    # Resize final compact (notification levelup, pas la carte /niveau).
-    # Ratio identique 3.2:1 : 1024x320 -> 384x120 (~37%).
-    # Discord scale les images <400px en natif sans agrandir.
-    final = base.resize((384, 120), Image.LANCZOS)
+    # NIVEAU label + valeur ENORME centres
+    f_label = _font(14, bold=True)
+    f_value = _font(48, bold=True)
+    lbl = "NIVEAU"
+    val = str(new_level)
+    lbl_tw = draw.textlength(lbl, font=f_label)
+    val_tw = draw.textlength(val, font=f_value)
+    # Label + valeur cote a cote, ensemble centre
+    combined_w = lbl_tw + 12 + val_tw
+    combined_x = text_x + (text_zone_w - combined_w) / 2
+    draw.text((combined_x, 100), lbl, font=f_label, fill=ACCENT)
+    draw.text((combined_x + lbl_tw + 12, 86), val, font=f_value, fill=TEXT_PRIMARY)
 
     buf = io.BytesIO()
-    final.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
+    base.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
     buf.seek(0)
     return buf
 
