@@ -55,6 +55,25 @@ def setup_fun_commands(bot):
         avatar_url = str(author.display_avatar.url) if author.display_avatar else None
         text = msg.content or "*[message vide ou contient uniquement des pieces jointes]*"
 
+        # Counts inspires des reactions Discord :
+        # like = total reactions, retweet = count emoji 🔁 si present
+        total_reactions = sum(r.count for r in (msg.reactions or []))
+        retweet_count = 0
+        for r in (msg.reactions or []):
+            emoji_str = str(r.emoji)
+            if emoji_str in ("🔁", "🔄", "♻️"):
+                retweet_count += r.count
+        # Views = nb membres du salon (proxy) ou random
+        try:
+            views_count = len(interaction.channel.members) if hasattr(interaction.channel, "members") else 0
+        except Exception:
+            views_count = 0
+        counts = {
+            "reply":   0,  # Discord ne donne pas le reply count facilement
+            "retweet": retweet_count,
+            "like":    total_reactions,
+            "views":   views_count,
+        }
         try:
             from cards.tweet import render_tweet_card
             buf = await render_tweet_card(
@@ -64,6 +83,7 @@ def setup_fun_commands(bot):
                 text=text,
                 timestamp_str=ts_str,
                 verified=True,
+                counts=counts,
             )
         except Exception as e:
             await interaction.followup.send(

@@ -133,6 +133,60 @@ def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int, draw: ImageD
     return lines
 
 
+def _draw_action_icon(draw: ImageDraw.ImageDraw, kind: str, x: int, y: int,
+                       size: int = 18, color=(113, 118, 123)):
+    """Dessine une icone d'action X (reply/retweet/like/views/share) en
+    primitives PIL pour un rendu net (pas de dependance pilmoji)."""
+    s = size
+    if kind == "reply":
+        # Bulle de chat arrondie + petite queue
+        draw.rounded_rectangle((x, y, x + s, y + int(s * 0.78)),
+                                radius=int(s * 0.28), outline=color, width=2)
+        # Petit triangle queue bas-gauche
+        draw.polygon([
+            (x + 4, y + int(s * 0.78)),
+            (x + 10, y + int(s * 0.78)),
+            (x + 4, y + s),
+        ], fill=color)
+    elif kind == "retweet":
+        # 2 fleches en boucle stylisees (rect arrondi outline + 2 chevrons)
+        # Trace simple : 2 polygones triangles + lignes
+        draw.line([(x + 2, y + 4), (x + s - 2, y + 4)], fill=color, width=2)
+        draw.polygon([(x + s - 6, y), (x + s, y + 4), (x + s - 6, y + 8)], fill=color)
+        draw.line([(x + s - 2, y + s - 4), (x + 2, y + s - 4)], fill=color, width=2)
+        draw.polygon([(x + 6, y + s - 8), (x, y + s - 4), (x + 6, y + s)], fill=color)
+    elif kind == "like":
+        # Coeur outline simple via 2 cercles + triangle
+        r = int(s * 0.28)
+        draw.ellipse((x, y + 2, x + r * 2, y + r * 2 + 2), outline=color, width=2)
+        draw.ellipse((x + r * 2 - 1, y + 2, x + r * 4 - 1, y + r * 2 + 2),
+                      outline=color, width=2)
+        draw.polygon([
+            (x, y + r + 4),
+            (x + s, y + r + 4),
+            (x + s // 2, y + s),
+        ], outline=color, width=2)
+    elif kind == "views":
+        # Bar chart 3 barres
+        bw = max(2, s // 6)
+        for i, h in enumerate([0.4, 0.7, 1.0]):
+            bh = int(s * h)
+            bx = x + i * (bw + 3)
+            by = y + (s - bh)
+            draw.rectangle((bx, by, bx + bw, y + s), fill=color)
+    elif kind == "share":
+        # Fleche montant qui sort d'une boite (style upload)
+        # Boite
+        draw.rectangle((x, y + s // 2, x + s, y + s), outline=color, width=2)
+        # Fleche
+        draw.line((x + s // 2, y + 2, x + s // 2, y + s - 4), fill=color, width=2)
+        draw.polygon([
+            (x + s // 2 - 4, y + 6),
+            (x + s // 2 + 4, y + 6),
+            (x + s // 2,     y + 2),
+        ], fill=color)
+
+
 def _draw_verified_tick(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int = 9):
     """Petit badge bleu rond avec check blanc."""
     draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=VERIFIED)
@@ -151,20 +205,32 @@ async def render_tweet_card(
     text: str,
     timestamp_str: str,
     verified: bool = True,
+    counts: Optional[dict] = None,
 ) -> io.BytesIO:
     """Rend le tweet card -> BytesIO PNG.
 
     `timestamp_str` : deja formate (ex '16:42 · 4 juin 2026').
+    `counts` : dict optionnel {reply, retweet, like, views} pour les actions.
     """
     raw_avatar = await _fetch_bytes(avatar_url) if avatar_url else None
     return await asyncio.to_thread(
         _render_tweet_sync,
-        display_name, username, raw_avatar, text, timestamp_str, verified,
+        display_name, username, raw_avatar, text, timestamp_str, verified, counts or {},
     )
 
 
+def _fmt_count(n: int) -> str:
+    if not n:
+        return ""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M".replace(".0M", "M")
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}K".replace(".0K", "K")
+    return str(n)
+
+
 def _render_tweet_sync(display_name, username, raw_avatar, text,
-                       timestamp_str, verified) -> io.BytesIO:
+                       timestamp_str, verified, counts) -> io.BytesIO:
     # Pre-calcul des wraps pour determiner la hauteur
     f_name = _font(22, bold=True)
     f_user = _font(18, bold=False)
@@ -185,7 +251,8 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
     line_h = 36
     header_h = TW_PAD + TW_AVATAR + 20
     body_h = len(body_lines) * line_h + 20
-    footer_h = 32 + TW_PAD
+    # Footer = timestamp ligne + separator + row d'actions
+    footer_h = 28 + 18 + 38 + TW_PAD
     total_h = header_h + body_h + footer_h
 
     base = Image.new("RGB", (TW_W, total_h), BG)
@@ -219,13 +286,43 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
         draw.text((TW_PAD, body_y), line, font=f_body, fill=TEXT)
         body_y += line_h
 
-    # === Footer : timestamp + source ===
-    footer_y = total_h - TW_PAD - 4
-    draw.text((TW_PAD, footer_y - 18),
+    # === Footer : timestamp ===
+    tsy = header_h + body_h + 4
+    draw.text((TW_PAD, tsy),
               f"{timestamp_str} · TookBot",
               font=f_meta, fill=TEXT_MUTED)
 
-    # Mini logo X (oiseau / X) en haut a droite
+    # Separator line
+    sep_y = tsy + 26
+    draw.line((TW_PAD, sep_y, TW_W - TW_PAD, sep_y),
+              fill=(38, 51, 64), width=1)
+
+    # === Row d'actions : reply / retweet / like / views / share ===
+    icon_y = sep_y + 16
+    action_specs = [
+        ("reply",   counts.get("reply", 0)),
+        ("retweet", counts.get("retweet", 0)),
+        ("like",    counts.get("like", 0)),
+        ("views",   counts.get("views", 0)),
+        ("share",   None),  # pas de count pour share
+    ]
+    n_actions = len(action_specs)
+    icon_zone_w = TW_W - TW_PAD * 2
+    col_w = icon_zone_w // n_actions
+    icon_size = 20
+    f_count = _font(14, bold=False)
+    for i, (kind, n) in enumerate(action_specs):
+        col_cx = TW_PAD + i * col_w + col_w // 2
+        icon_x = col_cx - 30
+        _draw_action_icon(draw, kind, icon_x, icon_y,
+                           size=icon_size, color=TEXT_MUTED)
+        # Count a droite de l'icone
+        if n:
+            label = _fmt_count(int(n))
+            draw.text((icon_x + icon_size + 8, icon_y + 2),
+                      label, font=f_count, fill=TEXT_MUTED)
+
+    # Mini logo X (haut a droite)
     x_size = 24
     x_x = TW_W - TW_PAD - x_size
     x_y = TW_PAD + 6
