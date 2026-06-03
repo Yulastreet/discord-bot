@@ -461,6 +461,38 @@ def _ydl_opts_for(url_or_query):
     return opts
 
 
+def _extract_audio_info_fast_sync(query):
+    """Version legere : pour les playlists Spotify (mass-add).
+    Retourne juste {title, url (webpage), duration, thumbnail} via ytsearch1
+    flat. play_next re-resoudra l'URL en stream au moment de jouer (cf.
+    _is_webpage_url check). Evite N x 1s yt-dlp extract complet."""
+    if query.startswith("http"):
+        # URL deja resolue : retour minimal sans extraire
+        return {"title": query, "url": query, "source_url": query}
+    flat_options = dict(YDL_OPTIONS)
+    flat_options["extract_flat"] = "in_playlist"
+    with yt_dlp.YoutubeDL(flat_options) as ydl:
+        search = ydl.extract_info(f"ytsearch1:{query}", download=False)
+        entries = (search.get("entries") or [])
+        if not entries:
+            raise RuntimeError("Aucun resultat YouTube pour cette recherche.")
+        e = entries[0]
+        url = _entry_url(e)
+        if not url:
+            raise RuntimeError("Pas d'URL exploitable.")
+        return {
+            "title": e.get("title") or query,
+            "url": url,
+            "source_url": url,
+            "duration": e.get("duration"),
+            "thumbnail": (e.get("thumbnails") or [{}])[0].get("url") if e.get("thumbnails") else None,
+        }
+
+
+async def get_audio_info_fast(query):
+    return await asyncio.to_thread(_extract_audio_info_fast_sync, query)
+
+
 def _extract_audio_info_sync(query):
     if query.startswith("http"):
         opts = _ydl_opts_for(query)

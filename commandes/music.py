@@ -125,22 +125,28 @@ def setup_music_commands(bot, deps):
                     await interaction.followup.send("❌ Aucune piste trouvee dans cette ressource Spotify.")
                     return
 
-                # Strategie : resolve le 1er track immediat -> demarre lecture
-                # le reste en background avec parallelisme limite (semaphore 5)
-                # pour eviter d'attendre 1s x N tracks en serie.
-                async def _resolve_one(tm):
+                # Strategie : 1er track resolu COMPLET pour lecture immediate,
+                # le reste resolu en FAST mode (juste search YT light, sans
+                # extraction complete). play_next re-resoudra l'URL en stream
+                # au moment effectif de jouer (rapide ~1s) ce qui evite
+                # d'attendre N x 1s a l'ajout.
+                async def _resolve_one(tm, fast=False):
                     q = tm.get("query")
                     if not q:
                         return None
                     try:
-                        info = await get_audio_info(q)
+                        if fast:
+                            from bot import get_audio_info_fast
+                            info = await get_audio_info_fast(q)
+                        else:
+                            info = await get_audio_info(q)
                     except Exception as e:
                         print(f"[music spotify] yt search fail for {q!r}: {e}")
                         return None
                     return info
 
-                # 1er track : await pour demarrer lecture asap
-                first_info = await _resolve_one(tracks_meta[0])
+                # 1er track : await full pour demarrer lecture asap
+                first_info = await _resolve_one(tracks_meta[0], fast=False)
                 if not first_info:
                     await interaction.followup.send("❌ Premier track Spotify pas trouvable sur YouTube.")
                     return
@@ -161,7 +167,7 @@ def setup_music_commands(bot, deps):
 
                     async def _bound(tm):
                         async with sem:
-                            return await _resolve_one(tm)
+                            return await _resolve_one(tm, fast=True)
 
                     # Lance tout en parallel, attend tous (gather preserve l'ordre)
                     infos = await asyncio.gather(*[_bound(tm) for tm in rest])
@@ -378,20 +384,15 @@ def setup_music_commands(bot, deps):
             f"⏭️ **{total_skipped}** musique(s) passée(s){target_msg}"
         )
 
-    @bot.tree.command(name="queue", description="Voir la file d'attente musicale (paginee)")
-    @app_commands.describe(page="Numero de page (10 pistes par page)")
-    async def queue_cmd(interaction: discord.Interaction, page: int = 1):
-        gid = str(interaction.guild.id)
-        q = music_queue_list(gid)
-        if not q:
-            await interaction.response.send_message("📭 La file d'attente est vide !")
-            return
-        per_page = 50
+    PER_PAGE = 50
+
+    def _build_queue_embed(gid_str, page=1):
+        q = music_queue_list(gid_str) or []
         total = len(q)
-        total_pages = max(1, (total + per_page - 1) // per_page)
+        total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
         page = max(1, min(int(page), total_pages))
-        start = (page - 1) * per_page
-        end = min(start + per_page, total)
+        start = (page - 1) * PER_PAGE
+        end = min(start + PER_PAGE, total)
         embed = discord.Embed(
             title=f"🎵 File d'attente ({total} piste(s))",
             color=discord.Color.blurple(),
@@ -401,8 +402,52 @@ def setup_music_commands(bot, deps):
             t = q[i]
             lines.append(f"**{i+1}.** {t['title']}")
         embed.description = "\n".join(lines) or "*vide*"
-        embed.set_footer(text=f"Page {page}/{total_pages} • /queue page:N pour naviguer • /jump position:N pour jouer une piste")
-        await interaction.response.send_message(embed=embed)
+        embed.set_footer(text=f"Page {page}/{total_pages} • /jump position:N pour jouer une piste")
+        return embed, page, total_pages, total
+
+    class QueueView(discord.ui.View):
+        def __init__(self, gid_str, page, total_pages, author_id):
+            super().__init__(timeout=180)
+            self.gid_str = gid_str
+            self.page = page
+            self.total_pages = total_pages
+            self.author_id = author_id
+            self._refresh_buttons()
+
+        def _refresh_buttons(self):
+            self.prev_btn.disabled = self.page <= 1
+            self.next_btn.disabled = self.page >= self.total_pages
+
+        async def _update(self, interaction):
+            embed, self.page, self.total_pages, _ = _build_queue_embed(self.gid_str, self.page)
+            self._refresh_buttons()
+            await interaction.response.edit_message(embed=embed, view=self)
+
+        @discord.ui.button(label="◀ Precedent", style=discord.ButtonStyle.secondary)
+        async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+            self.page = max(1, self.page - 1)
+            await self._update(interaction)
+
+        @discord.ui.button(label="Suivant ▶", style=discord.ButtonStyle.secondary)
+        async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+            self.page = min(self.total_pages, self.page + 1)
+            await self._update(interaction)
+
+        @discord.ui.button(label="↻", style=discord.ButtonStyle.primary)
+        async def refresh_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+            # Recalcule total (au cas ou queue a change)
+            await self._update(interaction)
+
+    @bot.tree.command(name="queue", description="Voir la file d'attente musicale")
+    async def queue_cmd(interaction: discord.Interaction):
+        gid = str(interaction.guild.id)
+        q = music_queue_list(gid)
+        if not q:
+            await interaction.response.send_message("📭 La file d'attente est vide !")
+            return
+        embed, page, total_pages, _ = _build_queue_embed(gid, page=1)
+        view = QueueView(gid, page, total_pages, interaction.user.id)
+        await interaction.response.send_message(embed=embed, view=view)
 
 
     @bot.tree.command(name="jump", description="Jouer une piste specifique de la file sans perdre les autres")
