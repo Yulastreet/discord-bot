@@ -105,6 +105,21 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_title    ON music_plays(guild_id, track_title)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_music_plays_user     ON music_plays(guild_id, user_id)")
 
+    # ===== Automod : filtres moderation auto (TookBot+) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS automod_config (
+        guild_id                   TEXT PRIMARY KEY,
+        enabled                    INTEGER DEFAULT 0,
+        banned_words_enabled       INTEGER DEFAULT 0,
+        banned_words               TEXT DEFAULT '',     -- CSV
+        discord_invites_enabled    INTEGER DEFAULT 0,
+        mention_spam_enabled       INTEGER DEFAULT 0,
+        mention_spam_threshold     INTEGER DEFAULT 5,
+        raid_protection_enabled    INTEGER DEFAULT 0,
+        raid_threshold             INTEGER DEFAULT 5,   -- joins/minute
+        log_channel_id             TEXT,
+        updated_at                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Tempvoice : salons vocaux temporaires =====
     # Config par guild : lobby_channel_id = vocal "Creer ton salon" que les
     # users rejoignent pour declencher la creation ; category_id = categorie
@@ -1365,6 +1380,40 @@ def stripe_subscription_get_by_subscription(stripe_subscription_id):
     c.execute("SELECT * FROM stripe_subscriptions WHERE stripe_subscription_id = ?", (stripe_subscription_id,))
     r = c.fetchone(); conn.close()
     return dict(r) if r else None
+
+
+# ===== Automod helpers =====
+def automod_config_get(guild_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM automod_config WHERE guild_id = ?", (str(guild_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else {
+        "guild_id": str(guild_id),
+        "enabled": 0,
+        "banned_words_enabled": 0, "banned_words": "",
+        "discord_invites_enabled": 0,
+        "mention_spam_enabled": 0, "mention_spam_threshold": 5,
+        "raid_protection_enabled": 0, "raid_threshold": 5,
+        "log_channel_id": None,
+    }
+
+
+def automod_config_set(guild_id, **fields):
+    """UPSERT config automod. Accepte un sous-ensemble des champs."""
+    allowed = {
+        "enabled", "banned_words_enabled", "banned_words",
+        "discord_invites_enabled", "mention_spam_enabled", "mention_spam_threshold",
+        "raid_protection_enabled", "raid_threshold", "log_channel_id",
+    }
+    fields = {k: v for k, v in fields.items() if k in allowed}
+    if not fields:
+        return
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO automod_config (guild_id) VALUES (?)", (str(guild_id),))
+    sets = ", ".join(f"{k} = ?" for k in fields) + ", updated_at = CURRENT_TIMESTAMP"
+    c.execute(f"UPDATE automod_config SET {sets} WHERE guild_id = ?",
+              (*fields.values(), str(guild_id)))
+    conn.commit(); conn.close()
 
 
 # ===== Tempvoice helpers =====

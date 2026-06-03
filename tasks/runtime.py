@@ -866,6 +866,12 @@ def setup_runtime(bot, deps):
         add_log(member.guild.id, "action_member_join",
                 user_id=member.id, username=str(member),
                 content=f"a rejoint **{member.guild.name}**")
+        # Automod : raid protection (compte joins/minute)
+        try:
+            from services.automod import automod_on_member_join
+            await automod_on_member_join(member, bot)
+        except Exception as e:
+            print(f"[automod/on_member_join] {type(e).__name__}: {e}")
         # Update member cache
         try:
             upsert_member(member.guild.id, member.id, str(member),
@@ -1140,6 +1146,13 @@ def setup_runtime(bot, deps):
             await bot.process_commands(message)
             return
         guild_id_str = str(message.guild.id)
+
+        # Automod : filtres TookBot+ (mots interdits, invites, spam mentions)
+        try:
+            from services.automod import automod_on_message
+            await automod_on_message(message, bot)
+        except Exception as e:
+            print(f"[automod/on_message] {type(e).__name__}: {e}")
 
         # ===== IA Groq : mention du bot + author dans allowlist =====
         if (bot.user in message.mentions and not message.author.bot

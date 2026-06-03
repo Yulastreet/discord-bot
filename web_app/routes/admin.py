@@ -13,6 +13,79 @@ def register_admin_routes(app, deps):
         return render_template("analytics.html", active_nav="analytics")
 
 
+    @app.route("/automod")
+    def automod_page():
+        uid = _current_user_id()
+        if not uid:
+            return redirect(url_for("oauth_login"))
+        # Gate TookBot+
+        from database import has_premium_grant, user_has_active_entitlement, automod_config_get
+        is_tookbot_plus = (
+            has_premium_grant(uid, feature="tookbot_plus", inherit_all=False)
+            or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
+        )
+        g_id = gid()
+        cfg = automod_config_get(g_id) if g_id else {}
+        return render_template(
+            "automod.html",
+            active_nav="automod",
+            is_tookbot_plus=bool(is_tookbot_plus),
+            config=cfg,
+        )
+
+
+    @app.route("/api/automod/config", methods=["GET"])
+    def api_automod_get():
+        from database import automod_config_get
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        return jsonify(automod_config_get(g_id))
+
+
+    @app.route("/api/automod/config", methods=["POST"])
+    def api_automod_set():
+        from database import (has_premium_grant, user_has_active_entitlement,
+                              automod_config_set)
+        from services.automod import invalidate_automod_cache
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"error": "not_logged_in"}), 401
+        # Gate TookBot+
+        is_plus = (
+            has_premium_grant(uid, feature="tookbot_plus", inherit_all=False)
+            or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
+        )
+        if not is_plus:
+            return jsonify({"error": "TookBot+ requis"}), 402
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        # Normalisation des champs (bool -> 0/1, int clamp)
+        fields = {}
+        for bk in ("enabled", "banned_words_enabled", "discord_invites_enabled",
+                   "mention_spam_enabled", "raid_protection_enabled"):
+            if bk in data:
+                fields[bk] = 1 if str(data[bk]) in ("1", "true", "True", "on") else 0
+        if "banned_words" in data:
+            fields["banned_words"] = str(data["banned_words"] or "")[:2000]
+        if "mention_spam_threshold" in data:
+            try:
+                fields["mention_spam_threshold"] = max(2, min(50, int(data["mention_spam_threshold"])))
+            except (TypeError, ValueError): pass
+        if "raid_threshold" in data:
+            try:
+                fields["raid_threshold"] = max(2, min(50, int(data["raid_threshold"])))
+            except (TypeError, ValueError): pass
+        if "log_channel_id" in data:
+            v = str(data["log_channel_id"] or "").strip()
+            fields["log_channel_id"] = v or None
+        automod_config_set(g_id, **fields)
+        invalidate_automod_cache(g_id)
+        return jsonify({"ok": True, "updated": list(fields.keys())})
+
+
     @app.route("/api/analytics/overview")
     def api_analytics_overview():
         from database import get_guild_analytics_overview

@@ -1,0 +1,217 @@
+{% extends "_base.html" %}
+{% set active_nav = 'automod' %}
+
+{% block title %}Modération automatique · Bot Console{% endblock %}
+{% block crumb %}Modération automatique{% endblock %}
+
+{% block content %}
+<style>
+  .am-card {
+    padding: var(--s-5) var(--s-6);
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    margin-bottom: var(--s-5);
+  }
+  .am-card h2 { margin: 0 0 6px; font-size: 16px; font-weight: 700; }
+  .am-card .sub { font-size: 12px; color: var(--text-2); margin-bottom: var(--s-4); }
+  .am-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .am-row + .am-row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .am-rule-name { font-weight: 700; font-size: 14px; }
+  .am-rule-desc { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .am-toggle {
+    appearance: none; width: 38px; height: 22px; border-radius: 999px;
+    background: var(--bg-2); border: 1px solid var(--border); position: relative;
+    cursor: pointer; transition: background .15s;
+  }
+  .am-toggle:checked { background: oklch(0.86 0.20 130); border-color: oklch(0.86 0.20 130); }
+  .am-toggle::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: transform .15s;
+  }
+  .am-toggle:checked::after { transform: translateX(16px); }
+  .am-input {
+    background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; width: 100%;
+  }
+  textarea.am-input { resize: vertical; min-height: 80px; font-family: var(--font-mono); }
+  .am-sub-config { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .am-sub-config.hidden { display: none; }
+  .am-paywall {
+    padding: 32px 28px; text-align: center;
+    background: var(--bg-1); border: 1px dashed oklch(0.78 0.18 100 / 0.55);
+    border-radius: 16px;
+  }
+  .am-paywall h2 { margin: 0 0 8px; font-size: 22px; }
+  .am-paywall p { color: var(--text-2); max-width: 520px; margin: 0 auto 18px; }
+</style>
+
+<div class="col gap-7">
+  <div>
+    <h1>Modération automatique</h1>
+    <p class="muted mt-2" style="font-size: var(--t-sm); max-width: 60ch;">
+      Active des filtres pour modérer ton serveur automatiquement. Les messages
+      qui matchent sont supprimés et loggués dans le salon admin.
+    </p>
+  </div>
+
+  {% if not is_tookbot_plus %}
+  <div class="am-paywall">
+    <h2>✦ Feature TookBot+</h2>
+    <p>
+      L'automod est réservé aux serveurs avec TookBot+. Active ton essai gratuit
+      de 7 jours ou passe en abonnement pour débloquer.
+    </p>
+    <a class="btn btn-primary" href="/subscription">Voir les offres TookBot+</a>
+  </div>
+  {% else %}
+
+  <div class="am-card">
+    <h2>État général</h2>
+    <div class="sub">Master switch : si désactivé, aucune règle n'est appliquée.</div>
+    <div class="am-row">
+      <div>
+        <div class="am-rule-name">Automod activé</div>
+        <div class="am-rule-desc">Active l'ensemble du système. Désactiver pour pause sans perdre la config.</div>
+      </div>
+      <input type="checkbox" class="am-toggle" id="t_enabled" {{ 'checked' if config.enabled }}>
+    </div>
+    <div class="am-row" style="flex-direction:column;align-items:stretch;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="am-rule-name">Salon de logs</div>
+          <div class="am-rule-desc">Salon texte où l'automod poste un embed à chaque action.</div>
+        </div>
+      </div>
+      <select id="log_channel_id" class="am-input" style="margin-top:10px;">
+        <option value="">— Aucun (pas de log) —</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="am-card">
+    <h2>Règles</h2>
+    <div class="sub">Active les filtres souhaités. Chaque règle peut avoir sa propre config.</div>
+
+    <div class="am-row">
+      <div style="flex:1;">
+        <div class="am-rule-name">🚫 Mots interdits</div>
+        <div class="am-rule-desc">Supprime tout message contenant un des mots listés (matching mot entier, case-insensitive).</div>
+        <div class="am-sub-config {{ '' if config.banned_words_enabled else 'hidden' }}" data-rule="banned_words">
+          <label style="font-size:12px;color:var(--text-2);">Mots (séparés par virgule) :</label>
+          <textarea class="am-input" id="banned_words" placeholder="con, putain, fuck">{{ config.banned_words or '' }}</textarea>
+        </div>
+      </div>
+      <input type="checkbox" class="am-toggle" id="t_banned_words" data-rule="banned_words" {{ 'checked' if config.banned_words_enabled }}>
+    </div>
+
+    <div class="am-row">
+      <div style="flex:1;">
+        <div class="am-rule-name">🔗 Anti-invites Discord</div>
+        <div class="am-rule-desc">Supprime les liens d'invitation Discord (discord.gg/* ou discord.com/invite/*).</div>
+      </div>
+      <input type="checkbox" class="am-toggle" id="t_discord_invites" {{ 'checked' if config.discord_invites_enabled }}>
+    </div>
+
+    <div class="am-row">
+      <div style="flex:1;">
+        <div class="am-rule-name">📣 Spam mentions</div>
+        <div class="am-rule-desc">Supprime les messages avec un nombre élevé de mentions (users + rôles).</div>
+        <div class="am-sub-config {{ '' if config.mention_spam_enabled else 'hidden' }}" data-rule="mention_spam">
+          <label style="font-size:12px;color:var(--text-2);">Seuil (mentions par message) :</label>
+          <input type="number" min="2" max="50" class="am-input" id="mention_spam_threshold" value="{{ config.mention_spam_threshold or 5 }}" style="max-width:120px;">
+        </div>
+      </div>
+      <input type="checkbox" class="am-toggle" id="t_mention_spam" data-rule="mention_spam" {{ 'checked' if config.mention_spam_enabled }}>
+    </div>
+
+    <div class="am-row">
+      <div style="flex:1;">
+        <div class="am-rule-name">🛡️ Protection anti-raid</div>
+        <div class="am-rule-desc">Log une alerte si un nombre élevé de joins est detecté en moins d'une minute (pas de kick auto pour éviter les faux positifs).</div>
+        <div class="am-sub-config {{ '' if config.raid_protection_enabled else 'hidden' }}" data-rule="raid_protection">
+          <label style="font-size:12px;color:var(--text-2);">Seuil (joins/minute) :</label>
+          <input type="number" min="2" max="50" class="am-input" id="raid_threshold" value="{{ config.raid_threshold or 5 }}" style="max-width:120px;">
+        </div>
+      </div>
+      <input type="checkbox" class="am-toggle" id="t_raid_protection" data-rule="raid_protection" {{ 'checked' if config.raid_protection_enabled }}>
+    </div>
+  </div>
+
+  <div class="row end gap-3">
+    <button class="btn btn-primary" id="amSave">
+      <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+    </button>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if is_tookbot_plus %}
+<script>
+const CURRENT_LOG = {{ (config.log_channel_id or '')|tojson }};
+
+(async function loadChannels() {
+  const sel = document.getElementById('log_channel_id');
+  try {
+    const r = await fetch('/api/channels?type=text');
+    const d = await r.json();
+    for (const c of (d.channels || [])) {
+      const o = document.createElement('option');
+      o.value = String(c.channel_id);
+      o.textContent = '#' + (c.name || c.channel_id);
+      if (String(c.channel_id) === String(CURRENT_LOG)) o.selected = true;
+      sel.appendChild(o);
+    }
+  } catch (_) {}
+})();
+
+// Toggle show/hide des sub-configs
+document.querySelectorAll('.am-toggle[data-rule]').forEach(t => {
+  t.addEventListener('change', () => {
+    const rule = t.dataset.rule;
+    const sub = document.querySelector(`.am-sub-config[data-rule="${rule}"]`);
+    if (sub) sub.classList.toggle('hidden', !t.checked);
+  });
+});
+
+document.getElementById('amSave').addEventListener('click', async () => {
+  const btn = document.getElementById('amSave');
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = 'Enregistrement...';
+  const payload = {
+    enabled:                  document.getElementById('t_enabled').checked,
+    banned_words_enabled:     document.getElementById('t_banned_words').checked,
+    banned_words:             document.getElementById('banned_words').value,
+    discord_invites_enabled:  document.getElementById('t_discord_invites').checked,
+    mention_spam_enabled:     document.getElementById('t_mention_spam').checked,
+    mention_spam_threshold:   document.getElementById('mention_spam_threshold').value,
+    raid_protection_enabled:  document.getElementById('t_raid_protection').checked,
+    raid_threshold:           document.getElementById('raid_threshold').value,
+    log_channel_id:           document.getElementById('log_channel_id').value,
+  };
+  try {
+    const r = await fetch('/api/automod/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Sauvegarde (${(d.updated || []).length} champs)`);
+    } else {
+      toast(d.error || 'Erreur', 'error');
+    }
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+</script>
+{% endif %}
+{% endblock %}
