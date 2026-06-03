@@ -559,7 +559,7 @@ def register_premium_routes(app, deps):
                 target_level = max(0, int(data["level"]))
             except (TypeError, ValueError):
                 return jsonify({"error": "bad_level"}), 400
-            new_xp = xp_for_level(target_level)
+            new_xp = xp_for_level(target_level, g_id)
         else:
             return jsonify({"error": "missing_xp_or_level"}), 400
 
@@ -573,7 +573,7 @@ def register_premium_routes(app, deps):
         username = row["username"] if row else None
 
         set_xp(g_id, user_id, new_xp, username=username)
-        new_level = get_level(new_xp)
+        new_level = get_level(new_xp, g_id)
         return jsonify({
             "ok":       True,
             "user_id":  str(user_id),

@@ -988,18 +988,40 @@ def admin_lister_duel_users():
 
 
 # ===== XP MESSAGES (per-guild) — refonte clean 2026-06 =====
-# Formule canonique : xp_for_level(L) = L^5 ; get_level(xp) = floor(xp^0.2)
-# Donc xp_for_level(get_level(xp)) <= xp < xp_for_level(get_level(xp)+1)
+# Formule canonique : xp_for_level(L) = L^E ; get_level(xp) = floor(xp^(1/E))
+# E = exposant de la courbe, configurable par serveur via 'xp_curve_exponent'
+# (defaut 5.0). Plage utile 2.0 a 8.0.
 
-def get_level(xp) -> int:
+_DEFAULT_XP_EXPONENT = 5.0
+_XP_EXP_MIN = 2.0
+_XP_EXP_MAX = 8.0
+
+
+def get_xp_curve_exponent(guild_id=None) -> float:
+    """Lit l'exposant de courbe XP pour ce serveur. Clamp [2.0, 8.0]."""
+    if guild_id is None:
+        return _DEFAULT_XP_EXPONENT
+    try:
+        v = guild_setting_get(guild_id, "xp_curve_exponent", str(_DEFAULT_XP_EXPONENT))
+        e = float(v)
+        return max(_XP_EXP_MIN, min(_XP_EXP_MAX, e))
+    except Exception:
+        return _DEFAULT_XP_EXPONENT
+
+
+def get_level(xp, guild_id=None) -> int:
     xp = int(xp or 0)
     if xp <= 0:
         return 0
-    return int(xp ** 0.2)
+    e = get_xp_curve_exponent(guild_id)
+    return int(xp ** (1.0 / e))
 
-def xp_for_level(level) -> int:
+
+def xp_for_level(level, guild_id=None) -> int:
     level = max(0, int(level or 0))
-    return level ** 5
+    e = get_xp_curve_exponent(guild_id)
+    return int(round(level ** e))
+
 
 def get_xp(guild_id, user_id) -> int:
     conn = get_db(); c = conn.cursor()
@@ -1009,9 +1031,9 @@ def get_xp(guild_id, user_id) -> int:
     return int(r["xp"]) if r else 0
 
 def set_xp(guild_id, user_id, xp, username=None):
-    """Upsert canonical : recalcule level depuis xp via formule."""
+    """Upsert canonical : recalcule level depuis xp via courbe du serveur."""
     xp = max(0, int(xp or 0))
-    level = get_level(xp)
+    level = get_level(xp, guild_id)
     conn = get_db(); c = conn.cursor()
     c.execute("""INSERT INTO users (guild_id, user_id, username, xp, level)
                  VALUES (?, ?, ?, ?, ?)
@@ -1025,18 +1047,18 @@ def set_xp(guild_id, user_id, xp, username=None):
 def add_xp(guild_id, user_id, delta, username=None) -> tuple:
     """Increment XP. Retourne (new_xp, old_level, new_level, leveled_up)."""
     cur = get_xp(guild_id, user_id)
-    old_level = get_level(cur)
+    old_level = get_level(cur, guild_id)
     new_xp = max(0, cur + int(delta or 0))
     set_xp(guild_id, user_id, new_xp, username=username)
-    new_level = get_level(new_xp)
+    new_level = get_level(new_xp, guild_id)
     return (new_xp, old_level, new_level, new_level > old_level)
 
-def get_progress(xp) -> tuple:
+def get_progress(xp, guild_id=None) -> tuple:
     """Retourne (level, xp_in_level, xp_needed_in_level, percent_0_100)."""
     xp = int(xp or 0)
-    level = get_level(xp)
-    start = xp_for_level(level)
-    end   = xp_for_level(level + 1)
+    level = get_level(xp, guild_id)
+    start = xp_for_level(level, guild_id)
+    end   = xp_for_level(level + 1, guild_id)
     span  = max(1, end - start)
     in_lvl = max(0, xp - start)
     pct = int(round(100 * in_lvl / span))
@@ -2403,6 +2425,11 @@ GUILD_DEFAULT_SETTINGS = {
     "xp_min":              "1",
     "xp_max":              "5",
     "xp_cooldown_seconds": "30",
+    # Courbe de difficulte : exposant E dans xp_for_level(L) = L^E.
+    # Plage utile 2.0 a 8.0. Defaut 5.0 (= ancien comportement).
+    # Plus bas = montee facile (level 10 atteignable rapidement).
+    # Plus haut = montee dure (chaque level demande beaucoup plus de XP).
+    "xp_curve_exponent":   "5.0",
     # Message de bienvenue par défaut du serveur
     "welcome_template": "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
     # Setup initial (configuré via /setup)

@@ -34,6 +34,35 @@
         <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_cooldown_seconds', '30') }} s.</small>
       </div>
     </div>
+
+    <div style="margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--border);">
+      <label style="display:block; font-weight:600; margin-bottom: var(--s-2);">
+        Courbe de difficulté (montée de niveau)
+      </label>
+      <p class="muted" style="font-size:var(--t-sm); margin-bottom: var(--s-3);">
+        Formule : <code>XP requise pour niveau L = L^exposant</code>.
+        Bas = montée facile (vite niveau 10). Haut = montée dure (chaque niveau coûte beaucoup plus).
+      </p>
+      <div class="row gap-3" style="align-items: center;">
+        <input type="range" id="xp_curve_exponent" min="2" max="8" step="0.1"
+               value="{{ settings.get('xp_curve_exponent', defaults.get('xp_curve_exponent', '5.0')) }}"
+               style="flex:1;"
+               oninput="updateCurvePreview()">
+        <input type="number" id="xp_curve_exponent_num" min="2" max="8" step="0.1"
+               value="{{ settings.get('xp_curve_exponent', defaults.get('xp_curve_exponent', '5.0')) }}"
+               style="width:80px;"
+               oninput="syncCurveNum()">
+      </div>
+      <div style="margin-top: var(--s-3);">
+        <canvas id="xpCurveCanvas" width="800" height="220"
+                style="width:100%; max-width:800px; height:220px;
+                       background: var(--bg-1); border-radius: 8px;
+                       border:1px solid var(--border);"></canvas>
+      </div>
+      <div id="xpCurveTable" class="muted" style="font-size:12px; margin-top:var(--s-2); font-family:var(--font-mono);">
+        — Ajuste la courbe pour voir les exemples —
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -80,7 +109,8 @@
 
 {% block scripts %}
 <script>
-const FIELDS   = ['xp_min', 'xp_max', 'xp_cooldown_seconds', 'welcome_template',
+const FIELDS   = ['xp_min', 'xp_max', 'xp_cooldown_seconds', 'xp_curve_exponent',
+                  'welcome_template',
                   'presentation_enabled', 'presentation_channel_id'];
 const DEFAULTS = JSON.parse('{{ defaults|tojson|safe }}');
 const PRESENTATION_CURRENT = {
@@ -132,8 +162,146 @@ function resetDefaults() {
     const el = document.getElementById(f);
     if (el && f in DEFAULTS) el.value = DEFAULTS[f];
   }
+  const numEl = document.getElementById('xp_curve_exponent_num');
+  const rangeEl = document.getElementById('xp_curve_exponent');
+  if (numEl && rangeEl) numEl.value = rangeEl.value;
+  updateCurvePreview();
   toast('Valeurs restaurées — clique Enregistrer pour appliquer.');
 }
 window.resetDefaults = resetDefaults;
+
+// === Courbe de difficulté XP : preview ===
+function syncCurveNum() {
+  const num = document.getElementById('xp_curve_exponent_num');
+  const rng = document.getElementById('xp_curve_exponent');
+  let v = parseFloat(num.value);
+  if (isNaN(v)) v = 5.0;
+  v = Math.max(2, Math.min(8, v));
+  num.value = v;
+  rng.value = v;
+  updateCurvePreview();
+}
+window.syncCurveNum = syncCurveNum;
+
+function fmtXp(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' Md';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + ' k';
+  return String(Math.round(n));
+}
+
+function updateCurvePreview() {
+  const rng = document.getElementById('xp_curve_exponent');
+  const num = document.getElementById('xp_curve_exponent_num');
+  if (!rng) return;
+  const e = parseFloat(rng.value) || 5.0;
+  if (num) num.value = e.toFixed(1);
+
+  // Table d'exemples
+  const tableEl = document.getElementById('xpCurveTable');
+  if (tableEl) {
+    const levels = [5, 10, 20, 30, 50];
+    const parts = levels.map(L => {
+      const xp = Math.pow(L, e);
+      return `niveau ${L} = ${fmtXp(xp)} XP`;
+    });
+    let qual;
+    if (e <= 2.5) qual = 'très facile';
+    else if (e <= 3.5) qual = 'facile';
+    else if (e <= 4.5) qual = 'modéré';
+    else if (e <= 5.5) qual = 'normal (défaut)';
+    else if (e <= 6.5) qual = 'difficile';
+    else qual = 'très difficile';
+    tableEl.innerHTML = `<strong>Exposant ${e.toFixed(1)} (${qual})</strong> · ` + parts.join(' · ');
+  }
+
+  // Canvas : courbe XP cumulée pour niveaux 0..50
+  const cvs = document.getElementById('xpCurveCanvas');
+  if (!cvs) return;
+  const W = cvs.width, H = cvs.height;
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const maxLevel = 50;
+  const padL = 60, padR = 20, padT = 18, padB = 30;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  // Calcul max XP (niveau 50)
+  const maxXp = Math.pow(maxLevel, e);
+
+  // Grille
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 4; i++) {
+    const y = padT + (plotH * i / 5);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+  }
+  for (let i = 1; i <= 4; i++) {
+    const x = padL + (plotW * i / 5);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, H - padB);
+    ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, H - padB);
+  ctx.lineTo(W - padR, H - padB);
+  ctx.stroke();
+
+  // Labels axes
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 5; i++) {
+    const xpVal = (maxXp * i / 5);
+    const y = (H - padB) - (plotH * i / 5);
+    ctx.fillText(fmtXp(xpVal), padL - 6, y);
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i <= 5; i++) {
+    const L = (maxLevel * i / 5);
+    const x = padL + (plotW * i / 5);
+    ctx.fillText(`L${Math.round(L)}`, x, H - padB + 6);
+  }
+
+  // Courbe : XP cumulée par niveau (continue)
+  ctx.strokeStyle = 'oklch(0.86 0.20 130)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let i = 0; i <= 200; i++) {
+    const L = (maxLevel * i / 200);
+    const xp = Math.pow(L, e);
+    const x = padL + plotW * (L / maxLevel);
+    const y = (H - padB) - plotH * (xp / maxXp);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Points repère sur niveaux clés
+  ctx.fillStyle = 'oklch(0.86 0.20 130)';
+  for (const L of [10, 20, 30, 40, 50]) {
+    const xp = Math.pow(L, e);
+    const x = padL + plotW * (L / maxLevel);
+    const y = (H - padB) - plotH * (xp / maxXp);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+window.updateCurvePreview = updateCurvePreview;
+// Init au chargement
+document.addEventListener('DOMContentLoaded', updateCurvePreview);
 </script>
 {% endblock %}

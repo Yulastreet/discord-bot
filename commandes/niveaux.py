@@ -47,7 +47,7 @@ def setup_niveau_commands(bot, deps):
         membre = membre or interaction.user
         gid = str(interaction.guild.id)
         xp  = get_xp(gid, membre.id)
-        level, in_lvl, needed, percent = get_progress(xp)
+        level, in_lvl, needed, percent = get_progress(xp, gid)
         print(f"[/niveau] iid={interaction.id} guild={gid} user={membre.id} xp={xp} level={level}", flush=True)
 
         # Etape 1 : RENDER (peut fail). On obtient un buf ou None.

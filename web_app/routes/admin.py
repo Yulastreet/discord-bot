@@ -104,8 +104,8 @@ def register_admin_routes(app, deps):
                      "tickets", "welcome", "rolereaction", "reactions", "social_alerts",
                      "custom_commands", "poll", "cs2", "lol", "duels",
                      "presentation_enabled"}
-        STR_KEYS  = {"xp_min", "xp_max", "xp_cooldown_seconds", "welcome_template",
-                     "presentation_channel_id"}
+        STR_KEYS  = {"xp_min", "xp_max", "xp_cooldown_seconds", "xp_curve_exponent",
+                     "welcome_template", "presentation_channel_id"}
         updated = []
         for k, v in data.items():
             if k in BOOL_KEYS:

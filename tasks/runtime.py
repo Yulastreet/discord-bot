@@ -1400,7 +1400,7 @@ def setup_runtime(bot, deps):
 
             if leveled_up:
                 try:
-                    _, _, _, percent = get_progress(new_xp)
+                    _, _, _, percent = get_progress(new_xp, str(message.guild.id))
                     if is_premium_user(message.author.id):
                         try:
                             bg = (get_premium_settings(message.author.id) or {}).get("niveau_background") or "default"
