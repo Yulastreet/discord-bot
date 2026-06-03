@@ -52,10 +52,13 @@ def setup_niveau_commands(bot, deps):
 
         # Etape 1 : RENDER (peut fail). On obtient un buf ou None.
         buf = None
-        if is_premium_user(membre.id):
+        prem = is_premium_user(membre.id)
+        print(f"[/niveau] prem={prem}", flush=True)
+        if prem:
             try:
                 settings = get_premium_settings(membre.id) or {}
                 cosmetic = get_user_cosmetic(membre.id) or {}
+                print(f"[/niveau] settings={settings} cosmetic={cosmetic}", flush=True)
                 buf = await render_niveau_card(
                     username=membre.display_name,
                     avatar_url=membre.display_avatar.url,
