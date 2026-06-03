@@ -125,51 +125,67 @@ def setup_music_commands(bot, deps):
                     await interaction.followup.send("❌ Aucune piste trouvee dans cette ressource Spotify.")
                     return
 
-                # Strategie : resolve le 1er track immediat -> demarre lecture,
-                # resolve le reste en background pour eviter idle disconnect
-                # (yt-dlp prend ~1s par track, 50 = >60s).
-                first_added = False
-                async def _resolve_and_add(tm, send_first_msg=False):
-                    nonlocal first_added
+                # Strategie : resolve le 1er track immediat -> demarre lecture
+                # le reste en background avec parallelisme limite (semaphore 5)
+                # pour eviter d'attendre 1s x N tracks en serie.
+                async def _resolve_one(tm):
                     q = tm.get("query")
                     if not q:
-                        return False
+                        return None
                     try:
                         info = await get_audio_info(q)
                     except Exception as e:
                         print(f"[music spotify] yt search fail for {q!r}: {e}")
-                        return False
-                    music_queue_add(gid,
-                                    title=info["title"], url=info["url"],
-                                    source_url=info.get("source_url"),
-                                    duration=info.get("duration"),
-                                    thumbnail=info.get("thumbnail"),
-                                    requested_by=interaction.user.id)
-                    return True
+                        return None
+                    return info
 
                 # 1er track : await pour demarrer lecture asap
-                ok = await _resolve_and_add(tracks_meta[0])
-                if not ok:
+                first_info = await _resolve_one(tracks_meta[0])
+                if not first_info:
                     await interaction.followup.send("❌ Premier track Spotify pas trouvable sur YouTube.")
                     return
-                first_added = True
+                music_queue_add(gid,
+                                title=first_info["title"], url=first_info["url"],
+                                source_url=first_info.get("source_url"),
+                                duration=first_info.get("duration"),
+                                thumbnail=first_info.get("thumbnail"),
+                                requested_by=interaction.user.id)
                 # Lance lecture immediate
                 if vc.is_connected() and not vc.is_playing():
                     await play_next(vc, interaction.channel, interaction.guild.id)
 
-                # Resolve le reste en background (n'await pas)
+                # Resolve le reste en background avec parallelisme limite
                 async def _resolve_rest():
+                    sem = asyncio.Semaphore(5)
+                    rest = tracks_meta[1:]
+
+                    async def _bound(tm):
+                        async with sem:
+                            return await _resolve_one(tm)
+
+                    # Lance tout en parallel, attend tous (gather preserve l'ordre)
+                    infos = await asyncio.gather(*[_bound(tm) for tm in rest])
                     added = 1
-                    for tm in tracks_meta[1:]:
-                        if await _resolve_and_add(tm):
+                    for info in infos:
+                        if not info:
+                            continue
+                        try:
+                            music_queue_add(gid,
+                                            title=info["title"], url=info["url"],
+                                            source_url=info.get("source_url"),
+                                            duration=info.get("duration"),
+                                            thumbnail=info.get("thumbnail"),
+                                            requested_by=interaction.user.id)
                             added += 1
+                        except Exception as e:
+                            print(f"[music spotify] queue_add err: {e}")
                     try:
                         await interaction.followup.send(
                             f"🎧 **{added}** piste(s) ajoutee(s) depuis Spotify : **{sp.get('title','?')}**"
                         )
                     except Exception:
                         pass
-                    print(f"[music spotify] background resolve done : {added} tracks", flush=True)
+                    print(f"[music spotify] parallel resolve done : {added} tracks", flush=True)
 
                 if len(tracks_meta) > 1:
                     asyncio.create_task(_resolve_rest())
