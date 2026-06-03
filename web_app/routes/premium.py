@@ -34,6 +34,25 @@ def register_premium_routes(app, deps):
             has_premium_grant(uid, feature="tookbot_plus", inherit_all=False)
             or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
         )
+        # Detection trial : grant TookBot+ actif avec note 'trial_*' + expires_at futur
+        trial_active = False
+        trial_expires_at = None
+        if is_tookbot_plus:
+            try:
+                conn = get_db(); c = conn.cursor()
+                row = c.execute(
+                    """SELECT expires_at, note FROM premium_grants
+                       WHERE user_id = ? AND feature = 'tookbot_plus'
+                         AND (expires_at IS NULL OR expires_at > datetime('now'))
+                       ORDER BY granted_at DESC LIMIT 1""",
+                    (str(uid),),
+                ).fetchone()
+                conn.close()
+                if row and row["note"] and str(row["note"]).startswith("trial") and row["expires_at"]:
+                    trial_active = True
+                    trial_expires_at = row["expires_at"]
+            except Exception:
+                pass
         # Eligibilite trial : pas deja TookBot+ + jamais utilise de trial
         settings_p = get_premium_settings(uid) or {}
         trial_used_at = settings_p.get("trial_used_at")
@@ -41,6 +60,8 @@ def register_premium_routes(app, deps):
         return render_template(
             "subscription.html",
             is_tookbot_plus=bool(is_tookbot_plus),
+            trial_active=trial_active,
+            trial_expires_at=trial_expires_at,
             trial_eligible=trial_eligible,
             user=session.get("discord") or {},
             active_nav="subscription",

@@ -206,17 +206,83 @@
   {% if is_tookbot_plus %}
   <div class="sub-current-row is-premium">
     <div>
-      <div class="plan-name">TookBot+ <span style="color:#ffa726;">✦</span></div>
-      <div class="plan-desc">Toutes les features premium débloquées. Merci pour ton soutien !</div>
+      <div class="plan-name">
+        TookBot+ <span style="color:#ffa726;">✦</span>
+        {% if trial_active %}<span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:oklch(0.86 0.20 130 / 0.18);color:oklch(0.86 0.20 130);margin-left:8px;vertical-align:middle;">ESSAI GRATUIT</span>{% endif %}
+      </div>
+      <div class="plan-desc">
+        {% if trial_active %}
+          Essai 7 jours en cours. Apres expiration tu reviens au plan gratuit (sauf si tu passes a TookBot+ avant).
+        {% else %}
+          Toutes les features premium débloquées. Merci pour ton soutien !
+        {% endif %}
+      </div>
     </div>
     <div class="plan-price" style="color:#ffa726;">Actif</div>
   </div>
-  <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-    <button class="btn btn-secondary" id="subPortalBtn" type="button">Gérer mon abonnement (Stripe)</button>
+
+  {% if trial_active and trial_expires_at %}
+  <div id="trialBanner" data-expires="{{ trial_expires_at }}"
+       style="margin-top:14px;padding:16px 18px;border:1px solid oklch(0.86 0.20 130 / 0.45);border-radius:14px;background:oklch(0.86 0.20 130 / 0.08);display:flex;flex-wrap:wrap;align-items:center;gap:18px;justify-content:space-between;">
+    <div>
+      <div style="font-size:13px;color:var(--text-2);">Expire le</div>
+      <div id="trialExpiresHuman" style="font-weight:700;font-size:15px;color:var(--text);">{{ trial_expires_at }}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:13px;color:var(--text-2);">Temps restant</div>
+      <div id="trialCountdown" style="font-weight:800;font-size:18px;color:oklch(0.86 0.20 130);font-family:var(--font-mono);">--</div>
+    </div>
   </div>
   <script>
-    document.getElementById('subPortalBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('subPortalBtn');
+    (function(){
+      const el  = document.getElementById('trialBanner');
+      const cd  = document.getElementById('trialCountdown');
+      const hum = document.getElementById('trialExpiresHuman');
+      if (!el || !cd) return;
+      // Le serveur renvoie un timestamp UTC sans Z; on le convertit.
+      const raw = el.dataset.expires; // 'YYYY-MM-DD HH:MM:SS'
+      const iso = raw.replace(' ', 'T') + 'Z';
+      const target = new Date(iso).getTime();
+      // Format human FR
+      try {
+        const d = new Date(iso);
+        hum.textContent = d.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+      } catch (_) {}
+      function tick() {
+        const ms = target - Date.now();
+        if (ms <= 0) {
+          cd.textContent = 'Expire';
+          cd.style.color = '#e74c3c';
+          // Auto-reload pour refleter expiration
+          setTimeout(() => window.location.reload(), 2000);
+          return;
+        }
+        const s = Math.floor(ms / 1000);
+        const d = Math.floor(s / 86400);
+        const h = Math.floor((s % 86400) / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        cd.textContent = `${d}j ${h.toString().padStart(2,'0')}h ${m.toString().padStart(2,'0')}m ${sec.toString().padStart(2,'0')}s`;
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
+  {% endif %}
+
+  <div style="display:flex;justify-content:flex-end;margin-top:14px;gap:10px;flex-wrap:wrap;">
+    {% if trial_active %}
+    <a class="btn btn-primary" href="#subUpgrade">Convertir en abonnement payant</a>
+    {% else %}
+    <button class="btn btn-secondary" id="subPortalBtn" type="button">Gérer mon abonnement (Stripe)</button>
+    {% endif %}
+  </div>
+  <script>
+    (function(){
+      const _portalBtn = document.getElementById('subPortalBtn');
+      if (!_portalBtn) return; // bouton absent (cas trial), pas de handler a wire
+      _portalBtn.addEventListener('click', async () => {
+        const btn = document.getElementById('subPortalBtn');
       btn.disabled = true; btn.textContent = 'Chargement...';
       try {
         const r = await fetch('/api/subscribe/portal', { method: 'POST' });
@@ -224,7 +290,8 @@
         if (d.url) window.location.href = d.url;
         else { alert(d.error || 'Erreur'); btn.disabled = false; btn.textContent = 'Gérer mon abonnement (Stripe)'; }
       } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = 'Gérer mon abonnement (Stripe)'; }
-    });
+      });
+    })();
   </script>
   {% else %}
   <div class="sub-current-row">
@@ -237,8 +304,8 @@
   {% endif %}
 </div>
 
-{% if not is_tookbot_plus %}
-<div class="sub-upgrade">
+{% if not is_tookbot_plus or trial_active %}
+<div class="sub-upgrade" id="subUpgrade">
 
   <div class="sub-upgrade-top">
     <h2 class="sub-upgrade-title">Passer à <strong>TookBot+</strong></h2>
