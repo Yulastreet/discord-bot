@@ -3758,19 +3758,30 @@ def _migrate_pass_rewards_and_sabres():
 
 
 def seed_pass_rewards_for_season(season_id: int, month_key: str):
-    """Insere les 30 lignes pass_rewards pour une saison. Idempotent."""
+    """Insere les 30 lignes pass_rewards pour une saison. Idempotent.
+
+    Labels themed : sabres + BGs prennent le nom du theme du mois (via
+    seasonal_themes). Titres/emojis restent generiques (memes nom pour
+    toutes les saisons)."""
+    from seasonal_themes import sabre_skin, _theme_for
     conn = get_db()
     c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM pass_rewards WHERE season_id = ?", (season_id,)).fetchone()["n"]
     if n > 0:
         conn.close()
         return
+    theme = _theme_for(month_key)
+    bg_labels_dict = theme["bg_labels"]
     rows = []
     for tier, rtype, payload, label in _PASS_TIER_MAP:
-        # Pour les BG, resoudre le nom saisonnier
         if rtype == "bg":
             bg_name = _SEASONAL_BG_NAMES[payload["index"]]
             payload = {"bg_id": f"seasonal:{month_key}:{bg_name}", "bg_name": bg_name}
+            themed_name = bg_labels_dict.get(bg_name, bg_name.replace("_", " ").title())
+            label = f"Background : {themed_name}"
+        elif rtype == "sabre":
+            skin = sabre_skin(month_key, payload["rarete"])
+            label = f"Sabre {payload['rarete']} : {skin['nom']}"
         rows.append((season_id, tier, rtype, _json.dumps(payload), label))
     c.executemany(
         "INSERT INTO pass_rewards (season_id, tier, type, payload, label) VALUES (?, ?, ?, ?, ?)",
