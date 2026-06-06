@@ -7,6 +7,9 @@
 
 {% block content %}
 
+<!-- Sortable.js CDN pour drag-drop de la queue -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
 <div class="col gap-7">
 
   <!-- ====== Now Playing ====== -->
@@ -39,6 +42,36 @@
     <div class="np-channel" id="npChannel">
       <span class="eyebrow">Salon vocal</span>
       <span id="npChannelName" class="muted">Non connecté</span>
+
+      <!-- Selecteur voice channel pour /join depuis dashboard -->
+      <div style="margin-top:10px;">
+        <select id="voiceChannelSelect" class="input" style="width:100%;padding:6px 10px;font-size:var(--t-sm);">
+          <option value="">— Choisir un vocal —</option>
+        </select>
+        <button class="btn btn-secondary" onclick="joinVoice()" style="margin-top:6px;width:100%;">
+          <svg class="ic"><use href="#i-mic"/></svg> Rejoindre vocal
+        </button>
+      </div>
+
+      <!-- Volume -->
+      <div style="margin-top:14px;">
+        <span class="eyebrow">Volume <span id="volLabel" style="font-family:var(--font-mono);color:var(--text);">100%</span></span>
+        <input type="range" id="volSlider" min="0" max="200" value="100"
+               oninput="document.getElementById('volLabel').textContent = this.value + '%';"
+               onchange="setVolume(this.value)"
+               style="width:100%;margin-top:4px;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress bar de la track en cours -->
+  <div id="progressWrap" style="display:none;margin-top:-10px;padding:0 var(--s-6);">
+    <div style="position:relative;height:6px;background:var(--bg-2);border-radius:3px;overflow:hidden;">
+      <div id="progressBar" style="position:absolute;top:0;left:0;height:100%;width:0%;background:oklch(0.86 0.20 130);transition:width 1s linear;"></div>
+    </div>
+    <div class="row between" style="margin-top:4px;font-size:11px;color:var(--text-2);font-family:var(--font-mono);">
+      <span id="progressCur">0:00</span>
+      <span id="progressTotal">0:00</span>
     </div>
   </div>
 
@@ -298,14 +331,37 @@
       return;
     }
     list.innerHTML = queue.map((t, i) => `
-      <div class="queue-row">
+      <div class="queue-row" data-track-id="${t.id}">
+        <div class="qr-handle" title="Glisser pour reordonner" style="cursor:grab;color:var(--text-3);padding:0 6px;">⋮⋮</div>
         <div class="qr-pos">${String(i+1).padStart(2,'0')}</div>
         ${t.thumbnail ? `<img class="qr-thumb" src="${t.thumbnail}" alt="">` : '<div class="qr-thumb"></div>'}
         <div class="qr-title">${escapeHtml(t.title || '(sans titre)')}</div>
         <div class="qr-dur">${fmtDur(t.duration)}</div>
+        <div class="qr-jump"><button class="icon-btn" onclick="jumpTo(${i+1})" title="Jouer maintenant"><svg class="ic"><use href="#i-play"/></svg></button></div>
         <div class="qr-rm"><button class="icon-btn" onclick="removeTrack(${t.id})" title="Retirer"><svg class="ic"><use href="#i-trash"/></svg></button></div>
       </div>
     `).join('');
+
+    // Active drag-drop via Sortable
+    if (window.Sortable) {
+      if (window._queueSortable) window._queueSortable.destroy();
+      window._queueSortable = Sortable.create(list, {
+        handle: '.qr-handle',
+        animation: 150,
+        onEnd: function(evt) {
+          // Recolle l'ordre actuel et envoie
+          const ids = Array.from(list.children).map(el => parseInt(el.dataset.trackId, 10));
+          fetch('/api/music/queue_reorder', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({track_ids: ids}),
+          }).then(r => r.json()).then(d => {
+            if (d.success) { toast('Ordre mis a jour.'); setTimeout(refresh, 800); }
+            else toast(d.error || 'Erreur', 'error');
+          }).catch(e => toast(e.message, 'error'));
+        },
+      });
+    }
   }
 
   function escapeHtml(s) {
@@ -417,9 +473,107 @@
   }
   window.loadStats = loadStats;
 
+  // ============ NEW : volume, jump, join, voice channels list, progress ============
+  async function setVolume(v) {
+    try {
+      const r = await fetch('/api/music/volume', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({volume: parseInt(v, 10)}),
+      });
+      const d = await r.json();
+      if (!d.success) toast(d.error || 'Erreur volume', 'error');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+  window.setVolume = setVolume;
+
+  async function jumpTo(position) {
+    try {
+      const r = await fetch('/api/music/jump', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({position}),
+      });
+      const d = await r.json();
+      if (d.success) { toast(`Saut vers piste ${position}`); setTimeout(refresh, 1500); }
+      else toast(d.error || 'Erreur', 'error');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+  window.jumpTo = jumpTo;
+
+  async function joinVoice() {
+    const sel = document.getElementById('voiceChannelSelect');
+    const id = sel.value;
+    if (!id) { toast('Choisis un vocal d\'abord.', 'error'); return; }
+    try {
+      const r = await fetch('/api/music/join', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({voice_channel_id: id}),
+      });
+      const d = await r.json();
+      if (d.success) { toast('Bot rejoint le vocal...'); setTimeout(refresh, 2000); }
+      else toast(d.error || 'Erreur', 'error');
+    } catch (e) { toast(e.message, 'error'); }
+  }
+  window.joinVoice = joinVoice;
+
+  async function loadVoiceChannels() {
+    try {
+      const r = await fetch('/api/music/voice-channels');
+      const d = await r.json();
+      const sel = document.getElementById('voiceChannelSelect');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">— Choisir un vocal —</option>';
+      for (const c of (d.voice_channels || [])) {
+        const o = document.createElement('option');
+        o.value = String(c.channel_id);
+        o.textContent = '🔊 ' + (c.name || c.channel_id);
+        sel.appendChild(o);
+      }
+      if (cur) sel.value = cur;
+    } catch (_) {}
+  }
+
+  // Progress bar : track le temps depuis started_at + total duration
+  let _trackStartTs = null;
+  let _trackDuration = null;
+  function updateProgress(state) {
+    const wrap = document.getElementById('progressWrap');
+    if (!state || !state.current_title || !state.is_playing || !state.current_duration) {
+      wrap.style.display = 'none';
+      _trackStartTs = null; _trackDuration = null;
+      return;
+    }
+    wrap.style.display = 'block';
+    _trackDuration = state.current_duration;
+    if (state.started_at) {
+      const startMs = new Date((state.started_at + 'Z').replace(' ', 'T')).getTime();
+      _trackStartTs = isNaN(startMs) ? Date.now() : startMs;
+    } else if (!_trackStartTs) {
+      _trackStartTs = Date.now();
+    }
+    document.getElementById('progressTotal').textContent = fmtDur(_trackDuration);
+  }
+  setInterval(() => {
+    if (!_trackStartTs || !_trackDuration) return;
+    const elapsed = Math.min(_trackDuration, Math.max(0, (Date.now() - _trackStartTs) / 1000));
+    const pct = (elapsed / _trackDuration) * 100;
+    document.getElementById('progressBar').style.width = pct.toFixed(2) + '%';
+    document.getElementById('progressCur').textContent = fmtDur(Math.floor(elapsed));
+  }, 500);
+
+  // Hook updateProgress dans le render() existant : wrap renderState
+  const _origRender = renderState;
+  renderState = function(state, queue) {
+    _origRender(state, queue);
+    updateProgress(state || {});
+  };
+
   // Polling
   refresh();
   loadStats();
+  loadVoiceChannels();
   pollTimer = setInterval(refresh, POLL_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && pollTimer) { clearInterval(pollTimer); pollTimer = null; }

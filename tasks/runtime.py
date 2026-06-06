@@ -1854,6 +1854,50 @@ def setup_runtime(bot, deps):
         elif name == "music_clear":
             music_queue_clear(gid)
 
+        elif name == "music_volume":
+            try:
+                vol = max(0, min(200, int(payload.get("volume", 100))))
+            except (TypeError, ValueError):
+                vol = 100
+            # Persist via guild_setting (read au prochain play)
+            try:
+                from database import guild_setting_set
+                guild_setting_set(gid, "music_volume", str(vol / 100.0))
+            except Exception:
+                pass
+            # Applique en live si voice client + PCMVolumeTransformer source
+            if vc and vc.source and hasattr(vc.source, "volume"):
+                try:
+                    vc.source.volume = vol / 100.0
+                except Exception as e:
+                    print(f"[music_volume] live apply err: {e}")
+
+        elif name == "music_jump":
+            from database import music_queue_list, music_queue_move_to_front, music_queue_pop_next
+            try:
+                pos = max(1, int(payload.get("position", 1)))
+            except (TypeError, ValueError):
+                pos = 1
+            q = music_queue_list(gid) or []
+            if pos > len(q):
+                raise ValueError(f"position {pos} hors limites")
+            target = q[pos - 1]
+            music_queue_move_to_front(gid, target["id"])
+            if vc and vc.is_playing():
+                vc.stop()  # play_next pop la nouvelle tete
+
+        elif name == "music_join":
+            ch_id = payload.get("voice_channel_id")
+            if not ch_id:
+                raise ValueError("voice_channel_id requis")
+            channel = guild.get_channel(int(ch_id))
+            if not isinstance(channel, discord.VoiceChannel):
+                raise ValueError("salon vocal introuvable")
+            from commandes.music_voice import connect_to_voice
+            await connect_to_voice(bot, guild, channel)
+            music_state_set(gid, voice_channel_id=str(channel.id),
+                            voice_channel_name=channel.name)
+
         elif name in ("mod_kick", "mod_ban", "mod_timeout", "mod_unban"):
             target_id = payload.get("user_id")
             reason    = (payload.get("reason") or "Action depuis le dashboard").strip()
