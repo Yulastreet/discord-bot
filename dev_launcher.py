@@ -279,7 +279,7 @@ class DevLauncherApp:
         cons_lbl.pack(fill="x", pady=(0, 4))
         tk.Label(cons_lbl, text="Console", bg=BG, fg=TEXT_MUTED,
                   font=(FONT_FAMILY, 10, "bold")).pack(side="left")
-        tk.Label(cons_lbl, text="• Enter = execute • Shift+Enter = retour ligne • PowerShell",
+        tk.Label(cons_lbl, text="• Ctrl+Enter = execute • Enter = nouvelle ligne • PowerShell",
                   bg=BG, fg=TEXT_MUTED, font=(FONT_FAMILY, 9)).pack(side="left", padx=(8, 0))
 
         cons_row = tk.Frame(cons_frame, bg=BORDER, bd=1)
@@ -291,8 +291,8 @@ class DevLauncherApp:
                                     font=("Cascadia Mono", 10) if "Cascadia Mono" in tkfont.families() else ("Consolas", 10),
                                     wrap="word", padx=10, pady=8)
         self.cons_input.pack(side="left", fill="both", expand=True)
-        self.cons_input.bind("<Return>", self._console_on_enter)
-        self.cons_input.bind("<Shift-Return>", lambda e: None)
+        # Enter = newline (defaut). Ctrl+Enter = execute.
+        self.cons_input.bind("<Control-Return>", lambda e: (self._console_execute(), "break")[1])
         # Bouton execute
         btn_zone = tk.Frame(cons_inner, bg=BG_PANEL_2, padx=8, pady=8)
         btn_zone.pack(side="left", fill="y")
@@ -403,14 +403,6 @@ class DevLauncherApp:
             except Exception as e:
                 self.log_queue.put(("err", f"git pull err: {e}"))
         threading.Thread(target=_run, daemon=True).start()
-
-    def _console_on_enter(self, event):
-        # Shift+Enter = newline (laisse passer)
-        if event.state & 0x0001:  # Shift mask
-            return None
-        # Enter sans shift = execute + empeche le newline
-        self._console_execute()
-        return "break"
 
     def _console_execute(self):
         cmd = self.cons_input.get("1.0", "end").strip()
