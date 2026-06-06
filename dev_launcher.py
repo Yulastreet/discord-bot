@@ -272,9 +272,36 @@ class DevLauncherApp:
         StyledButton(toolbar, "✕  Quitter", command=self.quit,
                       width=100).pack(side="right")
 
+        # === Console PowerShell embed ===
+        cons_frame = tk.Frame(self.root, bg=BG, padx=24)
+        cons_frame.pack(fill="x")
+        cons_lbl = tk.Frame(cons_frame, bg=BG)
+        cons_lbl.pack(fill="x", pady=(0, 4))
+        tk.Label(cons_lbl, text="Console", bg=BG, fg=TEXT_MUTED,
+                  font=(FONT_FAMILY, 10, "bold")).pack(side="left")
+        tk.Label(cons_lbl, text="• Enter = execute • Shift+Enter = retour ligne • PowerShell",
+                  bg=BG, fg=TEXT_MUTED, font=(FONT_FAMILY, 9)).pack(side="left", padx=(8, 0))
+
+        cons_row = tk.Frame(cons_frame, bg=BORDER, bd=1)
+        cons_row.pack(fill="x")
+        cons_inner = tk.Frame(cons_row, bg=BG_PANEL_2)
+        cons_inner.pack(fill="x")
+        self.cons_input = tk.Text(cons_inner, height=4, bg=BG_PANEL_2, fg=TEXT,
+                                    insertbackground=TEXT, relief="flat", bd=0,
+                                    font=("Cascadia Mono", 10) if "Cascadia Mono" in tkfont.families() else ("Consolas", 10),
+                                    wrap="word", padx=10, pady=8)
+        self.cons_input.pack(side="left", fill="both", expand=True)
+        self.cons_input.bind("<Return>", self._console_on_enter)
+        self.cons_input.bind("<Shift-Return>", lambda e: None)
+        # Bouton execute
+        btn_zone = tk.Frame(cons_inner, bg=BG_PANEL_2, padx=8, pady=8)
+        btn_zone.pack(side="left", fill="y")
+        StyledButton(btn_zone, "▶ Run", command=self._console_execute,
+                      accent=True, width=80, height=36).pack()
+
         # === Logs ===
         log_frame = tk.Frame(self.root, bg=BG, padx=24)
-        log_frame.pack(fill="both", expand=True, pady=(0, 24))
+        log_frame.pack(fill="both", expand=True, pady=(8, 24))
 
         log_header = tk.Frame(log_frame, bg=BG)
         log_header.pack(fill="x")
@@ -376,6 +403,49 @@ class DevLauncherApp:
             except Exception as e:
                 self.log_queue.put(("err", f"git pull err: {e}"))
         threading.Thread(target=_run, daemon=True).start()
+
+    def _console_on_enter(self, event):
+        # Shift+Enter = newline (laisse passer)
+        if event.state & 0x0001:  # Shift mask
+            return None
+        # Enter sans shift = execute + empeche le newline
+        self._console_execute()
+        return "break"
+
+    def _console_execute(self):
+        cmd = self.cons_input.get("1.0", "end").strip()
+        if not cmd:
+            return
+        self.cons_input.delete("1.0", "end")
+        self.log_queue.put(("info", f"$ {cmd}"))
+
+        def _run():
+            try:
+                creationflags = 0
+                if os.name == "nt":
+                    creationflags = 0x08000000  # CREATE_NO_WINDOW
+                env = os.environ.copy()
+                env["PYTHONIOENCODING"] = "utf-8"
+                # PowerShell -Command pour supporter cd, env, multi-cmd
+                proc = subprocess.Popen(
+                    ["powershell", "-NoProfile", "-NonInteractive",
+                     "-ExecutionPolicy", "Bypass", "-Command", cmd],
+                    cwd=REPO_DIR,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    encoding="utf-8", errors="replace", bufsize=1, text=True,
+                    creationflags=creationflags, env=env,
+                )
+                for line in proc.stdout:
+                    line = line.rstrip()
+                    if line:
+                        self.log_queue.put(("launcher", line))
+                rc = proc.wait()
+                tag = "info" if rc == 0 else "err"
+                self.log_queue.put((tag, f"[exit code {rc}]"))
+            except Exception as e:
+                self.log_queue.put(("err", f"console err: {type(e).__name__}: {e}"))
+        threading.Thread(target=_run, daemon=True).start()
+
 
     def clear_logs(self):
         self.log_text.config(state="normal")
