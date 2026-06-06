@@ -208,8 +208,8 @@ class DevLauncherApp:
                       width=100).pack(side="right")
 
         # === Logs ===
-        log_frame = tk.Frame(self.root, bg=BG, padx=24, pady=(0, 24))
-        log_frame.pack(fill="both", expand=True)
+        log_frame = tk.Frame(self.root, bg=BG, padx=24)
+        log_frame.pack(fill="both", expand=True, pady=(0, 24))
 
         log_header = tk.Frame(log_frame, bg=BG)
         log_header.pack(fill="x")
