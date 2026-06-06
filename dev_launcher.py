@@ -26,15 +26,29 @@ from tkinter import scrolledtext, ttk
 
 
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
-PYTHON = sys.executable  # meme interpreter que celui qui lance le launcher
+PYTHON = sys.executable
 
 DASHBOARD_PORT = os.getenv("WEB_PORT", "5001")
 DASHBOARD_URL  = f"http://localhost:{DASHBOARD_PORT}"
 
+# === Palette TookBot ===
+BG          = "#0a0c10"   # fond noir/bleu profond
+BG_PANEL    = "#11151b"   # cards
+BG_PANEL_2  = "#1a1f26"   # input/log
+BORDER      = "#2a313c"
+TEXT        = "#e6edf3"
+TEXT_MUTED  = "#8b96a3"
+ACCENT      = "#b9ff24"   # lime TookBot
+ACCENT_DK   = "#8fcc1c"
+GREEN       = "#3fb950"
+RED         = "#f85149"
+ORANGE      = "#ffa726"
+
+FONT_FAMILY  = "Segoe UI Variable"
+FONT_FAMILY_FALLBACK = "Segoe UI"
+
 
 class ProcessTracker:
-    """Wrap subprocess + thread qui drain stdout dans une queue."""
-
     def __init__(self, name: str, cmd: list[str], log_queue: "queue.Queue[str]"):
         self.name = name
         self.cmd = cmd
@@ -47,21 +61,14 @@ class ProcessTracker:
             return False
         creationflags = 0
         if os.name == "nt":
-            # CREATE_NEW_PROCESS_GROUP : permet Ctrl+Break propre
             creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
         self.proc = subprocess.Popen(
-            self.cmd,
-            cwd=REPO_DIR,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            bufsize=1,
-            text=True,
-            creationflags=creationflags,
+            self.cmd, cwd=REPO_DIR,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            bufsize=1, text=True, creationflags=creationflags,
         )
-        self.log_queue.put(f"[{self.name}] started (pid={self.proc.pid})")
-        self._reader_thread = threading.Thread(
-            target=self._reader_loop, daemon=True,
-        )
+        self.log_queue.put(("info", f"[{self.name}] started (pid={self.proc.pid})"))
+        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
         self._reader_thread.start()
         return True
 
@@ -70,19 +77,18 @@ class ProcessTracker:
             return False
         try:
             if os.name == "nt":
-                # Ctrl+Break pour stop gracieux
                 self.proc.send_signal(subprocess.signal.CTRL_BREAK_EVENT)
             else:
                 self.proc.terminate()
             try:
                 self.proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                self.log_queue.put(f"[{self.name}] timeout, kill force")
+                self.log_queue.put(("warn", f"[{self.name}] timeout, kill force"))
                 self.proc.kill()
                 self.proc.wait(timeout=2)
         except Exception as e:
-            self.log_queue.put(f"[{self.name}] stop err: {e}")
-        self.log_queue.put(f"[{self.name}] stopped")
+            self.log_queue.put(("err", f"[{self.name}] stop err: {e}"))
+        self.log_queue.put(("info", f"[{self.name}] stopped"))
         return True
 
     def is_running(self) -> bool:
@@ -91,20 +97,67 @@ class ProcessTracker:
     def _reader_loop(self):
         try:
             for line in self.proc.stdout:
-                self.log_queue.put(f"[{self.name}] {line.rstrip()}")
+                self.log_queue.put((self.name, line.rstrip()))
         except Exception:
             pass
+
+
+class StyledButton(tk.Canvas):
+    """Bouton custom dessine sur Canvas pour controle total du look."""
+    def __init__(self, parent, text, command=None, *, accent=False, width=130, height=36):
+        super().__init__(parent, width=width, height=height,
+                          bg=BG_PANEL, highlightthickness=0, bd=0)
+        self.command = command
+        self.text = text
+        self.accent = accent
+        self._w = width
+        self._h = height
+        self._hover = False
+        self._draw()
+        self.bind("<Button-1>", self._on_click)
+        self.bind("<Enter>",    self._on_enter)
+        self.bind("<Leave>",    self._on_leave)
+
+    def _draw(self):
+        self.delete("all")
+        if self.accent:
+            fill = ACCENT_DK if self._hover else ACCENT
+            tcol = "#08110a"
+        else:
+            fill = "#252b35" if self._hover else BG_PANEL_2
+            tcol = TEXT
+        # Bouton rectangle radius via tkinter (utilise create_polygon arrondi approx via rect simple)
+        self.create_rectangle(0, 0, self._w, self._h, fill=fill, outline=BORDER, width=1)
+        self.create_text(self._w // 2, self._h // 2, text=self.text,
+                         fill=tcol, font=(FONT_FAMILY, 10, "bold"))
+
+    def _on_click(self, _e):
+        if self.command:
+            self.command()
+    def _on_enter(self, _e):
+        self._hover = True; self._draw(); self.config(cursor="hand2")
+    def _on_leave(self, _e):
+        self._hover = False; self._draw(); self.config(cursor="")
 
 
 class DevLauncherApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("TookBot Dev Launcher")
-        self.root.geometry("900x600")
-        self.root.configure(bg="#0d1117")
+        self.root.geometry("980x680")
+        self.root.configure(bg=BG)
+        try:
+            self.root.iconbitmap(default="")
+        except Exception:
+            pass
 
-        self.log_queue: queue.Queue[str] = queue.Queue()
+        # Use modern font if available
+        global FONT_FAMILY
+        avail_fonts = set(tk.font.families())
+        if FONT_FAMILY not in avail_fonts:
+            FONT_FAMILY = FONT_FAMILY_FALLBACK
 
+        self.log_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.bot = ProcessTracker("BOT", [PYTHON, "bot.py"], self.log_queue)
         self.web = ProcessTracker("WEB", [PYTHON, "web.py"], self.log_queue)
 
@@ -113,81 +166,112 @@ class DevLauncherApp:
         self._poll_status()
 
     def _build_ui(self):
-        # Style ttk
-        style = ttk.Style()
-        try:
-            style.theme_use("clam")
-        except Exception:
-            pass
-        style.configure("TFrame",   background="#0d1117")
-        style.configure("TLabel",   background="#0d1117", foreground="#e6edf3", font=("Segoe UI", 10))
-        style.configure("Header.TLabel", font=("Segoe UI", 14, "bold"))
-        style.configure("OK.TLabel",   foreground="#3fb950")
-        style.configure("KO.TLabel",   foreground="#f85149")
-        style.configure("Big.TButton", padding=(12, 8), font=("Segoe UI", 10, "bold"))
+        # === Header ===
+        header = tk.Frame(self.root, bg=BG, pady=18, padx=24)
+        header.pack(fill="x")
+        tk.Label(header, text="TookBot Dev Launcher", bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY, 18, "bold")).pack(side="left")
+        tk.Label(header, text="environnement DEV local • Hetzner non touche",
+                 bg=BG, fg=TEXT_MUTED, font=(FONT_FAMILY, 9)).pack(side="left", padx=(12, 0), pady=(4, 0))
 
-        top = ttk.Frame(self.root, padding=14)
+        # === Top : 2 cards ===
+        top = tk.Frame(self.root, bg=BG, padx=24)
         top.pack(fill="x")
 
-        # === Bot block ===
-        bot_frame = ttk.LabelFrame(top, text="Bot Discord (DEV)", padding=10)
-        bot_frame.pack(side="left", fill="both", expand=True, padx=(0, 8))
+        self.bot_card, self.bot_status_dot, self.bot_status_lbl, self.bot_pid_lbl = \
+            self._make_card(top, "🤖  Bot Discord", "BOT",
+                            self.start_bot, self.stop_bot, self.restart_bot)
+        self.bot_card.pack(side="left", fill="both", expand=True, padx=(0, 8))
 
-        self.bot_status_lbl = ttk.Label(bot_frame, text="● Arrete", style="KO.TLabel")
-        self.bot_status_lbl.pack(anchor="w")
+        self.web_card, self.web_status_dot, self.web_status_lbl, self.web_pid_lbl = \
+            self._make_card(top, "🌐  Dashboard Web", "WEB",
+                            self.start_web, self.stop_web, self.restart_web)
+        self.web_card.pack(side="left", fill="both", expand=True, padx=(8, 0))
 
-        btn_row1 = ttk.Frame(bot_frame)
-        btn_row1.pack(fill="x", pady=(8, 0))
-        ttk.Button(btn_row1, text="Demarrer", style="Big.TButton",
-                    command=self.start_bot).pack(side="left", padx=2)
-        ttk.Button(btn_row1, text="Arreter",  style="Big.TButton",
-                    command=self.stop_bot).pack(side="left", padx=2)
-        ttk.Button(btn_row1, text="Redemarrer", style="Big.TButton",
-                    command=self.restart_bot).pack(side="left", padx=2)
+        # === Toolbar utilitaires ===
+        toolbar = tk.Frame(self.root, bg=BG, padx=24, pady=14)
+        toolbar.pack(fill="x")
 
-        # === Web block ===
-        web_frame = ttk.LabelFrame(top, text="Dashboard Web (DEV)", padding=10)
-        web_frame.pack(side="left", fill="both", expand=True, padx=(8, 0))
-
-        self.web_status_lbl = ttk.Label(web_frame, text="● Arrete", style="KO.TLabel")
-        self.web_status_lbl.pack(anchor="w")
-
-        btn_row2 = ttk.Frame(web_frame)
-        btn_row2.pack(fill="x", pady=(8, 0))
-        ttk.Button(btn_row2, text="Demarrer", style="Big.TButton",
-                    command=self.start_web).pack(side="left", padx=2)
-        ttk.Button(btn_row2, text="Arreter",  style="Big.TButton",
-                    command=self.stop_web).pack(side="left", padx=2)
-        ttk.Button(btn_row2, text="Redemarrer", style="Big.TButton",
-                    command=self.restart_web).pack(side="left", padx=2)
-
-        # === Utilitaires ===
-        util_frame = ttk.Frame(self.root, padding=(14, 4))
-        util_frame.pack(fill="x")
-
-        ttk.Button(util_frame, text="Ouvrir Dashboard",
-                    command=lambda: webbrowser.open(DASHBOARD_URL)).pack(side="left", padx=2)
-        ttk.Button(util_frame, text="Git Pull",
-                    command=self.git_pull).pack(side="left", padx=2)
-        ttk.Button(util_frame, text="Clear logs",
-                    command=self.clear_logs).pack(side="left", padx=2)
-        ttk.Button(util_frame, text="Tout demarrer",
-                    command=self.start_all).pack(side="left", padx=2)
-        ttk.Button(util_frame, text="Tout arreter",
-                    command=self.stop_all).pack(side="left", padx=2)
-        ttk.Button(util_frame, text="Quitter",
-                    command=self.quit).pack(side="right", padx=2)
+        StyledButton(toolbar, "🚀  Tout demarrer", command=self.start_all,
+                      accent=True, width=160).pack(side="left", padx=(0, 6))
+        StyledButton(toolbar, "⏹  Tout arreter", command=self.stop_all,
+                      width=140).pack(side="left", padx=6)
+        StyledButton(toolbar, "🌐  Ouvrir Dashboard",
+                      command=lambda: webbrowser.open(DASHBOARD_URL),
+                      width=170).pack(side="left", padx=6)
+        StyledButton(toolbar, "⬇  Git Pull", command=self.git_pull,
+                      width=110).pack(side="left", padx=6)
+        StyledButton(toolbar, "🗑  Clear logs", command=self.clear_logs,
+                      width=120).pack(side="left", padx=6)
+        StyledButton(toolbar, "✕  Quitter", command=self.quit,
+                      width=100).pack(side="right")
 
         # === Logs ===
-        log_frame = ttk.LabelFrame(self.root, text="Logs", padding=4)
-        log_frame.pack(fill="both", expand=True, padx=14, pady=(8, 14))
+        log_frame = tk.Frame(self.root, bg=BG, padx=24, pady=(0, 24))
+        log_frame.pack(fill="both", expand=True)
+
+        log_header = tk.Frame(log_frame, bg=BG)
+        log_header.pack(fill="x")
+        tk.Label(log_header, text="Logs en direct", bg=BG, fg=TEXT_MUTED,
+                  font=(FONT_FAMILY, 10, "bold")).pack(side="left")
+        tk.Label(log_header, text="• prefixe = source (BOT/WEB/launcher)",
+                  bg=BG, fg=TEXT_MUTED, font=(FONT_FAMILY, 9)).pack(side="left", padx=(8, 0))
+
+        log_container = tk.Frame(log_frame, bg=BORDER, bd=1)
+        log_container.pack(fill="both", expand=True, pady=(6, 0))
         self.log_text = scrolledtext.ScrolledText(
-            log_frame, bg="#010409", fg="#c9d1d9",
-            font=("Consolas", 9), wrap="word",
-            insertbackground="#c9d1d9",
+            log_container, bg=BG_PANEL_2, fg=TEXT,
+            font=("Cascadia Mono", 9) if "Cascadia Mono" in tk.font.families() else ("Consolas", 9),
+            wrap="word", relief="flat", bd=0,
+            insertbackground=TEXT, padx=10, pady=8,
+            selectbackground=ACCENT_DK,
         )
         self.log_text.pack(fill="both", expand=True)
         self.log_text.config(state="disabled")
+
+        # Tags couleur logs
+        self.log_text.tag_config("BOT",      foreground="#79c0ff")
+        self.log_text.tag_config("WEB",      foreground="#a5d6ff")
+        self.log_text.tag_config("info",     foreground=ACCENT)
+        self.log_text.tag_config("warn",     foreground=ORANGE)
+        self.log_text.tag_config("err",      foreground=RED)
+        self.log_text.tag_config("launcher", foreground=TEXT_MUTED)
+
+    def _make_card(self, parent, title, name, start_cmd, stop_cmd, restart_cmd):
+        outer = tk.Frame(parent, bg=BORDER, bd=1)
+        inner = tk.Frame(outer, bg=BG_PANEL, padx=18, pady=16)
+        inner.pack(fill="both", expand=True)
+
+        # Header row
+        head = tk.Frame(inner, bg=BG_PANEL)
+        head.pack(fill="x")
+        tk.Label(head, text=title, bg=BG_PANEL, fg=TEXT,
+                  font=(FONT_FAMILY, 13, "bold")).pack(side="left")
+
+        # Status row
+        status_row = tk.Frame(inner, bg=BG_PANEL)
+        status_row.pack(fill="x", pady=(10, 0))
+        dot = tk.Label(status_row, text="●", bg=BG_PANEL, fg=RED,
+                        font=(FONT_FAMILY, 14))
+        dot.pack(side="left")
+        status_lbl = tk.Label(status_row, text="Arrete", bg=BG_PANEL, fg=TEXT,
+                                font=(FONT_FAMILY, 11, "bold"))
+        status_lbl.pack(side="left", padx=(6, 0))
+        pid_lbl = tk.Label(status_row, text="", bg=BG_PANEL, fg=TEXT_MUTED,
+                            font=(FONT_FAMILY, 9))
+        pid_lbl.pack(side="left", padx=(10, 0))
+
+        # Buttons row
+        btn_row = tk.Frame(inner, bg=BG_PANEL)
+        btn_row.pack(fill="x", pady=(16, 0))
+        StyledButton(btn_row, "▶  Demarrer", command=start_cmd, accent=True,
+                      width=110, height=34).pack(side="left", padx=(0, 6))
+        StyledButton(btn_row, "■  Arreter", command=stop_cmd,
+                      width=100, height=34).pack(side="left", padx=6)
+        StyledButton(btn_row, "↻  Redemarrer", command=restart_cmd,
+                      width=120, height=34).pack(side="left", padx=6)
+
+        return outer, dot, status_lbl, pid_lbl
 
     # === Actions ===
     def start_bot(self):
@@ -214,16 +298,18 @@ class DevLauncherApp:
         self.stop_bot(); self.stop_web()
 
     def git_pull(self):
-        try:
-            res = subprocess.run(
-                ["git", "pull"], cwd=REPO_DIR,
-                capture_output=True, text=True, timeout=30,
-            )
-            self._info(f"git pull rc={res.returncode}")
-            for line in (res.stdout + res.stderr).splitlines():
-                self._info(line)
-        except Exception as e:
-            self._info(f"git pull err: {e}")
+        def _run():
+            try:
+                res = subprocess.run(
+                    ["git", "pull"], cwd=REPO_DIR,
+                    capture_output=True, text=True, timeout=30,
+                )
+                self.log_queue.put(("info", f"git pull rc={res.returncode}"))
+                for line in (res.stdout + res.stderr).splitlines():
+                    self.log_queue.put(("launcher", line))
+            except Exception as e:
+                self.log_queue.put(("err", f"git pull err: {e}"))
+        threading.Thread(target=_run, daemon=True).start()
 
     def clear_logs(self):
         self.log_text.config(state="normal")
@@ -237,34 +323,44 @@ class DevLauncherApp:
 
     # === Internals ===
     def _info(self, msg: str):
-        self.log_queue.put(f"[launcher] {msg}")
+        self.log_queue.put(("info", f"[launcher] {msg}"))
 
     def _poll_logs(self):
         try:
             while True:
-                line = self.log_queue.get_nowait()
+                tag, line = self.log_queue.get_nowait()
+                # Tag dispatch : valid tag names dans log_text
+                if tag not in ("BOT", "WEB", "info", "warn", "err", "launcher"):
+                    tag = "launcher"
                 self.log_text.config(state="normal")
-                self.log_text.insert("end", line + "\n")
+                self.log_text.insert("end", line + "\n", tag)
                 self.log_text.see("end")
                 self.log_text.config(state="disabled")
         except queue.Empty:
             pass
-        self.root.after(150, self._poll_logs)
+        self.root.after(120, self._poll_logs)
 
     def _poll_status(self):
         if self.bot.is_running():
-            self.bot_status_lbl.config(text=f"● En cours (pid={self.bot.proc.pid})", style="OK.TLabel")
+            self.bot_status_dot.config(fg=GREEN)
+            self.bot_status_lbl.config(text="En cours", fg=TEXT)
+            self.bot_pid_lbl.config(text=f"pid {self.bot.proc.pid}")
         else:
-            self.bot_status_lbl.config(text="● Arrete", style="KO.TLabel")
+            self.bot_status_dot.config(fg=RED)
+            self.bot_status_lbl.config(text="Arrete", fg=TEXT_MUTED)
+            self.bot_pid_lbl.config(text="")
         if self.web.is_running():
-            self.web_status_lbl.config(text=f"● En cours (pid={self.web.proc.pid})", style="OK.TLabel")
+            self.web_status_dot.config(fg=GREEN)
+            self.web_status_lbl.config(text="En cours", fg=TEXT)
+            self.web_pid_lbl.config(text=f"pid {self.web.proc.pid}")
         else:
-            self.web_status_lbl.config(text="● Arrete", style="KO.TLabel")
+            self.web_status_dot.config(fg=RED)
+            self.web_status_lbl.config(text="Arrete", fg=TEXT_MUTED)
+            self.web_pid_lbl.config(text="")
         self.root.after(800, self._poll_status)
 
 
 def main():
-    # Verifie qu'on a .env.dev ou .env (sinon avertir)
     if not (os.path.exists(".env.dev") or os.path.exists(".env")):
         print("ATTENTION : ni .env.dev ni .env trouve dans", REPO_DIR)
     root = tk.Tk()
