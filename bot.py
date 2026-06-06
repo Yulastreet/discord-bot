@@ -48,9 +48,19 @@ print(
 def _load_opus():
     if discord.opus.is_loaded():
         return True
-    # Tentatives de paths courants Linux + macOS + auto-detect
+    # Tentatives de paths courants : Linux + macOS + Windows + auto-detect
+    _here = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         ctypes.util.find_library("opus"),
+        # Windows : DLL bundle dans le repo (libopus.dll / libopus-0.dll /
+        # opus.dll). Tente d'abord le repo local, puis le PATH systeme.
+        os.path.join(_here, "libopus.dll"),
+        os.path.join(_here, "libopus-0.dll"),
+        os.path.join(_here, "opus.dll"),
+        "libopus.dll",
+        "libopus-0.dll",
+        "opus.dll",
+        # Linux / macOS
         "libopus.so.0",
         "libopus.so",
         "/usr/lib/x86_64-linux-gnu/libopus.so.0",
