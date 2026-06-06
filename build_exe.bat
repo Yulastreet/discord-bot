@@ -21,8 +21,11 @@ python -m PyInstaller ^
 
 if exist "dist\TookBot Dev Launcher.exe" (
     echo.
+    echo === Copie de l'exe a la racine du repo ===
+    copy /Y "dist\TookBot Dev Launcher.exe" "TookBot Dev Launcher.exe" >nul
+    echo.
     echo === Build OK ===
-    echo Fichier : %CD%\dist\TookBot Dev Launcher.exe
+    echo Fichier : %CD%\TookBot Dev Launcher.exe
     echo Double-clic pour lancer.
 ) else (
     echo.

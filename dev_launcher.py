@@ -25,8 +25,65 @@ import webbrowser
 from tkinter import scrolledtext, ttk, font as tkfont
 
 
-REPO_DIR = os.path.dirname(os.path.abspath(__file__))
-PYTHON = sys.executable
+def _resolve_repo_dir() -> str:
+    """Trouve le dossier du repo (contient bot.py).
+    - en dev : dirname(__file__)
+    - en compile : dirname(sys.executable) si contient bot.py, sinon
+      remonte les parents jusqu'a en trouver un.
+    """
+    if getattr(sys, "frozen", False):
+        start = os.path.dirname(os.path.abspath(sys.executable))
+    else:
+        start = os.path.dirname(os.path.abspath(__file__))
+    # Walk up max 4 levels
+    cur = start
+    for _ in range(5):
+        if os.path.exists(os.path.join(cur, "bot.py")) and \
+           os.path.exists(os.path.join(cur, "web.py")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    # Fallback : retourne start meme si bot.py absent (l'erreur sera explicite)
+    return start
+
+
+REPO_DIR = _resolve_repo_dir()
+
+
+def _find_system_python() -> str:
+    """En mode compile (PyInstaller .exe), sys.executable = launcher.exe.
+    On veut le vrai python.exe pour spawn bot.py. Cherche dans PATH puis
+    emplacements standards Windows."""
+    import shutil
+    # 1) PATH
+    for name in ("python.exe", "python3.exe", "py.exe"):
+        p = shutil.which(name)
+        if p:
+            return p
+    # 2) Emplacements typiques Windows
+    candidates = [
+        r"C:\Program Files\Python311\python.exe",
+        r"C:\Program Files\Python312\python.exe",
+        r"C:\Program Files\Python310\python.exe",
+        r"C:\Python311\python.exe",
+        r"C:\Python312\python.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python311\python.exe"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python312\python.exe"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return ""
+
+
+# En mode compile (frozen=True), on cherche le vrai python systeme.
+# Sinon on utilise l'interpreteur courant (mode python dev_launcher.py).
+if getattr(sys, "frozen", False):
+    PYTHON = _find_system_python() or "python"
+else:
+    PYTHON = sys.executable
 
 DASHBOARD_PORT = os.getenv("WEB_PORT", "5001")
 DASHBOARD_URL  = f"http://localhost:{DASHBOARD_PORT}"
@@ -61,7 +118,11 @@ class ProcessTracker:
             return False
         creationflags = 0
         if os.name == "nt":
-            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+            # CREATE_NEW_PROCESS_GROUP : permet Ctrl+Break propre
+            # CREATE_NO_WINDOW : pas de console child visible (stdout
+            # transit toujours par PIPE pour notre log)
+            creationflags = (subprocess.CREATE_NEW_PROCESS_GROUP
+                             | 0x08000000)  # CREATE_NO_WINDOW
         self.proc = subprocess.Popen(
             self.cmd, cwd=REPO_DIR,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
