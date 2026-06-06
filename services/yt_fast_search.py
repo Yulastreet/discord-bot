@@ -82,6 +82,9 @@ def _yt_search_sync(query: str) -> dict:
     thumbs = (vr.get("thumbnail") or {}).get("thumbnails") or []
     if thumbs:
         thumb = thumbs[-1].get("url")
+    # Fallback : construit URL depuis video_id (toujours dispo via ytimg)
+    if not thumb and vid:
+        thumb = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"
     yt_url = f"https://www.youtube.com/watch?v={vid}"
     return {
         "title": title or query,
