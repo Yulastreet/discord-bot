@@ -110,9 +110,9 @@ class StyledButton(tk.Canvas):
         self.command = command
         self.text = text
         self.accent = accent
-        self._width_pxidth_px = width
-        self._height_pxeight_px = height
-        self._height_pxover = False
+        self.btn_width  = width
+        self.btn_height = height
+        self.is_hover = False
         self._draw()
         self.bind("<Button-1>", self._on_click)
         self.bind("<Enter>",    self._on_enter)
@@ -121,23 +121,24 @@ class StyledButton(tk.Canvas):
     def _draw(self):
         self.delete("all")
         if self.accent:
-            fill = ACCENT_DK if self._height_pxover else ACCENT
+            fill = ACCENT_DK if self.is_hover else ACCENT
             tcol = "#08110a"
         else:
-            fill = "#252b35" if self._height_pxover else BG_PANEL_2
+            fill = "#252b35" if self.is_hover else BG_PANEL_2
             tcol = TEXT
-        # Bouton rectangle radius via tkinter (utilise create_polygon arrondi approx via rect simple)
-        self.create_rectangle(0, 0, self._width_px, self._height_px, fill=fill, outline=BORDER, width=1)
-        self.create_text(self._width_px // 2, self._height_px // 2, text=self.text,
-                         fill=tcol, font=(FONT_FAMILY, 10, "bold"))
+        self.create_rectangle(0, 0, self.btn_width, self.btn_height,
+                              fill=fill, outline=BORDER, width=1)
+        self.create_text(self.btn_width // 2, self.btn_height // 2,
+                         text=self.text, fill=tcol,
+                         font=(FONT_FAMILY, 10, "bold"))
 
     def _on_click(self, _e):
         if self.command:
             self.command()
     def _on_enter(self, _e):
-        self._height_pxover = True; self._draw(); self.config(cursor="hand2")
+        self.is_hover = True; self._draw(); self.config(cursor="hand2")
     def _on_leave(self, _e):
-        self._height_pxover = False; self._draw(); self.config(cursor="")
+        self.is_hover = False; self._draw(); self.config(cursor="")
 
 
 class DevLauncherApp:
