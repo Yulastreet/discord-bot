@@ -1,9 +1,14 @@
+import os
 import sqlite3
 import datetime as _dt
 from typing import Optional
 
+# DB file configurable via env DB_PATH (dev = bot_database_dev.db par defaut)
+DB_FILE = os.getenv("DB_PATH") or "bot_database.db"
+
+
 def get_db():
-    conn = sqlite3.connect("bot_database.db")
+    conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
 

@@ -148,7 +148,9 @@ from services.emoji import parse_emoji_input as _parse_emoji_input
 from tasks.runtime import setup_runtime
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
 
-load_dotenv()
+_env_file = ".env.dev" if os.path.exists(".env.dev") else ".env"
+load_dotenv(_env_file)
+print(f"[env] loaded {_env_file}", flush=True)
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 # ===== MONETIZATION =====

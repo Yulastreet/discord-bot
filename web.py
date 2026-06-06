@@ -75,7 +75,9 @@ from duel.sabres import RARETES
 # Init DB + seed
 init_db()
 
-load_dotenv()
+_env_file = ".env.dev" if os.path.exists(".env.dev") else ".env"
+load_dotenv(_env_file)
+print(f"[env] loaded {_env_file}", flush=True)
 
 app = Flask(__name__)
 # Cle de session fixe en prod (sinon les sessions sautent a chaque restart).

@@ -1,6 +1,12 @@
 .env
+.env.dev
 __pycache__/
 *.pyc
+
+# PyInstaller build artifacts (dev launcher .exe)
+build/
+dist/
+*.spec
 .claude/
 .deepsec/
 .impeccable/
