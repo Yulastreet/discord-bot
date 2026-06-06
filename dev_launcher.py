@@ -22,7 +22,7 @@ import threading
 import time
 import tkinter as tk
 import webbrowser
-from tkinter import scrolledtext, ttk
+from tkinter import scrolledtext, ttk, font as tkfont
 
 
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -153,7 +153,7 @@ class DevLauncherApp:
 
         # Use modern font if available
         global FONT_FAMILY
-        avail_fonts = set(tk.font.families())
+        avail_fonts = set(tkfont.families())
         if FONT_FAMILY not in avail_fonts:
             FONT_FAMILY = FONT_FAMILY_FALLBACK
 
@@ -221,7 +221,7 @@ class DevLauncherApp:
         log_container.pack(fill="both", expand=True, pady=(6, 0))
         self.log_text = scrolledtext.ScrolledText(
             log_container, bg=BG_PANEL_2, fg=TEXT,
-            font=("Cascadia Mono", 9) if "Cascadia Mono" in tk.font.families() else ("Consolas", 9),
+            font=("Cascadia Mono", 9) if "Cascadia Mono" in tkfont.families() else ("Consolas", 9),
             wrap="word", relief="flat", bd=0,
             insertbackground=TEXT, padx=10, pady=8,
             selectbackground=ACCENT_DK,
