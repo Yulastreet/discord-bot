@@ -123,10 +123,14 @@ class ProcessTracker:
             # transit toujours par PIPE pour notre log)
             creationflags = (subprocess.CREATE_NEW_PROCESS_GROUP
                              | 0x08000000)  # CREATE_NO_WINDOW
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"  # evite cp1252 sur Windows
+        env["PYTHONUTF8"] = "1"
         self.proc = subprocess.Popen(
             self.cmd, cwd=REPO_DIR,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             bufsize=1, text=True, creationflags=creationflags,
+            env=env, encoding="utf-8", errors="replace",
         )
         self.log_queue.put(("info", f"[{self.name}] started (pid={self.proc.pid})"))
         self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
