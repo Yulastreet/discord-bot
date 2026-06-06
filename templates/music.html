@@ -207,7 +207,7 @@
 
   .queue-row {
     display: grid;
-    grid-template-columns: 36px 64px 1fr 80px 40px;
+    grid-template-columns: 28px 36px 64px 1fr 60px 36px 36px;
     gap: var(--s-3);
     align-items: center;
     padding: 12px var(--s-6);
@@ -220,6 +220,8 @@
   .queue-row .qr-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .queue-row .qr-dur { font-family: var(--font-mono); color: var(--text-2); text-align: right; font-size: 12px; }
   .queue-row .qr-rm { display: flex; justify-content: flex-end; }
+  .queue-row .qr-handle { display: flex; align-items: center; justify-content: center; user-select: none; }
+  .queue-row .qr-jump { display: flex; justify-content: flex-end; }
   .queue-empty { padding: var(--s-9); text-align: center; color: var(--text-3); font-size: var(--t-sm); }
 
   .stats-grid {
