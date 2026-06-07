@@ -125,6 +125,19 @@ def init_db():
         updated_at                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ===== Reminders : /remind <duree> <texte> =====
+    c.execute('''CREATE TABLE IF NOT EXISTS reminders (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id    TEXT NOT NULL,
+        user_id     TEXT NOT NULL,
+        channel_id  TEXT NOT NULL,
+        text        TEXT NOT NULL,
+        due_at      TEXT NOT NULL,            -- ISO 'YYYY-MM-DD HH:MM:SS' UTC
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        fired       INTEGER DEFAULT 0
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_at, fired)")
+
     # ===== Tempvoice : salons vocaux temporaires =====
     # Config par guild : lobby_channel_id = vocal "Creer ton salon" que les
     # users rejoignent pour declencher la creation ; category_id = categorie
@@ -1447,6 +1460,59 @@ def automod_config_set(guild_id, **fields):
     c.execute(f"UPDATE automod_config SET {sets} WHERE guild_id = ?",
               (*fields.values(), str(guild_id)))
     conn.commit(); conn.close()
+
+
+# ===== Reminders helpers =====
+def reminder_add(guild_id, user_id, channel_id, text, due_at_iso):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO reminders (guild_id, user_id, channel_id, text, due_at)
+                 VALUES (?, ?, ?, ?, ?)''',
+              (str(guild_id), str(user_id), str(channel_id), text, due_at_iso))
+    rid = c.lastrowid
+    conn.commit(); conn.close()
+    return rid
+
+
+def reminders_due(now_iso):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM reminders WHERE fired = 0 AND due_at <= ? ORDER BY due_at ASC",
+        (now_iso,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def reminder_mark_fired(reminder_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE reminders SET fired = 1 WHERE id = ?", (int(reminder_id),))
+    conn.commit(); conn.close()
+
+
+def reminders_list_user(user_id, include_fired=False, limit=20):
+    conn = get_db(); c = conn.cursor()
+    if include_fired:
+        rows = c.execute(
+            "SELECT * FROM reminders WHERE user_id = ? ORDER BY due_at DESC LIMIT ?",
+            (str(user_id), int(limit)),
+        ).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT * FROM reminders WHERE user_id = ? AND fired = 0 ORDER BY due_at ASC LIMIT ?",
+            (str(user_id), int(limit)),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def reminder_delete(reminder_id, user_id):
+    """Supprime si appartient au user (anti hijack)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM reminders WHERE id = ? AND user_id = ?",
+              (int(reminder_id), str(user_id)))
+    deleted = c.rowcount > 0
+    conn.commit(); conn.close()
+    return deleted
 
 
 # ===== Tempvoice helpers =====

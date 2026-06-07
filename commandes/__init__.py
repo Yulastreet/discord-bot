@@ -12,6 +12,7 @@ from .welcome import setup_welcome_commands
 from .setup_cmd import setup_setup_commands
 from .presentation import setup_presentation_commands
 from .tempvoice import setup_tempvoice
+from .remind import setup_remind_commands
 
 
 def setup_commands(bot, user_reactions, deps):
@@ -28,5 +29,6 @@ def setup_commands(bot, user_reactions, deps):
     setup_socialalert_commands(bot, deps)
     setup_pass_commands(bot, deps)
     setup_tempvoice(bot, deps)
+    setup_remind_commands(bot, deps)
     resume_music = setup_music_commands(bot, deps)
     return {"resume_music": resume_music}

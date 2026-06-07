@@ -100,6 +100,8 @@ def setup_runtime(bot, deps):
             voice_idle_disconnect.start()
         if not tookbot_plus_expiry_cleanup.is_running():
             tookbot_plus_expiry_cleanup.start()
+        if not reminders_dispatch.is_running():
+            reminders_dispatch.start()
         # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
@@ -1533,6 +1535,44 @@ def setup_runtime(bot, deps):
 
     # Hook global : rate-limit + guard chaines sur l'arbre des slash commands
     bot.tree.interaction_check = _global_rate_limit
+
+    # Reminders : fire chaque minute les rappels dus
+    @tasks.loop(seconds=30)
+    async def reminders_dispatch():
+        import datetime as _dtmod
+        try:
+            from database import reminders_due, reminder_mark_fired
+            now_iso = _dtmod.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            due = reminders_due(now_iso)
+            for r in due:
+                try:
+                    ch = bot.get_channel(int(r["channel_id"]))
+                    if ch is None:
+                        # Channel introuvable, marque fired pour pas re-tenter
+                        reminder_mark_fired(r["id"])
+                        continue
+                    embed = discord.Embed(
+                        title="⏰ Rappel",
+                        description=r["text"],
+                        color=0xB9F23A,
+                    )
+                    embed.set_footer(text=f"Rappel #{r['id']} cree le {r['created_at']}")
+                    await ch.send(content=f"<@{r['user_id']}>", embed=embed)
+                    reminder_mark_fired(r["id"])
+                except Exception as e:
+                    print(f"[reminders] fire err id={r.get('id')}: {type(e).__name__}: {e}")
+                    # Marque fired pour eviter spam
+                    try:
+                        reminder_mark_fired(r["id"])
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[reminders] loop err: {type(e).__name__}: {e}")
+
+    @reminders_dispatch.before_loop
+    async def _before_reminders_dispatch():
+        await bot.wait_until_ready()
+
 
     # Cleanup TookBot+ expire : detecte les grants tookbot_plus expires
     # (trial fini, abo termine et non renouvele) puis :
