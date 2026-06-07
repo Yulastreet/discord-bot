@@ -156,7 +156,7 @@ def setup_cards_commands(bot, deps):
         await interaction.response.send_message(embed=embed)
 
     # === /collection ===
-    @bot.tree.command(name="collection", description="Voir ta collection de cartes (ou celle de quelqu'un)")
+    @bot.tree.command(name="mycards", description="Voir ta collection de cartes (ou celle de quelqu'un)")
     @app_commands.describe(membre="Membre dont voir la collection (defaut : toi)",
                             rarete="Filtre par rarete")
     @app_commands.choices(rarete=[
