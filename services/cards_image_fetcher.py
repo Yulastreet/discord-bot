@@ -53,37 +53,160 @@ def _wikipedia_search_first(query: str, lang: str = "en") -> str | None:
     return data[1][0]
 
 
+def _wikipedia_pageimages(title: str, lang: str = "en") -> str | None:
+    """Utilise action=query&prop=pageimages qui marche meme quand summary
+    n'a pas d'image. Plus exhaustif."""
+    if not title:
+        return None
+    url = (f"https://{lang}.wikipedia.org/w/api.php?action=query&format=json&"
+           f"prop=pageimages&pithumbsize=600&pilimit=1&"
+           f"titles={urllib.parse.quote(title.replace(' ', '_'))}")
+    data = _http_get(url)
+    if not data:
+        return None
+    pages = ((data.get("query") or {}).get("pages") or {})
+    for _pid, page in pages.items():
+        if page.get("pageid", 0) <= 0:
+            continue
+        thumb = (page.get("thumbnail") or {}).get("source")
+        if thumb:
+            return thumb
+    return None
+
+
+def _jikan_character_image(name: str) -> str | None:
+    """API Jikan (MyAnimeList non-officielle) pour personnages anime.
+    Pas de cle requise."""
+    if not name:
+        return None
+    url = (f"https://api.jikan.moe/v4/characters?"
+           f"q={urllib.parse.quote(name)}&limit=1&order_by=favorites&sort=desc")
+    data = _http_get(url)
+    if not data:
+        return None
+    items = data.get("data") or []
+    if not items:
+        return None
+    images = (items[0].get("images") or {})
+    # Preference webp > jpg
+    for kind in ("webp", "jpg"):
+        v = (images.get(kind) or {}).get("image_url")
+        if v:
+            return v
+    return None
+
+
+def _fandom_search_thumb(name: str, universe_keyword: str | None = None) -> str | None:
+    """Cherche sur Fandom via leur API search globale, qui retourne des
+    pages avec un thumbnail. Endpoint : community.fandom.com cross-wiki.
+
+    En pratique on cible le wiki dedie au franchise. Map quelques univers
+    connus -> sous-domaine fandom. Pour le reste, fallback global search.
+    """
+    if not name:
+        return None
+    wiki_map = {
+        "star wars":          "starwars",
+        "anime":              None,        # ambigus, voir below
+        "one piece":          "onepiece",
+        "naruto":             "naruto",
+        "dragon ball":        "dragonball",
+        "attack on titan":    "shingekinokyojin",
+        "demon slayer":       "kimetsu-no-yaiba",
+        "jujutsu kaisen":     "jujutsu-kaisen",
+        "code geass":         "codegeass",
+        "death note":         "deathnote",
+        "cowboy bebop":       "cowboybebop",
+        "halo":               "halo",
+        "zelda":              "zelda",
+        "god of war":         "godofwar",
+        "the witcher":        "witcher",
+        "metal gear":         "metalgear",
+        "tomb raider":        "tombraider",
+        "pokemon":            "pokemon",
+        "final fantasy vii":  "finalfantasy",
+        "hazbin hotel":       "hazbinhotel",
+        "helluva boss":       "helluva-boss",
+        "digital circus":     "the-amazing-digital-circus",
+        "south park":         "southpark",
+        "the simpsons":       "simpsons",
+        "nickelodeon":        "spongebob",
+        "rick and morty":     "rickandmorty",
+        "breaking bad":       "breakingbad",
+        "dreamworks":         "shrek",
+        "nintendo":           "mario",
+        "sega":               "sonic",
+    }
+    sub = None
+    if universe_keyword:
+        sub = wiki_map.get(universe_keyword.lower())
+    if not sub:
+        return None
+    # API : recherche puis page details
+    search_url = (f"https://{sub}.fandom.com/api.php?action=opensearch&format=json&"
+                  f"limit=1&search={urllib.parse.quote(name)}")
+    res = _http_get(search_url)
+    if not isinstance(res, list) or len(res) < 2 or not res[1]:
+        return None
+    page_title = res[1][0]
+    # Pageimages sur ce wiki Fandom (compatible MediaWiki API)
+    img_url = (f"https://{sub}.fandom.com/api.php?action=query&format=json&"
+               f"prop=pageimages&pithumbsize=600&titles={urllib.parse.quote(page_title.replace(' ', '_'))}")
+    data = _http_get(img_url)
+    if not data:
+        return None
+    pages = ((data.get("query") or {}).get("pages") or {})
+    for _pid, page in pages.items():
+        thumb = (page.get("thumbnail") or {}).get("source")
+        if thumb:
+            return thumb
+    return None
+
+
 def fetch_card_image(name: str, universe: str | None = None,
                       subtitle: str | None = None) -> str | None:
-    """Strategie en cascade pour obtenir une URL d'image pour une carte.
+    """Strategie cascade multi-sources :
 
-    1) Wikipedia summary EN directement avec le nom
-    2) Search EN + summary sur le titre trouve
-    3) Avec contexte univers (ex 'Luke Skywalker Star Wars')
-    4) Wikipedia FR
+    1) Wikipedia EN summary direct
+    2) Wikipedia EN pageimages direct (plus exhaustif que summary)
+    3) Wikipedia EN search + summary
+    4) Avec contexte univers ('Luke Skywalker Star Wars')
+    5) Fandom (mapping franchise -> sous-domaine connu)
+    6) Jikan API (si universe = Anime)
+    7) Wikipedia FR
     """
-    # 1) Direct EN
+    # Try by character name strategies
+    # 1)
     img = _wikipedia_summary_thumb(name, "en")
-    if img:
-        return img
-    # 2) Search EN
+    if img: return img
+    # 2)
+    img = _wikipedia_pageimages(name, "en")
+    if img: return img
+    # 3)
     found = _wikipedia_search_first(name, "en")
     if found:
-        img = _wikipedia_summary_thumb(found, "en")
-        if img:
-            return img
-    # 3) Avec contexte
+        img = _wikipedia_summary_thumb(found, "en") or _wikipedia_pageimages(found, "en")
+        if img: return img
+    # 4) Avec contexte
     if universe:
         ctx = f"{name} {universe}"
         found = _wikipedia_search_first(ctx, "en")
         if found:
-            img = _wikipedia_summary_thumb(found, "en")
-            if img:
-                return img
-    # 4) FR
-    img = _wikipedia_summary_thumb(name, "fr")
-    if img:
-        return img
+            img = _wikipedia_summary_thumb(found, "en") or _wikipedia_pageimages(found, "en")
+            if img: return img
+    # 5) Fandom (cible le wiki du franchise)
+    # subtitle est souvent le franchise (ex 'One Piece') donc essaie d'abord
+    for key in (subtitle, universe):
+        if key:
+            img = _fandom_search_thumb(name, key)
+            if img: return img
+    # 6) Jikan (anime)
+    if universe and universe.lower() in ("anime", "manga"):
+        img = _jikan_character_image(name)
+        if img: return img
+    # 7) FR
+    img = _wikipedia_summary_thumb(name, "fr") or _wikipedia_pageimages(name, "fr")
+    if img: return img
     return None
 
 
