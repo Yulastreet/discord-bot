@@ -171,7 +171,8 @@ def setup_cards_commands(bot, deps):
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = RARITY_EMOJIS.get(rarity, "⚪")
         origine = card.get("subtitle") or "?"
-        desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
+        univers = card.get("universe") or "?"
+        desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}\n**Univers :** {univers}"
         embed = discord.Embed(
             title=f"{emoji} {card['name']}"[:256],
             description=desc,
