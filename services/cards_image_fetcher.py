@@ -22,63 +22,49 @@ _DEFAULT_TIMEOUT = 8
 # URLs upload.wikimedia.org (Wikipedia Commons) ou static.wikia.nocookie.net
 # direct (sans scale-to-width parametres).
 CURATED_IMAGES: dict[str, str] = {
-    # ===== Star Wars =====
-    "Luke Skywalker":   "https://lumiere-a.akamaihd.net/v1/images/luke-skywalker-main_269abf1d.jpeg",
-    "Darth Vader":      "https://lumiere-a.akamaihd.net/v1/images/databank_darthvader_01_169_a2f44f55.jpeg",
-    "Yoda":             "https://lumiere-a.akamaihd.net/v1/images/databank_yoda_01_169_d5d3eaa3.jpeg",
-    "The Mandalorian":  "https://lumiere-a.akamaihd.net/v1/images/the-mandalorian-main_4f297a99.jpeg",
-    "Grogu":            "https://lumiere-a.akamaihd.net/v1/images/cd_grogu_f6173336.jpeg",
-    "Boba Fett":        "https://lumiere-a.akamaihd.net/v1/images/databank_bobafett_01_169_e7d2f6e4.jpeg",
-    "Princess Leia":    "https://lumiere-a.akamaihd.net/v1/images/databank_leiaorgana_01_169_b3aa8194.jpeg",
-    "Han Solo":         "https://lumiere-a.akamaihd.net/v1/images/databank_hansolo_01_169_be20e4d1.jpeg",
-    "Chewbacca":        "https://lumiere-a.akamaihd.net/v1/images/databank_chewbacca_01_169_ec05bcb5.jpeg",
-    "Obi-Wan Kenobi":   "https://lumiere-a.akamaihd.net/v1/images/databank_obiwankenobi_01_169_46ab6b4a.jpeg",
-    # ===== Anime (preferer Jikan via API mais en cas de fallback) =====
+    # Uniquement URLs verifies working (visible dans dashboard apres refresh).
+    # Le reste : cascade Wikipedia/Fandom/Jikan + validation HEAD.
     "Naruto Uzumaki":   "https://cdn.myanimelist.net/images/characters/2/284121.jpg",
     "Sasuke Uchiha":    "https://cdn.myanimelist.net/images/characters/9/131317.jpg",
     "Goku":             "https://cdn.myanimelist.net/images/characters/7/284129.jpg",
-    "Vegeta":           "https://cdn.myanimelist.net/images/characters/16/47282.jpg",
     "Monkey D. Luffy":  "https://cdn.myanimelist.net/images/characters/9/310307.jpg",
     "Roronoa Zoro":     "https://cdn.myanimelist.net/images/characters/3/100534.jpg",
     "Levi Ackerman":    "https://cdn.myanimelist.net/images/characters/2/241413.jpg",
     "Eren Yeager":      "https://cdn.myanimelist.net/images/characters/10/216895.jpg",
     "Tanjiro Kamado":   "https://cdn.myanimelist.net/images/characters/6/386735.jpg",
-    "Nezuko Kamado":    "https://cdn.myanimelist.net/images/characters/9/383496.jpg",
-    "Gojo Satoru":      "https://cdn.myanimelist.net/images/characters/7/422168.jpg",
-    "Itadori Yuji":     "https://cdn.myanimelist.net/images/characters/13/424044.jpg",
-    "Lelouch Lamperouge": "https://cdn.myanimelist.net/images/characters/3/50617.jpg",
     "Light Yagami":     "https://cdn.myanimelist.net/images/characters/6/63870.jpg",
-    "Spike Spiegel":    "https://cdn.myanimelist.net/images/characters/8/82533.jpg",
-    # ===== Jeux Video =====
-    "Master Chief":     "https://upload.wikimedia.org/wikipedia/en/d/d6/Master_Chief_helmet.svg",
-    "Mario":            "https://mario.wiki.gallery/images/thumb/4/4d/MarioNSMBUDeluxe.png/800px-MarioNSMBUDeluxe.png",
-    "Link":             "https://www.zeldadungeon.net/wiki/images/c/c9/Link-TotK-Render.png",
-    "Kratos":           "https://upload.wikimedia.org/wikipedia/en/d/d0/Kratos_-_PlayStation_-_The_Concept.png",
-    "Geralt of Rivia":  "https://upload.wikimedia.org/wikipedia/en/0/03/Geralt_of_Rivia_05.jpg",
-    "Solid Snake":      "https://upload.wikimedia.org/wikipedia/en/8/8b/Solid_Snake_MGS2.jpg",
-    "Lara Croft":       "https://upload.wikimedia.org/wikipedia/en/6/63/Lara_Croft_2013.png",
-    "Sonic the Hedgehog": "https://upload.wikimedia.org/wikipedia/en/b/b4/Sonic_modern_and_classic_designs.png",
     "Pikachu":          "https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png",
-    "Cloud Strife":     "https://upload.wikimedia.org/wikipedia/en/c/c7/Cloud_Strife_Final_Fantasy_VII_Remake.png",
-    # ===== Hazbin Hotel / Helluva Boss =====
-    "Charlie Morningstar": "https://static.wikia.nocookie.net/hazbinhotel/images/0/0d/Charlie_Morningstar.png/revision/latest?cb=20240120175430",
-    "Alastor":          "https://static.wikia.nocookie.net/hazbinhotel/images/3/36/Alastor_Profile.png/revision/latest?cb=20240120175438",
-    "Vaggie":           "https://static.wikia.nocookie.net/hazbinhotel/images/9/9c/Vaggie_Profile.png/revision/latest?cb=20240120175433",
-    "Angel Dust":       "https://static.wikia.nocookie.net/hazbinhotel/images/3/3d/Angel_Dust_Profile.png/revision/latest?cb=20240120175433",
-    "Blitzo":           "https://static.wikia.nocookie.net/helluva-boss/images/4/41/Blitzo.png/revision/latest?cb=20221008041648",
-    # ===== Amazing Digital Circus =====
-    "Pomni":            "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/9/9a/Pomni_alt.png/revision/latest",
-    "Caine":            "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/9/9e/Caine.png/revision/latest",
-    "Ragatha":          "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/4/4f/Ragatha.png/revision/latest",
-    "Jax":              "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/4/47/Jax.png/revision/latest",
-    # ===== Pop Culture divers =====
-    "Stan Marsh":       "https://static.wikia.nocookie.net/southpark/images/d/db/Stan_Marsh.png/revision/latest",
     "Homer Simpson":    "https://upload.wikimedia.org/wikipedia/en/0/02/Homer_Simpson_2006.png",
-    "SpongeBob":        "https://upload.wikimedia.org/wikipedia/en/3/3b/SpongeBob_SquarePants_character.svg",
     "Rick Sanchez":     "https://upload.wikimedia.org/wikipedia/en/a/a6/Rick_Sanchez.png",
     "Walter White":     "https://upload.wikimedia.org/wikipedia/en/0/03/Walter_White_S5B.png",
-    "Shrek":            "https://upload.wikimedia.org/wikipedia/en/4/4a/Shrek_%28character%29.png",
 }
+
+
+def _validate_image_url(url: str | None, timeout: int = 5) -> bool:
+    """HEAD-check. Accept seulement si 200 + content-type image/*.
+    Suis les redirects."""
+    if not url:
+        return False
+    try:
+        req = urllib.request.Request(url, method="HEAD",
+                                      headers={"User-Agent": _USER_AGENT})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status != 200:
+                return False
+            ct = resp.headers.get("Content-Type", "").lower()
+            return ct.startswith("image/")
+    except Exception:
+        # Certains hosts bloquent HEAD mais autorisent GET. Tente GET partiel.
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": _USER_AGENT, "Range": "bytes=0-1023"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status not in (200, 206):
+                    return False
+                ct = resp.headers.get("Content-Type", "").lower()
+                return ct.startswith("image/")
+        except Exception:
+            return False
 
 
 def _http_get(url: str, timeout: int = _DEFAULT_TIMEOUT) -> dict | None:
@@ -240,40 +226,44 @@ def fetch_card_image(name: str, universe: str | None = None,
     6) Jikan API (si universe = Anime)
     7) Wikipedia FR
     """
+    def _ok(u: str | None) -> str | None:
+        """Return URL si valide, sinon None pour fall-through cascade."""
+        return u if _validate_image_url(u) else None
+
     # 0) Curated override
     if name in CURATED_IMAGES:
-        return CURATED_IMAGES[name]
+        v = _ok(CURATED_IMAGES[name])
+        if v: return v
     # 1)
-    img = _wikipedia_summary_thumb(name, "en")
-    if img: return img
+    v = _ok(_wikipedia_summary_thumb(name, "en"))
+    if v: return v
     # 2)
-    img = _wikipedia_pageimages(name, "en")
-    if img: return img
+    v = _ok(_wikipedia_pageimages(name, "en"))
+    if v: return v
     # 3)
     found = _wikipedia_search_first(name, "en")
     if found:
-        img = _wikipedia_summary_thumb(found, "en") or _wikipedia_pageimages(found, "en")
-        if img: return img
+        v = _ok(_wikipedia_summary_thumb(found, "en")) or _ok(_wikipedia_pageimages(found, "en"))
+        if v: return v
     # 4) Avec contexte
     if universe:
         ctx = f"{name} {universe}"
         found = _wikipedia_search_first(ctx, "en")
         if found:
-            img = _wikipedia_summary_thumb(found, "en") or _wikipedia_pageimages(found, "en")
-            if img: return img
+            v = _ok(_wikipedia_summary_thumb(found, "en")) or _ok(_wikipedia_pageimages(found, "en"))
+            if v: return v
     # 5) Fandom (cible le wiki du franchise)
-    # subtitle est souvent le franchise (ex 'One Piece') donc essaie d'abord
     for key in (subtitle, universe):
         if key:
-            img = _fandom_search_thumb(name, key)
-            if img: return img
-    # 6) Jikan (anime)
-    if universe and universe.lower() in ("anime", "manga"):
-        img = _jikan_character_image(name)
-        if img: return img
+            v = _ok(_fandom_search_thumb(name, key))
+            if v: return v
+    # 6) Jikan (anime). Tente meme si univers != anime, beaucoup de
+    # personnages pop culture ont une entree MAL/Jikan
+    v = _ok(_jikan_character_image(name))
+    if v: return v
     # 7) FR
-    img = _wikipedia_summary_thumb(name, "fr") or _wikipedia_pageimages(name, "fr")
-    if img: return img
+    v = _ok(_wikipedia_summary_thumb(name, "fr")) or _ok(_wikipedia_pageimages(name, "fr"))
+    if v: return v
     return None
 
 
@@ -291,12 +281,16 @@ def refresh_all_cards_images(force_overwrite: bool = False) -> dict:
             stats["kept"] += 1
             continue
         img = fetch_card_image(r["name"], r.get("universe"), r.get("subtitle"))
-        if img:
+        # En force_overwrite, ecrit toujours (meme None) pour clear URLs cassees
+        if img or force_overwrite:
             conn = get_db(); c = conn.cursor()
             c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
                        (img, r["id"]))
             conn.commit(); conn.close()
-            stats["updated"] += 1
+            if img:
+                stats["updated"] += 1
+            else:
+                stats["failed"] += 1
         else:
             stats["failed"] += 1
     return stats
