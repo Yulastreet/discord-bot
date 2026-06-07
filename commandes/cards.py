@@ -11,6 +11,7 @@ from discord import app_commands
 
 from database import (
     card_count_total, card_roll_random, card_get_by_name,
+    card_owners_count,
     user_card_add, user_card_list, user_card_count,
     user_card_settings_get, user_card_settings_set_last_roll,
     guild_card_config_get, guild_card_config_set,
@@ -133,23 +134,23 @@ def setup_cards_commands(bot, deps):
             now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             user_card_settings_set_last_roll(uid, now_iso)
 
-        # Embed
+        # Embed minimaliste
         rarity = card.get("rarity", "common")
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = RARITY_EMOJIS.get(rarity, "⚪")
+        origine = card.get("subtitle") or "?"
+        desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
         embed = discord.Embed(
-            title=f"{emoji} {card['name']}",
-            description=card.get("description") or "*Pas de description.*",
+            title=f"{emoji} {card['name']}"[:256],
+            description=desc,
             color=color,
         )
-        if card.get("universe"):
-            embed.add_field(name="Univers", value=card["universe"], inline=True)
-        if card.get("subtitle"):
-            embed.add_field(name="Origine", value=card["subtitle"], inline=True)
-        embed.add_field(name="Rarete", value=rarity.upper(), inline=True)
-        if card.get("image_url"):
-            embed.set_image(url=card["image_url"])
-        embed.set_footer(text=f"Carte obtenue par {interaction.user.display_name}")
+        img = card.get("image_url")
+        if img and isinstance(img, str) and img.startswith("http"):
+            embed.set_image(url=img)
+        avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
+        embed.set_footer(text=f"Appartient à {interaction.user.display_name}",
+                          icon_url=avatar_url)
         await interaction.response.send_message(embed=embed)
 
     # === /collection ===
@@ -241,21 +242,19 @@ def setup_cards_commands(bot, deps):
             rarity = card.get("rarity", "common")
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
             emoji = RARITY_EMOJIS.get(rarity, "⚪")
-            # Tronque description embed (Discord limit 4096 mais 1000 safe)
-            desc = (card.get("description") or "*Pas de description.*")[:1000]
+            origine = card.get("subtitle") or "?"
+            desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
             embed = discord.Embed(
                 title=f"{emoji} {card['name']}"[:256],
                 description=desc,
                 color=color,
             )
-            if card.get("universe"):
-                embed.add_field(name="Univers", value=str(card["universe"])[:1024], inline=True)
-            if card.get("subtitle"):
-                embed.add_field(name="Origine", value=str(card["subtitle"])[:1024], inline=True)
-            embed.add_field(name="Rarete", value=rarity.upper(), inline=True)
             img = card.get("image_url")
             if img and isinstance(img, str) and img.startswith("http"):
                 embed.set_image(url=img)
+            owners = card_owners_count(card["id"])
+            if owners > 0:
+                embed.set_footer(text=f"Possédée par {owners} joueur{'s' if owners > 1 else ''}")
             await interaction.response.send_message(embed=embed)
         except Exception as e:
             import traceback

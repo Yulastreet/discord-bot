@@ -1654,6 +1654,15 @@ def user_card_list(user_id, rarity=None):
     return [dict(r) for r in rows]
 
 
+def card_owners_count(card_id):
+    """Nombre de users distincts possedant cette carte."""
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(DISTINCT user_id) AS n FROM user_cards WHERE card_id = ?",
+                   (int(card_id),)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
 def user_card_count(user_id):
     conn = get_db(); c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ?",
