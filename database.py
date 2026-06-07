@@ -2086,6 +2086,88 @@ def get_msg_per_day(guild_id, days=30):
     return out
 
 
+def get_cohort_retention(guild_id, weeks=12):
+    """Cohort retention par semaine. Pour chaque cohort (semaine de join),
+    on calcule % de membres encore actifs (1+ log) dans les semaines suivantes.
+
+    Retourne liste de dicts :
+    [{cohort_week: 'YYYY-Www', cohort_size: int,
+      week_offsets: [pct_w0, pct_w1, ..., pct_wN]}]
+    """
+    import datetime as _dtmod
+    conn = get_db(); c = conn.cursor()
+    # Liste cohorts : tous les member_join groupes par ISO week
+    rows = c.execute(
+        """SELECT strftime('%Y-%W', ts) AS week, user_id, ts
+           FROM logs WHERE guild_id = ? AND type = 'action_member_join'
+             AND ts >= datetime('now', ?)
+           ORDER BY ts ASC""",
+        (str(guild_id), f"-{int(weeks * 7 + 14)} days"),
+    ).fetchall()
+    cohorts: dict[str, list[str]] = {}
+    cohort_join_ts: dict[str, dict[str, str]] = {}
+    for r in rows:
+        w = r["week"]
+        cohorts.setdefault(w, []).append(r["user_id"])
+        cohort_join_ts.setdefault(w, {})[r["user_id"]] = r["ts"]
+    out = []
+    today = _dtmod.date.today()
+    for week, members in sorted(cohorts.items())[-weeks:]:
+        cohort_size = len(members)
+        # Pour chaque offset (semaine N apres join), compte combien sont actifs
+        join_dates = {uid: r for uid, r in cohort_join_ts[week].items()}
+        offsets = []
+        for w_offset in range(weeks):
+            start_iso = None
+            end_iso = None
+            # On utilise la semaine du 1er joiner comme reference
+            try:
+                ref = list(join_dates.values())[0]
+                ref_dt = _dtmod.datetime.strptime(ref[:10], "%Y-%m-%d")
+                start = ref_dt + _dtmod.timedelta(days=w_offset * 7)
+                end   = start + _dtmod.timedelta(days=7)
+                if start.date() > today:
+                    break
+                start_iso = start.strftime("%Y-%m-%d %H:%M:%S")
+                end_iso   = end.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                continue
+            # Count distinct user_id (members de la cohort) actifs sur cette fenetre
+            ph = ",".join("?" * len(members))
+            params = [str(guild_id), start_iso, end_iso] + members
+            active = c.execute(
+                f"""SELECT COUNT(DISTINCT user_id) AS n FROM logs
+                    WHERE guild_id = ? AND ts >= ? AND ts < ?
+                      AND user_id IN ({ph})""",
+                params,
+            ).fetchone()["n"]
+            pct = round(100.0 * active / cohort_size, 1) if cohort_size else 0
+            offsets.append(pct)
+        out.append({
+            "cohort_week": week,
+            "cohort_size": cohort_size,
+            "week_offsets": offsets,
+        })
+    conn.close()
+    return out
+
+
+def export_logs_csv_rows(guild_id, days=90):
+    """Yield rows pour CSV : ts, type, user_id, username, channel_name, content.
+    Generateur."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        """SELECT ts, type, user_id, username, channel_name, content
+           FROM logs WHERE guild_id = ? AND ts >= datetime('now', ?)
+           ORDER BY ts DESC""",
+        (str(guild_id), f"-{int(days)} days"),
+    )
+    for r in rows:
+        yield (r["ts"], r["type"], r["user_id"], r["username"],
+               r["channel_name"], (r["content"] or "")[:500])
+    conn.close()
+
+
 def get_member_growth(guild_id, days=30):
     """Series temporelle membres : joins, leaves, net cumule par jour.
 

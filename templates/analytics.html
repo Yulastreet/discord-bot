@@ -181,6 +181,59 @@
       <ul class="top-list" id="topUsers"><li class="muted">Chargement…</li></ul>
     </div>
   </div>
+
+  <!-- ====== Insights TookBot+ Premium ====== -->
+  <div class="chart-card" id="premiumInsights" style="position:relative;">
+    <h2>
+      ✦ Insights TookBot+
+      {% if is_tookbot_plus %}
+      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:oklch(0.86 0.20 130 / 0.18);color:oklch(0.86 0.20 130);margin-left:8px;vertical-align:middle;">ACTIF</span>
+      {% else %}
+      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,166,38,.18);color:#ffa726;margin-left:8px;vertical-align:middle;">PREMIUM</span>
+      {% endif %}
+    </h2>
+    <div class="sub">Exports CSV des données brutes + rétention par cohort hebdomadaire.</div>
+
+    <!-- Exports CSV -->
+    <div class="row gap-3" style="margin: var(--s-4) 0;flex-wrap:wrap;">
+      <a class="btn btn-secondary {% if not is_tookbot_plus %}disabled{% endif %}"
+         href="{% if is_tookbot_plus %}/api/analytics/export/events.csv?days=90{% else %}#{% endif %}"
+         download>
+        ⬇ Events 90j (CSV)
+      </a>
+      <a class="btn btn-secondary {% if not is_tookbot_plus %}disabled{% endif %}"
+         href="{% if is_tookbot_plus %}/api/analytics/export/top-commands.csv?days=90{% else %}#{% endif %}"
+         download>
+        ⬇ Top commandes 90j
+      </a>
+      <a class="btn btn-secondary {% if not is_tookbot_plus %}disabled{% endif %}"
+         href="{% if is_tookbot_plus %}/api/analytics/export/top-users.csv?days=90{% else %}#{% endif %}"
+         download>
+        ⬇ Top users 90j
+      </a>
+    </div>
+
+    <!-- Cohort retention table -->
+    <h3 style="margin-top: var(--s-5);font-size:14px;font-weight:700;">Rétention par cohort (12 dernières semaines)</h3>
+    <div class="sub">% des membres encore actifs N semaines après leur arrivée.</div>
+    <div id="cohortTable" style="margin-top: var(--s-3);overflow-x:auto;font-size:12px;">
+      <div class="muted" style="padding:24px;text-align:center;">{% if is_tookbot_plus %}Chargement…{% else %}Premium requis.{% endif %}</div>
+    </div>
+
+    {% if not is_tookbot_plus %}
+    <!-- Paywall overlay (semi-transparent, n'empeche pas de voir la structure) -->
+    <div style="position:absolute;inset:0;backdrop-filter:blur(2px);background:rgba(0,0,0,.45);border-radius:var(--r-3);display:grid;place-items:center;text-align:center;padding:24px;">
+      <div>
+        <div style="font-size:28px;margin-bottom:8px;">✦</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Feature TookBot+ uniquement</div>
+        <div class="muted" style="font-size:13px;max-width:380px;margin:0 auto 14px;">
+          Exports CSV et cohort retention sont réservés aux abonnés TookBot+.
+        </div>
+        <a class="btn btn-primary" href="/subscription">Voir les offres</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}
 
@@ -373,6 +426,52 @@ document.querySelectorAll('.range-tab').forEach(btn => {
   });
 });
 
+async function loadCohortRetention() {
+  const tbl = document.getElementById('cohortTable');
+  if (!tbl) return;
+  try {
+    const r = await fetch('/api/analytics/cohort-retention?weeks=12');
+    if (r.status === 402) {
+      tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Premium requis.</div>';
+      return;
+    }
+    const d = await r.json();
+    const cohorts = d.cohorts || [];
+    if (!cohorts.length) {
+      tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Pas assez de données de join pour calculer la rétention.</div>';
+      return;
+    }
+    // Determine max number of week offsets
+    const maxOffsets = Math.max(...cohorts.map(c => (c.week_offsets || []).length));
+    let html = '<table style="border-collapse:collapse;width:100%;font-family:var(--font-mono);">';
+    html += '<thead><tr style="border-bottom:1px solid var(--border);">';
+    html += '<th style="text-align:left;padding:6px 10px;">Cohort</th><th style="padding:6px 10px;">Size</th>';
+    for (let i = 0; i < maxOffsets; i++) {
+      html += `<th style="padding:6px 10px;">W${i}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    for (const c of cohorts) {
+      html += '<tr style="border-bottom:1px solid var(--border);">';
+      html += `<td style="padding:6px 10px;color:var(--text-2);">${c.cohort_week}</td>`;
+      html += `<td style="padding:6px 10px;text-align:center;font-weight:700;">${c.cohort_size}</td>`;
+      for (let i = 0; i < maxOffsets; i++) {
+        const v = (c.week_offsets || [])[i];
+        if (v === undefined || v === null) {
+          html += '<td style="padding:6px 10px;text-align:center;color:var(--text-3);">—</td>';
+        } else {
+          const a = Math.max(0.05, Math.min(0.95, v / 100));
+          html += `<td style="padding:6px 10px;text-align:center;background:oklch(0.86 0.20 130 / ${a.toFixed(2)});color:${a > 0.5 ? '#0a0c0a' : 'var(--text)'};font-weight:600;">${v}%</td>`;
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+  } catch (e) {
+    tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Erreur : ' + e.message + '</div>';
+  }
+}
+
 // Init
 loadOverview();
 loadMsgChart(30);
@@ -380,5 +479,6 @@ loadGrowthChart(30);
 loadHeatmap();
 loadTopCommands();
 loadTopUsers();
+{% if is_tookbot_plus %}loadCohortRetention();{% endif %}
 </script>
 {% endblock %}

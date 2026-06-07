@@ -10,13 +10,85 @@ def register_admin_routes(app, deps):
 
     @app.route("/analytics")
     def analytics_page():
-        return render_template("analytics.html", active_nav="analytics")
+        return render_template(
+            "analytics.html",
+            active_nav="analytics",
+            is_tookbot_plus=_is_tookbot_plus_session(),
+        )
+
+
+    def _is_tookbot_plus_session():
+        from database import has_premium_grant, user_has_active_entitlement
+        uid = _current_user_id()
+        if not uid:
+            return False
+        if has_premium_grant(uid, feature="tookbot_plus", inherit_all=False):
+            return True
+        sku = globals().get("SKU_TOOKBOT_PLUS")
+        if sku and user_has_active_entitlement(uid, sku_id=sku):
+            return True
+        return False
+
+
+    @app.route("/api/analytics/cohort-retention")
+    def api_analytics_cohort_retention():
+        if not _is_tookbot_plus_session():
+            return jsonify({"error": "TookBot+ requis"}), 402
+        from database import get_cohort_retention
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            weeks = max(2, min(int(request.args.get("weeks", 12)), 24))
+        except ValueError:
+            weeks = 12
+        return jsonify({"weeks": weeks, "cohorts": get_cohort_retention(g_id, weeks=weeks)})
+
+
+    @app.route("/api/analytics/export/<kind>.csv")
+    def api_analytics_export_csv(kind):
+        if not _is_tookbot_plus_session():
+            return jsonify({"error": "TookBot+ requis"}), 402
+        from database import export_logs_csv_rows, get_top_commands, get_top_active_users
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        try:
+            days = max(1, min(int(request.args.get("days", 90)), 365))
+        except ValueError:
+            days = 90
+        import csv as _csv
+        from io import StringIO
+        buf = StringIO()
+        w = _csv.writer(buf)
+        if kind == "events":
+            w.writerow(["ts", "type", "user_id", "username", "channel_name", "content"])
+            for row in export_logs_csv_rows(g_id, days=days):
+                w.writerow(row)
+        elif kind == "top-commands":
+            w.writerow(["rank", "command", "uses"])
+            for i, r in enumerate(get_top_commands(g_id, days=days, limit=200), start=1):
+                w.writerow([i, r.get("cmd"), r.get("n")])
+        elif kind == "top-users":
+            w.writerow(["rank", "user_id", "username", "events"])
+            for i, r in enumerate(get_top_active_users(g_id, days=days, limit=200), start=1):
+                w.writerow([i, r.get("user_id"), r.get("username"), r.get("n")])
+        else:
+            return jsonify({"error": "kind invalide (events|top-commands|top-users)"}), 400
+        data = buf.getvalue()
+        from flask import Response
+        resp = Response(data, mimetype="text/csv")
+        resp.headers["Content-Disposition"] = (
+            f"attachment; filename=tookbot_{kind}_{days}j.csv"
+        )
+        return resp
 
 
     @app.route("/api/notifications")
     def api_notifications_list():
         from database import dash_notif_list, dash_notif_unread_count
         uid = _current_user_id()
+        print(f"[debug notif] /api/notifications uid={uid!r}", flush=True)
         if not uid:
             return jsonify({"unread": 0, "items": []})
         try:
