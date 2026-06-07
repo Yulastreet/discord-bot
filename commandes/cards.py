@@ -68,7 +68,7 @@ def setup_cards_commands(bot, deps):
         guild_card_config_set(interaction.guild.id, channel_id=salon.id, enabled=True)
         await interaction.response.send_message(
             f"✅ Salon des cartes configure sur {salon.mention}. "
-            f"Les commandes `/roll`, `/collection`, `/card` ne marcheront que dans ce salon.",
+            f"Les commandes `/roll`, `/mycards`, `/card` ne marcheront que dans ce salon.",
             ephemeral=True,
         )
 

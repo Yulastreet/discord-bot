@@ -754,13 +754,14 @@ from web_app.routes.stripe_routes import register_stripe_routes
 from web_app.routes.server_tools import register_server_tool_routes
 from web_app.routes.pass_routes import register_pass_routes
 from web_app.routes.lol_scout import register_lol_scout_routes
+from web_app.routes.cards_owner import register_cards_owner_routes
 
 for _register_routes in (
     register_auth_routes, register_dashboard_routes, register_reaction_routes,
     register_duel_routes, register_music_routes, register_admin_routes,
     register_premium_routes, register_public_stats_routes, register_server_tool_routes,
     register_pass_routes, register_lol_scout_routes, register_bot_profile_routes,
-    register_stripe_routes,
+    register_stripe_routes, register_cards_owner_routes,
 ):
     _register_routes(app, globals())
 

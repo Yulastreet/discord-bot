@@ -1,0 +1,302 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_cards' %}
+
+{% block title %}Cards · Owner{% endblock %}
+{% block crumb %}Owner Cards{% endblock %}
+
+{% block content %}
+<style>
+  .cards-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: var(--s-4); }
+  .cards-toolbar select, .cards-toolbar input {
+    background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px;
+  }
+  .cards-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+  .card-tile {
+    background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; cursor: pointer; transition: transform .12s, border-color .12s;
+    display: flex; flex-direction: column;
+  }
+  .card-tile:hover { transform: translateY(-2px); border-color: oklch(0.86 0.20 130); }
+  .card-tile-img {
+    aspect-ratio: 2/3; background: var(--bg-2);
+    display: grid; place-items: center; overflow: hidden; position: relative;
+  }
+  .card-tile-img img { width: 100%; height: 100%; object-fit: cover; }
+  .card-tile-img .no-img { color: var(--text-3); font-size: 32px; }
+  .card-tile-meta { padding: 8px 10px; }
+  .card-tile-name { font-weight: 700; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-tile-sub { font-size: 11px; color: var(--text-2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rarity-badge {
+    position: absolute; top: 6px; right: 6px;
+    padding: 2px 6px; border-radius: 6px; font-size: 9px; font-weight: 800;
+    text-transform: uppercase; color: #fff; letter-spacing: 0.04em;
+  }
+  .rar-common    { background: #9aa0a6; }
+  .rar-rare      { background: #4cb5f9; }
+  .rar-epic      { background: #a86dff; }
+  .rar-legendary { background: #ffa726; color: #2a1a00; }
+  .rar-mythic    { background: #ff3d57; }
+
+  .card-preview-scrim {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(6px);
+    z-index: 300; display: none; place-items: center;
+    padding: 20px;
+  }
+  .card-preview-scrim.open { display: grid; }
+  .card-preview-modal {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: 18px; padding: 22px; max-width: 480px; width: 100%;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+  }
+  .card-preview-modal img {
+    width: 100%; max-height: 400px; object-fit: cover; border-radius: 12px;
+    margin-bottom: 14px; background: var(--bg-2);
+  }
+  .card-preview-modal h3 { margin: 0 0 6px; font-size: 20px; }
+  .card-preview-modal .meta {
+    display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0;
+    font-size: 12px;
+  }
+  .card-preview-modal .meta span {
+    padding: 3px 9px; background: var(--bg-2); border-radius: 999px;
+  }
+  .card-preview-modal .desc { font-size: 13px; color: var(--text-2); line-height: 1.5; margin-bottom: 14px; }
+  .card-preview-modal .actions { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+
+<div class="col gap-7">
+  <div>
+    <h1>Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="cardsCount"></span></h1>
+    <p class="muted mt-2" style="font-size: var(--t-sm); max-width: 60ch;">
+      Gestion owner-only du catalogue. Clic sur une carte pour la prévisualiser. Filtre par rareté/recherche en haut.
+    </p>
+  </div>
+
+  <div class="cards-toolbar">
+    <input type="search" id="searchInput" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="debouncedReload()">
+    <select id="raritySelect" onchange="loadCards()">
+      <option value="">Toutes raretés</option>
+      <option value="common">Common</option>
+      <option value="rare">Rare</option>
+      <option value="epic">Epic</option>
+      <option value="legendary">Legendary</option>
+      <option value="mythic">Mythic</option>
+    </select>
+    <button class="btn btn-secondary" onclick="refreshImages()">⟳ Refresh images (Wikipedia)</button>
+    <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
+  </div>
+
+  <div id="cardsGrid" class="cards-grid">
+    <div class="muted">Chargement…</div>
+  </div>
+</div>
+
+<!-- Preview modal -->
+<div class="card-preview-scrim" id="previewScrim" onclick="closePreview(event)">
+  <div class="card-preview-modal" onclick="event.stopPropagation()">
+    <img id="previewImg" src="" alt="">
+    <h3 id="previewName">—</h3>
+    <div class="meta">
+      <span id="previewUniverse">—</span>
+      <span id="previewSubtitle">—</span>
+      <span id="previewRarity">—</span>
+    </div>
+    <div class="desc" id="previewDesc">—</div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="editCurrentCard()">✏ Edit</button>
+      <button class="btn btn-danger" onclick="deleteCurrentCard()">🗑 Delete</button>
+      <button class="btn btn-secondary" onclick="closePreview()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit modal -->
+<div class="card-preview-scrim" id="editScrim" onclick="closeEditModal(event)">
+  <div class="card-preview-modal" onclick="event.stopPropagation()">
+    <h3 id="editTitle">Nouvelle carte</h3>
+    <input type="hidden" id="editCardId">
+    <div class="col" style="gap:10px;">
+      <input id="editName" placeholder="Nom (obligatoire)" class="input" style="width:100%;">
+      <input id="editUniverse" placeholder="Univers (Anime, Star Wars, ...)" class="input" style="width:100%;">
+      <input id="editSubtitle" placeholder="Origine (Naruto, The Mandalorian, ...)" class="input" style="width:100%;">
+      <select id="editRarity" class="input">
+        <option value="common">Common</option>
+        <option value="rare">Rare</option>
+        <option value="epic">Epic</option>
+        <option value="legendary">Legendary</option>
+        <option value="mythic">Mythic</option>
+      </select>
+      <input id="editImage" placeholder="Image URL (vide = auto-fetch via Wikipedia)" class="input" style="width:100%;">
+      <textarea id="editDesc" placeholder="Description" rows="3" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
+    </div>
+    <div class="actions" style="margin-top:14px;">
+      <button class="btn btn-secondary" onclick="closeEditModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveCard()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _allCards = [];
+let _currentPreview = null;
+let _debTimer = null;
+function debouncedReload() {
+  clearTimeout(_debTimer);
+  _debTimer = setTimeout(loadCards, 300);
+}
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function loadCards() {
+  const search = document.getElementById('searchInput').value.trim();
+  const rar = document.getElementById('raritySelect').value;
+  const params = new URLSearchParams();
+  if (search) params.set('q', search);
+  if (rar) params.set('rarity', rar);
+  try {
+    const r = await fetch('/api/owner/cards?' + params.toString());
+    const d = await r.json();
+    _allCards = d.items || [];
+    document.getElementById('cardsCount').textContent = `(${_allCards.length})`;
+    const grid = document.getElementById('cardsGrid');
+    if (!_allCards.length) {
+      grid.innerHTML = '<div class="muted">Aucune carte.</div>';
+      return;
+    }
+    grid.innerHTML = _allCards.map(c => `
+      <div class="card-tile" onclick="openPreview(${c.id})">
+        <div class="card-tile-img">
+          ${c.image_url ? `<img src="${escapeHtml(c.image_url)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
+          <span class="rarity-badge rar-${c.rarity}">${c.rarity}</span>
+        </div>
+        <div class="card-tile-meta">
+          <div class="card-tile-name">${escapeHtml(c.name)}</div>
+          <div class="card-tile-sub">${escapeHtml(c.universe || '')}${c.subtitle ? ' · ' + escapeHtml(c.subtitle) : ''}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+window.loadCards = loadCards;
+window.debouncedReload = debouncedReload;
+
+function openPreview(id) {
+  const c = _allCards.find(x => x.id === id);
+  if (!c) return;
+  _currentPreview = c;
+  document.getElementById('previewImg').src = c.image_url || '';
+  document.getElementById('previewImg').style.display = c.image_url ? 'block' : 'none';
+  document.getElementById('previewName').textContent = c.name;
+  document.getElementById('previewUniverse').textContent = c.universe || '?';
+  document.getElementById('previewSubtitle').textContent = c.subtitle || '?';
+  document.getElementById('previewRarity').textContent = c.rarity;
+  document.getElementById('previewDesc').textContent = c.description || '*Pas de description.*';
+  document.getElementById('previewScrim').classList.add('open');
+}
+window.openPreview = openPreview;
+function closePreview(e) {
+  if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
+  document.getElementById('previewScrim').classList.remove('open');
+}
+window.closePreview = closePreview;
+
+function openCreateModal() {
+  document.getElementById('editTitle').textContent = 'Nouvelle carte';
+  document.getElementById('editCardId').value = '';
+  document.getElementById('editName').value = '';
+  document.getElementById('editUniverse').value = '';
+  document.getElementById('editSubtitle').value = '';
+  document.getElementById('editRarity').value = 'common';
+  document.getElementById('editImage').value = '';
+  document.getElementById('editDesc').value = '';
+  document.getElementById('editScrim').classList.add('open');
+}
+window.openCreateModal = openCreateModal;
+function closeEditModal(e) {
+  if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
+  document.getElementById('editScrim').classList.remove('open');
+}
+window.closeEditModal = closeEditModal;
+
+function editCurrentCard() {
+  if (!_currentPreview) return;
+  closePreview();
+  const c = _currentPreview;
+  document.getElementById('editTitle').textContent = `Edit #${c.id}`;
+  document.getElementById('editCardId').value = c.id;
+  document.getElementById('editName').value = c.name || '';
+  document.getElementById('editUniverse').value = c.universe || '';
+  document.getElementById('editSubtitle').value = c.subtitle || '';
+  document.getElementById('editRarity').value = c.rarity || 'common';
+  document.getElementById('editImage').value = c.image_url || '';
+  document.getElementById('editDesc').value = c.description || '';
+  document.getElementById('editScrim').classList.add('open');
+}
+window.editCurrentCard = editCurrentCard;
+
+async function saveCard() {
+  const id = document.getElementById('editCardId').value;
+  const payload = {
+    name:        document.getElementById('editName').value.trim(),
+    universe:    document.getElementById('editUniverse').value.trim(),
+    subtitle:    document.getElementById('editSubtitle').value.trim(),
+    rarity:      document.getElementById('editRarity').value,
+    image_url:   document.getElementById('editImage').value.trim(),
+    description: document.getElementById('editDesc').value.trim(),
+  };
+  if (!payload.name) { toast('Nom requis.', 'error'); return; }
+  try {
+    const url = id ? `/api/owner/cards/${id}` : '/api/owner/cards';
+    const method = id ? 'PATCH' : 'POST';
+    const r = await fetch(url, { method, headers: {'Content-Type': 'application/json'},
+                                 body: JSON.stringify(payload) });
+    const d = await r.json();
+    if (d.ok || d.id) { toast(id ? 'Modifiee.' : 'Creee.'); closeEditModal(); loadCards(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.saveCard = saveCard;
+
+async function deleteCurrentCard() {
+  if (!_currentPreview) return;
+  if (!confirm(`Supprimer "${_currentPreview.name}" ?`)) return;
+  try {
+    const r = await fetch(`/api/owner/cards/${_currentPreview.id}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.ok) { toast('Supprimee.'); closePreview(); loadCards(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.deleteCurrentCard = deleteCurrentCard;
+
+async function refreshImages() {
+  if (!confirm('Rafraichir les image_url manquantes via Wikipedia API ? (peut prendre 30s-1min)')) return;
+  toast('Refresh en cours...');
+  try {
+    const r = await fetch('/api/owner/cards/refresh-images', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({force: false}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Updated ${d.stats.updated} / kept ${d.stats.kept} / failed ${d.stats.failed}`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.refreshImages = refreshImages;
+
+loadCards();
+</script>
+{% endblock %}

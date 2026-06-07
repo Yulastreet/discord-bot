@@ -175,16 +175,18 @@ INITIAL_CARDS = [
 
 def seed_initial_cards():
     """Insere les cartes initiales SI la table est vide.
-    Idempotent : a appeler au boot."""
+    Idempotent : a appeler au boot. Les image_url Wikia ne marchent pas
+    bien avec Discord, on insere avec image_url=None et on attend le
+    refresh-images (Wikipedia API) via dashboard owner."""
     from database import card_count_total, card_add
     if card_count_total() > 0:
         return 0
     n = 0
-    for c in INITIAL_CARDS:
+    for name, universe, subtitle, rarity, _img, description in INITIAL_CARDS:
         try:
-            card_add(*c)
+            card_add(name, universe, subtitle, rarity, None, description)
             n += 1
         except Exception as e:
-            print(f"[cards seed] err {c[0]}: {e}")
-    print(f"[cards seed] {n} cartes initiales inserees")
+            print(f"[cards seed] err {name}: {e}")
+    print(f"[cards seed] {n} cartes initiales inserees (sans image, run refresh-images)")
     return n
