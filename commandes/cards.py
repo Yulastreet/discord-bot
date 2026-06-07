@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import time as _time
 import discord
 from discord import app_commands
 
@@ -34,6 +35,34 @@ RARITY_EMOJIS = {
     "legendary": "🟠",
     "mythic":    "🔴",
 }
+
+# Mapping rarete -> nom emoji custom Discord (support server)
+_RARITY_CUSTOM_NAME = {
+    "rare":      "rare",
+    "epic":      "epic",
+    "legendary": "legendaire",
+    "mythic":    "mythic",
+}
+_rarity_emoji_cache: dict[str, str] = {}
+
+def _get_rarity_custom_emoji(bot, rarity: str) -> str:
+    """Cherche emoji custom dans tous les guilds du bot (support server inclus).
+    Cache premier match par nom. Retourne string Discord '<:name:id>' ou ''."""
+    if rarity in _rarity_emoji_cache:
+        return _rarity_emoji_cache[rarity]
+    expected = _RARITY_CUSTOM_NAME.get(rarity)
+    if not expected:
+        _rarity_emoji_cache[rarity] = ""
+        return ""
+    try:
+        for e in bot.emojis:
+            if e.name.lower() == expected.lower():
+                s = str(e)
+                _rarity_emoji_cache[rarity] = s
+                return s
+    except Exception:
+        pass
+    return ""
 
 
 def _is_owner(user_id: int | str) -> bool:
@@ -97,17 +126,20 @@ def setup_cards_commands(bot, deps):
             last = settings.get("last_roll_at")
             if last:
                 try:
+                    # last stocke en UTC naive, parse comme UTC-aware
                     last_dt = _dt.datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
-                    elapsed = (_dt.datetime.utcnow() - last_dt).total_seconds()
+                    last_dt = last_dt.replace(tzinfo=_dt.timezone.utc)
+                    now_ts = _time.time()
+                    last_ts = last_dt.timestamp()
+                    elapsed = now_ts - last_ts
                     remain = ROLL_COOLDOWN_SECONDS - elapsed
                     if remain > 0:
-                        # Format : Xh YYmin
                         rh = int(remain // 3600)
                         rm = int((remain % 3600) // 60)
                         rs = int(remain % 60)
                         wait = f"{rh}h {rm}min" if rh > 0 else f"{rm}min {rs}s"
-                        # Discord timestamp relatif
-                        ready_at = int((_dt.datetime.utcnow() + _dt.timedelta(seconds=remain)).timestamp())
+                        # Discord timestamp absolu epoch (cohérent avec wait)
+                        ready_at = int(now_ts + remain)
                         await interaction.response.send_message(
                             f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).",
                             ephemeral=True,
@@ -137,11 +169,13 @@ def setup_cards_commands(bot, deps):
         # Embed minimaliste
         rarity = card.get("rarity", "common")
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        emoji = RARITY_EMOJIS.get(rarity, "⚪")
+        custom_em = _get_rarity_custom_emoji(bot, rarity)
+        title_em = custom_em or RARITY_EMOJIS.get(rarity, "⚪")
+        rar_line = f"{rarity.upper()} {custom_em}".strip() if custom_em else rarity.upper()
         origine = card.get("subtitle") or "?"
-        desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
+        desc = f"**Rareté :** {rar_line}\n**Origine :** {origine}"
         embed = discord.Embed(
-            title=f"{emoji} {card['name']}"[:256],
+            title=f"{title_em} {card['name']}"[:256],
             description=desc,
             color=color,
         )
@@ -241,11 +275,13 @@ def setup_cards_commands(bot, deps):
                 return
             rarity = card.get("rarity", "common")
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-            emoji = RARITY_EMOJIS.get(rarity, "⚪")
+            custom_em = _get_rarity_custom_emoji(bot, rarity)
+            title_em = custom_em or RARITY_EMOJIS.get(rarity, "⚪")
+            rar_line = f"{rarity.upper()} {custom_em}".strip() if custom_em else rarity.upper()
             origine = card.get("subtitle") or "?"
-            desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
+            desc = f"**Rareté :** {rar_line}\n**Origine :** {origine}"
             embed = discord.Embed(
-                title=f"{emoji} {card['name']}"[:256],
+                title=f"{title_em} {card['name']}"[:256],
                 description=desc,
                 color=color,
             )
