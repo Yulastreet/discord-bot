@@ -40,19 +40,15 @@ def _is_owner(user_id: int | str) -> bool:
     return owner and str(user_id) == owner
 
 
-def _check_channel(interaction: discord.Interaction) -> bool:
+def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     """Verifie que la commande est lancee dans le salon configure.
-    Retourne True si OK, sinon a deja envoye un message d'erreur ephemeral."""
+    Retourne (ok, channel_mention_si_ko)."""
     cfg = guild_card_config_get(interaction.guild.id) if interaction.guild else None
     if not cfg or not cfg.get("channel_id"):
-        # Pas de salon configure : le owner peut jouer partout (test)
-        return True
+        return (True, None)
     if str(interaction.channel.id) != str(cfg["channel_id"]):
-        ch_mention = f"<#{cfg['channel_id']}>"
-        # On laisse l'appelant gerer la reponse via le retour ; on prepare un msg
-        interaction._cards_wrong_channel_target = ch_mention
-        return False
-    return True
+        return (False, f"<#{cfg['channel_id']}>")
+    return (True, None)
 
 
 def setup_cards_commands(bot, deps):
@@ -84,13 +80,14 @@ def setup_cards_commands(bot, deps):
     # === /roll ===
     @bot.tree.command(name="roll", description="Tire une carte aleatoire de la collection")
     async def roll(interaction: discord.Interaction):
-        if interaction.guild and not _check_channel(interaction):
-            target = getattr(interaction, "_cards_wrong_channel_target", None)
-            await interaction.response.send_message(
-                f"Les commandes cartes sont reservees au salon {target}. Utilise `/cardsetup` (admin) pour changer.",
-                ephemeral=True,
-            )
-            return
+        if interaction.guild:
+            ok, target = _check_channel(interaction)
+            if not ok:
+                await interaction.response.send_message(
+                    f"Les commandes cartes sont reservees au salon {target}. Utilise `/cardsetup` (admin) pour changer.",
+                    ephemeral=True,
+                )
+                return
 
         # Cooldown (skip pour owner)
         uid = interaction.user.id
@@ -169,13 +166,14 @@ def setup_cards_commands(bot, deps):
     async def collection(interaction: discord.Interaction,
                           membre: discord.Member = None,
                           rarete: app_commands.Choice[str] = None):
-        if interaction.guild and not _check_channel(interaction):
-            target = getattr(interaction, "_cards_wrong_channel_target", None)
-            await interaction.response.send_message(
-                f"Les commandes cartes sont reservees au salon {target}.",
-                ephemeral=True,
-            )
-            return
+        if interaction.guild:
+            ok, target = _check_channel(interaction)
+            if not ok:
+                await interaction.response.send_message(
+                    f"Les commandes cartes sont reservees au salon {target}.",
+                    ephemeral=True,
+                )
+                return
         target_user = membre or interaction.user
         rar_val = rarete.value if rarete else None
         cards = user_card_list(target_user.id, rarity=rar_val)
@@ -225,13 +223,14 @@ def setup_cards_commands(bot, deps):
     @app_commands.describe(nom="Nom de la carte (autocomplete)")
     async def card_cmd(interaction: discord.Interaction, nom: str):
         try:
-            if interaction.guild and not _check_channel(interaction):
-                target = getattr(interaction, "_cards_wrong_channel_target", None)
-                await interaction.response.send_message(
-                    f"Les commandes cartes sont reservees au salon {target}.",
-                    ephemeral=True,
-                )
-                return
+            if interaction.guild:
+                ok, target = _check_channel(interaction)
+                if not ok:
+                    await interaction.response.send_message(
+                        f"Les commandes cartes sont reservees au salon {target}.",
+                        ephemeral=True,
+                    )
+                    return
             card = card_get_by_name(nom.strip())
             if not card:
                 await interaction.response.send_message(
