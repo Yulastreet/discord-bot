@@ -1626,6 +1626,22 @@ def setup_runtime(bot, deps):
                         guild_bot_profile_clear(g_id)
                     except Exception:
                         pass
+                # Notification dashboard pour informer le user
+                try:
+                    from database import dash_notif_add
+                    note = row["note"] or ""
+                    if note.startswith("trial"):
+                        dash_notif_add(uid, "trial_expire",
+                                       title="Ton essai TookBot+ est termine",
+                                       message="Tes commandes custom + customization bot ont ete retirees. Passe a TookBot+ pour les recuperer.",
+                                       link_url="/subscription")
+                    else:
+                        dash_notif_add(uid, "trial_expire",
+                                       title="Ton abonnement TookBot+ a expire",
+                                       message="Tes features TookBot+ ont ete desactivees. Renouvelle pour les recuperer.",
+                                       link_url="/subscription")
+                except Exception:
+                    pass
                 # Supprime le grant expire (marqueur de cleanup fait).
                 # premium_settings.trial_used_at reste -> bloque un nouveau trial.
                 try:

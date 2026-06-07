@@ -82,6 +82,17 @@ def register_premium_routes(app, deps):
                 "already_active":     "Tu as deja TookBot+ actif.",
             }.get(err, "Erreur inconnue.")
             return jsonify({"ok": False, "error": err, "message": msg}), 400
+        # Cree une notif cloche dashboard
+        try:
+            from database import dash_notif_add
+            dash_notif_add(
+                uid, "system",
+                title="Trial TookBot+ active !",
+                message=f"Tu as 7 jours pour tester. Expire le {result['expires_at']}.",
+                link_url="/subscription",
+            )
+        except Exception:
+            pass
         return jsonify({
             "ok": True,
             "expires_at": result["expires_at"],

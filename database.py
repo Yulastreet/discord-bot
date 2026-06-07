@@ -125,6 +125,22 @@ def init_db():
         updated_at                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ===== Dashboard notifications : cloche header =====
+    # Stockes par user_id. Type : 'automod_alert', 'entitlement', 'milestone',
+    # 'trial_expire', 'raid_alert', 'system'.
+    c.execute('''CREATE TABLE IF NOT EXISTS dashboard_notifications (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     TEXT NOT NULL,
+        guild_id    TEXT,
+        type        TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        message     TEXT,
+        link_url    TEXT,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        read_at     TEXT
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_dash_notif_user ON dashboard_notifications(user_id, read_at)")
+
     # ===== Reminders : /remind <duree> <texte> =====
     c.execute('''CREATE TABLE IF NOT EXISTS reminders (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1460,6 +1476,77 @@ def automod_config_set(guild_id, **fields):
     c.execute(f"UPDATE automod_config SET {sets} WHERE guild_id = ?",
               (*fields.values(), str(guild_id)))
     conn.commit(); conn.close()
+
+
+# ===== Dashboard notifications helpers =====
+def dash_notif_add(user_id, type_, title, message=None, link_url=None, guild_id=None):
+    """Cree une notif pour un user. Retourne l'id."""
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO dashboard_notifications
+                 (user_id, guild_id, type, title, message, link_url)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
+              (str(user_id),
+               str(guild_id) if guild_id else None,
+               type_, title, message, link_url))
+    nid = c.lastrowid
+    conn.commit(); conn.close()
+    return nid
+
+
+def dash_notif_list(user_id, limit=20, unread_only=False):
+    conn = get_db(); c = conn.cursor()
+    where = "user_id = ?"
+    params = [str(user_id)]
+    if unread_only:
+        where += " AND read_at IS NULL"
+    rows = c.execute(
+        f"SELECT * FROM dashboard_notifications WHERE {where} "
+        f"ORDER BY created_at DESC LIMIT ?",
+        params + [int(limit)],
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def dash_notif_unread_count(user_id):
+    conn = get_db(); c = conn.cursor()
+    n = c.execute(
+        "SELECT COUNT(*) AS n FROM dashboard_notifications "
+        "WHERE user_id = ? AND read_at IS NULL",
+        (str(user_id),),
+    ).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def dash_notif_mark_read(user_id, notif_id=None):
+    """Marque comme lue. Si notif_id None : marque toutes."""
+    conn = get_db(); c = conn.cursor()
+    if notif_id:
+        c.execute(
+            "UPDATE dashboard_notifications SET read_at = CURRENT_TIMESTAMP "
+            "WHERE id = ? AND user_id = ? AND read_at IS NULL",
+            (int(notif_id), str(user_id)),
+        )
+    else:
+        c.execute(
+            "UPDATE dashboard_notifications SET read_at = CURRENT_TIMESTAMP "
+            "WHERE user_id = ? AND read_at IS NULL",
+            (str(user_id),),
+        )
+    conn.commit(); conn.close()
+
+
+def dash_notif_purge_old(days=90):
+    """Purge globale des notifs > N jours (cron daily)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute(
+        "DELETE FROM dashboard_notifications WHERE created_at < datetime('now', ?)",
+        (f"-{int(days)} days",),
+    )
+    n = c.rowcount
+    conn.commit(); conn.close()
+    return n
 
 
 # ===== Reminders helpers =====

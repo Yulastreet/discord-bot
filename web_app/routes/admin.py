@@ -13,6 +13,33 @@ def register_admin_routes(app, deps):
         return render_template("analytics.html", active_nav="analytics")
 
 
+    @app.route("/api/notifications")
+    def api_notifications_list():
+        from database import dash_notif_list, dash_notif_unread_count
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"unread": 0, "items": []})
+        try:
+            limit = max(1, min(int(request.args.get("limit", 20)), 50))
+        except ValueError:
+            limit = 20
+        items = dash_notif_list(uid, limit=limit)
+        unread = dash_notif_unread_count(uid)
+        return jsonify({"unread": unread, "items": items})
+
+
+    @app.route("/api/notifications/mark-read", methods=["POST"])
+    def api_notifications_mark_read():
+        from database import dash_notif_mark_read
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"ok": False, "error": "not_logged_in"}), 401
+        data = request.json or {}
+        nid = data.get("id")
+        dash_notif_mark_read(uid, notif_id=int(nid) if nid else None)
+        return jsonify({"ok": True})
+
+
     @app.route("/automod")
     def automod_page():
         uid = _current_user_id()

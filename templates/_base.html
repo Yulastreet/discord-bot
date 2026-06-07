@@ -262,6 +262,9 @@
     <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z"/>
     </symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/>
+    </symbol>
     <symbol id="i-swords" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/>
       <path d="m19 21 2-2"/><path d="M9.5 6.5 21 18"/>
@@ -609,6 +612,23 @@
         </a>
       </div>
       <div class="actions">
+        <!-- Notifications cloche -->
+        <div class="notif-wrap" id="notifWrap" style="position:relative;">
+          <button class="icon-btn" id="notifBtn" type="button" onclick="toggleNotifMenu(event)" title="Notifications" style="position:relative;">
+            <svg class="ic"><use href="#i-bell"/></svg>
+            <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#f85149;color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;font-family:var(--font-mono);"></span>
+          </button>
+          <div id="notifMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:8px;width:360px;max-height:480px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:1000;">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+              <strong style="font-size:14px;">Notifications</strong>
+              <button class="btn btn-ghost btn-sm" onclick="markAllNotifsRead()" style="font-size:11px;">Tout marquer lu</button>
+            </div>
+            <div id="notifList" style="padding:0;">
+              <div style="padding:24px;text-align:center;color:var(--text-2);font-size:12px;">Chargement...</div>
+            </div>
+          </div>
+        </div>
+
         {% if current_guild %}
         <div class="guild-switcher" id="guildSwitcher">
           <button class="guild-btn" id="guildBtn" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleGuildMenu(event)">
@@ -794,6 +814,125 @@
   }
   window.selectGuild = selectGuild;
   window.toggleGuildMenu = toggleGuildMenu;
+
+  // ============ NOTIFICATIONS BELL ============
+  let _notifData = { unread: 0, items: [] };
+
+  function _fmtTime(iso) {
+    if (!iso) return '';
+    try {
+      const dt = new Date(iso.replace(' ', 'T') + 'Z');
+      const now = Date.now();
+      const diff = (now - dt.getTime()) / 1000;
+      if (diff < 60)        return 'a l\'instant';
+      if (diff < 3600)      return Math.floor(diff/60) + ' min';
+      if (diff < 86400)     return Math.floor(diff/3600) + ' h';
+      if (diff < 86400*7)   return Math.floor(diff/86400) + ' j';
+      return dt.toLocaleDateString('fr-FR');
+    } catch (_) { return iso; }
+  }
+
+  function _notifIcon(type) {
+    const map = {
+      automod_alert: '🛡️', entitlement: '✦', milestone: '🏆',
+      trial_expire: '⏰', raid_alert: '🚨', system: '💬',
+    };
+    return map[type] || '🔔';
+  }
+
+  async function refreshNotifs() {
+    try {
+      const r = await fetch('/api/notifications?limit=20');
+      _notifData = await r.json();
+      const badge = document.getElementById('notifBadge');
+      if (badge) {
+        if (_notifData.unread > 0) {
+          badge.style.display = 'flex';
+          badge.textContent = _notifData.unread > 9 ? '9+' : String(_notifData.unread);
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+      // Re-render si menu ouvert
+      const menu = document.getElementById('notifMenu');
+      if (menu && menu.style.display === 'block') _renderNotifList();
+    } catch (_) {}
+  }
+
+  function _renderNotifList() {
+    const list = document.getElementById('notifList');
+    if (!list) return;
+    if (!_notifData.items || _notifData.items.length === 0) {
+      list.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-2);font-size:13px;">Aucune notification.</div>';
+      return;
+    }
+    list.innerHTML = _notifData.items.map(n => {
+      const unread = !n.read_at;
+      const bg = unread ? 'background:oklch(0.86 0.20 130 / 0.06);' : '';
+      const linkAttr = n.link_url ? `onclick="window.location='${n.link_url}';markNotifRead(${n.id})"` : `onclick="markNotifRead(${n.id})"`;
+      return `
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;${bg}" ${linkAttr}>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span style="font-size:18px;">${_notifIcon(n.type)}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:${unread ? '700' : '500'};font-size:13px;color:var(--text);">${escapeHtmlNotif(n.title)}</div>
+              ${n.message ? `<div style="font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.4;">${escapeHtmlNotif(n.message)}</div>` : ''}
+              <div style="font-size:10px;color:var(--text-3);margin-top:4px;font-family:var(--font-mono);">${_fmtTime(n.created_at)}</div>
+            </div>
+            ${unread ? '<span style="width:8px;height:8px;border-radius:50%;background:oklch(0.86 0.20 130);margin-top:6px;"></span>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function escapeHtmlNotif(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function toggleNotifMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('notifMenu');
+    const open = menu.style.display === 'block';
+    menu.style.display = open ? 'none' : 'block';
+    if (!open) _renderNotifList();
+  }
+  window.toggleNotifMenu = toggleNotifMenu;
+
+  async function markNotifRead(id) {
+    try {
+      await fetch('/api/notifications/mark-read', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id}),
+      });
+      refreshNotifs();
+    } catch (_) {}
+  }
+  window.markNotifRead = markNotifRead;
+
+  async function markAllNotifsRead() {
+    try {
+      await fetch('/api/notifications/mark-read', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: '{}',
+      });
+      refreshNotifs();
+    } catch (_) {}
+  }
+  window.markAllNotifsRead = markAllNotifsRead;
+
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('notifWrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const m = document.getElementById('notifMenu');
+      if (m) m.style.display = 'none';
+    }
+  });
+
+  // Init + polling toutes 30s
+  refreshNotifs();
+  setInterval(refreshNotifs, 30000);
 
   // ============ Custom cursor : halo glow + particles trail ============
   (function() {
