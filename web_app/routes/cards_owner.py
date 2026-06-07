@@ -93,3 +93,34 @@ def register_cards_owner_routes(app, deps):
         except Exception as e:
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
         return jsonify({"ok": True, "stats": stats})
+
+
+    @app.route("/api/owner/cards/bulk-import-jikan", methods=["POST"])
+    def api_owner_cards_bulk_jikan():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_jikan_bulk import bulk_import_jikan
+        data = request.json or {}
+        try:
+            pages = max(1, min(int(data.get("pages", 40)), 100))
+        except (ValueError, TypeError):
+            pages = 40
+        skip_existing = bool(data.get("skip_existing", True))
+        try:
+            stats = bulk_import_jikan(pages=pages, skip_existing=skip_existing)
+        except Exception as e:
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
+    @app.route("/api/owner/cards/wipe", methods=["POST"])
+    def api_owner_cards_wipe():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        c.execute("DELETE FROM cards")
+        c.execute("DELETE FROM user_cards")
+        deleted = c.rowcount
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "deleted": deleted})

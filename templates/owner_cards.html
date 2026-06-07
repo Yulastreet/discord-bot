@@ -90,6 +90,8 @@
     </select>
     <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refresh images (manquantes)</button>
     <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
+    <button class="btn btn-secondary" onclick="bulkImportJikan()">📦 Bulk import 1000 (Jikan/MAL)</button>
+    <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe catalogue</button>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
   </div>
 
@@ -300,6 +302,39 @@ async function refreshImages(force = false) {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.refreshImages = refreshImages;
+
+async function bulkImportJikan() {
+  const pagesStr = prompt('Combien de pages Jikan ? (25 personnages/page, 40 = 1000 cartes). Max 100.', '40');
+  if (!pagesStr) return;
+  const pages = parseInt(pagesStr, 10);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
+  if (!confirm(`Import ${pages*25} personnages anime via Jikan/MAL. Skip doublons. Peut prendre ~${Math.round(pages*1.5)}s. Continuer ?`)) return;
+  toast(`Import en cours (${pages} pages, ~${Math.round(pages*1.5)}s)...`);
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-jikan', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pages, skip_existing: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportJikan = bulkImportJikan;
+
+async function wipeCatalog() {
+  if (!confirm('SUPPRIMER TOUTES LES CARTES + collections users ? Irreversible.')) return;
+  if (!confirm('Vraiment ? Confirmer une 2eme fois.')) return;
+  try {
+    const r = await fetch('/api/owner/cards/wipe', {method: 'POST'});
+    const d = await r.json();
+    if (d.ok) { toast(`Wipe : ${d.deleted} cartes supprimees.`); loadCards(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.wipeCatalog = wipeCatalog;
 
 loadCards();
 </script>
