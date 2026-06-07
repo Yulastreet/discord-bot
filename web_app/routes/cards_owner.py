@@ -113,6 +113,26 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/cards/bulk-import-anilist", methods=["POST"])
+    def api_owner_cards_bulk_anilist():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_anilist_bulk import bulk_import_anilist
+        data = request.json or {}
+        try:
+            pages = max(1, min(int(data.get("pages", 20)), 50))
+        except (ValueError, TypeError):
+            pages = 20
+        skip_existing = bool(data.get("skip_existing", True))
+        wipe_first = bool(data.get("wipe_first", False))
+        try:
+            stats = bulk_import_anilist(pages=pages, skip_existing=skip_existing,
+                                          wipe_first=wipe_first)
+        except Exception as e:
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/wipe", methods=["POST"])
     def api_owner_cards_wipe():
         if not _is_owner_session():

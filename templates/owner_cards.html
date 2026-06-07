@@ -90,7 +90,8 @@
     </select>
     <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refresh images (manquantes)</button>
     <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
-    <button class="btn btn-secondary" onclick="bulkImportJikan()">📦 Bulk import 1000 (Jikan/MAL)</button>
+    <button class="btn btn-secondary" onclick="bulkImportAnilist()">📦 Bulk import 1000 (Anilist)</button>
+    <button class="btn btn-ghost" onclick="bulkImportJikan()" style="opacity:0.6">📦 Bulk Jikan (fallback)</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe catalogue</button>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
   </div>
@@ -323,6 +324,28 @@ async function bulkImportJikan() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportJikan = bulkImportJikan;
+
+async function bulkImportAnilist() {
+  const pagesStr = prompt('Combien de pages Anilist ? (50 personnages/page, 20 = 1000 cartes). Max 50.', '20');
+  if (!pagesStr) return;
+  const pages = parseInt(pagesStr, 10);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
+  const wipeFirst = confirm('WIPE catalogue avant import ? (OK = clean slate, Annuler = ajoute aux existantes)');
+  if (!confirm(`Import ${pages*50} personnages Anilist${wipeFirst ? ' APRES WIPE total' : ''}. ~${Math.round(pages*1)}s. Continuer ?`)) return;
+  toast(`Import Anilist en cours (${pages} pages, ~${Math.round(pages*1)}s)...`);
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-anilist', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pages, skip_existing: true, wipe_first: wipeFirst}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportAnilist = bulkImportAnilist;
 
 async function wipeCatalog() {
   if (!confirm('SUPPRIMER TOUTES LES CARTES + collections users ? Irreversible.')) return;

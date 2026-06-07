@@ -222,35 +222,69 @@ def setup_cards_commands(bot, deps):
 
     # === /card <nom> ===
     @bot.tree.command(name="card", description="Voir les details d'une carte par son nom")
-    @app_commands.describe(nom="Nom exact de la carte")
+    @app_commands.describe(nom="Nom de la carte (autocomplete)")
     async def card_cmd(interaction: discord.Interaction, nom: str):
-        if interaction.guild and not _check_channel(interaction):
-            target = getattr(interaction, "_cards_wrong_channel_target", None)
-            await interaction.response.send_message(
-                f"Les commandes cartes sont reservees au salon {target}.",
-                ephemeral=True,
+        try:
+            if interaction.guild and not _check_channel(interaction):
+                target = getattr(interaction, "_cards_wrong_channel_target", None)
+                await interaction.response.send_message(
+                    f"Les commandes cartes sont reservees au salon {target}.",
+                    ephemeral=True,
+                )
+                return
+            card = card_get_by_name(nom.strip())
+            if not card:
+                await interaction.response.send_message(
+                    f"Carte introuvable : `{nom}`. Utilise l'autocomplete.",
+                    ephemeral=True,
+                )
+                return
+            rarity = card.get("rarity", "common")
+            color = RARITY_COLORS.get(rarity, 0x9aa0a6)
+            emoji = RARITY_EMOJIS.get(rarity, "⚪")
+            # Tronque description embed (Discord limit 4096 mais 1000 safe)
+            desc = (card.get("description") or "*Pas de description.*")[:1000]
+            embed = discord.Embed(
+                title=f"{emoji} {card['name']}"[:256],
+                description=desc,
+                color=color,
             )
-            return
-        card = card_get_by_name(nom.strip())
-        if not card:
-            await interaction.response.send_message(
-                f"Carte introuvable : `{nom}`. Tape exact son nom.",
-                ephemeral=True,
-            )
-            return
-        rarity = card.get("rarity", "common")
-        color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        emoji = RARITY_EMOJIS.get(rarity, "⚪")
-        embed = discord.Embed(
-            title=f"{emoji} {card['name']}",
-            description=card.get("description") or "*Pas de description.*",
-            color=color,
-        )
-        if card.get("universe"):
-            embed.add_field(name="Univers", value=card["universe"], inline=True)
-        if card.get("subtitle"):
-            embed.add_field(name="Origine", value=card["subtitle"], inline=True)
-        embed.add_field(name="Rarete", value=rarity.upper(), inline=True)
-        if card.get("image_url"):
-            embed.set_image(url=card["image_url"])
-        await interaction.response.send_message(embed=embed)
+            if card.get("universe"):
+                embed.add_field(name="Univers", value=str(card["universe"])[:1024], inline=True)
+            if card.get("subtitle"):
+                embed.add_field(name="Origine", value=str(card["subtitle"])[:1024], inline=True)
+            embed.add_field(name="Rarete", value=rarity.upper(), inline=True)
+            img = card.get("image_url")
+            if img and isinstance(img, str) and img.startswith("http"):
+                embed.set_image(url=img)
+            await interaction.response.send_message(embed=embed)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            err_msg = f"Erreur /card : `{type(e).__name__}: {e}`"
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send(err_msg[:1900], ephemeral=True)
+                else:
+                    await interaction.response.send_message(err_msg[:1900], ephemeral=True)
+            except Exception:
+                pass
+
+    @card_cmd.autocomplete("nom")
+    async def card_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            if q:
+                rows = c.execute(
+                    "SELECT name FROM cards WHERE LOWER(name) LIKE ? "
+                    "ORDER BY name LIMIT 25", (f"%{q}%",)).fetchall()
+            else:
+                rows = c.execute(
+                    "SELECT name FROM cards ORDER BY RANDOM() LIMIT 25").fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100])
+                     for r in rows]
+        except Exception:
+            return []
