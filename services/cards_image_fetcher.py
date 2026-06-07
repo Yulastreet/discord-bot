@@ -22,21 +22,70 @@ _DEFAULT_TIMEOUT = 8
 # URLs upload.wikimedia.org (Wikipedia Commons) ou static.wikia.nocookie.net
 # direct (sans scale-to-width parametres).
 CURATED_IMAGES: dict[str, str] = {
-    # Uniquement URLs verifies working (visible dans dashboard apres refresh).
-    # Le reste : cascade Wikipedia/Fandom/Jikan + validation HEAD.
-    "Naruto Uzumaki":   "https://cdn.myanimelist.net/images/characters/2/284121.jpg",
-    "Sasuke Uchiha":    "https://cdn.myanimelist.net/images/characters/9/131317.jpg",
-    "Goku":             "https://cdn.myanimelist.net/images/characters/7/284129.jpg",
-    "Monkey D. Luffy":  "https://cdn.myanimelist.net/images/characters/9/310307.jpg",
-    "Roronoa Zoro":     "https://cdn.myanimelist.net/images/characters/3/100534.jpg",
-    "Levi Ackerman":    "https://cdn.myanimelist.net/images/characters/2/241413.jpg",
-    "Eren Yeager":      "https://cdn.myanimelist.net/images/characters/10/216895.jpg",
-    "Tanjiro Kamado":   "https://cdn.myanimelist.net/images/characters/6/386735.jpg",
-    "Light Yagami":     "https://cdn.myanimelist.net/images/characters/6/63870.jpg",
-    "Pikachu":          "https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png",
-    "Homer Simpson":    "https://upload.wikimedia.org/wikipedia/en/0/02/Homer_Simpson_2006.png",
-    "Rick Sanchez":     "https://upload.wikimedia.org/wikipedia/en/a/a6/Rick_Sanchez.png",
-    "Walter White":     "https://upload.wikimedia.org/wikipedia/en/0/03/Walter_White_S5B.png",
+    # URLs recuperes via APIs Wookieepedia/Fandom/Jikan/Wikipedia live.
+    # Validation HEAD effectuee a chaque fetch_card_image. Si URL meurt,
+    # cascade prend le relais automatiquement.
+
+    # ===== Star Wars (Wookieepedia + Wikipedia Commons) =====
+    "Luke Skywalker":     "https://upload.wikimedia.org/wikipedia/commons/6/67/Luke_Skywalker_-_Welcome_Banner_%28Cropped%29.jpg",
+    "Darth Vader":        "https://upload.wikimedia.org/wikipedia/commons/9/9c/Darth_Vader_-_2007_Disney_Weekends.jpg",
+    "Yoda":               "https://static.wikia.nocookie.net/starwars/images/d/d6/Yoda_SWSB.png/revision/latest/scale-to-width-down/500",
+    "The Mandalorian":    "https://static.wikia.nocookie.net/starwars/images/4/46/DinDjarinArmor-CGSWG.png/revision/latest/scale-to-width-down/483",
+    "Grogu":              "https://static.wikia.nocookie.net/starwars/images/0/06/Grogu-BoBFBox.png/revision/latest",
+    "Boba Fett":          "https://static.wikia.nocookie.net/starwars/images/6/62/BobaFettHS-SWI213.png/revision/latest/scale-to-width-down/473",
+    "Han Solo":           "https://static.wikia.nocookie.net/starwars/images/e/e2/TFAHanSolo.png/revision/latest/scale-to-width-down/450",
+    "Chewbacca":          "https://static.wikia.nocookie.net/starwars/images/2/25/Chewbacca-SWBC5cvr.png/revision/latest/scale-to-width-down/450",
+    "Obi-Wan Kenobi":     "https://static.wikia.nocookie.net/starwars/images/4/4e/ObiWanHS-SWE.jpg/revision/latest/scale-to-width-down/450",
+
+    # ===== Anime (MAL CDN + Fandom) =====
+    "Naruto Uzumaki":     "https://cdn.myanimelist.net/images/characters/2/284121.jpg",
+    "Sasuke Uchiha":      "https://cdn.myanimelist.net/images/characters/9/131317.jpg",
+    "Goku":               "https://cdn.myanimelist.net/images/characters/7/284129.jpg",
+    "Vegeta":             "https://cdn.myanimelist.net/images/characters/14/86185.jpg",
+    "Monkey D. Luffy":    "https://cdn.myanimelist.net/images/characters/9/310307.jpg",
+    "Roronoa Zoro":       "https://cdn.myanimelist.net/images/characters/3/100534.jpg",
+    "Levi Ackerman":      "https://cdn.myanimelist.net/images/characters/2/241413.jpg",
+    "Eren Yeager":        "https://cdn.myanimelist.net/images/characters/10/216895.jpg",
+    "Tanjiro Kamado":     "https://cdn.myanimelist.net/images/characters/6/386735.jpg",
+    "Nezuko Kamado":      "https://cdn.myanimelist.net/images/characters/2/378254.jpg",
+    "Gojo Satoru":        "https://cdn.myanimelist.net/images/characters/15/422168.jpg",
+    "Itadori Yuji":       "https://static.wikia.nocookie.net/jujutsu-kaisen/images/3/35/Yuji_Itadori_%28Anime_4%29.png/revision/latest/scale-to-width-down/219",
+    "Lelouch Lamperouge": "https://cdn.myanimelist.net/images/characters/8/406163.jpg",
+    "Light Yagami":       "https://cdn.myanimelist.net/images/characters/6/63870.jpg",
+    "Spike Spiegel":      "https://cdn.myanimelist.net/images/characters/11/516853.jpg",
+
+    # ===== Jeux Video (Fandom + Wikipedia Commons) =====
+    "Master Chief":       "https://static.wikia.nocookie.net/halo/images/8/84/InfiniteChiefTRANSPARENTholdingReachAR.png/revision/latest/scale-to-width-down/600",
+    "Mario":              "https://static.wikia.nocookie.net/mario/images/0/0d/MarioAlternateJamboreeRender.png/revision/latest/scale-to-width-down/357",
+    "Link":               "https://static.wikia.nocookie.net/zelda_gamepedia_en/images/4/47/TLoZ_Series_Link_Render.png/revision/latest/scale-to-width-down/392",
+    "Kratos":             "https://static.wikia.nocookie.net/godofwar/images/e/e9/Kratos-_GOW_Ragnarok.png/revision/latest",
+    "Geralt of Rivia":    "https://upload.wikimedia.org/wikipedia/commons/8/87/Geralt.jpg",
+    "Solid Snake":        "https://static.wikia.nocookie.net/metalgear/images/d/d9/Old_Snake_MPO.jpg/revision/latest",
+    "Lara Croft":         "https://static.wikia.nocookie.net/laracroft/images/5/5a/20_Years_of_Croft.jpg/revision/latest/scale-to-width-down/600",
+    "Sonic the Hedgehog": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Sonic_The_Hedgehog.svg/960px-Sonic_The_Hedgehog.svg.png",
+    "Pikachu":            "https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png",
+    "Cloud Strife":       "https://static.wikia.nocookie.net/finalfantasy/images/e/ec/Cloud_Strife_from_FFVII_Rebirth_promo_render.png/revision/latest/scale-to-width-down/250",
+
+    # ===== Hazbin Hotel / Helluva Boss (Fandom) =====
+    "Charlie Morningstar": "https://static.wikia.nocookie.net/hazbinhotel/images/5/5a/Rendered._Charlie_Morningstar.png/revision/latest/scale-to-width-down/260",
+    "Alastor":            "https://static.wikia.nocookie.net/hazbinhotel/images/a/a6/Alastor_s2_Render_by_OKDraws.png/revision/latest/scale-to-width-down/225",
+    "Vaggie":             "https://static.wikia.nocookie.net/hazbinhotel/images/c/c0/Vaggi_Season_2_Ponytail.png/revision/latest/scale-to-width-down/304",
+    "Angel Dust":         "https://static.wikia.nocookie.net/hazbinhotel/images/7/7a/New_Angel_Render.png/revision/latest/scale-to-width-down/204",
+    "Blitzo":             "https://static.wikia.nocookie.net/hazbinhotel/images/7/73/Blitzo_Render_%28W_Crystal%29.png/revision/latest/scale-to-width-down/405",
+
+    # ===== Amazing Digital Circus (Fandom tadc) =====
+    "Pomni":              "https://static.wikia.nocookie.net/tadc/images/8/82/GlitchWebsitePomniRender.png/revision/latest/scale-to-width-down/381",
+    "Caine":              "https://static.wikia.nocookie.net/tadc/images/7/73/Caine_render.webp/revision/latest/scale-to-width-down/432",
+    "Ragatha":            "https://static.wikia.nocookie.net/tadc/images/8/8e/Ragatha_%28Render%29.png/revision/latest/scale-to-width-down/345",
+    "Jax":                "https://static.wikia.nocookie.net/tadc/images/c/ce/Jax_Render.png/revision/latest/scale-to-width-down/360",
+
+    # ===== Pop Culture (Fandom + Wikipedia Commons) =====
+    "Stan Marsh":         "https://static.wikia.nocookie.net/southpark/images/c/c6/Stan-marsh-0.png/revision/latest/scale-to-width-down/383",
+    "Homer Simpson":      "https://upload.wikimedia.org/wikipedia/en/0/02/Homer_Simpson_2006.png",
+    "SpongeBob":          "https://upload.wikimedia.org/wikipedia/commons/7/7a/SpongeBob_SquarePants_character.png",
+    "Rick Sanchez":       "https://upload.wikimedia.org/wikipedia/en/a/a6/Rick_Sanchez.png",
+    "Walter White":       "https://upload.wikimedia.org/wikipedia/en/0/03/Walter_White_S5B.png",
+    "Shrek":              "https://static.wikia.nocookie.net/shrek/images/9/9b/GoodShrekImage.png/revision/latest/scale-to-width-down/394",
 }
 
 
