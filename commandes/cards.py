@@ -38,6 +38,7 @@ RARITY_EMOJIS = {
 
 # Mapping rarete -> nom emoji custom Discord (support server)
 _RARITY_CUSTOM_NAME = {
+    "common":    "commun",
     "rare":      "rare",
     "epic":      "epic",
     "legendary": "legendaire",
