@@ -17,6 +17,70 @@ _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 _DEFAULT_TIMEOUT = 8
 
 
+# URLs curees manuellement pour les cartes ou auto-fetch retourne le logo
+# ou rien. Priorite absolue avant n'importe quelle API. Mapping name -> URL.
+# URLs upload.wikimedia.org (Wikipedia Commons) ou static.wikia.nocookie.net
+# direct (sans scale-to-width parametres).
+CURATED_IMAGES: dict[str, str] = {
+    # ===== Star Wars =====
+    "Luke Skywalker":   "https://lumiere-a.akamaihd.net/v1/images/luke-skywalker-main_269abf1d.jpeg",
+    "Darth Vader":      "https://lumiere-a.akamaihd.net/v1/images/databank_darthvader_01_169_a2f44f55.jpeg",
+    "Yoda":             "https://lumiere-a.akamaihd.net/v1/images/databank_yoda_01_169_d5d3eaa3.jpeg",
+    "The Mandalorian":  "https://lumiere-a.akamaihd.net/v1/images/the-mandalorian-main_4f297a99.jpeg",
+    "Grogu":            "https://lumiere-a.akamaihd.net/v1/images/cd_grogu_f6173336.jpeg",
+    "Boba Fett":        "https://lumiere-a.akamaihd.net/v1/images/databank_bobafett_01_169_e7d2f6e4.jpeg",
+    "Princess Leia":    "https://lumiere-a.akamaihd.net/v1/images/databank_leiaorgana_01_169_b3aa8194.jpeg",
+    "Han Solo":         "https://lumiere-a.akamaihd.net/v1/images/databank_hansolo_01_169_be20e4d1.jpeg",
+    "Chewbacca":        "https://lumiere-a.akamaihd.net/v1/images/databank_chewbacca_01_169_ec05bcb5.jpeg",
+    "Obi-Wan Kenobi":   "https://lumiere-a.akamaihd.net/v1/images/databank_obiwankenobi_01_169_46ab6b4a.jpeg",
+    # ===== Anime (preferer Jikan via API mais en cas de fallback) =====
+    "Naruto Uzumaki":   "https://cdn.myanimelist.net/images/characters/2/284121.jpg",
+    "Sasuke Uchiha":    "https://cdn.myanimelist.net/images/characters/9/131317.jpg",
+    "Goku":             "https://cdn.myanimelist.net/images/characters/7/284129.jpg",
+    "Vegeta":           "https://cdn.myanimelist.net/images/characters/16/47282.jpg",
+    "Monkey D. Luffy":  "https://cdn.myanimelist.net/images/characters/9/310307.jpg",
+    "Roronoa Zoro":     "https://cdn.myanimelist.net/images/characters/3/100534.jpg",
+    "Levi Ackerman":    "https://cdn.myanimelist.net/images/characters/2/241413.jpg",
+    "Eren Yeager":      "https://cdn.myanimelist.net/images/characters/10/216895.jpg",
+    "Tanjiro Kamado":   "https://cdn.myanimelist.net/images/characters/6/386735.jpg",
+    "Nezuko Kamado":    "https://cdn.myanimelist.net/images/characters/9/383496.jpg",
+    "Gojo Satoru":      "https://cdn.myanimelist.net/images/characters/7/422168.jpg",
+    "Itadori Yuji":     "https://cdn.myanimelist.net/images/characters/13/424044.jpg",
+    "Lelouch Lamperouge": "https://cdn.myanimelist.net/images/characters/3/50617.jpg",
+    "Light Yagami":     "https://cdn.myanimelist.net/images/characters/6/63870.jpg",
+    "Spike Spiegel":    "https://cdn.myanimelist.net/images/characters/8/82533.jpg",
+    # ===== Jeux Video =====
+    "Master Chief":     "https://upload.wikimedia.org/wikipedia/en/d/d6/Master_Chief_helmet.svg",
+    "Mario":            "https://mario.wiki.gallery/images/thumb/4/4d/MarioNSMBUDeluxe.png/800px-MarioNSMBUDeluxe.png",
+    "Link":             "https://www.zeldadungeon.net/wiki/images/c/c9/Link-TotK-Render.png",
+    "Kratos":           "https://upload.wikimedia.org/wikipedia/en/d/d0/Kratos_-_PlayStation_-_The_Concept.png",
+    "Geralt of Rivia":  "https://upload.wikimedia.org/wikipedia/en/0/03/Geralt_of_Rivia_05.jpg",
+    "Solid Snake":      "https://upload.wikimedia.org/wikipedia/en/8/8b/Solid_Snake_MGS2.jpg",
+    "Lara Croft":       "https://upload.wikimedia.org/wikipedia/en/6/63/Lara_Croft_2013.png",
+    "Sonic the Hedgehog": "https://upload.wikimedia.org/wikipedia/en/b/b4/Sonic_modern_and_classic_designs.png",
+    "Pikachu":          "https://upload.wikimedia.org/wikipedia/en/a/a6/Pok%C3%A9mon_Pikachu_art.png",
+    "Cloud Strife":     "https://upload.wikimedia.org/wikipedia/en/c/c7/Cloud_Strife_Final_Fantasy_VII_Remake.png",
+    # ===== Hazbin Hotel / Helluva Boss =====
+    "Charlie Morningstar": "https://static.wikia.nocookie.net/hazbinhotel/images/0/0d/Charlie_Morningstar.png/revision/latest?cb=20240120175430",
+    "Alastor":          "https://static.wikia.nocookie.net/hazbinhotel/images/3/36/Alastor_Profile.png/revision/latest?cb=20240120175438",
+    "Vaggie":           "https://static.wikia.nocookie.net/hazbinhotel/images/9/9c/Vaggie_Profile.png/revision/latest?cb=20240120175433",
+    "Angel Dust":       "https://static.wikia.nocookie.net/hazbinhotel/images/3/3d/Angel_Dust_Profile.png/revision/latest?cb=20240120175433",
+    "Blitzo":           "https://static.wikia.nocookie.net/helluva-boss/images/4/41/Blitzo.png/revision/latest?cb=20221008041648",
+    # ===== Amazing Digital Circus =====
+    "Pomni":            "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/9/9a/Pomni_alt.png/revision/latest",
+    "Caine":            "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/9/9e/Caine.png/revision/latest",
+    "Ragatha":          "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/4/4f/Ragatha.png/revision/latest",
+    "Jax":              "https://static.wikia.nocookie.net/the-amazing-digital-circus/images/4/47/Jax.png/revision/latest",
+    # ===== Pop Culture divers =====
+    "Stan Marsh":       "https://static.wikia.nocookie.net/southpark/images/d/db/Stan_Marsh.png/revision/latest",
+    "Homer Simpson":    "https://upload.wikimedia.org/wikipedia/en/0/02/Homer_Simpson_2006.png",
+    "SpongeBob":        "https://upload.wikimedia.org/wikipedia/en/3/3b/SpongeBob_SquarePants_character.svg",
+    "Rick Sanchez":     "https://upload.wikimedia.org/wikipedia/en/a/a6/Rick_Sanchez.png",
+    "Walter White":     "https://upload.wikimedia.org/wikipedia/en/0/03/Walter_White_S5B.png",
+    "Shrek":            "https://upload.wikimedia.org/wikipedia/en/4/4a/Shrek_%28character%29.png",
+}
+
+
 def _http_get(url: str, timeout: int = _DEFAULT_TIMEOUT) -> dict | None:
     req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT,
                                                   "Accept": "application/json"})
@@ -165,8 +229,9 @@ def _fandom_search_thumb(name: str, universe_keyword: str | None = None) -> str 
 
 def fetch_card_image(name: str, universe: str | None = None,
                       subtitle: str | None = None) -> str | None:
-    """Strategie cascade multi-sources :
+    """Strategie cascade multi-sources.
 
+    0) CURATED_IMAGES (override manuel, priorite absolue)
     1) Wikipedia EN summary direct
     2) Wikipedia EN pageimages direct (plus exhaustif que summary)
     3) Wikipedia EN search + summary
@@ -175,7 +240,9 @@ def fetch_card_image(name: str, universe: str | None = None,
     6) Jikan API (si universe = Anime)
     7) Wikipedia FR
     """
-    # Try by character name strategies
+    # 0) Curated override
+    if name in CURATED_IMAGES:
+        return CURATED_IMAGES[name]
     # 1)
     img = _wikipedia_summary_thumb(name, "en")
     if img: return img
