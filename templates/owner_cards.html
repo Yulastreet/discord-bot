@@ -88,7 +88,8 @@
       <option value="legendary">Legendary</option>
       <option value="mythic">Mythic</option>
     </select>
-    <button class="btn btn-secondary" onclick="refreshImages()">⟳ Refresh images (Wikipedia)</button>
+    <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refresh images (manquantes)</button>
+    <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
   </div>
 
@@ -280,13 +281,16 @@ async function deleteCurrentCard() {
 }
 window.deleteCurrentCard = deleteCurrentCard;
 
-async function refreshImages() {
-  if (!confirm('Rafraichir les image_url manquantes via Wikipedia API ? (peut prendre 30s-1min)')) return;
-  toast('Refresh en cours...');
+async function refreshImages(force = false) {
+  const msg = force
+    ? 'FORCE overwrite : refetch toutes les images (meme celles deja set, ex URLs Wikia mortes). Confirmer ?'
+    : 'Rafraichir uniquement les image_url manquantes ? (Ctrl+clic = force overwrite)';
+  if (!confirm(msg)) return;
+  toast('Refresh en cours, peut prendre 30s-2min...');
   try {
     const r = await fetch('/api/owner/cards/refresh-images', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({force: false}),
+      body: JSON.stringify({force: !!force}),
     });
     const d = await r.json();
     if (d.ok) {
