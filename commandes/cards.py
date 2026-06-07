@@ -45,9 +45,9 @@ _RARITY_CUSTOM_NAME = {
 }
 _rarity_emoji_cache: dict[str, str] = {}
 
-def _get_rarity_custom_emoji(bot, rarity: str) -> str:
+def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
     """Cherche emoji custom dans tous les guilds du bot (support server inclus).
-    Cache premier match par nom. Retourne string Discord '<:name:id>' ou ''."""
+    Cache CDN URL (gif si animé, png sinon). Pour usage en thumbnail embed."""
     if rarity in _rarity_emoji_cache:
         return _rarity_emoji_cache[rarity]
     expected = _RARITY_CUSTOM_NAME.get(rarity)
@@ -57,9 +57,9 @@ def _get_rarity_custom_emoji(bot, rarity: str) -> str:
     try:
         for e in bot.emojis:
             if e.name.lower() == expected.lower():
-                s = str(e)
-                _rarity_emoji_cache[rarity] = s
-                return s
+                url = str(e.url)
+                _rarity_emoji_cache[rarity] = url
+                return url
     except Exception:
         pass
     return ""
@@ -169,16 +169,18 @@ def setup_cards_commands(bot, deps):
         # Embed minimaliste
         rarity = card.get("rarity", "common")
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        custom_em = _get_rarity_custom_emoji(bot, rarity)
-        title_em = custom_em or RARITY_EMOJIS.get(rarity, "⚪")
-        rar_line = f"{rarity.upper()} {custom_em}".strip() if custom_em else rarity.upper()
+        emoji = RARITY_EMOJIS.get(rarity, "⚪")
         origine = card.get("subtitle") or "?"
-        desc = f"**Rareté :** {rar_line}\n**Origine :** {origine}"
+        desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
         embed = discord.Embed(
-            title=f"{title_em} {card['name']}"[:256],
+            title=f"{emoji} {card['name']}"[:256],
             description=desc,
             color=color,
         )
+        # Thumbnail = emoji custom anime (rareté) si dispo
+        thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
+        if thumb_url:
+            embed.set_thumbnail(url=thumb_url)
         img = card.get("image_url")
         if img and isinstance(img, str) and img.startswith("http"):
             embed.set_image(url=img)
@@ -275,16 +277,17 @@ def setup_cards_commands(bot, deps):
                 return
             rarity = card.get("rarity", "common")
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-            custom_em = _get_rarity_custom_emoji(bot, rarity)
-            title_em = custom_em or RARITY_EMOJIS.get(rarity, "⚪")
-            rar_line = f"{rarity.upper()} {custom_em}".strip() if custom_em else rarity.upper()
+            emoji = RARITY_EMOJIS.get(rarity, "⚪")
             origine = card.get("subtitle") or "?"
-            desc = f"**Rareté :** {rar_line}\n**Origine :** {origine}"
+            desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
             embed = discord.Embed(
-                title=f"{title_em} {card['name']}"[:256],
+                title=f"{emoji} {card['name']}"[:256],
                 description=desc,
                 color=color,
             )
+            thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
+            if thumb_url:
+                embed.set_thumbnail(url=thumb_url)
             img = card.get("image_url")
             if img and isinstance(img, str) and img.startswith("http"):
                 embed.set_image(url=img)
