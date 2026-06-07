@@ -125,6 +125,50 @@ def init_db():
         updated_at                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # ===== Cards collection (Mudae-like) =====
+    # Catalogue global de cartes pop culture (Anime, Manga, Jeu video, Star
+    # Wars, Hazbin Hotel, Amazing Digital Circus, etc.). Rarites :
+    # common / rare / epic / legendary / mythic.
+    c.execute('''CREATE TABLE IF NOT EXISTS cards (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT NOT NULL,
+        universe    TEXT,
+        subtitle    TEXT,
+        rarity      TEXT NOT NULL DEFAULT 'common',
+        image_url   TEXT,
+        description TEXT,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity)")
+
+    # Possessions : un user peut posseder plusieurs copies d'une meme carte.
+    c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     TEXT NOT NULL,
+        card_id     INTEGER NOT NULL,
+        claimed_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        favorite    INTEGER DEFAULT 0,
+        FOREIGN KEY (card_id) REFERENCES cards(id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_cards_user ON user_cards(user_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_user_cards_card ON user_cards(card_id)")
+
+    # Settings user : last roll + favorite + wishlist
+    c.execute('''CREATE TABLE IF NOT EXISTS user_card_settings (
+        user_id        TEXT PRIMARY KEY,
+        last_roll_at   TEXT,
+        favorite_card  INTEGER,
+        updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # Config per-guild : salon obligatoire pour utiliser /roll et /collection
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_card_config (
+        guild_id     TEXT PRIMARY KEY,
+        channel_id   TEXT,
+        enabled      INTEGER DEFAULT 1,
+        updated_at   TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Dashboard notifications : cloche header =====
     # Stockes par user_id. Type : 'automod_alert', 'entitlement', 'milestone',
     # 'trial_expire', 'raid_alert', 'system'.
@@ -838,6 +882,12 @@ def init_db():
     cleanup_legacy_seasonal_sabres()
     # Re-seed sabres saisonniers + pass_rewards pour saisons existantes
     _migrate_pass_rewards_and_sabres()
+    # Seed initial cards si table vide
+    try:
+        from services.cards_seed import seed_initial_cards
+        seed_initial_cards()
+    except Exception as e:
+        print(f"[cards seed] erreur: {e!r}")
     print("[OK] Base de donnees initialisee !")
 
 
@@ -1475,6 +1525,186 @@ def automod_config_set(guild_id, **fields):
     sets = ", ".join(f"{k} = ?" for k in fields) + ", updated_at = CURRENT_TIMESTAMP"
     c.execute(f"UPDATE automod_config SET {sets} WHERE guild_id = ?",
               (*fields.values(), str(guild_id)))
+    conn.commit(); conn.close()
+
+
+# ===== Cards collection helpers =====
+import random as _rd_cards
+
+
+CARD_RARITY_WEIGHTS = {
+    "common":    50,
+    "rare":      30,
+    "epic":      15,
+    "legendary": 4,
+    "mythic":    1,
+}
+
+
+def card_add(name, universe=None, subtitle=None, rarity="common",
+              image_url=None, description=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO cards (name, universe, subtitle, rarity, image_url, description)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
+              (name, universe, subtitle, rarity, image_url, description))
+    cid = c.lastrowid
+    conn.commit(); conn.close()
+    return cid
+
+
+def card_list_all(limit=1000, rarity=None, search=None):
+    conn = get_db(); c = conn.cursor()
+    where = ["1=1"]
+    params: list = []
+    if rarity:
+        where.append("rarity = ?"); params.append(rarity)
+    if search:
+        where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
+        like = f"%{search.lower()}%"
+        params += [like, like, like]
+    params.append(int(limit))
+    rows = c.execute(
+        f"SELECT * FROM cards WHERE {' AND '.join(where)} "
+        f"ORDER BY id ASC LIMIT ?", params,
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_get(card_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM cards WHERE id = ?", (int(card_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_get_by_name(name):
+    """Case insensitive."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM cards WHERE LOWER(name) = LOWER(?)",
+                  (name,)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_delete(card_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM cards WHERE id = ?", (int(card_id),))
+    deleted = c.rowcount > 0
+    conn.commit(); conn.close()
+    return deleted
+
+
+def card_count_total():
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def card_roll_random():
+    """Pioche une carte selon les poids de rarete.
+    Retourne None si la table cards est vide."""
+    rarity = _rd_cards.choices(
+        list(CARD_RARITY_WEIGHTS.keys()),
+        weights=list(CARD_RARITY_WEIGHTS.values()),
+        k=1,
+    )[0]
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM cards WHERE rarity = ?", (rarity,)).fetchall()
+    if not rows:
+        # Fallback : prend dans n'importe quelle rarete dispo
+        rows = c.execute("SELECT * FROM cards ORDER BY RANDOM() LIMIT 1").fetchall()
+    conn.close()
+    if not rows:
+        return None
+    return dict(_rd_cards.choice(rows))
+
+
+def user_card_add(user_id, card_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_cards (user_id, card_id) VALUES (?, ?)",
+              (str(user_id), int(card_id)))
+    new_id = c.lastrowid
+    conn.commit(); conn.close()
+    return new_id
+
+
+def user_card_list(user_id, rarity=None):
+    """Toutes les copies du user, jointes a la carte. ORDER BY rarete desc."""
+    conn = get_db(); c = conn.cursor()
+    where = "uc.user_id = ?"
+    params = [str(user_id)]
+    if rarity:
+        where += " AND c.rarity = ?"
+        params.append(rarity)
+    # Ordre par rarite (mythic d'abord), puis par card name
+    rarity_order = ("CASE c.rarity "
+                    "WHEN 'mythic' THEN 0 "
+                    "WHEN 'legendary' THEN 1 "
+                    "WHEN 'epic' THEN 2 "
+                    "WHEN 'rare' THEN 3 "
+                    "WHEN 'common' THEN 4 ELSE 5 END")
+    rows = c.execute(
+        f"SELECT uc.*, c.name, c.universe, c.subtitle, c.rarity, c.image_url "
+        f"FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+        f"WHERE {where} ORDER BY {rarity_order} ASC, c.name ASC", params,
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def user_card_count(user_id):
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ?",
+                  (str(user_id),)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def user_card_settings_get(user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM user_card_settings WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else {"user_id": str(user_id), "last_roll_at": None,
+                               "favorite_card": None}
+
+
+def user_card_settings_set_last_roll(user_id, when_iso):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO user_card_settings (user_id, last_roll_at)
+                 VALUES (?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET
+                   last_roll_at = excluded.last_roll_at,
+                   updated_at   = CURRENT_TIMESTAMP''',
+              (str(user_id), when_iso))
+    conn.commit(); conn.close()
+
+
+# ===== Cards : config per-guild (salon obligatoire) =====
+def guild_card_config_get(guild_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM guild_card_config WHERE guild_id = ?",
+                  (str(guild_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def guild_card_config_set(guild_id, channel_id=None, enabled=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO guild_card_config (guild_id) VALUES (?)",
+              (str(guild_id),))
+    fields = []
+    values: list = []
+    if channel_id is not None:
+        fields.append("channel_id = ?"); values.append(str(channel_id) if channel_id else None)
+    if enabled is not None:
+        fields.append("enabled = ?"); values.append(1 if enabled else 0)
+    if fields:
+        fields.append("updated_at = CURRENT_TIMESTAMP")
+        c.execute(f"UPDATE guild_card_config SET {', '.join(fields)} WHERE guild_id = ?",
+                  (*values, str(guild_id)))
     conn.commit(); conn.close()
 
 
