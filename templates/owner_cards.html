@@ -5,6 +5,8 @@
 {% block crumb %}Owner Cards{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
+<script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
 <style>
   .cards-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: var(--s-4); }
   .cards-toolbar select, .cards-toolbar input {
@@ -222,10 +224,30 @@
         <option value="mythic">🔴 Mythic</option>
       </select>
       <button class="btn btn-secondary" onclick="rebakeCurrentOverlay()">🎨 Re-bake</button>
+      <button class="btn btn-secondary" onclick="openCardCropper()">✂ Recadrer</button>
       <button class="btn btn-primary" onclick="giveCurrentCard()">🎁 Give</button>
       <button class="btn btn-ghost" onclick="editCurrentCard()">✏ Edit</button>
       <button class="btn btn-danger" onclick="deleteCurrentCard()">🗑 Delete</button>
       <button class="btn btn-secondary" onclick="closePreview()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cropper modal pour cards -->
+<div id="cardCropScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:301;display:none;place-items:center;padding:20px;">
+  <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:720px;width:100%;">
+    <h3 style="margin:0 0 12px;">✂ Recadrer <span id="cardCropName">—</span></h3>
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">
+      Ratio fixe 2:3. Source originale rechargee. Overlay rareté re-appliqué auto.
+    </p>
+    <div style="max-height:60vh;overflow:hidden;background:#000;border-radius:8px;">
+      <img id="cardCropImg" src="" style="display:block;max-width:100%;">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="cardCropReset()">Reset cadre</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-ghost" onclick="closeCardCropper()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitCardCrop()">✅ Appliquer recadrage</button>
     </div>
   </div>
 </div>
@@ -430,6 +452,67 @@ async function giveCurrentCard() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.giveCurrentCard = giveCurrentCard;
+
+let _cardCropper = null;
+function openCardCropper() {
+  if (!_currentPreview) return;
+  const src = _currentPreview.source_image_url || _currentPreview.image_url;
+  if (!src) { toast('Pas de source image.', 'error'); return; }
+  if (src.includes('/card_renders/') || src.includes('/card_suggestions/')) {
+    toast('Source originale perdue (URL deja locale). Re-fetch impossible.', 'error');
+    return;
+  }
+  document.getElementById('cardCropName').textContent = _currentPreview.name;
+  const img = document.getElementById('cardCropImg');
+  img.crossOrigin = 'anonymous';
+  img.src = src;
+  document.getElementById('cardCropScrim').style.display = 'grid';
+  img.onload = () => {
+    if (_cardCropper) { _cardCropper.destroy(); _cardCropper = null; }
+    _cardCropper = new Cropper(img, {
+      aspectRatio: 2/3, viewMode: 1, autoCropArea: 0.95,
+      background: false, movable: true, zoomable: true,
+      scalable: false, rotatable: false,
+    });
+  };
+}
+function cardCropReset() { if (_cardCropper) _cardCropper.reset(); }
+function closeCardCropper() {
+  if (_cardCropper) { _cardCropper.destroy(); _cardCropper = null; }
+  document.getElementById('cardCropScrim').style.display = 'none';
+}
+async function submitCardCrop() {
+  if (!_cardCropper || !_currentPreview) return;
+  const data = _cardCropper.getData(true);
+  toast('Recadrage en cours...');
+  try {
+    const r = await fetch(`/api/owner/cards/${_currentPreview.id}/recrop`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        crop_x: data.x, crop_y: data.y,
+        crop_w: data.width, crop_h: data.height,
+        apply_overlay: true,
+      }),
+    });
+    let d;
+    try { d = await r.json(); }
+    catch (e) {
+      toast('Erreur serveur (HTML retourne, pm2 restart ?)', 'error');
+      return;
+    }
+    if (d.ok) {
+      toast('Carte recadrée.');
+      _currentPreview.image_url = d.image_url + '?t=' + Date.now();
+      document.getElementById('previewImg').src = _currentPreview.image_url;
+      closeCardCropper();
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.openCardCropper = openCardCropper;
+window.cardCropReset = cardCropReset;
+window.closeCardCropper = closeCardCropper;
+window.submitCardCrop = submitCardCrop;
 
 async function rebakeCurrentOverlay() {
   if (!_currentPreview) return;

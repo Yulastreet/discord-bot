@@ -210,7 +210,12 @@ async function submitCrop() {
         crop_w: data.width, crop_h: data.height,
       }),
     });
-    const d = await r.json();
+    let d;
+    try { d = await r.json(); }
+    catch (e) {
+      toast('Erreur serveur (HTML retourne au lieu de JSON). pm2 restart manquant ?', 'error');
+      return;
+    }
     if (d.ok) {
       toast(`Carte #${d.card_id} créée avec recadrage.`);
       closeCropper();
