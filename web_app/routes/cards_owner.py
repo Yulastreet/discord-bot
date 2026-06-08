@@ -169,6 +169,28 @@ def register_cards_owner_routes(app, deps):
                          "user_id": user_id})
 
 
+    @app.route("/api/owner/cards/bulk-import-fandom-games", methods=["POST"])
+    def api_owner_cards_bulk_fandom_games():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_fandom_games import bulk_import_fandom_games
+        data = request.json or {}
+        try:
+            per_franchise = max(10, min(int(data.get("per_franchise", 100)), 500))
+        except (ValueError, TypeError):
+            per_franchise = 100
+        skip_existing = bool(data.get("skip_existing", True))
+        wipe_first = bool(data.get("wipe_first", False))
+        try:
+            stats = bulk_import_fandom_games(per_franchise=per_franchise,
+                                                skip_existing=skip_existing,
+                                                wipe_first=wipe_first)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/bulk-import-giantbomb", methods=["POST"])
     def api_owner_cards_bulk_gb():
         if not _is_owner_session():

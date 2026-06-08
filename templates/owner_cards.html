@@ -100,8 +100,9 @@
     <button class="btn btn-secondary" onclick="bakeOverlays()">🎨 Baker overlays</button>
     <button class="btn btn-primary" onclick="bulkImportAll()">🌍 Tout importer</button>
     <button class="btn btn-secondary" onclick="bulkImportAnilist()">📦 Anime (Anilist)</button>
-    <button class="btn btn-secondary" onclick="bulkImportIgdb()">🎮 Jeux Vidéo (IGDB)</button>
-    <button class="btn btn-secondary" onclick="bulkImportGiantBomb()">🕹️ Jeux Vidéo (Giant Bomb)</button>
+    <button class="btn btn-secondary" onclick="bulkImportFandomGames()">🎮 Jeux Vidéo (Fandom franchises)</button>
+    <button class="btn btn-ghost" onclick="bulkImportIgdb()" style="opacity:0.6">🎮 IGDB (cap 455)</button>
+    <button class="btn btn-ghost" onclick="bulkImportGiantBomb()" style="opacity:0.6">🕹️ Giant Bomb (API down)</button>
     <button class="btn btn-ghost" onclick="bulkImportJikan()" style="opacity:0.6">📦 Jikan (fallback)</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe catalogue</button>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
@@ -441,6 +442,27 @@ async function bulkImportAll() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAll = bulkImportAll;
+
+async function bulkImportFandomGames() {
+  const perStr = prompt('Combien de chars max par franchise ? (Mario, Zelda, Pokemon, etc - 85 franchises listées). Default 100.', '100');
+  if (!perStr) return;
+  const perFranchise = parseInt(perStr, 10);
+  if (!Number.isFinite(perFranchise) || perFranchise < 10) { toast('Min 10.', 'error'); return; }
+  if (!confirm(`Import jusqu'à ${perFranchise * 85} chars max (85 franchises × ${perFranchise}). Volume reel ~2-5k selon completion wikis. Duree ~3-5min.`)) return;
+  toast('Import Fandom games en cours... Console pour progress.');
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-fandom-games', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({per_franchise: perFranchise, skip_existing: true, wipe_first: false}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed} (${d.stats.franchises_done} franchises OK, ${d.stats.franchises_empty} empty)`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportFandomGames = bulkImportFandomGames;
 
 async function bulkImportGiantBomb() {
   const pagesStr = prompt('Combien de pages Giant Bomb ? (100 chars/page). ATTENTION rate limit 200 req/h. 50 pages = 5000 chars en ~15min. Max 200 pages.', '50');
