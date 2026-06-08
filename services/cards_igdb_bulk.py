@@ -155,18 +155,14 @@ def _process_char_row(ch: dict, rank_counter: int, existing: set,
         return False
 
 
-def _fetch_top_games_character_ids(target_count: int = 2000,
-                                     sleep_between: float = 0.4) -> list[int]:
-    """Iter /games top par rating_count desc, extract characters arrays,
-    retourne liste unique des character_ids jusqu'a target_count."""
-    char_ids: list[int] = []
-    seen = set()
+def _fetch_top_game_ids(target_count: int = 1000,
+                          sleep_between: float = 0.4) -> list[int]:
+    """Iter /games top par total_rating_count desc, retourne game IDs."""
+    game_ids: list[int] = []
     offset = 0
     per_page = 500
-    while len(char_ids) < target_count and offset < 9500:
-        # IGDB requirement : champ utilise par sort doit etre dans fields.
-        # rating_count > 5 = jeux serieux. total_rating_count = sum users+critics.
-        body = (f"fields characters, name, total_rating_count; "
+    while len(game_ids) < target_count and offset < 9500:
+        body = (f"fields id, name, total_rating_count; "
                 f"where total_rating_count > 5; "
                 f"sort total_rating_count desc; "
                 f"limit {per_page}; offset {offset};")
@@ -175,36 +171,54 @@ def _fetch_top_games_character_ids(target_count: int = 2000,
             print(f"[igdb_bulk] games page offset={offset} empty")
             break
         for g in rows:
-            for cid in (g.get("characters") or []):
-                if cid not in seen:
-                    seen.add(cid)
-                    char_ids.append(cid)
-                    if len(char_ids) >= target_count:
-                        break
-            if len(char_ids) >= target_count:
-                break
-        print(f"[igdb_bulk] games offset={offset}: collected {len(char_ids)} char_ids")
+            gid = g.get("id")
+            if gid:
+                game_ids.append(gid)
+        print(f"[igdb_bulk] games offset={offset}: total {len(game_ids)} game_ids")
         offset += per_page
         time.sleep(sleep_between)
-    return char_ids
+    return game_ids[:target_count]
 
 
-def _fetch_chars_batch(char_ids: list[int], sleep_between: float = 0.4) -> list[dict]:
-    """Batch fetch chars by ids. IGDB max 500 per call."""
-    if not char_ids:
+def _fetch_chars_in_games(game_ids: list[int], exclude_char_ids: set,
+                            target_count: int, sleep_between: float = 0.4) -> list[dict]:
+    """Query /characters where games contient un des game_ids fournis.
+    IGDB syntax 'games = (id1, id2, ...)' = any-of pour array field."""
+    if not game_ids:
         return []
     all_chars = []
-    batch_size = 500
-    for i in range(0, len(char_ids), batch_size):
-        batch = char_ids[i:i + batch_size]
-        ids_str = ",".join(str(x) for x in batch)
-        body = (f"fields name, mug_shot.image_id, games.name, gender; "
-                f"where id = ({ids_str}) & mug_shot != null; "
-                f"limit {batch_size};")
-        rows = _igdb_query("characters", body)
-        if rows:
-            all_chars.extend(rows)
-            print(f"[igdb_bulk] batch {i}-{i+len(batch)}: {len(rows)} chars avec mug_shot")
+    seen_char_ids = set(exclude_char_ids)
+    # Batch game_ids par groupe pour eviter query body trop long
+    game_batch = 200
+    char_offset = 0
+    char_per_page = 500
+    for gi in range(0, len(game_ids), game_batch):
+        gbatch = game_ids[gi:gi + game_batch]
+        ids_str = ",".join(str(x) for x in gbatch)
+        # Pagine sur les chars matching ce subset
+        offset = 0
+        while True:
+            body = (f"fields id, name, mug_shot.image_id, games.name, gender; "
+                    f"where games = ({ids_str}) & mug_shot != null & name != null; "
+                    f"sort id asc; limit {char_per_page}; offset {offset};")
+            rows = _igdb_query("characters", body)
+            if not rows:
+                break
+            new_in_batch = 0
+            for ch in rows:
+                cid = ch.get("id")
+                if cid and cid not in seen_char_ids:
+                    seen_char_ids.add(cid)
+                    all_chars.append(ch)
+                    new_in_batch += 1
+                    if len(all_chars) >= target_count:
+                        return all_chars
+            print(f"[igdb_bulk] chars-in-games gbatch {gi} offset={offset}: "
+                  f"+{new_in_batch} (total {len(all_chars)})")
+            if len(rows) < char_per_page:
+                break  # plus rien dans ce subset
+            offset += char_per_page
+            time.sleep(sleep_between)
         time.sleep(sleep_between)
     return all_chars
 
@@ -263,18 +277,22 @@ def bulk_import_igdb(pages: int = 4, page_size: int = 500,
         if stats["inserted"] >= target_total:
             return stats
 
-    # === Phase 2 : top games -> char_ids -> batch fetch ===
+    # === Phase 2 : top games -> chars in those games ===
     remaining = max(0, target_total - stats["inserted"])
     if remaining <= 0:
         return stats
-    print(f"[igdb_bulk] phase2 : fetch top games pour {remaining} chars supp")
-    extra_target = remaining + 200  # marge pour skip/fail
-    game_char_ids = _fetch_top_games_character_ids(target_count=extra_target,
-                                                      sleep_between=sleep_between)
-    # Exclude ids deja vus phase 1
-    fresh_ids = [cid for cid in game_char_ids if cid not in seen_char_ids]
-    print(f"[igdb_bulk] phase2 : {len(fresh_ids)} char_ids frais a fetch")
-    new_chars = _fetch_chars_batch(fresh_ids, sleep_between=sleep_between)
+    print(f"[igdb_bulk] phase2 : fetch top games + leurs chars pour {remaining} supp")
+    # 1000 top games suffit pour acceder a ~milliers chars iconiques
+    top_games = _fetch_top_game_ids(target_count=1000,
+                                       sleep_between=sleep_between)
+    if not top_games:
+        print(f"[igdb_bulk] phase2 abort : pas de top games recuperes")
+        return stats
+    print(f"[igdb_bulk] phase2 : {len(top_games)} top games recup, query chars...")
+    new_chars = _fetch_chars_in_games(top_games, exclude_char_ids=seen_char_ids,
+                                         target_count=remaining + 200,
+                                         sleep_between=sleep_between)
+    print(f"[igdb_bulk] phase2 : {len(new_chars)} chars frais avec mug_shot")
     for ch in new_chars:
         rank_counter += 1
         stats["total_seen"] += 1
