@@ -44,19 +44,32 @@ def _rarity_from_rank(rank: int) -> str:
     return "common"
 
 
-def _gql(page: int, timeout: int = 15) -> dict | None:
+def _gql(page: int, timeout: int = 15, max_retries: int = 3) -> dict | None:
     body = json.dumps({"query": _QUERY, "variables": {"page": page}}).encode("utf-8")
-    req = urllib.request.Request(
-        _ENDPOINT, data=body, method="POST",
-        headers={"User-Agent": _USER_AGENT,
-                  "Content-Type": "application/json",
-                  "Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8", errors="replace"))
-    except Exception as e:
-        print(f"[anilist_bulk] HTTP error page {page}: {e}")
-        return None
+    for attempt in range(max_retries):
+        req = urllib.request.Request(
+            _ENDPOINT, data=body, method="POST",
+            headers={"User-Agent": _USER_AGENT,
+                      "Content-Type": "application/json",
+                      "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8", errors="replace"))
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                # Read Retry-After header, sinon backoff exponentiel
+                retry_after = e.headers.get("Retry-After")
+                wait = int(retry_after) if retry_after and retry_after.isdigit() else (60 * (attempt + 1))
+                print(f"[anilist_bulk] 429 page {page} attempt {attempt+1}, sleep {wait}s")
+                time.sleep(wait)
+                continue
+            print(f"[anilist_bulk] HTTP {e.code} page {page}: {e}")
+            return None
+        except Exception as e:
+            print(f"[anilist_bulk] err page {page}: {e}")
+            return None
+    print(f"[anilist_bulk] page {page} : abandon apres {max_retries} retries 429")
+    return None
 
 
 def _clean_description(raw: str | None) -> str:
@@ -71,7 +84,7 @@ def _clean_description(raw: str | None) -> str:
     return txt
 
 
-def bulk_import_anilist(pages: int = 20, sleep_between: float = 0.8,
+def bulk_import_anilist(pages: int = 20, sleep_between: float = 2.5,
                          skip_existing: bool = True,
                          wipe_first: bool = False) -> dict:
     """Recupere top N personnages, insere dans cards.
