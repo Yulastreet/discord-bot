@@ -1663,6 +1663,17 @@ def card_owners_count(card_id):
     return int(n)
 
 
+def card_owners_list(card_id, limit=50):
+    """Liste des possesseurs avec count. Ordre desc par count."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT user_id, COUNT(*) AS qty FROM user_cards "
+        "WHERE card_id = ? GROUP BY user_id ORDER BY qty DESC LIMIT ?",
+        (int(card_id), int(limit))).fetchall()
+    conn.close()
+    return [{"user_id": r["user_id"], "qty": r["qty"]} for r in rows]
+
+
 def user_card_count(user_id):
     conn = get_db(); c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ?",

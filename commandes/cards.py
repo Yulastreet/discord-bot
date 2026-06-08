@@ -12,7 +12,7 @@ from discord import app_commands
 
 from database import (
     card_count_total, card_roll_random, card_get_by_name,
-    card_owners_count,
+    card_owners_count, card_owners_list,
     user_card_add, user_card_list, user_card_count,
     user_card_settings_get, user_card_settings_set_last_roll,
     guild_card_config_get, guild_card_config_set,
@@ -80,6 +80,40 @@ def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     if str(interaction.channel.id) != str(cfg["channel_id"]):
         return (False, f"<#{cfg['channel_id']}>")
     return (True, None)
+
+
+class OwnersView(discord.ui.View):
+    """Bouton 'Voir possesseurs' qui liste tous les owners d'une carte."""
+    def __init__(self, card_id: int, card_name: str):
+        super().__init__(timeout=600)
+        self.card_id = card_id
+        self.card_name = card_name
+
+    @discord.ui.button(label="Voir possesseurs", style=discord.ButtonStyle.secondary,
+                        emoji="👥")
+    async def _show_owners(self, interaction: discord.Interaction, button: discord.ui.Button):
+        owners = card_owners_list(self.card_id, limit=50)
+        if not owners:
+            await interaction.response.send_message(
+                "Personne ne possède cette carte.", ephemeral=True)
+            return
+        lines = []
+        for o in owners:
+            uid = o["user_id"]
+            qty = o["qty"]
+            suffix = f" ×{qty}" if qty > 1 else ""
+            lines.append(f"<@{uid}>{suffix}")
+        embed = discord.Embed(
+            title=f"👥 Possesseurs de {self.card_name}",
+            description="\n".join(lines)[:4000],
+            color=0xB9F23A,
+        )
+        if len(owners) >= 50:
+            embed.set_footer(text="50 premiers affichés.")
+        await interaction.response.send_message(
+            embed=embed, ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
 
 def setup_cards_commands(bot, deps):
@@ -189,7 +223,8 @@ def setup_cards_commands(bot, deps):
         avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
         embed.set_footer(text=f"Appartient à {interaction.user.display_name}",
                           icon_url=avatar_url)
-        await interaction.response.send_message(embed=embed)
+        view = OwnersView(card["id"], card["name"])
+        await interaction.response.send_message(embed=embed, view=view)
 
     # === /collection ===
     @bot.tree.command(name="mycards", description="Voir ta collection de cartes (ou celle de quelqu'un)")
@@ -296,7 +331,10 @@ def setup_cards_commands(bot, deps):
             owners = card_owners_count(card["id"])
             if owners > 0:
                 embed.set_footer(text=f"Possédée par {owners} joueur{'s' if owners > 1 else ''}")
-            await interaction.response.send_message(embed=embed)
+                view = OwnersView(card["id"], card["name"])
+                await interaction.response.send_message(embed=embed, view=view)
+            else:
+                await interaction.response.send_message(embed=embed)
         except Exception as e:
             import traceback
             traceback.print_exc()
