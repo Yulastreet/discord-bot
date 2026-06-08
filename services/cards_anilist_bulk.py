@@ -27,8 +27,8 @@ query ($page: Int) {
       image { large }
       favourites
       description(asHtml: false)
-      media(perPage: 1, sort: POPULARITY_DESC) {
-        nodes { title { romaji english } }
+      media(perPage: 3, sort: POPULARITY_DESC) {
+        nodes { title { romaji english } isAdult }
       }
     }
   }
@@ -119,10 +119,17 @@ def bulk_import_anilist(pages: int = 20, sleep_between: float = 0.8,
                     stats["failed"] += 1; continue
 
                 media_nodes = ((ch.get("media") or {}).get("nodes") or [])
+                # Skip si TOUS les media du perso sont NSFW (compliance top.gg)
+                if media_nodes and all(m.get("isAdult") for m in media_nodes):
+                    stats["skipped"] += 1; continue
                 subtitle = None
-                if media_nodes:
-                    t = (media_nodes[0].get("title") or {})
+                # Prend le premier media SFW pour le subtitle
+                for m in media_nodes:
+                    if m.get("isAdult"):
+                        continue
+                    t = (m.get("title") or {})
                     subtitle = (t.get("english") or t.get("romaji") or "")[:80] or None
+                    break
 
                 rarity = _rarity_from_rank(rank_counter)
                 fav = ch.get("favourites") or 0

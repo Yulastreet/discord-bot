@@ -34,7 +34,9 @@ def setup_ticket_commands(bot, deps):
             panel = ticket_panel_get_by_message(interaction.guild.id, interaction.message.id)
             if not panel or not panel.get("enabled"):
                 await interaction.response.send_message(
-                    "❌ Ce panneau de tickets n'est plus actif.", ephemeral=True,
+                    "❌ **Panneau de tickets non configure ou desactive.**\n"
+                    "Un administrateur du serveur doit lancer `/ticket-setup` pour creer un nouveau panneau.",
+                    ephemeral=True,
                 )
                 return
 
@@ -98,12 +100,20 @@ def setup_ticket_commands(bot, deps):
                 )
             except discord.Forbidden:
                 await interaction.followup.send(
-                    "❌ Permissions insuffisantes (le bot doit pouvoir gérer les salons).",
+                    "❌ **Le bot n'a pas les permissions Discord requises pour creer un ticket.**\n"
+                    "Permissions manquantes : **Gerer les salons** (Manage Channels) + "
+                    "**Voir les salons** (View Channels) dans la categorie configuree pour les tickets.\n"
+                    "Demande a un administrateur d'ajouter ces permissions au role du bot.",
                     ephemeral=True,
                 )
                 return
             except Exception as e:
-                await interaction.followup.send(f"❌ Erreur : {e!r}", ephemeral=True)
+                await interaction.followup.send(
+                    f"❌ Erreur creation ticket : `{type(e).__name__}`. "
+                    f"Contacte un administrateur du serveur.",
+                    ephemeral=True,
+                )
+                print(f"[ticket] create err: {e!r}")
                 return
 
             ticket_id = ticket_create(

@@ -102,6 +102,8 @@ def setup_runtime(bot, deps):
             tookbot_plus_expiry_cleanup.start()
         if not reminders_dispatch.is_running():
             reminders_dispatch.start()
+        if not topgg_stats_poster.is_running():
+            topgg_stats_poster.start()
         # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
@@ -1741,6 +1743,38 @@ def setup_runtime(bot, deps):
         await bot.wait_until_ready()
 
 
+    # ===== TOP.GG STATS POSTER =====
+    # POST guild count toutes les 30 min sur https://top.gg/api/bots/<id>/stats
+    # Necessite TOPGG_TOKEN dans env. Silent si pas configure.
+    @tasks.loop(minutes=30)
+    async def topgg_stats_poster():
+        import os as _os
+        token = (_os.getenv("TOPGG_TOKEN") or "").strip()
+        if not token or not bot.user:
+            return
+        bot_id = bot.user.id
+        guild_count = len(bot.guilds)
+        url = f"https://top.gg/api/bots/{bot_id}/stats"
+        try:
+            import urllib.request as _req
+            import json as _json
+            body = _json.dumps({"server_count": guild_count}).encode("utf-8")
+            req = _req.Request(url, data=body, method="POST", headers={
+                "Authorization": token,
+                "Content-Type": "application/json",
+                "User-Agent": "TookBot/1.0",
+            })
+            with _req.urlopen(req, timeout=10) as resp:
+                if resp.status not in (200, 204):
+                    print(f"[topgg] stats post status={resp.status}")
+        except Exception as e:
+            print(f"[topgg] stats post err: {e!r}")
+
+    @topgg_stats_poster.before_loop
+    async def _before_topgg():
+        await bot.wait_until_ready()
+
+
     # ===== ERROR CAPTURE GLOBAL =====
     @bot.event
     async def on_error(event_method, *args, **kwargs):
@@ -1752,17 +1786,53 @@ def setup_runtime(bot, deps):
 
     @bot.tree.error
     async def _slash_cmd_error(interaction: discord.Interaction, error):
+        """Handler global app_commands. Exigence top.gg : messages d'erreur
+        clairs labellisant precisement les permissions/roles manquants."""
         import traceback
+        from discord import app_commands as _ac
         tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
         print(f"[slash error] {tb_str}")
         BOT_STATE["last_error"]    = f"slash: {type(error).__name__}: {error}"[:200]
         BOT_STATE["last_error_at"] = _time.time()
-        try:
-            msg = f"❌ Erreur : {type(error).__name__}"
-            if interaction.response.is_done():
-                await interaction.followup.send(msg, ephemeral=True)
+
+        msg = None
+        if isinstance(error, _ac.MissingPermissions):
+            perms = ", ".join(p.replace("_", " ").title() for p in error.missing_permissions)
+            msg = (f"❌ **Permissions utilisateur manquantes.**\n"
+                    f"Tu as besoin de : **{perms}** pour utiliser cette commande.")
+        elif isinstance(error, _ac.BotMissingPermissions):
+            perms = ", ".join(p.replace("_", " ").title() for p in error.missing_permissions)
+            msg = (f"❌ **Permissions du bot manquantes.**\n"
+                    f"Le bot a besoin de : **{perms}**. "
+                    f"Un administrateur doit ajouter ces permissions au role du bot.")
+        elif isinstance(error, _ac.CommandOnCooldown):
+            msg = f"⏰ Cooldown actif. Reessaie dans {int(error.retry_after)}s."
+        elif isinstance(error, _ac.MissingRole):
+            msg = f"❌ Tu dois avoir le role <@&{error.missing_role}> pour utiliser cette commande."
+        elif isinstance(error, _ac.NoPrivateMessage):
+            msg = "❌ Cette commande n'est pas utilisable en messages prives."
+        elif isinstance(error, _ac.CheckFailure):
+            msg = "❌ Tu n'as pas le droit d'utiliser cette commande dans ce contexte."
+        elif isinstance(error, _ac.CommandInvokeError):
+            inner = error.original
+            if isinstance(inner, discord.Forbidden):
+                msg = ("❌ **Le bot n'a pas la permission d'effectuer cette action.**\n"
+                        "Verifie que le bot a les permissions necessaires sur ce salon "
+                        "(ex: **Gerer les salons**, **Gerer les roles**, **Envoyer des messages**, "
+                        "**Embed Links**). Contacte un administrateur du serveur.")
+            elif isinstance(inner, discord.NotFound):
+                msg = "❌ Ressource introuvable (salon, role ou message supprime ?)."
             else:
-                await interaction.response.send_message(msg, ephemeral=True)
+                msg = (f"❌ Erreur interne : `{type(inner).__name__}`. "
+                        f"Si le probleme persiste, contacte le support du bot.")
+        else:
+            msg = f"❌ Erreur : `{type(error).__name__}`."
+
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(msg[:1900], ephemeral=True)
+            else:
+                await interaction.response.send_message(msg[:1900], ephemeral=True)
         except Exception:
             pass
 

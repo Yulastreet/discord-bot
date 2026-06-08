@@ -1,3 +1,4 @@
+import os
 import discord
 from discord import app_commands
 
@@ -7,6 +8,43 @@ def setup_utility_commands(bot):
     async def ping(interaction: discord.Interaction):
         latence = round(bot.latency * 1000)
         await interaction.response.send_message(f"Pong ! Latence : **{latence}ms**")
+
+    @bot.tree.command(name="vote", description="Voter pour TookBot sur top.gg")
+    async def vote(interaction: discord.Interaction):
+        bot_id = (os.getenv("DISCORD_BOT_ID") or "").strip()
+        if not bot_id and bot.user:
+            bot_id = str(bot.user.id)
+        url = f"https://top.gg/bot/{bot_id}/vote" if bot_id else "https://top.gg/"
+        embed = discord.Embed(
+            title="❤️ Vote pour TookBot",
+            description=(f"Soutiens le bot en votant sur top.gg.\n\n"
+                          f"[**Cliquer pour voter**]({url})\n\n"
+                          f"Vote toutes les 12h. Aucune obligation, c'est gratuit."),
+            color=0xff3d57,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @bot.tree.command(name="invite", description="Lien pour inviter TookBot sur ton serveur")
+    async def invite(interaction: discord.Interaction):
+        bot_id = (os.getenv("DISCORD_BOT_ID") or "").strip()
+        if not bot_id and bot.user:
+            bot_id = str(bot.user.id)
+        # Permissions integer : View Channels + Send Messages + Embed Links +
+        # Attach Files + Read History + Manage Roles + Manage Channels +
+        # Manage Messages + Kick + Ban + Connect + Speak + Move Members +
+        # Add Reactions + External Emojis + View Audit Log + Use Slash Commands
+        perms = "1099780115008"
+        url = (f"https://discord.com/oauth2/authorize?client_id={bot_id}"
+                f"&permissions={perms}&scope=bot+applications.commands")
+        embed = discord.Embed(
+            title="➕ Inviter TookBot",
+            description=(f"[**Ajouter TookBot a ton serveur**]({url})\n\n"
+                          f"Les permissions demandees correspondent precisement "
+                          f"aux fonctionnalites du bot. Tu peux les ajuster apres "
+                          f"l'invitation depuis les parametres du serveur."),
+            color=0x5865F2,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @bot.tree.command(name="userinfo", description="Infos sur un membre")
     @app_commands.describe(membre="Le membre dont tu veux voir les infos")

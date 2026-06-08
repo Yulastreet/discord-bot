@@ -966,6 +966,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 bot.tree.interaction_check = _feature_guard_check
 
 
+# Note : error handler global app_commands defini dans tasks/runtime.py
+# (single handler, exigence top.gg : messages clairs sur missing perms/roles)
+
+
 # ===== LANCEMENT =====
 db = DuelDB()
 COMMAND_HOOKS = setup_commands(bot, USER_REACTIONS, globals())
