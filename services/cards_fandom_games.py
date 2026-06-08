@@ -40,21 +40,12 @@ GAMES: dict[str, dict] = {
     "lol": {
         "sub": "leagueoflegends",
         "name": "League of Legends",
-        "categories": ["Category:Champions"],
-        "blacklist": [
-            r"^Champion(s|\s|$)",   # 'Champion', 'Champions', 'Champion classes', etc
-            r"^Gamer",              # 'Gamer's Choice Pack'
-            r"Pack$",
-            r"^Season",
-            r"^Patch",
-            r"Mastery",
-            r"Skin",
-            r"Update",
-            r"Bundle",
-            r"Roster",
-            r"^Ability",
-            r"^Class$",
-        ],
+        # LoL : champions sont pages 'Name/LoL'. Pas en Category:Champions
+        # (qui contient meta pages). Parse via List_of_champions links.
+        "list_page": "List_of_champions",
+        "link_filter_suffix": "/LoL",  # garde titres finissant par /LoL
+        "categories": [],
+        "blacklist": [],
     },
     "overwatch": {
         "sub": "overwatch",
@@ -82,8 +73,10 @@ GAMES: dict[str, dict] = {
     "dragonquest": {
         "sub": "dragonquest",
         "name": "Dragon Quest",
-        "categories": ["Category:Characters"],
-        "blacklist": [r"Sub-series"],
+        # Category:Characters trop large (includes monsters). Heroes = playable.
+        "categories": ["Category:Heroes", "Category:Playable_characters",
+                         "Category:Characters"],
+        "blacklist": [r"Sub-series", r"^Hero "],
     },
     "zelda": {
         "sub": "zelda",
@@ -131,6 +124,29 @@ def _http_get_json(url: str, timeout: int = 12) -> dict | None:
     except Exception as e:
         print(f"[fandom] err {url[:100]}: {e}")
         return None
+
+
+def _parse_links_from_page(sub: str, page: str, suffix_filter: str | None = None,
+                              limit: int = 1000) -> list[str]:
+    """Get links from a page via action=parse&prop=links.
+    suffix_filter : ne garde que titres finissant par ce suffix (ex '/LoL')."""
+    url = (f"https://{sub}.fandom.com/api.php?action=parse&format=json&"
+           f"page={urllib.parse.quote(page)}&prop=links")
+    data = _http_get_json(url, timeout=20)
+    if not data:
+        return []
+    links = ((data.get("parse") or {}).get("links") or [])
+    out = []
+    for link in links:
+        title = link.get("*")
+        if not title:
+            continue
+        if suffix_filter and not title.endswith(suffix_filter):
+            continue
+        out.append(title)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _list_chars(sub: str, categories: list[str], limit: int = 500) -> list[str]:
@@ -218,7 +234,13 @@ def bulk_import_game(game_key: str, limit: int = 200,
     rank = 0
     sub = cfg["sub"]
     franchise = cfg["name"]
-    titles = _list_chars(sub, cfg["categories"], limit=limit * 3)  # marge x3 blacklist
+    # Mode list_page (LoL) ou category mode classique
+    if cfg.get("list_page"):
+        titles = _parse_links_from_page(sub, cfg["list_page"],
+                                          suffix_filter=cfg.get("link_filter_suffix"),
+                                          limit=limit * 3)
+    else:
+        titles = _list_chars(sub, cfg.get("categories") or [], limit=limit * 3)
     print(f"[fandom_game] {game_key} ({sub}): {len(titles)} titles raw")
     # Filtre blacklist
     blacklist = cfg.get("blacklist", [])
@@ -227,10 +249,16 @@ def bulk_import_game(game_key: str, limit: int = 200,
     stats["blacklisted"] = len(titles) - len(filtered)
     filtered = filtered[:limit]
     img_map = _fetch_pageimages(sub, filtered)
+    suffix_strip = cfg.get("link_filter_suffix")  # ex /LoL -> strip pour nom
     for title in filtered:
         stats["total_seen"] += 1
         rank += 1
+        # Nom affiche : strip suffix wiki si present
         name = title.strip()
+        if suffix_strip and name.endswith(suffix_strip):
+            name = name[:-len(suffix_strip)].strip().rstrip("/")
+        if not name:
+            stats["failed"] += 1; continue
         if skip_existing and name.lower() in existing:
             stats["skipped"] += 1; continue
         img = img_map.get(title)
