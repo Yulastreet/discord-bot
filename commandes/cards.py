@@ -146,9 +146,11 @@ def setup_cards_commands(bot, deps):
             ephemeral=True,
         )
 
-    # === /roll ===
-    @bot.tree.command(name="roll", description="Tire une carte aleatoire de la collection")
-    async def roll(interaction: discord.Interaction):
+    # === /roll [univers] ===
+    @bot.tree.command(name="roll",
+                       description="Tire une carte aleatoire (optionnel : filtre par univers)")
+    @app_commands.describe(univers="Filtrer par categorie (sinon toutes)")
+    async def roll(interaction: discord.Interaction, univers: str = None):
         if interaction.guild:
             ok, target = _check_channel(interaction)
             if not ok:
@@ -195,10 +197,13 @@ def setup_cards_commands(bot, deps):
             )
             return
 
-        # Pioche + add
-        card = card_roll_random()
+        # Pioche + add (avec filtre univers si fourni)
+        univers_filter = (univers or "").strip() or None
+        card = card_roll_random(universe=univers_filter)
         if not card:
-            await interaction.response.send_message("Erreur pioche carte.", ephemeral=True)
+            label = f" dans l'univers `{univers_filter}`" if univers_filter else ""
+            await interaction.response.send_message(
+                f"Aucune carte disponible{label}.", ephemeral=True)
             return
         user_card_add(uid, card["id"])
         if not _is_owner(uid) and gid:
@@ -229,6 +234,29 @@ def setup_cards_commands(bot, deps):
                           icon_url=avatar_url)
         view = OwnersView(card["id"], card["name"])
         await interaction.response.send_message(embed=embed, view=view)
+
+    @roll.autocomplete("univers")
+    async def roll_univers_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            if q:
+                rows = c.execute(
+                    "SELECT DISTINCT universe FROM cards "
+                    "WHERE universe IS NOT NULL AND universe != '' "
+                    "AND LOWER(universe) LIKE ? "
+                    "ORDER BY universe LIMIT 25", (f"%{q}%",)).fetchall()
+            else:
+                rows = c.execute(
+                    "SELECT DISTINCT universe FROM cards "
+                    "WHERE universe IS NOT NULL AND universe != '' "
+                    "ORDER BY universe LIMIT 25").fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["universe"][:100], value=r["universe"][:100])
+                     for r in rows]
+        except Exception:
+            return []
 
     # === /collection ===
     @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")

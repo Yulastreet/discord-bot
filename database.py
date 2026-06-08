@@ -1678,19 +1678,28 @@ def card_count_total():
     return int(n)
 
 
-def card_roll_random():
+def card_roll_random(universe: str | None = None):
     """Pioche une carte selon les poids de rarete.
-    Retourne None si la table cards est vide."""
+    Si universe fourni : filtre uniquement cette categorie.
+    Retourne None si la table cards (ou la categorie) est vide."""
     rarity = _rd_cards.choices(
         list(CARD_RARITY_WEIGHTS.keys()),
         weights=list(CARD_RARITY_WEIGHTS.values()),
         k=1,
     )[0]
     conn = get_db(); c = conn.cursor()
-    rows = c.execute("SELECT * FROM cards WHERE rarity = ?", (rarity,)).fetchall()
-    if not rows:
-        # Fallback : prend dans n'importe quelle rarete dispo
-        rows = c.execute("SELECT * FROM cards ORDER BY RANDOM() LIMIT 1").fetchall()
+    if universe:
+        rows = c.execute("SELECT * FROM cards WHERE rarity = ? AND universe = ?",
+                          (rarity, universe)).fetchall()
+        if not rows:
+            rows = c.execute("SELECT * FROM cards WHERE universe = ? "
+                              "ORDER BY RANDOM() LIMIT 1",
+                              (universe,)).fetchall()
+    else:
+        rows = c.execute("SELECT * FROM cards WHERE rarity = ?",
+                          (rarity,)).fetchall()
+        if not rows:
+            rows = c.execute("SELECT * FROM cards ORDER BY RANDOM() LIMIT 1").fetchall()
     conn.close()
     if not rows:
         return None

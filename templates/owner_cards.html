@@ -193,6 +193,11 @@
     <button class="btn btn-ghost" onclick="prevPage()" id="pagPrev">← Préc.</button>
     <span class="muted" id="pagInfo" style="min-width:120px;text-align:center;">—</span>
     <button class="btn btn-ghost" onclick="nextPage()" id="pagNext">Suiv. →</button>
+    <span style="margin-left:14px;display:flex;align-items:center;gap:6px;">
+      <label class="muted" style="font-size:12px;">Aller à :</label>
+      <input type="number" id="pagJumpInput" min="1" style="width:80px;padding:6px 8px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;" onkeydown="if(event.key==='Enter')jumpToPage()">
+      <button class="btn btn-secondary" onclick="jumpToPage()" style="padding:6px 10px;font-size:12px;">OK</button>
+    </span>
   </div>
 </div>
 
@@ -257,9 +262,16 @@ function debouncedReload() {
 function resetPageAndLoad() { _currentPage = 1; loadCards(); }
 function prevPage() { if (_currentPage > 1) { _currentPage--; loadCards(); window.scrollTo(0, 0); } }
 function nextPage() { if (_currentPage < _totalPages) { _currentPage++; loadCards(); window.scrollTo(0, 0); } }
+function jumpToPage() {
+  const v = parseInt(document.getElementById('pagJumpInput').value, 10);
+  if (!Number.isFinite(v) || v < 1) { toast('Page invalide.', 'error'); return; }
+  if (v > _totalPages) { toast(`Max : ${_totalPages}`, 'error'); return; }
+  _currentPage = v; loadCards(); window.scrollTo(0, 0);
+}
 window.resetPageAndLoad = resetPageAndLoad;
 window.prevPage = prevPage;
 window.nextPage = nextPage;
+window.jumpToPage = jumpToPage;
 function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
