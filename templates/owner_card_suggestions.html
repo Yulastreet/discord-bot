@@ -73,6 +73,8 @@
         <option value="mythic">Mythic</option>
       </select>
       <button class="btn btn-secondary" onclick="cropReset()">Reset cadre</button>
+      <button class="btn btn-ghost" onclick="_cropper && _cropper.zoom(0.2)" title="Zoom +">🔍+</button>
+      <button class="btn btn-ghost" onclick="_cropper && _cropper.zoom(-0.2)" title="Zoom -">🔍−</button>
       <span style="flex:1;"></span>
       <button class="btn btn-ghost" onclick="closeCropper()">Annuler</button>
       <button class="btn btn-primary" onclick="submitCrop()">✅ Approuver avec ce recadrage</button>
@@ -183,10 +185,14 @@ function openCropper(sid, imgUrl) {
     if (_cropper) { _cropper.destroy(); _cropper = null; }
     _cropper = new Cropper(img, {
       aspectRatio: 2/3,
-      viewMode: 1,
-      autoCropArea: 0.95,
-      background: false,
-      movable: true, zoomable: true, scalable: false, rotatable: false,
+      viewMode: 0,
+      autoCropArea: 1.0,
+      background: true,
+      movable: true, zoomable: true, zoomOnWheel: true, zoomOnTouch: true,
+      scalable: false, rotatable: false,
+      cropBoxMovable: true, cropBoxResizable: true,
+      minCropBoxWidth: 50, minCropBoxHeight: 75,
+      checkOrientation: false,
     });
   };
 }

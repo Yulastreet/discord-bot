@@ -245,6 +245,8 @@
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
       <button class="btn btn-secondary" onclick="cardCropReset()">Reset cadre</button>
+      <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(0.2)" title="Zoom +">🔍+</button>
+      <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(-0.2)" title="Zoom -">🔍−</button>
       <span style="flex:1;"></span>
       <button class="btn btn-ghost" onclick="closeCardCropper()">Annuler</button>
       <button class="btn btn-primary" onclick="submitCardCrop()">✅ Appliquer recadrage</button>
@@ -470,9 +472,15 @@ function openCardCropper() {
   img.onload = () => {
     if (_cardCropper) { _cardCropper.destroy(); _cardCropper = null; }
     _cardCropper = new Cropper(img, {
-      aspectRatio: 2/3, viewMode: 1, autoCropArea: 0.95,
-      background: false, movable: true, zoomable: true,
+      aspectRatio: 2/3,
+      viewMode: 0,         // pas de restriction de zone
+      autoCropArea: 1.0,   // cadre max au load
+      background: true,
+      movable: true, zoomable: true, zoomOnWheel: true, zoomOnTouch: true,
       scalable: false, rotatable: false,
+      cropBoxMovable: true, cropBoxResizable: true,
+      minCropBoxWidth: 50, minCropBoxHeight: 75,
+      checkOrientation: false,
     });
   };
 }
