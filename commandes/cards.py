@@ -19,6 +19,7 @@ from database import (
     guild_card_config_get, guild_card_config_set,
     user_card_count_owned, user_card_transfer_one,
     card_trade_create, card_trade_get, card_trade_items, card_trade_set_status,
+    card_suggestion_add,
 )
 
 
@@ -667,6 +668,113 @@ def setup_cards_commands(bot, deps):
                 except Exception:
                     pass
 
+
+    # === /cardsuggest : suggestion communaute (support guild only) ===
+    SUGGEST_CHANNEL_ID = 1513592894265757716
+    SUPPORT_GUILD_ID = int((os.getenv("SUPPORT_GUILD_ID") or "0").strip() or 0)
+
+    @bot.tree.command(name="cardsuggest",
+                       description="Suggerer un personnage a ajouter au catalogue (serveur support)")
+    @app_commands.describe(
+        nom="Nom du personnage",
+        univers="Categorie",
+        origine="Anime/jeu/film d'origine (ex : Naruto, Genshin Impact)",
+        image_url="URL d'image (optionnel si tu joins une image en piece jointe)",
+        image="Piece jointe image (optionnel si URL fournie)",
+    )
+    @app_commands.choices(univers=[
+        app_commands.Choice(name="Anime / Manga",  value="Anime"),
+        app_commands.Choice(name="Jeu Vidéo",      value="Jeu Vidéo"),
+        app_commands.Choice(name="Film / Série",   value="Film/Série"),
+        app_commands.Choice(name="Comics",          value="Comics"),
+        app_commands.Choice(name="Autre",           value="Autre"),
+    ])
+    async def cardsuggest(interaction: discord.Interaction,
+                            nom: str,
+                            univers: app_commands.Choice[str],
+                            origine: str = None,
+                            image_url: str = None,
+                            image: discord.Attachment = None):
+        # Lock : serveur support + salon precis uniquement
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "Cette commande n'est pas utilisable en DM.", ephemeral=True)
+            return
+        if SUPPORT_GUILD_ID and interaction.guild.id != SUPPORT_GUILD_ID:
+            await interaction.response.send_message(
+                "Cette commande est uniquement utilisable sur le serveur support TookBot.",
+                ephemeral=True)
+            return
+        if interaction.channel.id != SUGGEST_CHANNEL_ID:
+            await interaction.response.send_message(
+                f"Cette commande est uniquement utilisable dans <#{SUGGEST_CHANNEL_ID}>.",
+                ephemeral=True)
+            return
+
+        # Resolve image
+        final_url = None
+        source_type = None
+        if image:
+            ct = (image.content_type or "").lower()
+            if not ct.startswith("image/"):
+                await interaction.response.send_message(
+                    "La piece jointe doit etre une image (PNG/JPG/WEBP/GIF).",
+                    ephemeral=True)
+                return
+            if image.size > 8 * 1024 * 1024:
+                await interaction.response.send_message(
+                    "Image trop lourde (max 8 Mo).", ephemeral=True)
+                return
+            final_url = image.url   # Discord CDN, stable
+            source_type = "attachment"
+        elif image_url:
+            url = image_url.strip()
+            if not (url.startswith("http://") or url.startswith("https://")):
+                await interaction.response.send_message(
+                    "L'URL doit commencer par http:// ou https://.", ephemeral=True)
+                return
+            final_url = url
+            source_type = "url"
+        else:
+            await interaction.response.send_message(
+                "Tu dois fournir soit une URL (`image_url`) soit une piece jointe (`image`).",
+                ephemeral=True)
+            return
+
+        nom_clean = nom.strip()[:100]
+        if not nom_clean:
+            await interaction.response.send_message("Nom invalide.", ephemeral=True)
+            return
+
+        try:
+            sid = card_suggestion_add(
+                suggester_id=interaction.user.id,
+                suggester_name=str(interaction.user),
+                guild_id=interaction.guild.id,
+                channel_id=interaction.channel.id,
+                name=nom_clean,
+                universe=univers.value,
+                subtitle=(origine or "").strip()[:80] or None,
+                image_url=final_url,
+                source_type=source_type,
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                f"Erreur enregistrement : `{type(e).__name__}: {e}`", ephemeral=True)
+            return
+
+        embed = discord.Embed(
+            title=f"💠 Suggestion #{sid} reçue",
+            description=f"**{nom_clean}**\n_{univers.value}{' · ' + origine if origine else ''}_",
+            color=0xB9F23A,
+        )
+        embed.set_image(url=final_url)
+        embed.set_footer(text=f"Suggérée par {interaction.user.display_name}",
+                          icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
+        await interaction.response.send_message(
+            content=f"Merci {interaction.user.mention} ! Suggestion envoyée à l'équipe.",
+            embed=embed,
+        )
 
     @bot.tree.command(name="cardtrade", description="Proposer un echange de cartes a un autre joueur")
     @app_commands.describe(joueur="Joueur a qui proposer l'echange")

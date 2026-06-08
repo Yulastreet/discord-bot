@@ -1,0 +1,140 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_card_suggestions' %}
+
+{% block title %}Cards Suggestions · Owner{% endblock %}
+{% block crumb %}Cards Suggestions{% endblock %}
+
+{% block content %}
+<style>
+  .sug-toolbar { display:flex; gap:10px; align-items:center; margin-bottom: var(--s-4); flex-wrap:wrap; }
+  .sug-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
+  .sug-card {
+    background: var(--bg-1); border:1px solid var(--border); border-radius:14px;
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+  .sug-img { aspect-ratio: 2/3; background: var(--bg-2); display:grid; place-items:center; overflow:hidden; }
+  .sug-img img { width:100%; height:100%; object-fit: cover; }
+  .sug-body { padding:12px; display:flex; flex-direction:column; gap:6px; }
+  .sug-name { font-weight:800; font-size:15px; }
+  .sug-meta { font-size:11px; color: var(--text-2); }
+  .sug-foot { display:flex; gap:6px; padding:0 12px 12px; flex-wrap:wrap; }
+  .sug-foot select, .sug-foot button { font-size:11px; padding:5px 8px; }
+  .sug-badge {
+    display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;
+    text-transform:uppercase; letter-spacing:0.05em;
+  }
+  .badge-pending { background:#fbbf24; color:#2a1a00; }
+  .badge-approved { background:#4ade80; color:#053a16; }
+  .badge-rejected { background:#ff3d57; color:#fff; }
+</style>
+
+<div class="col gap-7">
+  <div>
+    <h1>Suggestions de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="sugCount"></span></h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
+      Suggestions communauté via <code>/cardsuggest</code> sur serveur support.
+      Approuve = crée la carte. Refuse = rejette avec raison optionnelle.
+    </p>
+  </div>
+
+  <div class="sug-toolbar">
+    <select id="statusFilter" onchange="loadSugs()">
+      <option value="pending" selected>Pending</option>
+      <option value="approved">Approuvées</option>
+      <option value="rejected">Refusées</option>
+      <option value="">Toutes</option>
+    </select>
+    <button class="btn btn-secondary" onclick="loadSugs()">⟳ Rafraichir</button>
+  </div>
+
+  <div id="sugGrid" class="sug-grid">
+    <div class="muted">Chargement…</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function escapeHtml(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function loadSugs() {
+  const st = document.getElementById('statusFilter').value;
+  const params = new URLSearchParams();
+  if (st) params.set('status', st);
+  try {
+    const r = await fetch('/api/owner/card-suggestions?' + params.toString());
+    const d = await r.json();
+    const items = d.items || [];
+    document.getElementById('sugCount').textContent = `(${items.length})`;
+    const grid = document.getElementById('sugGrid');
+    if (!items.length) {
+      grid.innerHTML = '<div class="muted">Aucune suggestion.</div>';
+      return;
+    }
+    grid.innerHTML = items.map(s => `
+      <div class="sug-card">
+        <div class="sug-img">
+          ${s.image_url ? `<img src="${escapeHtml(s.image_url)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div style=\\'color:var(--text-3);font-size:32px\\'>?</div>'">` : '<div style="color:var(--text-3);font-size:32px">?</div>'}
+        </div>
+        <div class="sug-body">
+          <div class="sug-name">${escapeHtml(s.name)}</div>
+          <div class="sug-meta">
+            ${escapeHtml(s.universe || '?')}${s.subtitle ? ' · ' + escapeHtml(s.subtitle) : ''}
+          </div>
+          <div class="sug-meta">
+            Par <strong>${escapeHtml(s.suggester_name || s.suggester_id)}</strong>
+            <span class="sug-badge badge-${s.status}">${s.status}</span>
+          </div>
+          ${s.reject_reason ? `<div class="sug-meta" style="color:#ff7a8a;">Refusée : ${escapeHtml(s.reject_reason)}</div>` : ''}
+        </div>
+        ${s.status === 'pending' ? `
+          <div class="sug-foot">
+            <select id="rar-${s.id}" class="input" style="min-width:90px;">
+              <option value="common">Common</option>
+              <option value="rare">Rare</option>
+              <option value="epic">Epic</option>
+              <option value="legendary">Legendary</option>
+              <option value="mythic">Mythic</option>
+            </select>
+            <button class="btn btn-primary" onclick="approveSug(${s.id})">✅ Approuver</button>
+            <button class="btn btn-danger" onclick="rejectSug(${s.id})">❌ Refuser</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.loadSugs = loadSugs;
+
+async function approveSug(sid) {
+  const rar = document.getElementById('rar-' + sid).value;
+  try {
+    const r = await fetch(`/api/owner/card-suggestions/${sid}/approve`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({rarity: rar}),
+    });
+    const d = await r.json();
+    if (d.ok) { toast(`Approuvée. Carte #${d.card_id} créée.`); loadSugs(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.approveSug = approveSug;
+
+async function rejectSug(sid) {
+  const reason = prompt('Raison du refus (optionnel, max 200 chars) :', '');
+  if (reason === null) return;
+  try {
+    const r = await fetch(`/api/owner/card-suggestions/${sid}/reject`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({reason}),
+    });
+    const d = await r.json();
+    if (d.ok) { toast('Refusée.'); loadSugs(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.rejectSug = rejectSug;
+
+loadSugs();
+</script>
+{% endblock %}

@@ -166,6 +166,27 @@ def init_db():
         updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Suggestions de cartes par communaute (owner approve via dashboard)
+    c.execute('''CREATE TABLE IF NOT EXISTS card_suggestions (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        suggester_id   TEXT NOT NULL,
+        suggester_name TEXT,
+        guild_id       TEXT,
+        channel_id     TEXT,
+        name           TEXT NOT NULL,
+        universe       TEXT,
+        subtitle       TEXT,
+        image_url      TEXT,
+        source_type    TEXT DEFAULT 'url',
+        status         TEXT NOT NULL DEFAULT 'pending',
+        created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+        reviewed_at    TEXT,
+        reviewer_id    TEXT,
+        reject_reason  TEXT,
+        created_card_id INTEGER
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_card_sugg_status ON card_suggestions(status)")
+
     # Trades de cartes entre joueurs (multi-cartes, non-equivalent)
     c.execute('''CREATE TABLE IF NOT EXISTS card_trades (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1733,6 +1754,63 @@ def user_card_count(user_id):
     conn = get_db(); c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ?",
                   (str(user_id),)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def card_suggestion_add(suggester_id, suggester_name, guild_id, channel_id,
+                          name, universe=None, subtitle=None,
+                          image_url=None, source_type="url"):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO card_suggestions
+                 (suggester_id, suggester_name, guild_id, channel_id,
+                  name, universe, subtitle, image_url, source_type)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (str(suggester_id), suggester_name,
+                str(guild_id) if guild_id else None,
+                str(channel_id) if channel_id else None,
+                name, universe, subtitle, image_url, source_type))
+    sid = c.lastrowid
+    conn.commit(); conn.close()
+    return sid
+
+
+def card_suggestion_list(status=None, limit=200):
+    conn = get_db(); c = conn.cursor()
+    if status:
+        rows = c.execute(
+            "SELECT * FROM card_suggestions WHERE status = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (status, int(limit))).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT * FROM card_suggestions ORDER BY created_at DESC LIMIT ?",
+            (int(limit),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_suggestion_get(sid):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_suggestions WHERE id = ?",
+                  (int(sid),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_suggestion_review(sid, status, reviewer_id, reason=None, created_card_id=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''UPDATE card_suggestions SET
+                 status = ?, reviewer_id = ?, reject_reason = ?,
+                 created_card_id = ?, reviewed_at = CURRENT_TIMESTAMP
+                 WHERE id = ?''',
+              (status, str(reviewer_id), reason, created_card_id, int(sid)))
+    conn.commit(); conn.close()
+
+
+def card_suggestion_count_pending():
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM card_suggestions WHERE status = 'pending'").fetchone()["n"]
     conn.close()
     return int(n)
 

@@ -432,6 +432,9 @@
         <a href="/owner/cards" class="nav-item {{ 'active' if active_nav == 'owner_cards' }}">
           <svg class="ic"><use href="#i-grid"/></svg> Cards
         </a>
+        <a href="/owner/cards/suggestions" class="nav-item {{ 'active' if active_nav == 'owner_card_suggestions' }}">
+          <svg class="ic"><use href="#i-bell"/></svg> Cards Suggest <span id="navSugBadge" class="muted" style="font-size:10px;"></span>
+        </a>
         <a href="/owner/premium-analytics" class="nav-item {{ 'active' if active_nav == 'owner_premium_analytics' }}">
           <svg class="ic"><use href="#i-pulse"/></svg> Analytics Premium
         </a>
@@ -936,6 +939,21 @@
   // Init + polling toutes 30s
   refreshNotifs();
   setInterval(refreshNotifs, 30000);
+
+  // Badge nav suggestions cartes (owner only)
+  async function refreshSugBadge() {
+    try {
+      const r = await fetch('/api/owner/card-suggestions/pending-count');
+      if (!r.ok) return;
+      const d = await r.json();
+      const el = document.getElementById('navSugBadge');
+      if (!el) return;
+      el.textContent = d.count > 0 ? `(${d.count})` : '';
+      el.style.color = d.count > 0 ? '#fbbf24' : '';
+    } catch (e) {}
+  }
+  refreshSugBadge();
+  setInterval(refreshSugBadge, 60000);
 
   // ============ Custom cursor : halo glow + particles trail ============
   (function() {

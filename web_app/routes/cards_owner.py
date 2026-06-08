@@ -12,6 +12,82 @@ def register_cards_owner_routes(app, deps):
         return render_template("owner_cards.html", active_nav="owner_cards")
 
 
+    @app.route("/owner/cards/suggestions")
+    def owner_cards_suggestions_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        return render_template("owner_card_suggestions.html",
+                                 active_nav="owner_card_suggestions")
+
+
+    @app.route("/api/owner/card-suggestions", methods=["GET"])
+    def api_owner_card_suggestions_list():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_suggestion_list
+        status = request.args.get("status") or None
+        items = card_suggestion_list(status=status, limit=500)
+        return jsonify({"items": items})
+
+
+    @app.route("/api/owner/card-suggestions/pending-count", methods=["GET"])
+    def api_owner_card_suggestions_pending_count():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_suggestion_count_pending
+        return jsonify({"count": card_suggestion_count_pending()})
+
+
+    @app.route("/api/owner/card-suggestions/<int:sid>/approve", methods=["POST"])
+    def api_owner_card_suggestion_approve(sid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (card_suggestion_get, card_suggestion_review,
+                                card_add)
+        from flask import session as _ses
+        data = request.json or {}
+        sugg = card_suggestion_get(sid)
+        if not sugg:
+            return jsonify({"error": "suggestion introuvable"}), 404
+        if sugg["status"] != "pending":
+            return jsonify({"error": f"deja {sugg['status']}"}), 400
+        rarity = (data.get("rarity") or "common").strip()
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+            rarity = "common"
+        try:
+            cid = card_add(
+                name=sugg["name"],
+                universe=sugg.get("universe"),
+                subtitle=sugg.get("subtitle"),
+                rarity=rarity,
+                image_url=sugg.get("image_url"),
+                description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
+            )
+        except Exception as e:
+            return jsonify({"error": f"erreur create : {type(e).__name__}: {e}"}), 500
+        reviewer_id = _ses.get("user_id") or "owner"
+        card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
+        return jsonify({"ok": True, "card_id": cid})
+
+
+    @app.route("/api/owner/card-suggestions/<int:sid>/reject", methods=["POST"])
+    def api_owner_card_suggestion_reject(sid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_suggestion_get, card_suggestion_review
+        from flask import session as _ses
+        data = request.json or {}
+        sugg = card_suggestion_get(sid)
+        if not sugg:
+            return jsonify({"error": "suggestion introuvable"}), 404
+        if sugg["status"] != "pending":
+            return jsonify({"error": f"deja {sugg['status']}"}), 400
+        reason = (data.get("reason") or "").strip()[:200] or None
+        reviewer_id = _ses.get("user_id") or "owner"
+        card_suggestion_review(sid, "rejected", reviewer_id, reason=reason)
+        return jsonify({"ok": True})
+
+
     @app.route("/api/owner/cards", methods=["GET"])
     def api_owner_cards_list():
         if not _is_owner_session():
