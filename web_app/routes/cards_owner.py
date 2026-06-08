@@ -227,9 +227,10 @@ def register_cards_owner_routes(app, deps):
         cropped = src.crop((x0, y0, x1, y1))
 
         # Save vers static/card_suggestions/<new_card_id>.png
-        # On ne connait pas encore l'id, donc on save d'abord vers temp puis rename
-        tmp_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
-            _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_suggestions")
+        # Utilise _OUTPUT_DIR de cards_overlay comme reference fiable
+        # (cwd-independant, sinon abspath foire selon ou PM2 lance le proc)
+        from services.cards_overlay import _OUTPUT_DIR as _RENDERS_DIR
+        tmp_dir = _os.path.join(_os.path.dirname(_RENDERS_DIR), "card_suggestions")
         _os.makedirs(tmp_dir, exist_ok=True)
         # Resize portrait 450x675 (ratio 2:3, meme format que overlays)
         target_w, target_h = 450, 675
