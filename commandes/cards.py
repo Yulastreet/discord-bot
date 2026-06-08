@@ -370,7 +370,9 @@ def setup_cards_commands(bot, deps):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            err_msg = f"Erreur /card : `{type(e).__name__}: {e}`"
+            err_msg = (f"❌ Erreur sur `/card` : `{type(e).__name__}`. "
+                        f"Vérifie le nom (autocomplete recommandé). "
+                        f"Si le bug persiste, signale-le au support TookBot.")
             try:
                 if interaction.response.is_done():
                     await interaction.followup.send(err_msg[:1900], ephemeral=True)
@@ -692,7 +694,10 @@ def setup_cards_commands(bot, deps):
                 import traceback; traceback.print_exc()
                 try:
                     await interaction.response.send_message(
-                        f"Erreur trade : `{type(e).__name__}: {e}`", ephemeral=True)
+                        f"❌ Erreur création trade : `{type(e).__name__}`. "
+                        f"Vérifie que les noms de cartes existent (format : "
+                        f"`Nom1, Nom2 x3, Nom3`). Re-essaie ou contacte le support.",
+                        ephemeral=True)
                 except Exception:
                     pass
 
@@ -788,7 +793,9 @@ def setup_cards_commands(bot, deps):
             )
         except Exception as e:
             await interaction.response.send_message(
-                f"Erreur enregistrement : `{type(e).__name__}: {e}`", ephemeral=True)
+                f"❌ Erreur enregistrement suggestion : `{type(e).__name__}`. "
+                f"Re-essaie. Si le bug persiste, contacte le support TookBot.",
+                ephemeral=True)
             return
 
         embed = discord.Embed(

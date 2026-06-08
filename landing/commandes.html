@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Commandes - TookBot</title>
-<meta name="description" content="Toutes les commandes slash de TookBot, expliquees par categorie : musique, IA, modération, automod, salons vocaux temp, XP, duels, jeux, utilitaires. Plus de 90 commandes.">
+<meta name="description" content="Toutes les commandes slash de TookBot, expliquees par categorie : musique, modération, automod, salons vocaux temp, XP, duels, jeux, cartes Mudae-like, utilitaires. Plus de 110 commandes.">
 <meta property="og:title" content="Commandes - TookBot">
 <meta property="og:description" content="Toutes les commandes TookBot avec explications et comparatif vs autres bots.">
 <meta property="og:url" content="https://tookbot.click/commandes.html">
@@ -395,7 +395,7 @@
 
   <main>
     <div class="head">
-      <h1>90+ commandes slash. Pas de prise de tête.</h1>
+      <h1>110+ commandes slash. Pas de prise de tête.</h1>
       <p>Chaque commande TookBot est conçue pour faire UNE chose, et la faire bien. Pas de paywall sur l'essentiel, pas de pub, pas de préfixe à retenir.</p>
       <div class="counter">Total : <strong>90+</strong> commandes</div>
       <div class="search-bar">
@@ -512,6 +512,7 @@
       fun:        '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       utils:      '<svg viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a4 4 0 1 0 3 3l-4 4-1.5-.5L11 10.7l-4 4a3 3 0 1 0 3 3l4-4 1.1 1.2 1.5.5 4-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
       tempvoice:  '<svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+      cards:      '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="13" height="16" rx="2" stroke="currentColor" stroke-width="2"/><rect x="8" y="3" width="13" height="16" rx="2" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/></svg>',
     };
 
     const CATS = [
@@ -609,11 +610,26 @@
         { name:'/citation', syntax:'/citation', desc:'Citation inspirante aléatoire.' },
         { name:'/zgeg', syntax:'/zgeg [membre]', desc:'Mesure la taille de... bon.' },
       ]},
+      { id: 'cards', title: 'Cartes (Mudae-like)', intro: 'Collection de cartes anime, jeux vidéo, films/séries. Roll, trade multi-cartes, suggestions communauté. Catalogue de 13 000+ persos.', cmds: [
+        { name:'/roll', syntax:'/roll [univers]', desc:'Tire une carte aléatoire de la collection. Argument optionnel : filtre par univers (Anime, Jeu Vidéo, Film/Série).', why:'<strong>Cooldown 1h par serveur :</strong> un user peut roll dans plusieurs serveurs en parallèle, chacun son timer.', badge:'new' },
+        { name:'/cardcollec', syntax:'/cardcollec [membre] [rareté]', desc:'Affiche ta collection complète (ou celle de quelqu\'un), filtrable par rareté.', badge:'new' },
+        { name:'/card', syntax:'/card <nom>', desc:'Détails d\'une carte précise. Autocomplete avec recherche fuzzy sur les 13k+ cartes.', badge:'new' },
+        { name:'/cardtrade', syntax:'/cardtrade <joueur>', desc:'Échange multi-cartes non-équivalent (ex 4 vs 1). Modal builder + boutons Accepter/Refuser/Contre-offre.', why:'<strong>Atomique :</strong> re-vérification ownership au moment de l\'accept, impossible de roll-back un trade fait.', badge:'new' },
+        { name:'/cardsetup', syntax:'/cardsetup <salon>', desc:'Admin : restreint les commandes cartes à un salon précis du serveur.', badge:'new' },
+        { name:'/cardsetup_disable', syntax:'/cardsetup_disable', desc:'Admin : retire la restriction de salon.', badge:'new' },
+        { name:'/cardsuggest', syntax:'/cardsuggest <nom> <univers> [origine] [image]', desc:'Suggère un perso à ajouter. Image en URL OU pièce jointe directe. Validé manuellement par l\'équipe.', why:'<strong>Disponible uniquement sur le serveur support TookBot</strong> dans le salon dédié.', badge:'new' },
+      ]},
       { id: 'utils', title: 'Utilitaires', intro: 'Infos serveur, membres, et accès à toute la liste de commandes.', cmds: [
         { name:'/avatar', syntax:'/avatar [membre]', desc:'Affiche l\'avatar HD d\'un membre.' },
         { name:'/userinfo', syntax:'/userinfo [membre]', desc:'Infos détaillées : ID, date création, date join, rôle principal.' },
         { name:'/serverinfo', syntax:'/serverinfo', desc:'Infos serveur : propriétaire, membres, salons, rôles.' },
         { name:'/ping', syntax:'/ping', desc:'Latence du bot en ms.' },
+        { name:'/tweet', syntax:'/tweet <message_id>', desc:'Génère une image-carte style tweet du message ciblé, avec avatar et tag verified.', badge:'new' },
+        { name:'/remind', syntax:'/remind (modal)', desc:'Builder modal : date, message, salon. Notification automatique quand le timer arrive.', badge:'new' },
+        { name:'/reminders', syntax:'/reminders', desc:'Liste tes rappels actifs.', badge:'new' },
+        { name:'/unremind', syntax:'/unremind <id>', desc:'Annule un rappel.', badge:'new' },
+        { name:'/vote', syntax:'/vote', desc:'Lien direct pour voter TookBot sur top.gg.', badge:'new' },
+        { name:'/invite', syntax:'/invite', desc:'Lien d\'invitation officiel avec permissions minimales requises.', badge:'new' },
         { name:'/commandes', syntax:'/commandes', desc:'Liste des commandes envoyée en MP (paginée).' },
         { name:'/setup', syntax:'/setup', desc:'Configure les salons clés (bienvenue, logs, alertes, admin).' },
       ]},
