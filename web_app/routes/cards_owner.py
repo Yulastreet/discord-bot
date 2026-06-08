@@ -176,13 +176,19 @@ def register_cards_owner_routes(app, deps):
         from services.cards_fandom_games import bulk_import_fandom_games
         data = request.json or {}
         try:
-            per_franchise = max(10, min(int(data.get("per_franchise", 100)), 500))
+            per_franchise = max(10, min(int(data.get("per_franchise", 200)), 500))
         except (ValueError, TypeError):
-            per_franchise = 100
+            per_franchise = 200
+        total_target = data.get("total_target")
+        try:
+            total_target = int(total_target) if total_target else None
+        except (ValueError, TypeError):
+            total_target = None
         skip_existing = bool(data.get("skip_existing", True))
         wipe_first = bool(data.get("wipe_first", False))
         try:
             stats = bulk_import_fandom_games(per_franchise=per_franchise,
+                                                total_target=total_target,
                                                 skip_existing=skip_existing,
                                                 wipe_first=wipe_first)
         except Exception as e:

@@ -444,16 +444,20 @@ async function bulkImportAll() {
 window.bulkImportAll = bulkImportAll;
 
 async function bulkImportFandomGames() {
-  const perStr = prompt('Combien de chars max par franchise ? (Mario, Zelda, Pokemon, etc - 85 franchises listées). Default 100.', '100');
-  if (!perStr) return;
-  const perFranchise = parseInt(perStr, 10);
-  if (!Number.isFinite(perFranchise) || perFranchise < 10) { toast('Min 10.', 'error'); return; }
-  if (!confirm(`Import jusqu'à ${perFranchise * 85} chars max (85 franchises × ${perFranchise}). Volume reel ~2-5k selon completion wikis. Duree ~3-5min.`)) return;
+  const totalStr = prompt('Combien de personnages jeux vidéo veux-tu ajouter ? (vide = tout charger, ~2-5k max)', '1000');
+  if (totalStr === null) return;
+  const total = parseInt(totalStr, 10) || 0;
+  if (total < 0) { toast('Nombre invalide.', 'error'); return; }
+  const msg = total > 0
+    ? `Import jusqu'à ${total} personnages jeux vidéo (stop des qu'atteint).`
+    : `Import sans cap (toutes franchises, jusqu'à épuisement).`;
+  if (!confirm(`${msg} Duree ~1-5min. Continuer ?`)) return;
   toast('Import Fandom games en cours... Console pour progress.');
   try {
     const r = await fetch('/api/owner/cards/bulk-import-fandom-games', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({per_franchise: perFranchise, skip_existing: true, wipe_first: false}),
+      body: JSON.stringify({per_franchise: 200, total_target: total || null,
+                              skip_existing: true, wipe_first: false}),
     });
     const d = await r.json();
     if (d.ok) {

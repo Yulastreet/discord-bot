@@ -183,12 +183,14 @@ def _rarity_weighted(rank: int) -> str:
     return "common"
 
 
-def bulk_import_fandom_games(per_franchise: int = 100,
+def bulk_import_fandom_games(per_franchise: int = 200,
+                                total_target: int | None = None,
                                 sleep_between: float = 0.5,
                                 skip_existing: bool = True,
                                 wipe_first: bool = False) -> dict:
     """Iter chaque franchise, list chars, fetch pageimages, insert.
-    per_franchise = max chars par wiki (default 100)."""
+    total_target : si set, stop des qu'on atteint ce nb d'insertions.
+    per_franchise : cap max par wiki (eviter qu'un seul wiki domine)."""
     from database import get_db, card_add
 
     conn = get_db(); c = conn.cursor()
@@ -245,6 +247,9 @@ def bulk_import_fandom_games(per_franchise: int = 100,
             stats["franchises_done"] += 1
             print(f"[fandom] {sub} : +{inserted_this} chars (sur {len(titles)} titles)")
             time.sleep(sleep_between)
+            if total_target and stats["inserted"] >= total_target:
+                print(f"[fandom] total_target {total_target} atteint, stop")
+                break
         except Exception as e:
             print(f"[fandom] franchise {sub} fatal: {e}")
             stats["franchises_empty"] += 1
