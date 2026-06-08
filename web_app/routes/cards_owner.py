@@ -155,6 +155,34 @@ def register_cards_owner_routes(app, deps):
                          "user_id": user_id})
 
 
+    @app.route("/api/owner/cards/bulk-import-igdb", methods=["POST"])
+    def api_owner_cards_bulk_igdb():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_igdb_bulk import bulk_import_igdb
+        data = request.json or {}
+        try:
+            pages = max(1, min(int(data.get("pages", 4)), 20))
+        except (ValueError, TypeError):
+            pages = 4
+        try:
+            page_size = max(1, min(int(data.get("page_size", 500)), 500))
+        except (ValueError, TypeError):
+            page_size = 500
+        skip_existing = bool(data.get("skip_existing", True))
+        wipe_first = bool(data.get("wipe_first", False))
+        try:
+            stats = bulk_import_igdb(pages=pages, page_size=page_size,
+                                       skip_existing=skip_existing,
+                                       wipe_first=wipe_first)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        if isinstance(stats, dict) and stats.get("error"):
+            return jsonify({"error": stats["error"]}), 400
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/bake-overlays", methods=["POST"])
     def api_owner_cards_bake():
         if not _is_owner_session():

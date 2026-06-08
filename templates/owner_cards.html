@@ -91,8 +91,9 @@
     <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refresh images (manquantes)</button>
     <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
     <button class="btn btn-secondary" onclick="bakeOverlays()">🎨 Baker overlays</button>
-    <button class="btn btn-secondary" onclick="bulkImportAnilist()">📦 Bulk import 1000 (Anilist)</button>
-    <button class="btn btn-ghost" onclick="bulkImportJikan()" style="opacity:0.6">📦 Bulk Jikan (fallback)</button>
+    <button class="btn btn-secondary" onclick="bulkImportAnilist()">📦 Anime (Anilist)</button>
+    <button class="btn btn-secondary" onclick="bulkImportIgdb()">🎮 Jeux Vidéo (IGDB)</button>
+    <button class="btn btn-ghost" onclick="bulkImportJikan()" style="opacity:0.6">📦 Jikan (fallback)</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe catalogue</button>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
   </div>
@@ -365,6 +366,27 @@ async function bakeOverlays() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bakeOverlays = bakeOverlays;
+
+async function bulkImportIgdb() {
+  const pagesStr = prompt('Combien de pages IGDB ? (500 chars/page, 4 = 2000 cartes). Max 20.', '4');
+  if (!pagesStr) return;
+  const pages = parseInt(pagesStr, 10);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
+  if (!confirm(`Import ~${pages*500} personnages jeux video IGDB. Skip doublons. ~${Math.round(pages*2)}s. Continuer ?`)) return;
+  toast(`Import IGDB en cours (${pages} pages, ~${Math.round(pages*2)}s)...`);
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-igdb', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pages, page_size: 500, skip_existing: true, wipe_first: false}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportIgdb = bulkImportIgdb;
 
 async function bulkImportAnilist() {
   const pagesStr = prompt('Combien de pages Anilist ? (50 personnages/page, 20 = 1000 cartes). Max 50.', '20');
