@@ -5,6 +5,112 @@ from flask import render_template, request, jsonify
 def register_cards_owner_routes(app, deps):
     globals().update(deps)
 
+    # ===== PUBLIC =====
+    @app.route("/cards")
+    def public_cards_page():
+        """Page publique : tout le monde peut voir le catalogue (read-only)."""
+        return render_template("cards_public.html", active_nav="public_cards")
+
+
+    @app.route("/api/public/cards", methods=["GET"])
+    def api_public_cards_list():
+        from database import card_list_all, card_count_filtered, card_count_total
+        rarity = request.args.get("rarity") or None
+        universe = request.args.get("universe") or None
+        search = request.args.get("q") or None
+        sort = (request.args.get("sort") or "name_asc").strip()
+        try:
+            per_page = max(1, min(int(request.args.get("per_page", 50)), 200))
+        except ValueError:
+            per_page = 50
+        try:
+            page = max(1, int(request.args.get("page", 1)))
+        except ValueError:
+            page = 1
+        offset = (page - 1) * per_page
+
+        # Reuse helper avec extra filter universe (custom query si dispo)
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        where = ["1=1"]
+        params = []
+        if rarity:
+            where.append("rarity = ?"); params.append(rarity)
+        if universe:
+            where.append("universe = ?"); params.append(universe)
+        if search:
+            where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
+            like = f"%{search.lower()}%"
+            params += [like, like, like]
+        sort_sql = {
+            "name_asc":     "name ASC",
+            "name_desc":    "name DESC",
+            "rarity_desc":  "CASE rarity WHEN 'mythic' THEN 0 WHEN 'legendary' THEN 1 "
+                             "WHEN 'epic' THEN 2 WHEN 'rare' THEN 3 WHEN 'common' THEN 4 "
+                             "ELSE 5 END ASC, name ASC",
+            "rarity_asc":   "CASE rarity WHEN 'common' THEN 0 WHEN 'rare' THEN 1 "
+                             "WHEN 'epic' THEN 2 WHEN 'legendary' THEN 3 WHEN 'mythic' THEN 4 "
+                             "ELSE 5 END ASC, name ASC",
+            "universe_asc": "universe ASC, name ASC",
+            "newest":       "id DESC",
+            "oldest":       "id ASC",
+        }.get(sort, "name ASC")
+
+        # count filtered
+        count_sql = f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}"
+        filtered = c.execute(count_sql, params).fetchone()["n"]
+        # items
+        items_params = params + [per_page, offset]
+        rows = c.execute(
+            f"SELECT id, name, universe, subtitle, rarity, image_url "
+            f"FROM cards WHERE {' AND '.join(where)} "
+            f"ORDER BY {sort_sql} LIMIT ? OFFSET ?", items_params).fetchall()
+        items = [dict(r) for r in rows]
+        total = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
+        conn.close()
+        return jsonify({
+            "items": items,
+            "total": int(total),
+            "filtered": int(filtered),
+            "page": page,
+            "per_page": per_page,
+            "total_pages": max(1, (int(filtered) + per_page - 1) // per_page),
+        })
+
+
+    @app.route("/api/public/cards/universes", methods=["GET"])
+    def api_public_cards_universes():
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT universe, COUNT(*) AS n FROM cards "
+            "WHERE universe IS NOT NULL AND universe != '' "
+            "GROUP BY universe ORDER BY n DESC").fetchall()
+        conn.close()
+        return jsonify({"items": [{"universe": r["universe"], "count": r["n"]} for r in rows]})
+
+
+    @app.route("/api/public/cards/stats", methods=["GET"])
+    def api_public_cards_stats():
+        from database import get_db, CARD_RARITY_WEIGHTS
+        conn = get_db(); c = conn.cursor()
+        total = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
+        by_rarity = {r["rarity"]: r["n"] for r in c.execute(
+            "SELECT rarity, COUNT(*) AS n FROM cards GROUP BY rarity").fetchall()}
+        conn.close()
+        # Drop rates calculees depuis poids
+        total_weight = sum(CARD_RARITY_WEIGHTS.values())
+        drop_rates = {k: round(v * 100 / total_weight, 2)
+                       for k, v in CARD_RARITY_WEIGHTS.items()}
+        return jsonify({
+            "total": int(total),
+            "by_rarity": by_rarity,
+            "drop_rates": drop_rates,
+            "cooldown_seconds": 3600,
+        })
+
+
+    # ===== OWNER =====
     @app.route("/owner/cards")
     def owner_cards_page():
         if not _is_owner_session():

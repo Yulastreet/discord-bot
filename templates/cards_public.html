@@ -1,0 +1,267 @@
+{% extends "_base.html" %}
+{% set active_nav = 'public_cards' %}
+
+{% block title %}Catalogue Cartes · TookBot{% endblock %}
+{% block crumb %}Catalogue Cartes{% endblock %}
+
+{% block content %}
+<style>
+  .pc-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom: var(--s-5); }
+  .pc-stat {
+    background: var(--bg-1); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px;
+  }
+  .pc-stat .lbl { font-size:11px; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; }
+  .pc-stat .val { font-size:22px; font-weight:800; margin-top:4px; }
+  .pc-stat .pct { font-size:12px; color:var(--text-2); margin-top:2px; }
+  .pc-stat.rar-common    { border-color: #9aa0a6; }
+  .pc-stat.rar-rare      { border-color: #4cb5f9; }
+  .pc-stat.rar-epic      { border-color: #a86dff; }
+  .pc-stat.rar-legendary { border-color: #ffa726; }
+  .pc-stat.rar-mythic    { border-color: #ff3d57; }
+
+  .pc-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: var(--s-4); }
+  .pc-toolbar input, .pc-toolbar select {
+    background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px;
+  }
+  .pc-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+  .pc-tile {
+    background: var(--bg-1); border:1px solid var(--border); border-radius:12px;
+    overflow:hidden; display:flex; flex-direction:column; transition: transform .12s, border-color .12s;
+  }
+  .pc-tile:hover { transform: translateY(-2px); border-color: oklch(0.86 0.20 130); cursor: pointer; }
+  .pc-tile-img { aspect-ratio: 2/3; background: var(--bg-2); position: relative; overflow:hidden;
+                   display:grid; place-items:center; }
+  .pc-tile-img img { width:100%; height:100%; object-fit: cover; }
+  .pc-tile-img .no-img { color: var(--text-3); font-size: 32px; }
+  .pc-tile-meta { padding: 8px 10px; }
+  .pc-tile-name { font-weight: 700; font-size: 13px; color: var(--text); white-space: nowrap;
+                    overflow:hidden; text-overflow: ellipsis; }
+  .pc-tile-sub { font-size: 11px; color: var(--text-2); margin-top: 2px; white-space: nowrap;
+                   overflow:hidden; text-overflow: ellipsis; }
+  .pc-rar-badge { position:absolute; top:6px; right:6px; padding:2px 6px; border-radius:6px;
+                    font-size:9px; font-weight:800; text-transform:uppercase; color:#fff; letter-spacing:0.04em; }
+  .pc-rar-common    { background:#9aa0a6; }
+  .pc-rar-rare      { background:#4cb5f9; }
+  .pc-rar-epic      { background:#a86dff; }
+  .pc-rar-legendary { background:#ffa726; color:#2a1a00; }
+  .pc-rar-mythic    { background:#ff3d57; }
+
+  .pc-preview-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px);
+                       z-index:300; display:none; place-items:center; padding:20px; }
+  .pc-preview-scrim.open { display: grid; }
+  .pc-preview-modal { background: var(--bg-1); border:1px solid var(--border); border-radius:18px;
+                       padding:22px; max-width:480px; width:100%; box-shadow:0 30px 80px rgba(0,0,0,.6); }
+  .pc-preview-modal img { width:100%; max-height:480px; object-fit:contain; border-radius:12px;
+                            margin-bottom:14px; background: var(--bg-2); }
+  .pc-preview-modal h3 { margin:0 0 6px; font-size:20px; }
+  .pc-preview-modal .meta { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; font-size:12px; }
+  .pc-preview-modal .meta span { padding:3px 9px; background: var(--bg-2); border-radius:999px; }
+</style>
+
+<div class="col gap-6">
+  <div>
+    <h1>🃏 Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="pcCount"></span></h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
+      Tous les personnages disponibles sur TookBot. Tire des cartes avec
+      <code>/roll</code> sur Discord, consulte ta collection via <code>/cardcollec</code>,
+      échange via <code>/cardtrade</code>.
+    </p>
+  </div>
+
+  <!-- Drop rates info -->
+  <div>
+    <h3 style="margin-bottom:8px;">📊 Taux de drop & cooldown</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">
+      Cooldown <strong>1 heure par serveur</strong>. Chaque <code>/roll</code> tire selon ces probabilités :
+    </p>
+    <div class="pc-stats" id="pcStats"></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="pc-toolbar">
+    <input type="search" id="pcSearch" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="pcDebouncedReload()">
+    <select id="pcRarity" onchange="pcResetAndLoad()">
+      <option value="">Toutes raretés</option>
+      <option value="mythic">Mythic (1%)</option>
+      <option value="legendary">Legendary (4%)</option>
+      <option value="epic">Epic (15%)</option>
+      <option value="rare">Rare (30%)</option>
+      <option value="common">Common (50%)</option>
+    </select>
+    <select id="pcUniverse" onchange="pcResetAndLoad()">
+      <option value="">Tous univers</option>
+    </select>
+    <select id="pcSort" onchange="pcResetAndLoad()">
+      <option value="name_asc">Nom A→Z</option>
+      <option value="name_desc">Nom Z→A</option>
+      <option value="rarity_desc">Rareté ↓ (mythic d'abord)</option>
+      <option value="rarity_asc">Rareté ↑ (common d'abord)</option>
+      <option value="universe_asc">Univers A→Z</option>
+      <option value="newest">Plus récent</option>
+      <option value="oldest">Plus ancien</option>
+    </select>
+    <select id="pcPerPage" onchange="pcResetAndLoad()">
+      <option value="25">25 / page</option>
+      <option value="50" selected>50 / page</option>
+      <option value="100">100 / page</option>
+      <option value="200">200 / page</option>
+    </select>
+  </div>
+
+  <div id="pcGrid" class="pc-grid"><div class="muted">Chargement…</div></div>
+
+  <div class="pc-toolbar" style="justify-content:center;margin-top:14px;">
+    <button class="btn btn-ghost" onclick="pcPrev()" id="pcPrev">← Préc.</button>
+    <span class="muted" id="pcPagInfo" style="min-width:120px;text-align:center;">—</span>
+    <button class="btn btn-ghost" onclick="pcNext()" id="pcNext">Suiv. →</button>
+    <span style="margin-left:14px;display:flex;align-items:center;gap:6px;">
+      <label class="muted" style="font-size:12px;">Aller à :</label>
+      <input type="number" id="pcJump" min="1" style="width:80px;padding:6px 8px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;" onkeydown="if(event.key==='Enter')pcJumpTo()">
+      <button class="btn btn-secondary" onclick="pcJumpTo()" style="padding:6px 10px;font-size:12px;">OK</button>
+    </span>
+  </div>
+</div>
+
+<!-- Preview modal -->
+<div class="pc-preview-scrim" id="pcPreview" onclick="pcClosePreview(event)">
+  <div class="pc-preview-modal" onclick="event.stopPropagation()">
+    <img id="pcPreviewImg" src="" alt="">
+    <h3 id="pcPreviewName">—</h3>
+    <div class="meta">
+      <span id="pcPreviewRar">—</span>
+      <span id="pcPreviewUni">—</span>
+      <span id="pcPreviewSub">—</span>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <button class="btn btn-secondary" onclick="pcClosePreview()">Fermer</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pcAll = [];
+let pcPage = 1;
+let pcTotalPages = 1;
+let pcDebTimer = null;
+function pcEsc(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function pcDebouncedReload(){clearTimeout(pcDebTimer);pcDebTimer=setTimeout(()=>{pcPage=1;pcLoad();},300);}
+function pcResetAndLoad(){pcPage=1;pcLoad();}
+function pcPrev(){if(pcPage>1){pcPage--;pcLoad();scrollTo(0,0);}}
+function pcNext(){if(pcPage<pcTotalPages){pcPage++;pcLoad();scrollTo(0,0);}}
+function pcJumpTo(){const v=parseInt(document.getElementById('pcJump').value,10);if(!Number.isFinite(v)||v<1){toast('Page invalide.','error');return;}if(v>pcTotalPages){toast('Max : '+pcTotalPages,'error');return;}pcPage=v;pcLoad();scrollTo(0,0);}
+window.pcDebouncedReload=pcDebouncedReload;
+window.pcResetAndLoad=pcResetAndLoad;
+window.pcPrev=pcPrev; window.pcNext=pcNext; window.pcJumpTo=pcJumpTo;
+
+const RAR_LABELS = {common:'COMMON', rare:'RARE', epic:'EPIC', legendary:'LEGENDARY', mythic:'MYTHIC'};
+
+async function pcLoadStats() {
+  try {
+    const r = await fetch('/api/public/cards/stats');
+    const d = await r.json();
+    const order = ['mythic','legendary','epic','rare','common'];
+    document.getElementById('pcStats').innerHTML = order.map(k => {
+      const count = (d.by_rarity || {})[k] || 0;
+      const rate = (d.drop_rates || {})[k] || 0;
+      return `
+        <div class="pc-stat rar-${k}">
+          <div class="lbl">${RAR_LABELS[k]}</div>
+          <div class="val">${count.toLocaleString('fr')}</div>
+          <div class="pct">Drop : ${rate}%</div>
+        </div>
+      `;
+    }).join('') + `
+      <div class="pc-stat">
+        <div class="lbl">TOTAL</div>
+        <div class="val">${(d.total || 0).toLocaleString('fr')}</div>
+        <div class="pct">cartes au catalogue</div>
+      </div>
+    `;
+  } catch (e) {}
+}
+
+async function pcLoadUniverses() {
+  try {
+    const r = await fetch('/api/public/cards/universes');
+    const d = await r.json();
+    const sel = document.getElementById('pcUniverse');
+    (d.items || []).forEach(u => {
+      const o = document.createElement('option');
+      o.value = u.universe;
+      o.textContent = `${u.universe} (${u.count})`;
+      sel.appendChild(o);
+    });
+  } catch (e) {}
+}
+
+async function pcLoad() {
+  const params = new URLSearchParams();
+  const q = document.getElementById('pcSearch').value.trim();
+  const rar = document.getElementById('pcRarity').value;
+  const uni = document.getElementById('pcUniverse').value;
+  const sort = document.getElementById('pcSort').value;
+  const pp = document.getElementById('pcPerPage').value || '50';
+  if (q) params.set('q', q);
+  if (rar) params.set('rarity', rar);
+  if (uni) params.set('universe', uni);
+  if (sort) params.set('sort', sort);
+  params.set('per_page', pp);
+  params.set('page', pcPage);
+  try {
+    const r = await fetch('/api/public/cards?' + params.toString());
+    const d = await r.json();
+    pcAll = d.items || [];
+    pcTotalPages = d.total_pages || 1;
+    const filtered = d.filtered ?? 0;
+    const total = d.total ?? filtered;
+    const filtering = (q || rar || uni);
+    document.getElementById('pcCount').textContent =
+      filtering ? `(${filtered.toLocaleString('fr')} / ${total.toLocaleString('fr')})`
+                : `(${total.toLocaleString('fr')} cartes)`;
+    document.getElementById('pcPagInfo').textContent = `Page ${pcPage} / ${pcTotalPages}`;
+    document.getElementById('pcPrev').disabled = pcPage <= 1;
+    document.getElementById('pcNext').disabled = pcPage >= pcTotalPages;
+    const grid = document.getElementById('pcGrid');
+    if (!pcAll.length) { grid.innerHTML = '<div class="muted">Aucune carte ne correspond.</div>'; return; }
+    grid.innerHTML = pcAll.map(c => `
+      <div class="pc-tile" onclick="pcOpenPreview(${c.id})">
+        <div class="pc-tile-img">
+          ${c.image_url ? `<img src="${pcEsc(c.image_url)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
+          <span class="pc-rar-badge pc-rar-${c.rarity}">${c.rarity}</span>
+        </div>
+        <div class="pc-tile-meta">
+          <div class="pc-tile-name">${pcEsc(c.name)}</div>
+          <div class="pc-tile-sub">${pcEsc(c.universe || '')}${c.subtitle ? ' · ' + pcEsc(c.subtitle) : ''}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function pcOpenPreview(id) {
+  const c = pcAll.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('pcPreviewImg').src = c.image_url || '';
+  document.getElementById('pcPreviewImg').style.display = c.image_url ? 'block' : 'none';
+  document.getElementById('pcPreviewName').textContent = c.name;
+  document.getElementById('pcPreviewRar').textContent = (c.rarity || '?').toUpperCase();
+  document.getElementById('pcPreviewUni').textContent = c.universe || '?';
+  document.getElementById('pcPreviewSub').textContent = c.subtitle || '?';
+  document.getElementById('pcPreview').classList.add('open');
+}
+function pcClosePreview(e) {
+  if (e && e.target.classList && !e.target.classList.contains('pc-preview-scrim')) return;
+  document.getElementById('pcPreview').classList.remove('open');
+}
+window.pcOpenPreview = pcOpenPreview;
+window.pcClosePreview = pcClosePreview;
+
+pcLoadStats();
+pcLoadUniverses();
+pcLoad();
+</script>
+{% endblock %}
