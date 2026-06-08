@@ -236,11 +236,58 @@ def _build_command_pages() -> list:
             "**/userinfo `[membre]`** — infos détaillées membre\n"
             "**/serverinfo** — infos serveur\n"
             "**/ping** — latence du bot\n"
+            "**/tweet `<message_id>`** — image carte style tweet du message\n"
+            "**/remind** — builder rappel (date, message, salon)\n"
+            "**/reminders** — liste tes rappels actifs\n"
+            "**/unremind `<id>`** — annule un rappel\n"
+            "**/vote** — vote TookBot sur top.gg\n"
+            "**/invite** — lien invitation officiel\n"
             "**/commandes** — réaffiche cette aide en MP"
         ),
         inline=False,
     )
     pages.append(p3)
+
+    # Page 4 : Cartes (Mudae-like)
+    p4 = discord.Embed(
+        title="📋 Commandes · 🃏 Cartes (collection Mudae-like)",
+        color=_PAGE_COLOR,
+    )
+    p4.add_field(
+        name="🃏 Collection",
+        value=(
+            "**/roll `[univers]`** — tire 1 carte aleatoire (cooldown 1h/serveur). "
+            "Filtre optionnel : Anime, Jeu Vidéo, Film/Série (autocomplete)\n"
+            "**/cardcollec `[membre]` `[rareté]`** — ta collection ou celle de quelqu'un\n"
+            "**/card `<nom>`** — détails d'une carte (autocomplete fuzzy sur 13k+)"
+        ),
+        inline=False,
+    )
+    p4.add_field(
+        name="🔄 Échange",
+        value=(
+            "**/cardtrade `<joueur>`** — modal builder, échange multi-cartes "
+            "non-équivalent (ex 4 vs 1). Boutons Accepter / Refuser / Contre-offre."
+        ),
+        inline=False,
+    )
+    p4.add_field(
+        name="⚙️ Setup serveur (admin)",
+        value=(
+            "**/cardsetup `<salon>`** — restreint les commandes cartes à ce salon\n"
+            "**/cardsetup_disable** — retire la restriction de salon"
+        ),
+        inline=False,
+    )
+    p4.add_field(
+        name="💡 Suggérer une carte",
+        value=(
+            "**/cardsuggest** — propose un perso à ajouter (URL ou image jointe). "
+            "Disponible **uniquement sur le serveur support TookBot** dans le salon dédié."
+        ),
+        inline=False,
+    )
+    pages.append(p4)
 
     for i, e in enumerate(pages, start=1):
         e.set_footer(text=f"Page {i}/{len(pages)} · Tip : tape / pour voir l'autocomplete Discord.")
