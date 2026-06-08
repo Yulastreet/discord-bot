@@ -573,6 +573,25 @@ def setup_cards_commands(bot, deps):
             self.is_counter = is_counter
             self.original_trade_id = original_trade_id
             self.view_to_disable = view_to_disable
+            # Pre-fill avec contenu trade original (roles inverses pour counter)
+            if is_counter and original_trade_id:
+                def _fmt(items):
+                    parts = []
+                    for it in items:
+                        if it["qty"] > 1:
+                            parts.append(f"{it['name']} x{it['qty']}")
+                        else:
+                            parts.append(it["name"])
+                    return ", ".join(parts)
+                orig_offer = card_trade_items(original_trade_id, side="offer")
+                orig_request = card_trade_items(original_trade_id, side="request")
+                # Counter sender = original receiver. Son 'offer' (ce qu'il
+                # donne) = ce qu'on lui demandait avant = orig_request.
+                # Son 'request' (ce qu'il veut) = ce qu'on lui offrait avant
+                # = orig_offer.
+                self.offer_field.default = _fmt(orig_request)
+                self.request_field.default = _fmt(orig_offer)
+                self.title = f"Contre-offre (trade #{original_trade_id})"
 
         async def on_submit(self, interaction: discord.Interaction):
             try:
