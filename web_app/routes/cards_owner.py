@@ -169,6 +169,44 @@ def register_cards_owner_routes(app, deps):
                          "user_id": user_id})
 
 
+    @app.route("/api/owner/cards/bulk-import-giantbomb", methods=["POST"])
+    def api_owner_cards_bulk_gb():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_giantbomb_bulk import bulk_import_giantbomb
+        data = request.json or {}
+        try:
+            pages = max(1, min(int(data.get("pages", 50)), 200))
+        except (ValueError, TypeError):
+            pages = 50
+        try:
+            page_size = max(1, min(int(data.get("page_size", 100)), 100))
+        except (ValueError, TypeError):
+            page_size = 100
+        try:
+            start_offset = max(0, int(data.get("start_offset", 0)))
+        except (ValueError, TypeError):
+            start_offset = 0
+        try:
+            sleep_between = max(1.0, float(data.get("sleep_between", 17.0)))
+        except (ValueError, TypeError):
+            sleep_between = 17.0
+        skip_existing = bool(data.get("skip_existing", True))
+        wipe_first = bool(data.get("wipe_first", False))
+        try:
+            stats = bulk_import_giantbomb(pages=pages, page_size=page_size,
+                                            sleep_between=sleep_between,
+                                            skip_existing=skip_existing,
+                                            wipe_first=wipe_first,
+                                            start_offset=start_offset)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        if isinstance(stats, dict) and stats.get("error"):
+            return jsonify({"error": stats["error"]}), 400
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/bulk-import-igdb", methods=["POST"])
     def api_owner_cards_bulk_igdb():
         if not _is_owner_session():
