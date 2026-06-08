@@ -90,6 +90,7 @@
     </select>
     <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refresh images (manquantes)</button>
     <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
+    <button class="btn btn-secondary" onclick="bakeOverlays()">🎨 Baker overlays</button>
     <button class="btn btn-secondary" onclick="bulkImportAnilist()">📦 Bulk import 1000 (Anilist)</button>
     <button class="btn btn-ghost" onclick="bulkImportJikan()" style="opacity:0.6">📦 Bulk Jikan (fallback)</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe catalogue</button>
@@ -347,6 +348,23 @@ async function bulkImportJikan() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportJikan = bulkImportJikan;
+
+async function bakeOverlays() {
+  const force = confirm('FORCE re-bake (re-genere TOUTES les images compositees) ?\nOK = force, Annuler = skip celles deja bakees.');
+  const base = prompt('Public base URL (vide = chemin relatif, ex pour prod: https://tookbot.click)', '');
+  if (!confirm(`Bake overlays sur toutes les cartes. Peut prendre 2-5min selon nombre.${force ? ' [FORCE]' : ''}`)) return;
+  toast('Bake en cours, patiente...');
+  try {
+    const r = await fetch('/api/owner/cards/bake-overlays', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({force, public_base_url: base || null}),
+    });
+    const d = await r.json();
+    if (d.ok) { toast(`Updated ${d.stats.updated} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`); loadCards(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bakeOverlays = bakeOverlays;
 
 async function bulkImportAnilist() {
   const pagesStr = prompt('Combien de pages Anilist ? (50 personnages/page, 20 = 1000 cartes). Max 50.', '20');

@@ -155,6 +155,25 @@ def register_cards_owner_routes(app, deps):
                          "user_id": user_id})
 
 
+    @app.route("/api/owner/cards/bake-overlays", methods=["POST"])
+    def api_owner_cards_bake():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_overlay import bake_all_cards
+        import os as _os
+        data = request.json or {}
+        force = bool(data.get("force"))
+        public_base = (data.get("public_base_url")
+                        or _os.getenv("PUBLIC_BASE_URL")
+                        or "").strip() or None
+        try:
+            stats = bake_all_cards(force=force, public_base_url=public_base)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/wipe", methods=["POST"])
     def api_owner_cards_wipe():
         if not _is_owner_session():

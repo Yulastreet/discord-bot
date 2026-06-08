@@ -140,6 +140,11 @@ def init_db():
         created_at  TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity)")
+    # Migration : source_image_url (URL originale avant overlay)
+    try:
+        c.execute("ALTER TABLE cards ADD COLUMN source_image_url TEXT")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
