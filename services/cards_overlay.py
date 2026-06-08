@@ -96,43 +96,85 @@ def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
     return f"/static/card_renders/{card_id}.png"
 
 
-def bake_all_cards(force: bool = False, public_base_url: str | None = None) -> dict:
-    """Boucle sur toutes les cartes, composite + update image_url.
-
-    force=False : skip si image_url commence deja par /static/card_renders/
-    public_base_url : si fourni (ex https://tookbot.click) prepend devant l'URL
-                       relative pour que Discord puisse charger l'image.
-    """
+def bake_all_cards(force: bool = False, public_base_url: str | None = None,
+                     workers: int = 10) -> dict:
+    """Boucle parallelisee. ThreadPool pour download+composite (I/O bound).
+    DB writes regroupes en bulk a la fin pour eviter contention SQLite."""
     from database import get_db, card_list_all
-    rows = card_list_all(limit=5000)
-    stats = {"updated": 0, "skipped": 0, "failed": 0}
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+
+    rows = card_list_all(limit=50000)
+    stats = {"updated": 0, "skipped": 0, "failed": 0, "total": len(rows)}
+    print(f"[overlay] bake_all_cards : {len(rows)} cards, force={force}, workers={workers}")
+
+    # 1. Filter rows a baker
+    to_bake = []
     for r in rows:
         img = r.get("image_url") or ""
         src = r.get("source_image_url")
-        already_baked = "/static/card_renders/" in img or "/card_renders/" in img
-        if not force and already_baked:
+        already = "/static/card_renders/" in img or "/card_renders/" in img
+        if not force and already:
             stats["skipped"] += 1
             continue
-        # Source priorise source_image_url (preserve original), sinon image_url
-        # (premiere bake : image_url contient encore l'URL Anilist/etc)
         source = src or img
         if not source or "/card_renders/" in source:
             stats["failed"] += 1
             continue
-        # Save source_image_url si pas encore set (one-time)
-        if not src:
-            conn = get_db(); c = conn.cursor()
-            c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
-                       (source, r["id"]))
-            conn.commit(); conn.close()
-        url = composite_card(source, r.get("rarity", "common"), r["id"])
-        if not url:
-            stats["failed"] += 1
-            continue
-        final = (public_base_url.rstrip("/") + url) if public_base_url else url
+        to_bake.append((r["id"], source, r.get("rarity", "common"), src is not None))
+    print(f"[overlay] {len(to_bake)} cards a baker, {stats['skipped']} skipped, "
+          f"{stats['failed']} sans source")
+
+    # 2. Save source_image_url pour ceux qui n'en ont pas encore (one-time)
+    needs_src = [(cid, source) for cid, source, _, had_src in to_bake if not had_src]
+    if needs_src:
         conn = get_db(); c = conn.cursor()
-        c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                   (final, r["id"]))
+        for cid, source in needs_src:
+            c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
+                       (source, cid))
         conn.commit(); conn.close()
-        stats["updated"] += 1
+        print(f"[overlay] sauve source_image_url pour {len(needs_src)} cards")
+
+    # 3. Parallel composite
+    counter = {"done": 0, "ok": 0, "fail": 0}
+    counter_lock = threading.Lock()
+    results = []
+    total = len(to_bake)
+
+    def _worker(item):
+        cid, source, rarity, _ = item
+        try:
+            url = composite_card(source, rarity, cid)
+        except Exception as e:
+            print(f"[overlay] worker err cid={cid}: {e}")
+            url = None
+        with counter_lock:
+            counter["done"] += 1
+            if url:
+                counter["ok"] += 1
+            else:
+                counter["fail"] += 1
+            if counter["done"] % 100 == 0 or counter["done"] == total:
+                pct = counter["done"] * 100 // max(1, total)
+                print(f"[overlay] progress {counter['done']}/{total} ({pct}%) "
+                      f"ok={counter['ok']} fail={counter['fail']}")
+        return cid, url
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for cid, url in ex.map(_worker, to_bake):
+            if url:
+                final = (public_base_url.rstrip("/") + url) if public_base_url else url
+                results.append((cid, final))
+
+    # 4. Bulk DB update
+    if results:
+        conn = get_db(); c = conn.cursor()
+        for cid, final_url in results:
+            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                       (final_url, cid))
+        conn.commit(); conn.close()
+    stats["updated"] = len(results)
+    stats["failed"] += (len(to_bake) - len(results))
+    print(f"[overlay] DONE : updated={stats['updated']} skipped={stats['skipped']} "
+          f"failed={stats['failed']} total={stats['total']}")
     return stats
