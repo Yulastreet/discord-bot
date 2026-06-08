@@ -15,11 +15,12 @@ from database import (
     card_owners_count, card_owners_list,
     user_card_add, user_card_list, user_card_count,
     user_card_settings_get, user_card_settings_set_last_roll,
+    roll_cooldown_get, roll_cooldown_set,
     guild_card_config_get, guild_card_config_set,
 )
 
 
-ROLL_COOLDOWN_SECONDS = 3 * 3600  # 3h (TookBot+ plus tard : 1h)
+ROLL_COOLDOWN_SECONDS = 3600  # 1h, par serveur
 
 RARITY_COLORS = {
     "common":    0x9aa0a6,  # gris
@@ -154,11 +155,11 @@ def setup_cards_commands(bot, deps):
                 )
                 return
 
-        # Cooldown (skip pour owner)
+        # Cooldown 1h par (user, guild) - skip pour owner
         uid = interaction.user.id
-        if not _is_owner(uid):
-            settings = user_card_settings_get(uid)
-            last = settings.get("last_roll_at")
+        gid = interaction.guild.id if interaction.guild else None
+        if not _is_owner(uid) and gid:
+            last = roll_cooldown_get(uid, gid)
             if last:
                 try:
                     # last stocke en UTC naive, parse comme UTC-aware
@@ -197,9 +198,9 @@ def setup_cards_commands(bot, deps):
             await interaction.response.send_message("Erreur pioche carte.", ephemeral=True)
             return
         user_card_add(uid, card["id"])
-        if not _is_owner(uid):
+        if not _is_owner(uid) and gid:
             now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            user_card_settings_set_last_roll(uid, now_iso)
+            roll_cooldown_set(uid, gid, now_iso)
 
         # Embed minimaliste
         rarity = card.get("rarity", "common")

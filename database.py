@@ -161,6 +161,14 @@ def init_db():
         updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Cooldown roll par (user, guild) - 1h par serveur
+    c.execute('''CREATE TABLE IF NOT EXISTS user_guild_roll_cooldown (
+        user_id        TEXT NOT NULL,
+        guild_id       TEXT NOT NULL,
+        last_roll_at   TEXT,
+        PRIMARY KEY (user_id, guild_id)
+    )''')
+
     # Config per-guild : salon obligatoire pour utiliser /roll et /collection
     c.execute('''CREATE TABLE IF NOT EXISTS guild_card_config (
         guild_id     TEXT PRIMARY KEY,
@@ -1680,6 +1688,26 @@ def user_card_count(user_id):
                   (str(user_id),)).fetchone()["n"]
     conn.close()
     return int(n)
+
+
+def roll_cooldown_get(user_id, guild_id):
+    """Retourne last_roll_at ISO ou None pour (user, guild)."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT last_roll_at FROM user_guild_roll_cooldown "
+                  "WHERE user_id = ? AND guild_id = ?",
+                  (str(user_id), str(guild_id))).fetchone()
+    conn.close()
+    return r["last_roll_at"] if r else None
+
+
+def roll_cooldown_set(user_id, guild_id, when_iso):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO user_guild_roll_cooldown (user_id, guild_id, last_roll_at)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(user_id, guild_id) DO UPDATE SET
+                   last_roll_at = excluded.last_roll_at''',
+              (str(user_id), str(guild_id), when_iso))
+    conn.commit(); conn.close()
 
 
 def user_card_settings_get(user_id):
