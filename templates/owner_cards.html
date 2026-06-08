@@ -68,9 +68,12 @@
     border-radius: 18px; padding: 22px; max-width: 480px; width: 100%;
     box-shadow: 0 30px 80px rgba(0,0,0,.6);
   }
+  .card-preview-modal {
+    max-width: 420px;
+  }
   .card-preview-modal img {
-    width: 100%; max-height: 400px; object-fit: cover; border-radius: 12px;
-    margin-bottom: 14px; background: var(--bg-2);
+    width: 100%; aspect-ratio: 2/3; object-fit: contain;
+    border-radius: 12px; margin-bottom: 14px; background: var(--bg-2);
   }
   .card-preview-modal h3 { margin: 0 0 6px; font-size: 20px; }
   .card-preview-modal .meta {
