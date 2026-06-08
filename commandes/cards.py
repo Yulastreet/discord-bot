@@ -17,6 +17,8 @@ from database import (
     user_card_settings_get, user_card_settings_set_last_roll,
     roll_cooldown_get, roll_cooldown_set,
     guild_card_config_get, guild_card_config_set,
+    user_card_count_owned, user_card_transfer_one,
+    card_trade_create, card_trade_get, card_trade_items, card_trade_set_status,
 )
 
 
@@ -366,3 +368,303 @@ def setup_cards_commands(bot, deps):
                      for r in rows]
         except Exception:
             return []
+
+
+    # === /cardtrade <user> ===
+    def _parse_card_list(s: str) -> list[tuple[str, int]]:
+        """Parse 'Nom1, Nom2 x2, Nom3' -> [(name, qty), ...]. Cap qty 1-99."""
+        out = []
+        if not s: return out
+        for part in s.split(","):
+            p = part.strip()
+            if not p: continue
+            qty = 1
+            # Suffix 'xN' ou ' xN'
+            import re as _re
+            m = _re.match(r"^(.*?)\s*[xX]\s*(\d{1,2})\s*$", p)
+            if m:
+                p = m.group(1).strip()
+                qty = max(1, min(int(m.group(2)), 99))
+            if p:
+                out.append((p, qty))
+        return out
+
+    def _resolve_card_names(items: list[tuple[str, int]]) -> tuple[list, list]:
+        """Resolve names -> [(card_id, qty)]. Retourne (ok, errors)."""
+        resolved = []; errors = []
+        for name, qty in items:
+            card = card_get_by_name(name)
+            if not card:
+                errors.append(f"`{name}`")
+                continue
+            resolved.append((card["id"], qty))
+        return resolved, errors
+
+    def _verify_ownership(user_id, items: list[tuple[int, int]]) -> list[str]:
+        """Retourne liste d'erreurs si user ne possede pas la qty demandee."""
+        errs = []
+        # Aggregate par card_id (au cas ou meme carte 2x dans liste)
+        agg = {}
+        for cid, qty in items:
+            agg[cid] = agg.get(cid, 0) + qty
+        for cid, qty in agg.items():
+            owned = user_card_count_owned(user_id, cid)
+            if owned < qty:
+                card = card_get_by_name("")  # placeholder
+                from database import get_db
+                conn = get_db(); cc = conn.cursor()
+                r = cc.execute("SELECT name FROM cards WHERE id = ?", (cid,)).fetchone()
+                conn.close()
+                nm = r["name"] if r else f"#{cid}"
+                errs.append(f"`{nm}` (possede {owned}/{qty})")
+        return errs
+
+    def _build_trade_embed(trade_id: int, sender: discord.Member,
+                             receiver: discord.Member, status: str = "pending") -> discord.Embed:
+        offer = card_trade_items(trade_id, side="offer")
+        request = card_trade_items(trade_id, side="request")
+
+        def _fmt(items):
+            if not items:
+                return "_(rien)_"
+            lines = []
+            for it in items:
+                em = RARITY_EMOJIS.get(it["rarity"], "⚪")
+                qty = f" ×{it['qty']}" if it["qty"] > 1 else ""
+                lines.append(f"{em} **{it['name']}**{qty}")
+            return "\n".join(lines)
+
+        status_color = {
+            "pending":   0xC8F050,
+            "accepted":  0x4ade80,
+            "refused":   0xff3d57,
+            "cancelled": 0x9aa0a6,
+            "countered": 0xfbbf24,
+        }.get(status, 0xC8F050)
+        status_label = {
+            "pending":   "⏳ En attente",
+            "accepted":  "✅ Acceptée",
+            "refused":   "❌ Refusée",
+            "cancelled": "⊘ Annulée",
+            "countered": "🔄 Contre-offre",
+        }.get(status, status)
+
+        embed = discord.Embed(
+            title=f"🔄 Trade #{trade_id} · {status_label}",
+            color=status_color,
+        )
+        embed.add_field(name=f"📤 {sender.display_name} propose",
+                         value=_fmt(offer)[:1024], inline=True)
+        embed.add_field(name=f"📥 {receiver.display_name} donnerait",
+                         value=_fmt(request)[:1024], inline=True)
+        embed.set_footer(text=f"{sender} ↔ {receiver}")
+        return embed
+
+
+    class TradeView(discord.ui.View):
+        def __init__(self, trade_id: int, sender_id: int, receiver_id: int):
+            super().__init__(timeout=24 * 3600)
+            self.trade_id = trade_id
+            self.sender_id = int(sender_id)
+            self.receiver_id = int(receiver_id)
+
+        async def _disable_all(self, interaction: discord.Interaction):
+            for child in self.children:
+                child.disabled = True
+            try:
+                await interaction.message.edit(view=self)
+            except Exception:
+                pass
+
+        @discord.ui.button(label="Accepter", style=discord.ButtonStyle.success, emoji="✅")
+        async def accept_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            if interaction.user.id != self.receiver_id:
+                await interaction.response.send_message(
+                    "Seul le destinataire peut accepter ce trade.", ephemeral=True)
+                return
+            trade = card_trade_get(self.trade_id)
+            if not trade or trade["status"] != "pending":
+                await interaction.response.send_message(
+                    "Ce trade n'est plus actif.", ephemeral=True)
+                return
+            # Re-verify ownership
+            offer = card_trade_items(self.trade_id, side="offer")
+            request = card_trade_items(self.trade_id, side="request")
+            sender_items = [(it["card_id"], it["qty"]) for it in offer]
+            recv_items = [(it["card_id"], it["qty"]) for it in request]
+            err_s = _verify_ownership(self.sender_id, sender_items)
+            err_r = _verify_ownership(self.receiver_id, recv_items)
+            if err_s or err_r:
+                msg = "Trade impossible : cartes manquantes.\n"
+                if err_s: msg += f"<@{self.sender_id}> : {', '.join(err_s)}\n"
+                if err_r: msg += f"<@{self.receiver_id}> : {', '.join(err_r)}"
+                card_trade_set_status(self.trade_id, "cancelled")
+                await interaction.response.send_message(msg, ephemeral=False,
+                    allowed_mentions=discord.AllowedMentions.none())
+                await self._disable_all(interaction)
+                return
+            # Transfer atomically
+            for cid, qty in sender_items:
+                for _ in range(qty):
+                    user_card_transfer_one(self.sender_id, self.receiver_id, cid)
+            for cid, qty in recv_items:
+                for _ in range(qty):
+                    user_card_transfer_one(self.receiver_id, self.sender_id, cid)
+            card_trade_set_status(self.trade_id, "accepted")
+            sender = interaction.guild.get_member(self.sender_id) or interaction.user
+            receiver = interaction.guild.get_member(self.receiver_id) or interaction.user
+            new_embed = _build_trade_embed(self.trade_id, sender, receiver, "accepted")
+            await interaction.response.edit_message(embed=new_embed, view=None)
+
+        @discord.ui.button(label="Refuser", style=discord.ButtonStyle.danger, emoji="❌")
+        async def refuse_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            if interaction.user.id not in (self.sender_id, self.receiver_id):
+                await interaction.response.send_message(
+                    "Tu n'es pas concerne par ce trade.", ephemeral=True)
+                return
+            trade = card_trade_get(self.trade_id)
+            if not trade or trade["status"] != "pending":
+                await interaction.response.send_message(
+                    "Ce trade n'est plus actif.", ephemeral=True)
+                return
+            new_status = "cancelled" if interaction.user.id == self.sender_id else "refused"
+            card_trade_set_status(self.trade_id, new_status)
+            sender = interaction.guild.get_member(self.sender_id) or interaction.user
+            receiver = interaction.guild.get_member(self.receiver_id) or interaction.user
+            new_embed = _build_trade_embed(self.trade_id, sender, receiver, new_status)
+            await interaction.response.edit_message(embed=new_embed, view=None)
+
+        @discord.ui.button(label="Contre-offre", style=discord.ButtonStyle.secondary, emoji="🔄")
+        async def counter_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            if interaction.user.id != self.receiver_id:
+                await interaction.response.send_message(
+                    "Seul le destinataire peut faire une contre-offre.", ephemeral=True)
+                return
+            trade = card_trade_get(self.trade_id)
+            if not trade or trade["status"] != "pending":
+                await interaction.response.send_message(
+                    "Ce trade n'est plus actif.", ephemeral=True)
+                return
+            # Open counter modal. La contre-offre inverse roles : receiver
+            # devient sender, sender devient receiver.
+            modal = TradeModal(target_user_id=self.sender_id,
+                                 is_counter=True, original_trade_id=self.trade_id,
+                                 view_to_disable=self)
+            await interaction.response.send_modal(modal)
+
+
+    class TradeModal(discord.ui.Modal, title="Proposer un trade"):
+        offer_field = discord.ui.TextInput(
+            label="Tes cartes (separees par virgule)",
+            placeholder="Naruto Uzumaki, Goku x2, Vegeta",
+            required=True, max_length=400, style=discord.TextStyle.paragraph,
+        )
+        request_field = discord.ui.TextInput(
+            label="Cartes voulues",
+            placeholder="Gojo Satoru, Itadori Yuji",
+            required=True, max_length=400, style=discord.TextStyle.paragraph,
+        )
+
+        def __init__(self, target_user_id: int, is_counter: bool = False,
+                      original_trade_id: int | None = None,
+                      view_to_disable=None):
+            super().__init__()
+            self.target_user_id = int(target_user_id)
+            self.is_counter = is_counter
+            self.original_trade_id = original_trade_id
+            self.view_to_disable = view_to_disable
+
+        async def on_submit(self, interaction: discord.Interaction):
+            try:
+                offer_parsed = _parse_card_list(str(self.offer_field.value))
+                request_parsed = _parse_card_list(str(self.request_field.value))
+                if not offer_parsed or not request_parsed:
+                    await interaction.response.send_message(
+                        "Tu dois proposer au moins 1 carte de chaque cote.",
+                        ephemeral=True)
+                    return
+
+                # Resolve names -> ids
+                offer_items, errs1 = _resolve_card_names(offer_parsed)
+                request_items, errs2 = _resolve_card_names(request_parsed)
+                if errs1 or errs2:
+                    msg = "Cartes introuvables : " + ", ".join(errs1 + errs2)
+                    await interaction.response.send_message(msg, ephemeral=True)
+                    return
+
+                # Verify ownership
+                sender_id = interaction.user.id
+                receiver_id = self.target_user_id
+                err_s = _verify_ownership(sender_id, offer_items)
+                err_r = _verify_ownership(receiver_id, request_items)
+                if err_s:
+                    await interaction.response.send_message(
+                        f"Tu ne possedes pas : {', '.join(err_s)}", ephemeral=True)
+                    return
+                if err_r:
+                    await interaction.response.send_message(
+                        f"Le destinataire ne possede pas : {', '.join(err_r)}",
+                        ephemeral=True)
+                    return
+
+                # Si contre-offre : marque ancien trade
+                if self.is_counter and self.original_trade_id:
+                    card_trade_set_status(self.original_trade_id, "countered")
+                    if self.view_to_disable:
+                        try:
+                            for child in self.view_to_disable.children:
+                                child.disabled = True
+                            if interaction.message:
+                                await interaction.message.edit(view=self.view_to_disable)
+                        except Exception:
+                            pass
+
+                gid = interaction.guild.id if interaction.guild else None
+                cid = interaction.channel.id if interaction.channel else None
+                tid = card_trade_create(sender_id, receiver_id, gid, cid,
+                                          offer_items, request_items)
+
+                receiver_member = interaction.guild.get_member(receiver_id) if interaction.guild else None
+                if not receiver_member:
+                    await interaction.response.send_message(
+                        "Destinataire introuvable sur ce serveur.", ephemeral=True)
+                    card_trade_set_status(tid, "cancelled")
+                    return
+
+                embed = _build_trade_embed(tid, interaction.user, receiver_member, "pending")
+                view = TradeView(tid, sender_id, receiver_id)
+                await interaction.response.send_message(
+                    content=f"{receiver_member.mention}",
+                    embed=embed, view=view,
+                    allowed_mentions=discord.AllowedMentions(users=True),
+                )
+                msg = await interaction.original_response()
+                card_trade_set_status(tid, "pending", message_id=msg.id)
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                try:
+                    await interaction.response.send_message(
+                        f"Erreur trade : `{type(e).__name__}: {e}`", ephemeral=True)
+                except Exception:
+                    pass
+
+
+    @bot.tree.command(name="cardtrade", description="Proposer un echange de cartes a un autre joueur")
+    @app_commands.describe(joueur="Joueur a qui proposer l'echange")
+    async def cardtrade(interaction: discord.Interaction, joueur: discord.Member):
+        if interaction.guild:
+            ok, target = _check_channel(interaction)
+            if not ok:
+                await interaction.response.send_message(
+                    f"Les commandes cartes sont reservees au salon {target}.",
+                    ephemeral=True)
+                return
+        if joueur.id == interaction.user.id:
+            await interaction.response.send_message(
+                "Tu ne peux pas trader avec toi-meme.", ephemeral=True)
+            return
+        if joueur.bot:
+            await interaction.response.send_message(
+                "Impossible de trader avec un bot.", ephemeral=True)
+            return
+        await interaction.response.send_modal(TradeModal(target_user_id=joueur.id))

@@ -166,6 +166,29 @@ def init_db():
         updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    # Trades de cartes entre joueurs (multi-cartes, non-equivalent)
+    c.execute('''CREATE TABLE IF NOT EXISTS card_trades (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id    TEXT NOT NULL,
+        receiver_id  TEXT NOT NULL,
+        guild_id     TEXT,
+        channel_id   TEXT,
+        message_id   TEXT,
+        status       TEXT NOT NULL DEFAULT 'pending',
+        created_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+        resolved_at  TEXT
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_card_trades_status ON card_trades(status)")
+    c.execute('''CREATE TABLE IF NOT EXISTS card_trade_items (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        trade_id   INTEGER NOT NULL,
+        side       TEXT NOT NULL,
+        card_id    INTEGER NOT NULL,
+        qty        INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (trade_id) REFERENCES card_trades(id) ON DELETE CASCADE
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_trade_items_trade ON card_trade_items(trade_id)")
+
     # Cooldown roll par (user, guild) - 1h par serveur
     c.execute('''CREATE TABLE IF NOT EXISTS user_guild_roll_cooldown (
         user_id        TEXT NOT NULL,
@@ -1693,6 +1716,90 @@ def user_card_count(user_id):
                   (str(user_id),)).fetchone()["n"]
     conn.close()
     return int(n)
+
+
+def user_card_count_owned(user_id, card_id):
+    """Combien de copies user possede de cette carte."""
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ? AND card_id = ?",
+                   (str(user_id), int(card_id))).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def user_card_transfer_one(from_user, to_user, card_id):
+    """Transfert UNE copie d'une carte. Retourne True si OK, False si from_user
+    n'en a pas. Atomique."""
+    conn = get_db(); c = conn.cursor()
+    row = c.execute("SELECT id FROM user_cards WHERE user_id = ? AND card_id = ? LIMIT 1",
+                     (str(from_user), int(card_id))).fetchone()
+    if not row:
+        conn.close()
+        return False
+    c.execute("UPDATE user_cards SET user_id = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ?",
+              (str(to_user), int(row["id"])))
+    conn.commit(); conn.close()
+    return True
+
+
+def card_trade_create(sender_id, receiver_id, guild_id, channel_id,
+                       offer_items, request_items):
+    """offer_items / request_items : list[(card_id, qty)].
+    Retourne trade_id."""
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO card_trades (sender_id, receiver_id, guild_id, channel_id)
+                 VALUES (?, ?, ?, ?)''',
+              (str(sender_id), str(receiver_id),
+                str(guild_id) if guild_id else None,
+                str(channel_id) if channel_id else None))
+    tid = c.lastrowid
+    for cid, qty in offer_items:
+        c.execute("INSERT INTO card_trade_items (trade_id, side, card_id, qty) VALUES (?, 'offer', ?, ?)",
+                  (tid, int(cid), int(qty)))
+    for cid, qty in request_items:
+        c.execute("INSERT INTO card_trade_items (trade_id, side, card_id, qty) VALUES (?, 'request', ?, ?)",
+                  (tid, int(cid), int(qty)))
+    conn.commit(); conn.close()
+    return tid
+
+
+def card_trade_get(trade_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_trades WHERE id = ?", (int(trade_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_trade_items(trade_id, side=None):
+    conn = get_db(); c = conn.cursor()
+    if side:
+        rows = c.execute(
+            "SELECT ti.*, c.name, c.rarity, c.universe, c.subtitle "
+            "FROM card_trade_items ti JOIN cards c ON c.id = ti.card_id "
+            "WHERE ti.trade_id = ? AND ti.side = ?",
+            (int(trade_id), side)).fetchall()
+    else:
+        rows = c.execute(
+            "SELECT ti.*, c.name, c.rarity, c.universe, c.subtitle "
+            "FROM card_trade_items ti JOIN cards c ON c.id = ti.card_id "
+            "WHERE ti.trade_id = ?", (int(trade_id),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_trade_set_status(trade_id, status, message_id=None):
+    conn = get_db(); c = conn.cursor()
+    if message_id:
+        c.execute("UPDATE card_trades SET status = ?, message_id = ?, "
+                  "resolved_at = CASE WHEN ? IN ('accepted','refused','cancelled','countered') "
+                  "THEN CURRENT_TIMESTAMP ELSE resolved_at END WHERE id = ?",
+                  (status, str(message_id), status, int(trade_id)))
+    else:
+        c.execute("UPDATE card_trades SET status = ?, "
+                  "resolved_at = CASE WHEN ? IN ('accepted','refused','cancelled','countered') "
+                  "THEN CURRENT_TIMESTAMP ELSE resolved_at END WHERE id = ?",
+                  (status, status, int(trade_id)))
+    conn.commit(); conn.close()
 
 
 def roll_cooldown_get(user_id, guild_id):
