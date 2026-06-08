@@ -141,6 +141,20 @@
       <div id="passQuestList" style="margin-top:14px;display:flex;flex-direction:column;gap:6px;font-size:var(--t-sm);"></div>
     </div>
   </div>
+
+  <div class="card" id="cardsAdminPanel" style="border-color: oklch(0.62 0.22 30 / .35);">
+    <div class="row between" style="align-items:center;margin-bottom:8px;">
+      <div>
+        <div class="eyebrow">Cartes — admin</div>
+        <div id="cardsAdminLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+      </div>
+    </div>
+    <div class="row gap-3" style="flex-wrap:wrap;margin-top:8px;">
+      <button id="cardsClearAllBtn" class="btn btn-danger" type="button">🗑 Clear toutes les cartes</button>
+      <button id="cardsResetCdBtn" class="btn btn-secondary" type="button">⟳ Reset cooldown /roll (tous serveurs)</button>
+    </div>
+    <div id="cardsAdminHint" class="muted" style="font-size:var(--t-xs);margin-top:8px;"></div>
+  </div>
   {% endif %}
 
   {% if is_guild_admin %}
@@ -243,7 +257,50 @@ window.addEventListener('DOMContentLoaded', () => {
   setupGuildBoostToggle();
   setupPassAdmin();
   setupXpEdit();
+  setupCardsAdmin();
 });
+
+// ===== CARDS ADMIN (owner only) =====
+function setupCardsAdmin() {
+  const panel = document.getElementById('cardsAdminPanel');
+  if (!panel) return;
+  const uid = location.pathname.split('/').pop();
+  const labelEl = document.getElementById('cardsAdminLabel');
+  const hintEl = document.getElementById('cardsAdminHint');
+
+  async function refreshCount() {
+    try {
+      const r = await fetch(`/api/owner/user/${uid}/cards/stats`);
+      if (!r.ok) { labelEl.textContent = 'Erreur chargement.'; return; }
+      const d = await r.json();
+      labelEl.textContent = `${d.total_cards} cartes · ${d.unique_cards} uniques · ${d.cooldowns_active} cooldown(s) actif(s)`;
+    } catch (e) { labelEl.textContent = 'Erreur : ' + e.message; }
+  }
+  refreshCount();
+
+  document.getElementById('cardsClearAllBtn').addEventListener('click', async () => {
+    if (!confirm(`Supprimer TOUTES les cartes de l'user ${uid} ? Irreversible.`)) return;
+    if (!confirm('Vraiment ? 2eme confirmation.')) return;
+    hintEl.textContent = 'Suppression en cours...';
+    try {
+      const r = await fetch(`/api/owner/user/${uid}/cards/clear`, {method: 'POST'});
+      const d = await r.json();
+      if (d.ok) { hintEl.textContent = `${d.deleted} cartes supprimees.`; refreshCount(); }
+      else hintEl.textContent = 'Erreur : ' + (d.error || '?');
+    } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
+  });
+
+  document.getElementById('cardsResetCdBtn').addEventListener('click', async () => {
+    if (!confirm(`Reset cooldown /roll de l'user ${uid} sur TOUS les serveurs ?`)) return;
+    hintEl.textContent = 'Reset en cours...';
+    try {
+      const r = await fetch(`/api/owner/user/${uid}/cards/reset-cooldown`, {method: 'POST'});
+      const d = await r.json();
+      if (d.ok) { hintEl.textContent = `${d.deleted} cooldown(s) supprime(s).`; refreshCount(); }
+      else hintEl.textContent = 'Erreur : ' + (d.error || '?');
+    } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
+  });
+}
 
 // ===== PASS ADMIN PANEL (owner only) =====
 const PASS_XP_PER_TIER = 250;

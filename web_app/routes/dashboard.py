@@ -118,7 +118,7 @@ def register_dashboard_routes(app, deps):
 
     @app.route("/user/<user_id>")
     def user_profile(user_id):
-        return render_template("user.html")
+        return render_template("user.html", is_owner=_is_owner_session())
 
     @app.route("/api/user/<user_id>")
     def api_user(user_id):

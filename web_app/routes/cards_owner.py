@@ -434,6 +434,48 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/user/<user_id>/cards/stats", methods=["GET"])
+    def api_owner_user_cards_stats(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        total = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ?",
+                           (str(user_id),)).fetchone()["n"]
+        uniq = c.execute("SELECT COUNT(DISTINCT card_id) AS n FROM user_cards WHERE user_id = ?",
+                          (str(user_id),)).fetchone()["n"]
+        cds = c.execute("SELECT COUNT(*) AS n FROM user_guild_roll_cooldown WHERE user_id = ?",
+                         (str(user_id),)).fetchone()["n"]
+        conn.close()
+        return jsonify({"total_cards": int(total), "unique_cards": int(uniq),
+                         "cooldowns_active": int(cds)})
+
+
+    @app.route("/api/owner/user/<user_id>/cards/clear", methods=["POST"])
+    def api_owner_user_cards_clear(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        c.execute("DELETE FROM user_cards WHERE user_id = ?", (str(user_id),))
+        deleted = c.rowcount
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "deleted": int(deleted)})
+
+
+    @app.route("/api/owner/user/<user_id>/cards/reset-cooldown", methods=["POST"])
+    def api_owner_user_cards_reset_cd(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        c.execute("DELETE FROM user_guild_roll_cooldown WHERE user_id = ?",
+                  (str(user_id),))
+        deleted = c.rowcount
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "deleted": int(deleted)})
+
+
     @app.route("/api/owner/cards/wipe", methods=["POST"])
     def api_owner_cards_wipe():
         if not _is_owner_session():
