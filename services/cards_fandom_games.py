@@ -22,96 +22,98 @@ import urllib.request
 _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 
 
-# (subdomain fandom, nom franchise pour subtitle, rarity_bonus)
-# rarity_bonus = boost rang pour franchises iconiques (top 10 chars
-# de Mario/Zelda forcement mythic/legendary)
-FRANCHISES: list[tuple[str, str, int]] = [
-    ("mario",             "Mario",                  0),
-    ("zelda",             "The Legend of Zelda",    0),
-    ("sonic",             "Sonic the Hedgehog",     0),
-    ("pokemon",           "Pokémon",                0),
-    ("metroid",           "Metroid",                0),
-    ("kirby",             "Kirby",                  0),
-    ("starfox",           "Star Fox",               0),
-    ("smashbros",         "Super Smash Bros.",      0),
-    ("fireemblem",        "Fire Emblem",            0),
-    ("xenoblade",         "Xenoblade",              0),
-    ("finalfantasy",      "Final Fantasy",          0),
-    ("kingdomhearts",     "Kingdom Hearts",         0),
-    ("dragonquest",       "Dragon Quest",           0),
-    ("personaseries",     "Persona",                0),
-    ("smt",               "Shin Megami Tensei",     0),
-    ("tales",             "Tales of",               0),
-    ("nier",              "Nier",                   0),
-    ("residentevil",      "Resident Evil",          0),
-    ("devilmaycry",       "Devil May Cry",          0),
-    ("metalgear",         "Metal Gear",             0),
-    ("silenthill",        "Silent Hill",            0),
-    ("monsterhunter",     "Monster Hunter",         0),
-    ("streetfighter",     "Street Fighter",         0),
-    ("tekken",            "Tekken",                 0),
-    ("mortalkombat",      "Mortal Kombat",          0),
-    ("guiltygear",        "Guilty Gear",            0),
-    ("kof",               "King of Fighters",       0),
-    ("soulcalibur",       "Soul Calibur",           0),
-    ("godofwar",          "God of War",             0),
-    ("uncharted",         "Uncharted",              0),
-    ("thelastofus",       "The Last of Us",         0),
-    ("horizon",           "Horizon Zero Dawn",      0),
-    ("ghost-of-tsushima", "Ghost of Tsushima",      0),
-    ("bloodborne",        "Bloodborne",             0),
-    ("darksouls",         "Dark Souls",             0),
-    ("eldenring",         "Elden Ring",             0),
-    ("sekiro",            "Sekiro",                 0),
-    ("witcher",           "The Witcher",            0),
-    ("cyberpunk",         "Cyberpunk 2077",         0),
-    ("masseffect",        "Mass Effect",            0),
-    ("dragonage",         "Dragon Age",             0),
-    ("baldursgate",       "Baldur's Gate",          0),
-    ("skyrim",            "The Elder Scrolls",      0),
-    ("fallout",           "Fallout",                0),
-    ("borderlands",       "Borderlands",            0),
-    ("halo",              "Halo",                   0),
-    ("gearsofwar",        "Gears of War",           0),
-    ("destinypedia",      "Destiny",                0),
-    ("overwatch",         "Overwatch",              0),
-    ("leagueoflegends",   "League of Legends",      0),
-    ("dota2",             "Dota 2",                 0),
-    ("valorant",          "Valorant",               0),
-    ("apexlegends",       "Apex Legends",           0),
-    ("fortnite",          "Fortnite",               0),
-    ("warframe",          "Warframe",               0),
-    ("genshin-impact",    "Genshin Impact",         0),
-    ("honkai-star-rail",  "Honkai: Star Rail",      0),
-    ("arknights",         "Arknights",              0),
-    ("azurlane",          "Azur Lane",              0),
-    ("fategrandorder",    "Fate/Grand Order",       0),
-    ("fate",              "Fate series",            0),
-    ("touhou",            "Touhou Project",         0),
-    ("undertale",         "Undertale",              0),
-    ("deltarune",         "Deltarune",              0),
-    ("hollowknight",      "Hollow Knight",          0),
-    ("cuphead",           "Cuphead",                0),
-    ("celestegame",       "Celeste",                0),
-    ("ori",               "Ori and the Blind Forest", 0),
-    ("gta",               "Grand Theft Auto",       0),
-    ("reddead",           "Red Dead Redemption",    0),
-    ("bioshock",          "BioShock",               0),
-    ("portal",            "Portal",                 0),
-    ("halflife",          "Half-Life",              0),
-    ("teamfortress",      "Team Fortress 2",        0),
-    ("counterstrike",     "Counter-Strike",         0),
-    ("minecraft",         "Minecraft",              0),
-    ("terraria",          "Terraria",               0),
-    ("amongus",           "Among Us",               0),
-    ("fnaf",              "Five Nights at Freddy's", 0),
-    ("crash-bandicoot",   "Crash Bandicoot",        0),
-    ("spyro",             "Spyro the Dragon",       0),
-    ("ratchet",           "Ratchet & Clank",        0),
-    ("jak",               "Jak and Daxter",         0),
-    ("kingdomhearts",     "Kingdom Hearts",         0),
-    ("disgaea",           "Disgaea",                0),
-    ("yu-gi-oh",          "Yu-Gi-Oh!",              0),
+# (subdomain fandom, nom franchise pour subtitle, categories prioritaires)
+# Ordre = ordre d'import = rarete (premiers = mythic/legendary).
+# Top franchises iconiques d'abord.
+FRANCHISES: list[tuple[str, str, list[str]]] = [
+    # === TIER S : les plus iconiques (rarete top) ===
+    ("leagueoflegends",   "League of Legends",      ["Category:Champions"]),
+    ("pokemon",           "Pokémon",                ["Category:Pokémon", "Category:Generation_I_Pokémon"]),
+    ("mario",             "Mario",                  ["Category:Characters"]),
+    ("zelda",             "The Legend of Zelda",    ["Category:Characters"]),
+    ("genshin-impact",    "Genshin Impact",         ["Category:Playable_Characters", "Category:Characters"]),
+    ("honkai-star-rail",  "Honkai: Star Rail",      ["Category:Playable_Characters", "Category:Characters"]),
+    ("smashbros",         "Super Smash Bros.",      ["Category:Playable_characters", "Category:Fighters"]),
+    ("sonic",             "Sonic the Hedgehog",     ["Category:Characters"]),
+    ("finalfantasy",      "Final Fantasy",          ["Category:Playable_characters", "Category:Characters"]),
+    ("kingdomhearts",     "Kingdom Hearts",         ["Category:Characters"]),
+    ("overwatch",         "Overwatch",              ["Category:Heroes", "Category:Characters"]),
+    ("valorant",          "Valorant",               ["Category:Agents", "Category:Characters"]),
+    ("apexlegends",       "Apex Legends",           ["Category:Legends", "Category:Characters"]),
+    ("dota2",             "Dota 2",                 ["Category:Heroes"]),
+    ("fortnite",          "Fortnite",               ["Category:Outfits", "Category:Characters"]),
+    # === TIER A : franchises majeures ===
+    ("halo",              "Halo",                   ["Category:Characters"]),
+    ("godofwar",          "God of War",             ["Category:Characters"]),
+    ("witcher",           "The Witcher",            ["Category:Characters"]),
+    ("cyberpunk",         "Cyberpunk 2077",         ["Category:Characters"]),
+    ("eldenring",         "Elden Ring",             ["Category:Characters_(Elden_Ring)", "Category:Characters"]),
+    ("darksouls",         "Dark Souls",             ["Category:Characters"]),
+    ("bloodborne",        "Bloodborne",             ["Category:Characters"]),
+    ("sekiro",            "Sekiro",                 ["Category:Characters"]),
+    ("residentevil",      "Resident Evil",          ["Category:Characters"]),
+    ("metalgear",         "Metal Gear",             ["Category:Characters"]),
+    ("devilmaycry",       "Devil May Cry",          ["Category:Characters"]),
+    ("streetfighter",     "Street Fighter",         ["Category:Playable_Characters", "Category:Characters"]),
+    ("tekken",            "Tekken",                 ["Category:Characters"]),
+    ("mortalkombat",      "Mortal Kombat",          ["Category:Characters"]),
+    ("smt",               "Shin Megami Tensei",     ["Category:Characters"]),
+    ("personaseries",     "Persona",                ["Category:Characters"]),
+    # === TIER B : populaires ===
+    ("masseffect",        "Mass Effect",            ["Category:Characters"]),
+    ("dragonage",         "Dragon Age",             ["Category:Characters"]),
+    ("baldursgate",       "Baldur's Gate",          ["Category:Characters"]),
+    ("skyrim",            "The Elder Scrolls",      ["Category:Characters"]),
+    ("fallout",           "Fallout",                ["Category:Characters"]),
+    ("borderlands",       "Borderlands",            ["Category:Characters"]),
+    ("gta",               "Grand Theft Auto",       ["Category:Characters"]),
+    ("reddead",           "Red Dead Redemption",    ["Category:Characters"]),
+    ("uncharted",         "Uncharted",              ["Category:Characters"]),
+    ("thelastofus",       "The Last of Us",         ["Category:Characters"]),
+    ("horizon",           "Horizon Zero Dawn",      ["Category:Characters"]),
+    ("ghost-of-tsushima", "Ghost of Tsushima",      ["Category:Characters"]),
+    ("monsterhunter",     "Monster Hunter",         ["Category:Hunters", "Category:Characters"]),
+    ("destinypedia",      "Destiny",                ["Category:Characters"]),
+    ("gearsofwar",        "Gears of War",           ["Category:Characters"]),
+    ("metroid",           "Metroid",                ["Category:Characters"]),
+    ("kirby",             "Kirby",                  ["Category:Characters"]),
+    ("starfox",           "Star Fox",               ["Category:Characters"]),
+    ("fireemblem",        "Fire Emblem",            ["Category:Characters"]),
+    ("xenoblade",         "Xenoblade",              ["Category:Characters"]),
+    ("dragonquest",       "Dragon Quest",           ["Category:Characters"]),
+    ("nier",              "Nier",                   ["Category:Characters"]),
+    ("tales",             "Tales of",               ["Category:Characters"]),
+    # === TIER C : niche ===
+    ("guiltygear",        "Guilty Gear",            ["Category:Characters"]),
+    ("kof",               "King of Fighters",       ["Category:Characters"]),
+    ("soulcalibur",       "Soul Calibur",           ["Category:Characters"]),
+    ("silenthill",        "Silent Hill",            ["Category:Characters"]),
+    ("warframe",          "Warframe",               ["Category:Characters", "Category:Warframes"]),
+    ("arknights",         "Arknights",              ["Category:Operators"]),
+    ("azurlane",          "Azur Lane",              ["Category:Ships"]),
+    ("fategrandorder",    "Fate/Grand Order",       ["Category:Servants"]),
+    ("touhou",            "Touhou Project",         ["Category:Characters"]),
+    ("undertale",         "Undertale",              ["Category:Characters"]),
+    ("deltarune",         "Deltarune",              ["Category:Characters"]),
+    ("hollowknight",      "Hollow Knight",          ["Category:Characters"]),
+    ("cuphead",           "Cuphead",                ["Category:Characters", "Category:Bosses"]),
+    ("celestegame",       "Celeste",                ["Category:Characters"]),
+    ("ori",               "Ori and the Blind Forest", ["Category:Characters"]),
+    ("bioshock",          "BioShock",               ["Category:Characters"]),
+    ("portal",            "Portal",                 ["Category:Characters"]),
+    ("halflife",          "Half-Life",              ["Category:Characters"]),
+    ("teamfortress",      "Team Fortress 2",        ["Category:Classes", "Category:Characters"]),
+    ("counterstrike",     "Counter-Strike",         ["Category:Characters"]),
+    ("minecraft",         "Minecraft",              ["Category:Mobs", "Category:Characters"]),
+    ("terraria",          "Terraria",               ["Category:NPCs", "Category:Bosses"]),
+    ("amongus",           "Among Us",               ["Category:Characters"]),
+    ("fnaf",              "Five Nights at Freddy's", ["Category:Animatronics", "Category:Characters"]),
+    ("crash-bandicoot",   "Crash Bandicoot",        ["Category:Characters"]),
+    ("spyro",             "Spyro the Dragon",       ["Category:Characters"]),
+    ("ratchet",           "Ratchet & Clank",        ["Category:Characters"]),
+    ("jak",               "Jak and Daxter",         ["Category:Characters"]),
+    ("disgaea",           "Disgaea",                ["Category:Characters"]),
+    ("yu-gi-oh",          "Yu-Gi-Oh!",              ["Category:Characters"]),
 ]
 
 
@@ -132,12 +134,18 @@ def _http_get_json(url: str, timeout: int = 12) -> dict | None:
         return None
 
 
-def _list_chars_in_wiki(sub: str, limit: int = 200) -> list[str]:
-    """Liste page titles dans Category:Characters du wiki sub."""
-    # Try Category:Characters d'abord, fallback Category:Playable_characters
+def _list_chars_in_wiki(sub: str, categories: list[str],
+                          limit: int = 200) -> list[str]:
+    """Liste page titles dans categories du wiki sub. Try chacune jusqu'a hit."""
     titles: list[str] = []
-    for cat in ("Category:Characters", "Category:Playable_characters",
-                  "Category:Major_characters"):
+    # Toujours fallback Characters/Playable_characters apres categories override
+    cats = list(categories) + ["Category:Characters",
+                                  "Category:Playable_characters",
+                                  "Category:Major_characters"]
+    seen = set()
+    for cat in cats:
+        if cat in seen: continue
+        seen.add(cat)
         url = (f"https://{sub}.fandom.com/api.php?action=query&format=json&"
                f"list=categorymembers&cmtitle={urllib.parse.quote(cat)}"
                f"&cmlimit={min(limit, 500)}&cmtype=page")
@@ -149,8 +157,8 @@ def _list_chars_in_wiki(sub: str, limit: int = 200) -> list[str]:
             t = m.get("title")
             if t and t not in titles:
                 titles.append(t)
-        if titles:
-            break  # cat trouvee, stop
+        if len(titles) >= limit:
+            break
     return titles[:limit]
 
 
@@ -206,9 +214,9 @@ def bulk_import_fandom_games(per_franchise: int = 200,
               "franchises_done": 0, "franchises_empty": 0}
     rank = 0
 
-    for sub, franchise_name, _bonus in FRANCHISES:
+    for sub, franchise_name, categories in FRANCHISES:
         try:
-            titles = _list_chars_in_wiki(sub, limit=per_franchise)
+            titles = _list_chars_in_wiki(sub, categories, limit=per_franchise)
             if not titles:
                 print(f"[fandom] {sub} : aucun char trouve")
                 stats["franchises_empty"] += 1
