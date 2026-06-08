@@ -80,6 +80,16 @@ load_dotenv(_env_file)
 print(f"[env] loaded {_env_file}", flush=True)
 
 app = Flask(__name__)
+
+# Silence werkzeug GET /static/* logs (spam quand grid charge 500+ images)
+import logging as _logging
+class _StaticFilter(_logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+        if "/static/" in msg or "/api/track/pv" in msg:
+            return False
+        return True
+_logging.getLogger("werkzeug").addFilter(_StaticFilter())
 # Cle de session fixe en prod (sinon les sessions sautent a chaque restart).
 # Met FLASK_SECRET dans le .env, sinon clef ephemere.
 app.secret_key = os.getenv("FLASK_SECRET") or os.urandom(24)
