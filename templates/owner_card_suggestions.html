@@ -5,6 +5,8 @@
 {% block crumb %}Cards Suggestions{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
+<script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
 <style>
   .sug-toolbar { display:flex; gap:10px; align-items:center; margin-bottom: var(--s-4); flex-wrap:wrap; }
   .sug-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
@@ -49,6 +51,32 @@
 
   <div id="sugGrid" class="sug-grid">
     <div class="muted">Chargement…</div>
+  </div>
+</div>
+
+<!-- Cropper modal -->
+<div id="cropScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:none;place-items:center;padding:20px;">
+  <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:720px;width:100%;">
+    <h3 style="margin:0 0 12px;">✂ Recadrer la suggestion #<span id="cropSid">—</span></h3>
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">
+      Ajuste le cadre (ratio fixe 2:3 portrait). Output 450×675px.
+    </p>
+    <div style="max-height:60vh;overflow:hidden;background:#000;border-radius:8px;">
+      <img id="cropImg" src="" style="display:block;max-width:100%;">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
+      <select id="cropRarity" class="input" style="min-width:120px;">
+        <option value="common">Common</option>
+        <option value="rare">Rare</option>
+        <option value="epic">Epic</option>
+        <option value="legendary">Legendary</option>
+        <option value="mythic">Mythic</option>
+      </select>
+      <button class="btn btn-secondary" onclick="cropReset()">Reset cadre</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-ghost" onclick="closeCropper()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitCrop()">✅ Approuver avec ce recadrage</button>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -97,6 +125,7 @@ async function loadSugs() {
               <option value="mythic">Mythic</option>
             </select>
             <button class="btn btn-primary" onclick="approveSug(${s.id})">✅ Approuver</button>
+            <button class="btn btn-secondary" onclick="openCropper(${s.id}, '${(s.image_url || '').replace(/'/g,"\\'")}')">✂ Recadrer</button>
             <button class="btn btn-danger" onclick="rejectSug(${s.id})">❌ Refuser</button>
           </div>
         ` : ''}
@@ -134,6 +163,67 @@ async function rejectSug(sid) {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.rejectSug = rejectSug;
+
+let _cropper = null;
+let _cropSid = null;
+
+function openCropper(sid, imgUrl) {
+  if (!imgUrl) { toast('Pas d\'image à recadrer.', 'error'); return; }
+  _cropSid = sid;
+  document.getElementById('cropSid').textContent = sid;
+  // Pre-select rarity from card list
+  const rarSel = document.getElementById('rar-' + sid);
+  if (rarSel) document.getElementById('cropRarity').value = rarSel.value;
+  const img = document.getElementById('cropImg');
+  img.crossOrigin = 'anonymous';
+  img.src = imgUrl;
+  document.getElementById('cropScrim').style.display = 'grid';
+  // Init Cropper after image loaded
+  img.onload = () => {
+    if (_cropper) { _cropper.destroy(); _cropper = null; }
+    _cropper = new Cropper(img, {
+      aspectRatio: 2/3,
+      viewMode: 1,
+      autoCropArea: 0.95,
+      background: false,
+      movable: true, zoomable: true, scalable: false, rotatable: false,
+    });
+  };
+}
+function cropReset() { if (_cropper) _cropper.reset(); }
+function closeCropper() {
+  if (_cropper) { _cropper.destroy(); _cropper = null; }
+  document.getElementById('cropScrim').style.display = 'none';
+  _cropSid = null;
+}
+async function submitCrop() {
+  if (!_cropper || !_cropSid) return;
+  const data = _cropper.getData(true);  // rounded pixel coords sur image native
+  const rar = document.getElementById('cropRarity').value;
+  toast('Recadrage + sauvegarde...');
+  try {
+    const r = await fetch(`/api/owner/card-suggestions/${_cropSid}/approve-cropped`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        rarity: rar,
+        crop_x: data.x, crop_y: data.y,
+        crop_w: data.width, crop_h: data.height,
+      }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Carte #${d.card_id} créée avec recadrage.`);
+      closeCropper();
+      loadSugs();
+    } else {
+      toast(d.error || 'Erreur', 'error');
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.openCropper = openCropper;
+window.cropReset = cropReset;
+window.closeCropper = closeCropper;
+window.submitCrop = submitCrop;
 
 loadSugs();
 </script>

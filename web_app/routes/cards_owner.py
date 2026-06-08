@@ -176,6 +176,102 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "card_id": cid})
 
 
+    @app.route("/api/owner/card-suggestions/<int:sid>/approve-cropped", methods=["POST"])
+    def api_owner_card_suggestion_approve_cropped(sid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (card_suggestion_get, card_suggestion_review,
+                                card_add)
+        from flask import session as _ses
+        import os as _os, io as _io, urllib.request as _ureq
+        from PIL import Image as _Img
+        data = request.json or {}
+        sugg = card_suggestion_get(sid)
+        if not sugg:
+            return jsonify({"error": "suggestion introuvable"}), 404
+        if sugg["status"] != "pending":
+            return jsonify({"error": f"deja {sugg['status']}"}), 400
+        rarity = (data.get("rarity") or "common").strip()
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+            rarity = "common"
+        try:
+            crop_x = max(0, int(data.get("crop_x", 0)))
+            crop_y = max(0, int(data.get("crop_y", 0)))
+            crop_w = max(1, int(data.get("crop_w", 1)))
+            crop_h = max(1, int(data.get("crop_h", 1)))
+        except (ValueError, TypeError):
+            return jsonify({"error": "coords crop invalides"}), 400
+
+        src_url = sugg.get("image_url")
+        if not src_url:
+            return jsonify({"error": "suggestion sans image"}), 400
+
+        # Download source
+        try:
+            req = _ureq.Request(src_url, headers={
+                "User-Agent": "TookBot/1.0 (https://tookbot.click)"})
+            with _ureq.urlopen(req, timeout=20) as resp:
+                img_data = resp.read()
+            src = _Img.open(_io.BytesIO(img_data)).convert("RGBA")
+        except Exception as e:
+            return jsonify({"error": f"download image : {type(e).__name__}: {e}"}), 500
+
+        # Crop avec coords client (px sur image native)
+        sw, sh = src.size
+        x0 = min(sw, crop_x)
+        y0 = min(sh, crop_y)
+        x1 = min(sw, crop_x + crop_w)
+        y1 = min(sh, crop_y + crop_h)
+        if x1 <= x0 or y1 <= y0:
+            return jsonify({"error": "rectangle crop invalide"}), 400
+        cropped = src.crop((x0, y0, x1, y1))
+
+        # Save vers static/card_suggestions/<new_card_id>.png
+        # On ne connait pas encore l'id, donc on save d'abord vers temp puis rename
+        tmp_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
+            _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_suggestions")
+        _os.makedirs(tmp_dir, exist_ok=True)
+        # Resize portrait 450x675 (ratio 2:3, meme format que overlays)
+        target_w, target_h = 450, 675
+        cropped = cropped.resize((target_w, target_h), _Img.LANCZOS)
+
+        # Insert card pour avoir id
+        try:
+            cid = card_add(
+                name=sugg["name"],
+                universe=sugg.get("universe"),
+                subtitle=sugg.get("subtitle"),
+                rarity=rarity,
+                image_url=None,  # set apres avec URL finale
+                description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
+            )
+        except Exception as e:
+            return jsonify({"error": f"create card : {type(e).__name__}: {e}"}), 500
+
+        out_path = _os.path.join(tmp_dir, f"{cid}.png")
+        try:
+            cropped.convert("RGB").save(out_path, "PNG", optimize=True)
+        except Exception as e:
+            return jsonify({"error": f"save crop : {type(e).__name__}: {e}"}), 500
+
+        # Update image_url
+        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        # Defaut dashboard.tookbot.click si pas set
+        if not public_base:
+            public_base = ""
+        rel = f"/static/card_suggestions/{cid}.png"
+        final_url = (public_base + rel) if public_base else rel
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                  (final_url, src_url, cid))
+        conn.commit(); conn.close()
+
+        reviewer_id = _ses.get("user_id") or "owner"
+        card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
+        return jsonify({"ok": True, "card_id": cid, "image_url": final_url})
+
+
     @app.route("/api/owner/card-suggestions/<int:sid>/reject", methods=["POST"])
     def api_owner_card_suggestion_reject(sid):
         if not _is_owner_session():
