@@ -157,8 +157,8 @@ def _fetch_top_games_character_ids(target_count: int = 2000,
     offset = 0
     per_page = 500
     while len(char_ids) < target_count and offset < 9500:
-        body = (f"fields characters; "
-                f"where characters != null & rating_count > 0; "
+        body = (f"fields characters, name; "
+                f"where rating_count > 5; "
                 f"sort rating_count desc; "
                 f"limit {per_page}; offset {offset};")
         rows = _igdb_query("games", body)
