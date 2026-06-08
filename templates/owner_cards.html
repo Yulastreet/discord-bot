@@ -649,13 +649,12 @@ async function bulkImportAnilist() {
   if (!pagesStr) return;
   const pages = parseInt(pagesStr, 10);
   if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
-  const wipeFirst = confirm('WIPE catalogue avant import ? (OK = clean slate, Annuler = ajoute aux existantes)');
-  if (!confirm(`Import ${pages*50} personnages Anilist${wipeFirst ? ' APRES WIPE total' : ''}. ~${Math.round(pages*1)}s. Continuer ?`)) return;
+  if (!confirm(`Import ${pages*50} personnages Anilist. Skip doublons. ~${Math.round(pages*1)}s. Continuer ?`)) return;
   toast(`Import Anilist en cours (${pages} pages, ~${Math.round(pages*1)}s)...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-anilist', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({pages, skip_existing: true, wipe_first: wipeFirst}),
+      body: JSON.stringify({pages, skip_existing: true, wipe_first: false}),
     });
     const d = await r.json();
     if (d.ok) {
