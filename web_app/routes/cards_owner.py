@@ -133,6 +133,28 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/cards/<int:cid>/give", methods=["POST"])
+    def api_owner_cards_give(cid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_get, user_card_add
+        data = request.json or {}
+        user_id = (data.get("user_id") or "").strip()
+        if not user_id or not user_id.isdigit():
+            return jsonify({"error": "user_id invalide (ID Discord numerique)"}), 400
+        try:
+            qty = max(1, min(int(data.get("qty", 1)), 100))
+        except (ValueError, TypeError):
+            qty = 1
+        card = card_get(cid)
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        for _ in range(qty):
+            user_card_add(user_id, cid)
+        return jsonify({"ok": True, "given": qty, "card_name": card.get("name"),
+                         "user_id": user_id})
+
+
     @app.route("/api/owner/cards/wipe", methods=["POST"])
     def api_owner_cards_wipe():
         if not _is_owner_session():

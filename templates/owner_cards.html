@@ -113,6 +113,7 @@
     </div>
     <div class="desc" id="previewDesc">—</div>
     <div class="actions">
+      <button class="btn btn-primary" onclick="giveCurrentCard()">🎁 Give</button>
       <button class="btn btn-ghost" onclick="editCurrentCard()">✏ Edit</button>
       <button class="btn btn-danger" onclick="deleteCurrentCard()">🗑 Delete</button>
       <button class="btn btn-secondary" onclick="closePreview()">Fermer</button>
@@ -271,6 +272,28 @@ async function saveCard() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.saveCard = saveCard;
+
+async function giveCurrentCard() {
+  if (!_currentPreview) return;
+  const userId = prompt(`Give "${_currentPreview.name}" à quel user ?\nColle son ID Discord (clic droit user → Copier l'ID, mode dev activé).`);
+  if (!userId) return;
+  const clean = userId.trim();
+  if (!/^\d{15,20}$/.test(clean)) { toast('ID Discord invalide (15-20 chiffres).', 'error'); return; }
+  const qtyStr = prompt('Quantité ? (1-100)', '1');
+  if (!qtyStr) return;
+  const qty = parseInt(qtyStr, 10);
+  if (!Number.isFinite(qty) || qty < 1) { toast('Quantité invalide.', 'error'); return; }
+  try {
+    const r = await fetch(`/api/owner/cards/${_currentPreview.id}/give`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: clean, qty}),
+    });
+    const d = await r.json();
+    if (d.ok) toast(`Donné ×${d.given} "${d.card_name}" à ${d.user_id}`);
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.giveCurrentCard = giveCurrentCard;
 
 async function deleteCurrentCard() {
   if (!_currentPreview) return;
