@@ -35,10 +35,12 @@ def _get_access_token() -> str | None:
     if _token_cache["token"] and _token_cache["expires_at"] > now + 60:
         return _token_cache["token"]
 
-    cid = os.getenv("IGDB_CLIENT_ID", "").strip()
-    secret = os.getenv("IGDB_CLIENT_SECRET", "").strip()
+    # Prefere TWITCH_CLIENT_ID/SECRET (deja set sur prod pour stream alerts),
+    # fallback IGDB_CLIENT_ID/SECRET (alias). Memes credentials Twitch dev.
+    cid = (os.getenv("TWITCH_CLIENT_ID") or os.getenv("IGDB_CLIENT_ID") or "").strip()
+    secret = (os.getenv("TWITCH_CLIENT_SECRET") or os.getenv("IGDB_CLIENT_SECRET") or "").strip()
     if not cid or not secret:
-        print("[igdb] missing IGDB_CLIENT_ID / IGDB_CLIENT_SECRET env vars")
+        print("[igdb] missing TWITCH_CLIENT_ID/SECRET (or IGDB_*) env vars")
         return None
 
     params = urllib.parse.urlencode({
@@ -70,7 +72,7 @@ def _igdb_query(endpoint: str, body: str, timeout: int = 15) -> list | None:
     token = _get_access_token()
     if not token:
         return None
-    cid = os.getenv("IGDB_CLIENT_ID", "").strip()
+    cid = (os.getenv("TWITCH_CLIENT_ID") or os.getenv("IGDB_CLIENT_ID") or "").strip()
     url = f"{_IGDB_BASE}/{endpoint}"
     req = urllib.request.Request(url, data=body.encode("utf-8"), method="POST",
                                    headers={
