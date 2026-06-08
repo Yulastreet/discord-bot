@@ -293,6 +293,54 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/cards/bulk-import-show", methods=["POST"])
+    def api_owner_cards_bulk_one_show():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_fandom_films import bulk_import_show, SHOWS
+        data = request.json or {}
+        show_key = (data.get("show_key") or "").strip()
+        if show_key not in SHOWS:
+            return jsonify({"error": f"show inconnu : {show_key}"}), 400
+        try:
+            limit = max(10, min(int(data.get("limit", 500)), 2000))
+        except (ValueError, TypeError):
+            limit = 500
+        skip_existing = bool(data.get("skip_existing", True))
+        try:
+            stats = bulk_import_show(show_key, limit=limit, skip_existing=skip_existing)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
+    @app.route("/api/owner/cards/bulk-import-shows-multi", methods=["POST"])
+    def api_owner_cards_bulk_multi_shows():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_fandom_films import bulk_import_multiple_shows, SHOWS
+        data = request.json or {}
+        show_keys = data.get("show_keys") or []
+        if not isinstance(show_keys, list) or not show_keys:
+            return jsonify({"error": "show_keys liste vide"}), 400
+        invalid = [s for s in show_keys if s not in SHOWS]
+        if invalid:
+            return jsonify({"error": f"shows inconnus : {invalid}"}), 400
+        try:
+            limit = max(10, min(int(data.get("limit_per_show", 500)), 2000))
+        except (ValueError, TypeError):
+            limit = 500
+        skip_existing = bool(data.get("skip_existing", True))
+        try:
+            stats = bulk_import_multiple_shows(show_keys, limit_per_show=limit,
+                                                  skip_existing=skip_existing)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/games-available", methods=["GET"])
     def api_owner_cards_games_available():
         if not _is_owner_session():

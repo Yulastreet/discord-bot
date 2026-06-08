@@ -116,6 +116,48 @@
       </div>
     </details>
     <details class="cards-menu">
+      <summary class="btn btn-secondary">🎬 Films/Séries ▾</summary>
+      <div class="cards-menu-panel">
+        <button class="btn btn-primary" onclick="bulkImportAllSelectedShows()">⚡ Importer tous</button>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="muted" style="font-size:11px;padding:0 4px;">Animation populaire</div>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('tadc', 'TADC')">The Amazing Digital Circus</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('hazbinhotel', 'Hazbin Hotel')">Hazbin Hotel</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('helluvaboss', 'Helluva Boss')">Helluva Boss</button>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="muted" style="font-size:11px;padding:0 4px;">Marvel / DC / Saga</div>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('marvel', 'Marvel')">Marvel</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('dc', 'DC Comics')">DC Comics</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('starwars', 'Star Wars')">Star Wars</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('harrypotter', 'Harry Potter')">Harry Potter</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('lotr', 'LOTR')">Lord of the Rings</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('got', 'GoT')">Game of Thrones</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('houseofthedragon', 'HotD')">House of the Dragon</button>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="muted" style="font-size:11px;padding:0 4px;">Séries live action</div>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('strangerthings', 'Stranger Things')">Stranger Things</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('breakingbad', 'Breaking Bad')">Breaking Bad</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('thewalkingdead', 'TWD')">The Walking Dead</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('squidgame', 'Squid Game')">Squid Game</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('theoffice', 'The Office')">The Office</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('friends', 'Friends')">Friends</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('succession', 'Succession')">Succession</button>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="muted" style="font-size:11px;padding:0 4px;">Cartoons</div>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('simpsons', 'Simpsons')">The Simpsons</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('southpark', 'South Park')">South Park</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('familyguy', 'Family Guy')">Family Guy</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('rickandmorty', 'Rick & Morty')">Rick and Morty</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('spongebob', 'SpongeBob')">SpongeBob</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('adventuretime', 'Adv. Time')">Adventure Time</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('avatar', 'Avatar TLA')">Avatar: TLA</button>
+        <hr style="border-color:var(--border);margin:6px 0;">
+        <div class="muted" style="font-size:11px;padding:0 4px;">Disney / Pixar</div>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('disney', 'Disney')">Disney</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('pixar', 'Pixar')">Pixar</button>
+      </div>
+    </details>
+    <details class="cards-menu">
       <summary class="btn btn-secondary">🎮 Jeux Vidéo ▾</summary>
       <div class="cards-menu-panel" id="gamesMenuPanel">
         <button class="btn btn-primary" onclick="bulkImportAllSelectedGames()">⚡ Importer tous (LoL+OW+Mario+...)</button>
@@ -477,6 +519,47 @@ async function bulkImportAll() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAll = bulkImportAll;
+
+async function bulkImportOneShow(showKey, showLabel) {
+  if (!confirm(`Importer tous les persos de ${showLabel} ? (skip doublons)`)) return;
+  toast(`Import ${showLabel} en cours...`);
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-show', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({show_key: showKey, limit: 1000, skip_existing: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const s = d.stats;
+      toast(`${showLabel} : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}, blacklist ${s.blacklisted})`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportOneShow = bulkImportOneShow;
+
+async function bulkImportAllSelectedShows() {
+  const shows = ['tadc','hazbinhotel','helluvaboss','marvel','dc','starwars',
+                  'harrypotter','lotr','got','houseofthedragon','strangerthings',
+                  'breakingbad','thewalkingdead','squidgame','theoffice','friends',
+                  'succession','simpsons','southpark','familyguy','rickandmorty',
+                  'spongebob','adventuretime','avatar','disney','pixar'];
+  if (!confirm(`Importer tous les persos des 26 films/séries listés ? Durée ~3-5min.`)) return;
+  toast('Import multi-séries en cours... ~3-5min');
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-shows-multi', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({show_keys: shows, limit_per_show: 1000, skip_existing: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const s = d.stats;
+      toast(`Total : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}). ${s.shows_done}/${shows.length} shows OK.`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportAllSelectedShows = bulkImportAllSelectedShows;
 
 async function bulkImportOneGame(gameKey, gameLabel) {
   if (!confirm(`Importer tous les personnages disponibles de ${gameLabel} ? (skip doublons)`)) return;
