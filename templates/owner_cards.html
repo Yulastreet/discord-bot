@@ -91,6 +91,7 @@
     <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refresh images (manquantes)</button>
     <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
     <button class="btn btn-secondary" onclick="bakeOverlays()">🎨 Baker overlays</button>
+    <button class="btn btn-primary" onclick="bulkImportAll()">🌍 Tout importer</button>
     <button class="btn btn-secondary" onclick="bulkImportAnilist()">📦 Anime (Anilist)</button>
     <button class="btn btn-secondary" onclick="bulkImportIgdb()">🎮 Jeux Vidéo (IGDB)</button>
     <button class="btn btn-ghost" onclick="bulkImportJikan()" style="opacity:0.6">📦 Jikan (fallback)</button>
@@ -366,6 +367,46 @@ async function bakeOverlays() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bakeOverlays = bakeOverlays;
+
+async function bulkImportAll() {
+  const aniPagesStr = prompt('Anime Anilist : combien de pages ? (50 chars/page). Vide = skip.', '20');
+  const igdbPagesStr = prompt('Jeux Vidéo IGDB : combien de pages ? (500 chars/page). Vide = skip.', '4');
+  const aniPages = parseInt(aniPagesStr || '0', 10) || 0;
+  const igdbPages = parseInt(igdbPagesStr || '0', 10) || 0;
+  if (!aniPages && !igdbPages) { toast('Rien à importer.', 'error'); return; }
+  const total = aniPages*50 + igdbPages*500;
+  if (!confirm(`Import total : ~${total} cartes (Anilist ${aniPages*50} + IGDB ${igdbPages*500}). Skip doublons. Continuer ?`)) return;
+  toast('Import en cours, peut prendre plusieurs minutes...');
+  let aniStats = null, igdbStats = null;
+  try {
+    if (aniPages > 0) {
+      toast(`Anilist en cours (${aniPages} pages)...`);
+      const r = await fetch('/api/owner/cards/bulk-import-anilist', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pages: aniPages, skip_existing: true, wipe_first: false}),
+      });
+      const d = await r.json();
+      if (d.ok) aniStats = d.stats;
+      else toast(`Anilist err: ${d.error}`, 'error');
+    }
+    if (igdbPages > 0) {
+      toast(`IGDB en cours (${igdbPages} pages)...`);
+      const r = await fetch('/api/owner/cards/bulk-import-igdb', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pages: igdbPages, page_size: 500, skip_existing: true, wipe_first: false}),
+      });
+      const d = await r.json();
+      if (d.ok) igdbStats = d.stats;
+      else toast(`IGDB err: ${d.error}`, 'error');
+    }
+    const summary = [];
+    if (aniStats) summary.push(`Anilist: +${aniStats.inserted} (skip ${aniStats.skipped}, fail ${aniStats.failed})`);
+    if (igdbStats) summary.push(`IGDB: +${igdbStats.inserted} (skip ${igdbStats.skipped}, fail ${igdbStats.failed})`);
+    toast(summary.join(' · ') || 'Import terminé');
+    loadCards();
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportAll = bulkImportAll;
 
 async function bulkImportIgdb() {
   const pagesStr = prompt('Combien de pages IGDB ? (500 chars/page, 4 = 2000 cartes). Max 20.', '4');
