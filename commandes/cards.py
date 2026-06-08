@@ -130,7 +130,7 @@ def setup_cards_commands(bot, deps):
         guild_card_config_set(interaction.guild.id, channel_id=salon.id, enabled=True)
         await interaction.response.send_message(
             f"✅ Salon des cartes configure sur {salon.mention}. "
-            f"Les commandes `/roll`, `/mycards`, `/card` ne marcheront que dans ce salon.",
+            f"Les commandes `/roll`, `/cardcollec`, `/card` ne marcheront que dans ce salon.",
             ephemeral=True,
         )
 
@@ -228,7 +228,7 @@ def setup_cards_commands(bot, deps):
         await interaction.response.send_message(embed=embed, view=view)
 
     # === /collection ===
-    @bot.tree.command(name="mycards", description="Voir ta collection de cartes (ou celle de quelqu'un)")
+    @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")
     @app_commands.describe(membre="Membre dont voir la collection (defaut : toi)",
                             rarete="Filtre par rarete")
     @app_commands.choices(rarete=[
