@@ -169,32 +169,60 @@ def register_cards_owner_routes(app, deps):
                          "user_id": user_id})
 
 
-    @app.route("/api/owner/cards/bulk-import-fandom-games", methods=["POST"])
-    def api_owner_cards_bulk_fandom_games():
+    @app.route("/api/owner/cards/bulk-import-game", methods=["POST"])
+    def api_owner_cards_bulk_one_game():
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from services.cards_fandom_games import bulk_import_fandom_games
+        from services.cards_fandom_games import bulk_import_game, GAMES
         data = request.json or {}
+        game_key = (data.get("game_key") or "").strip()
+        if game_key not in GAMES:
+            return jsonify({"error": f"jeu inconnu : {game_key}"}), 400
         try:
-            per_franchise = max(10, min(int(data.get("per_franchise", 200)), 500))
+            limit = max(10, min(int(data.get("limit", 500)), 2000))
         except (ValueError, TypeError):
-            per_franchise = 200
-        total_target = data.get("total_target")
-        try:
-            total_target = int(total_target) if total_target else None
-        except (ValueError, TypeError):
-            total_target = None
+            limit = 500
         skip_existing = bool(data.get("skip_existing", True))
-        wipe_first = bool(data.get("wipe_first", False))
         try:
-            stats = bulk_import_fandom_games(per_franchise=per_franchise,
-                                                total_target=total_target,
-                                                skip_existing=skip_existing,
-                                                wipe_first=wipe_first)
+            stats = bulk_import_game(game_key, limit=limit, skip_existing=skip_existing)
         except Exception as e:
             import traceback; traceback.print_exc()
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
         return jsonify({"ok": True, "stats": stats})
+
+
+    @app.route("/api/owner/cards/bulk-import-games-multi", methods=["POST"])
+    def api_owner_cards_bulk_multi_games():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_fandom_games import bulk_import_multiple_games, GAMES
+        data = request.json or {}
+        game_keys = data.get("game_keys") or []
+        if not isinstance(game_keys, list) or not game_keys:
+            return jsonify({"error": "game_keys liste vide"}), 400
+        invalid = [g for g in game_keys if g not in GAMES]
+        if invalid:
+            return jsonify({"error": f"jeux inconnus : {invalid}"}), 400
+        try:
+            limit = max(10, min(int(data.get("limit_per_game", 500)), 2000))
+        except (ValueError, TypeError):
+            limit = 500
+        skip_existing = bool(data.get("skip_existing", True))
+        try:
+            stats = bulk_import_multiple_games(game_keys, limit_per_game=limit,
+                                                  skip_existing=skip_existing)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "stats": stats})
+
+
+    @app.route("/api/owner/cards/games-available", methods=["GET"])
+    def api_owner_cards_games_available():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_fandom_games import GAMES
+        return jsonify({"items": [{"key": k, "name": v["name"]} for k, v in GAMES.items()]})
 
 
     @app.route("/api/owner/cards/bulk-import-giantbomb", methods=["POST"])

@@ -109,16 +109,27 @@
     </select>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
     <details class="cards-menu">
-      <summary class="btn btn-secondary">📦 Importer ▾</summary>
+      <summary class="btn btn-secondary">📺 Anime ▾</summary>
       <div class="cards-menu-panel">
-        <button class="btn btn-primary" onclick="bulkImportAll()">🌍 Tout importer (Anime + Jeux Vidéo)</button>
-        <button class="btn btn-secondary" onclick="bulkImportAnilist()">📺 Anime (Anilist)</button>
-        <button class="btn btn-secondary" onclick="bulkImportFandomGames()">🎮 Jeux Vidéo (Fandom)</button>
+        <button class="btn btn-primary" onclick="bulkImportAnilist()">Anilist (par pages)</button>
+        <button class="btn btn-ghost" onclick="bulkImportJikan()">Jikan (fallback)</button>
+      </div>
+    </details>
+    <details class="cards-menu">
+      <summary class="btn btn-secondary">🎮 Jeux Vidéo ▾</summary>
+      <div class="cards-menu-panel" id="gamesMenuPanel">
+        <button class="btn btn-primary" onclick="bulkImportAllSelectedGames()">⚡ Importer tous (LoL+OW+Mario+...)</button>
         <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Sources avancées</div>
-        <button class="btn btn-ghost" onclick="bulkImportIgdb()">IGDB (~455 max)</button>
-        <button class="btn btn-ghost" onclick="bulkImportGiantBomb()">Giant Bomb (API down)</button>
-        <button class="btn btn-ghost" onclick="bulkImportJikan()">Jikan (fallback anime)</button>
+        <div class="muted" style="font-size:11px;padding:0 4px;">Par jeu</div>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('lol', 'League of Legends')">League of Legends</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('overwatch', 'Overwatch')">Overwatch</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('mario', 'Mario')">Mario</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('sonic', 'Sonic')">Sonic</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('dragonquest', 'Dragon Quest')">Dragon Quest</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('zelda', 'Zelda')">Zelda</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('genshin', 'Genshin Impact')">Genshin Impact</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('honkai-sr', 'Honkai SR')">Honkai: Star Rail</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneGame('wow', 'WoW')">World of Warcraft</button>
       </div>
     </details>
     <details class="cards-menu">
@@ -467,30 +478,42 @@ async function bulkImportAll() {
 }
 window.bulkImportAll = bulkImportAll;
 
-async function bulkImportFandomGames() {
-  const totalStr = prompt('Combien de personnages jeux vidéo veux-tu ajouter ? (vide = tout charger, ~2-5k max)', '1000');
-  if (totalStr === null) return;
-  const total = parseInt(totalStr, 10) || 0;
-  if (total < 0) { toast('Nombre invalide.', 'error'); return; }
-  const msg = total > 0
-    ? `Import jusqu'à ${total} personnages jeux vidéo (stop des qu'atteint).`
-    : `Import sans cap (toutes franchises, jusqu'à épuisement).`;
-  if (!confirm(`${msg} Duree ~1-5min. Continuer ?`)) return;
-  toast('Import Fandom games en cours... Console pour progress.');
+async function bulkImportOneGame(gameKey, gameLabel) {
+  if (!confirm(`Importer tous les personnages disponibles de ${gameLabel} ? (skip doublons)`)) return;
+  toast(`Import ${gameLabel} en cours...`);
   try {
-    const r = await fetch('/api/owner/cards/bulk-import-fandom-games', {
+    const r = await fetch('/api/owner/cards/bulk-import-game', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({per_franchise: 200, total_target: total || null,
-                              skip_existing: true, wipe_first: false}),
+      body: JSON.stringify({game_key: gameKey, limit: 1000, skip_existing: true}),
     });
     const d = await r.json();
     if (d.ok) {
-      toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed} (${d.stats.franchises_done} franchises OK, ${d.stats.franchises_empty} empty)`);
+      const s = d.stats;
+      toast(`${gameLabel} : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}, blacklist ${s.blacklisted})`);
       loadCards();
     } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
-window.bulkImportFandomGames = bulkImportFandomGames;
+window.bulkImportOneGame = bulkImportOneGame;
+
+async function bulkImportAllSelectedGames() {
+  const games = ['lol','overwatch','mario','sonic','dragonquest','zelda','genshin','honkai-sr','wow'];
+  if (!confirm(`Importer tous les persos de : LoL, Overwatch, Mario, Sonic, Dragon Quest, Zelda, Genshin, Honkai SR, WoW ?`)) return;
+  toast('Import multi-jeux en cours... ~1-3min');
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-games-multi', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({game_keys: games, limit_per_game: 1000, skip_existing: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const s = d.stats;
+      toast(`Total : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}). ${s.games_done}/${games.length} jeux OK.`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportAllSelectedGames = bulkImportAllSelectedGames;
 
 async function bulkImportGiantBomb() {
   const pagesStr = prompt('Combien de pages Giant Bomb ? (100 chars/page). ATTENTION rate limit 200 req/h. 50 pages = 5000 chars en ~15min. Max 200 pages.', '50');
