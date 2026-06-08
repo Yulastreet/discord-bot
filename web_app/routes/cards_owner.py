@@ -16,15 +16,29 @@ def register_cards_owner_routes(app, deps):
     def api_owner_cards_list():
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from database import card_list_all
+        from database import card_list_all, card_count_filtered, card_count_total
         rarity = request.args.get("rarity") or None
         search = request.args.get("q") or None
         try:
-            limit = max(1, min(int(request.args.get("limit", 500)), 5000))
+            per_page = max(1, min(int(request.args.get("per_page", 50)), 500))
         except ValueError:
-            limit = 500
+            per_page = 50
+        try:
+            page = max(1, int(request.args.get("page", 1)))
+        except ValueError:
+            page = 1
+        offset = (page - 1) * per_page
+        items = card_list_all(limit=per_page, offset=offset,
+                                rarity=rarity, search=search)
+        filtered = card_count_filtered(rarity=rarity, search=search)
+        total = card_count_total()
         return jsonify({
-            "items": card_list_all(limit=limit, rarity=rarity, search=search),
+            "items": items,
+            "total": total,
+            "filtered": filtered,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": max(1, (filtered + per_page - 1) // per_page),
         })
 
 

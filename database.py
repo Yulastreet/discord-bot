@@ -1588,7 +1588,7 @@ def card_add(name, universe=None, subtitle=None, rarity="common",
     return cid
 
 
-def card_list_all(limit=1000, rarity=None, search=None):
+def card_list_all(limit=1000, rarity=None, search=None, offset=0):
     conn = get_db(); c = conn.cursor()
     where = ["1=1"]
     params: list = []
@@ -1599,12 +1599,31 @@ def card_list_all(limit=1000, rarity=None, search=None):
         like = f"%{search.lower()}%"
         params += [like, like, like]
     params.append(int(limit))
+    params.append(int(offset))
     rows = c.execute(
         f"SELECT * FROM cards WHERE {' AND '.join(where)} "
-        f"ORDER BY id ASC LIMIT ?", params,
+        f"ORDER BY id ASC LIMIT ? OFFSET ?", params,
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def card_count_filtered(rarity=None, search=None):
+    """Total rows matching same filtres que card_list_all."""
+    conn = get_db(); c = conn.cursor()
+    where = ["1=1"]
+    params: list = []
+    if rarity:
+        where.append("rarity = ?"); params.append(rarity)
+    if search:
+        where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
+        like = f"%{search.lower()}%"
+        params += [like, like, like]
+    n = c.execute(
+        f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}", params,
+    ).fetchone()["n"]
+    conn.close()
+    return int(n)
 
 
 def card_get(card_id):
