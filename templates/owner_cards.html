@@ -288,10 +288,13 @@ let _currentPreview = null;
 let _debTimer = null;
 let _currentPage = 1;
 let _totalPages = 1;
+let _imgCacheBust = '';  // append ?v=N apres une modif pour forcer reload images
 function debouncedReload() {
   clearTimeout(_debTimer);
   _debTimer = setTimeout(() => { _currentPage = 1; loadCards(); }, 300);
 }
+function bumpCache() { _imgCacheBust = '?v=' + Date.now(); }
+window.bumpCache = bumpCache;
 function resetPageAndLoad() { _currentPage = 1; loadCards(); }
 function prevPage() { if (_currentPage > 1) { _currentPage--; loadCards(); window.scrollTo(0, 0); } }
 function nextPage() { if (_currentPage < _totalPages) { _currentPage++; loadCards(); window.scrollTo(0, 0); } }
@@ -340,7 +343,7 @@ async function loadCards() {
     grid.innerHTML = _allCards.map(c => `
       <div class="card-tile" onclick="openPreview(${c.id})">
         <div class="card-tile-img">
-          ${c.image_url ? `<img src="${escapeHtml(c.image_url)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
+          ${c.image_url ? `<img src="${escapeHtml(c.image_url + _imgCacheBust)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
           <span class="rarity-badge rar-${c.rarity}">${c.rarity}</span>
         </div>
         <div class="card-tile-meta">
@@ -427,7 +430,7 @@ async function saveCard() {
     const r = await fetch(url, { method, headers: {'Content-Type': 'application/json'},
                                  body: JSON.stringify(payload) });
     const d = await r.json();
-    if (d.ok || d.id) { toast(id ? 'Modifiee.' : 'Creee.'); closeEditModal(); loadCards(); }
+    if (d.ok || d.id) { toast(id ? 'Modifiee.' : 'Creee.'); bumpCache(); closeEditModal(); loadCards(); }
     else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -510,8 +513,9 @@ async function submitCardCrop() {
     }
     if (d.ok) {
       toast('Carte recadrée.');
-      _currentPreview.image_url = d.image_url + '?t=' + Date.now();
-      document.getElementById('previewImg').src = _currentPreview.image_url;
+      bumpCache();
+      _currentPreview.image_url = d.image_url;
+      document.getElementById('previewImg').src = d.image_url + _imgCacheBust;
       closeCardCropper();
       loadCards();
     } else toast(d.error || 'Erreur', 'error');
@@ -536,9 +540,9 @@ async function rebakeCurrentOverlay() {
     const d = await r.json();
     if (d.ok) {
       toast(`Overlay ${rar} appliqué.`);
-      // Refresh preview image avec cache bust
-      _currentPreview.image_url = d.image_url + '?t=' + Date.now();
-      document.getElementById('previewImg').src = _currentPreview.image_url;
+      bumpCache();
+      _currentPreview.image_url = d.image_url;
+      document.getElementById('previewImg').src = d.image_url + _imgCacheBust;
       loadCards();
     } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
