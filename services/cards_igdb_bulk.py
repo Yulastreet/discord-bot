@@ -85,8 +85,15 @@ def _igdb_query(endpoint: str, body: str, timeout: int = 15) -> list | None:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            err_body = ""
+        print(f"[igdb] HTTPError {endpoint} {e.code}\n  body: {body!r}\n  resp: {err_body}")
+        return None
     except Exception as e:
-        print(f"[igdb] query err {endpoint}: {e}")
+        print(f"[igdb] query err {endpoint}: {e}\n  body: {body!r}")
         return None
 
 
@@ -157,9 +164,11 @@ def _fetch_top_games_character_ids(target_count: int = 2000,
     offset = 0
     per_page = 500
     while len(char_ids) < target_count and offset < 9500:
-        body = (f"fields characters, name; "
-                f"where rating_count > 5; "
-                f"sort rating_count desc; "
+        # IGDB requirement : champ utilise par sort doit etre dans fields.
+        # rating_count > 5 = jeux serieux. total_rating_count = sum users+critics.
+        body = (f"fields characters, name, total_rating_count; "
+                f"where total_rating_count > 5; "
+                f"sort total_rating_count desc; "
                 f"limit {per_page}; offset {offset};")
         rows = _igdb_query("games", body)
         if not rows:
