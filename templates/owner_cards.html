@@ -485,13 +485,41 @@ async function bulkImportAnilist() {
 window.bulkImportAnilist = bulkImportAnilist;
 
 async function wipeCatalog() {
-  if (!confirm('SUPPRIMER TOUTES LES CARTES + collections users ? Irreversible.')) return;
-  if (!confirm('Vraiment ? Confirmer une 2eme fois.')) return;
+  // Liste univers + counts pour choix
+  let univs = [];
   try {
-    const r = await fetch('/api/owner/cards/wipe', {method: 'POST'});
+    const r = await fetch('/api/owner/cards/universes');
     const d = await r.json();
-    if (d.ok) { toast(`Wipe : ${d.deleted} cartes supprimees.`); loadCards(); }
-    else toast(d.error || 'Erreur', 'error');
+    univs = d.items || [];
+  } catch (e) { toast(e.message, 'error'); return; }
+  const list = univs.map((u, i) => `${i+1}. ${u.universe} (${u.count})`).join('\n');
+  const choice = prompt(
+    `WIPE catalogue. Choisis :\n0. TOUT (toutes cartes + collections)\n${list}\n\nNuméro (0 = tout) :`,
+    '0'
+  );
+  if (choice === null) return;
+  const idx = parseInt(choice, 10);
+  let universe = null;
+  if (idx === 0) {
+    if (!confirm('SUPPRIMER TOUTES LES CARTES + collections users ? Irreversible.')) return;
+    if (!confirm('Vraiment ? Confirmer une 2eme fois.')) return;
+  } else if (idx >= 1 && idx <= univs.length) {
+    universe = univs[idx - 1].universe;
+    if (!confirm(`Wipe univers "${universe}" (${univs[idx-1].count} cartes) ? Irreversible.`)) return;
+  } else {
+    toast('Choix invalide.', 'error'); return;
+  }
+  try {
+    const r = await fetch('/api/owner/cards/wipe', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(universe ? {universe} : {}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const scope = d.universe ? `univers "${d.universe}"` : 'catalogue';
+      toast(`Wipe ${scope} : ${d.deleted} cartes supprimees.`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.wipeCatalog = wipeCatalog;

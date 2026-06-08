@@ -221,9 +221,35 @@ def register_cards_owner_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db
+        data = request.json or {}
+        universe = (data.get("universe") or "").strip() or None
         conn = get_db(); c = conn.cursor()
-        c.execute("DELETE FROM cards")
-        c.execute("DELETE FROM user_cards")
-        deleted = c.rowcount
+        if universe:
+            # Wipe scoped : recupere ids cards, delete user_cards correspondants
+            ids = [r["id"] for r in c.execute(
+                "SELECT id FROM cards WHERE universe = ?", (universe,)).fetchall()]
+            if ids:
+                placeholders = ",".join("?" * len(ids))
+                c.execute(f"DELETE FROM user_cards WHERE card_id IN ({placeholders})", ids)
+                c.execute(f"DELETE FROM cards WHERE id IN ({placeholders})", ids)
+            deleted = len(ids)
+        else:
+            c.execute("DELETE FROM cards")
+            deleted = c.rowcount
+            c.execute("DELETE FROM user_cards")
         conn.commit(); conn.close()
-        return jsonify({"ok": True, "deleted": deleted})
+        return jsonify({"ok": True, "deleted": deleted, "universe": universe})
+
+
+    @app.route("/api/owner/cards/universes", methods=["GET"])
+    def api_owner_cards_universes():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT universe, COUNT(*) AS n FROM cards "
+            "WHERE universe IS NOT NULL AND universe != '' "
+            "GROUP BY universe ORDER BY n DESC").fetchall()
+        conn.close()
+        return jsonify({"items": [{"universe": r["universe"], "count": r["n"]} for r in rows]})
