@@ -212,7 +212,16 @@
       <span id="previewRarity">—</span>
     </div>
     <div class="desc" id="previewDesc">—</div>
-    <div class="actions">
+    <div class="actions" style="flex-wrap:wrap;gap:6px;align-items:center;">
+      <select id="rebakeOverlaySel" class="input" style="min-width:130px;font-size:12px;padding:6px 8px;">
+        <option value="">Overlay (rareté)…</option>
+        <option value="common">⚪ Common</option>
+        <option value="rare">🔵 Rare</option>
+        <option value="epic">🟣 Epic</option>
+        <option value="legendary">🟠 Legendary</option>
+        <option value="mythic">🔴 Mythic</option>
+      </select>
+      <button class="btn btn-secondary" onclick="rebakeCurrentOverlay()">🎨 Re-bake</button>
       <button class="btn btn-primary" onclick="giveCurrentCard()">🎁 Give</button>
       <button class="btn btn-ghost" onclick="editCurrentCard()">✏ Edit</button>
       <button class="btn btn-danger" onclick="deleteCurrentCard()">🗑 Delete</button>
@@ -421,6 +430,29 @@ async function giveCurrentCard() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.giveCurrentCard = giveCurrentCard;
+
+async function rebakeCurrentOverlay() {
+  if (!_currentPreview) return;
+  const rar = document.getElementById('rebakeOverlaySel').value;
+  if (!rar) { toast('Choisis une rareté pour l\'overlay.', 'error'); return; }
+  if (!confirm(`Re-baker l'overlay "${rar.toUpperCase()}" sur "${_currentPreview.name}" ?`)) return;
+  toast('Re-bake en cours...');
+  try {
+    const r = await fetch(`/api/owner/cards/${_currentPreview.id}/rebake`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({overlay_rarity: rar}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Overlay ${rar} appliqué.`);
+      // Refresh preview image avec cache bust
+      _currentPreview.image_url = d.image_url + '?t=' + Date.now();
+      document.getElementById('previewImg').src = _currentPreview.image_url;
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.rebakeCurrentOverlay = rebakeCurrentOverlay;
 
 async function deleteCurrentCard() {
   if (!_currentPreview) return;

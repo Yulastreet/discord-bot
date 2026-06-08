@@ -81,14 +81,17 @@ def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
 
     overlay = _get_overlay(rarity)
     if overlay is None:
-        # Pas d'overlay : save juste resized
+        # Pas d'overlay : flatten sur fond sombre (gere transparence sources)
+        bg = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+        bg.paste(src, (0, 0), src)
         out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
-        src.save(out_path, "PNG", optimize=True)
+        bg.convert("RGB").save(out_path, "PNG", optimize=True)
         return f"/static/card_renders/{card_id}.png"
 
-    # Composite : src en bas, overlay au-dessus avec alpha
-    canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (0, 0, 0, 0))
-    canvas.paste(src, (0, 0))
+    # Composite : fond sombre opaque + src (avec alpha) + overlay au-dessus
+    # Fix images avec fond transparent qui devenaient noires/buggy sans bg.
+    canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+    canvas.paste(src, (0, 0), src)  # 3eme arg = mask alpha de src
     canvas = Image.alpha_composite(canvas, overlay)
 
     out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.png")

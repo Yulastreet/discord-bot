@@ -617,6 +617,45 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/cards/<int:cid>/rebake", methods=["POST"])
+    def api_owner_card_rebake(cid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        from services.cards_overlay import composite_card
+        import os as _os
+        data = request.json or {}
+        overlay_rarity = (data.get("overlay_rarity") or "").strip().lower()
+        if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+            return jsonify({"error": "overlay_rarity invalide"}), 400
+        conn = get_db(); c = conn.cursor()
+        row = c.execute("SELECT id, source_image_url, image_url FROM cards WHERE id = ?",
+                         (int(cid),)).fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "carte introuvable"}), 404
+        src = row["source_image_url"] or row["image_url"] or ""
+        if not src or "/card_renders/" in src or "/card_suggestions/" in src:
+            conn.close()
+            return jsonify({"error": "pas de source image pour rebake (URL deja locale)"}), 400
+        # Save source si pas deja
+        if not row["source_image_url"]:
+            c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
+                       (src, cid))
+            conn.commit()
+        conn.close()
+        # Composite avec overlay choisi
+        url = composite_card(src, overlay_rarity, int(cid))
+        if not url:
+            return jsonify({"error": "echec composite"}), 500
+        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        final = (public_base + url) if public_base else url
+        conn = get_db(); c = conn.cursor()
+        c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, cid))
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "image_url": final})
+
+
     @app.route("/api/owner/cards/bake-overlays", methods=["POST"])
     def api_owner_cards_bake():
         if not _is_owner_session():
