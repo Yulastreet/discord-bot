@@ -46,6 +46,28 @@
   .sug-count.pending  { border-color:#fbbf24; }
   .sug-count.approved { border-color:#4ade80; }
   .sug-count.rejected { border-color:#ff3d57; }
+  .sug-layout { display: grid; grid-template-columns: 1fr 260px; gap: var(--s-4); }
+  @media (max-width: 1024px) { .sug-layout { grid-template-columns: 1fr; } }
+  .sug-leaderboard {
+    background: var(--bg-1); border:1px solid var(--border); border-radius:14px;
+    padding: 14px; position: sticky; top: var(--s-3); align-self: start;
+  }
+  .sug-leaderboard h3 { margin: 0 0 12px; font-size: 14px; }
+  .sug-lb-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .sug-lb-row:last-child { border-bottom: none; }
+  .sug-lb-rank { font-weight: 800; color: var(--text-2); min-width: 26px; }
+  .sug-lb-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sug-lb-count {
+    background: var(--bg-2); padding: 2px 8px; border-radius: 999px;
+    font-weight: 700; font-size: 12px;
+  }
+  .sug-lb-row:nth-child(1) .sug-lb-rank { color: #ffd700; }
+  .sug-lb-row:nth-child(2) .sug-lb-rank { color: #c0c0c0; }
+  .sug-lb-row:nth-child(3) .sug-lb-rank { color: #cd7f32; }
 </style>
 
 <div class="col gap-7">
@@ -89,8 +111,17 @@
     <button class="btn btn-danger" onclick="bulkRejectSugs()">❌ Refuser tout</button>
   </div>
 
-  <div id="sugGrid" class="sug-grid">
-    <div class="muted">Chargement…</div>
+  <div class="sug-layout">
+    <div id="sugGrid" class="sug-grid">
+      <div class="muted">Chargement…</div>
+    </div>
+    <aside class="sug-leaderboard">
+      <h3>🏆 Top contributeurs</h3>
+      <p class="muted" style="font-size:11px;margin-bottom:10px;">Suggestions approuvées</p>
+      <div id="sugLeaderboard">
+        <div class="muted" style="font-size:12px;">Chargement…</div>
+      </div>
+    </aside>
   </div>
 </div>
 
@@ -182,6 +213,7 @@ async function bulkApproveSugs() {
       _sugSelected.clear();
       loadSugs();
       loadSugCounts();
+      loadSugLeaderboard();
     } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -201,6 +233,7 @@ async function bulkRejectSugs() {
       _sugSelected.clear();
       loadSugs();
       loadSugCounts();
+      loadSugLeaderboard();
     } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -446,6 +479,27 @@ async function loadSugCounts() {
 }
 loadSugCounts();
 setInterval(loadSugCounts, 30000);
+
+async function loadSugLeaderboard() {
+  try {
+    const r = await fetch('/api/owner/card-suggestions/leaderboard?limit=20');
+    const d = await r.json();
+    const items = d.items || [];
+    if (!items.length) {
+      document.getElementById('sugLeaderboard').innerHTML = '<div class="muted" style="font-size:12px;">Aucune suggestion approuvée.</div>';
+      return;
+    }
+    document.getElementById('sugLeaderboard').innerHTML = items.map((u, i) => `
+      <div class="sug-lb-row">
+        <span class="sug-lb-rank">#${i+1}</span>
+        <span class="sug-lb-name">${escapeHtml(u.name || ('User#' + u.user_id))}</span>
+        <span class="sug-lb-count">${u.approved_count}</span>
+      </div>
+    `).join('');
+  } catch (e) {}
+}
+loadSugLeaderboard();
+setInterval(loadSugLeaderboard, 60000);
 
 loadSugs();
 </script>

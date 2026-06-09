@@ -290,6 +290,26 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"card": card})
 
 
+    @app.route("/api/owner/card-suggestions/leaderboard", methods=["GET"])
+    def api_owner_card_sugg_leaderboard():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        try:
+            limit = max(1, min(int(request.args.get("limit", 20)), 100))
+        except ValueError:
+            limit = 20
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT suggester_id, suggester_name, COUNT(*) AS n "
+            "FROM card_suggestions WHERE status = 'approved' "
+            "GROUP BY suggester_id ORDER BY n DESC LIMIT ?", (limit,)).fetchall()
+        conn.close()
+        return jsonify({"items": [{"user_id": r["suggester_id"],
+                                      "name": r["suggester_name"],
+                                      "approved_count": r["n"]} for r in rows]})
+
+
     @app.route("/api/owner/card-suggestions/counts", methods=["GET"])
     def api_owner_card_sugg_counts():
         if not _is_owner_session():
