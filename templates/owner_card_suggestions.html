@@ -64,13 +64,14 @@
     <span style="flex:1;"></span>
     <button class="btn btn-secondary" onclick="selectAllVisibleSugs()">Tout sélectionner</button>
     <button class="btn btn-secondary" onclick="clearSugSelection()">Désélectionner</button>
-    <select id="sugBulkRarity" class="input" style="min-width:120px;">
-      <option value="common">Common</option>
-      <option value="rare">Rare</option>
-      <option value="epic">Epic</option>
-      <option value="legendary">Legendary</option>
-      <option value="mythic">Mythic</option>
-      <option value="secret">🌈 Secret</option>
+    <select id="sugBulkRarity" class="input" style="min-width:180px;">
+      <option value="__keep__" selected>↺ Garder rareté individuelle</option>
+      <option value="common">Tous : Common</option>
+      <option value="rare">Tous : Rare</option>
+      <option value="epic">Tous : Epic</option>
+      <option value="legendary">Tous : Legendary</option>
+      <option value="mythic">Tous : Mythic</option>
+      <option value="secret">Tous : 🌈 Secret</option>
     </select>
     <button class="btn btn-primary" onclick="bulkApproveSugs()">✅ Approuver tout (avec bake auto)</button>
     <button class="btn btn-danger" onclick="bulkRejectSugs()">❌ Refuser tout</button>
@@ -142,13 +143,26 @@ function updateSugBulkBar() {
 }
 async function bulkApproveSugs() {
   if (!_sugSelected.size) return;
-  const rar = document.getElementById('sugBulkRarity').value;
-  if (!confirm(`Approuver ${_sugSelected.size} suggestion(s) avec rareté ${rar.toUpperCase()} + bake overlay auto ?`)) return;
+  const bulkVal = document.getElementById('sugBulkRarity').value;
+  const keepIndividual = (bulkVal === '__keep__');
+  // Si keep : lit chaque rar-<sid> select (single approve dropdowns)
+  let rarities = {};
+  if (keepIndividual) {
+    [..._sugSelected].forEach(sid => {
+      const el = document.getElementById('rar-' + sid);
+      rarities[sid] = el ? el.value : 'common';
+    });
+  }
+  const label = keepIndividual ? 'rareté individuelle de chaque tile' : `tous en ${bulkVal.toUpperCase()}`;
+  if (!confirm(`Approuver ${_sugSelected.size} suggestion(s) (${label}) + bake overlay auto ?`)) return;
   toast('Approbation en cours...');
   try {
+    const body = {sids: [..._sugSelected]};
+    if (keepIndividual) body.rarities = rarities;
+    else body.default_rarity = bulkVal;
     const r = await fetch('/api/owner/card-suggestions/bulk-approve', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({sids: [..._sugSelected], default_rarity: rar}),
+      body: JSON.stringify(body),
     });
     const d = await r.json();
     if (d.ok) {

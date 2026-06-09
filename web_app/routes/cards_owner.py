@@ -490,10 +490,15 @@ def register_cards_owner_routes(app, deps):
         except (ValueError, TypeError):
             return jsonify({"error": "sids invalides"}), 400
         default_rarity = (data.get("default_rarity") or "common").strip()
+        # rarities optionnel : dict {sid: rarity} pour override par suggestion
+        rarities = data.get("rarities") or {}
+        if not isinstance(rarities, dict):
+            rarities = {}
         reviewer = _ses.get("user_id") or "owner"
         stats = {"approved": 0, "failed": 0, "details": []}
         for sid in sids_int:
-            res = _approve_one_suggestion(sid, rarity_override=default_rarity, reviewer_id=reviewer)
+            per_rar = (rarities.get(str(sid)) or rarities.get(sid) or default_rarity)
+            res = _approve_one_suggestion(sid, rarity_override=per_rar, reviewer_id=reviewer)
             if res.get("ok"): stats["approved"] += 1
             else: stats["failed"] += 1
             stats["details"].append({"sid": sid, **res})
