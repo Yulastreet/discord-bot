@@ -234,6 +234,7 @@
       <div class="cards-menu-panel">
         <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refetch manquantes</button>
         <button class="btn btn-secondary" onclick="bakeOverlays()">🎨 Baker overlays</button>
+        <button class="btn btn-secondary" onclick="rebalanceByPopularity()">⚖ Rebalance rareté par popularité</button>
         <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
       </div>
     </details>
@@ -779,6 +780,33 @@ async function bulkImportJikan() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportJikan = bulkImportJikan;
+
+async function rebalanceByPopularity() {
+  const msg = `Rebalance rareté par popularité sur :\n- Anime\n- Films/Série\n\n` +
+              `Jeu Vidéo NON touché (curated manuellement).\n\n` +
+              `Cibles : 1% mythic, 4% legendary, 15% epic, 30% rare, 50% common.\n` +
+              `Re-bake overlay auto sur cards changées. Durée ~5-10min.`;
+  if (!confirm(msg)) return;
+  toast('Rebalance en cours, patience...');
+  try {
+    const r = await fetch('/api/owner/cards/rebalance-by-popularity', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({universes: ['Anime', 'Film/Série'], rebake: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const s = d.stats;
+      let summary = `Total : ${s.total_changed} cards rebalancees. Rebaked : ${s.total_rebaked}.`;
+      Object.entries(s.universes || {}).forEach(([uni, st]) => {
+        summary += `\n${uni}: ${st.changed}/${st.total} changes`;
+      });
+      toast(summary);
+      bumpCache();
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.rebalanceByPopularity = rebalanceByPopularity;
 
 async function bakeOverlays() {
   const force = confirm('FORCE re-bake (re-genere TOUTES les images compositees) ?\nOK = force, Annuler = skip celles deja bakees.');

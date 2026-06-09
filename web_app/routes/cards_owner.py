@@ -1109,6 +1109,111 @@ def register_cards_owner_routes(app, deps):
                          "user_cards_deleted": uc_deleted})
 
 
+    @app.route("/api/owner/cards/rebalance-by-popularity", methods=["POST"])
+    def api_owner_cards_rebalance():
+        """Recalcule rarete par quantile de popularite.
+        Body: {universes: [...], rebake: bool}
+        - Anime : popularite = favoris Anilist (parse description)
+        - Films/Série : popularite = ordre d'import (id ASC = top en premier)
+        - Jeu Vidéo : NEVER touched (user curated manually)
+        Repartition cibles : top 1% mythic, 4% leg, 15% epic, 30% rare, reste common.
+        """
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        import re as _re, os as _os
+        from database import get_db, CARD_RARITY_WEIGHTS
+        from services.cards_overlay import composite_card
+        data = request.json or {}
+        universes = data.get("universes") or ["Anime", "Film/Série"]
+        # Securite : exclure explicitement Jeu Vidéo
+        universes = [u for u in universes if u != "Jeu Vidéo"]
+        if not universes:
+            return jsonify({"error": "aucun univers a rebalance"}), 400
+        do_rebake = bool(data.get("rebake", True))
+
+        conn = get_db(); c = conn.cursor()
+        global_stats = {"universes": {}, "total_changed": 0, "total_rebaked": 0,
+                          "total_rebake_failed": 0}
+
+        for uni in universes:
+            rows = c.execute(
+                "SELECT id, rarity, description, source_image_url, image_url "
+                "FROM cards WHERE universe = ?", (uni,)).fetchall()
+            cards = [dict(r) for r in rows]
+            if not cards:
+                global_stats["universes"][uni] = {"total": 0, "changed": 0}
+                continue
+
+            # Score popularite
+            def _score(r):
+                desc = r.get("description") or ""
+                m = _re.search(r"Favoris\s+(?:Anilist|MAL)\s*:\s*([\d,\s]+)", desc)
+                if m:
+                    s = m.group(1).replace(",", "").replace(" ", "").strip()
+                    try: return int(s)
+                    except ValueError: return 0
+                # Films/Série fallback : id desc (recent = peu prio)
+                # mais id asc = early imports = top games. On veut top = popular
+                return -int(r["id"])  # plus petit id = plus populaire (early import)
+
+            cards.sort(key=_score, reverse=True)
+            n = len(cards)
+
+            # Quantiles d'apres poids /roll : 1% mythic, 4% leg, 15% epic,
+            # 30% rare, 50% common
+            cuts = {
+                "mythic":    int(n * 0.01),
+                "legendary": int(n * 0.05),  # 1 + 4
+                "epic":      int(n * 0.20),  # 5 + 15
+                "rare":      int(n * 0.50),  # 20 + 30
+            }
+            uni_stats = {"total": n, "changed": 0, "by_rarity": {}}
+            updates = []
+            for idx, card in enumerate(cards):
+                if idx < cuts["mythic"]:        new_rar = "mythic"
+                elif idx < cuts["legendary"]:   new_rar = "legendary"
+                elif idx < cuts["epic"]:        new_rar = "epic"
+                elif idx < cuts["rare"]:        new_rar = "rare"
+                else:                            new_rar = "common"
+                uni_stats["by_rarity"][new_rar] = uni_stats["by_rarity"].get(new_rar, 0) + 1
+                if card["rarity"] != new_rar:
+                    updates.append((card, new_rar))
+
+            uni_stats["changed"] = len(updates)
+            print(f"[rebalance] {uni}: {n} cards, {len(updates)} change rarete")
+
+            # Applique UPDATE
+            for card, new_rar in updates:
+                c.execute("UPDATE cards SET rarity = ? WHERE id = ?",
+                          (new_rar, card["id"]))
+            conn.commit()
+            global_stats["universes"][uni] = uni_stats
+            global_stats["total_changed"] += len(updates)
+
+            # Rebake overlay pour cards qui ont change
+            if do_rebake:
+                public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                for card, new_rar in updates:
+                    src = card.get("source_image_url") or card.get("image_url") or ""
+                    if not src or "/card_renders/" in src or "/card_suggestions/" in src:
+                        continue
+                    try:
+                        url = composite_card(src, new_rar, int(card["id"]))
+                        if url:
+                            final = (public_base + url) if public_base else url
+                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                      (final, card["id"]))
+                            global_stats["total_rebaked"] += 1
+                    except Exception as e:
+                        print(f"[rebalance rebake] err {card['id']}: {e}")
+                        global_stats["total_rebake_failed"] += 1
+                conn.commit()
+                print(f"[rebalance] {uni}: rebaked {global_stats['total_rebaked']}")
+
+        conn.close()
+        return jsonify({"ok": True, "stats": global_stats})
+
+
     @app.route("/api/owner/cards/wipe", methods=["POST"])
     def api_owner_cards_wipe():
         if not _is_owner_session():
