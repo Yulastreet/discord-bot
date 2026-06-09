@@ -188,6 +188,16 @@
       <input id="pcEditUniverse" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
       <label class="muted" style="font-size:11px;">Origine</label>
       <input id="pcEditSubtitle" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">Rareté proposée</label>
+      <select id="pcEditRarity" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+        <option value="">(inchangée)</option>
+        <option value="common">Common</option>
+        <option value="rare">Rare</option>
+        <option value="epic">Epic</option>
+        <option value="legendary">Legendary</option>
+        <option value="mythic">Mythic</option>
+        <option value="secret">🌈 Secret</option>
+      </select>
       <label class="muted" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <span>Nouvelle image (URL)</span>
         <a href="https://imgur.com/upload" target="_blank" rel="noopener" style="color:var(--accent,#b9f23a);text-decoration:none;font-size:11px;">📤 Upload sur imgur ↗</a>
@@ -459,6 +469,7 @@ function pcOpenEdit() {
   document.getElementById('pcEditUniverse').value = _pcEditCard.universe || '';
   document.getElementById('pcEditSubtitle').value = _pcEditCard.subtitle || '';
   document.getElementById('pcEditImage').value = '';
+  document.getElementById('pcEditRarity').value = '';
   document.getElementById('pcEditCropStatus').textContent = '';
   _pcCroppedBlob = null;
   document.getElementById('pcEditScrim').classList.add('open');
@@ -473,6 +484,7 @@ async function pcSubmitEdit() {
   const universe = document.getElementById('pcEditUniverse').value.trim();
   const subtitle = document.getElementById('pcEditSubtitle').value.trim();
   const imageUrl = document.getElementById('pcEditImage').value.trim();
+  const rarity = document.getElementById('pcEditRarity').value.trim();
   toast('Envoi en cours...');
   try {
     let r;
@@ -481,6 +493,7 @@ async function pcSubmitEdit() {
       fd.append('name', name);
       fd.append('universe', universe);
       fd.append('subtitle', subtitle);
+      if (rarity) fd.append('rarity', rarity);
       fd.append('cropped', _pcCroppedBlob, 'crop.png');
       r = await fetch(`/api/public/cards/${_pcEditCard.id}/suggest-edit`, {
         method: 'POST', body: fd,
@@ -488,7 +501,7 @@ async function pcSubmitEdit() {
     } else {
       r = await fetch(`/api/public/cards/${_pcEditCard.id}/suggest-edit`, {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, universe, subtitle, image_url: imageUrl}),
+        body: JSON.stringify({name, universe, subtitle, image_url: imageUrl, rarity}),
       });
     }
     if (r.status === 401) {

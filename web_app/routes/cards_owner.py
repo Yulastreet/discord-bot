@@ -132,12 +132,16 @@ def register_cards_owner_routes(app, deps):
             new_name = (request.form.get("name") or "").strip()[:100]
             new_universe = (request.form.get("universe") or "").strip()[:60]
             new_subtitle = (request.form.get("subtitle") or "").strip()[:80]
+            new_rarity = (request.form.get("rarity") or "").strip().lower()
         else:
             data = request.json or {}
             new_name = (data.get("name") or "").strip()[:100]
             new_universe = (data.get("universe") or "").strip()[:60]
             new_subtitle = (data.get("subtitle") or "").strip()[:80]
             new_image_url_json = (data.get("image_url") or "").strip()
+            new_rarity = (data.get("rarity") or "").strip().lower()
+        if new_rarity and new_rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
+            new_rarity = None
         if not new_name:
             return jsonify({"error": "nom requis"}), 400
 
@@ -164,10 +168,12 @@ def register_cards_owner_routes(app, deps):
             final_image_url = new_image_url_json or None
 
         # Si rien de change : reject
+        rarity_changed = new_rarity and new_rarity != (card.get("rarity") or "")
         if (new_name == card["name"]
                 and new_universe == (card.get("universe") or "")
                 and new_subtitle == (card.get("subtitle") or "")
-                and not final_image_url):
+                and not final_image_url
+                and not rarity_changed):
             return jsonify({"error": "aucun changement detecte"}), 400
 
         sname = uname or f"User#{uid}"
@@ -181,6 +187,7 @@ def register_cards_owner_routes(app, deps):
                 source_type="attachment" if is_multipart else "url",
                 suggestion_type="edit",
                 target_card_id=cid,
+                proposed_rarity=new_rarity or None,
             )
         except Exception as e:
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
@@ -468,6 +475,9 @@ def register_cards_owner_routes(app, deps):
                 v = sugg.get(k)
                 if v is not None and v != "":
                     fields.append(f"{k} = ?"); params.append(v)
+            proposed_rar = sugg.get("proposed_rarity")
+            if proposed_rar and proposed_rar in ("common","rare","epic","legendary","mythic","secret"):
+                fields.append("rarity = ?"); params.append(proposed_rar)
             image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
             if image_changed:
                 fields.append("source_image_url = ?"); params.append(new_image_url)
@@ -475,18 +485,23 @@ def register_cards_owner_routes(app, deps):
                 params.append(tcid)
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
-            if image_changed:
-                try:
-                    url = composite_card(new_image_url, target.get("rarity", "common"), tcid)
-                    if url:
-                        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
-                        final = (public_base + url) if public_base else url
-                        conn = get_db(); c = conn.cursor()
-                        c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                   (final, tcid))
-                        conn.commit(); conn.close()
-                except Exception as e:
-                    print(f"[bulk approve edit rebake] err {tcid}: {e}")
+            final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
+            rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
+            # Rebake si image OU rarete change
+            if image_changed or rarity_changed:
+                src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
+                if src_for_bake and "/card_renders/" not in src_for_bake and "/card_suggestions/" not in src_for_bake:
+                    try:
+                        url = composite_card(src_for_bake, final_rarity, tcid)
+                        if url:
+                            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                            final = (public_base + url) if public_base else url
+                            conn = get_db(); c = conn.cursor()
+                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                       (final, tcid))
+                            conn.commit(); conn.close()
+                    except Exception as e:
+                        print(f"[bulk approve edit rebake] err {tcid}: {e}")
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
             return {"ok": True, "card_id": tcid, "type": "edit"}
 

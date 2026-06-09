@@ -291,6 +291,7 @@ async function loadSugs() {
               <div class="muted" style="font-size:10px;margin-top:4px;">
                 <strong>${escapeHtml(s.name)}</strong><br>
                 ${escapeHtml(s.universe || '?')}${s.subtitle ? ' · ' + escapeHtml(s.subtitle) : ''}
+                ${s.proposed_rarity ? `<br><span class="sug-badge badge-pending" style="display:inline-block;margin-top:3px;">Rareté: ${escapeHtml(s.proposed_rarity.toUpperCase())}</span>` : ''}
               </div>
             </div>
           </div>
@@ -338,7 +339,8 @@ async function loadSugs() {
         }
         if (meta) {
           meta.innerHTML = `<strong>${escapeHtml(d.card.name)}</strong><br>
-                             ${escapeHtml(d.card.universe || '?')}${d.card.subtitle ? ' · ' + escapeHtml(d.card.subtitle) : ''}`;
+                             ${escapeHtml(d.card.universe || '?')}${d.card.subtitle ? ' · ' + escapeHtml(d.card.subtitle) : ''}
+                             <br><span class="muted" style="font-size:10px;">Rareté: ${escapeHtml((d.card.rarity || '?').toUpperCase())}</span>`;
         }
       }).catch(()=>{});
     });
