@@ -134,8 +134,33 @@
       <span id="pcPreviewUni">—</span>
       <span id="pcPreviewSub">—</span>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-      <button class="btn btn-secondary" onclick="pcClosePreview()">Fermer</button>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+      <button class="btn btn-secondary" onclick="pcOpenEdit()">✏ Proposer une modif</button>
+      <button class="btn btn-ghost" onclick="pcClosePreview()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit suggest modal -->
+<div class="pc-preview-scrim" id="pcEditScrim" onclick="pcCloseEdit(event)">
+  <div class="pc-preview-modal" onclick="event.stopPropagation()" style="max-width:480px;">
+    <h3>✏ Proposer une modification</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:14px;">
+      L'équipe valide chaque proposition. Édite les champs ci-dessous. Vide = inchangé.
+    </p>
+    <div class="col" style="gap:10px;">
+      <label class="muted" style="font-size:11px;">Nom</label>
+      <input id="pcEditName" placeholder="(nom actuel si vide)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">Univers</label>
+      <input id="pcEditUniverse" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">Origine</label>
+      <input id="pcEditSubtitle" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">Nouvelle image (URL)</label>
+      <input id="pcEditImage" placeholder="https://... (vide = inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+      <button class="btn btn-secondary" onclick="pcCloseEdit()">Annuler</button>
+      <button class="btn btn-primary" onclick="pcSubmitEdit()">Envoyer la proposition</button>
     </div>
   </div>
 </div>
@@ -259,6 +284,48 @@ function pcClosePreview(e) {
 }
 window.pcOpenPreview = pcOpenPreview;
 window.pcClosePreview = pcClosePreview;
+
+let _pcEditCard = null;
+function pcOpenEdit() {
+  if (!pcAll.length) return;
+  // Use current preview card
+  const name = document.getElementById('pcPreviewName').textContent;
+  _pcEditCard = pcAll.find(c => c.name === name);
+  if (!_pcEditCard) return;
+  document.getElementById('pcEditName').value = _pcEditCard.name || '';
+  document.getElementById('pcEditUniverse').value = _pcEditCard.universe || '';
+  document.getElementById('pcEditSubtitle').value = _pcEditCard.subtitle || '';
+  document.getElementById('pcEditImage').value = '';
+  document.getElementById('pcEditScrim').classList.add('open');
+}
+function pcCloseEdit(e) {
+  if (e && e.target.classList && !e.target.classList.contains('pc-preview-scrim')) return;
+  document.getElementById('pcEditScrim').classList.remove('open');
+}
+async function pcSubmitEdit() {
+  if (!_pcEditCard) return;
+  const payload = {
+    name:      document.getElementById('pcEditName').value.trim() || _pcEditCard.name,
+    universe:  document.getElementById('pcEditUniverse').value.trim(),
+    subtitle:  document.getElementById('pcEditSubtitle').value.trim(),
+    image_url: document.getElementById('pcEditImage').value.trim(),
+  };
+  try {
+    const r = await fetch(`/api/public/cards/${_pcEditCard.id}/suggest-edit`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Proposition envoyée (#${d.suggestion_id}). L'équipe va l'examiner.`);
+      pcCloseEdit();
+      pcClosePreview();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.pcOpenEdit = pcOpenEdit;
+window.pcCloseEdit = pcCloseEdit;
+window.pcSubmitEdit = pcSubmitEdit;
 
 pcLoadStats();
 pcLoadUniverses();

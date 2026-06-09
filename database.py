@@ -186,6 +186,15 @@ def init_db():
         created_card_id INTEGER
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_sugg_status ON card_suggestions(status)")
+    # Migration : type de suggestion + target pour edits
+    for col, ddl in (
+        ("suggestion_type", "TEXT DEFAULT 'new'"),
+        ("target_card_id", "INTEGER"),
+    ):
+        try:
+            c.execute(f"ALTER TABLE card_suggestions ADD COLUMN {col} {ddl}")
+        except Exception:
+            pass
 
     # Trades de cartes entre joueurs (multi-cartes, non-equivalent)
     c.execute('''CREATE TABLE IF NOT EXISTS card_trades (
@@ -1769,16 +1778,20 @@ def user_card_count(user_id):
 
 def card_suggestion_add(suggester_id, suggester_name, guild_id, channel_id,
                           name, universe=None, subtitle=None,
-                          image_url=None, source_type="url"):
+                          image_url=None, source_type="url",
+                          suggestion_type="new", target_card_id=None):
     conn = get_db(); c = conn.cursor()
     c.execute('''INSERT INTO card_suggestions
                  (suggester_id, suggester_name, guild_id, channel_id,
-                  name, universe, subtitle, image_url, source_type)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  name, universe, subtitle, image_url, source_type,
+                  suggestion_type, target_card_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (str(suggester_id), suggester_name,
                 str(guild_id) if guild_id else None,
                 str(channel_id) if channel_id else None,
-                name, universe, subtitle, image_url, source_type))
+                name, universe, subtitle, image_url, source_type,
+                suggestion_type,
+                int(target_card_id) if target_card_id else None))
     sid = c.lastrowid
     conn.commit(); conn.close()
     return sid

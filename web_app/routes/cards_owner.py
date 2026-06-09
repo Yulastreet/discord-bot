@@ -90,6 +90,46 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"items": [{"universe": r["universe"], "count": r["n"]} for r in rows]})
 
 
+    @app.route("/api/public/cards/<int:cid>/suggest-edit", methods=["POST"])
+    def api_public_cards_suggest_edit(cid):
+        """User logge propose modif d'une carte existante. Owner valide."""
+        from flask import session as _ses
+        from database import card_suggestion_add, card_get, get_db
+        uid = _ses.get("user_id")
+        if not uid:
+            return jsonify({"error": "login requis"}), 401
+        card = card_get(cid)
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        data = request.json or {}
+        new_name = (data.get("name") or "").strip()[:100]
+        new_universe = (data.get("universe") or "").strip()[:60]
+        new_subtitle = (data.get("subtitle") or "").strip()[:80]
+        new_image_url = (data.get("image_url") or "").strip()
+        if not new_name:
+            return jsonify({"error": "nom requis"}), 400
+        # Verify si changement reel vs current
+        if (new_name == card["name"] and new_universe == (card.get("universe") or "")
+                and new_subtitle == (card.get("subtitle") or "")
+                and (not new_image_url or new_image_url == (card.get("image_url") or ""))):
+            return jsonify({"error": "aucun changement detecte"}), 400
+        sname = _ses.get("user_name") or f"User#{uid}"
+        try:
+            sid = card_suggestion_add(
+                suggester_id=uid, suggester_name=sname,
+                guild_id=None, channel_id=None,
+                name=new_name, universe=new_universe or None,
+                subtitle=new_subtitle or None,
+                image_url=new_image_url or card.get("image_url"),
+                source_type="url",
+                suggestion_type="edit",
+                target_card_id=cid,
+            )
+        except Exception as e:
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        return jsonify({"ok": True, "suggestion_id": sid})
+
+
     @app.route("/api/public/cards/stats", methods=["GET"])
     def api_public_cards_stats():
         from database import get_db, CARD_RARITY_WEIGHTS
@@ -136,6 +176,20 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"items": items})
 
 
+    @app.route("/api/owner/card-suggestions/<int:sid>/target-card", methods=["GET"])
+    def api_owner_card_suggestion_target(sid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_suggestion_get, card_get
+        sugg = card_suggestion_get(sid)
+        if not sugg or not sugg.get("target_card_id"):
+            return jsonify({"error": "pas de target"}), 404
+        card = card_get(sugg["target_card_id"])
+        if not card:
+            return jsonify({"error": "carte cible introuvable"}), 404
+        return jsonify({"card": card})
+
+
     @app.route("/api/owner/card-suggestions/pending-count", methods=["GET"])
     def api_owner_card_suggestions_pending_count():
         if not _is_owner_session():
@@ -149,7 +203,7 @@ def register_cards_owner_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import (card_suggestion_get, card_suggestion_review,
-                                card_add)
+                                card_add, get_db)
         from flask import session as _ses
         data = request.json or {}
         sugg = card_suggestion_get(sid)
@@ -157,6 +211,31 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "suggestion introuvable"}), 404
         if sugg["status"] != "pending":
             return jsonify({"error": f"deja {sugg['status']}"}), 400
+        reviewer_id = _ses.get("user_id") or "owner"
+
+        sugg_type = sugg.get("suggestion_type") or "new"
+        if sugg_type == "edit" and sugg.get("target_card_id"):
+            # Apply edit a la carte existante
+            tcid = int(sugg["target_card_id"])
+            conn = get_db(); c = conn.cursor()
+            fields = []; params = []
+            for k in ("name", "universe", "subtitle", "image_url"):
+                v = sugg.get(k)
+                if v is not None and v != "":
+                    fields.append(f"{k} = ?"); params.append(v)
+            if not fields:
+                conn.close()
+                return jsonify({"error": "rien a modifier"}), 400
+            params.append(tcid)
+            c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
+            ok = c.rowcount > 0
+            conn.commit(); conn.close()
+            if not ok:
+                return jsonify({"error": "carte cible introuvable"}), 404
+            card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
+            return jsonify({"ok": True, "card_id": tcid, "type": "edit"})
+
+        # type 'new' : create nouvelle carte
         rarity = (data.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
             rarity = "common"
@@ -171,9 +250,8 @@ def register_cards_owner_routes(app, deps):
             )
         except Exception as e:
             return jsonify({"error": f"erreur create : {type(e).__name__}: {e}"}), 500
-        reviewer_id = _ses.get("user_id") or "owner"
         card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
-        return jsonify({"ok": True, "card_id": cid})
+        return jsonify({"ok": True, "card_id": cid, "type": "new"})
 
 
     @app.route("/api/owner/card-suggestions/<int:sid>/approve-cropped", methods=["POST"])
