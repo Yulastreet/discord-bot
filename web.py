@@ -333,6 +333,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/owner", "/api/owner",
     "/search-global", "/api/search-global",
     "/my-pass", "/api/my",
+    "/cards", "/api/public/cards",
 }
 
 def needs_guild(path):
@@ -347,12 +348,13 @@ def needs_guild(path):
         return False  # DMs / status / settings = global
     return True
 
-PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms",
+PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms", "/cards",
                         "/api/public-stats", "/api/public-status",
                         "/api/public-status/history",
                         "/api/stripe/webhook"}
 PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/",
-                           "/api/public-status/", "/uploads/bot_profile/")
+                           "/api/public-status/", "/uploads/bot_profile/",
+                           "/api/public/cards")
 
 
 def _current_user_id():
