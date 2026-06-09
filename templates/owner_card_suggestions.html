@@ -177,16 +177,29 @@ async function loadSugs() {
 window.loadSugs = loadSugs;
 
 async function approveSug(sid) {
-  const rar = document.getElementById('rar-' + sid).value;
+  // Edit suggestions n'ont pas de select rarete (rar-{sid} absent)
+  const rarEl = document.getElementById('rar-' + sid);
+  const rar = rarEl ? rarEl.value : '';
+  toast('Approbation en cours...');
   try {
     const r = await fetch(`/api/owner/card-suggestions/${sid}/approve`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({rarity: rar}),
     });
-    const d = await r.json();
-    if (d.ok) { toast(`Approuvée. Carte #${d.card_id} créée.`); loadSugs(); }
-    else toast(d.error || 'Erreur', 'error');
-  } catch (e) { toast(e.message, 'error'); }
+    let d;
+    try { d = await r.json(); }
+    catch (e) {
+      toast(`Erreur serveur (${r.status}). pm2 restart manquant ?`, 'error');
+      return;
+    }
+    if (d.ok) {
+      const msg = d.type === 'edit'
+        ? `Édition appliquée à carte #${d.card_id}.${d.rebaked ? ' Overlay re-baké.' : ''}`
+        : `Approuvée. Carte #${d.card_id} créée.`;
+      toast(msg);
+      loadSugs();
+    } else toast(d.error || `Erreur (status ${r.status})`, 'error');
+  } catch (e) { toast(e.message || 'Erreur réseau', 'error'); }
 }
 window.approveSug = approveSug;
 
