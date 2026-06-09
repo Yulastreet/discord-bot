@@ -447,22 +447,20 @@ async function loadOcStats() {
     const d = await r.json();
     const order = ['mythic','legendary','epic','rare','common'];
     const isFiltered = d.filtered_active;
+    const poolTotal = (isFiltered ? d.filtered : d.total) || 1;
     document.getElementById('ocStats').innerHTML = order.map(k => {
       const count = (d.by_rarity || {})[k] || 0;
       const rateStatic = (d.drop_rates || {})[k] || 0;
-      const rateEff = (d.drop_rates_effective || {})[k] ?? rateStatic;
       const perCard = (d.per_card_chance || {})[k] || 0;
       const perCardDisplay = perCard > 0 ? `1 sur ~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
-      const diffEff = isFiltered && Math.abs(rateEff - rateStatic) > 0.01;
-      const tip = diffEff
-        ? `Drop standard ${rateStatic}% redistribué à ${rateEff}% (rareté(s) vide(s) dans pool)`
-        : `Drop par /roll : ${rateStatic}% (poids fixe)`;
+      const poolPct = ((count / poolTotal) * 100).toFixed(2);
+      const tip = `Part du pool : ${poolPct}% (${count}/${poolTotal})\n/roll pioche rareté avec poids fixe ${rateStatic}%`;
       return `
         <div class="oc-stat rar-${k}" title="${tip}">
           <div class="lbl">${OC_RAR_LABELS[k]}</div>
           <div class="val">${count.toLocaleString('fr')}</div>
-          <div class="pct">/roll : ${rateStatic}%${diffEff ? ` → <strong style="color:#fbbf24;">${rateEff}%</strong>` : ''}</div>
-          <div class="pct" style="opacity:.85;margin-top:2px;">Cette carte : ${perCardDisplay}</div>
+          <div class="pct">Part du pool : <strong>${poolPct}%</strong></div>
+          <div class="pct" style="opacity:.85;margin-top:2px;">/roll : ${rateStatic}% · Cette carte : ${perCardDisplay}</div>
         </div>
       `;
     }).join('') + `
