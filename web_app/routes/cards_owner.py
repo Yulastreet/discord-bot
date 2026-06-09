@@ -9,7 +9,14 @@ def register_cards_owner_routes(app, deps):
     @app.route("/cards")
     def public_cards_page():
         """Page publique : tout le monde peut voir le catalogue (read-only)."""
-        return render_template("cards_public.html", active_nav="public_cards")
+        import os as _os
+        from flask import session as _ses
+        dsc = _ses.get("discord") or {}
+        uid = str(dsc.get("user_id") or "")
+        owner_id = (_os.getenv("DISCORD_OWNER_ID") or "").strip()
+        fast_edit_allowed = uid in {owner_id, "235079585509801984"} and bool(uid)
+        return render_template("cards_public.html", active_nav="public_cards",
+                                 fast_edit_allowed=fast_edit_allowed)
 
 
     @app.route("/api/public/cards", methods=["GET"])

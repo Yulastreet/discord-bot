@@ -52,6 +52,26 @@
   .pc-rar-secret    { background: linear-gradient(90deg, #ff0080, #ff8c00, #ffd700, #00ff80, #00bfff, #8a2be2); color:#fff; }
   .pc-stat.rar-secret { border-color:#ff00ff; animation: pc-rainbow 3s linear infinite; }
   @keyframes pc-rainbow { 0%,100%{border-color:#ff0080;} 25%{border-color:#ffd700;} 50%{border-color:#00ff80;} 75%{border-color:#00bfff;} }
+  .fast-edit-btn {
+    background: linear-gradient(135deg, #ffd700 0%, #ffec5c 50%, #ffd700 100%);
+    color: #2a1a00; border: 2px solid #ffd700; border-radius: 12px;
+    padding: 10px 18px; font-weight: 900; font-size: 14px;
+    text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    animation: fast-edit-glow 2s ease-in-out infinite;
+    transition: transform .12s;
+  }
+  .fast-edit-btn:hover { transform: scale(1.05); }
+  .fast-edit-btn.active {
+    background: linear-gradient(135deg, #ff6b6b, #ff9f43);
+    border-color: #ff6b6b;
+    box-shadow: 0 0 30px rgba(255, 107, 107, 0.8);
+  }
+  @keyframes fast-edit-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+    50% { box-shadow: 0 0 35px rgba(255, 215, 0, 0.9); }
+  }
+  .pc-header { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--s-4); flex-wrap:wrap; }
 
   .pc-preview-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px);
                        z-index:300; display:none; place-items:center; padding:20px; }
@@ -66,13 +86,20 @@
 </style>
 
 <div class="col gap-6">
-  <div>
-    <h1>🃏 Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="pcCount"></span></h1>
-    <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
-      Tous les personnages disponibles sur TookBot. Tire des cartes avec
-      <code>/roll</code> sur Discord, consulte ta collection via <code>/cardcollec</code>,
-      échange via <code>/cardtrade</code>.
-    </p>
+  <div class="pc-header">
+    <div>
+      <h1>🃏 Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="pcCount"></span></h1>
+      <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
+        Tous les personnages disponibles sur TookBot. Tire des cartes avec
+        <code>/roll</code> sur Discord, consulte ta collection via <code>/cardcollec</code>,
+        échange via <code>/cardtrade</code>.
+      </p>
+    </div>
+    {% if fast_edit_allowed %}
+    <button id="fastEditBtn" class="fast-edit-btn" onclick="toggleFastEdit()" title="Activer pour cliquer direct sur une carte = ouvrir le recadrage">
+      ⚡ FAST EDIT
+    </button>
+    {% endif %}
   </div>
 
   <!-- Drop rates info -->
@@ -200,6 +227,26 @@
 
 {% block scripts %}
 <script>
+let _fastEditMode = (localStorage.getItem('fastEditMode') === '1');
+function toggleFastEdit() {
+  _fastEditMode = !_fastEditMode;
+  localStorage.setItem('fastEditMode', _fastEditMode ? '1' : '0');
+  const btn = document.getElementById('fastEditBtn');
+  if (btn) {
+    btn.classList.toggle('active', _fastEditMode);
+    btn.textContent = _fastEditMode ? '⚡ FAST EDIT ON' : '⚡ FAST EDIT';
+  }
+  toast(_fastEditMode ? 'Fast Edit activé : clic carte = recadrage' : 'Fast Edit désactivé');
+}
+window.toggleFastEdit = toggleFastEdit;
+window.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('fastEditBtn');
+  if (btn && _fastEditMode) {
+    btn.classList.add('active');
+    btn.textContent = '⚡ FAST EDIT ON';
+  }
+});
+
 let pcAll = [];
 let pcPage = 1;
 let pcTotalPages = 1;
@@ -323,6 +370,18 @@ async function pcLoad() {
 function pcOpenPreview(id) {
   const c = pcAll.find(x => x.id === id);
   if (!c) return;
+  // Fast edit : skip preview, va direct au crop modal
+  if (_fastEditMode) {
+    _pcEditCard = c;
+    document.getElementById('pcEditName').value = c.name || '';
+    document.getElementById('pcEditUniverse').value = c.universe || '';
+    document.getElementById('pcEditSubtitle').value = c.subtitle || '';
+    document.getElementById('pcEditImage').value = '';
+    document.getElementById('pcEditCropStatus').textContent = '';
+    _pcCroppedBlob = null;
+    pcOpenCropFromEdit();
+    return;
+  }
   document.getElementById('pcPreviewImg').src = c.image_url || '';
   document.getElementById('pcPreviewImg').style.display = c.image_url ? 'block' : 'none';
   document.getElementById('pcPreviewName').textContent = c.name;
@@ -380,6 +439,10 @@ function pcValidateCrop() {
     _pcCroppedBlob = blob;
     document.getElementById('pcEditCropStatus').textContent = '✂ Recadrage prêt (sera envoyé avec la proposition).';
     pcCloseCrop();
+    // Fast edit : envoie direct la proposition sans repasser par edit modal
+    if (_fastEditMode) {
+      pcSubmitEdit();
+    }
   }, 'image/png');
 }
 window.pcOpenCropFromEdit = pcOpenCropFromEdit;
