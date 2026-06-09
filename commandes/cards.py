@@ -31,6 +31,7 @@ RARITY_COLORS = {
     "epic":      0xa86dff,  # violet
     "legendary": 0xffa726,  # orange
     "mythic":    0xff3d57,  # rouge
+    "secret":    0xff00ff,  # magenta (representation arc-en-ciel)
 }
 RARITY_EMOJIS = {
     "common":    "⚪",
@@ -38,17 +39,49 @@ RARITY_EMOJIS = {
     "epic":      "🟣",
     "legendary": "🟠",
     "mythic":    "🔴",
+    "secret":    "🌈",  # fallback unicode si custom emoji 'rainbow' indispo
 }
 
-# Mapping rarete -> nom emoji custom Discord (support server)
+# Mapping rarete -> nom emoji custom Discord pour THUMBNAIL embed
 _RARITY_CUSTOM_NAME = {
     "common":    "commun",
     "rare":      "rare",
     "epic":      "epic",
     "legendary": "legendaire",
     "mythic":    "mythic",
+    "secret":    "???",     # badge ??? en thumbnail pour secret
+}
+
+# Mapping rarete -> nom emoji custom Discord INLINE (titre carte)
+# Pour secret : emoji 'rainbow' a cote du nom au lieu de l'unicode 🌈
+_RARITY_INLINE_EMOJI_NAME = {
+    "secret":    "rainbow",
 }
 _rarity_emoji_cache: dict[str, str] = {}
+
+def _get_inline_emoji_str(bot, emoji_name: str) -> str:
+    """Cherche emoji custom par nom dans tous les guilds, retourne string
+    '<:name:id>' ou '<a:name:id>' utilisable inline. '' si pas trouve."""
+    if not emoji_name:
+        return ""
+    try:
+        for e in bot.emojis:
+            if e.name.lower() == emoji_name.lower():
+                return str(e)
+    except Exception:
+        pass
+    return ""
+
+
+def _get_rarity_title_emoji(bot, rarity: str) -> str:
+    """Pour secret : emoji custom 'rainbow' inline. Sinon : unicode par defaut."""
+    inline_name = _RARITY_INLINE_EMOJI_NAME.get(rarity)
+    if inline_name:
+        s = _get_inline_emoji_str(bot, inline_name)
+        if s:
+            return s
+    return RARITY_EMOJIS.get(rarity, "⚪")
+
 
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
     """Cherche emoji custom dans tous les guilds du bot (support server inclus).
@@ -213,10 +246,11 @@ def setup_cards_commands(bot, deps):
         # Embed minimaliste
         rarity = card.get("rarity", "common")
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        emoji = RARITY_EMOJIS.get(rarity, "⚪")
+        emoji = _get_rarity_title_emoji(bot, rarity)
         origine = card.get("subtitle") or "?"
         univers = card.get("universe") or "?"
-        desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}\n**Univers :** {univers}"
+        rarity_display = "SECRETE ???" if rarity == "secret" else rarity.upper()
+        desc = f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}"
         embed = discord.Embed(
             title=f"{emoji} {card['name']}"[:256],
             description=desc,

@@ -49,6 +49,9 @@
   .pc-rar-epic      { background:#a86dff; }
   .pc-rar-legendary { background:#ffa726; color:#2a1a00; }
   .pc-rar-mythic    { background:#ff3d57; }
+  .pc-rar-secret    { background: linear-gradient(90deg, #ff0080, #ff8c00, #ffd700, #00ff80, #00bfff, #8a2be2); color:#fff; }
+  .pc-stat.rar-secret { border-color:#ff00ff; animation: pc-rainbow 3s linear infinite; }
+  @keyframes pc-rainbow { 0%,100%{border-color:#ff0080;} 25%{border-color:#ffd700;} 50%{border-color:#00ff80;} 75%{border-color:#00bfff;} }
 
   .pc-preview-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px);
                        z-index:300; display:none; place-items:center; padding:20px; }
@@ -86,6 +89,7 @@
     <input type="search" id="pcSearch" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="pcDebouncedReload()">
     <select id="pcRarity" onchange="pcResetAndLoad()">
       <option value="">Toutes raretés</option>
+      <option value="secret">🌈 Secret ???</option>
       <option value="mythic">Mythic (1%)</option>
       <option value="legendary">Legendary (4%)</option>
       <option value="epic">Epic (15%)</option>
@@ -207,7 +211,7 @@ window.pcDebouncedReload=pcDebouncedReload;
 window.pcResetAndLoad=pcResetAndLoad;
 window.pcPrev=pcPrev; window.pcNext=pcNext; window.pcJumpTo=pcJumpTo;
 
-const RAR_LABELS = {common:'COMMON', rare:'RARE', epic:'EPIC', legendary:'LEGENDARY', mythic:'MYTHIC'};
+const RAR_LABELS = {secret:'🌈 SECRET ???', mythic:'MYTHIC', legendary:'LEGENDARY', epic:'EPIC', rare:'RARE', common:'COMMON'};
 
 async function pcLoadStats() {
   // Recupere les filtres actuels pour stats dynamiques
@@ -221,7 +225,7 @@ async function pcLoadStats() {
   try {
     const r = await fetch('/api/public/cards/stats?' + params.toString());
     const d = await r.json();
-    const order = ['mythic','legendary','epic','rare','common'];
+    const order = ['secret','mythic','legendary','epic','rare','common'];
     const isFiltered = d.filtered_active;
     const fmtPct = (v) => v >= 0.01 ? v.toFixed(2) + '%' : (v * 100).toFixed(2) + '×10⁻²%';
     const poolTotal = (isFiltered ? d.filtered : d.total) || 1;

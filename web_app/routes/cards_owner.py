@@ -45,12 +45,12 @@ def register_cards_owner_routes(app, deps):
         sort_sql = {
             "name_asc":     "name ASC",
             "name_desc":    "name DESC",
-            "rarity_desc":  "CASE rarity WHEN 'mythic' THEN 0 WHEN 'legendary' THEN 1 "
-                             "WHEN 'epic' THEN 2 WHEN 'rare' THEN 3 WHEN 'common' THEN 4 "
-                             "ELSE 5 END ASC, name ASC",
+            "rarity_desc":  "CASE rarity WHEN 'secret' THEN 0 WHEN 'mythic' THEN 1 "
+                             "WHEN 'legendary' THEN 2 WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 "
+                             "WHEN 'common' THEN 5 ELSE 6 END ASC, name ASC",
             "rarity_asc":   "CASE rarity WHEN 'common' THEN 0 WHEN 'rare' THEN 1 "
                              "WHEN 'epic' THEN 2 WHEN 'legendary' THEN 3 WHEN 'mythic' THEN 4 "
-                             "ELSE 5 END ASC, name ASC",
+                             "WHEN 'secret' THEN 5 ELSE 6 END ASC, name ASC",
             "universe_asc": "universe ASC, name ASC",
             "newest":       "id DESC",
             "oldest":       "id ASC",
@@ -352,7 +352,7 @@ def register_cards_owner_routes(app, deps):
 
         # type 'new' : create nouvelle carte
         rarity = (data.get("rarity") or "common").strip()
-        if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
         try:
             cid = card_add(
@@ -387,7 +387,7 @@ def register_cards_owner_routes(app, deps):
         if sugg["status"] != "pending":
             return jsonify({"error": f"deja {sugg['status']}"}), 400
         rarity = (request.form.get("rarity") or "common").strip()
-        if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
         if "cropped" not in request.files:
             return jsonify({"error": "champ 'cropped' manquant"}), 400
@@ -479,12 +479,12 @@ def register_cards_owner_routes(app, deps):
         sort_sql = {
             "name_asc":     "name ASC",
             "name_desc":    "name DESC",
-            "rarity_desc":  "CASE rarity WHEN 'mythic' THEN 0 WHEN 'legendary' THEN 1 "
-                             "WHEN 'epic' THEN 2 WHEN 'rare' THEN 3 WHEN 'common' THEN 4 "
-                             "ELSE 5 END ASC, name ASC",
+            "rarity_desc":  "CASE rarity WHEN 'secret' THEN 0 WHEN 'mythic' THEN 1 "
+                             "WHEN 'legendary' THEN 2 WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 "
+                             "WHEN 'common' THEN 5 ELSE 6 END ASC, name ASC",
             "rarity_asc":   "CASE rarity WHEN 'common' THEN 0 WHEN 'rare' THEN 1 "
                              "WHEN 'epic' THEN 2 WHEN 'legendary' THEN 3 WHEN 'mythic' THEN 4 "
-                             "ELSE 5 END ASC, name ASC",
+                             "WHEN 'secret' THEN 5 ELSE 6 END ASC, name ASC",
             "universe_asc": "universe ASC, name ASC",
             "newest":       "id DESC",
             "oldest":       "id ASC",
@@ -523,7 +523,7 @@ def register_cards_owner_routes(app, deps):
         if not name:
             return jsonify({"error": "name requis"}), 400
         rarity = (data.get("rarity") or "common").strip()
-        if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             return jsonify({"error": "rarity invalide"}), 400
         cid = card_add(
             name=name,
@@ -546,7 +546,7 @@ def register_cards_owner_routes(app, deps):
         fields = {k: v for k, v in data.items() if k in allowed}
         if not fields:
             return jsonify({"error": "rien a update"}), 400
-        if "rarity" in fields and fields["rarity"] not in ("common", "rare", "epic", "legendary", "mythic"):
+        if "rarity" in fields and fields["rarity"] not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             return jsonify({"error": "rarity invalide"}), 400
         conn = get_db(); c = conn.cursor()
         sets = ", ".join(f"{k} = ?" for k in fields.keys())
@@ -868,7 +868,7 @@ def register_cards_owner_routes(app, deps):
         import os as _os
         data = request.json or {}
         overlay_rarity = (data.get("overlay_rarity") or "").strip().lower()
-        if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+        if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             return jsonify({"error": "overlay_rarity invalide"}), 400
         conn = get_db(); c = conn.cursor()
         row = c.execute("SELECT id, source_image_url, image_url FROM cards WHERE id = ?",
@@ -978,7 +978,7 @@ def register_cards_owner_routes(app, deps):
         for k, v in fields.items():
             if k not in allowed: continue
             if v is None or (isinstance(v, str) and v.strip() == ""): continue
-            if k == "rarity" and v not in ("common", "rare", "epic", "legendary", "mythic"):
+            if k == "rarity" and v not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
                 continue
             clean[k] = v.strip() if isinstance(v, str) else v
         if not clean:
@@ -1046,7 +1046,7 @@ def register_cards_owner_routes(app, deps):
         except (ValueError, TypeError):
             return jsonify({"error": "ids invalides"}), 400
         overlay_rarity = (data.get("overlay_rarity") or "").strip().lower()
-        if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+        if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             return jsonify({"error": "overlay_rarity invalide"}), 400
 
         conn = get_db(); c = conn.cursor()

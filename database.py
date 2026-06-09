@@ -1604,6 +1604,7 @@ CARD_RARITY_WEIGHTS = {
     "epic":      15,
     "legendary": 4,
     "mythic":    1,
+    "secret":    0,   # poids 0 = jamais roll auto, owner-give uniquement
 }
 
 
@@ -1687,13 +1688,16 @@ def card_count_total():
     return int(n)
 
 
+_ROLL_WEIGHTS = {k: v for k, v in CARD_RARITY_WEIGHTS.items() if v > 0}
+
+
 def card_roll_random(universe: str | None = None):
     """Pioche une carte selon les poids de rarete.
     Si universe fourni : filtre uniquement cette categorie.
     Retourne None si la table cards (ou la categorie) est vide."""
     rarity = _rd_cards.choices(
-        list(CARD_RARITY_WEIGHTS.keys()),
-        weights=list(CARD_RARITY_WEIGHTS.values()),
+        list(_ROLL_WEIGHTS.keys()),
+        weights=list(_ROLL_WEIGHTS.values()),
         k=1,
     )[0]
     conn = get_db(); c = conn.cursor()

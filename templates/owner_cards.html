@@ -42,6 +42,9 @@
   .rar-epic      { background: #a86dff; }
   .rar-legendary { background: #ffa726; color: #2a1a00; }
   .rar-mythic    { background: #ff3d57; }
+  .rar-secret    { background: linear-gradient(90deg, #ff0080, #ff8c00, #ffd700, #00ff80, #00bfff, #8a2be2); color: #fff; }
+  @keyframes rainbow-border { 0%,100%{border-color:#ff0080;} 25%{border-color:#ffd700;} 50%{border-color:#00ff80;} 75%{border-color:#00bfff;} }
+  .oc-stat.rar-secret { border-color:#ff00ff; animation: rainbow-border 3s linear infinite; }
   .oc-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-bottom: var(--s-3); }
   .oc-stat { background: var(--bg-1); border:1px solid var(--border); border-radius:10px; padding:8px 12px; }
   .oc-stat .lbl { font-size:10px; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; }
@@ -137,6 +140,7 @@
     <input type="search" id="searchInput" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="debouncedReload()">
     <select id="raritySelect" onchange="resetPageAndLoad()">
       <option value="">Toutes raretés</option>
+      <option value="secret">🌈 Secret ???</option>
       <option value="mythic">Mythic</option>
       <option value="legendary">Legendary</option>
       <option value="epic">Epic</option>
@@ -288,6 +292,7 @@
         <option value="epic">🟣 Epic</option>
         <option value="legendary">🟠 Legendary</option>
         <option value="mythic">🔴 Mythic</option>
+        <option value="secret">🌈 Secret ???</option>
       </select>
       <button class="btn btn-secondary" onclick="rebakeCurrentOverlay()">🎨 Re-bake</button>
       <button class="btn btn-secondary" onclick="openCardCropper()">✂ Recadrer</button>
@@ -315,6 +320,7 @@
         <option value="epic">Epic</option>
         <option value="legendary">Legendary</option>
         <option value="mythic">Mythic</option>
+        <option value="secret">🌈 Secret ???</option>
       </select>
       <label class="muted" style="font-size:11px;">Univers</label>
       <input id="bulkUniverse" placeholder="(inchangé)" class="input" style="width:100%;">
@@ -389,6 +395,7 @@
         <option value="epic">Epic</option>
         <option value="legendary">Legendary</option>
         <option value="mythic">Mythic</option>
+        <option value="secret">🌈 Secret ???</option>
       </select>
       <input id="editImage" placeholder="Image URL (vide = auto-fetch via Wikipedia)" class="input" style="width:100%;">
       <textarea id="editDesc" placeholder="Description" rows="3" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
@@ -434,7 +441,7 @@ function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-const OC_RAR_LABELS = {common:'COMMON', rare:'RARE', epic:'EPIC', legendary:'LEGENDARY', mythic:'MYTHIC'};
+const OC_RAR_LABELS = {secret:'🌈 SECRET ???', mythic:'MYTHIC', legendary:'LEGENDARY', epic:'EPIC', rare:'RARE', common:'COMMON'};
 async function loadOcStats() {
   const search = (document.getElementById('searchInput') || {}).value || '';
   const rar = (document.getElementById('raritySelect') || {}).value || '';
@@ -446,7 +453,7 @@ async function loadOcStats() {
   try {
     const r = await fetch('/api/public/cards/stats?' + params.toString());
     const d = await r.json();
-    const order = ['mythic','legendary','epic','rare','common'];
+    const order = ['secret','mythic','legendary','epic','rare','common'];
     const isFiltered = d.filtered_active;
     const poolTotal = (isFiltered ? d.filtered : d.total) || 1;
     document.getElementById('ocStats').innerHTML = order.map(k => {
