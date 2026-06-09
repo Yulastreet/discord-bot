@@ -228,7 +228,9 @@
     <span style="flex:1;"></span>
     <button class="btn btn-secondary" onclick="selectVisiblePage()">Tout sur cette page</button>
     <button class="btn btn-secondary" onclick="clearSelection()">Désélectionner</button>
-    <button class="btn btn-danger" onclick="deleteSelected()">🗑 Supprimer sélection</button>
+    <button class="btn btn-primary" onclick="openBulkEdit()">✏ Modifier</button>
+    <button class="btn btn-secondary" onclick="openBulkRebake()">🎨 Re-baker overlay</button>
+    <button class="btn btn-danger" onclick="deleteSelected()">🗑 Supprimer</button>
   </div>
 
   <div id="cardsGrid" class="cards-grid">
@@ -273,6 +275,60 @@
       <button class="btn btn-ghost" onclick="editCurrentCard()">✏ Edit</button>
       <button class="btn btn-danger" onclick="deleteCurrentCard()">🗑 Delete</button>
       <button class="btn btn-secondary" onclick="closePreview()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk edit modal -->
+<div class="card-preview-scrim" id="bulkEditScrim" onclick="closeBulkEdit(event)">
+  <div class="card-preview-modal" onclick="event.stopPropagation()" style="max-width:480px;">
+    <h3>Modifier <span id="bulkEditCount">0</span> carte(s)</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:14px;">
+      Seuls les champs remplis seront appliqués. Vide = inchangé.
+    </p>
+    <div class="col" style="gap:10px;">
+      <label class="muted" style="font-size:11px;">Rareté</label>
+      <select id="bulkRarity" class="input">
+        <option value="">(inchangé)</option>
+        <option value="common">Common</option>
+        <option value="rare">Rare</option>
+        <option value="epic">Epic</option>
+        <option value="legendary">Legendary</option>
+        <option value="mythic">Mythic</option>
+      </select>
+      <label class="muted" style="font-size:11px;">Univers</label>
+      <input id="bulkUniverse" placeholder="(inchangé)" class="input" style="width:100%;">
+      <label class="muted" style="font-size:11px;">Origine</label>
+      <input id="bulkSubtitle" placeholder="(inchangé)" class="input" style="width:100%;">
+      <label class="muted" style="font-size:11px;">Description</label>
+      <textarea id="bulkDesc" placeholder="(inchangé)" rows="2" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
+    </div>
+    <div class="actions" style="margin-top:14px;">
+      <button class="btn btn-secondary" onclick="closeBulkEdit()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitBulkEdit()">Appliquer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk rebake modal -->
+<div class="card-preview-scrim" id="bulkRebakeScrim" onclick="closeBulkRebake(event)">
+  <div class="card-preview-modal" onclick="event.stopPropagation()" style="max-width:420px;">
+    <h3>Re-baker overlay sur <span id="bulkRebakeCount">0</span> carte(s)</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:14px;">
+      Applique cet overlay à toute la sélection. Source originale requise.
+      Les cartes sans source d'origine seront skippées.
+    </p>
+    <select id="bulkOverlayRarity" class="input" style="width:100%;">
+      <option value="">— Choisir overlay —</option>
+      <option value="common">⚪ Common</option>
+      <option value="rare">🔵 Rare</option>
+      <option value="epic">🟣 Epic</option>
+      <option value="legendary">🟠 Legendary</option>
+      <option value="mythic">🔴 Mythic</option>
+    </select>
+    <div class="actions" style="margin-top:14px;">
+      <button class="btn btn-secondary" onclick="closeBulkRebake()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitBulkRebake()">Appliquer</button>
     </div>
   </div>
 </div>
@@ -958,6 +1014,74 @@ window.toggleSelectId = toggleSelectId;
 window.selectVisiblePage = selectVisiblePage;
 window.clearSelection = clearSelection;
 window.deleteSelected = deleteSelected;
+
+function openBulkEdit() {
+  if (!_selected.size) { toast('Aucune carte sélectionnée.', 'error'); return; }
+  document.getElementById('bulkEditCount').textContent = _selected.size;
+  ['bulkRarity','bulkUniverse','bulkSubtitle','bulkDesc'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('bulkEditScrim').classList.add('open');
+}
+function closeBulkEdit(e) {
+  if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
+  document.getElementById('bulkEditScrim').classList.remove('open');
+}
+async function submitBulkEdit() {
+  const fields = {
+    rarity:      document.getElementById('bulkRarity').value,
+    universe:    document.getElementById('bulkUniverse').value.trim(),
+    subtitle:    document.getElementById('bulkSubtitle').value.trim(),
+    description: document.getElementById('bulkDesc').value.trim(),
+  };
+  const filled = Object.entries(fields).filter(([k,v]) => v && v.length).reduce((a,[k,v]) => (a[k]=v,a),{});
+  if (!Object.keys(filled).length) { toast('Aucun champ rempli.', 'error'); return; }
+  if (!confirm(`Appliquer ${Object.keys(filled).length} champ(s) à ${_selected.size} carte(s) ?`)) return;
+  try {
+    const r = await fetch('/api/owner/cards/bulk-update', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ids: [..._selected], fields: filled}),
+    });
+    const d = await r.json();
+    if (d.ok) { toast(`${d.updated} carte(s) modifiée(s).`); closeBulkEdit(); loadCards(); }
+    else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.openBulkEdit = openBulkEdit;
+window.closeBulkEdit = closeBulkEdit;
+window.submitBulkEdit = submitBulkEdit;
+
+function openBulkRebake() {
+  if (!_selected.size) { toast('Aucune carte sélectionnée.', 'error'); return; }
+  document.getElementById('bulkRebakeCount').textContent = _selected.size;
+  document.getElementById('bulkOverlayRarity').value = '';
+  document.getElementById('bulkRebakeScrim').classList.add('open');
+}
+function closeBulkRebake(e) {
+  if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
+  document.getElementById('bulkRebakeScrim').classList.remove('open');
+}
+async function submitBulkRebake() {
+  const rar = document.getElementById('bulkOverlayRarity').value;
+  if (!rar) { toast('Choisis un overlay.', 'error'); return; }
+  if (!confirm(`Re-baker overlay ${rar.toUpperCase()} sur ${_selected.size} carte(s) ? Peut prendre du temps.`)) return;
+  toast('Re-bake en cours...');
+  try {
+    const r = await fetch('/api/owner/cards/bulk-rebake', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ids: [..._selected], overlay_rarity: rar}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Baked ${d.stats.baked} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
+      bumpCache();
+      closeBulkRebake();
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.openBulkRebake = openBulkRebake;
+window.closeBulkRebake = closeBulkRebake;
+window.submitBulkRebake = submitBulkRebake;
 
 async function loadUniversesOwner() {
   try {

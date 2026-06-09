@@ -763,6 +763,93 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "deleted": int(deleted)})
 
 
+    @app.route("/api/owner/cards/bulk-update", methods=["POST"])
+    def api_owner_cards_bulk_update():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        data = request.json or {}
+        ids = data.get("ids") or []
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"error": "ids vide"}), 400
+        try:
+            ids_int = [int(x) for x in ids][:5000]
+        except (ValueError, TypeError):
+            return jsonify({"error": "ids invalides"}), 400
+        fields = data.get("fields") or {}
+        allowed = {"rarity", "universe", "subtitle", "description"}
+        clean = {}
+        for k, v in fields.items():
+            if k not in allowed: continue
+            if v is None or (isinstance(v, str) and v.strip() == ""): continue
+            if k == "rarity" and v not in ("common", "rare", "epic", "legendary", "mythic"):
+                continue
+            clean[k] = v.strip() if isinstance(v, str) else v
+        if not clean:
+            return jsonify({"error": "aucun champ a update"}), 400
+        sets = ", ".join(f"{k} = ?" for k in clean.keys())
+        placeholders = ",".join("?" * len(ids_int))
+        sql_params = list(clean.values()) + ids_int
+        conn = get_db(); c = conn.cursor()
+        c.execute(f"UPDATE cards SET {sets} WHERE id IN ({placeholders})", sql_params)
+        updated = c.rowcount
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "updated": updated, "applied": clean})
+
+
+    @app.route("/api/owner/cards/bulk-rebake", methods=["POST"])
+    def api_owner_cards_bulk_rebake():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        from services.cards_overlay import composite_card
+        import os as _os
+        data = request.json or {}
+        ids = data.get("ids") or []
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"error": "ids vide"}), 400
+        try:
+            ids_int = [int(x) for x in ids][:5000]
+        except (ValueError, TypeError):
+            return jsonify({"error": "ids invalides"}), 400
+        overlay_rarity = (data.get("overlay_rarity") or "").strip().lower()
+        if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic"):
+            return jsonify({"error": "overlay_rarity invalide"}), 400
+
+        conn = get_db(); c = conn.cursor()
+        placeholders = ",".join("?" * len(ids_int))
+        rows = c.execute(
+            f"SELECT id, source_image_url, image_url FROM cards "
+            f"WHERE id IN ({placeholders})", ids_int).fetchall()
+        conn.close()
+
+        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        stats = {"baked": 0, "skipped": 0, "failed": 0}
+        updates = []
+        for r in rows:
+            src = r["source_image_url"] or r["image_url"] or ""
+            if not src or "/card_renders/" in src or "/card_suggestions/" in src:
+                stats["skipped"] += 1; continue
+            try:
+                url = composite_card(src, overlay_rarity, int(r["id"]))
+            except Exception as e:
+                print(f"[bulk_rebake] err {r['id']}: {e}")
+                stats["failed"] += 1; continue
+            if not url:
+                stats["failed"] += 1; continue
+            final = (public_base + url) if public_base else url
+            updates.append((final, int(r["id"])))
+            stats["baked"] += 1
+
+        if updates:
+            conn = get_db(); c = conn.cursor()
+            for final, rid in updates:
+                c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                           (final, rid))
+            conn.commit(); conn.close()
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/bulk-delete", methods=["POST"])
     def api_owner_cards_bulk_delete():
         if not _is_owner_session():
