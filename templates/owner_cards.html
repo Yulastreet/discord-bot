@@ -453,13 +453,15 @@ async function loadOcStats() {
       const rateEff = (d.drop_rates_effective || {})[k] ?? rateStatic;
       const perCard = (d.per_card_chance || {})[k] || 0;
       const perCardDisplay = perCard > 0 ? `1 sur ~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
-      const rateMain = isFiltered ? rateEff : rateStatic;
-      const rateLabel = isFiltered ? 'Drop effectif' : 'Drop rareté';
+      const diffEff = isFiltered && Math.abs(rateEff - rateStatic) > 0.01;
+      const tip = diffEff
+        ? `Drop standard ${rateStatic}% redistribué à ${rateEff}% (rareté(s) vide(s) dans pool)`
+        : `Drop par /roll : ${rateStatic}% (poids fixe)`;
       return `
-        <div class="oc-stat rar-${k}">
+        <div class="oc-stat rar-${k}" title="${tip}">
           <div class="lbl">${OC_RAR_LABELS[k]}</div>
           <div class="val">${count.toLocaleString('fr')}</div>
-          <div class="pct">${rateLabel} : ${rateMain}%</div>
+          <div class="pct">/roll : ${rateStatic}%${diffEff ? ` → <strong style="color:#fbbf24;">${rateEff}%</strong>` : ''}</div>
           <div class="pct" style="opacity:.85;margin-top:2px;">Cette carte : ${perCardDisplay}</div>
         </div>
       `;
