@@ -290,6 +290,26 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"card": card})
 
 
+    @app.route("/api/owner/card-suggestions/counts", methods=["GET"])
+    def api_owner_card_sugg_counts():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT status, COUNT(*) AS n FROM card_suggestions GROUP BY status").fetchall()
+        conn.close()
+        counts = {r["status"]: r["n"] for r in rows}
+        return jsonify({
+            "pending":  int(counts.get("pending", 0)),
+            "approved": int(counts.get("approved", 0)),
+            "rejected": int(counts.get("rejected", 0)),
+            "countered": int(counts.get("countered", 0)),
+            "cancelled": int(counts.get("cancelled", 0)),
+            "total":    int(sum(counts.values())),
+        })
+
+
     @app.route("/api/owner/card-suggestions/pending-count", methods=["GET"])
     def api_owner_card_suggestions_pending_count():
         if not _is_owner_session():

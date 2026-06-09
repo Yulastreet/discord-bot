@@ -36,6 +36,16 @@
     margin-bottom: var(--s-3); flex-wrap: wrap;
   }
   .sug-bulk-bar.active { display: flex; }
+  .sug-counts { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom: var(--s-4); }
+  .sug-count {
+    background: var(--bg-1); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px;
+  }
+  .sug-count .lbl { font-size:11px; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; }
+  .sug-count .val { font-size:22px; font-weight:800; margin-top:4px; color:var(--text); }
+  .sug-count.pending  { border-color:#fbbf24; }
+  .sug-count.approved { border-color:#4ade80; }
+  .sug-count.rejected { border-color:#ff3d57; }
 </style>
 
 <div class="col gap-7">
@@ -46,6 +56,8 @@
       Approuve = crée la carte. Refuse = rejette avec raison optionnelle.
     </p>
   </div>
+
+  <div class="sug-counts" id="sugCounts"></div>
 
   <div class="sug-toolbar">
     <select id="statusFilter" onchange="loadSugs()">
@@ -169,6 +181,7 @@ async function bulkApproveSugs() {
       toast(`Approved ${d.stats.approved} / failed ${d.stats.failed}`);
       _sugSelected.clear();
       loadSugs();
+      loadSugCounts();
     } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -187,6 +200,7 @@ async function bulkRejectSugs() {
       toast(`Refusées : ${d.rejected}, skipped : ${d.skipped}`);
       _sugSelected.clear();
       loadSugs();
+      loadSugCounts();
     } else toast(d.error || 'Erreur', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -405,6 +419,33 @@ window.openCropper = openCropper;
 window.cropReset = cropReset;
 window.closeCropper = closeCropper;
 window.submitCrop = submitCrop;
+
+async function loadSugCounts() {
+  try {
+    const r = await fetch('/api/owner/card-suggestions/counts');
+    const d = await r.json();
+    document.getElementById('sugCounts').innerHTML = `
+      <div class="sug-count pending">
+        <div class="lbl">⏳ Pending</div>
+        <div class="val">${(d.pending || 0).toLocaleString('fr')}</div>
+      </div>
+      <div class="sug-count approved">
+        <div class="lbl">✅ Approuvées</div>
+        <div class="val">${(d.approved || 0).toLocaleString('fr')}</div>
+      </div>
+      <div class="sug-count rejected">
+        <div class="lbl">❌ Refusées</div>
+        <div class="val">${(d.rejected || 0).toLocaleString('fr')}</div>
+      </div>
+      <div class="sug-count">
+        <div class="lbl">📊 TOTAL</div>
+        <div class="val">${(d.total || 0).toLocaleString('fr')}</div>
+      </div>
+    `;
+  } catch (e) {}
+}
+loadSugCounts();
+setInterval(loadSugCounts, 30000);
 
 loadSugs();
 </script>
