@@ -733,15 +733,27 @@ def setup_cards_commands(bot, deps):
             await interaction.response.send_message(
                 "Cette commande n'est pas utilisable en DM.", ephemeral=True)
             return
+        # View avec bouton invite serveur support
+        def _support_view():
+            v = discord.ui.View(timeout=120)
+            v.add_item(discord.ui.Button(
+                label="🔗 Rejoindre serveur support TookBot",
+                style=discord.ButtonStyle.link,
+                url="https://discord.gg/hx4KEFSGJA",
+            ))
+            return v
+
         if SUPPORT_GUILD_ID and interaction.guild.id != SUPPORT_GUILD_ID:
             await interaction.response.send_message(
-                "Cette commande est uniquement utilisable sur le serveur support TookBot.",
-                ephemeral=True)
+                "Cette commande est uniquement utilisable sur le **serveur support TookBot**.\n"
+                "Rejoins-le pour proposer des cartes :",
+                view=_support_view(), ephemeral=True)
             return
         if interaction.channel.id != SUGGEST_CHANNEL_ID:
             await interaction.response.send_message(
-                f"Cette commande est uniquement utilisable dans <#{SUGGEST_CHANNEL_ID}>.",
-                ephemeral=True)
+                f"Cette commande est uniquement utilisable dans <#{SUGGEST_CHANNEL_ID}>.\n"
+                f"Va dans ce salon pour suggérer une carte :",
+                view=_support_view(), ephemeral=True)
             return
 
         # Resolve image
