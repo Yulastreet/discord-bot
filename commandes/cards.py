@@ -31,7 +31,7 @@ RARITY_COLORS = {
     "epic":      0xa86dff,  # violet
     "legendary": 0xffa726,  # orange
     "mythic":    0xff3d57,  # rouge
-    "secret":    0x9d4edd,  # violet vif (mystere/legendaire)
+    "secret":    0x1c1c1e,  # noir profond (laisse le rainbow border briller)
 }
 RARITY_EMOJIS = {
     "common":    "⚪",
@@ -384,9 +384,16 @@ def setup_cards_commands(bot, deps):
                 return
             rarity = card.get("rarity", "common")
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-            emoji = RARITY_EMOJIS.get(rarity, "⚪")
+            emoji = _get_rarity_title_emoji(bot, rarity)
             origine = card.get("subtitle") or "?"
-            desc = f"**Rareté :** {rarity.upper()}\n**Origine :** {origine}"
+            univers = card.get("universe") or "?"
+            rarity_display = "?????" if rarity == "secret" else rarity.upper()
+            flavor = (card.get("flavor_subtitle") or "").strip()
+            desc_parts = []
+            if flavor:
+                desc_parts.append(f"_**{flavor}**_")
+            desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}")
+            desc = "\n\n".join(desc_parts)
             embed = discord.Embed(
                 title=f"{emoji} {card['name']}"[:256],
                 description=desc,
