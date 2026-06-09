@@ -210,25 +210,38 @@ window.pcPrev=pcPrev; window.pcNext=pcNext; window.pcJumpTo=pcJumpTo;
 const RAR_LABELS = {common:'COMMON', rare:'RARE', epic:'EPIC', legendary:'LEGENDARY', mythic:'MYTHIC'};
 
 async function pcLoadStats() {
+  // Recupere les filtres actuels pour stats dynamiques
+  const q = (document.getElementById('pcSearch') || {}).value || '';
+  const rar = (document.getElementById('pcRarity') || {}).value || '';
+  const uni = (document.getElementById('pcUniverse') || {}).value || '';
+  const params = new URLSearchParams();
+  if (q.trim()) params.set('q', q.trim());
+  if (rar) params.set('rarity', rar);
+  if (uni) params.set('universe', uni);
   try {
-    const r = await fetch('/api/public/cards/stats');
+    const r = await fetch('/api/public/cards/stats?' + params.toString());
     const d = await r.json();
     const order = ['mythic','legendary','epic','rare','common'];
+    const isFiltered = d.filtered_active;
+    const fmtPct = (v) => v >= 0.01 ? v.toFixed(2) + '%' : (v * 100).toFixed(2) + '×10⁻²%';
     document.getElementById('pcStats').innerHTML = order.map(k => {
       const count = (d.by_rarity || {})[k] || 0;
       const rate = (d.drop_rates || {})[k] || 0;
+      const perCard = (d.per_card_chance || {})[k] || 0;
+      const perCardDisplay = perCard > 0 ? `1 sur ~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
       return `
         <div class="pc-stat rar-${k}">
           <div class="lbl">${RAR_LABELS[k]}</div>
           <div class="val">${count.toLocaleString('fr')}</div>
           <div class="pct">Drop : ${rate}%</div>
+          ${isFiltered ? `<div class="pct" style="opacity:.8;">/carte : ${perCardDisplay}</div>` : ''}
         </div>
       `;
     }).join('') + `
       <div class="pc-stat">
-        <div class="lbl">TOTAL</div>
-        <div class="val">${(d.total || 0).toLocaleString('fr')}</div>
-        <div class="pct">cartes au catalogue</div>
+        <div class="lbl">${isFiltered ? 'FILTRÉ' : 'TOTAL'}</div>
+        <div class="val">${(isFiltered ? d.filtered : d.total || 0).toLocaleString('fr')}</div>
+        <div class="pct">${isFiltered ? `sur ${(d.total || 0).toLocaleString('fr')} total` : 'cartes au catalogue'}</div>
       </div>
     `;
   } catch (e) {}
@@ -249,6 +262,8 @@ async function pcLoadUniverses() {
 }
 
 async function pcLoad() {
+  // Refresh stats avec filtres actuels en meme temps
+  pcLoadStats();
   const params = new URLSearchParams();
   const q = document.getElementById('pcSearch').value.trim();
   const rar = document.getElementById('pcRarity').value;

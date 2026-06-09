@@ -172,20 +172,51 @@ def register_cards_owner_routes(app, deps):
     @app.route("/api/public/cards/stats", methods=["GET"])
     def api_public_cards_stats():
         from database import get_db, CARD_RARITY_WEIGHTS
+        rarity = request.args.get("rarity") or None
+        universe = request.args.get("universe") or None
+        search = request.args.get("q") or None
+
+        where = ["1=1"]; params = []
+        if rarity:
+            where.append("rarity = ?"); params.append(rarity)
+        if universe:
+            where.append("universe = ?"); params.append(universe)
+        if search:
+            where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
+            like = f"%{search.lower()}%"
+            params += [like, like, like]
+
         conn = get_db(); c = conn.cursor()
         total = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
-        by_rarity = {r["rarity"]: r["n"] for r in c.execute(
-            "SELECT rarity, COUNT(*) AS n FROM cards GROUP BY rarity").fetchall()}
+        filtered = c.execute(
+            f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}",
+            params).fetchone()["n"]
+        by_rarity_rows = c.execute(
+            f"SELECT rarity, COUNT(*) AS n FROM cards WHERE {' AND '.join(where)} "
+            f"GROUP BY rarity", params).fetchall()
+        by_rarity = {r["rarity"]: r["n"] for r in by_rarity_rows}
         conn.close()
-        # Drop rates calculees depuis poids
+
+        # Poids globaux par rarete (independants du filtre)
         total_weight = sum(CARD_RARITY_WEIGHTS.values())
         drop_rates = {k: round(v * 100 / total_weight, 2)
                        for k, v in CARD_RARITY_WEIGHTS.items()}
+        # Probabilite par carte specifique au sein du filtre :
+        # = drop_rate_rarete% / count_dans_rarete_filtree
+        per_card_chance = {}
+        for k, count in by_rarity.items():
+            if count > 0:
+                per_card_chance[k] = round((drop_rates.get(k, 0) / count), 4)
+            else:
+                per_card_chance[k] = 0
         return jsonify({
             "total": int(total),
+            "filtered": int(filtered),
             "by_rarity": by_rarity,
             "drop_rates": drop_rates,
+            "per_card_chance": per_card_chance,
             "cooldown_seconds": 3600,
+            "filtered_active": bool(rarity or universe or search),
         })
 
 
