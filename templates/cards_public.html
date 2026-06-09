@@ -161,8 +161,11 @@
       <input id="pcEditUniverse" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
       <label class="muted" style="font-size:11px;">Origine</label>
       <input id="pcEditSubtitle" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
-      <label class="muted" style="font-size:11px;">Nouvelle image (URL)</label>
-      <input id="pcEditImage" placeholder="https://... (vide = inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span>Nouvelle image (URL)</span>
+        <a href="https://imgur.com/upload" target="_blank" rel="noopener" style="color:var(--accent,#b9f23a);text-decoration:none;font-size:11px;">📤 Upload sur imgur ↗</a>
+      </label>
+      <input id="pcEditImage" placeholder="https://i.imgur.com/... (vide = inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
       <div id="pcEditCropStatus" class="muted" style="font-size:11px;font-style:italic;"></div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px;flex-wrap:wrap;">
