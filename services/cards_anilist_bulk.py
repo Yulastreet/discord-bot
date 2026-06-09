@@ -86,7 +86,8 @@ def _clean_description(raw: str | None) -> str:
 
 def bulk_import_anilist(pages: int = 20, sleep_between: float = 2.5,
                          skip_existing: bool = True,
-                         wipe_first: bool = False) -> dict:
+                         wipe_first: bool = False,
+                         start_page: int = 1) -> dict:
     """Recupere top N personnages, insere dans cards.
 
     pages * 50 = total cartes (default 20 pages = 1000).
@@ -109,7 +110,7 @@ def bulk_import_anilist(pages: int = 20, sleep_between: float = 2.5,
     stats = {"inserted": 0, "skipped": 0, "failed": 0, "total_seen": 0}
     rank_counter = 0
 
-    for page in range(1, pages + 1):
+    for page in range(start_page, start_page + pages):
         data = _gql(page)
         chars = (((data or {}).get("data") or {}).get("Page") or {}).get("characters") or []
         if not chars:
