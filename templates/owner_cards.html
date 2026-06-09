@@ -42,6 +42,25 @@
   .rar-epic      { background: #a86dff; }
   .rar-legendary { background: #ffa726; color: #2a1a00; }
   .rar-mythic    { background: #ff3d57; }
+  .card-tile.selected { outline: 3px solid #ff3d57; outline-offset: -2px; }
+  .card-tile-sel {
+    position: absolute; top: 6px; left: 6px;
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(0,0,0,.6); display: grid; place-items: center;
+    z-index: 5; cursor: pointer;
+  }
+  .card-tile.selected .card-tile-sel { background: #ff3d57; }
+  .card-tile-sel::after { content: ''; display: none; }
+  .card-tile.selected .card-tile-sel::after {
+    display: block; color: #fff; font-weight: 900; font-size: 13px; content: '✓';
+  }
+  .bulk-bar {
+    position: sticky; top: 0; z-index: 80;
+    background: var(--bg-1); border: 1px solid #ff3d57; border-radius: 12px;
+    padding: 10px 14px; display: none; gap: 10px; align-items: center;
+    margin-bottom: var(--s-3);
+  }
+  .bulk-bar.active { display: flex; }
 
   /* Menu dropdown <details> */
   .cards-menu { position: relative; }
@@ -199,7 +218,17 @@
         <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
       </div>
     </details>
+    <button class="btn btn-secondary" onclick="toggleSelectMode()" id="selModeBtn">☑ Sélection</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe</button>
+  </div>
+
+  <div class="bulk-bar" id="bulkBar">
+    <strong id="bulkCount">0</strong>
+    <span class="muted">carte(s) sélectionnée(s)</span>
+    <span style="flex:1;"></span>
+    <button class="btn btn-secondary" onclick="selectVisiblePage()">Tout sur cette page</button>
+    <button class="btn btn-secondary" onclick="clearSelection()">Désélectionner</button>
+    <button class="btn btn-danger" onclick="deleteSelected()">🗑 Supprimer sélection</button>
   </div>
 
   <div id="cardsGrid" class="cards-grid">
@@ -304,6 +333,8 @@ let _debTimer = null;
 let _currentPage = 1;
 let _totalPages = 1;
 let _imgCacheBust = '';  // append ?v=N apres une modif pour forcer reload images
+let _selectMode = false;
+let _selected = new Set();  // ids selectionnees
 function debouncedReload() {
   clearTimeout(_debTimer);
   _debTimer = setTimeout(() => { _currentPage = 1; loadCards(); }, 300);
@@ -359,9 +390,15 @@ async function loadCards() {
       grid.innerHTML = '<div class="muted">Aucune carte.</div>';
       return;
     }
-    grid.innerHTML = _allCards.map(c => `
-      <div class="card-tile" onclick="openPreview(${c.id})">
+    grid.innerHTML = _allCards.map(c => {
+      const sel = _selected.has(c.id);
+      const cls = sel ? 'card-tile selected' : 'card-tile';
+      const onClick = _selectMode ? `toggleSelectId(${c.id})` : `openPreview(${c.id})`;
+      const selBox = _selectMode ? '<div class="card-tile-sel"></div>' : '';
+      return `
+      <div class="${cls}" onclick="${onClick}">
         <div class="card-tile-img">
+          ${selBox}
           ${c.image_url ? `<img src="${escapeHtml(c.image_url + _imgCacheBust)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
           <span class="rarity-badge rar-${c.rarity}">${c.rarity}</span>
         </div>
@@ -370,7 +407,8 @@ async function loadCards() {
           <div class="card-tile-sub">${escapeHtml(c.universe || '')}${c.subtitle ? ' · ' + escapeHtml(c.subtitle) : ''}</div>
         </div>
       </div>
-    `).join('');
+    `;}).join('');
+    updateBulkBar();
   } catch (e) {
     toast(e.message, 'error');
   }
@@ -866,6 +904,60 @@ async function wipeCatalog() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.wipeCatalog = wipeCatalog;
+
+// ===== SELECTION MULTIPLE =====
+function toggleSelectMode() {
+  _selectMode = !_selectMode;
+  document.getElementById('selModeBtn').classList.toggle('btn-primary', _selectMode);
+  document.getElementById('selModeBtn').classList.toggle('btn-secondary', !_selectMode);
+  document.getElementById('selModeBtn').textContent = _selectMode ? '✕ Quitter sélection' : '☑ Sélection';
+  if (!_selectMode) _selected.clear();
+  loadCards();
+}
+function toggleSelectId(id) {
+  if (_selected.has(id)) _selected.delete(id);
+  else _selected.add(id);
+  // Re-render minimal pour update visuel
+  loadCards();
+}
+function selectVisiblePage() {
+  _allCards.forEach(c => _selected.add(c.id));
+  loadCards();
+}
+function clearSelection() {
+  _selected.clear();
+  loadCards();
+}
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = _selected.size;
+  document.getElementById('bulkCount').textContent = count;
+  bar.classList.toggle('active', _selectMode && count > 0);
+}
+async function deleteSelected() {
+  if (!_selected.size) return;
+  if (!confirm(`Supprimer ${_selected.size} carte(s) + leurs collections joueurs ? Irreversible.`)) return;
+  if (!confirm('Vraiment ? 2eme confirmation.')) return;
+  const ids = [..._selected];
+  toast('Suppression...');
+  try {
+    const r = await fetch('/api/owner/cards/bulk-delete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ids}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`${d.deleted} carte(s) supprimée(s), ${d.user_cards_deleted} possession(s) retirée(s).`);
+      _selected.clear();
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.toggleSelectMode = toggleSelectMode;
+window.toggleSelectId = toggleSelectId;
+window.selectVisiblePage = selectVisiblePage;
+window.clearSelection = clearSelection;
+window.deleteSelected = deleteSelected;
 
 async function loadUniversesOwner() {
   try {

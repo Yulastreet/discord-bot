@@ -763,6 +763,32 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "deleted": int(deleted)})
 
 
+    @app.route("/api/owner/cards/bulk-delete", methods=["POST"])
+    def api_owner_cards_bulk_delete():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        data = request.json or {}
+        ids = data.get("ids") or []
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"error": "ids vide"}), 400
+        try:
+            ids_int = [int(x) for x in ids][:5000]
+        except (ValueError, TypeError):
+            return jsonify({"error": "ids invalides"}), 400
+        if not ids_int:
+            return jsonify({"error": "ids vide"}), 400
+        placeholders = ",".join("?" * len(ids_int))
+        conn = get_db(); c = conn.cursor()
+        c.execute(f"DELETE FROM user_cards WHERE card_id IN ({placeholders})", ids_int)
+        uc_deleted = c.rowcount
+        c.execute(f"DELETE FROM cards WHERE id IN ({placeholders})", ids_int)
+        deleted = c.rowcount
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "deleted": deleted,
+                         "user_cards_deleted": uc_deleted})
+
+
     @app.route("/api/owner/cards/wipe", methods=["POST"])
     def api_owner_cards_wipe():
         if not _is_owner_session():
