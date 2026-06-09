@@ -80,6 +80,15 @@ def register_cards_owner_routes(app, deps):
         })
 
 
+    @app.route("/api/public/cards/<int:cid>", methods=["GET"])
+    def api_public_cards_detail(cid):
+        from database import card_get
+        card = card_get(cid)
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        return jsonify({"card": card})
+
+
     @app.route("/api/public/cards/universes", methods=["GET"])
     def api_public_cards_universes():
         from database import get_db

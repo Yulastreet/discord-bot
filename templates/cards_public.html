@@ -450,5 +450,33 @@ window.pcSubmitEdit = pcSubmitEdit;
 pcLoadStats();
 pcLoadUniverses();
 pcLoad();
+
+// Auto-open edit modal si ?edit=<id> dans URL (deep link depuis Discord)
+async function pcCheckEditDeeplink() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const editId = parseInt(urlParams.get('edit'), 10);
+  if (!Number.isFinite(editId) || editId < 1) return;
+  // Fetch detail carte sans filter (skip per_page list)
+  try {
+    const r = await fetch(`/api/public/cards?q=&per_page=1&page=1&id=${editId}`);
+    // Pas d'endpoint /api/public/cards/<id>, on fait recherche par id via list
+    // Mieux : appel direct /api/public/cards puis trouve dans items. Limite.
+    // Workaround : fetch large per_page jusqu'a trouver ou utiliser nouvel endpoint.
+    // Simplification : fetch carte via dedicated detail endpoint si dispo.
+    const r2 = await fetch(`/api/public/cards/${editId}`);
+    if (r2.ok) {
+      const d = await r2.json();
+      const card = d.card || d;
+      if (card && card.id) {
+        // Ajoute a pcAll si pas present
+        if (!pcAll.find(x => x.id === card.id)) pcAll.push(card);
+        // Trigger openPreview puis openEdit
+        pcOpenPreview(card.id);
+        setTimeout(() => pcOpenEdit(), 200);
+      }
+    }
+  } catch (e) {}
+}
+pcCheckEditDeeplink();
 </script>
 {% endblock %}

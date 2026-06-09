@@ -118,12 +118,21 @@ def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     return (True, None)
 
 
+_DASHBOARD_URL = (os.getenv("DASHBOARD_URL") or "https://dashboard.tookbot.click").rstrip("/")
+
+
 class OwnersView(discord.ui.View):
-    """Bouton 'Voir possesseurs' qui liste tous les owners d'une carte."""
+    """Boutons 'Voir possesseurs' + 'Modifier' sous embed carte."""
     def __init__(self, card_id: int, card_name: str):
         super().__init__(timeout=600)
         self.card_id = card_id
         self.card_name = card_name
+        # Bouton link 'Modifier' -> dashboard /cards?edit=<id>
+        edit_url = f"{_DASHBOARD_URL}/cards?edit={card_id}"
+        self.add_item(discord.ui.Button(
+            label="Modifier", style=discord.ButtonStyle.link,
+            emoji="✏", url=edit_url,
+        ))
 
     @discord.ui.button(label="Voir possesseurs", style=discord.ButtonStyle.secondary,
                         emoji="👥")
