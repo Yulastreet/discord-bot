@@ -494,7 +494,10 @@ def register_cards_owner_routes(app, deps):
             f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}",
             params).fetchone()["n"]
         rows = c.execute(
-            f"SELECT * FROM cards WHERE {' AND '.join(where)} "
+            f"SELECT *, "
+            f"  (SELECT COUNT(*) FROM user_cards WHERE card_id = cards.id) AS owned_count, "
+            f"  (SELECT COUNT(DISTINCT user_id) FROM user_cards WHERE card_id = cards.id) AS owners_count "
+            f"FROM cards WHERE {' AND '.join(where)} "
             f"ORDER BY {sort_sql} LIMIT ? OFFSET ?",
             params + [per_page, offset]).fetchall()
         items = [dict(r) for r in rows]

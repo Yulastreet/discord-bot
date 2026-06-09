@@ -42,6 +42,13 @@
   .rar-epic      { background: #a86dff; }
   .rar-legendary { background: #ffa726; color: #2a1a00; }
   .rar-mythic    { background: #ff3d57; }
+  .owned-badge {
+    position: absolute; bottom: 6px; right: 6px;
+    padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700;
+    background: rgba(0,0,0,.7); color: #fff; backdrop-filter: blur(4px);
+    display: flex; align-items: center; gap: 3px;
+  }
+  .owned-badge.zero { background: rgba(255,255,255,.1); color: var(--text-3); }
   .card-tile.selected { outline: 3px solid #ff3d57; outline-offset: -2px; }
   .card-tile-sel {
     position: absolute; top: 6px; left: 6px;
@@ -457,6 +464,7 @@ async function loadCards() {
           ${selBox}
           ${c.image_url ? `<img src="${escapeHtml(c.image_url + _imgCacheBust)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
           <span class="rarity-badge rar-${c.rarity}">${c.rarity}</span>
+          ${(c.owned_count ?? 0) > 0 ? `<span class="owned-badge" title="${c.owned_count} possession(s) chez ${c.owners_count} joueur(s)">👥 ${c.owned_count}</span>` : '<span class="owned-badge zero" title="Personne ne possède cette carte">○ 0</span>'}
         </div>
         <div class="card-tile-meta">
           <div class="card-tile-name">${escapeHtml(c.name)}</div>
