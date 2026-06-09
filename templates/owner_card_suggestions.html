@@ -46,24 +46,23 @@
   .sug-count.pending  { border-color:#fbbf24; }
   .sug-count.approved { border-color:#4ade80; }
   .sug-count.rejected { border-color:#ff3d57; }
-  .sug-layout { display: grid; grid-template-columns: 1fr 260px; gap: var(--s-4); }
-  @media (max-width: 1024px) { .sug-layout { grid-template-columns: 1fr; } }
+  .sug-header { display:flex; gap:var(--s-3); align-items:flex-start; flex-wrap:wrap; margin-bottom: var(--s-3); }
+  .sug-header > div:first-child { flex: 1; min-width: 280px; }
   .sug-leaderboard {
     background: var(--bg-1); border:1px solid var(--border); border-radius:14px;
-    padding: 14px; position: sticky; top: var(--s-3); align-self: start;
+    padding: 12px 14px; min-width: 240px; max-width: 320px;
   }
-  .sug-leaderboard h3 { margin: 0 0 12px; font-size: 14px; }
+  .sug-leaderboard h3 { margin: 0 0 8px; font-size: 13px; }
   .sug-lb-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 0; border-bottom: 1px solid var(--border);
-    font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; font-size: 12px;
   }
-  .sug-lb-row:last-child { border-bottom: none; }
-  .sug-lb-rank { font-weight: 800; color: var(--text-2); min-width: 26px; }
+  .sug-lb-row + .sug-lb-row { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 1px; }
+  .sug-lb-rank { font-weight: 800; color: var(--text-2); min-width: 24px; }
   .sug-lb-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sug-lb-count {
-    background: var(--bg-2); padding: 2px 8px; border-radius: 999px;
-    font-weight: 700; font-size: 12px;
+    background: var(--bg-2); padding: 2px 7px; border-radius: 999px;
+    font-weight: 700; font-size: 11px;
   }
   .sug-lb-row:nth-child(1) .sug-lb-rank { color: #ffd700; }
   .sug-lb-row:nth-child(2) .sug-lb-rank { color: #c0c0c0; }
@@ -71,12 +70,20 @@
 </style>
 
 <div class="col gap-7">
-  <div>
-    <h1>Suggestions de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="sugCount"></span></h1>
-    <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
-      Suggestions communauté via <code>/cardsuggest</code> sur serveur support.
-      Approuve = crée la carte. Refuse = rejette avec raison optionnelle.
-    </p>
+  <div class="sug-header">
+    <div>
+      <h1>Suggestions de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="sugCount"></span></h1>
+      <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
+        Suggestions communauté via <code>/cardsuggest</code> sur serveur support.
+        Approuve = crée la carte. Refuse = rejette avec raison optionnelle.
+      </p>
+    </div>
+    <aside class="sug-leaderboard">
+      <h3>🏆 Top contributeurs</h3>
+      <div id="sugLeaderboard">
+        <div class="muted" style="font-size:11px;">Chargement…</div>
+      </div>
+    </aside>
   </div>
 
   <div class="sug-counts" id="sugCounts"></div>
@@ -90,6 +97,15 @@
     </select>
     <button class="btn btn-secondary" onclick="loadSugs()">⟳ Rafraichir</button>
     <button class="btn btn-secondary" onclick="toggleSugSelectMode()" id="sugSelModeBtn">☑ Sélection</button>
+    <select id="sugColsSelect" onchange="applyGridCols()" title="Cartes par ligne">
+      <option value="auto" selected>🎛 Auto</option>
+      <option value="1">1 / ligne</option>
+      <option value="2">2 / ligne</option>
+      <option value="3">3 / ligne</option>
+      <option value="4">4 / ligne</option>
+      <option value="5">5 / ligne</option>
+      <option value="6">6 / ligne</option>
+    </select>
   </div>
 
   <div class="sug-bulk-bar" id="sugBulkBar">
@@ -111,17 +127,8 @@
     <button class="btn btn-danger" onclick="bulkRejectSugs()">❌ Refuser tout</button>
   </div>
 
-  <div class="sug-layout">
-    <div id="sugGrid" class="sug-grid">
-      <div class="muted">Chargement…</div>
-    </div>
-    <aside class="sug-leaderboard">
-      <h3>🏆 Top contributeurs</h3>
-      <p class="muted" style="font-size:11px;margin-bottom:10px;">Suggestions approuvées</p>
-      <div id="sugLeaderboard">
-        <div class="muted" style="font-size:12px;">Chargement…</div>
-      </div>
-    </aside>
+  <div id="sugGrid" class="sug-grid">
+    <div class="muted">Chargement…</div>
   </div>
 </div>
 
@@ -479,6 +486,25 @@ async function loadSugCounts() {
 }
 loadSugCounts();
 setInterval(loadSugCounts, 30000);
+
+function applyGridCols() {
+  const val = document.getElementById('sugColsSelect').value;
+  const grid = document.getElementById('sugGrid');
+  if (val === 'auto') {
+    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
+  } else {
+    grid.style.gridTemplateColumns = `repeat(${val}, 1fr)`;
+  }
+  // Persist user pref
+  localStorage.setItem('sugCols', val);
+}
+window.applyGridCols = applyGridCols;
+// Restore pref au load
+const _savedCols = localStorage.getItem('sugCols');
+if (_savedCols) {
+  document.getElementById('sugColsSelect').value = _savedCols;
+  applyGridCols();
+}
 
 async function loadSugLeaderboard() {
   try {
