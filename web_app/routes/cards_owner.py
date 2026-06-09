@@ -199,23 +199,42 @@ def register_cards_owner_routes(app, deps):
         by_rarity = {r["rarity"]: r["n"] for r in by_rarity_rows}
         conn.close()
 
-        # Poids globaux par rarete (independants du filtre)
+        # Poids globaux par rarete (constants /roll)
         total_weight = sum(CARD_RARITY_WEIGHTS.values())
-        drop_rates = {k: round(v * 100 / total_weight, 2)
-                       for k, v in CARD_RARITY_WEIGHTS.items()}
-        # Probabilite par carte specifique au sein du filtre :
-        # = drop_rate_rarete% / count_dans_rarete_filtree
+        weights = {k: v for k, v in CARD_RARITY_WEIGHTS.items()}
+        drop_rates_static = {k: round(v * 100 / total_weight, 2)
+                              for k, v in weights.items()}
+
+        # Calcul EFFECTIF en tenant compte du fallback /roll :
+        # Quand rarete piochee mais count(rarete) == 0 dans filtre,
+        # fallback random uniforme dans pool filtre. Redistribue les poids.
+        # P(rarete=X)_effectif = (w_X/W si c_X>0 sinon 0)
+        #                       + sum_{R, c_R=0} (w_R/W) * (c_X / T)
+        all_rarities = list(weights.keys())
+        # counts per rarity dans filtre (0 si absent)
+        cnt = {r: int(by_rarity.get(r, 0)) for r in all_rarities}
+        T = sum(cnt.values()) or 1
+        fallback_weight = sum(weights[r] for r in all_rarities if cnt[r] == 0)
+        drop_rates_effective = {}
+        for X in all_rarities:
+            direct = (weights[X] / total_weight) if cnt[X] > 0 else 0
+            redistrib = (fallback_weight / total_weight) * (cnt[X] / T) if T > 0 else 0
+            drop_rates_effective[X] = round((direct + redistrib) * 100, 2)
+
+        # Probabilite par carte specifique (basee sur effectif)
         per_card_chance = {}
-        for k, count in by_rarity.items():
-            if count > 0:
-                per_card_chance[k] = round((drop_rates.get(k, 0) / count), 4)
+        for X in all_rarities:
+            if cnt[X] > 0:
+                per_card_chance[X] = round(drop_rates_effective[X] / cnt[X], 4)
             else:
-                per_card_chance[k] = 0
+                per_card_chance[X] = 0
+
         return jsonify({
             "total": int(total),
             "filtered": int(filtered),
             "by_rarity": by_rarity,
-            "drop_rates": drop_rates,
+            "drop_rates": drop_rates_static,             # weights bruts /roll
+            "drop_rates_effective": drop_rates_effective, # apres redistribution
             "per_card_chance": per_card_chance,
             "cooldown_seconds": 3600,
             "filtered_active": bool(rarity or universe or search),

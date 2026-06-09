@@ -226,18 +226,22 @@ async function pcLoadStats() {
     const fmtPct = (v) => v >= 0.01 ? v.toFixed(2) + '%' : (v * 100).toFixed(2) + '×10⁻²%';
     document.getElementById('pcStats').innerHTML = order.map(k => {
       const count = (d.by_rarity || {})[k] || 0;
-      const rate = (d.drop_rates || {})[k] || 0;
+      const rateStatic = (d.drop_rates || {})[k] || 0;
+      const rateEff = (d.drop_rates_effective || {})[k] ?? rateStatic;
       const perCard = (d.per_card_chance || {})[k] || 0;
       let perCardDisplay = '—';
       if (perCard > 0) {
         const ratio = Math.round(100/perCard);
         perCardDisplay = `1 sur ~${ratio.toLocaleString('fr')}`;
       }
+      // Si effectif différent du brut (redistribution active) signale
+      const rateMain = isFiltered ? rateEff : rateStatic;
+      const rateLabel = isFiltered ? 'Drop effectif' : 'Drop rareté';
       return `
         <div class="pc-stat rar-${k}">
           <div class="lbl">${RAR_LABELS[k]}</div>
           <div class="val">${count.toLocaleString('fr')}</div>
-          <div class="pct">Drop rareté : ${rate}%</div>
+          <div class="pct">${rateLabel} : ${rateMain}%</div>
           <div class="pct" style="opacity:.85;margin-top:2px;">Cette carte : ${perCardDisplay}</div>
         </div>
       `;
