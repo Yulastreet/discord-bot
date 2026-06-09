@@ -872,7 +872,44 @@ def register_cards_owner_routes(app, deps):
         c.execute(f"UPDATE cards SET {sets} WHERE id IN ({placeholders})", sql_params)
         updated = c.rowcount
         conn.commit(); conn.close()
-        return jsonify({"ok": True, "updated": updated, "applied": clean})
+
+        # Si rarete changee : auto-rebake overlay pour ces cards
+        rebake_stats = None
+        if "rarity" in clean:
+            from services.cards_overlay import composite_card
+            import os as _os
+            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+            new_rarity = clean["rarity"]
+            conn = get_db(); c = conn.cursor()
+            rows = c.execute(
+                f"SELECT id, source_image_url, image_url FROM cards "
+                f"WHERE id IN ({placeholders})", ids_int).fetchall()
+            conn.close()
+            rebake_stats = {"baked": 0, "skipped": 0, "failed": 0}
+            updates = []
+            for r in rows:
+                src = r["source_image_url"] or r["image_url"] or ""
+                if not src or "/card_renders/" in src or "/card_suggestions/" in src:
+                    rebake_stats["skipped"] += 1; continue
+                try:
+                    url = composite_card(src, new_rarity, int(r["id"]))
+                except Exception as e:
+                    print(f"[bulk_update auto-rebake] err {r['id']}: {e}")
+                    rebake_stats["failed"] += 1; continue
+                if not url:
+                    rebake_stats["failed"] += 1; continue
+                final = (public_base + url) if public_base else url
+                updates.append((final, int(r["id"])))
+                rebake_stats["baked"] += 1
+            if updates:
+                conn = get_db(); c = conn.cursor()
+                for final, rid in updates:
+                    c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                               (final, rid))
+                conn.commit(); conn.close()
+
+        return jsonify({"ok": True, "updated": updated, "applied": clean,
+                         "rebake": rebake_stats})
 
 
     @app.route("/api/owner/cards/bulk-rebake", methods=["POST"])
