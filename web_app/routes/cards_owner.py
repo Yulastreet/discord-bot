@@ -257,9 +257,11 @@ def register_cards_owner_routes(app, deps):
     def api_owner_cards_list():
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from database import card_list_all, card_count_filtered, card_count_total
+        from database import get_db
         rarity = request.args.get("rarity") or None
+        universe = request.args.get("universe") or None
         search = request.args.get("q") or None
+        sort = (request.args.get("sort") or "name_asc").strip()
         try:
             per_page = max(1, min(int(request.args.get("per_page", 50)), 500))
         except ValueError:
@@ -269,17 +271,49 @@ def register_cards_owner_routes(app, deps):
         except ValueError:
             page = 1
         offset = (page - 1) * per_page
-        items = card_list_all(limit=per_page, offset=offset,
-                                rarity=rarity, search=search)
-        filtered = card_count_filtered(rarity=rarity, search=search)
-        total = card_count_total()
+
+        conn = get_db(); c = conn.cursor()
+        where = ["1=1"]
+        params = []
+        if rarity:
+            where.append("rarity = ?"); params.append(rarity)
+        if universe:
+            where.append("universe = ?"); params.append(universe)
+        if search:
+            where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
+            like = f"%{search.lower()}%"
+            params += [like, like, like]
+        sort_sql = {
+            "name_asc":     "name ASC",
+            "name_desc":    "name DESC",
+            "rarity_desc":  "CASE rarity WHEN 'mythic' THEN 0 WHEN 'legendary' THEN 1 "
+                             "WHEN 'epic' THEN 2 WHEN 'rare' THEN 3 WHEN 'common' THEN 4 "
+                             "ELSE 5 END ASC, name ASC",
+            "rarity_asc":   "CASE rarity WHEN 'common' THEN 0 WHEN 'rare' THEN 1 "
+                             "WHEN 'epic' THEN 2 WHEN 'legendary' THEN 3 WHEN 'mythic' THEN 4 "
+                             "ELSE 5 END ASC, name ASC",
+            "universe_asc": "universe ASC, name ASC",
+            "newest":       "id DESC",
+            "oldest":       "id ASC",
+        }.get(sort, "name ASC")
+
+        filtered = c.execute(
+            f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}",
+            params).fetchone()["n"]
+        rows = c.execute(
+            f"SELECT * FROM cards WHERE {' AND '.join(where)} "
+            f"ORDER BY {sort_sql} LIMIT ? OFFSET ?",
+            params + [per_page, offset]).fetchall()
+        items = [dict(r) for r in rows]
+        total = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
+        conn.close()
         return jsonify({
             "items": items,
-            "total": total,
-            "filtered": filtered,
+            "total": int(total),
+            "filtered": int(filtered),
             "page": page,
             "per_page": per_page,
-            "total_pages": max(1, (filtered + per_page - 1) // per_page),
+            "total_pages": max(1, (int(filtered) + per_page - 1) // per_page),
         })
 
 
