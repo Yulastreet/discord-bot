@@ -49,7 +49,7 @@ _RARITY_CUSTOM_NAME = {
     "epic":      "epic",
     "legendary": "legendaire",
     "mythic":    "mythic",
-    "secret":    "???",     # badge ??? en thumbnail pour secret
+    "secret":    "secret",  # badge thumbnail emoji custom (support server)
 }
 
 # Mapping rarete -> nom emoji custom Discord INLINE (titre carte)
