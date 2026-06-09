@@ -5,6 +5,8 @@
 {% block crumb %}Catalogue Cartes{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
+<script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
 <style>
   .pc-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom: var(--s-5); }
   .pc-stat {
@@ -157,10 +159,33 @@
       <input id="pcEditSubtitle" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
       <label class="muted" style="font-size:11px;">Nouvelle image (URL)</label>
       <input id="pcEditImage" placeholder="https://... (vide = inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <div id="pcEditCropStatus" class="muted" style="font-size:11px;font-style:italic;"></div>
     </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
-      <button class="btn btn-secondary" onclick="pcCloseEdit()">Annuler</button>
-      <button class="btn btn-primary" onclick="pcSubmitEdit()">Envoyer la proposition</button>
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="pcOpenCropFromEdit()">✂ Recadrer l'image actuelle</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="pcCloseEdit()">Annuler</button>
+        <button class="btn btn-primary" onclick="pcSubmitEdit()">Envoyer la proposition</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cropper modal public -->
+<div id="pcCropScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:301;display:none;place-items:center;padding:20px;">
+  <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:720px;width:100%;">
+    <h3 style="margin:0 0 12px;">✂ Recadrer la carte</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">Ratio fixe 2:3. Output 450×675px.</p>
+    <div style="max-height:60vh;overflow:hidden;background:#000;border-radius:8px;">
+      <img id="pcCropImg" src="" style="display:block;max-width:100%;">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="_pcCropper && _pcCropper.reset()">Reset cadre</button>
+      <button class="btn btn-ghost" onclick="_pcCropper && _pcCropper.zoom(0.2)">🔍+</button>
+      <button class="btn btn-ghost" onclick="_pcCropper && _pcCropper.zoom(-0.2)">🔍−</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-ghost" onclick="pcCloseCrop()">Annuler</button>
+      <button class="btn btn-primary" onclick="pcValidateCrop()">Valider recadrage</button>
     </div>
   </div>
 </div>
@@ -286,6 +311,51 @@ window.pcOpenPreview = pcOpenPreview;
 window.pcClosePreview = pcClosePreview;
 
 let _pcEditCard = null;
+let _pcCropper = null;
+let _pcCroppedBlob = null;
+
+function pcOpenCropFromEdit() {
+  if (!_pcEditCard) return;
+  const src = _pcEditCard.image_url;
+  if (!src) { toast('Pas d\'image à recadrer.', 'error'); return; }
+  const img = document.getElementById('pcCropImg');
+  img.crossOrigin = 'anonymous';
+  img.src = src;
+  document.getElementById('pcCropScrim').style.display = 'grid';
+  img.onload = () => {
+    if (_pcCropper) { _pcCropper.destroy(); _pcCropper = null; }
+    _pcCropper = new Cropper(img, {
+      aspectRatio: 2/3, viewMode: 0, autoCropArea: 1.0,
+      background: true, movable: true, zoomable: true,
+      scalable: false, rotatable: false,
+      cropBoxMovable: true, cropBoxResizable: true,
+      minCropBoxWidth: 50, minCropBoxHeight: 75,
+      checkOrientation: false,
+    });
+  };
+}
+function pcCloseCrop() {
+  if (_pcCropper) { _pcCropper.destroy(); _pcCropper = null; }
+  document.getElementById('pcCropScrim').style.display = 'none';
+}
+function pcValidateCrop() {
+  if (!_pcCropper) return;
+  const canvas = _pcCropper.getCroppedCanvas({
+    width: 450, height: 675, fillColor: '#1a1a1a',
+    imageSmoothingQuality: 'high',
+  });
+  if (!canvas) { toast('Erreur canvas.', 'error'); return; }
+  canvas.toBlob((blob) => {
+    if (!blob) { toast('Erreur blob.', 'error'); return; }
+    _pcCroppedBlob = blob;
+    document.getElementById('pcEditCropStatus').textContent = '✂ Recadrage prêt (sera envoyé avec la proposition).';
+    pcCloseCrop();
+  }, 'image/png');
+}
+window.pcOpenCropFromEdit = pcOpenCropFromEdit;
+window.pcCloseCrop = pcCloseCrop;
+window.pcValidateCrop = pcValidateCrop;
+
 function pcOpenEdit() {
   if (!pcAll.length) return;
   // Use current preview card
@@ -296,6 +366,8 @@ function pcOpenEdit() {
   document.getElementById('pcEditUniverse').value = _pcEditCard.universe || '';
   document.getElementById('pcEditSubtitle').value = _pcEditCard.subtitle || '';
   document.getElementById('pcEditImage').value = '';
+  document.getElementById('pcEditCropStatus').textContent = '';
+  _pcCroppedBlob = null;
   document.getElementById('pcEditScrim').classList.add('open');
 }
 function pcCloseEdit(e) {
@@ -304,20 +376,31 @@ function pcCloseEdit(e) {
 }
 async function pcSubmitEdit() {
   if (!_pcEditCard) return;
-  const payload = {
-    name:      document.getElementById('pcEditName').value.trim() || _pcEditCard.name,
-    universe:  document.getElementById('pcEditUniverse').value.trim(),
-    subtitle:  document.getElementById('pcEditSubtitle').value.trim(),
-    image_url: document.getElementById('pcEditImage').value.trim(),
-  };
+  const name = document.getElementById('pcEditName').value.trim() || _pcEditCard.name;
+  const universe = document.getElementById('pcEditUniverse').value.trim();
+  const subtitle = document.getElementById('pcEditSubtitle').value.trim();
+  const imageUrl = document.getElementById('pcEditImage').value.trim();
   try {
-    const r = await fetch(`/api/public/cards/${_pcEditCard.id}/suggest-edit`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload),
-    });
+    let r;
+    if (_pcCroppedBlob) {
+      const fd = new FormData();
+      fd.append('name', name);
+      fd.append('universe', universe);
+      fd.append('subtitle', subtitle);
+      fd.append('cropped', _pcCroppedBlob, 'crop.png');
+      r = await fetch(`/api/public/cards/${_pcEditCard.id}/suggest-edit`, {
+        method: 'POST', body: fd,
+      });
+    } else {
+      r = await fetch(`/api/public/cards/${_pcEditCard.id}/suggest-edit`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, universe, subtitle, image_url: imageUrl}),
+      });
+    }
     const d = await r.json();
     if (d.ok) {
       toast(`Proposition envoyée (#${d.suggestion_id}). L'équipe va l'examiner.`);
+      _pcCroppedBlob = null;
       pcCloseEdit();
       pcClosePreview();
     } else toast(d.error || 'Erreur', 'error');

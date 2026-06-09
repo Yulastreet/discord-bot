@@ -92,27 +92,64 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/public/cards/<int:cid>/suggest-edit", methods=["POST"])
     def api_public_cards_suggest_edit(cid):
-        """User logge propose modif d'une carte existante. Owner valide."""
+        """User logge propose modif d'une carte existante. Owner valide.
+        Accepte JSON (no image) ou multipart (avec 'cropped' file PNG)."""
         from flask import session as _ses
         from database import card_suggestion_add, card_get, get_db
+        import os as _os
+        from services.cards_overlay import _OUTPUT_DIR as _RENDERS_DIR
+        from PIL import Image as _Img
         uid = _ses.get("user_id")
         if not uid:
             return jsonify({"error": "login requis"}), 401
         card = card_get(cid)
         if not card:
             return jsonify({"error": "carte introuvable"}), 404
-        data = request.json or {}
-        new_name = (data.get("name") or "").strip()[:100]
-        new_universe = (data.get("universe") or "").strip()[:60]
-        new_subtitle = (data.get("subtitle") or "").strip()[:80]
-        new_image_url = (data.get("image_url") or "").strip()
+
+        # Multipart si fichier present, sinon JSON
+        is_multipart = "cropped" in request.files
+        if is_multipart:
+            new_name = (request.form.get("name") or "").strip()[:100]
+            new_universe = (request.form.get("universe") or "").strip()[:60]
+            new_subtitle = (request.form.get("subtitle") or "").strip()[:80]
+        else:
+            data = request.json or {}
+            new_name = (data.get("name") or "").strip()[:100]
+            new_universe = (data.get("universe") or "").strip()[:60]
+            new_subtitle = (data.get("subtitle") or "").strip()[:80]
+            new_image_url_json = (data.get("image_url") or "").strip()
         if not new_name:
             return jsonify({"error": "nom requis"}), 400
-        # Verify si changement reel vs current
-        if (new_name == card["name"] and new_universe == (card.get("universe") or "")
+
+        # Resolve image proposee
+        final_image_url = None
+        sugg_dir = _os.path.join(_os.path.dirname(_RENDERS_DIR), "card_suggestions")
+        _os.makedirs(sugg_dir, exist_ok=True)
+        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        if is_multipart:
+            f = request.files["cropped"]
+            try:
+                cropped = _Img.open(f.stream).convert("RGBA")
+            except Exception as e:
+                return jsonify({"error": f"PNG invalide : {type(e).__name__}"}), 400
+            cropped = cropped.resize((450, 675), _Img.LANCZOS)
+            # Save vers _proposed_<uid>_<ts>.png pour unicite
+            import time as _t
+            fname = f"_proposed_{uid}_{int(_t.time())}.png"
+            cropped.convert("RGB").save(_os.path.join(sugg_dir, fname),
+                                          "PNG", optimize=True)
+            rel = f"/static/card_suggestions/{fname}"
+            final_image_url = (public_base + rel) if public_base else rel
+        else:
+            final_image_url = new_image_url_json or None
+
+        # Si rien de change : reject
+        if (new_name == card["name"]
+                and new_universe == (card.get("universe") or "")
                 and new_subtitle == (card.get("subtitle") or "")
-                and (not new_image_url or new_image_url == (card.get("image_url") or ""))):
+                and not final_image_url):
             return jsonify({"error": "aucun changement detecte"}), 400
+
         sname = _ses.get("user_name") or f"User#{uid}"
         try:
             sid = card_suggestion_add(
@@ -120,8 +157,8 @@ def register_cards_owner_routes(app, deps):
                 guild_id=None, channel_id=None,
                 name=new_name, universe=new_universe or None,
                 subtitle=new_subtitle or None,
-                image_url=new_image_url or card.get("image_url"),
-                source_type="url",
+                image_url=final_image_url or card.get("image_url"),
+                source_type="attachment" if is_multipart else "url",
                 suggestion_type="edit",
                 target_card_id=cid,
             )
