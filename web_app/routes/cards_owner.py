@@ -178,94 +178,56 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/card-suggestions/<int:sid>/approve-cropped", methods=["POST"])
     def api_owner_card_suggestion_approve_cropped(sid):
+        """Recoit image cropee (multipart) + cree card avec cette image."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import (card_suggestion_get, card_suggestion_review,
-                                card_add)
+                                card_add, get_db)
         from flask import session as _ses
-        import os as _os, io as _io, urllib.request as _ureq
+        import os as _os, io as _io
         from PIL import Image as _Img
-        data = request.json or {}
+        from services.cards_overlay import _OUTPUT_DIR as _RENDERS_DIR
+
         sugg = card_suggestion_get(sid)
         if not sugg:
             return jsonify({"error": "suggestion introuvable"}), 404
         if sugg["status"] != "pending":
             return jsonify({"error": f"deja {sugg['status']}"}), 400
-        rarity = (data.get("rarity") or "common").strip()
+        rarity = (request.form.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic"):
             rarity = "common"
+        if "cropped" not in request.files:
+            return jsonify({"error": "champ 'cropped' manquant"}), 400
+        f = request.files["cropped"]
         try:
-            crop_x = max(0, int(data.get("crop_x", 0)))
-            crop_y = max(0, int(data.get("crop_y", 0)))
-            crop_w = max(1, int(data.get("crop_w", 1)))
-            crop_h = max(1, int(data.get("crop_h", 1)))
-        except (ValueError, TypeError):
-            return jsonify({"error": "coords crop invalides"}), 400
-
-        src_url = sugg.get("image_url")
-        if not src_url:
-            return jsonify({"error": "suggestion sans image"}), 400
-
-        # Download source
-        try:
-            req = _ureq.Request(src_url, headers={
-                "User-Agent": "TookBot/1.0 (https://tookbot.click)"})
-            with _ureq.urlopen(req, timeout=20) as resp:
-                img_data = resp.read()
-            src = _Img.open(_io.BytesIO(img_data)).convert("RGBA")
+            cropped = _Img.open(f.stream).convert("RGBA")
         except Exception as e:
-            return jsonify({"error": f"download image : {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": f"PNG invalide : {type(e).__name__}"}), 400
 
-        # Crop avec coords client (px sur image native)
-        sw, sh = src.size
-        x0 = min(sw, crop_x)
-        y0 = min(sh, crop_y)
-        x1 = min(sw, crop_x + crop_w)
-        y1 = min(sh, crop_y + crop_h)
-        if x1 <= x0 or y1 <= y0:
-            return jsonify({"error": "rectangle crop invalide"}), 400
-        cropped = src.crop((x0, y0, x1, y1))
-
-        # Save vers static/card_suggestions/<new_card_id>.png
-        # Utilise _OUTPUT_DIR de cards_overlay comme reference fiable
-        # (cwd-independant, sinon abspath foire selon ou PM2 lance le proc)
-        from services.cards_overlay import _OUTPUT_DIR as _RENDERS_DIR
         tmp_dir = _os.path.join(_os.path.dirname(_RENDERS_DIR), "card_suggestions")
         _os.makedirs(tmp_dir, exist_ok=True)
-        # Resize portrait 450x675 (ratio 2:3, meme format que overlays)
-        target_w, target_h = 450, 675
-        cropped = cropped.resize((target_w, target_h), _Img.LANCZOS)
+        cropped = cropped.resize((450, 675), _Img.LANCZOS)
 
-        # Insert card pour avoir id
         try:
             cid = card_add(
                 name=sugg["name"],
                 universe=sugg.get("universe"),
                 subtitle=sugg.get("subtitle"),
-                rarity=rarity,
-                image_url=None,  # set apres avec URL finale
+                rarity=rarity, image_url=None,
                 description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
             )
         except Exception as e:
             return jsonify({"error": f"create card : {type(e).__name__}: {e}"}), 500
 
         out_path = _os.path.join(tmp_dir, f"{cid}.png")
-        try:
-            cropped.convert("RGB").save(out_path, "PNG", optimize=True)
-        except Exception as e:
-            return jsonify({"error": f"save crop : {type(e).__name__}: {e}"}), 500
+        cropped.convert("RGB").save(out_path, "PNG", optimize=True)
 
-        # Update image_url
         public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
-        # Defaut dashboard.tookbot.click si pas set
-        if not public_base:
-            public_base = ""
         rel = f"/static/card_suggestions/{cid}.png"
         final_url = (public_base + rel) if public_base else rel
-        from database import get_db
         conn = get_db(); c = conn.cursor()
         c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
-                  (final_url, src_url, cid))
+                  (final_url, sugg.get("image_url"), cid))
         conn.commit(); conn.close()
 
         reviewer_id = _ses.get("user_id") or "owner"
@@ -620,21 +582,22 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/cards/<int:cid>/recrop", methods=["POST"])
     def api_owner_card_recrop(cid):
+        """Recoit l'image deja cropee (multipart) + applique overlay rarete."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db
-        from services.cards_overlay import composite_card
-        import os as _os, io as _io, urllib.request as _ureq
+        import os as _os, io as _io
         from PIL import Image as _Img
-        data = request.json or {}
+        from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H, _get_overlay
+
+        # Body : multipart avec champ 'cropped' (PNG blob de Cropper canvas)
+        if "cropped" not in request.files:
+            return jsonify({"error": "champ 'cropped' manquant (multipart file)"}), 400
+        f = request.files["cropped"]
         try:
-            crop_x = max(0, int(data.get("crop_x", 0)))
-            crop_y = max(0, int(data.get("crop_y", 0)))
-            crop_w = max(1, int(data.get("crop_w", 1)))
-            crop_h = max(1, int(data.get("crop_h", 1)))
-        except (ValueError, TypeError):
-            return jsonify({"error": "coords crop invalides"}), 400
-        apply_overlay = bool(data.get("apply_overlay", True))
+            cropped = _Img.open(f.stream).convert("RGBA")
+        except Exception as e:
+            return jsonify({"error": f"PNG invalide : {type(e).__name__}: {e}"}), 400
 
         conn = get_db(); c = conn.cursor()
         row = c.execute("SELECT id, name, rarity, source_image_url, image_url "
@@ -642,73 +605,25 @@ def register_cards_owner_routes(app, deps):
         if not row:
             conn.close()
             return jsonify({"error": "carte introuvable"}), 404
-        src_url = row["source_image_url"] or row["image_url"] or ""
+        rarity = row["rarity"] or "common"
         conn.close()
-        if not src_url:
-            return jsonify({"error": "pas de source image"}), 400
 
-        # Download source
-        try:
-            req = _ureq.Request(src_url, headers={
-                "User-Agent": "TookBot/1.0 (https://tookbot.click)"})
-            with _ureq.urlopen(req, timeout=20) as resp:
-                img_data = resp.read()
-            src = _Img.open(_io.BytesIO(img_data)).convert("RGBA")
-        except Exception as e:
-            return jsonify({"error": f"download : {type(e).__name__}: {e}"}), 500
+        # Resize au format card standard (cropper a deja envoye 2:3, juste resize precis)
+        resized = cropped.resize((_CARD_W, _CARD_H), _Img.LANCZOS)
+        canvas = _Img.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+        canvas.paste(resized, (0, 0), resized)
+        overlay = _get_overlay(rarity)
+        if overlay is not None:
+            canvas = _Img.alpha_composite(canvas, overlay)
 
-        sw, sh = src.size
-        x0 = min(sw, crop_x); y0 = min(sh, crop_y)
-        x1 = min(sw, crop_x + crop_w); y1 = min(sh, crop_y + crop_h)
-        if x1 <= x0 or y1 <= y0:
-            return jsonify({"error": "rectangle invalide"}), 400
-        cropped = src.crop((x0, y0, x1, y1))
-
-        # Save cropped vers temp location (sera source d'overlay)
-        from services.cards_overlay import _OUTPUT_DIR
         _os.makedirs(_OUTPUT_DIR, exist_ok=True)
-        if apply_overlay:
-            # Save crop temporaire sur disk pour que composite_card puisse le re-read
-            tmp_path = _os.path.join(_OUTPUT_DIR, f"_recrop_{cid}_tmp.png")
-            cropped.save(tmp_path, "PNG")
-            # composite_card download via http, donc on a besoin URL local
-            # Plus simple : composite manuel inline
-            from services.cards_overlay import _CARD_W, _CARD_H, _get_overlay
-            cw, ch = cropped.size
-            target_ratio = _CARD_W / _CARD_H
-            src_ratio = cw / ch
-            if src_ratio > target_ratio:
-                new_h = _CARD_H; new_w = int(cw * new_h / ch)
-                resized = cropped.resize((new_w, new_h), _Img.LANCZOS)
-                x0c = (new_w - _CARD_W) // 2
-                resized = resized.crop((x0c, 0, x0c + _CARD_W, _CARD_H))
-            else:
-                new_w = _CARD_W; new_h = int(ch * new_w / cw)
-                resized = cropped.resize((new_w, new_h), _Img.LANCZOS)
-                y0c = (new_h - _CARD_H) // 2
-                resized = resized.crop((0, y0c, _CARD_W, y0c + _CARD_H))
-            overlay = _get_overlay(row["rarity"])
-            canvas = _Img.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
-            canvas.paste(resized, (0, 0), resized)
-            if overlay is not None:
-                canvas = _Img.alpha_composite(canvas, overlay)
-            out_path = _os.path.join(_OUTPUT_DIR, f"{cid}.png")
-            canvas.convert("RGB").save(out_path, "PNG", optimize=True)
-            try: _os.remove(tmp_path)
-            except Exception: pass
-        else:
-            cropped = cropped.resize((450, 675), _Img.LANCZOS)
-            out_path = _os.path.join(_OUTPUT_DIR, f"{cid}.png")
-            cropped.convert("RGB").save(out_path, "PNG", optimize=True)
+        out_path = _os.path.join(_OUTPUT_DIR, f"{cid}.png")
+        canvas.convert("RGB").save(out_path, "PNG", optimize=True)
 
         rel = f"/static/card_renders/{cid}.png"
         public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
         final = (public_base + rel) if public_base else rel
-        # Save source si pas deja
         conn = get_db(); c = conn.cursor()
-        if not row["source_image_url"]:
-            c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
-                       (src_url, cid))
         c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, cid))
         conn.commit(); conn.close()
         return jsonify({"ok": True, "image_url": final})

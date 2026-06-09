@@ -204,32 +204,34 @@ function closeCropper() {
 }
 async function submitCrop() {
   if (!_cropper || !_cropSid) return;
-  const data = _cropper.getData(true);  // rounded pixel coords sur image native
   const rar = document.getElementById('cropRarity').value;
   toast('Recadrage + sauvegarde...');
-  try {
-    const r = await fetch(`/api/owner/card-suggestions/${_cropSid}/approve-cropped`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        rarity: rar,
-        crop_x: data.x, crop_y: data.y,
-        crop_w: data.width, crop_h: data.height,
-      }),
-    });
-    let d;
-    try { d = await r.json(); }
-    catch (e) {
-      toast('Erreur serveur (HTML retourne au lieu de JSON). pm2 restart manquant ?', 'error');
-      return;
-    }
-    if (d.ok) {
-      toast(`Carte #${d.card_id} créée avec recadrage.`);
-      closeCropper();
-      loadSugs();
-    } else {
-      toast(d.error || 'Erreur', 'error');
-    }
-  } catch (e) { toast(e.message, 'error'); }
+  const canvas = _cropper.getCroppedCanvas({
+    width: 450, height: 675, fillColor: '#1a1a1a',
+    imageSmoothingQuality: 'high',
+  });
+  if (!canvas) { toast('Erreur crop canvas.', 'error'); return; }
+  canvas.toBlob(async (blob) => {
+    if (!blob) { toast('Erreur blob.', 'error'); return; }
+    const fd = new FormData();
+    fd.append('rarity', rar);
+    fd.append('cropped', blob, 'crop.png');
+    try {
+      const r = await fetch(`/api/owner/card-suggestions/${_cropSid}/approve-cropped`, {
+        method: 'POST', body: fd,
+      });
+      let d;
+      try { d = await r.json(); }
+      catch (e) {
+        toast('Erreur serveur (HTML retourne, pm2 restart manquant ?)', 'error'); return;
+      }
+      if (d.ok) {
+        toast(`Carte #${d.card_id} créée avec recadrage.`);
+        closeCropper();
+        loadSugs();
+      } else toast(d.error || 'Erreur', 'error');
+    } catch (e) { toast(e.message, 'error'); }
+  }, 'image/png');
 }
 window.openCropper = openCropper;
 window.cropReset = cropReset;
