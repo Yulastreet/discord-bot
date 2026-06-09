@@ -1190,24 +1190,48 @@ def register_cards_owner_routes(app, deps):
             global_stats["universes"][uni] = uni_stats
             global_stats["total_changed"] += len(updates)
 
-            # Rebake overlay pour cards qui ont change
+            # Rebake overlay parallelise (ThreadPool 10 workers)
             if do_rebake:
+                from concurrent.futures import ThreadPoolExecutor
+                import threading as _th
                 public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                to_bake = []
                 for card, new_rar in updates:
                     src = card.get("source_image_url") or card.get("image_url") or ""
                     if not src or "/card_renders/" in src or "/card_suggestions/" in src:
                         continue
+                    to_bake.append((card, new_rar))
+                lock = _th.Lock(); counter = {"done": 0}
+                results = []
+                total = len(to_bake)
+                def _w(item):
+                    card, new_rar = item
                     try:
-                        url = composite_card(src, new_rar, int(card["id"]))
-                        if url:
-                            final = (public_base + url) if public_base else url
-                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                      (final, card["id"]))
-                            global_stats["total_rebaked"] += 1
+                        url = composite_card(card.get("source_image_url") or card.get("image_url"),
+                                              new_rar, int(card["id"]))
                     except Exception as e:
                         print(f"[rebalance rebake] err {card['id']}: {e}")
-                        global_stats["total_rebake_failed"] += 1
-                conn.commit()
+                        url = None
+                    with lock:
+                        counter["done"] += 1
+                        if counter["done"] % 200 == 0:
+                            pct = counter["done"] * 100 // max(1, total)
+                            print(f"[rebalance] {uni} rebake {counter['done']}/{total} ({pct}%)")
+                    return (card["id"], url)
+                with ThreadPoolExecutor(max_workers=10) as ex:
+                    for cid, url in ex.map(_w, to_bake):
+                        if url:
+                            final = (public_base + url) if public_base else url
+                            results.append((final, cid))
+                            global_stats["total_rebaked"] += 1
+                        else:
+                            global_stats["total_rebake_failed"] += 1
+                if results:
+                    conn2 = get_db(); c2 = conn2.cursor()
+                    for final, cid in results:
+                        c2.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                    (final, cid))
+                    conn2.commit(); conn2.close()
                 print(f"[rebalance] {uni}: rebaked {global_stats['total_rebaked']}")
 
         conn.close()
