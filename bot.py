@@ -877,6 +877,23 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
         if not root_name:
             return True
 
+        # === LOCK : salon support cartes = uniquement /cardsuggest ===
+        SUGGEST_CHANNEL_ID = 1513592894265757716
+        SUPPORT_GUILD_ID = int((os.getenv("SUPPORT_GUILD_ID") or "0").strip() or 0)
+        if (SUPPORT_GUILD_ID and interaction.guild.id == SUPPORT_GUILD_ID
+                and interaction.channel and interaction.channel.id == SUGGEST_CHANNEL_ID
+                and root_name != "cardsuggest"):
+            try:
+                await interaction.response.send_message(
+                    "❌ Ce salon est dédié aux suggestions de cartes. "
+                    "Utilise uniquement `/cardsuggest` ici.\n"
+                    "Pour les autres commandes, va dans un autre salon.",
+                    ephemeral=True,
+                )
+            except Exception:
+                pass
+            return False
+
         from services.feature_guard import COMMAND_FEATURE_MAP, get_feature_label
         from database import (guild_setting_get, custom_cmd_get, guild_has_active_boost,
                               mod_has_perm)
