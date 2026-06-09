@@ -59,12 +59,14 @@ def register_cards_owner_routes(app, deps):
         # count filtered
         count_sql = f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}"
         filtered = c.execute(count_sql, params).fetchone()["n"]
-        # items
+        # items (public expose aussi source_image_url pour recadrage proposition)
         items_params = params + [per_page, offset]
         rows = c.execute(
             f"SELECT id, name, universe, subtitle, rarity, image_url, source_image_url "
             f"FROM cards WHERE {' AND '.join(where)} "
             f"ORDER BY {sort_sql} LIMIT ? OFFSET ?", items_params).fetchall()
+        # source_image_url public uniquement sur cette page (pour cropper),
+        # autres usages publics restent image_url uniquement
         items = [dict(r) for r in rows]
         total = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
         conn.close()

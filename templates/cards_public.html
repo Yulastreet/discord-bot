@@ -316,7 +316,9 @@ let _pcCroppedBlob = null;
 
 function pcOpenCropFromEdit() {
   if (!_pcEditCard) return;
-  const src = _pcEditCard.image_url;
+  // Prefere source_image_url (originale haute resolution sans overlay)
+  // pour qualite recadrage. Fallback image_url (deja rendue avec overlay).
+  const src = _pcEditCard.source_image_url || _pcEditCard.image_url;
   if (!src) { toast('Pas d\'image à recadrer.', 'error'); return; }
   const img = document.getElementById('pcCropImg');
   img.crossOrigin = 'anonymous';
