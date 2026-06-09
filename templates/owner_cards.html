@@ -42,6 +42,16 @@
   .rar-epic      { background: #a86dff; }
   .rar-legendary { background: #ffa726; color: #2a1a00; }
   .rar-mythic    { background: #ff3d57; }
+  .oc-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-bottom: var(--s-3); }
+  .oc-stat { background: var(--bg-1); border:1px solid var(--border); border-radius:10px; padding:8px 12px; }
+  .oc-stat .lbl { font-size:10px; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; }
+  .oc-stat .val { font-size:18px; font-weight:800; margin-top:2px; }
+  .oc-stat .pct { font-size:10px; color:var(--text-2); margin-top:2px; }
+  .oc-stat.rar-common    { border-color: #9aa0a6; }
+  .oc-stat.rar-rare      { border-color: #4cb5f9; }
+  .oc-stat.rar-epic      { border-color: #a86dff; }
+  .oc-stat.rar-legendary { border-color: #ffa726; }
+  .oc-stat.rar-mythic    { border-color: #ff3d57; }
   .owned-badge {
     position: absolute; bottom: 6px; right: 6px;
     padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700;
@@ -120,6 +130,8 @@
       Gestion owner-only du catalogue. Clic sur une carte pour la prévisualiser. Filtre par rareté/recherche en haut.
     </p>
   </div>
+
+  <div class="oc-stats" id="ocStats"></div>
 
   <div class="cards-toolbar">
     <input type="search" id="searchInput" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="debouncedReload()">
@@ -421,7 +433,48 @@ function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+const OC_RAR_LABELS = {common:'COMMON', rare:'RARE', epic:'EPIC', legendary:'LEGENDARY', mythic:'MYTHIC'};
+async function loadOcStats() {
+  const search = (document.getElementById('searchInput') || {}).value || '';
+  const rar = (document.getElementById('raritySelect') || {}).value || '';
+  const uni = (document.getElementById('universeSelect') || {}).value || '';
+  const params = new URLSearchParams();
+  if (search.trim()) params.set('q', search.trim());
+  if (rar) params.set('rarity', rar);
+  if (uni) params.set('universe', uni);
+  try {
+    const r = await fetch('/api/public/cards/stats?' + params.toString());
+    const d = await r.json();
+    const order = ['mythic','legendary','epic','rare','common'];
+    const isFiltered = d.filtered_active;
+    document.getElementById('ocStats').innerHTML = order.map(k => {
+      const count = (d.by_rarity || {})[k] || 0;
+      const rateStatic = (d.drop_rates || {})[k] || 0;
+      const rateEff = (d.drop_rates_effective || {})[k] ?? rateStatic;
+      const perCard = (d.per_card_chance || {})[k] || 0;
+      const perCardDisplay = perCard > 0 ? `1/~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
+      const rateMain = isFiltered ? rateEff : rateStatic;
+      const rateLabel = isFiltered ? 'Effectif' : 'Drop';
+      return `
+        <div class="oc-stat rar-${k}">
+          <div class="lbl">${OC_RAR_LABELS[k]}</div>
+          <div class="val">${count.toLocaleString('fr')}</div>
+          <div class="pct">${rateLabel} : ${rateMain}%</div>
+          <div class="pct" style="opacity:.8;">Carte : ${perCardDisplay}</div>
+        </div>
+      `;
+    }).join('') + `
+      <div class="oc-stat">
+        <div class="lbl">${isFiltered ? 'FILTRÉ' : 'TOTAL'}</div>
+        <div class="val">${((isFiltered ? d.filtered : d.total) || 0).toLocaleString('fr')}</div>
+        <div class="pct">${isFiltered ? `sur ${(d.total || 0).toLocaleString('fr')}` : 'au catalogue'}</div>
+      </div>
+    `;
+  } catch (e) {}
+}
+
 async function loadCards() {
+  loadOcStats();
   const search = document.getElementById('searchInput').value.trim();
   const rar = document.getElementById('raritySelect').value;
   const uni = document.getElementById('universeSelect').value;
