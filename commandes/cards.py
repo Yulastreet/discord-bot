@@ -773,33 +773,7 @@ def setup_cards_commands(bot, deps):
                             origine: str = None,
                             image_url: str = None,
                             image: discord.Attachment = None):
-        # Lock : serveur support + salon precis uniquement
-        if not interaction.guild:
-            await interaction.response.send_message(
-                "Cette commande n'est pas utilisable en DM.", ephemeral=True)
-            return
-        # View avec bouton invite serveur support
-        def _support_view():
-            v = discord.ui.View(timeout=120)
-            v.add_item(discord.ui.Button(
-                label="🔗 Rejoindre serveur support TookBot",
-                style=discord.ButtonStyle.link,
-                url="https://discord.gg/hx4KEFSGJA",
-            ))
-            return v
-
-        if SUPPORT_GUILD_ID and interaction.guild.id != SUPPORT_GUILD_ID:
-            await interaction.response.send_message(
-                "Cette commande est uniquement utilisable sur le **serveur support TookBot**.\n"
-                "Rejoins-le pour proposer des cartes :",
-                view=_support_view(), ephemeral=True)
-            return
-        if interaction.channel.id != SUGGEST_CHANNEL_ID:
-            await interaction.response.send_message(
-                f"Cette commande est uniquement utilisable dans <#{SUGGEST_CHANNEL_ID}>.\n"
-                f"Va dans ce salon pour suggérer une carte :",
-                view=_support_view(), ephemeral=True)
-            return
+        # /cardsuggest dispo partout (tous serveurs + DM)
 
         # Resolve image
         final_url = None
@@ -840,8 +814,8 @@ def setup_cards_commands(bot, deps):
             sid = card_suggestion_add(
                 suggester_id=interaction.user.id,
                 suggester_name=str(interaction.user),
-                guild_id=interaction.guild.id,
-                channel_id=interaction.channel.id,
+                guild_id=interaction.guild.id if interaction.guild else None,
+                channel_id=interaction.channel.id if interaction.channel else None,
                 name=nom_clean,
                 universe=univers.value,
                 subtitle=(origine or "").strip()[:80] or None,
@@ -855,18 +829,32 @@ def setup_cards_commands(bot, deps):
                 ephemeral=True)
             return
 
+        # Embed pour forward vers salon support
         embed = discord.Embed(
             title=f"💠 Suggestion #{sid} reçue",
             description=f"**{nom_clean}**\n_{univers.value}{' · ' + origine if origine else ''}_",
             color=0xB9F23A,
         )
         embed.set_image(url=final_url)
-        embed.set_footer(text=f"Suggérée par {interaction.user.display_name}",
-                          icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
-        await interaction.response.send_message(
-            content=f"Merci {interaction.user.mention} ! Suggestion envoyée à l'équipe.",
-            embed=embed,
-        )
+        avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
+        embed.set_footer(text=f"Suggérée par {interaction.user.display_name}", icon_url=avatar_url)
+
+        # Forward vers le salon support
+        support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
+        forward_ok = False
+        if support_channel:
+            try:
+                await support_channel.send(embed=embed)
+                forward_ok = True
+            except Exception as e:
+                print(f"[cardsuggest] forward err: {e}")
+
+        # Reponse ephemerale au user (rien de visible publiquement)
+        msg = ("✅ **Suggestion envoyée à l'équipe.**\n"
+                f"Numéro #{sid}. Tu seras prévenu si elle est approuvée.")
+        if not forward_ok:
+            msg += "\n_(Le forward salon support a échoué mais ta suggestion est bien enregistrée.)_"
+        await interaction.response.send_message(msg, ephemeral=True)
 
     @bot.tree.command(name="cardtrade", description="Proposer un echange de cartes a un autre joueur")
     @app_commands.describe(joueur="Joueur a qui proposer l'echange")
