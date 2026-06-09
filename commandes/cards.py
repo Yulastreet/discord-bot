@@ -31,7 +31,7 @@ RARITY_COLORS = {
     "epic":      0xa86dff,  # violet
     "legendary": 0xffa726,  # orange
     "mythic":    0xff3d57,  # rouge
-    "secret":    0xff00ff,  # magenta (representation arc-en-ciel)
+    "secret":    0x9d4edd,  # violet vif (mystere/legendaire)
 }
 RARITY_EMOJIS = {
     "common":    "⚪",
@@ -53,9 +53,8 @@ _RARITY_CUSTOM_NAME = {
 }
 
 # Mapping rarete -> nom emoji custom Discord INLINE (titre carte)
-# Pour secret : emoji 'rainbow' a cote du nom au lieu de l'unicode 🌈
 _RARITY_INLINE_EMOJI_NAME = {
-    "secret":    "rainbow",
+    "secret":    "rainbowsphere",
 }
 _rarity_emoji_cache: dict[str, str] = {}
 
@@ -249,8 +248,13 @@ def setup_cards_commands(bot, deps):
         emoji = _get_rarity_title_emoji(bot, rarity)
         origine = card.get("subtitle") or "?"
         univers = card.get("universe") or "?"
-        rarity_display = "SECRETE ???" if rarity == "secret" else rarity.upper()
-        desc = f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}"
+        rarity_display = "?????" if rarity == "secret" else rarity.upper()
+        flavor = (card.get("flavor_subtitle") or "").strip()
+        desc_parts = []
+        if flavor:
+            desc_parts.append(f"_**{flavor}**_")
+        desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}")
+        desc = "\n\n".join(desc_parts)
         embed = discord.Embed(
             title=f"{emoji} {card['name']}"[:256],
             description=desc,

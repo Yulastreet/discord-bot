@@ -387,6 +387,7 @@
     <input type="hidden" id="editCardId">
     <div class="col" style="gap:10px;">
       <input id="editName" placeholder="Nom (obligatoire)" class="input" style="width:100%;">
+      <input id="editFlavor" placeholder="Sous-titre affiché sous le nom (ex: MASTERED ULTRA INSTINCT)" class="input" style="width:100%;">
       <input id="editUniverse" placeholder="Univers (Anime, Star Wars, ...)" class="input" style="width:100%;">
       <input id="editSubtitle" placeholder="Origine (Naruto, The Mandalorian, ...)" class="input" style="width:100%;">
       <select id="editRarity" class="input">
@@ -565,6 +566,7 @@ function openCreateModal() {
   document.getElementById('editTitle').textContent = 'Nouvelle carte';
   document.getElementById('editCardId').value = '';
   document.getElementById('editName').value = '';
+  document.getElementById('editFlavor').value = '';
   document.getElementById('editUniverse').value = '';
   document.getElementById('editSubtitle').value = '';
   document.getElementById('editRarity').value = 'common';
@@ -586,6 +588,7 @@ function editCurrentCard() {
   document.getElementById('editTitle').textContent = `Edit #${c.id}`;
   document.getElementById('editCardId').value = c.id;
   document.getElementById('editName').value = c.name || '';
+  document.getElementById('editFlavor').value = c.flavor_subtitle || '';
   document.getElementById('editUniverse').value = c.universe || '';
   document.getElementById('editSubtitle').value = c.subtitle || '';
   document.getElementById('editRarity').value = c.rarity || 'common';
@@ -598,9 +601,10 @@ window.editCurrentCard = editCurrentCard;
 async function saveCard() {
   const id = document.getElementById('editCardId').value;
   const payload = {
-    name:        document.getElementById('editName').value.trim(),
-    universe:    document.getElementById('editUniverse').value.trim(),
-    subtitle:    document.getElementById('editSubtitle').value.trim(),
+    name:            document.getElementById('editName').value.trim(),
+    flavor_subtitle: document.getElementById('editFlavor').value.trim(),
+    universe:        document.getElementById('editUniverse').value.trim(),
+    subtitle:        document.getElementById('editSubtitle').value.trim(),
     rarity:      document.getElementById('editRarity').value,
     image_url:   document.getElementById('editImage').value.trim(),
     description: document.getElementById('editDesc').value.trim(),

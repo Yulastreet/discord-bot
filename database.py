@@ -145,6 +145,11 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN source_image_url TEXT")
     except Exception:
         pass
+    # Migration : flavor_subtitle (sous-titre affiche sous le nom)
+    try:
+        c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
@@ -1609,11 +1614,11 @@ CARD_RARITY_WEIGHTS = {
 
 
 def card_add(name, universe=None, subtitle=None, rarity="common",
-              image_url=None, description=None):
+              image_url=None, description=None, flavor_subtitle=None):
     conn = get_db(); c = conn.cursor()
-    c.execute('''INSERT INTO cards (name, universe, subtitle, rarity, image_url, description)
-                 VALUES (?, ?, ?, ?, ?, ?)''',
-              (name, universe, subtitle, rarity, image_url, description))
+    c.execute('''INSERT INTO cards (name, universe, subtitle, rarity, image_url, description, flavor_subtitle)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)''',
+              (name, universe, subtitle, rarity, image_url, description, flavor_subtitle))
     cid = c.lastrowid
     conn.commit(); conn.close()
     return cid

@@ -532,6 +532,7 @@ def register_cards_owner_routes(app, deps):
             rarity=rarity,
             image_url=(data.get("image_url") or "").strip() or None,
             description=(data.get("description") or "").strip() or None,
+            flavor_subtitle=(data.get("flavor_subtitle") or "").strip() or None,
         )
         return jsonify({"ok": True, "id": cid})
 
@@ -542,7 +543,7 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from database import get_db
         data = request.json or {}
-        allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description"}
+        allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description", "flavor_subtitle"}
         fields = {k: v for k, v in data.items() if k in allowed}
         if not fields:
             return jsonify({"error": "rien a update"}), 400
@@ -973,7 +974,7 @@ def register_cards_owner_routes(app, deps):
         except (ValueError, TypeError):
             return jsonify({"error": "ids invalides"}), 400
         fields = data.get("fields") or {}
-        allowed = {"rarity", "universe", "subtitle", "description"}
+        allowed = {"rarity", "universe", "subtitle", "description", "flavor_subtitle"}
         clean = {}
         for k, v in fields.items():
             if k not in allowed: continue
