@@ -101,9 +101,11 @@ def register_cards_owner_routes(app, deps):
         import os as _os
         from services.cards_overlay import _OUTPUT_DIR as _RENDERS_DIR
         from PIL import Image as _Img
-        uid = _ses.get("user_id")
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        uname = dsc.get("username") or dsc.get("global_name")
         if not uid:
-            return jsonify({"error": "login requis"}), 401
+            return jsonify({"error": "login Discord requis pour proposer une modif"}), 401
         card = card_get(cid)
         if not card:
             return jsonify({"error": "carte introuvable"}), 404
@@ -152,7 +154,7 @@ def register_cards_owner_routes(app, deps):
                 and not final_image_url):
             return jsonify({"error": "aucun changement detecte"}), 400
 
-        sname = _ses.get("user_name") or f"User#{uid}"
+        sname = uname or f"User#{uid}"
         try:
             sid = card_suggestion_add(
                 suggester_id=uid, suggester_name=sname,

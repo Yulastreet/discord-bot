@@ -401,6 +401,7 @@ async function pcSubmitEdit() {
   const universe = document.getElementById('pcEditUniverse').value.trim();
   const subtitle = document.getElementById('pcEditSubtitle').value.trim();
   const imageUrl = document.getElementById('pcEditImage').value.trim();
+  toast('Envoi en cours...');
   try {
     let r;
     if (_pcCroppedBlob) {
@@ -418,14 +419,23 @@ async function pcSubmitEdit() {
         body: JSON.stringify({name, universe, subtitle, image_url: imageUrl}),
       });
     }
-    const d = await r.json();
+    if (r.status === 401) {
+      toast('Tu dois te connecter pour proposer une modif.', 'error');
+      return;
+    }
+    let d;
+    try { d = await r.json(); }
+    catch (e) {
+      toast(`Erreur serveur (${r.status}). pm2 restart manquant ?`, 'error');
+      return;
+    }
     if (d.ok) {
       toast(`Proposition envoyée (#${d.suggestion_id}). L'équipe va l'examiner.`);
       _pcCroppedBlob = null;
       pcCloseEdit();
       pcClosePreview();
-    } else toast(d.error || 'Erreur', 'error');
-  } catch (e) { toast(e.message, 'error'); }
+    } else toast(d.error || `Erreur (status ${r.status})`, 'error');
+  } catch (e) { toast(e.message || 'Erreur réseau', 'error'); }
 }
 window.pcOpenEdit = pcOpenEdit;
 window.pcCloseEdit = pcCloseEdit;
