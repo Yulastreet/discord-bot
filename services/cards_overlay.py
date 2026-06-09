@@ -30,10 +30,26 @@ _overlay_cache: dict[str, Image.Image] = {}
 def _download_image(url: str, timeout: int = 15) -> Image.Image | None:
     if not url:
         return None
+    # Skip SVG : PIL ne supporte pas. Convertir via cairosvg si dispo.
+    is_svg = ".svg" in url.lower().split("?")[0]
     try:
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = resp.read()
+        if is_svg:
+            # Tente conversion via cairosvg si module dispo
+            try:
+                import cairosvg
+                png_bytes = cairosvg.svg2png(bytestring=data,
+                                              output_width=_CARD_W,
+                                              output_height=_CARD_H)
+                return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+            except ImportError:
+                print(f"[overlay] SVG skip (cairosvg manquant): {url}")
+                return None
+            except Exception as e:
+                print(f"[overlay] SVG convert err {url}: {e}")
+                return None
         return Image.open(io.BytesIO(data)).convert("RGBA")
     except Exception as e:
         print(f"[overlay] download err {url}: {e}")
