@@ -45,7 +45,7 @@
   .oc-stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-bottom: var(--s-3); }
   .oc-stat { background: var(--bg-1); border:1px solid var(--border); border-radius:10px; padding:8px 12px; }
   .oc-stat .lbl { font-size:10px; color:var(--text-2); text-transform:uppercase; letter-spacing:0.05em; }
-  .oc-stat .val { font-size:18px; font-weight:800; margin-top:2px; }
+  .oc-stat .val { font-size:18px; font-weight:800; margin-top:2px; color: var(--text); }
   .oc-stat .pct { font-size:10px; color:var(--text-2); margin-top:2px; }
   .oc-stat.rar-common    { border-color: #9aa0a6; }
   .oc-stat.rar-rare      { border-color: #4cb5f9; }
@@ -452,15 +452,15 @@ async function loadOcStats() {
       const rateStatic = (d.drop_rates || {})[k] || 0;
       const rateEff = (d.drop_rates_effective || {})[k] ?? rateStatic;
       const perCard = (d.per_card_chance || {})[k] || 0;
-      const perCardDisplay = perCard > 0 ? `1/~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
+      const perCardDisplay = perCard > 0 ? `1 sur ~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
       const rateMain = isFiltered ? rateEff : rateStatic;
-      const rateLabel = isFiltered ? 'Effectif' : 'Drop';
+      const rateLabel = isFiltered ? 'Drop effectif' : 'Drop rareté';
       return `
         <div class="oc-stat rar-${k}">
           <div class="lbl">${OC_RAR_LABELS[k]}</div>
           <div class="val">${count.toLocaleString('fr')}</div>
           <div class="pct">${rateLabel} : ${rateMain}%</div>
-          <div class="pct" style="opacity:.8;">Carte : ${perCardDisplay}</div>
+          <div class="pct" style="opacity:.85;margin-top:2px;">Cette carte : ${perCardDisplay}</div>
         </div>
       `;
     }).join('') + `
