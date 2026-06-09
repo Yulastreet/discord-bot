@@ -374,8 +374,156 @@ def register_cards_owner_routes(app, deps):
             )
         except Exception as e:
             return jsonify({"error": f"erreur create : {type(e).__name__}: {e}"}), 500
+        # Bake overlay auto pour single approve aussi
+        from services.cards_overlay import composite_card
+        import os as _os
+        src = sugg.get("image_url") or ""
+        rebaked = False
+        if src and "/card_renders/" not in src and "/card_suggestions/" not in src:
+            try:
+                url = composite_card(src, rarity, cid)
+                if url:
+                    public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                    final = (public_base + url) if public_base else url
+                    conn = get_db(); c = conn.cursor()
+                    c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                               (final, src, cid))
+                    conn.commit(); conn.close()
+                    rebaked = True
+            except Exception as e:
+                print(f"[approve bake] err {cid}: {e}")
         card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
-        return jsonify({"ok": True, "card_id": cid, "type": "new"})
+        return jsonify({"ok": True, "card_id": cid, "type": "new", "rebaked": rebaked})
+
+
+    def _approve_one_suggestion(sid, rarity_override=None, reviewer_id="owner"):
+        """Helper : approve une suggestion + bake overlay auto. Retourne dict."""
+        from database import (card_suggestion_get, card_suggestion_review,
+                                card_add, card_get, get_db)
+        import os as _os
+        from services.cards_overlay import composite_card
+        sugg = card_suggestion_get(sid)
+        if not sugg:
+            return {"ok": False, "error": "introuvable"}
+        if sugg["status"] != "pending":
+            return {"ok": False, "error": f"deja {sugg['status']}"}
+
+        sugg_type = sugg.get("suggestion_type") or "new"
+        if sugg_type == "edit" and sugg.get("target_card_id"):
+            tcid = int(sugg["target_card_id"])
+            target = card_get(tcid)
+            if not target:
+                return {"ok": False, "error": "carte cible introuvable"}
+            new_image_url = sugg.get("image_url") or ""
+            conn = get_db(); c = conn.cursor()
+            fields = []; params = []
+            for k in ("name", "universe", "subtitle"):
+                v = sugg.get(k)
+                if v is not None and v != "":
+                    fields.append(f"{k} = ?"); params.append(v)
+            image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
+            if image_changed:
+                fields.append("source_image_url = ?"); params.append(new_image_url)
+            if fields:
+                params.append(tcid)
+                c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
+            conn.commit(); conn.close()
+            if image_changed:
+                try:
+                    url = composite_card(new_image_url, target.get("rarity", "common"), tcid)
+                    if url:
+                        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                        final = (public_base + url) if public_base else url
+                        conn = get_db(); c = conn.cursor()
+                        c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                   (final, tcid))
+                        conn.commit(); conn.close()
+                except Exception as e:
+                    print(f"[bulk approve edit rebake] err {tcid}: {e}")
+            card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
+            return {"ok": True, "card_id": tcid, "type": "edit"}
+
+        # type 'new'
+        rarity = (rarity_override or "common").strip()
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
+            rarity = "common"
+        try:
+            cid = card_add(
+                name=sugg["name"],
+                universe=sugg.get("universe"),
+                subtitle=sugg.get("subtitle"),
+                rarity=rarity,
+                image_url=sugg.get("image_url"),
+                description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
+            )
+        except Exception as e:
+            return {"ok": False, "error": f"create card : {type(e).__name__}: {e}"}
+        # Bake overlay auto
+        src = sugg.get("image_url") or ""
+        if src and "/card_renders/" not in src and "/card_suggestions/" not in src:
+            try:
+                url = composite_card(src, rarity, cid)
+                if url:
+                    public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                    final = (public_base + url) if public_base else url
+                    conn = get_db(); c = conn.cursor()
+                    c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                               (final, src, cid))
+                    conn.commit(); conn.close()
+            except Exception as e:
+                print(f"[bulk approve bake] err {cid}: {e}")
+        card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
+        return {"ok": True, "card_id": cid, "type": "new"}
+
+
+    @app.route("/api/owner/card-suggestions/bulk-approve", methods=["POST"])
+    def api_owner_card_sugg_bulk_approve():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from flask import session as _ses
+        data = request.json or {}
+        sids = data.get("sids") or []
+        if not isinstance(sids, list) or not sids:
+            return jsonify({"error": "sids vide"}), 400
+        try:
+            sids_int = [int(x) for x in sids][:500]
+        except (ValueError, TypeError):
+            return jsonify({"error": "sids invalides"}), 400
+        default_rarity = (data.get("default_rarity") or "common").strip()
+        reviewer = _ses.get("user_id") or "owner"
+        stats = {"approved": 0, "failed": 0, "details": []}
+        for sid in sids_int:
+            res = _approve_one_suggestion(sid, rarity_override=default_rarity, reviewer_id=reviewer)
+            if res.get("ok"): stats["approved"] += 1
+            else: stats["failed"] += 1
+            stats["details"].append({"sid": sid, **res})
+        return jsonify({"ok": True, "stats": stats})
+
+
+    @app.route("/api/owner/card-suggestions/bulk-reject", methods=["POST"])
+    def api_owner_card_sugg_bulk_reject():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_suggestion_get, card_suggestion_review
+        from flask import session as _ses
+        data = request.json or {}
+        sids = data.get("sids") or []
+        if not isinstance(sids, list) or not sids:
+            return jsonify({"error": "sids vide"}), 400
+        try:
+            sids_int = [int(x) for x in sids][:500]
+        except (ValueError, TypeError):
+            return jsonify({"error": "sids invalides"}), 400
+        reason = (data.get("reason") or "").strip()[:200] or None
+        reviewer = _ses.get("user_id") or "owner"
+        rejected = 0; skipped = 0
+        for sid in sids_int:
+            sugg = card_suggestion_get(sid)
+            if not sugg or sugg["status"] != "pending":
+                skipped += 1; continue
+            card_suggestion_review(sid, "rejected", reviewer, reason=reason)
+            rejected += 1
+        return jsonify({"ok": True, "rejected": rejected, "skipped": skipped})
 
 
     @app.route("/api/owner/card-suggestions/<int:sid>/approve-cropped", methods=["POST"])

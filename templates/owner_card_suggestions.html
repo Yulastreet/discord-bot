@@ -28,6 +28,14 @@
   .badge-pending { background:#fbbf24; color:#2a1a00; }
   .badge-approved { background:#4ade80; color:#053a16; }
   .badge-rejected { background:#ff3d57; color:#fff; }
+  .sug-card.selected { outline: 3px solid #4ade80; outline-offset: -2px; }
+  .sug-bulk-bar {
+    position: sticky; top: 0; z-index: 80;
+    background: var(--bg-1); border: 1px solid #4ade80; border-radius: 12px;
+    padding: 10px 14px; display: none; gap: 10px; align-items: center;
+    margin-bottom: var(--s-3); flex-wrap: wrap;
+  }
+  .sug-bulk-bar.active { display: flex; }
 </style>
 
 <div class="col gap-7">
@@ -47,6 +55,25 @@
       <option value="">Toutes</option>
     </select>
     <button class="btn btn-secondary" onclick="loadSugs()">⟳ Rafraichir</button>
+    <button class="btn btn-secondary" onclick="toggleSugSelectMode()" id="sugSelModeBtn">☑ Sélection</button>
+  </div>
+
+  <div class="sug-bulk-bar" id="sugBulkBar">
+    <strong id="sugBulkCount">0</strong>
+    <span class="muted">suggestion(s) sélectionnée(s)</span>
+    <span style="flex:1;"></span>
+    <button class="btn btn-secondary" onclick="selectAllVisibleSugs()">Tout sélectionner</button>
+    <button class="btn btn-secondary" onclick="clearSugSelection()">Désélectionner</button>
+    <select id="sugBulkRarity" class="input" style="min-width:120px;">
+      <option value="common">Common</option>
+      <option value="rare">Rare</option>
+      <option value="epic">Epic</option>
+      <option value="legendary">Legendary</option>
+      <option value="mythic">Mythic</option>
+      <option value="secret">🌈 Secret</option>
+    </select>
+    <button class="btn btn-primary" onclick="bulkApproveSugs()">✅ Approuver tout (avec bake auto)</button>
+    <button class="btn btn-danger" onclick="bulkRejectSugs()">❌ Refuser tout</button>
   </div>
 
   <div id="sugGrid" class="sug-grid">
@@ -87,6 +114,75 @@
 <script>
 function escapeHtml(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
+let _sugSelectMode = false;
+let _sugSelected = new Set();
+let _sugCurrent = [];  // last loaded list
+function toggleSugSelectMode() {
+  _sugSelectMode = !_sugSelectMode;
+  document.getElementById('sugSelModeBtn').textContent = _sugSelectMode ? '✕ Quitter sélection' : '☑ Sélection';
+  document.getElementById('sugSelModeBtn').classList.toggle('btn-primary', _sugSelectMode);
+  document.getElementById('sugSelModeBtn').classList.toggle('btn-secondary', !_sugSelectMode);
+  if (!_sugSelectMode) _sugSelected.clear();
+  loadSugs();
+}
+function toggleSugSelectId(id) {
+  if (_sugSelected.has(id)) _sugSelected.delete(id);
+  else _sugSelected.add(id);
+  loadSugs();
+}
+function selectAllVisibleSugs() {
+  _sugCurrent.forEach(s => { if (s.status === 'pending') _sugSelected.add(s.id); });
+  loadSugs();
+}
+function clearSugSelection() { _sugSelected.clear(); loadSugs(); }
+function updateSugBulkBar() {
+  const bar = document.getElementById('sugBulkBar');
+  document.getElementById('sugBulkCount').textContent = _sugSelected.size;
+  bar.classList.toggle('active', _sugSelectMode && _sugSelected.size > 0);
+}
+async function bulkApproveSugs() {
+  if (!_sugSelected.size) return;
+  const rar = document.getElementById('sugBulkRarity').value;
+  if (!confirm(`Approuver ${_sugSelected.size} suggestion(s) avec rareté ${rar.toUpperCase()} + bake overlay auto ?`)) return;
+  toast('Approbation en cours...');
+  try {
+    const r = await fetch('/api/owner/card-suggestions/bulk-approve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sids: [..._sugSelected], default_rarity: rar}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Approved ${d.stats.approved} / failed ${d.stats.failed}`);
+      _sugSelected.clear();
+      loadSugs();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+async function bulkRejectSugs() {
+  if (!_sugSelected.size) return;
+  const reason = prompt('Raison du refus (optionnel) :', '');
+  if (reason === null) return;
+  if (!confirm(`Refuser ${_sugSelected.size} suggestion(s) ?`)) return;
+  try {
+    const r = await fetch('/api/owner/card-suggestions/bulk-reject', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sids: [..._sugSelected], reason}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Refusées : ${d.rejected}, skipped : ${d.skipped}`);
+      _sugSelected.clear();
+      loadSugs();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.toggleSugSelectMode = toggleSugSelectMode;
+window.toggleSugSelectId = toggleSugSelectId;
+window.selectAllVisibleSugs = selectAllVisibleSugs;
+window.clearSugSelection = clearSugSelection;
+window.bulkApproveSugs = bulkApproveSugs;
+window.bulkRejectSugs = bulkRejectSugs;
+
 async function loadSugs() {
   const st = document.getElementById('statusFilter').value;
   const params = new URLSearchParams();
@@ -95,7 +191,9 @@ async function loadSugs() {
     const r = await fetch('/api/owner/card-suggestions?' + params.toString());
     const d = await r.json();
     const items = d.items || [];
+    _sugCurrent = items;
     document.getElementById('sugCount').textContent = `(${items.length})`;
+    updateSugBulkBar();
     const grid = document.getElementById('sugGrid');
     if (!items.length) {
       grid.innerHTML = '<div class="muted">Aucune suggestion.</div>';
@@ -103,8 +201,12 @@ async function loadSugs() {
     }
     grid.innerHTML = items.map(s => {
       const isEdit = s.suggestion_type === 'edit';
+      const sel = _sugSelected.has(s.id);
+      const cls = sel ? 'sug-card selected' : 'sug-card';
+      const span = isEdit ? 'grid-column: span 2;' : '';
+      const onClick = _sugSelectMode ? `toggleSugSelectId(${s.id})` : '';
       return `
-      <div class="sug-card" style="${isEdit ? 'grid-column: span 2;' : ''}">
+      <div class="${cls}" style="${span}${_sugSelectMode ? 'cursor:pointer;' : ''}" ${onClick ? `onclick="${onClick}"` : ''}>
         ${isEdit ? `<div style="padding:8px 12px;background:#fbbf24;color:#2a1a00;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">✏ Proposition d'édition · carte #${s.target_card_id}</div>` : ''}
         ${isEdit ? `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;background:var(--bg-2);">
