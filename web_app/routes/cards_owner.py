@@ -413,8 +413,14 @@ def register_cards_owner_routes(app, deps):
                             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
                             final = (public_base + url) if public_base else url
                             conn = get_db(); c = conn.cursor()
-                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                       (final, tcid))
+                            # IMPORTANT : save source_image_url si pas deja set
+                            # pour pouvoir re-cropper plus tard
+                            if not target.get("source_image_url"):
+                                c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                                           (final, src_for_bake, tcid))
+                            else:
+                                c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                           (final, tcid))
                             conn.commit(); conn.close()
                             rebaked = True
                     except Exception as e:
@@ -511,8 +517,12 @@ def register_cards_owner_routes(app, deps):
                             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
                             final = (public_base + url) if public_base else url
                             conn = get_db(); c = conn.cursor()
-                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                       (final, tcid))
+                            if not target.get("source_image_url"):
+                                c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                                           (final, src_for_bake, tcid))
+                            else:
+                                c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                           (final, tcid))
                             conn.commit(); conn.close()
                     except Exception as e:
                         print(f"[bulk approve edit rebake] err {tcid}: {e}")
@@ -1274,6 +1284,35 @@ def register_cards_owner_routes(app, deps):
         c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, cid))
         conn.commit(); conn.close()
         return jsonify({"ok": True, "image_url": final})
+
+
+    @app.route("/api/owner/cards/backfill-source", methods=["POST"])
+    def api_owner_cards_backfill_source():
+        """Pour les cartes qui ont image_url local mais source_image_url NULL,
+        impossible de re-cropper. Cherche dans logs ou propose au moins de
+        nullifier l'image_url local pour forcer re-fetch via le wizard.
+
+        Strategie : pour les cartes dont image_url contient /card_renders/,
+        on regarde si source est NULL. Si oui, on ne peut rien faire.
+        Sinon OK. On expose un compteur de cartes sans source."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        c.execute("SELECT COUNT(*) AS n FROM cards "
+                  "WHERE (image_url LIKE '%/card_renders/%' OR image_url LIKE '%/card_suggestions/%') "
+                  "AND (source_image_url IS NULL OR source_image_url = '')")
+        broken = int(c.fetchone()["n"])
+        c.execute("SELECT COUNT(*) AS n FROM cards "
+                  "WHERE source_image_url IS NOT NULL AND source_image_url != ''")
+        ok = int(c.fetchone()["n"])
+        conn.close()
+        return jsonify({
+            "ok": True,
+            "without_source": broken,
+            "with_source": ok,
+            "note": "Cartes sans source ne peuvent pas etre re-cropees ou re-bakees. Re-importer la source d'origine si possible.",
+        })
 
 
     @app.route("/api/owner/cards/bake-overlays-async", methods=["POST"])
