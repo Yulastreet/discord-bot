@@ -379,12 +379,15 @@ def register_cards_owner_routes(app, deps):
 
             conn = get_db(); c = conn.cursor()
             fields = []; params = []
-            # Update name/universe/subtitle direct
             for k in ("name", "universe", "subtitle"):
                 v = sugg.get(k)
                 if v is not None and v != "":
                     fields.append(f"{k} = ?"); params.append(v)
-            # Image gestion : si differente, save comme source + rebake
+            # Rarete proposee
+            proposed_rar = sugg.get("proposed_rarity")
+            if proposed_rar and proposed_rar in ("common","rare","epic","legendary","mythic","secret"):
+                fields.append("rarity = ?"); params.append(proposed_rar)
+            # Image
             image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
             if image_changed:
                 fields.append("source_image_url = ?"); params.append(new_image_url)
@@ -393,25 +396,33 @@ def register_cards_owner_routes(app, deps):
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
 
-            # Si image change : re-bake avec overlay rarete de la carte
-            if image_changed:
+            # Re-bake si image OU rarete change
+            final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
+            rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
+            rebaked = False
+            if image_changed or rarity_changed:
                 from services.cards_overlay import composite_card
                 import os as _os
-                try:
-                    url = composite_card(new_image_url, target.get("rarity", "common"), tcid)
-                    if url:
-                        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
-                        final = (public_base + url) if public_base else url
-                        conn = get_db(); c = conn.cursor()
-                        c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                   (final, tcid))
-                        conn.commit(); conn.close()
-                except Exception as e:
-                    print(f"[approve edit rebake] err {tcid}: {e}")
+                src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
+                if src_for_bake and "/card_renders/" not in src_for_bake and "/card_suggestions/" not in src_for_bake:
+                    try:
+                        url = composite_card(src_for_bake, final_rarity, tcid)
+                        if url:
+                            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                            final = (public_base + url) if public_base else url
+                            conn = get_db(); c = conn.cursor()
+                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                                       (final, tcid))
+                            conn.commit(); conn.close()
+                            rebaked = True
+                    except Exception as e:
+                        print(f"[approve edit rebake] err {tcid}: {e}")
 
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
             return jsonify({"ok": True, "card_id": tcid, "type": "edit",
-                             "rebaked": image_changed})
+                             "rebaked": rebaked,
+                             "rarity_changed": rarity_changed,
+                             "new_rarity": final_rarity if rarity_changed else None})
 
         # type 'new' : create nouvelle carte
         rarity = (data.get("rarity") or "common").strip()
