@@ -150,10 +150,64 @@
       </div>
     </div>
     <div class="row gap-3" style="flex-wrap:wrap;margin-top:8px;">
+      <button id="cardsGiveBtn" class="btn btn-primary" type="button">🎁 Donner une carte</button>
       <button id="cardsClearAllBtn" class="btn btn-danger" type="button">🗑 Clear toutes les cartes</button>
       <button id="cardsResetCdBtn" class="btn btn-secondary" type="button">⟳ Reset cooldown /roll (tous serveurs)</button>
     </div>
     <div id="cardsAdminHint" class="muted" style="font-size:var(--t-xs);margin-top:8px;"></div>
+  </div>
+
+  <!-- Give Card modal owner-only -->
+  <div id="giveCardScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:300;display:none;place-items:center;padding:20px;">
+    <div onclick="event.stopPropagation()" style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:540px;width:100%;">
+      <h3 style="margin:0 0 12px;">🎁 Donner une carte à <span id="gcUserLabel">…</span></h3>
+      <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+        <button class="gc-tab active" data-tab="existing" onclick="gcSwitchTab('existing')" style="padding:8px 14px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid #b9f23a;">📦 Carte existante</button>
+        <button class="gc-tab" data-tab="new" onclick="gcSwitchTab('new')" style="padding:8px 14px;border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;">✨ Créer une nouvelle carte</button>
+      </div>
+
+      <!-- Existing tab -->
+      <div id="gcExisting" class="col" style="gap:10px;">
+        <input id="gcSearchInput" type="search" placeholder="🔍 Rechercher nom carte (autocomplete)…" class="input" style="width:100%;" oninput="gcSearchCards()">
+        <div id="gcResults" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--bg-2);"></div>
+        <div id="gcSelected" class="muted" style="font-size:12px;">Aucune carte sélectionnée.</div>
+      </div>
+
+      <!-- New tab -->
+      <div id="gcNew" class="col hidden" style="gap:10px;">
+        <input id="gcNewName" placeholder="Nom (obligatoire)" class="input" style="width:100%;">
+        <input id="gcNewFlavor" placeholder="Sous-titre (optionnel)" class="input" style="width:100%;">
+        <input id="gcNewUniverse" placeholder="Univers (ex: Anime)" class="input" style="width:100%;">
+        <input id="gcNewSubtitle" placeholder="Origine (ex: Naruto)" class="input" style="width:100%;">
+        <select id="gcNewRarity" class="input">
+          <option value="common">Common</option>
+          <option value="rare">Rare</option>
+          <option value="epic">Epic</option>
+          <option value="legendary">Legendary</option>
+          <option value="mythic">Mythic</option>
+          <option value="secret">🌈 Secret</option>
+        </select>
+        <input id="gcNewImage" placeholder="Image URL" class="input" style="width:100%;">
+        <textarea id="gcNewDesc" placeholder="Description" rows="2" class="input" style="width:100%;font-size:13px;"></textarea>
+      </div>
+
+      <!-- Common options -->
+      <div class="row gap-3" style="margin-top:14px;flex-wrap:wrap;align-items:center;">
+        <label style="display:flex;flex-direction:column;gap:4px;">
+          <span class="muted" style="font-size:11px;">Quantité</span>
+          <input id="gcQty" type="number" min="1" max="100" value="1" class="input" style="width:90px;">
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:18px;">
+          <input id="gcNotTradeable" type="checkbox">
+          <span>🔒 Non-tradeable</span>
+        </label>
+      </div>
+      <div id="gcHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
+      <div class="row gap-2" style="margin-top:14px;justify-content:flex-end;">
+        <button class="btn btn-secondary" type="button" onclick="closeGiveCard()">Annuler</button>
+        <button class="btn btn-primary" type="button" onclick="submitGiveCard()">Donner</button>
+      </div>
+    </div>
   </div>
   {% endif %}
 
@@ -260,6 +314,116 @@ window.addEventListener('DOMContentLoaded', () => {
   setupCardsAdmin();
 });
 
+// ===== GIVE CARD (owner only) =====
+let _gcSelectedCard = null;
+let _gcSearchTimer = null;
+function openGiveCard() {
+  const uid = location.pathname.split('/').pop();
+  document.getElementById('gcUserLabel').textContent = uid;
+  document.getElementById('gcSearchInput').value = '';
+  document.getElementById('gcResults').innerHTML = '';
+  document.getElementById('gcSelected').textContent = 'Aucune carte sélectionnée.';
+  _gcSelectedCard = null;
+  ['gcNewName','gcNewFlavor','gcNewUniverse','gcNewSubtitle','gcNewImage','gcNewDesc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('gcNewRarity').value = 'common';
+  document.getElementById('gcQty').value = '1';
+  document.getElementById('gcNotTradeable').checked = false;
+  document.getElementById('gcHint').textContent = '';
+  gcSwitchTab('existing');
+  document.getElementById('giveCardScrim').style.display = 'grid';
+}
+function closeGiveCard() {
+  document.getElementById('giveCardScrim').style.display = 'none';
+}
+function gcSwitchTab(tab) {
+  document.querySelectorAll('.gc-tab').forEach(t => {
+    const active = t.dataset.tab === tab;
+    t.style.color = active ? 'var(--text)' : 'var(--text-2)';
+    t.style.borderBottomColor = active ? '#b9f23a' : 'transparent';
+  });
+  document.getElementById('gcExisting').classList.toggle('hidden', tab !== 'existing');
+  document.getElementById('gcNew').classList.toggle('hidden', tab !== 'new');
+}
+async function gcSearchCards() {
+  clearTimeout(_gcSearchTimer);
+  _gcSearchTimer = setTimeout(async () => {
+    const q = document.getElementById('gcSearchInput').value.trim();
+    if (q.length < 2) {
+      document.getElementById('gcResults').innerHTML = '<div class="muted" style="font-size:12px;padding:6px;">Tape au moins 2 lettres…</div>';
+      return;
+    }
+    try {
+      const r = await fetch(`/api/public/cards?q=${encodeURIComponent(q)}&per_page=20&page=1`);
+      const d = await r.json();
+      const items = d.items || [];
+      if (!items.length) {
+        document.getElementById('gcResults').innerHTML = '<div class="muted" style="font-size:12px;padding:6px;">Aucun résultat.</div>';
+        return;
+      }
+      document.getElementById('gcResults').innerHTML = items.map(c => `
+        <div onclick="gcSelectCard(${c.id}, '${(c.name||'').replace(/'/g,"\\'")}', '${c.rarity||''}', '${(c.universe||'').replace(/'/g,"\\'")}')" style="display:flex;gap:8px;padding:6px;border-radius:6px;cursor:pointer;align-items:center;" onmouseover="this.style.background='var(--bg-1)'" onmouseout="this.style.background='transparent'">
+          ${c.image_url ? `<img src="${c.image_url}" style="width:32px;height:48px;object-fit:cover;border-radius:4px;">` : ''}
+          <div style="flex:1;font-size:13px;">
+            <div style="font-weight:700;">${c.name}</div>
+            <div class="muted" style="font-size:11px;">${c.universe || '?'} · ${c.rarity}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {}
+  }, 300);
+}
+function gcSelectCard(id, name, rarity, universe) {
+  _gcSelectedCard = {id, name, rarity, universe};
+  document.getElementById('gcSelected').innerHTML = `✓ <strong>${name}</strong> (${rarity}) — ${universe}`;
+}
+async function submitGiveCard() {
+  const uid = location.pathname.split('/').pop();
+  const qty = parseInt(document.getElementById('gcQty').value, 10) || 1;
+  const notTradeable = document.getElementById('gcNotTradeable').checked;
+  const newTab = !document.getElementById('gcNew').classList.contains('hidden');
+  const hint = document.getElementById('gcHint');
+  hint.textContent = 'En cours…';
+  try {
+    let r, d;
+    if (newTab) {
+      const name = document.getElementById('gcNewName').value.trim();
+      if (!name) { hint.textContent = 'Nom requis.'; return; }
+      r = await fetch(`/api/owner/user/${uid}/cards/give-new`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          name,
+          flavor_subtitle: document.getElementById('gcNewFlavor').value.trim(),
+          universe: document.getElementById('gcNewUniverse').value.trim(),
+          subtitle: document.getElementById('gcNewSubtitle').value.trim(),
+          rarity: document.getElementById('gcNewRarity').value,
+          image_url: document.getElementById('gcNewImage').value.trim(),
+          description: document.getElementById('gcNewDesc').value.trim(),
+          qty, not_tradeable: notTradeable,
+        }),
+      });
+    } else {
+      if (!_gcSelectedCard) { hint.textContent = 'Choisis une carte.'; return; }
+      r = await fetch(`/api/owner/user/${uid}/cards/give-existing`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({card_id: _gcSelectedCard.id, qty, not_tradeable: notTradeable}),
+      });
+    }
+    d = await r.json();
+    if (d.ok) {
+      hint.textContent = `✅ ${d.given} carte(s) donnée(s)${d.not_tradeable ? ' (🔒 non-tradeable)' : ''}.`;
+      setTimeout(closeGiveCard, 1500);
+    } else {
+      hint.textContent = `Erreur : ${d.error || '?'}`;
+    }
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.openGiveCard = openGiveCard;
+window.closeGiveCard = closeGiveCard;
+window.gcSwitchTab = gcSwitchTab;
+window.gcSearchCards = gcSearchCards;
+window.gcSelectCard = gcSelectCard;
+window.submitGiveCard = submitGiveCard;
+
 // ===== CARDS ADMIN (owner only) =====
 function setupCardsAdmin() {
   const panel = document.getElementById('cardsAdminPanel');
@@ -277,6 +441,8 @@ function setupCardsAdmin() {
     } catch (e) { labelEl.textContent = 'Erreur : ' + e.message; }
   }
   refreshCount();
+
+  document.getElementById('cardsGiveBtn').addEventListener('click', openGiveCard);
 
   document.getElementById('cardsClearAllBtn').addEventListener('click', async () => {
     if (!confirm(`Supprimer TOUTES les cartes de l'user ${uid} ? Irreversible.`)) return;

@@ -1339,6 +1339,84 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "deleted": int(deleted)})
 
 
+    @app.route("/api/owner/user/<user_id>/cards/give-existing", methods=["POST"])
+    def api_owner_user_cards_give_existing(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_get, user_card_add_with_flag
+        data = request.json or {}
+        card_id = data.get("card_id")
+        try:
+            card_id = int(card_id) if card_id is not None else None
+        except (ValueError, TypeError):
+            card_id = None
+        if not card_id:
+            return jsonify({"error": "card_id requis"}), 400
+        try:
+            qty = max(1, min(int(data.get("qty", 1)), 100))
+        except (ValueError, TypeError):
+            qty = 1
+        not_tradeable = bool(data.get("not_tradeable", False))
+        card = card_get(card_id)
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        for _ in range(qty):
+            user_card_add_with_flag(user_id, card_id, not_tradeable=not_tradeable)
+        return jsonify({"ok": True, "given": qty, "card_name": card.get("name"),
+                         "not_tradeable": not_tradeable})
+
+
+    @app.route("/api/owner/user/<user_id>/cards/give-new", methods=["POST"])
+    def api_owner_user_cards_give_new(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_add, user_card_add_with_flag
+        from services.cards_overlay import composite_card
+        import os as _os
+        data = request.json or {}
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "name requis"}), 400
+        rarity = (data.get("rarity") or "common").strip()
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
+            rarity = "common"
+        try:
+            qty = max(1, min(int(data.get("qty", 1)), 100))
+        except (ValueError, TypeError):
+            qty = 1
+        not_tradeable = bool(data.get("not_tradeable", False))
+        image_url = (data.get("image_url") or "").strip() or None
+        try:
+            cid = card_add(
+                name=name,
+                universe=(data.get("universe") or "").strip() or None,
+                subtitle=(data.get("subtitle") or "").strip() or None,
+                rarity=rarity, image_url=image_url,
+                description=(data.get("description") or "").strip() or None,
+                flavor_subtitle=(data.get("flavor_subtitle") or "").strip() or None,
+            )
+        except Exception as e:
+            return jsonify({"error": f"create card : {type(e).__name__}: {e}"}), 500
+        # Bake overlay si image fournie
+        if image_url and "/card_renders/" not in image_url and "/card_suggestions/" not in image_url:
+            try:
+                url = composite_card(image_url, rarity, cid)
+                if url:
+                    public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                    final = (public_base + url) if public_base else url
+                    from database import get_db
+                    conn = get_db(); c = conn.cursor()
+                    c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                               (final, image_url, cid))
+                    conn.commit(); conn.close()
+            except Exception as e:
+                print(f"[give-new bake] err {cid}: {e}")
+        for _ in range(qty):
+            user_card_add_with_flag(user_id, cid, not_tradeable=not_tradeable)
+        return jsonify({"ok": True, "card_id": cid, "given": qty,
+                         "not_tradeable": not_tradeable})
+
+
     @app.route("/api/owner/user/<user_id>/cards/reset-cooldown", methods=["POST"])
     def api_owner_user_cards_reset_cd(user_id):
         if not _is_owner_session():

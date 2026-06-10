@@ -344,8 +344,10 @@ def setup_cards_commands(bot, deps):
         for c in cards:
             cid = c["card_id"]
             if cid not in grouped:
-                grouped[cid] = {**c, "count": 0}
+                grouped[cid] = {**c, "count": 0, "nt_count": 0}
             grouped[cid]["count"] += 1
+            if c.get("not_tradeable"):
+                grouped[cid]["nt_count"] += 1
         rows = list(grouped.values())
 
         # Pagine (25 max par embed)
@@ -363,7 +365,9 @@ def setup_cards_commands(bot, deps):
         for c in page_rows:
             emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
             count = f" x{c['count']}" if c["count"] > 1 else ""
-            lines.append(f"{emoji} **{c['name']}**{count} · _{c.get('universe') or '?'}_")
+            nt = c.get("nt_count", 0)
+            nt_tag = f" 🔒{nt}" if nt > 0 else ""
+            lines.append(f"{emoji} **{c['name']}**{count}{nt_tag} · _{c.get('universe') or '?'}_")
         embed.description += "\n\n" + "\n".join(lines)
         embed.set_footer(text=f"Page {page}/{total_pages} • Pour plus de pages utiliser bouton (a venir)")
         if target_user.display_avatar:
@@ -492,7 +496,7 @@ def setup_cards_commands(bot, deps):
         for cid, qty in items:
             agg[cid] = agg.get(cid, 0) + qty
         for cid, qty in agg.items():
-            owned = user_card_count_owned(user_id, cid)
+            owned = user_card_count_owned(user_id, cid, only_tradeable=True)
             if owned < qty:
                 card = card_get_by_name("")  # placeholder
                 from database import get_db

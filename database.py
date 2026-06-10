@@ -145,6 +145,11 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN source_image_url TEXT")
     except Exception:
         pass
+    # Migration : not_tradeable flag sur user_cards
+    try:
+        c.execute("ALTER TABLE user_cards ADD COLUMN not_tradeable INTEGER DEFAULT 0")
+    except Exception:
+        pass
     # Migration : flavor_subtitle (sous-titre affiche sous le nom)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
@@ -1734,6 +1739,16 @@ def user_card_add(user_id, card_id):
     return new_id
 
 
+def user_card_add_with_flag(user_id, card_id, not_tradeable=False):
+    """Comme user_card_add mais avec flag not_tradeable."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_cards (user_id, card_id, not_tradeable) VALUES (?, ?, ?)",
+              (str(user_id), int(card_id), 1 if not_tradeable else 0))
+    new_id = c.lastrowid
+    conn.commit(); conn.close()
+    return new_id
+
+
 def user_card_list(user_id, rarity=None):
     """Toutes les copies du user, jointes a la carte. ORDER BY rarete desc."""
     conn = get_db(); c = conn.cursor()
@@ -1849,20 +1864,29 @@ def card_suggestion_count_pending():
     return int(n)
 
 
-def user_card_count_owned(user_id, card_id):
-    """Combien de copies user possede de cette carte."""
+def user_card_count_owned(user_id, card_id, only_tradeable: bool = False):
+    """Combien de copies user possede de cette carte.
+    only_tradeable=True : exclut les not_tradeable (pour verif trade)."""
     conn = get_db(); c = conn.cursor()
-    n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ? AND card_id = ?",
-                   (str(user_id), int(card_id))).fetchone()["n"]
+    if only_tradeable:
+        n = c.execute("SELECT COUNT(*) AS n FROM user_cards "
+                      "WHERE user_id = ? AND card_id = ? "
+                      "AND COALESCE(not_tradeable, 0) = 0",
+                      (str(user_id), int(card_id))).fetchone()["n"]
+    else:
+        n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ? AND card_id = ?",
+                       (str(user_id), int(card_id))).fetchone()["n"]
     conn.close()
     return int(n)
 
 
 def user_card_transfer_one(from_user, to_user, card_id):
-    """Transfert UNE copie d'une carte. Retourne True si OK, False si from_user
-    n'en a pas. Atomique."""
+    """Transfert UNE copie d'une carte tradeable. Skip les not_tradeable.
+    Retourne True si OK, False si from_user n'en a pas de tradeable."""
     conn = get_db(); c = conn.cursor()
-    row = c.execute("SELECT id FROM user_cards WHERE user_id = ? AND card_id = ? LIMIT 1",
+    row = c.execute("SELECT id FROM user_cards "
+                     "WHERE user_id = ? AND card_id = ? "
+                     "AND COALESCE(not_tradeable, 0) = 0 LIMIT 1",
                      (str(from_user), int(card_id))).fetchone()
     if not row:
         conn.close()
