@@ -30,27 +30,48 @@ def register_cards_events_routes(app, deps):
 
     @app.route("/api/owner/card-events/guilds", methods=["GET"])
     def api_owner_card_events_guilds():
-        """Liste tous les serveurs du bot avec leurs salons textuels."""
+        """Liste tous les serveurs du bot (DB) avec leurs salons (cache)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        bot_obj = deps.get("bot")
-        if not bot_obj:
-            return jsonify({"items": []})
-        out = []
-        for g in bot_obj.guilds:
-            channels = []
-            for ch in g.text_channels:
+        from database import list_guilds, get_db
+        import json as _json
+        guilds = list_guilds(active_only=True)
+        # Cache channels chargee depuis guild_channels_cache si dispo
+        conn = get_db(); c = conn.cursor()
+        try:
+            c.execute("CREATE TABLE IF NOT EXISTS guild_channels_cache ("
+                      "guild_id TEXT PRIMARY KEY, channels_json TEXT, "
+                      "updated_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+            rows = c.execute("SELECT guild_id, channels_json FROM guild_channels_cache").fetchall()
+            channels_by_guild = {}
+            for r in rows:
                 try:
-                    if ch.permissions_for(g.me).send_messages:
-                        channels.append({"id": str(ch.id), "name": ch.name,
-                                          "category": ch.category.name if ch.category else None})
+                    channels_by_guild[r["guild_id"]] = _json.loads(r["channels_json"] or "[]")
                 except Exception:
-                    pass
-            out.append({"id": str(g.id), "name": g.name,
-                         "member_count": g.member_count or 0,
-                         "channels": channels})
+                    channels_by_guild[r["guild_id"]] = []
+        finally:
+            conn.close()
+        out = []
+        for g in guilds:
+            gid = str(g.get("guild_id") or g.get("id"))
+            out.append({
+                "id": gid,
+                "name": g.get("name") or "?",
+                "member_count": g.get("member_count") or 0,
+                "channels": channels_by_guild.get(gid, []),
+            })
         out.sort(key=lambda x: x["name"].lower())
         return jsonify({"items": out})
+
+
+    @app.route("/api/owner/card-events/refresh-channels/<guild_id>", methods=["POST"])
+    def api_owner_card_events_refresh_channels(guild_id):
+        """Push une commande bot pour rafraichir cache des channels d'un guild."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import bot_command_create
+        bot_command_create(guild_id, "list_guild_channels", {})
+        return jsonify({"ok": True, "note": "Channels seront rafraichis sous 2s"})
 
 
     @app.route("/api/owner/card-events/config/<guild_id>", methods=["POST"])
@@ -93,14 +114,10 @@ def register_cards_events_routes(app, deps):
 
     @app.route("/api/owner/card-events/trigger", methods=["POST"])
     def api_owner_card_events_trigger():
-        """Trigger manuel d'un drop. Pour tests."""
+        """Trigger manuel d'un drop via bot_command queue (cross-process)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        import asyncio
-        from services.card_events import trigger_event_drop
-        bot_obj = deps.get("bot")
-        if not bot_obj:
-            return jsonify({"error": "bot non dispo"}), 500
+        from database import bot_command_create
         data = request.json or {}
         guild_id = data.get("guild_id")
         channel_id = data.get("channel_id")
@@ -109,21 +126,11 @@ def register_cards_events_routes(app, deps):
             return jsonify({"error": "guild_id + channel_id requis"}), 400
         if min_rarity not in ("common", "rare", "epic", "legendary", "mythic"):
             return jsonify({"error": "min_rarity invalide"}), 400
-        # Schedule coroutine sur la loop du bot
-        try:
-            future = asyncio.run_coroutine_threadsafe(
-                trigger_event_drop(bot_obj, int(guild_id), int(channel_id),
-                                     min_rarity=min_rarity,
-                                     triggered_by="manual"),
-                bot_obj.loop)
-            result = future.result(timeout=15)
-        except Exception as e:
-            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
-        if not result:
-            return jsonify({"error": "drop echoue (voir logs bot)"}), 500
-        return jsonify({"ok": True, "event_id": result["event_id"],
-                         "card_name": result["card"]["name"],
-                         "message_id": str(result["message_id"])})
+        bot_command_create(guild_id, "card_event_drop", {
+            "channel_id": str(channel_id),
+            "min_rarity": min_rarity,
+        })
+        return jsonify({"ok": True, "note": "Drop dispatché au bot (visible sous 2s)"})
 
 
     @app.route("/api/owner/card-events/recent", methods=["GET"])

@@ -2537,5 +2537,47 @@ def setup_runtime(bot, deps):
             else:
                 print("[kofi] OWNER_NOTIFY_CHANNEL_ID non configure ou introuvable")
 
+        elif name == "card_event_drop":
+            from services.card_events import trigger_event_drop
+            channel_id = payload.get("channel_id")
+            min_rarity = (payload.get("min_rarity") or "rare").strip().lower()
+            if not channel_id:
+                raise ValueError("channel_id requis")
+            result = await trigger_event_drop(
+                bot, int(gid), int(channel_id),
+                min_rarity=min_rarity, triggered_by="manual")
+            if not result:
+                raise RuntimeError("drop echoue (carte ou salon introuvable)")
+            return
+
+        elif name == "list_guild_channels":
+            # Retourne via bot_command_finish result_data
+            channels = []
+            for ch in guild.text_channels:
+                try:
+                    perm = ch.permissions_for(guild.me)
+                    if perm.send_messages and perm.view_channel:
+                        channels.append({
+                            "id": str(ch.id), "name": ch.name,
+                            "category": ch.category.name if ch.category else None,
+                        })
+                except Exception:
+                    pass
+            # Stocke dans guild_channels_cache (table de cache)
+            from database import get_db
+            conn = get_db(); c = conn.cursor()
+            c.execute("CREATE TABLE IF NOT EXISTS guild_channels_cache ("
+                      "guild_id TEXT PRIMARY KEY, channels_json TEXT, "
+                      "updated_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+            import json as _json
+            c.execute("INSERT INTO guild_channels_cache (guild_id, channels_json, updated_at) "
+                      "VALUES (?, ?, CURRENT_TIMESTAMP) "
+                      "ON CONFLICT(guild_id) DO UPDATE SET "
+                      "channels_json = excluded.channels_json, "
+                      "updated_at = CURRENT_TIMESTAMP",
+                      (str(gid), _json.dumps(channels)))
+            conn.commit(); conn.close()
+            return
+
         else:
             raise ValueError(f"commande inconnue: {name}")

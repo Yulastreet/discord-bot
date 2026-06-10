@@ -58,11 +58,17 @@
       <button class="btn btn-primary" onclick="triggerManual()">🎁 Lancer drop</button>
     </div>
     <div id="trgHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
+    <div class="muted" style="font-size:11px;margin-top:6px;">
+      Si les salons ne s'affichent pas : clic sur 🔄 à côté du serveur dans les configs ci-dessous pour rafraîchir.
+    </div>
   </div>
 
   <!-- Configs par serveur -->
   <div class="ce-section">
-    <h3>⚙ Configurations par serveur</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>⚙ Configurations par serveur</h3>
+      <button class="btn btn-secondary" onclick="refreshAllChannels()" style="padding:6px 12px;font-size:12px;">🔄 Rafraichir tous les salons</button>
+    </div>
     <p class="muted" style="font-size:11px;margin-bottom:12px;">
       Active la box pour activer les drops automatiques sur ce serveur. Le bot dropera une carte aleatoire toutes les X minutes (intervalle aleatoire entre min et max).
     </p>
@@ -152,7 +158,7 @@ async function loadConfigs() {
       const nextAt = cfg.next_drop_at || '—';
       return `
         <div class="ce-card ${enabled ? 'enabled' : ''}" data-gid="${g.id}">
-          <div class="gname">${escHtml(g.name)}</div>
+          <div class="gname">${escHtml(g.name)} <button onclick="refreshChannels('${g.id}')" style="background:transparent;border:none;cursor:pointer;font-size:11px;color:var(--text-2);" title="Rafraichir liste salons">🔄</button></div>
           <div class="meta">${g.member_count} membres · prochain : ${escHtml(nextAt)}</div>
           <label style="flex-direction:row;align-items:center;gap:6px;">
             <input type="checkbox" id="cfg-enabled-${g.id}" ${enabled ? 'checked' : ''}>
@@ -216,6 +222,31 @@ async function saveCfg(gid, resetTimer) {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.saveCfg = saveCfg;
+
+async function refreshChannels(gid) {
+  try {
+    await fetch(`/api/owner/card-events/refresh-channels/${gid}`, {method:'POST'});
+    setTimeout(async () => {
+      await loadGuilds();
+      await loadConfigs();
+    }, 2500);
+  } catch (e) {}
+}
+window.refreshChannels = refreshChannels;
+
+async function refreshAllChannels() {
+  for (const g of _guildsCache) {
+    try { await fetch(`/api/owner/card-events/refresh-channels/${g.id}`, {method:'POST'}); }
+    catch (e) {}
+  }
+  setTimeout(async () => {
+    await loadGuilds();
+    await loadConfigs();
+    document.getElementById('trgHint').textContent = '✅ Salons rafraichis.';
+  }, 3000);
+  document.getElementById('trgHint').textContent = 'Rafraichissement en cours…';
+}
+window.refreshAllChannels = refreshAllChannels;
 
 async function loadRecent() {
   try {
