@@ -417,10 +417,9 @@ def setup_cards_commands(bot, deps):
             owners = card_owners_count(card["id"])
             if owners > 0:
                 embed.set_footer(text=f"Possédée par {owners} joueur{'s' if owners > 1 else ''}")
-                view = OwnersView(card["id"], card["name"])
-                await interaction.response.send_message(embed=embed, view=view)
-            else:
-                await interaction.response.send_message(embed=embed)
+            # View toujours present (au moins le bouton Modifier link)
+            view = OwnersView(card["id"], card["name"])
+            await interaction.response.send_message(embed=embed, view=view)
         except Exception as e:
             import traceback
             traceback.print_exc()
