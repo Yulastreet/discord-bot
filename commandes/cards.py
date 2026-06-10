@@ -350,29 +350,75 @@ def setup_cards_commands(bot, deps):
                 grouped[cid]["nt_count"] += 1
         rows = list(grouped.values())
 
-        # Pagine (25 max par embed)
+        # Pagine
         PAGE_SIZE = 25
-        page = 1
-        page_rows = rows[:PAGE_SIZE]
         total_pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
 
-        embed = discord.Embed(
-            title=f"🃏 Collection de {target_user.display_name}",
-            description=f"**{total}** cartes ({len(rows)} uniques)" + (f" • filtre **{rar_val}**" if rar_val else ""),
-            color=0xB9F23A,
-        )
-        lines = []
-        for c in page_rows:
-            emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
-            count = f" x{c['count']}" if c["count"] > 1 else ""
-            nt = c.get("nt_count", 0)
-            nt_tag = f" 🔒{nt}" if nt > 0 else ""
-            lines.append(f"{emoji} **{c['name']}**{count}{nt_tag} · _{c.get('universe') or '?'}_")
-        embed.description += "\n\n" + "\n".join(lines)
-        embed.set_footer(text=f"Page {page}/{total_pages} • Pour plus de pages utiliser bouton (a venir)")
-        if target_user.display_avatar:
-            embed.set_thumbnail(url=str(target_user.display_avatar.url))
-        await interaction.response.send_message(embed=embed)
+        def _build_embed(page: int) -> discord.Embed:
+            start = (page - 1) * PAGE_SIZE
+            end = start + PAGE_SIZE
+            page_rows = rows[start:end]
+            embed = discord.Embed(
+                title=f"🃏 Collection de {target_user.display_name}",
+                description=f"**{total}** cartes ({len(rows)} uniques)" + (f" • filtre **{rar_val}**" if rar_val else ""),
+                color=0xB9F23A,
+            )
+            lines = []
+            for c in page_rows:
+                emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
+                count = f" x{c['count']}" if c["count"] > 1 else ""
+                nt = c.get("nt_count", 0)
+                nt_tag = f" 🔒{nt}" if nt > 0 else ""
+                lines.append(f"{emoji} **{c['name']}**{count}{nt_tag} · _{c.get('universe') or '?'}_")
+            embed.description += "\n\n" + "\n".join(lines)
+            embed.set_footer(text=f"Page {page}/{total_pages}")
+            if target_user.display_avatar:
+                embed.set_thumbnail(url=str(target_user.display_avatar.url))
+            return embed
+
+        class _CollecView(discord.ui.View):
+            def __init__(self, owner_id: int, total_pages: int):
+                super().__init__(timeout=300)
+                self.owner_id = owner_id
+                self.page = 1
+                self.total_pages = total_pages
+                self._refresh()
+
+            def _refresh(self):
+                self.prev_btn.disabled = (self.page <= 1)
+                self.next_btn.disabled = (self.page >= self.total_pages)
+                self.counter.label = f"{self.page} / {self.total_pages}"
+
+            async def _guard(self, interaction):
+                if interaction.user.id != self.owner_id:
+                    await interaction.response.send_message(
+                        "Ce menu n'est pas pour toi. Fais ta propre `/cardcollec`.",
+                        ephemeral=True)
+                    return False
+                return True
+
+            @discord.ui.button(label="◀ Précédent", style=discord.ButtonStyle.secondary)
+            async def prev_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                if not await self._guard(interaction): return
+                if self.page > 1:
+                    self.page -= 1
+                    self._refresh()
+                    await interaction.response.edit_message(embed=_build_embed(self.page), view=self)
+
+            @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
+            async def counter(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                pass
+
+            @discord.ui.button(label="Suivant ▶", style=discord.ButtonStyle.secondary)
+            async def next_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                if not await self._guard(interaction): return
+                if self.page < self.total_pages:
+                    self.page += 1
+                    self._refresh()
+                    await interaction.response.edit_message(embed=_build_embed(self.page), view=self)
+
+        view = _CollecView(interaction.user.id, total_pages) if total_pages > 1 else None
+        await interaction.response.send_message(embed=_build_embed(1), view=view)
 
 
     # === /card <nom> ===
