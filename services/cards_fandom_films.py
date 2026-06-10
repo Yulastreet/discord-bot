@@ -181,7 +181,8 @@ SHOWS: dict[str, dict] = {
 
 
 def bulk_import_show(show_key: str, limit: int = 200,
-                      skip_existing: bool = True) -> dict:
+                      skip_existing: bool = True,
+                      progress_cb=None) -> dict:
     """Import 1 show specifique."""
     from database import get_db, card_add
     cfg = SHOWS.get(show_key)

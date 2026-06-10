@@ -167,75 +167,7 @@
       <option value="500">500 / page</option>
     </select>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
-    <details class="cards-menu">
-      <summary class="btn btn-secondary">📺 Anime ▾</summary>
-      <div class="cards-menu-panel">
-        <button class="btn btn-primary" onclick="bulkImportAnilist()">Anilist (par pages)</button>
-        <button class="btn btn-ghost" onclick="bulkImportJikan()">Jikan (fallback)</button>
-      </div>
-    </details>
-    <details class="cards-menu">
-      <summary class="btn btn-secondary">🎬 Films/Séries ▾</summary>
-      <div class="cards-menu-panel">
-        <button class="btn btn-primary" onclick="bulkImportAllSelectedShows()">⚡ Importer tous</button>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Animation populaire</div>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('tadc', 'TADC')">The Amazing Digital Circus</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('hazbinhotel', 'Hazbin Hotel')">Hazbin Hotel</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('helluvaboss', 'Helluva Boss')">Helluva Boss</button>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Marvel / DC / Saga</div>
-        <button class="btn btn-primary" onclick="bulkImportSuperhero(['Marvel Comics'])" style="background:linear-gradient(135deg,#ed1d24,#a00000);">🦸 Marvel (SuperHero API)</button>
-        <button class="btn btn-primary" onclick="bulkImportSuperhero(['DC Comics'])" style="background:linear-gradient(135deg,#0476f2,#001f60);">🦇 DC (SuperHero API)</button>
-        <button class="btn btn-secondary" onclick="bulkImportSuperhero(null)">📚 Tous comics (Marvel + DC + indie)</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('marvel', 'Marvel Fandom')">Marvel Fandom (fallback)</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('dc', 'DC Comics')">DC Comics</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('starwars', 'Star Wars')">Star Wars</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('harrypotter', 'Harry Potter')">Harry Potter</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('lotr', 'LOTR')">Lord of the Rings</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('got', 'GoT')">Game of Thrones</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('houseofthedragon', 'HotD')">House of the Dragon</button>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Séries live action</div>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('strangerthings', 'Stranger Things')">Stranger Things</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('breakingbad', 'Breaking Bad')">Breaking Bad</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('thewalkingdead', 'TWD')">The Walking Dead</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('squidgame', 'Squid Game')">Squid Game</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('theoffice', 'The Office')">The Office</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('friends', 'Friends')">Friends</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('succession', 'Succession')">Succession</button>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Cartoons</div>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('simpsons', 'Simpsons')">The Simpsons</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('southpark', 'South Park')">South Park</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('familyguy', 'Family Guy')">Family Guy</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('rickandmorty', 'Rick & Morty')">Rick and Morty</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('spongebob', 'SpongeBob')">SpongeBob</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('adventuretime', 'Adv. Time')">Adventure Time</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('avatar', 'Avatar TLA')">Avatar: TLA</button>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Disney / Pixar</div>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('disney', 'Disney')">Disney</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('pixar', 'Pixar')">Pixar</button>
-      </div>
-    </details>
-    <details class="cards-menu">
-      <summary class="btn btn-secondary">🎮 Jeux Vidéo ▾</summary>
-      <div class="cards-menu-panel" id="gamesMenuPanel">
-        <button class="btn btn-primary" onclick="bulkImportAllSelectedGames()">⚡ Importer tous (LoL+OW+Mario+...)</button>
-        <hr style="border-color:var(--border);margin:6px 0;">
-        <div class="muted" style="font-size:11px;padding:0 4px;">Par jeu</div>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('lol', 'League of Legends')">League of Legends</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('overwatch', 'Overwatch')">Overwatch</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('mario', 'Mario')">Mario</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('sonic', 'Sonic')">Sonic</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('dragonquest', 'Dragon Quest')">Dragon Quest</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('zelda', 'Zelda')">Zelda</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('genshin', 'Genshin Impact')">Genshin Impact</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('honkai-sr', 'Honkai SR')">Honkai: Star Rail</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneGame('wow', 'WoW')">World of Warcraft</button>
-      </div>
-    </details>
+    <button class="btn btn-secondary" onclick="openImportCenter()">📦 Centre d'import</button>
     <details class="cards-menu">
       <summary class="btn btn-secondary">🎨 Images ▾</summary>
       <div class="cards-menu-panel">
@@ -306,6 +238,63 @@
     </div>
   </div>
 </div>
+
+<!-- Import Center modal -->
+<div class="card-preview-scrim" id="importScrim" onclick="closeImportCenter(event)">
+  <div class="card-preview-modal" onclick="event.stopPropagation()" style="max-width:920px;width:100%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="margin:0;">📦 Centre d'import de cartes</h3>
+      <button class="btn btn-ghost" onclick="closeImportCenter()">✕</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+      <button class="ic-tab active" data-tab="anime" onclick="switchImportTab('anime')">📺 Anime</button>
+      <button class="ic-tab" data-tab="film" onclick="switchImportTab('film')">🎬 Films/Séries</button>
+      <button class="ic-tab" data-tab="game" onclick="switchImportTab('game')">🎮 Jeux Vidéo</button>
+      <button class="ic-tab" data-tab="comics" onclick="switchImportTab('comics')">🦸 Comics</button>
+    </div>
+
+    <div class="ic-panel" id="ic-anime"></div>
+    <div class="ic-panel hidden" id="ic-film"></div>
+    <div class="ic-panel hidden" id="ic-game"></div>
+    <div class="ic-panel hidden" id="ic-comics"></div>
+
+    <!-- Progress section -->
+    <div id="importProgress" style="display:none;margin-top:18px;padding:14px;background:var(--bg-2);border-radius:12px;border:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
+        <strong id="ipLabel">…</strong>
+        <span id="ipStats" class="muted"></span>
+      </div>
+      <div style="background:var(--bg-1);border-radius:8px;overflow:hidden;height:18px;">
+        <div id="ipBar" style="background:linear-gradient(90deg,#4ade80,#22c55e);height:100%;width:0%;transition:width .3s;"></div>
+      </div>
+      <div id="ipPct" style="font-size:11px;text-align:center;margin-top:4px;font-weight:700;">0 %</div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ic-tab {
+    padding: 8px 14px; border: none; background: transparent; color: var(--text-2);
+    font-weight: 700; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .ic-tab.active { color: var(--text); border-bottom-color: var(--accent, #b9f23a); }
+  .ic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .ic-source {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px; cursor: pointer; transition: transform .12s, border-color .12s;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .ic-source:hover { transform: translateY(-2px); border-color: var(--accent, #b9f23a); }
+  .ic-source .ic-name { font-weight: 800; font-size: 14px; }
+  .ic-source .ic-desc { font-size: 11px; color: var(--text-2); line-height: 1.4; }
+  .ic-source .ic-vol { font-size: 10px; color: var(--text-3); margin-top: auto; }
+  .ic-source.featured { border-color: var(--accent, #b9f23a); }
+  .ic-section-title { font-size: 11px; color: var(--text-2); text-transform: uppercase;
+    letter-spacing: .05em; margin: 14px 0 8px; }
+  .ic-section-title:first-child { margin-top: 0; }
+  .hidden { display: none; }
+</style>
 
 <!-- Bulk edit modal -->
 <div class="card-preview-scrim" id="bulkEditScrim" onclick="closeBulkEdit(event)">
@@ -838,6 +827,141 @@ async function bakeOverlays() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bakeOverlays = bakeOverlays;
+
+// === IMPORT CENTER ===
+const IMPORT_SOURCES = {
+  anime: [
+    {key:'anilist', name:'📺 Anilist', desc:'Top characters MyAnimeList. 50/page. Excellent qualité images.', vol:'~5000 max', source:'anilist', params:{pages:100}, featured:true},
+    {key:'anilist_more', name:'📺 Anilist (next batch)', desc:'Pages 101+ (chars moins populaires).', vol:'+200 pages possibles', source:'anilist', params:{pages:200, start_page:101}},
+    {key:'jikan', name:'🌸 Jikan (MAL fallback)', desc:'MAL via Jikan unofficial. Plus lent.', vol:'~1500 utile', source:'jikan', params:{pages:60}},
+  ],
+  film: [
+    {key:'tadc', name:'🎪 The Amazing Digital Circus', desc:'Fandom TADC. Persos officiels.', vol:'~20', source:'fandom_show', params:{show_key:'tadc'}, featured:true},
+    {key:'hazbinhotel', name:'😈 Hazbin Hotel', desc:'Fandom Vivziepop.', vol:'~30', source:'fandom_show', params:{show_key:'hazbinhotel'}},
+    {key:'helluvaboss', name:'👹 Helluva Boss', desc:'Fandom Vivziepop.', vol:'~25', source:'fandom_show', params:{show_key:'helluvaboss'}},
+    {key:'starwars', name:'⭐ Star Wars', desc:'Wookieepedia.', vol:'~200', source:'fandom_show', params:{show_key:'starwars'}, featured:true},
+    {key:'harrypotter', name:'⚡ Harry Potter', desc:'HP Fandom.', vol:'~150', source:'fandom_show', params:{show_key:'harrypotter'}},
+    {key:'lotr', name:'💍 Lord of the Rings', desc:'LOTR Fandom.', vol:'~100', source:'fandom_show', params:{show_key:'lotr'}},
+    {key:'got', name:'🐉 Game of Thrones', desc:'GoT Wiki.', vol:'~150', source:'fandom_show', params:{show_key:'got'}},
+    {key:'strangerthings', name:'👻 Stranger Things', desc:'ST Fandom.', vol:'~50', source:'fandom_show', params:{show_key:'strangerthings'}},
+    {key:'breakingbad', name:'🧪 Breaking Bad', desc:'BB Wiki.', vol:'~80', source:'fandom_show', params:{show_key:'breakingbad'}},
+    {key:'squidgame', name:'🦑 Squid Game', desc:'Fandom Netflix.', vol:'~40', source:'fandom_show', params:{show_key:'squidgame'}},
+    {key:'theoffice', name:'📎 The Office', desc:'Office Fandom.', vol:'~60', source:'fandom_show', params:{show_key:'theoffice'}},
+    {key:'rickandmorty', name:'🛸 Rick and Morty', desc:'R&M Wiki.', vol:'~100', source:'fandom_show', params:{show_key:'rickandmorty'}},
+    {key:'simpsons', name:'🍩 The Simpsons', desc:'Simpsons Wiki.', vol:'~200', source:'fandom_show', params:{show_key:'simpsons'}},
+    {key:'southpark', name:'🎿 South Park', desc:'SP Archives.', vol:'~100', source:'fandom_show', params:{show_key:'southpark'}},
+    {key:'spongebob', name:'🍔 SpongeBob', desc:'SB Fandom.', vol:'~150', source:'fandom_show', params:{show_key:'spongebob'}},
+    {key:'avatar', name:'🌪 Avatar TLA', desc:'Avatar Wiki.', vol:'~80', source:'fandom_show', params:{show_key:'avatar'}},
+    {key:'adventuretime', name:'🗡 Adventure Time', desc:'AT Fandom.', vol:'~100', source:'fandom_show', params:{show_key:'adventuretime'}},
+    {key:'disney', name:'🏰 Disney', desc:'Disney Fandom.', vol:'~200', source:'fandom_show', params:{show_key:'disney'}},
+    {key:'pixar', name:'🚀 Pixar', desc:'Pixar Fandom.', vol:'~80', source:'fandom_show', params:{show_key:'pixar'}},
+  ],
+  game: [
+    {key:'lol', name:'⚔ League of Legends', desc:'Tous champions LoL.', vol:'~170', source:'fandom_game', params:{game_key:'lol'}, featured:true},
+    {key:'overwatch', name:'🎯 Overwatch', desc:'Heroes Blizzard.', vol:'~40', source:'fandom_game', params:{game_key:'overwatch'}, featured:true},
+    {key:'genshin', name:'⚔ Genshin Impact', desc:'Playable characters.', vol:'~80', source:'fandom_game', params:{game_key:'genshin'}, featured:true},
+    {key:'honkai-sr', name:'🚂 Honkai: Star Rail', desc:'Trailblazer + chars.', vol:'~50', source:'fandom_game', params:{game_key:'honkai-sr'}, featured:true},
+    {key:'mario', name:'🍄 Mario', desc:'Mario universe.', vol:'~200', source:'fandom_game', params:{game_key:'mario'}, featured:true},
+    {key:'zelda', name:'🗡 The Legend of Zelda', desc:'Zelda Wiki.', vol:'~100', source:'fandom_game', params:{game_key:'zelda'}, featured:true},
+    {key:'sonic', name:'💨 Sonic', desc:'Sonic universe.', vol:'~80', source:'fandom_game', params:{game_key:'sonic'}},
+    {key:'dragonquest', name:'🐲 Dragon Quest', desc:'DQ Heroes.', vol:'~50', source:'fandom_game', params:{game_key:'dragonquest'}},
+    {key:'wow', name:'⚔ World of Warcraft', desc:'WoW lore characters.', vol:'~500', source:'fandom_game', params:{game_key:'wow'}, featured:true},
+  ],
+  comics: [
+    {key:'sh_marvel', name:'🦸 Marvel', desc:'SuperHero API officielle. Iron Man, Spider-Man, Hulk...', vol:'~400', source:'superhero', params:{publishers:['Marvel Comics']}, featured:true},
+    {key:'sh_dc', name:'🦇 DC Comics', desc:'Batman, Superman, WW...', vol:'~200', source:'superhero', params:{publishers:['DC Comics']}, featured:true},
+    {key:'sh_all', name:'📚 Tous comics', desc:'Marvel + DC + Image + Dark Horse + indie.', vol:'~730', source:'superhero', params:{publishers:null}},
+  ],
+};
+
+function openImportCenter() {
+  document.getElementById('importScrim').classList.add('open');
+  // Render tous tabs
+  ['anime','film','game','comics'].forEach(renderImportTab);
+  switchImportTab('anime');
+}
+function closeImportCenter(e) {
+  if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
+  document.getElementById('importScrim').classList.remove('open');
+}
+function switchImportTab(tab) {
+  document.querySelectorAll('.ic-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.ic-panel').forEach(p => p.classList.toggle('hidden', p.id !== 'ic-' + tab));
+}
+function renderImportTab(tab) {
+  const sources = IMPORT_SOURCES[tab] || [];
+  document.getElementById('ic-' + tab).innerHTML = `
+    <div class="ic-grid">
+      ${sources.map(s => `
+        <div class="ic-source ${s.featured ? 'featured' : ''}" onclick='startImport(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+          <div class="ic-name">${s.name}</div>
+          <div class="ic-desc">${s.desc}</div>
+          <div class="ic-vol">${s.vol}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+window.openImportCenter = openImportCenter;
+window.closeImportCenter = closeImportCenter;
+window.switchImportTab = switchImportTab;
+
+async function startImport(src) {
+  if (!confirm(`Lancer import : ${src.name} (${src.vol}) ?`)) return;
+  document.getElementById('importProgress').style.display = 'block';
+  document.getElementById('ipLabel').textContent = src.name;
+  document.getElementById('ipStats').textContent = 'Démarrage…';
+  document.getElementById('ipBar').style.width = '0%';
+  document.getElementById('ipPct').textContent = '0 %';
+  try {
+    const r = await fetch('/api/owner/cards/import/start', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({source: src.source, params: src.params}),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || 'Erreur start', 'error'); return; }
+    pollImportProgress(d.job_id);
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.startImport = startImport;
+
+async function pollImportProgress(jobId) {
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const r = await fetch(`/api/owner/cards/import/progress/${jobId}`);
+      const j = await r.json();
+      const pct = j.progress || 0;
+      document.getElementById('ipBar').style.width = pct + '%';
+      document.getElementById('ipPct').textContent = pct + ' %';
+      const s = j.stats || {};
+      const stat = [
+        s.inserted != null ? `+${s.inserted}` : '',
+        s.skipped != null ? `skip ${s.skipped}` : '',
+        s.failed != null ? `fail ${s.failed}` : '',
+      ].filter(Boolean).join(' · ');
+      document.getElementById('ipStats').textContent = stat || `${j.current||0}/${j.total||0}`;
+      if (j.status === 'done') {
+        document.getElementById('ipBar').style.background = 'linear-gradient(90deg,#4ade80,#22c55e)';
+        document.getElementById('ipStats').textContent = `✅ ${stat || 'Terminé'}`;
+        toast(`Import terminé : ${stat || 'OK'}`);
+        loadCards();
+        stopped = true;
+        return;
+      }
+      if (j.status === 'error') {
+        document.getElementById('ipBar').style.background = 'linear-gradient(90deg,#ff3d57,#dc2626)';
+        document.getElementById('ipStats').textContent = `❌ ${j.error || 'Erreur'}`;
+        toast(j.error || 'Erreur import', 'error');
+        stopped = true;
+        return;
+      }
+    } catch (e) {}
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
 
 async function bulkImportAll() {
   const aniPagesStr = prompt('Anime Anilist : combien de pages ? (50 chars/page). Vide = skip.', '20');

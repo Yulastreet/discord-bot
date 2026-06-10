@@ -217,7 +217,8 @@ def _rarity_weighted(rank: int) -> str:
 
 
 def bulk_import_game(game_key: str, limit: int = 200,
-                       skip_existing: bool = True) -> dict:
+                       skip_existing: bool = True,
+                       progress_cb=None) -> dict:
     """Import 1 jeu specifique. game_key dans GAMES dict."""
     from database import get_db, card_add
     cfg = GAMES.get(game_key)

@@ -49,7 +49,8 @@ def _rarity_for_publisher(publisher: str, rank: int) -> str:
 
 def bulk_import_superhero(publishers: list[str] | None = None,
                             skip_existing: bool = True,
-                            limit: int | None = None) -> dict:
+                            limit: int | None = None,
+                            progress_cb=None) -> dict:
     """Import superhero dataset.
     publishers : filter (ex ['Marvel Comics']). None = tous editeurs.
     limit : max chars a inserer.

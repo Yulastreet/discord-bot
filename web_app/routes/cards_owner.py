@@ -913,6 +913,75 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/cards/import/start", methods=["POST"])
+    def api_owner_cards_import_start():
+        """Start an import job en background. Retourne job_id."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.import_jobs import run_async
+        data = request.json or {}
+        source = (data.get("source") or "").strip().lower()
+        params = data.get("params") or {}
+        if not isinstance(params, dict):
+            return jsonify({"error": "params doit etre dict"}), 400
+
+        if source == "anilist":
+            from services.cards_anilist_bulk import bulk_import_anilist
+            pages = max(1, min(int(params.get("pages", 20)), 100))
+            start_page = max(1, int(params.get("start_page", 1)))
+            job_id = run_async(f"Anilist pages {start_page}-{start_page+pages-1}",
+                                 bulk_import_anilist,
+                                 pages=pages, start_page=start_page,
+                                 skip_existing=True)
+        elif source == "jikan":
+            from services.cards_jikan_bulk import bulk_import_jikan
+            pages = max(1, min(int(params.get("pages", 40)), 100))
+            job_id = run_async(f"Jikan {pages} pages",
+                                 bulk_import_jikan,
+                                 pages=pages, skip_existing=True)
+        elif source == "superhero":
+            from services.cards_superhero_bulk import bulk_import_superhero
+            publishers = params.get("publishers")
+            if publishers is not None and not isinstance(publishers, list):
+                return jsonify({"error": "publishers liste ou null"}), 400
+            label = ("SuperHero " + (",".join(publishers) if publishers else "all"))
+            job_id = run_async(label, bulk_import_superhero,
+                                 publishers=publishers, skip_existing=True)
+        elif source == "fandom_game":
+            from services.cards_fandom_games import bulk_import_game, GAMES
+            game_key = (params.get("game_key") or "").strip()
+            if game_key not in GAMES:
+                return jsonify({"error": f"jeu inconnu : {game_key}"}), 400
+            limit_v = max(10, min(int(params.get("limit", 1000)), 2000))
+            job_id = run_async(f"Fandom game {game_key}",
+                                 bulk_import_game, game_key,
+                                 limit=limit_v, skip_existing=True)
+        elif source == "fandom_show":
+            from services.cards_fandom_films import bulk_import_show, SHOWS
+            show_key = (params.get("show_key") or "").strip()
+            if show_key not in SHOWS:
+                return jsonify({"error": f"show inconnu : {show_key}"}), 400
+            limit_v = max(10, min(int(params.get("limit", 1000)), 2000))
+            job_id = run_async(f"Fandom show {show_key}",
+                                 bulk_import_show, show_key,
+                                 limit=limit_v, skip_existing=True)
+        else:
+            return jsonify({"error": f"source inconnue : {source}"}), 400
+
+        return jsonify({"ok": True, "job_id": job_id})
+
+
+    @app.route("/api/owner/cards/import/progress/<job_id>", methods=["GET"])
+    def api_owner_cards_import_progress(job_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.import_jobs import get_job
+        j = get_job(job_id)
+        if not j:
+            return jsonify({"error": "job introuvable"}), 404
+        return jsonify(j)
+
+
     @app.route("/api/owner/cards/bulk-import-superhero", methods=["POST"])
     def api_owner_cards_bulk_superhero():
         if not _is_owner_session():
