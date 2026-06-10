@@ -107,12 +107,29 @@ GAMES: dict[str, dict] = {
         "blacklist": [r"^Lore ", r"^Major "],
     },
     "fireemblem": {
-        "sub": "fireemblem",
+        "sub": "feheroes",
         "name": "Fire Emblem Heroes",
-        "categories": ["Category:Fire_Emblem_Heroes_Heroes",
-                         "Category:Playable_characters",
+        "categories": ["Category:Heroes"],
+        "blacklist": [r"^Heroes$", r"^List "],
+    },
+    "wuwa": {
+        "sub": "wutheringwaves",
+        "name": "Wuthering Waves",
+        "categories": ["Category:Resonators"],
+        "blacklist": [r"^Resonator$", r"^Resonators$", r"^List "],
+    },
+    "marvelrivals": {
+        "sub": "marvelrivals",
+        "name": "Marvel Rivals",
+        "categories": ["Category:Heroes"],
+        "blacklist": [r"^Heroes$", r"^Heroes by ", r"^Hero "],
+    },
+    "smash": {
+        "sub": "supersmashbros",
+        "name": "Super Smash Bros.",
+        "categories": ["Category:Characters_(SSBU)",
                          "Category:Characters"],
-        "blacklist": [r"^Playable ", r"^Heroes "],
+        "blacklist": [r"^Characters", r"^Character "],
     },
     "finalfantasy": {
         "sub": "finalfantasy",
@@ -198,10 +215,13 @@ def _list_chars(sub: str, categories: list[str], limit: int = 500) -> list[str]:
 
 
 def _fetch_pageimages(sub: str, titles: list[str]) -> dict[str, str]:
+    """Fetch pageimages. Workaround pour titres avec ':' (FEH 'Abel: The Panther')
+    qui sont mal interpretes comme namespace : on encode '%3A' explicitement."""
     out: dict[str, str] = {}
     for i in range(0, len(titles), 50):
         batch = titles[i:i + 50]
-        titles_param = "|".join(urllib.parse.quote(t) for t in batch)
+        # quote avec safe='' force le ':' a etre encode en %3A
+        titles_param = "|".join(urllib.parse.quote(t, safe='') for t in batch)
         url = (f"https://{sub}.fandom.com/api.php?action=query&format=json&"
                f"prop=pageimages&pithumbsize=600&pilimit=50&"
                f"titles={titles_param}")

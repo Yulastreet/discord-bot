@@ -859,9 +859,10 @@ const IMPORT_SOURCES = {
   game: [
     {key:'pokemon', name:'🔴 Pokémon (PokeAPI)', desc:'Tous pokémons gen 1-9 avec artwork HD officiel.', vol:'1025', source:'pokemon', params:{start_id:1, end_id:1025}, featured:true},
     {key:'nookipedia', name:'🍃 Animal Crossing', desc:'Villagers via Nookipedia API (clé requise).', vol:'~391', source:'nookipedia', params:{}, featured:true},
-    {key:'wuwa', name:'⚔ Wuthering Waves', desc:'Tous résonateurs via hakush.in.', vol:'~30', source:'hakush', params:{game_key:'wuwa'}, featured:true},
-    {key:'mrivals', name:'🦸 Marvel Rivals', desc:'Heroes du jeu via hakush.in.', vol:'~33', source:'hakush', params:{game_key:'mr'}, featured:true},
-    {key:'zzz', name:'⚡ Zenless Zone Zero', desc:'Agents via hakush.in.', vol:'~40', source:'hakush', params:{game_key:'zzz'}, featured:true},
+    {key:'wuwa', name:'⚔ Wuthering Waves', desc:'Tous résonateurs (wiki Fandom officiel).', vol:'~30', source:'fandom_game', params:{game_key:'wuwa'}, featured:true},
+    {key:'mrivals', name:'🦸 Marvel Rivals', desc:'Heroes via wiki Fandom.', vol:'~33', source:'fandom_game', params:{game_key:'marvelrivals'}, featured:true},
+    {key:'smash', name:'🎮 Super Smash Bros.', desc:'Roster Smash Ultimate complet.', vol:'~89 fighters', source:'fandom_game', params:{game_key:'smash'}, featured:true},
+    {key:'zzz', name:'⚡ Zenless Zone Zero', desc:'Agents via hakush.in.', vol:'~40', source:'hakush', params:{game_key:'zzz'}},
     {key:'lol', name:'⚔ League of Legends', desc:'Tous champions LoL.', vol:'~170', source:'fandom_game', params:{game_key:'lol'}, featured:true},
     {key:'overwatch', name:'🎯 Overwatch', desc:'Heroes Blizzard.', vol:'~40', source:'fandom_game', params:{game_key:'overwatch'}, featured:true},
     {key:'genshin', name:'⚔ Genshin Impact', desc:'Playable characters.', vol:'~80', source:'fandom_game', params:{game_key:'genshin'}, featured:true},
