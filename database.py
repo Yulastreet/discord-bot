@@ -212,6 +212,32 @@ def init_db():
         except Exception:
             pass
 
+    # Cards Events : drops aleatoires de cartes dans un salon, premiere reaction wins
+    c.execute('''CREATE TABLE IF NOT EXISTS card_event_config (
+        guild_id           TEXT PRIMARY KEY,
+        channel_id         TEXT,
+        enabled            INTEGER DEFAULT 0,
+        min_interval_min   INTEGER DEFAULT 300,
+        max_interval_min   INTEGER DEFAULT 600,
+        min_rarity         TEXT DEFAULT 'rare',
+        next_drop_at       TEXT,
+        updated_at         TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS card_event_log (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id      TEXT,
+        channel_id    TEXT,
+        message_id    TEXT,
+        card_id       INTEGER,
+        status        TEXT DEFAULT 'pending',
+        claimer_id    TEXT,
+        claimed_at    TEXT,
+        dropped_at    TEXT DEFAULT CURRENT_TIMESTAMP,
+        triggered_by  TEXT DEFAULT 'auto'
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_card_event_msg ON card_event_log(message_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_card_event_status ON card_event_log(status)")
+
     # Trades de cartes entre joueurs (multi-cartes, non-equivalent)
     c.execute('''CREATE TABLE IF NOT EXISTS card_trades (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1904,6 +1930,108 @@ def user_card_transfer_one(from_user, to_user, card_id):
               (str(to_user), int(row["id"])))
     conn.commit(); conn.close()
     return True
+
+
+def card_event_config_get(guild_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_event_config WHERE guild_id = ?",
+                  (str(guild_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_event_config_set(guild_id, **kwargs):
+    """Upsert config. Accepte channel_id, enabled, min_interval_min,
+    max_interval_min, min_rarity, next_drop_at."""
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO card_event_config (guild_id) VALUES (?)
+                 ON CONFLICT(guild_id) DO NOTHING''', (str(guild_id),))
+    allowed = {"channel_id", "enabled", "min_interval_min", "max_interval_min",
+                "min_rarity", "next_drop_at"}
+    fields = {k: v for k, v in kwargs.items() if k in allowed}
+    if fields:
+        fields["updated_at"] = None  # CURRENT_TIMESTAMP via SQL
+        sets = ", ".join(f"{k} = ?" for k in fields if k != "updated_at")
+        sets += ", updated_at = CURRENT_TIMESTAMP"
+        vals = [v for k, v in fields.items() if k != "updated_at"]
+        vals.append(str(guild_id))
+        c.execute(f"UPDATE card_event_config SET {sets} WHERE guild_id = ?", vals)
+    conn.commit(); conn.close()
+
+
+def card_event_config_all_enabled():
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM card_event_config WHERE enabled = 1 "
+                     "AND channel_id IS NOT NULL").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_event_log_create(guild_id, channel_id, card_id, message_id=None,
+                            triggered_by="auto"):
+    conn = get_db(); c = conn.cursor()
+    c.execute('''INSERT INTO card_event_log
+                 (guild_id, channel_id, card_id, message_id, triggered_by)
+                 VALUES (?, ?, ?, ?, ?)''',
+              (str(guild_id), str(channel_id), int(card_id),
+                str(message_id) if message_id else None, triggered_by))
+    eid = c.lastrowid
+    conn.commit(); conn.close()
+    return eid
+
+
+def card_event_log_update_message(event_id, message_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_event_log SET message_id = ? WHERE id = ?",
+              (str(message_id), int(event_id)))
+    conn.commit(); conn.close()
+
+
+def card_event_log_get_by_message(message_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_event_log WHERE message_id = ? AND status = 'pending'",
+                  (str(message_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_event_log_claim(event_id, user_id):
+    """Atomic claim. Retourne True si OK, False si deja claimed."""
+    conn = get_db(); c = conn.cursor()
+    c.execute('''UPDATE card_event_log
+                 SET status = 'claimed', claimer_id = ?, claimed_at = CURRENT_TIMESTAMP
+                 WHERE id = ? AND status = 'pending' ''',
+              (str(user_id), int(event_id)))
+    ok = c.rowcount > 0
+    conn.commit(); conn.close()
+    return ok
+
+
+def card_event_log_recent(limit=50):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT el.*, c.name AS card_name, c.rarity AS card_rarity, c.image_url "
+        "FROM card_event_log el LEFT JOIN cards c ON c.id = el.card_id "
+        "ORDER BY el.dropped_at DESC LIMIT ?", (int(limit),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_pick_random_by_min_rarity(min_rarity: str):
+    """Pioche carte random parmi celles >= min_rarity (skip not_obtainable + secret)."""
+    tier = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4}
+    min_tier = tier.get(min_rarity, 0)
+    eligible = [k for k, v in tier.items() if v >= min_tier]
+    if not eligible:
+        return None
+    placeholders = ",".join("?" * len(eligible))
+    conn = get_db(); c = conn.cursor()
+    row = c.execute(
+        f"SELECT * FROM cards WHERE rarity IN ({placeholders}) "
+        f"AND COALESCE(not_obtainable, 0) = 0 "
+        f"ORDER BY RANDOM() LIMIT 1", eligible).fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 
 def card_trade_create(sender_id, receiver_id, guild_id, channel_id,

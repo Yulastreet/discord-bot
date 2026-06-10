@@ -104,6 +104,8 @@ def setup_runtime(bot, deps):
             reminders_dispatch.start()
         if not topgg_stats_poster.is_running():
             topgg_stats_poster.start()
+        if not card_event_drop_loop.is_running():
+            card_event_drop_loop.start()
         # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
@@ -1769,6 +1771,31 @@ def setup_runtime(bot, deps):
                     print(f"[topgg] stats post status={resp.status}")
         except Exception as e:
             print(f"[topgg] stats post err: {e!r}")
+
+    @tasks.loop(minutes=1)
+    async def card_event_drop_loop():
+        try:
+            from services.card_events import check_due_drops
+            n = await check_due_drops(bot)
+            if n > 0:
+                print(f"[card_event_loop] dropped {n} cards")
+        except Exception as e:
+            print(f"[card_event_loop] err: {e!r}")
+
+    @card_event_drop_loop.before_loop
+    async def _before_card_event_loop():
+        await bot.wait_until_ready()
+
+
+    @bot.event
+    async def on_raw_reaction_add(payload):
+        # Card events claim
+        try:
+            from services.card_events import handle_reaction_claim
+            await handle_reaction_claim(bot, payload)
+        except Exception as e:
+            print(f"[on_raw_reaction_add card_event] err: {e!r}")
+
 
     @topgg_stats_poster.before_loop
     async def _before_topgg():

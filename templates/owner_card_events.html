@@ -1,0 +1,247 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_card_events' %}
+
+{% block title %}Cards Events · Owner{% endblock %}
+{% block crumb %}Cards Events{% endblock %}
+
+{% block content %}
+<style>
+  .ce-section { background: var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom: var(--s-4); }
+  .ce-section h3 { margin: 0 0 12px; font-size: 16px; }
+  .ce-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap:12px; }
+  .ce-card { background: var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .ce-card.enabled { border-color: #4ade80; }
+  .ce-card .gname { font-weight:700; font-size:14px; }
+  .ce-card .meta { font-size:11px; color: var(--text-2); }
+  .ce-card label { font-size:11px; color:var(--text-2); display:flex; flex-direction:column; gap:4px; }
+  .ce-card .row { display:flex; gap:8px; }
+  .ce-card input, .ce-card select { background: var(--bg-1); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:12px; width:100%; }
+  .ce-trigger { background: var(--bg-1); border:1px solid var(--border); border-radius:10px; padding:14px; }
+  .ce-recent table { width:100%; font-size:12px; border-collapse: collapse; }
+  .ce-recent th, .ce-recent td { padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); }
+  .ce-recent th { color: var(--text-2); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; }
+  .ce-pending { color: #fbbf24; }
+  .ce-claimed { color: #4ade80; }
+</style>
+
+<div class="col gap-7">
+  <div>
+    <h1>🎁 Cards Events</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
+      Drops aleatoires de cartes dans un salon. La premiere reaction sur le message gagne la carte.
+      Configure par serveur (intervalle min-max + rareté minimum). Trigger manuel pour tester.
+    </p>
+  </div>
+
+  <!-- Trigger manuel -->
+  <div class="ce-section ce-trigger">
+    <h3>🧪 Trigger manuel (test)</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Serveur</span>
+        <select id="trgGuild" onchange="trgGuildChanged()" class="input"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Salon</span>
+        <select id="trgChannel" class="input"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Rareté min</span>
+        <select id="trgRarity" class="input">
+          <option value="common">Common</option>
+          <option value="rare" selected>Rare</option>
+          <option value="epic">Epic</option>
+          <option value="legendary">Legendary</option>
+          <option value="mythic">Mythic</option>
+        </select>
+      </label>
+      <button class="btn btn-primary" onclick="triggerManual()">🎁 Lancer drop</button>
+    </div>
+    <div id="trgHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
+  </div>
+
+  <!-- Configs par serveur -->
+  <div class="ce-section">
+    <h3>⚙ Configurations par serveur</h3>
+    <p class="muted" style="font-size:11px;margin-bottom:12px;">
+      Active la box pour activer les drops automatiques sur ce serveur. Le bot dropera une carte aleatoire toutes les X minutes (intervalle aleatoire entre min et max).
+    </p>
+    <div id="cfgGrid" class="ce-grid">
+      <div class="muted">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- Historique recent -->
+  <div class="ce-section ce-recent">
+    <h3>📜 Drops récents</h3>
+    <table>
+      <thead><tr><th>Quand</th><th>Serveur</th><th>Carte</th><th>Rareté</th><th>Status</th><th>Gagné par</th></tr></thead>
+      <tbody id="recentBody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function escHtml(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+let _guildsCache = [];
+
+async function loadGuilds() {
+  try {
+    const r = await fetch('/api/owner/card-events/guilds');
+    const d = await r.json();
+    _guildsCache = d.items || [];
+    const sel = document.getElementById('trgGuild');
+    sel.innerHTML = '<option value="">— Choisir —</option>' + _guildsCache.map(g => `<option value="${g.id}">${escHtml(g.name)} (${g.member_count})</option>`).join('');
+  } catch (e) {}
+}
+function trgGuildChanged() {
+  const gid = document.getElementById('trgGuild').value;
+  const g = _guildsCache.find(x => x.id === gid);
+  const ch = document.getElementById('trgChannel');
+  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
+  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+}
+window.trgGuildChanged = trgGuildChanged;
+
+async function triggerManual() {
+  const gid = document.getElementById('trgGuild').value;
+  const cid = document.getElementById('trgChannel').value;
+  const rar = document.getElementById('trgRarity').value;
+  const hint = document.getElementById('trgHint');
+  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
+  hint.textContent = 'Drop en cours…';
+  try {
+    const r = await fetch('/api/owner/card-events/trigger', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({guild_id: gid, channel_id: cid, min_rarity: rar}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      hint.textContent = `✅ Drop event #${d.event_id} : ${d.card_name} envoyé.`;
+      loadRecent();
+    } else {
+      hint.textContent = `❌ ${d.error || 'Erreur'}`;
+    }
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.triggerManual = triggerManual;
+
+async function loadConfigs() {
+  try {
+    const r = await fetch('/api/owner/card-events/configs');
+    const d = await r.json();
+    const items = d.items || [];
+    const grid = document.getElementById('cfgGrid');
+    // Render config card pour chaque guild du bot
+    const configByGuild = {};
+    items.forEach(c => configByGuild[c.guild_id] = c);
+    if (!_guildsCache.length) {
+      grid.innerHTML = '<div class="muted">Aucun serveur.</div>';
+      return;
+    }
+    grid.innerHTML = _guildsCache.map(g => {
+      const cfg = configByGuild[g.id] || {};
+      const enabled = !!cfg.enabled;
+      const channelId = cfg.channel_id || '';
+      const minInt = cfg.min_interval_min || 300;
+      const maxInt = cfg.max_interval_min || 600;
+      const minRar = cfg.min_rarity || 'rare';
+      const nextAt = cfg.next_drop_at || '—';
+      return `
+        <div class="ce-card ${enabled ? 'enabled' : ''}" data-gid="${g.id}">
+          <div class="gname">${escHtml(g.name)}</div>
+          <div class="meta">${g.member_count} membres · prochain : ${escHtml(nextAt)}</div>
+          <label style="flex-direction:row;align-items:center;gap:6px;">
+            <input type="checkbox" id="cfg-enabled-${g.id}" ${enabled ? 'checked' : ''}>
+            <span>Drops auto actifs</span>
+          </label>
+          <label>Salon
+            <select id="cfg-channel-${g.id}">
+              <option value="">— Aucun —</option>
+              ${(g.channels || []).map(c => `<option value="${c.id}" ${c.id === channelId ? 'selected' : ''}>#${escHtml(c.name)}</option>`).join('')}
+            </select>
+          </label>
+          <div class="row">
+            <label style="flex:1;">Min (min)
+              <input type="number" id="cfg-min-${g.id}" value="${minInt}" min="1">
+            </label>
+            <label style="flex:1;">Max (min)
+              <input type="number" id="cfg-max-${g.id}" value="${maxInt}" min="1">
+            </label>
+          </div>
+          <label>Rareté min
+            <select id="cfg-rar-${g.id}">
+              <option value="common" ${minRar === 'common' ? 'selected' : ''}>Common</option>
+              <option value="rare" ${minRar === 'rare' ? 'selected' : ''}>Rare</option>
+              <option value="epic" ${minRar === 'epic' ? 'selected' : ''}>Epic</option>
+              <option value="legendary" ${minRar === 'legendary' ? 'selected' : ''}>Legendary</option>
+              <option value="mythic" ${minRar === 'mythic' ? 'selected' : ''}>Mythic</option>
+            </select>
+          </label>
+          <div class="row" style="gap:6px;">
+            <button class="btn btn-primary" onclick="saveCfg('${g.id}')" style="padding:5px 10px;font-size:11px;">💾 Save</button>
+            <button class="btn btn-secondary" onclick="saveCfg('${g.id}', true)" style="padding:5px 10px;font-size:11px;">⟳ Reset timer</button>
+          </div>
+          <div id="cfg-hint-${g.id}" class="muted" style="font-size:10px;"></div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {}
+}
+
+async function saveCfg(gid, resetTimer) {
+  const payload = {
+    enabled: document.getElementById('cfg-enabled-' + gid).checked,
+    channel_id: document.getElementById('cfg-channel-' + gid).value || null,
+    min_interval_min: parseInt(document.getElementById('cfg-min-' + gid).value, 10),
+    max_interval_min: parseInt(document.getElementById('cfg-max-' + gid).value, 10),
+    min_rarity: document.getElementById('cfg-rar-' + gid).value,
+    reset_next: !!resetTimer,
+  };
+  const hint = document.getElementById('cfg-hint-' + gid);
+  hint.textContent = 'Sauvegarde…';
+  try {
+    const r = await fetch(`/api/owner/card-events/config/${gid}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      hint.textContent = '✅ Sauvegardé.';
+      loadConfigs();
+    } else { hint.textContent = `❌ ${d.error || 'Erreur'}`; }
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.saveCfg = saveCfg;
+
+async function loadRecent() {
+  try {
+    const r = await fetch('/api/owner/card-events/recent?limit=50');
+    const d = await r.json();
+    const items = d.items || [];
+    const body = document.getElementById('recentBody');
+    if (!items.length) { body.innerHTML = '<tr><td colspan="6" class="muted">Aucun drop.</td></tr>'; return; }
+    body.innerHTML = items.map(e => `
+      <tr>
+        <td>${escHtml((e.dropped_at || '').slice(0, 19))}</td>
+        <td>${escHtml(e.guild_id)}</td>
+        <td>${escHtml(e.card_name || '?')}</td>
+        <td>${escHtml((e.card_rarity || '?').toUpperCase())}</td>
+        <td><span class="ce-${e.status}">${escHtml(e.status)}</span></td>
+        <td>${e.claimer_id ? `<@${e.claimer_id}>` : '—'}</td>
+      </tr>
+    `).join('');
+  } catch (e) {}
+}
+
+(async () => {
+  await loadGuilds();
+  await loadConfigs();
+  await loadRecent();
+  setInterval(loadRecent, 15000);
+})();
+</script>
+{% endblock %}
