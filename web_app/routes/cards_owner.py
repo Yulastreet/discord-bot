@@ -39,7 +39,8 @@ def register_cards_owner_routes(app, deps):
         # Reuse helper avec extra filter universe (custom query si dispo)
         from database import get_db
         conn = get_db(); c = conn.cursor()
-        where = ["1=1"]
+        # Public exclut tjrs not_obtainable
+        where = ["COALESCE(not_obtainable, 0) = 0"]
         params = []
         if rarity:
             where.append("rarity = ?"); params.append(rarity)
@@ -201,7 +202,7 @@ def register_cards_owner_routes(app, deps):
         universe = request.args.get("universe") or None
         search = request.args.get("q") or None
 
-        where = ["1=1"]; params = []
+        where = ["COALESCE(not_obtainable, 0) = 0"]; params = []
         if rarity:
             where.append("rarity = ?"); params.append(rarity)
         if universe:
@@ -212,7 +213,8 @@ def register_cards_owner_routes(app, deps):
             params += [like, like, like]
 
         conn = get_db(); c = conn.cursor()
-        total = c.execute("SELECT COUNT(*) AS n FROM cards").fetchone()["n"]
+        total = c.execute("SELECT COUNT(*) AS n FROM cards "
+                          "WHERE COALESCE(not_obtainable, 0) = 0").fetchone()["n"]
         filtered = c.execute(
             f"SELECT COUNT(*) AS n FROM cards WHERE {' AND '.join(where)}",
             params).fetchone()["n"]
@@ -778,12 +780,14 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from database import get_db
         data = request.json or {}
-        allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description", "flavor_subtitle"}
+        allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description", "flavor_subtitle", "not_obtainable"}
         fields = {k: v for k, v in data.items() if k in allowed}
         if not fields:
             return jsonify({"error": "rien a update"}), 400
         if "rarity" in fields and fields["rarity"] not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             return jsonify({"error": "rarity invalide"}), 400
+        if "not_obtainable" in fields:
+            fields["not_obtainable"] = 1 if fields["not_obtainable"] else 0
         conn = get_db(); c = conn.cursor()
         sets = ", ".join(f"{k} = ?" for k in fields.keys())
         c.execute(f"UPDATE cards SET {sets} WHERE id = ?",

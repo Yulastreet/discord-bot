@@ -150,6 +150,11 @@ def init_db():
         c.execute("ALTER TABLE user_cards ADD COLUMN not_tradeable INTEGER DEFAULT 0")
     except Exception:
         pass
+    # Migration : not_obtainable flag sur cards (cache du catalogue + roll)
+    try:
+        c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
+    except Exception:
+        pass
     # Migration : flavor_subtitle (sous-titre affiche sous le nom)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
@@ -1713,17 +1718,21 @@ def card_roll_random(universe: str | None = None):
     )[0]
     conn = get_db(); c = conn.cursor()
     if universe:
-        rows = c.execute("SELECT * FROM cards WHERE rarity = ? AND universe = ?",
+        rows = c.execute("SELECT * FROM cards WHERE rarity = ? AND universe = ? "
+                          "AND COALESCE(not_obtainable, 0) = 0",
                           (rarity, universe)).fetchall()
         if not rows:
             rows = c.execute("SELECT * FROM cards WHERE universe = ? "
+                              "AND COALESCE(not_obtainable, 0) = 0 "
                               "ORDER BY RANDOM() LIMIT 1",
                               (universe,)).fetchall()
     else:
-        rows = c.execute("SELECT * FROM cards WHERE rarity = ?",
+        rows = c.execute("SELECT * FROM cards WHERE rarity = ? "
+                          "AND COALESCE(not_obtainable, 0) = 0",
                           (rarity,)).fetchall()
         if not rows:
-            rows = c.execute("SELECT * FROM cards ORDER BY RANDOM() LIMIT 1").fetchall()
+            rows = c.execute("SELECT * FROM cards WHERE COALESCE(not_obtainable, 0) = 0 "
+                              "ORDER BY RANDOM() LIMIT 1").fetchall()
     conn.close()
     if not rows:
         return None

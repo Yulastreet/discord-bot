@@ -392,6 +392,11 @@
       </select>
       <input id="editImage" placeholder="Image URL (vide = auto-fetch via Wikipedia)" class="input" style="width:100%;">
       <textarea id="editDesc" placeholder="Description" rows="3" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;">
+        <input id="editNotObtainable" type="checkbox">
+        <span style="font-size:13px;">🚫 Non obtensible</span>
+        <span class="muted" style="font-size:11px;">(cachée du catalogue public + jamais rollée)</span>
+      </label>
     </div>
     <div class="actions" style="margin-top:14px;">
       <button class="btn btn-secondary" onclick="closeEditModal()">Annuler</button>
@@ -561,6 +566,7 @@ function openCreateModal() {
   document.getElementById('editFlavor').value = '';
   document.getElementById('editUniverse').value = '';
   document.getElementById('editSubtitle').value = '';
+  document.getElementById('editNotObtainable').checked = false;
   document.getElementById('editRarity').value = 'common';
   document.getElementById('editImage').value = '';
   document.getElementById('editDesc').value = '';
@@ -583,6 +589,7 @@ function editCurrentCard() {
   document.getElementById('editFlavor').value = c.flavor_subtitle || '';
   document.getElementById('editUniverse').value = c.universe || '';
   document.getElementById('editSubtitle').value = c.subtitle || '';
+  document.getElementById('editNotObtainable').checked = !!c.not_obtainable;
   document.getElementById('editRarity').value = c.rarity || 'common';
   document.getElementById('editImage').value = c.image_url || '';
   document.getElementById('editDesc').value = c.description || '';
@@ -597,6 +604,7 @@ async function saveCard() {
     flavor_subtitle: document.getElementById('editFlavor').value.trim(),
     universe:        document.getElementById('editUniverse').value.trim(),
     subtitle:        document.getElementById('editSubtitle').value.trim(),
+    not_obtainable:  document.getElementById('editNotObtainable').checked,
     rarity:      document.getElementById('editRarity').value,
     image_url:   document.getElementById('editImage').value.trim(),
     description: document.getElementById('editDesc').value.trim(),
