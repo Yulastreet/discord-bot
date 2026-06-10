@@ -185,7 +185,8 @@
         <button class="btn btn-ghost" onclick="bulkImportOneShow('helluvaboss', 'Helluva Boss')">Helluva Boss</button>
         <hr style="border-color:var(--border);margin:6px 0;">
         <div class="muted" style="font-size:11px;padding:0 4px;">Marvel / DC / Saga</div>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('marvel', 'Marvel')">Marvel</button>
+        <button class="btn btn-primary" onclick="bulkImportMarvelAPI()" style="background:linear-gradient(135deg,#ed1d24,#a00000);">🦸 Marvel (API officielle)</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('marvel', 'Marvel Fandom')">Marvel (Fandom)</button>
         <button class="btn btn-ghost" onclick="bulkImportOneShow('dc', 'DC Comics')">DC Comics</button>
         <button class="btn btn-ghost" onclick="bulkImportOneShow('starwars', 'Star Wars')">Star Wars</button>
         <button class="btn btn-ghost" onclick="bulkImportOneShow('harrypotter', 'Harry Potter')">Harry Potter</button>
@@ -875,6 +876,27 @@ async function bulkImportAll() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAll = bulkImportAll;
+
+async function bulkImportMarvelAPI() {
+  const pagesStr = prompt('Combien de pages Marvel API ? (100 chars/page, max 30 pages = 3000 calls jour). 15 = ~1500 chars iconiques.', '15');
+  if (!pagesStr) return;
+  const pages = parseInt(pagesStr, 10);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
+  if (!confirm(`Import ${pages * 100} chars Marvel API. Skip doublons. Durée ~${pages}s.`)) return;
+  toast(`Import Marvel API en cours...`);
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-marvel', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pages, skip_existing: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / no-image ${d.stats.no_image} / failed ${d.stats.failed}`);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportMarvelAPI = bulkImportMarvelAPI;
 
 async function bulkImportOneShow(showKey, showLabel) {
   if (!confirm(`Importer tous les persos de ${showLabel} ? (skip doublons)`)) return;

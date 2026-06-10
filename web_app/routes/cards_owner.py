@@ -913,6 +913,27 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "stats": stats})
 
 
+    @app.route("/api/owner/cards/bulk-import-marvel", methods=["POST"])
+    def api_owner_cards_bulk_marvel():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.cards_marvel_bulk import bulk_import_marvel
+        data = request.json or {}
+        try:
+            pages = max(1, min(int(data.get("pages", 15)), 30))
+        except (ValueError, TypeError):
+            pages = 15
+        skip_existing = bool(data.get("skip_existing", True))
+        try:
+            stats = bulk_import_marvel(pages=pages, skip_existing=skip_existing)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+        if isinstance(stats, dict) and stats.get("error"):
+            return jsonify({"error": stats["error"]}), 400
+        return jsonify({"ok": True, "stats": stats})
+
+
     @app.route("/api/owner/cards/bulk-import-show", methods=["POST"])
     def api_owner_cards_bulk_one_show():
         if not _is_owner_session():
