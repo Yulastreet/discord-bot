@@ -185,8 +185,10 @@
         <button class="btn btn-ghost" onclick="bulkImportOneShow('helluvaboss', 'Helluva Boss')">Helluva Boss</button>
         <hr style="border-color:var(--border);margin:6px 0;">
         <div class="muted" style="font-size:11px;padding:0 4px;">Marvel / DC / Saga</div>
-        <button class="btn btn-primary" onclick="bulkImportMarvelAPI()" style="background:linear-gradient(135deg,#ed1d24,#a00000);">🦸 Marvel (API officielle)</button>
-        <button class="btn btn-ghost" onclick="bulkImportOneShow('marvel', 'Marvel Fandom')">Marvel (Fandom)</button>
+        <button class="btn btn-primary" onclick="bulkImportSuperhero(['Marvel Comics'])" style="background:linear-gradient(135deg,#ed1d24,#a00000);">🦸 Marvel (SuperHero API)</button>
+        <button class="btn btn-primary" onclick="bulkImportSuperhero(['DC Comics'])" style="background:linear-gradient(135deg,#0476f2,#001f60);">🦇 DC (SuperHero API)</button>
+        <button class="btn btn-secondary" onclick="bulkImportSuperhero(null)">📚 Tous comics (Marvel + DC + indie)</button>
+        <button class="btn btn-ghost" onclick="bulkImportOneShow('marvel', 'Marvel Fandom')">Marvel Fandom (fallback)</button>
         <button class="btn btn-ghost" onclick="bulkImportOneShow('dc', 'DC Comics')">DC Comics</button>
         <button class="btn btn-ghost" onclick="bulkImportOneShow('starwars', 'Star Wars')">Star Wars</button>
         <button class="btn btn-ghost" onclick="bulkImportOneShow('harrypotter', 'Harry Potter')">Harry Potter</button>
@@ -876,6 +878,30 @@ async function bulkImportAll() {
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAll = bulkImportAll;
+
+async function bulkImportSuperhero(publishers) {
+  const label = publishers ? publishers.join(' + ') : 'tous éditeurs (Marvel+DC+indie)';
+  if (!confirm(`Import SuperHero API : ${label}. Skip doublons. ~5-15s.`)) return;
+  toast(`Import ${label} en cours...`);
+  try {
+    const r = await fetch('/api/owner/cards/bulk-import-superhero', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({publishers: publishers, skip_existing: true}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const s = d.stats;
+      let msg = `Inserted ${s.inserted} / skipped ${s.skipped} / failed ${s.failed}`;
+      if (s.by_publisher) {
+        const pubs = Object.entries(s.by_publisher).map(([p, st]) => `${p}: +${st.inserted}`).join(' · ');
+        msg += `\n${pubs}`;
+      }
+      toast(msg);
+      loadCards();
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.bulkImportSuperhero = bulkImportSuperhero;
 
 async function bulkImportMarvelAPI() {
   const pagesStr = prompt('Combien de pages Marvel API ? (100 chars/page, max 30 pages = 3000 calls jour). 15 = ~1500 chars iconiques.', '15');
