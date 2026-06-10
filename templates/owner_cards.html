@@ -813,17 +813,23 @@ window.rebalanceByPopularity = rebalanceByPopularity;
 
 async function bakeOverlays() {
   const force = confirm('FORCE re-bake (re-genere TOUTES les images compositees) ?\nOK = force, Annuler = skip celles deja bakees.');
-  const base = prompt('Public base URL (vide = chemin relatif, ex pour prod: https://tookbot.click)', '');
-  if (!confirm(`Bake overlays sur toutes les cartes. Peut prendre 2-5min selon nombre.${force ? ' [FORCE]' : ''}`)) return;
-  toast('Bake en cours, patiente...');
+  if (!confirm(`Bake overlays sur toutes les cartes${force ? ' (FORCE)' : ''}. ~15-25min selon volume.`)) return;
+  // Open progress modal en reutilisant import center
+  document.getElementById('importScrim').classList.add('open');
+  document.getElementById('importProgress').style.display = 'block';
+  document.getElementById('ipLabel').textContent = `🎨 Baker overlays ${force ? '(FORCE)' : ''}`;
+  document.getElementById('ipStats').textContent = 'Démarrage…';
+  document.getElementById('ipBar').style.width = '0%';
+  document.getElementById('ipBar').style.background = 'linear-gradient(90deg,#4ade80,#22c55e)';
+  document.getElementById('ipPct').textContent = '0 %';
   try {
-    const r = await fetch('/api/owner/cards/bake-overlays', {
+    const r = await fetch('/api/owner/cards/bake-overlays-async', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({force, public_base_url: base || null}),
+      body: JSON.stringify({force, workers: 10}),
     });
     const d = await r.json();
-    if (d.ok) { toast(`Updated ${d.stats.updated} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`); loadCards(); }
-    else toast(d.error || 'Erreur', 'error');
+    if (!d.ok) { toast(d.error || 'Erreur start bake', 'error'); return; }
+    pollImportProgress(d.job_id);
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bakeOverlays = bakeOverlays;

@@ -116,7 +116,7 @@ def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
 
 
 def bake_all_cards(force: bool = False, public_base_url: str | None = None,
-                     workers: int = 10) -> dict:
+                     workers: int = 10, progress_cb=None) -> dict:
     """Boucle parallelisee. ThreadPool pour download+composite (I/O bound).
     DB writes regroupes en bulk a la fin pour eviter contention SQLite."""
     from database import get_db, card_list_all
@@ -177,6 +177,9 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
                 pct = counter["done"] * 100 // max(1, total)
                 print(f"[overlay] progress {counter['done']}/{total} ({pct}%) "
                       f"ok={counter['ok']} fail={counter['fail']}")
+            if progress_cb and counter["done"] % 20 == 0:
+                try: progress_cb(counter["done"], total)
+                except Exception: pass
         return cid, url
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -196,4 +199,7 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
     stats["failed"] += (len(to_bake) - len(results))
     print(f"[overlay] DONE : updated={stats['updated']} skipped={stats['skipped']} "
           f"failed={stats['failed']} total={stats['total']}")
+    if progress_cb:
+        try: progress_cb(len(to_bake), len(to_bake))
+        except Exception: pass
     return stats

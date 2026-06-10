@@ -1260,6 +1260,26 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "image_url": final})
 
 
+    @app.route("/api/owner/cards/bake-overlays-async", methods=["POST"])
+    def api_owner_cards_bake_async():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.import_jobs import run_async
+        from services.cards_overlay import bake_all_cards
+        import os as _os
+        data = request.json or {}
+        force = bool(data.get("force"))
+        public_base = (data.get("public_base_url")
+                        or _os.getenv("PUBLIC_BASE_URL")
+                        or "").strip() or None
+        workers = max(1, min(int(data.get("workers", 10)), 30))
+        label = f"Baker overlays {'(FORCE)' if force else ''} w={workers}"
+        job_id = run_async(label, bake_all_cards,
+                             force=force, public_base_url=public_base,
+                             workers=workers)
+        return jsonify({"ok": True, "job_id": job_id})
+
+
     @app.route("/api/owner/cards/bake-overlays", methods=["POST"])
     def api_owner_cards_bake():
         if not _is_owner_session():
