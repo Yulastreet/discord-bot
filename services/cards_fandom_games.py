@@ -106,6 +106,23 @@ GAMES: dict[str, dict] = {
                          "Category:Characters"],
         "blacklist": [r"^Lore ", r"^Major "],
     },
+    "fireemblem": {
+        "sub": "fireemblem",
+        "name": "Fire Emblem Heroes",
+        "categories": ["Category:Fire_Emblem_Heroes_Heroes",
+                         "Category:Playable_characters",
+                         "Category:Characters"],
+        "blacklist": [r"^Playable ", r"^Heroes "],
+    },
+    "finalfantasy": {
+        "sub": "finalfantasy",
+        "name": "Final Fantasy",
+        "categories": ["Category:Playable_characters",
+                         "Category:Main_characters",
+                         "Category:Major_characters",
+                         "Category:Characters"],
+        "blacklist": [r"^Playable ", r"^Main ", r"^Major ", r"^List "],
+    },
 }
 
 

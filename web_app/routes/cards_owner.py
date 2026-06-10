@@ -956,6 +956,26 @@ def register_cards_owner_routes(app, deps):
             job_id = run_async(f"Fandom game {game_key}",
                                  bulk_import_game, game_key,
                                  limit=limit_v, skip_existing=True)
+        elif source == "pokemon":
+            from services.cards_pokemon_bulk import bulk_import_pokemon
+            start_id = max(1, int(params.get("start_id", 1)))
+            end_id = max(start_id, min(int(params.get("end_id", 1025)), 1025))
+            job_id = run_async(f"Pokémon #{start_id}-{end_id}",
+                                 bulk_import_pokemon,
+                                 start_id=start_id, end_id=end_id,
+                                 skip_existing=True)
+        elif source == "hakush":
+            from services.cards_hakush_bulk import bulk_import_hakush, GAMES_HAKUSH
+            gkey = (params.get("game_key") or "").strip()
+            if gkey not in GAMES_HAKUSH:
+                return jsonify({"error": f"hakush jeu inconnu : {gkey}"}), 400
+            job_id = run_async(f"hakush {gkey}", bulk_import_hakush,
+                                 gkey, skip_existing=True)
+        elif source == "nookipedia":
+            from services.cards_nookipedia_bulk import bulk_import_nookipedia
+            job_id = run_async("Animal Crossing villagers",
+                                 bulk_import_nookipedia,
+                                 skip_existing=True)
         elif source == "fandom_show":
             from services.cards_fandom_films import bulk_import_show, SHOWS
             show_key = (params.get("show_key") or "").strip()
