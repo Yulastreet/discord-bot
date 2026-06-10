@@ -769,6 +769,7 @@ def setup_cards_commands(bot, deps):
         nom="Nom du personnage",
         univers="Categorie",
         origine="Anime/jeu/film d'origine (ex : Naruto, Genshin Impact)",
+        rarete="Rarete suggeree (optionnel)",
         image_url="URL d'image (optionnel si tu joins une image en piece jointe)",
         image="Piece jointe image (optionnel si URL fournie)",
     )
@@ -779,10 +780,18 @@ def setup_cards_commands(bot, deps):
         app_commands.Choice(name="Comics",          value="Comics"),
         app_commands.Choice(name="Autre",           value="Autre"),
     ])
+    @app_commands.choices(rarete=[
+        app_commands.Choice(name="⚪ Common",      value="common"),
+        app_commands.Choice(name="🔵 Rare",         value="rare"),
+        app_commands.Choice(name="🟣 Epic",         value="epic"),
+        app_commands.Choice(name="🟠 Legendary",    value="legendary"),
+        app_commands.Choice(name="🔴 Mythic",       value="mythic"),
+    ])
     async def cardsuggest(interaction: discord.Interaction,
                             nom: str,
                             univers: app_commands.Choice[str],
                             origine: str = None,
+                            rarete: app_commands.Choice[str] = None,
                             image_url: str = None,
                             image: discord.Attachment = None):
         # /cardsuggest dispo partout (tous serveurs + DM)
@@ -833,6 +842,7 @@ def setup_cards_commands(bot, deps):
                 subtitle=(origine or "").strip()[:80] or None,
                 image_url=final_url,
                 source_type=source_type,
+                proposed_rarity=rarete.value if rarete else None,
             )
         except Exception as e:
             await interaction.response.send_message(

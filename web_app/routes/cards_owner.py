@@ -427,7 +427,8 @@ def register_cards_owner_routes(app, deps):
                              "new_rarity": final_rarity if rarity_changed else None})
 
         # type 'new' : create nouvelle carte
-        rarity = (data.get("rarity") or "common").strip()
+        # Priorité : rarity body > proposed_rarity suggestion > common
+        rarity = (data.get("rarity") or sugg.get("proposed_rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
         try:
@@ -518,8 +519,8 @@ def register_cards_owner_routes(app, deps):
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
             return {"ok": True, "card_id": tcid, "type": "edit"}
 
-        # type 'new'
-        rarity = (rarity_override or "common").strip()
+        # type 'new' : priorite override > proposed_rarity > common
+        rarity = (rarity_override or sugg.get("proposed_rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
         try:
