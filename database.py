@@ -312,6 +312,10 @@ def init_db():
         user_id   TEXT PRIMARY KEY,
         consumed  INTEGER DEFAULT 0
     )''')
+    try:
+        c.execute("ALTER TABLE roll_grant_state ADD COLUMN credits INTEGER DEFAULT 0")
+    except Exception:
+        pass
 
     # ===== Card Wishlist : cartes desirees par user =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_wishlist (
@@ -2438,31 +2442,69 @@ def roll_events_reset_all() -> int:
 
 
 # ===== ROLL BONUS (rolls offerts par owner, non rechargeables) =====
+# Dispo = part du grant global non consommee + credits individuels.
+def _roll_grant_row(c, user_id):
+    r = c.execute("SELECT consumed, COALESCE(credits,0) AS credits "
+                  "FROM roll_grant_state WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    return (int(r["consumed"]) if r else 0, int(r["credits"]) if r else 0)
+
+
 def roll_bonus_available(user_id) -> int:
     grant = int(get_setting("roll_global_grant", "0") or 0)
     conn = get_db(); c = conn.cursor()
-    r = c.execute("SELECT consumed FROM roll_grant_state WHERE user_id = ?",
-                  (str(user_id),)).fetchone()
+    consumed, credits = _roll_grant_row(c, user_id)
     conn.close()
-    consumed = int(r["consumed"]) if r else 0
-    return max(0, grant - consumed)
+    return max(0, grant - consumed) + max(0, credits)
 
 
 def roll_bonus_consume(user_id) -> bool:
-    """Consomme 1 roll bonus. True si dispo, False sinon."""
+    """Consomme 1 roll bonus (grant global d'abord, puis credits). True si dispo."""
     grant = int(get_setting("roll_global_grant", "0") or 0)
     conn = get_db(); c = conn.cursor()
-    r = c.execute("SELECT consumed FROM roll_grant_state WHERE user_id = ?",
-                  (str(user_id),)).fetchone()
-    consumed = int(r["consumed"]) if r else 0
-    if grant - consumed <= 0:
-        conn.close()
-        return False
-    c.execute("INSERT INTO roll_grant_state (user_id, consumed) VALUES (?, 1) "
-              "ON CONFLICT(user_id) DO UPDATE SET consumed = consumed + 1",
-              (str(user_id),))
+    consumed, credits = _roll_grant_row(c, user_id)
+    if grant - consumed > 0:
+        c.execute("INSERT INTO roll_grant_state (user_id, consumed) VALUES (?, 1) "
+                  "ON CONFLICT(user_id) DO UPDATE SET consumed = consumed + 1",
+                  (str(user_id),))
+        ok = True
+    elif credits > 0:
+        c.execute("UPDATE roll_grant_state SET credits = credits - 1 WHERE user_id = ?",
+                  (str(user_id),))
+        ok = True
+    else:
+        ok = False
     conn.commit(); conn.close()
-    return True
+    return ok
+
+
+def roll_give_user(user_id, n: int) -> int:
+    """Owner : offre n rolls bonus a UN user (credits individuels). Retourne dispo."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO roll_grant_state (user_id, credits) VALUES (?, ?) "
+              "ON CONFLICT(user_id) DO UPDATE SET credits = COALESCE(credits,0) + excluded.credits",
+              (str(user_id), int(n)))
+    conn.commit(); conn.close()
+    return roll_bonus_available(user_id)
+
+
+def roll_reset_user_cooldown(user_id) -> int:
+    """Owner : reset le cooldown de roll d'UN user (tous serveurs)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM roll_events WHERE user_id = ?", (str(user_id),))
+    n = c.rowcount
+    conn.commit(); conn.close()
+    return n
+
+
+def roll_reset_user_grant(user_id):
+    """Owner : retire les rolls bonus d'UN user (credits 0 + aligne sur le grant global)."""
+    grant = int(get_setting("roll_global_grant", "0") or 0)
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO roll_grant_state (user_id, consumed, credits) VALUES (?, ?, 0) "
+              "ON CONFLICT(user_id) DO UPDATE SET consumed = ?, credits = 0",
+              (str(user_id), grant, grant))
+    conn.commit(); conn.close()
 
 
 def roll_grant_give_all(n: int) -> int:

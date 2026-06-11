@@ -80,6 +80,28 @@
       <button class="btn btn-danger" onclick="rollsResetGrant()" style="margin-left:auto;">🗑 Retirer les rolls bonus</button>
     </div>
     <div id="rollsHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
+
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
+      <h4 style="margin:0 0 8px;font-size:13px;">🧪 Tester sur un utilisateur</h4>
+      <p class="muted" style="font-size:11px;margin-bottom:8px;">
+        Cible un ID Discord (ex : ton compte test) pour vérifier reset/give avant de l'appliquer à tous.
+      </p>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+          <span class="muted">User ID</span>
+          <input id="rollTestUser" type="text" placeholder="123456789012345678" class="input" style="width:220px;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+          <span class="muted">Rolls bonus</span>
+          <input id="rollTestN" type="number" min="1" max="1000" value="3" class="input" style="width:100px;">
+        </label>
+        <button class="btn btn-primary" onclick="rollsGiveUser()">🎟️ Give à cet user</button>
+        <button class="btn btn-secondary" onclick="rollsResetUser(false)">♻️ Reset son cooldown</button>
+        <button class="btn btn-danger" onclick="rollsResetUser(true)">🗑 Reset cd + bonus</button>
+        <button class="btn btn-secondary" onclick="rollsUserStatus()">👁 Voir son état</button>
+      </div>
+      <div id="rollTestHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
+    </div>
   </div>
 
   <!-- Configs par serveur -->
@@ -317,6 +339,31 @@ async function rollsResetGrant(){
   loadRollsStatus();
 }
 window.rollsReset=rollsReset; window.rollsGive=rollsGive; window.rollsResetGrant=rollsResetGrant;
+
+function _rollTestUid(){ return (document.getElementById('rollTestUser').value||'').trim(); }
+async function rollsGiveUser(){
+  const uid=_rollTestUid(); const n=parseInt(document.getElementById('rollTestN').value,10)||0;
+  const h=document.getElementById('rollTestHint');
+  if(!uid){ h.textContent='User ID requis.'; return; }
+  const r=await fetch('/api/owner/card-events/rolls/give-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,n})});
+  const d=await r.json();
+  h.textContent=d.ok?`✅ +${n} rolls bonus. Dispo pour ${uid} : ${d.bonus_available}.`:('❌ '+(d.error||'?'));
+}
+async function rollsResetUser(alsoGrant){
+  const uid=_rollTestUid(); const h=document.getElementById('rollTestHint');
+  if(!uid){ h.textContent='User ID requis.'; return; }
+  const r=await fetch('/api/owner/card-events/rolls/reset-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,also_grant:!!alsoGrant})});
+  const d=await r.json();
+  h.textContent=d.ok?`✅ Cooldown reset (${d.cleared}) pour ${uid}${alsoGrant?' + bonus retirés':''}.`:('❌ '+(d.error||'?'));
+}
+async function rollsUserStatus(){
+  const uid=_rollTestUid(); const h=document.getElementById('rollTestHint');
+  if(!uid){ h.textContent='User ID requis.'; return; }
+  const r=await fetch('/api/owner/card-events/rolls/user-status?user_id='+encodeURIComponent(uid));
+  const d=await r.json();
+  h.textContent=d.error?('❌ '+d.error):`État ${uid} : ${d.bonus_available} rolls bonus dispo · ${d.rolls_last_hour} roll(s) normaux dans la dernière heure.`;
+}
+window.rollsGiveUser=rollsGiveUser; window.rollsResetUser=rollsResetUser; window.rollsUserStatus=rollsUserStatus;
 
 (async () => {
   await loadGuilds();

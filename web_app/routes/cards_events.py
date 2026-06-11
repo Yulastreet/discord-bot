@@ -182,6 +182,53 @@ def register_cards_events_routes(app, deps):
         roll_grant_reset()
         return jsonify({"ok": True})
 
+    # ===== Test sur UN utilisateur =====
+    @app.route("/api/owner/card-events/rolls/user-status", methods=["GET"])
+    def api_owner_rolls_user_status():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import roll_bonus_available, get_db
+        uid = (request.args.get("user_id") or "").strip()
+        if not uid:
+            return jsonify({"error": "user_id requis"}), 400
+        conn = get_db(); c = conn.cursor()
+        recent = c.execute("SELECT COUNT(*) AS n FROM roll_events "
+                           "WHERE user_id = ? AND rolled_at > ?",
+                           (uid, __import__("time").time() - 3600)).fetchone()["n"]
+        conn.close()
+        return jsonify({"user_id": uid, "bonus_available": roll_bonus_available(uid),
+                        "rolls_last_hour": int(recent)})
+
+    @app.route("/api/owner/card-events/rolls/give-user", methods=["POST"])
+    def api_owner_rolls_give_user():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import roll_give_user
+        data = request.json or {}
+        uid = str(data.get("user_id") or "").strip()
+        try:
+            n = int(data.get("n", 0))
+        except (ValueError, TypeError):
+            n = 0
+        if not uid or n <= 0 or n > 1000:
+            return jsonify({"error": "user_id + n (1-1000) requis"}), 400
+        avail = roll_give_user(uid, n)
+        return jsonify({"ok": True, "bonus_available": avail})
+
+    @app.route("/api/owner/card-events/rolls/reset-user", methods=["POST"])
+    def api_owner_rolls_reset_user():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import roll_reset_user_cooldown, roll_reset_user_grant
+        data = request.json or {}
+        uid = str(data.get("user_id") or "").strip()
+        if not uid:
+            return jsonify({"error": "user_id requis"}), 400
+        cleared = roll_reset_user_cooldown(uid)
+        if data.get("also_grant"):
+            roll_reset_user_grant(uid)
+        return jsonify({"ok": True, "cleared": cleared})
+
     @app.route("/api/owner/card-events/recent", methods=["GET"])
     def api_owner_card_events_recent():
         if not _is_owner_session():
