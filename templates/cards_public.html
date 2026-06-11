@@ -225,9 +225,11 @@
       <img id="pcCropImg" src="" style="display:block;max-width:100%;">
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
-      <button class="btn btn-secondary" onclick="_pcCropper && _pcCropper.reset()">Reset cadre</button>
+      <button class="btn btn-secondary" onclick="pcCropReset()">Reset cadre</button>
       <button class="btn btn-ghost" onclick="_pcCropper && _pcCropper.zoom(0.2)">🔍+</button>
       <button class="btn btn-ghost" onclick="_pcCropper && _pcCropper.zoom(-0.2)">🔍−</button>
+      <button class="btn btn-ghost" onclick="pcCropFlip('h')" title="Miroir horizontal">↔ Miroir H</button>
+      <button class="btn btn-ghost" onclick="pcCropFlip('v')" title="Miroir vertical">↕ Miroir V</button>
       <span style="flex:1;"></span>
       <button class="btn btn-ghost" onclick="pcCloseCrop()">Annuler</button>
       <button class="btn btn-primary" onclick="pcValidateCrop()">Valider recadrage</button>
@@ -421,19 +423,28 @@ function pcOpenCropFromEdit() {
   const img = document.getElementById('pcCropImg');
   img.crossOrigin = 'anonymous';
   img.src = src;
+  _pcFlipX = 1; _pcFlipY = 1;
   document.getElementById('pcCropScrim').style.display = 'grid';
   img.onload = () => {
     if (_pcCropper) { _pcCropper.destroy(); _pcCropper = null; }
     _pcCropper = new Cropper(img, {
       aspectRatio: 2/3, viewMode: 0, autoCropArea: 1.0,
       background: true, movable: true, zoomable: true,
-      scalable: false, rotatable: false,
+      scalable: true, rotatable: false,
       cropBoxMovable: true, cropBoxResizable: true,
       minCropBoxWidth: 50, minCropBoxHeight: 75,
       checkOrientation: false,
     });
   };
 }
+let _pcFlipX = 1, _pcFlipY = 1;
+function pcCropReset() { if (_pcCropper) { _pcCropper.reset(); _pcFlipX = 1; _pcFlipY = 1; _pcCropper.scaleX(1); _pcCropper.scaleY(1); } }
+function pcCropFlip(axis) {
+  if (!_pcCropper) return;
+  if (axis === 'h') { _pcFlipX = -_pcFlipX; _pcCropper.scaleX(_pcFlipX); }
+  else { _pcFlipY = -_pcFlipY; _pcCropper.scaleY(_pcFlipY); }
+}
+window.pcCropReset = pcCropReset; window.pcCropFlip = pcCropFlip;
 function pcCloseCrop() {
   if (_pcCropper) { _pcCropper.destroy(); _pcCropper = null; }
   document.getElementById('pcCropScrim').style.display = 'none';
