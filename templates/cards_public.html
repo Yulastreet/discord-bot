@@ -91,8 +91,9 @@
       <h1>🃏 Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="pcCount"></span></h1>
       <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
         Tous les personnages disponibles sur TookBot. Tire des cartes avec
-        <code>/roll</code> sur Discord, consulte ta collection via <code>/cardcollec</code>,
-        échange via <code>/cardtrade</code>.
+        <code>/roll</code> sur Discord, gagne des Essences ✨, fusionne avec
+        <code>/cardfuse</code>, customise avec <code>/cardcustom</code>, et échange via
+        <code>/cardtrade</code>. Guide complet : <code>/cardhelp</code>.
       </p>
     </div>
     {% if fast_edit_allowed %}
@@ -106,7 +107,7 @@
   <div>
     <h3 style="margin-bottom:8px;">📊 Taux de drop & cooldown</h3>
     <p class="muted" style="font-size:12px;margin-bottom:10px;">
-      Cooldown <strong>1 heure par serveur</strong>. Chaque <code>/roll</code> tire selon ces probabilités :
+      Cooldown <strong>global 1 heure</strong> (30 min = 2 rolls/h sur le serveur support). Chaque <code>/roll</code> tire selon ces probabilités :
     </p>
     <div class="pc-stats" id="pcStats"></div>
   </div>

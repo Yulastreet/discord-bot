@@ -248,46 +248,85 @@ def _build_command_pages() -> list:
     )
     pages.append(p3)
 
-    # Page 4 : Cartes (Mudae-like)
+    # Page 4 : Cartes — collection & économie
     p4 = discord.Embed(
-        title="📋 Commandes · 🃏 Cartes (collection Mudae-like)",
+        title="📋 Commandes · 🃏 Cartes — collection & économie",
         color=_PAGE_COLOR,
     )
     p4.add_field(
         name="🃏 Collection",
         value=(
-            "**/roll `[univers]`** — tire 1 carte aleatoire (cooldown 1h/serveur). "
-            "Filtre optionnel : Anime, Jeu Vidéo, Film/Série (autocomplete)\n"
-            "**/cardcollec `[membre]` `[rareté]`** — ta collection ou celle de quelqu'un\n"
-            "**/card `<nom>`** — détails d'une carte (autocomplete fuzzy sur 13k+)"
+            "**/roll `[univers]`** — tire 1 carte aléatoire. Cooldown **global 1h** "
+            "(30 min = 2/h sur le serveur support). Donne des Essences ✨ selon la rareté\n"
+            "**/cardcollec `[membre]` `[rareté]`** — ta collection (✨ = cosmétique, ⭐ = fusion)\n"
+            "**/card `<nom>`** — détails d'une carte (autocomplete sur 19k+)\n"
+            "**/show `<carte>`** — montre une de tes cartes avec sa bordure + étoiles"
         ),
         inline=False,
     )
     p4.add_field(
-        name="🔄 Échange",
+        name="✨ Essences (monnaie)",
         value=(
-            "**/cardtrade `<joueur>`** — modal builder, échange multi-cartes "
-            "non-équivalent (ex 4 vs 1). Boutons Accepter / Refuser / Contre-offre."
+            "**/essences `[membre]`** — ton solde d'Essences ✨\n"
+            "**/daily** — récompense quotidienne (TookCoins + Essences, streak)\n"
+            "**/cardshop** — boutique : achète cartes & cosmétiques avec tes Essences\n"
+            "**/cardrecycle `<carte>` `[qté]`** — recycle tes doublons en Essences"
         ),
         inline=False,
     )
     p4.add_field(
-        name="⚙️ Setup serveur (admin)",
+        name="⭐ Fusion & cosmétiques",
         value=(
-            "**/cardsetup `<salon>`** — restreint les commandes cartes à ce salon\n"
-            "**/cardsetup_disable** — retire la restriction de salon"
-        ),
-        inline=False,
-    )
-    p4.add_field(
-        name="💡 Suggérer une carte",
-        value=(
-            "**/cardsuggest** — propose un perso à ajouter (URL ou image jointe). "
-            "Disponible **uniquement sur le serveur support TookBot** dans le salon dédié."
+            "**/cardfuse `<carte>`** — fusionne des doublons pour ajouter une étoile (max 5). "
+            "La carte fusionnée devient non-échangeable\n"
+            "**/cardcustom `<carte>` `<bordure>`** — applique une bordure (consommée)\n"
+            "**/cardinventory `[membre]`** — tes cosmétiques en stock"
         ),
         inline=False,
     )
     pages.append(p4)
+
+    # Page 5 : Cartes — social, profil, classements
+    p5 = discord.Embed(
+        title="📋 Commandes · 🃏 Cartes — social & profil",
+        color=_PAGE_COLOR,
+    )
+    p5.add_field(
+        name="🪪 Profil & classements",
+        value=(
+            "**/cardprofile `[membre]`** — profil de cartes (stats + image de tes 3 cartes vedettes)\n"
+            "**/cardprofile** `setup_gauche/milieu/droite` — définis tes 3 cartes vedettes\n"
+            "**/cardtop `<catégorie>`** — classements globaux (valeur, mythiques, essences, fusions, chance)"
+        ),
+        inline=False,
+    )
+    p5.add_field(
+        name="💖 Wishlist",
+        value=(
+            "**/cardwish `<carte>`** — ajoute/retire de ta wishlist (3 max, **6 sur le support**). "
+            "Tu es ping quand quelqu'un la tire\n"
+            "**/cardwishlist `[membre]`** — voir une wishlist (boutons 🗑 pour retirer)"
+        ),
+        inline=False,
+    )
+    p5.add_field(
+        name="🔄 Échange & suggestion",
+        value=(
+            "**/cardtrade `<joueur>`** — échange multi-cartes (Accepter / Refuser / Contre-offre)\n"
+            "**/cardsuggest** — propose un perso à ajouter (serveur support uniquement)"
+        ),
+        inline=False,
+    )
+    p5.add_field(
+        name="⚙️ Setup serveur (admin)",
+        value=(
+            "**/cardsetup `<salon>`** — restreint les commandes cartes à ce salon\n"
+            "**/cardsetup_disable** — retire la restriction\n"
+            "**/cardhelp** — guide complet du système de cartes"
+        ),
+        inline=False,
+    )
+    pages.append(p5)
 
     for i, e in enumerate(pages, start=1):
         e.set_footer(text=f"Page {i}/{len(pages)} · Tip : tape / pour voir l'autocomplete Discord.")

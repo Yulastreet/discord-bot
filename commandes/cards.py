@@ -1247,6 +1247,64 @@ def setup_cards_commands(bot, deps):
         await interaction.followup.send(embed=embed)
 
 
+    # === /cardhelp : guide complet du système de cartes ===
+    @bot.tree.command(name="cardhelp", description="Guide complet du système de cartes TookBot")
+    async def cardhelp_cmd(interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🃏 Guide des cartes TookBot",
+            description=("Collectionne, fusionne, customise et échange des cartes de tes "
+                         "persos préférés ! Voici tout ce que tu peux faire."),
+            color=0xB9F23A,
+        )
+        embed.add_field(
+            name="🎴 Obtenir des cartes",
+            value=("**/roll `[univers]`** — tire une carte aléatoire (cooldown **1h**, "
+                   "**30 min sur le serveur support**). Chaque roll donne des **Essences ✨** "
+                   "(plus la carte est rare, plus tu en gagnes ; doublon = ×2).\n"
+                   "**/daily** — récompense quotidienne (Essences + TookCoins + streak).\n"
+                   "**Drop Events** — des cartes apparaissent dans certains salons : "
+                   "tape le **code affiché sur l'image** pour la gagner (1er servi)."),
+            inline=False,
+        )
+        embed.add_field(
+            name="✨ Essences & boutique",
+            value=("**/essences** — ton solde. **/cardshop** — achète cartes & cosmétiques.\n"
+                   "**/cardrecycle `<carte>`** — transforme tes doublons en Essences "
+                   "(tu gardes toujours 1 exemplaire)."),
+            inline=False,
+        )
+        embed.add_field(
+            name="⭐ Fusion (prestige)",
+            value=("**/cardfuse `<carte>`** — consomme des exemplaires d'une même carte pour "
+                   "lui ajouter une **étoile** (jusqu'à 5). Coût croissant : 2 → 3 → 4 → 5 → 6 "
+                   "exemplaires. Une carte fusionnée devient **non-échangeable** "
+                   "(recyclage uniquement)."),
+            inline=False,
+        )
+        embed.add_field(
+            name="🖼 Cosmétiques",
+            value=("**/cardcustom `<carte>` `<bordure>`** — applique une bordure (achetée au shop, "
+                   "consommée à l'usage). **/cardinventory** — tes cosmétiques en stock.\n"
+                   "**/show `<carte>`** — montre une carte avec sa bordure et ses étoiles."),
+            inline=False,
+        )
+        embed.add_field(
+            name="🪪 Profil & classements",
+            value=("**/cardprofile `[membre]`** — stats + image de tes 3 cartes vedettes "
+                   "(`setup_*` pour les choisir). **/cardtop `<catégorie>`** — classements globaux."),
+            inline=False,
+        )
+        embed.add_field(
+            name="💖 Wishlist & échange",
+            value=("**/cardwish `<carte>`** — wishlist (3 max, **6 sur le support**) : tu es ping "
+                   "quand quelqu'un la tire. **/cardwishlist** — voir/retirer. "
+                   "**/cardtrade `<joueur>`** — échange multi-cartes."),
+            inline=False,
+        )
+        embed.set_footer(text="Astuce : rejoins le serveur support pour 2 rolls/h et 6 wishes !")
+        await interaction.response.send_message(embed=embed, view=_support_view(), ephemeral=True)
+
+
     # === /cardshop : boutique hebdo (6 slots) ===
     @bot.tree.command(name="cardshop", description="Boutique de cartes et cosmétiques (Essences ✨)")
     async def cardshop_cmd(interaction: discord.Interaction):
