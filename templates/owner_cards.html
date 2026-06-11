@@ -650,8 +650,9 @@ let _cardCropper = null;
 function openCardCropper() {
   if (!_currentPreview) return;
   let src = _currentPreview.source_image_url || _currentPreview.image_url;
-  // Source perdue (URL deja locale) : demande une nouvelle image a recadrer
-  if (!src || src.includes('/card_renders/') || src.includes('/card_suggestions/')) {
+  // /card_suggestions/ = image originale proposée (sans overlay) -> OK pour recadrer.
+  // /card_renders/ = render bake (overlay deja applique) -> source perdue, demande une URL.
+  if (!src || src.includes('/card_renders/')) {
     const newUrl = prompt('Source originale perdue. Colle une nouvelle URL d\'image (http) à recadrer pour cette carte :', '');
     if (!newUrl || !/^https?:\/\//i.test(newUrl.trim())) {
       if (newUrl !== null) toast('URL invalide (doit commencer par http).', 'error');
