@@ -122,6 +122,17 @@ def _is_owner(user_id: int | str) -> bool:
     return owner and str(user_id) == owner
 
 
+SUPPORT_INVITE_URL = os.getenv("SUPPORT_INVITE_URL", "https://discord.gg/hx4KEFSGJA")
+
+
+def _support_view(label="🎁 Rejoindre le serveur support"):
+    """View avec un bouton lien vers le serveur support (perks roll/wishlist)."""
+    v = discord.ui.View()
+    v.add_item(discord.ui.Button(label=label, style=discord.ButtonStyle.link,
+                                  url=SUPPORT_INVITE_URL))
+    return v
+
+
 def _is_support_member(bot, user_id) -> bool:
     """True si le user est membre du serveur de support (perks : roll x2, wishlist 6)."""
     try:
@@ -283,12 +294,16 @@ def setup_cards_commands(bot, deps):
                         wait = f"{rh}h {rm}min" if rh > 0 else f"{rm}min {rs}s"
                         # Discord timestamp absolu epoch (cohérent avec wait)
                         ready_at = int(now_ts + remain)
-                        perk = ("" if is_support else
-                                "\n💡 Rejoins le **serveur support** pour 2 rolls/h (cooldown 30 min) !")
-                        await interaction.response.send_message(
-                            f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).{perk}",
-                            ephemeral=True,
-                        )
+                        if is_support:
+                            await interaction.response.send_message(
+                                f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).",
+                                ephemeral=True)
+                        else:
+                            await interaction.response.send_message(
+                                f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).\n"
+                                f"💡 Sur le **serveur support** tu as **2 rolls/h** au lieu de 1 "
+                                f"(cooldown 30 min). Rejoins-le :",
+                                view=_support_view(), ephemeral=True)
                         return
                 except ValueError:
                     pass
@@ -1074,11 +1089,15 @@ def setup_cards_commands(bot, deps):
         # Cap : seulement si on AJOUTE (toggle off toujours autorisé)
         if not wishlist_has(interaction.user.id, card["id"]):
             if len(wishlist_list(interaction.user.id)) >= wl_max:
-                extra = ("" if wl_max >= 6 else
-                          " Rejoins le **serveur support** pour 6 emplacements !")
-                await interaction.response.send_message(
-                    f"Wishlist pleine ({wl_max} max). Retire une carte avant d'en ajouter.{extra}",
-                    ephemeral=True)
+                base = (f"Wishlist pleine ({wl_max} max). Retire une carte avec "
+                        f"`/cardwishlist` (boutons) avant d'en ajouter une autre.")
+                if wl_max >= 6:
+                    await interaction.response.send_message(base, ephemeral=True)
+                else:
+                    await interaction.response.send_message(
+                        base + "\n💡 Sur le **serveur support** tu as **6 emplacements** "
+                               "au lieu de 3. Rejoins-le :",
+                        view=_support_view(), ephemeral=True)
                 return
         added = wishlist_toggle(interaction.user.id, card["id"])
         count = len(wishlist_list(interaction.user.id))
@@ -1108,23 +1127,53 @@ def setup_cards_commands(bot, deps):
     @bot.tree.command(name="cardwishlist", description="Voir ta wishlist (ou celle d'un membre)")
     @app_commands.describe(membre="Membre dont voir la wishlist (defaut : toi)")
     async def cardwishlist_cmd(interaction: discord.Interaction, membre: discord.Member = None):
-        from database import wishlist_list
+        from database import wishlist_list, wishlist_toggle
         target = membre or interaction.user
+        is_self = (target.id == interaction.user.id)
         items = wishlist_list(target.id)
-        embed = discord.Embed(title=f"💖 Wishlist — {target.display_name} ({len(items)}/{_wishlist_max(target.id)})",
-                              color=0xff5fa2)
-        if target.display_avatar:
-            embed.set_thumbnail(url=str(target.display_avatar.url))
-        if not items:
-            embed.description = ("Wishlist vide." + (" Ajoute des cartes avec `/cardwish`."
-                                  if target == interaction.user else ""))
-        else:
-            lines = [f"{RARITY_EMOJIS.get(i['rarity'],'⚪')} **{i['name']}** · _{i.get('universe') or '?'}_"
-                     for i in items[:40]]
-            embed.description = "\n".join(lines)
-            if len(items) > 40:
-                embed.set_footer(text=f"+{len(items)-40} autres")
-        await interaction.response.send_message(embed=embed)
+
+        def _build_wl_embed():
+            its = wishlist_list(target.id)
+            emb = discord.Embed(
+                title=f"💖 Wishlist — {target.display_name} ({len(its)}/{_wishlist_max(target.id)})",
+                color=0xff5fa2)
+            if target.display_avatar:
+                emb.set_thumbnail(url=str(target.display_avatar.url))
+            if not its:
+                emb.description = ("Wishlist vide." + (" Ajoute des cartes avec `/cardwish`."
+                                    if is_self else ""))
+            else:
+                emb.description = "\n".join(
+                    f"{RARITY_EMOJIS.get(i['rarity'],'⚪')} **{i['name']}** · _{i.get('universe') or '?'}_"
+                    for i in its[:40])
+            return emb, its
+
+        embed, items = _build_wl_embed()
+
+        # Boutons de suppression (seulement sur sa propre wishlist)
+        class _WishlistView(discord.ui.View):
+            def __init__(self, wl_items):
+                super().__init__(timeout=120)
+                for it in wl_items[:5]:
+                    btn = discord.ui.Button(
+                        label=f"🗑 {it['name'][:70]}",
+                        style=discord.ButtonStyle.danger)
+                    btn.callback = self._make_cb(it["card_id"])
+                    self.add_item(btn)
+
+            def _make_cb(self, card_id):
+                async def _cb(inter: discord.Interaction):
+                    if inter.user.id != interaction.user.id:
+                        await inter.response.send_message("Pas ta wishlist.", ephemeral=True)
+                        return
+                    wishlist_toggle(interaction.user.id, card_id)  # retire
+                    new_embed, new_items = _build_wl_embed()
+                    new_view = _WishlistView(new_items) if new_items else None
+                    await inter.response.edit_message(embed=new_embed, view=new_view)
+                return _cb
+
+        view = _WishlistView(items) if (is_self and items) else None
+        await interaction.response.send_message(embed=embed, view=view)
 
     # === /cardtop <categorie> : classements ===
     @bot.tree.command(name="cardtop", description="Classements cartes (collection, mythiques, essences, fusions, chance)")
