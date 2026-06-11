@@ -77,8 +77,8 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
         px = (_CARD_W - cw) // 2
         py = (_CARD_H - ch) // 2
         if cs < 1.0:
-            # Fond sombre uni (pas de carte dupliquee derriere) + carte scalee centree
-            canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (20, 20, 24, 255))
+            # Marges transparentes (pas de fond) + carte scalee centree
+            canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (0, 0, 0, 0))
             canvas.paste(scaled, (px, py), scaled if scaled.mode == "RGBA" else None)
         else:
             # carte plus grande : crop au centre
@@ -115,7 +115,8 @@ def render_user_card(user_id: int, card_id: int, border: dict,
         card_scale_pct=border.get("card_scale_pct", 100),
     )
     out_path = os.path.join(_CUSTOMS_DIR, f"{user_id}_{card_id}.png")
-    out.convert("RGB").save(out_path, "PNG", optimize=True)
+    # Garde l'alpha (marges transparentes si carte reduite)
+    out.save(out_path, "PNG", optimize=True)
     return f"/static/card_customs/{user_id}_{card_id}.png"
 
 
@@ -138,5 +139,5 @@ def render_border_preview_file(border_key: str, filename: str,
     out = composite_border_preview(base, bimg, offset_x, offset_y, scale_pct,
                                     card_scale_pct=card_scale_pct)
     out_path = os.path.join(_CUSTOMS_DIR, f"_preview_{border_key}.png")
-    out.convert("RGB").save(out_path, "PNG", optimize=True)
+    out.save(out_path, "PNG", optimize=True)
     return f"/static/card_customs/_preview_{border_key}.png"
