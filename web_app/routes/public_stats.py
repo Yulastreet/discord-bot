@@ -26,9 +26,26 @@ def register_public_stats_routes(app, deps):
                 ).fetchone()["n"]
             except Exception:
                 guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
-            user_count = db.execute(
-                "SELECT COUNT(DISTINCT user_id) AS n FROM users"
-            ).fetchone()["n"]
+            # Membres servis = somme member_count des guilds actifs
+            try:
+                sum_members = db.execute(
+                    "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds WHERE active = 1"
+                ).fetchone()["n"]
+            except Exception:
+                sum_members = db.execute(
+                    "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds"
+                ).fetchone()["n"]
+            # Dedup via guild_members si data suffisamment populee (>=80% du sum)
+            try:
+                dedup_count = db.execute(
+                    "SELECT COUNT(DISTINCT user_id) AS n FROM guild_members WHERE is_bot = 0"
+                ).fetchone()["n"]
+            except Exception:
+                dedup_count = 0
+            if dedup_count and dedup_count >= int(sum_members or 0) * 0.8:
+                user_count = dedup_count
+            else:
+                user_count = sum_members
             db.close()
             data = {
                 "guilds":     int(guild_count or 0),
