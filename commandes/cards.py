@@ -24,10 +24,10 @@ from database import (
 )
 
 
-import database as _dbmod
-# Racine repo fiable (database.py est a la racine). __file__ de ce module peut
-# resoudre vers un mauvais cwd selon le mode de chargement (cas VPS).
-_REPO_ROOT = os.path.dirname(os.path.abspath(_dbmod.__file__))
+# Racine repo fiable. __file__ de ce module resout vers un mauvais cwd sur le VPS
+# (charge en top-level). Les modules sous services/ resolvent correctement leur
+# chemin -> on reutilise celui-la comme reference fiable.
+from services.card_render import _ROOT as _REPO_ROOT
 
 ROLL_COOLDOWN_SECONDS = 3600  # 1h, par serveur
 
