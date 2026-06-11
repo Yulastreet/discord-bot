@@ -36,6 +36,19 @@ RARITY_EMOJIS = {
     "common": "⚪", "rare": "🔵", "epic": "🟣",
     "legendary": "🟠", "mythic": "🔴", "secret": "🌈",
 }
+# Pool d'emojis pour reaction gagnante (ronds + carrés colorés)
+CLAIM_EMOJIS = [
+    "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚫", "⚪",
+    "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "🟫", "⬛", "⬜",
+]
+EMOJI_NAMES = {
+    "🔴": "rond rouge", "🟠": "rond orange", "🟡": "rond jaune",
+    "🟢": "rond vert", "🔵": "rond bleu", "🟣": "rond violet",
+    "🟤": "rond marron", "⚫": "rond noir", "⚪": "rond blanc",
+    "🟥": "carré rouge", "🟧": "carré orange", "🟨": "carré jaune",
+    "🟩": "carré vert", "🟦": "carré bleu", "🟪": "carré violet",
+    "🟫": "carré marron", "⬛": "carré noir", "⬜": "carré blanc",
+}
 
 
 def _now_iso() -> str:
@@ -74,31 +87,35 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     # Create log row
     event_id = card_event_log_create(guild_id, channel_id, card["id"],
                                        triggered_by=triggered_by)
-    # Build embed
+    # Pick winning emoji
+    winning = random.choice(CLAIM_EMOJIS)
+    winning_name = EMOJI_NAMES.get(winning, winning)
+    # Build embed (titre = nom carte uniquement, sans "Drop Event !")
     rarity = card.get("rarity", "common")
     color = RARITY_COLORS.get(rarity, 0x9aa0a6)
     emoji = RARITY_EMOJIS.get(rarity, "⚪")
     embed = discord.Embed(
-        title=f"🎁 Drop Event ! {emoji} {card['name']}",
+        title=f"{emoji} {card['name']}",
         description=(f"**Rareté :** {rarity.upper()}\n"
                        f"**Origine :** {card.get('subtitle') or '?'}\n"
                        f"**Univers :** {card.get('universe') or '?'}\n\n"
-                       f"⚡ La **première personne** à réagir gagne cette carte !"),
+                       f"⚡ Première personne à réagir avec le **{winning_name}** {winning} gagne cette carte !"),
         color=color,
     )
     if card.get("image_url"):
         embed.set_image(url=card["image_url"])
     embed.set_footer(text=f"Event #{event_id}")
     try:
-        msg = await channel.send(embed=embed)
-        card_event_log_update_message(event_id, msg.id)
-        # Ajoute reaction baseline pour faciliter le claim
-        try:
-            await msg.add_reaction("🎁")
-        except Exception:
-            pass
+        msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
+        card_event_log_update_message(event_id, msg.id, winning_emoji=winning)
+        # Ajoute toutes les reactions claim possibles
+        for e in CLAIM_EMOJIS:
+            try:
+                await msg.add_reaction(e)
+            except Exception:
+                pass
         return {"event_id": event_id, "card": card, "message_id": msg.id,
-                  "channel_id": channel_id}
+                  "channel_id": channel_id, "winning_emoji": winning}
     except Exception as e:
         print(f"[card_event] erreur send: {e}")
         return None
@@ -112,6 +129,21 @@ async def handle_reaction_claim(bot, payload: discord.RawReactionActionEvent) ->
         return False
     event = card_event_log_get_by_message(payload.message_id)
     if not event:
+        return False
+    # Verifie que l'emoji utilise est le bon
+    winning = event.get("winning_emoji")
+    used = str(payload.emoji)
+    if winning and used != winning:
+        # Mauvaise reaction, retire-la silencieusement
+        try:
+            channel = bot.get_channel(payload.channel_id)
+            if channel:
+                msg = await channel.fetch_message(payload.message_id)
+                user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
+                if msg and user:
+                    await msg.remove_reaction(payload.emoji, user)
+        except Exception:
+            pass
         return False
     ok = card_event_log_claim(event["id"], payload.user_id)
     if not ok:

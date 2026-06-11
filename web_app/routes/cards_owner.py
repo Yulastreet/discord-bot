@@ -1474,6 +1474,37 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "deleted": int(deleted)})
 
 
+    @app.route("/api/owner/user/<user_id>/cards/list", methods=["GET"])
+    def api_owner_user_cards_list(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT uc.id AS uc_id, uc.card_id, uc.not_tradeable, uc.obtained_at, "
+            "c.name, c.rarity, c.universe, c.subtitle, c.image_url "
+            "FROM user_cards uc LEFT JOIN cards c ON c.id = uc.card_id "
+            "WHERE uc.user_id = ? ORDER BY uc.obtained_at DESC, uc.id DESC",
+            (str(user_id),)).fetchall()
+        conn.close()
+        return jsonify({"items": [dict(r) for r in rows]})
+
+
+    @app.route("/api/owner/user/<user_id>/cards/<int:uc_id>", methods=["DELETE"])
+    def api_owner_user_cards_remove_one(user_id, uc_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        c.execute("DELETE FROM user_cards WHERE id = ? AND user_id = ?",
+                  (int(uc_id), str(user_id)))
+        deleted = c.rowcount
+        conn.commit(); conn.close()
+        if not deleted:
+            return jsonify({"error": "ligne introuvable"}), 404
+        return jsonify({"ok": True})
+
+
     @app.route("/api/owner/cards/bulk-update", methods=["POST"])
     def api_owner_cards_bulk_update():
         if not _is_owner_session():

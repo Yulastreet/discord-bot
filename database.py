@@ -160,6 +160,11 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
     except Exception:
         pass
+    # Migration : winning_emoji sur card_event_log
+    try:
+        c.execute("ALTER TABLE card_event_log ADD COLUMN winning_emoji TEXT")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
@@ -1980,10 +1985,14 @@ def card_event_log_create(guild_id, channel_id, card_id, message_id=None,
     return eid
 
 
-def card_event_log_update_message(event_id, message_id):
+def card_event_log_update_message(event_id, message_id, winning_emoji=None):
     conn = get_db(); c = conn.cursor()
-    c.execute("UPDATE card_event_log SET message_id = ? WHERE id = ?",
-              (str(message_id), int(event_id)))
+    if winning_emoji is not None:
+        c.execute("UPDATE card_event_log SET message_id = ?, winning_emoji = ? WHERE id = ?",
+                  (str(message_id), winning_emoji, int(event_id)))
+    else:
+        c.execute("UPDATE card_event_log SET message_id = ? WHERE id = ?",
+                  (str(message_id), int(event_id)))
     conn.commit(); conn.close()
 
 

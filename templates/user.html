@@ -151,10 +151,28 @@
     </div>
     <div class="row gap-3" style="flex-wrap:wrap;margin-top:8px;">
       <button id="cardsGiveBtn" class="btn btn-primary" type="button">🎁 Donner une carte</button>
+      <button id="cardsListBtn" class="btn btn-secondary" type="button">📋 Voir ses cartes</button>
       <button id="cardsClearAllBtn" class="btn btn-danger" type="button">🗑 Clear toutes les cartes</button>
       <button id="cardsResetCdBtn" class="btn btn-secondary" type="button">⟳ Reset cooldown /roll (tous serveurs)</button>
     </div>
     <div id="cardsAdminHint" class="muted" style="font-size:var(--t-xs);margin-top:8px;"></div>
+  </div>
+
+  <!-- Cards List modal owner-only -->
+  <div id="cardsListScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:300;display:none;place-items:center;padding:20px;">
+    <div onclick="event.stopPropagation()" style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:900px;width:100%;max-height:85vh;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="margin:0;">📋 Cartes de <span id="clUserLabel">…</span></h3>
+        <button onclick="document.getElementById('cardsListScrim').style.display='none'" style="background:transparent;border:none;color:var(--text-2);font-size:24px;cursor:pointer;">×</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+        <input id="clSearch" type="text" placeholder="Filtrer nom / univers…" class="input" style="flex:1;min-width:200px;">
+        <span id="clCount" class="muted" style="font-size:12px;"></span>
+      </div>
+      <div id="clBody" style="overflow-y:auto;flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+        <div class="muted">Chargement…</div>
+      </div>
+    </div>
   </div>
 
   <!-- Give Card modal owner-only -->
@@ -443,6 +461,7 @@ function setupCardsAdmin() {
   refreshCount();
 
   document.getElementById('cardsGiveBtn').addEventListener('click', openGiveCard);
+  document.getElementById('cardsListBtn').addEventListener('click', () => openCardsList(uid, refreshCount));
 
   document.getElementById('cardsClearAllBtn').addEventListener('click', async () => {
     if (!confirm(`Supprimer TOUTES les cartes de l'user ${uid} ? Irreversible.`)) return;
@@ -467,6 +486,74 @@ function setupCardsAdmin() {
     } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
   });
 }
+
+// ===== CARDS LIST modal (owner only) =====
+let _clItems = [];
+let _clUid = null;
+let _clRefresh = null;
+const RAR_COLORS = {common:'#9aa0a6', rare:'#4cb5f9', epic:'#a86dff', legendary:'#ffa726', mythic:'#ff3d57', secret:'#888'};
+
+async function openCardsList(uid, refreshCb) {
+  _clUid = uid;
+  _clRefresh = refreshCb;
+  document.getElementById('clUserLabel').textContent = uid;
+  document.getElementById('cardsListScrim').style.display = 'grid';
+  document.getElementById('clBody').innerHTML = '<div class="muted">Chargement…</div>';
+  document.getElementById('clSearch').value = '';
+  try {
+    const r = await fetch(`/api/owner/user/${uid}/cards/list`);
+    const d = await r.json();
+    _clItems = d.items || [];
+    renderCardsList();
+  } catch (e) {
+    document.getElementById('clBody').innerHTML = '<div class="muted">Erreur : ' + e.message + '</div>';
+  }
+}
+
+function renderCardsList() {
+  const q = (document.getElementById('clSearch').value || '').toLowerCase().trim();
+  const filtered = _clItems.filter(c => {
+    if (!q) return true;
+    return (c.name || '').toLowerCase().includes(q) || (c.universe || '').toLowerCase().includes(q);
+  });
+  document.getElementById('clCount').textContent = `${filtered.length} / ${_clItems.length} cartes`;
+  const body = document.getElementById('clBody');
+  if (!filtered.length) { body.innerHTML = '<div class="muted">Aucune carte.</div>'; return; }
+  body.innerHTML = filtered.map(c => {
+    const col = RAR_COLORS[c.rarity] || '#9aa0a6';
+    const img = c.image_url ? `<img src="${c.image_url}" style="width:100%;height:140px;object-fit:cover;border-radius:6px;">` : `<div style="width:100%;height:140px;background:var(--bg-2);border-radius:6px;display:grid;place-items:center;color:var(--text-2);font-size:10px;">no img</div>`;
+    const flag = c.not_tradeable ? '🔒 ' : '';
+    return `<div style="background:var(--bg-2);border:1px solid ${col};border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px;">
+      ${img}
+      <div style="font-weight:700;font-size:11px;line-height:1.2;">${flag}${escHtmlCl(c.name || '?')}</div>
+      <div style="font-size:9px;color:var(--text-2);">${escHtmlCl((c.rarity || '').toUpperCase())} · ${escHtmlCl(c.universe || '')}</div>
+      <button onclick="cardsListDelete(${c.uc_id}, '${escHtmlCl((c.name||'').replace(/'/g,"\\'"))}')" style="background:#ff3d57;color:#fff;border:none;border-radius:4px;padding:3px;font-size:10px;cursor:pointer;">🗑 Supprimer</button>
+    </div>`;
+  }).join('');
+}
+
+function escHtmlCl(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function cardsListDelete(ucId, name) {
+  if (!confirm(`Supprimer la carte "${name}" ? Irreversible.`)) return;
+  try {
+    const r = await fetch(`/api/owner/user/${_clUid}/cards/${ucId}`, {method:'DELETE'});
+    const d = await r.json();
+    if (d.ok) {
+      _clItems = _clItems.filter(c => c.uc_id !== ucId);
+      renderCardsList();
+      if (_clRefresh) _clRefresh();
+    } else alert('Erreur : ' + (d.error || '?'));
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+window.cardsListDelete = cardsListDelete;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sc = document.getElementById('cardsListScrim');
+  if (sc) sc.addEventListener('click', e => { if (e.target === sc) sc.style.display = 'none'; });
+  const inp = document.getElementById('clSearch');
+  if (inp) inp.addEventListener('input', renderCardsList);
+});
 
 // ===== PASS ADMIN PANEL (owner only) =====
 const PASS_XP_PER_TIER = 250;
