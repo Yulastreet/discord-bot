@@ -195,6 +195,8 @@ def setup_pass_commands(bot, deps):
         # (vs 100 TC pour gagner un duel : daily reste un modeste appoint)
         streak_bonus = min(7, new_streak) * 2
         coins = 10 + streak_bonus
+        # Essences (monnaie cartes) : 40 base + 8/jour streak cap 7 -> max 96 ✨
+        essences_gain = 40 + min(7, new_streak) * 8
 
         # XP Pass si user a un Pass actif (10 XP/jour -> ~25 jours pour 1 tier)
         has_pass = bool(user_has_active_pass(user.id, sku_pass_id=SKU_PASS)) or (
@@ -211,6 +213,11 @@ def setup_pass_commands(bot, deps):
             ajouter_tookcoins(user.id, coins)
         except Exception as e:
             print(f"[daily] ajouter_tookcoins err: {e}")
+        try:
+            from database import currency_add
+            currency_add(user.id, essences_gain)
+        except Exception as e:
+            print(f"[daily] currency_add err: {e}")
         if pass_xp_gain:
             try:
                 season = get_or_create_current_season()
@@ -222,7 +229,7 @@ def setup_pass_commands(bot, deps):
 
         daily_claim_apply(user.id, today_str, new_streak)
 
-        lines = [f"**+{coins} TookCoins** 🪙"]
+        lines = [f"**+{coins} TookCoins** 🪙", f"**+{essences_gain} Essences** ✨"]
         if pass_xp_gain:
             lines.append(f"**+{pass_xp_gain} XP Pass** 🎟️")
         lines.append("")
@@ -234,9 +241,8 @@ def setup_pass_commands(bot, deps):
 
         await interaction.response.send_message(
             embed=discord.Embed(
-                title="🎁 Récompense quotidienne",
+                title=f"🎁 Récompense quotidienne — {user.display_name}",
                 description="\n".join(lines),
                 color=0xB9F23A,
             ),
-            ephemeral=True,
         )
