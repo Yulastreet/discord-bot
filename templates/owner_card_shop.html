@@ -69,8 +69,11 @@
         <label>Offset Y : <span id="bdOyVal">0</span>
           <input id="bdOy" type="range" min="-200" max="200" value="0" oninput="bdOyVal.textContent=this.value; bdPreview()">
         </label>
-        <label>Échelle % : <span id="bdScVal">100</span>
+        <label>Échelle bordure % : <span id="bdScVal">100</span>
           <input id="bdSc" type="range" min="50" max="160" value="100" oninput="bdScVal.textContent=this.value; bdPreview()">
+        </label>
+        <label>Échelle carte % : <span id="bdCsVal">100</span>
+          <input id="bdCs" type="range" min="40" max="160" value="100" oninput="bdCsVal.textContent=this.value; bdPreview()">
         </label>
         <button class="btn btn-primary" onclick="bdSave()" style="margin-top:8px;">💾 Sauvegarder placement</button>
         <span id="bdHint" class="muted" style="font-size:11px;display:block;margin-top:8px;"></span>
@@ -233,6 +236,7 @@ function bdLoad(){
   document.getElementById('bdOx').value = b.offset_x||0; document.getElementById('bdOxVal').textContent=b.offset_x||0;
   document.getElementById('bdOy').value = b.offset_y||0; document.getElementById('bdOyVal').textContent=b.offset_y||0;
   document.getElementById('bdSc').value = b.scale_pct||100; document.getElementById('bdScVal').textContent=b.scale_pct||100;
+  document.getElementById('bdCs').value = b.card_scale_pct||100; document.getElementById('bdCsVal').textContent=b.card_scale_pct||100;
   bdPreview();
 }
 window.bdLoad=bdLoad;
@@ -247,6 +251,7 @@ function bdPreview(){
       offset_x: parseInt(document.getElementById('bdOx').value,10),
       offset_y: parseInt(document.getElementById('bdOy').value,10),
       scale_pct: parseInt(document.getElementById('bdSc').value,10),
+      card_scale_pct: parseInt(document.getElementById('bdCs').value,10),
       placeholder_card_id: document.getElementById('bdPlaceholder').value || null,
     };
     const r = await fetch('/api/owner/borders/'+b.border_key+'/preview', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -263,6 +268,7 @@ async function bdSave(){
     offset_x: parseInt(document.getElementById('bdOx').value,10),
     offset_y: parseInt(document.getElementById('bdOy').value,10),
     scale_pct: parseInt(document.getElementById('bdSc').value,10),
+    card_scale_pct: parseInt(document.getElementById('bdCs').value,10),
   };
   const hint = document.getElementById('bdHint');
   hint.textContent='Sauvegarde…';

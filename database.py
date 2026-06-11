@@ -170,6 +170,11 @@ def init_db():
         c.execute("ALTER TABLE card_event_log ADD COLUMN claim_code TEXT")
     except Exception:
         pass
+    # Migration : card_scale_pct sur borders (echelle de la carte dans le cadre)
+    try:
+        c.execute("ALTER TABLE borders ADD COLUMN card_scale_pct INTEGER DEFAULT 100")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
@@ -2172,11 +2177,12 @@ def border_get(border_key):
 
 
 def border_set_config(border_key, offset_x=None, offset_y=None, scale_pct=None,
-                       enabled=None, name=None):
+                       enabled=None, name=None, card_scale_pct=None):
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     for col, v in (("offset_x", offset_x), ("offset_y", offset_y),
-                    ("scale_pct", scale_pct), ("enabled", enabled), ("name", name)):
+                    ("scale_pct", scale_pct), ("card_scale_pct", card_scale_pct),
+                    ("enabled", enabled), ("name", name)):
         if v is not None:
             sets.append(f"{col} = ?")
             vals.append(int(v) if col != "name" else v)

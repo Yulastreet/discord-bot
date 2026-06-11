@@ -61,11 +61,26 @@ def _load_border(filename: str) -> Image.Image | None:
 
 def composite_border_preview(base: Image.Image, border_img: Image.Image,
                               offset_x: int = 0, offset_y: int = 0,
-                              scale_pct: int = 100) -> Image.Image:
-    """Composite bordure sur base (450x675). Retourne nouvelle image RGBA."""
+                              scale_pct: int = 100, card_scale_pct: int = 100) -> Image.Image:
+    """Composite bordure sur base (450x675). Retourne nouvelle image RGBA.
+
+    card_scale_pct redimensionne la carte dans le cadre (fond rempli par
+    la carte plein-cadre derriere les marges)."""
     if base.size != (_CARD_W, _CARD_H):
         base = base.resize((_CARD_W, _CARD_H), Image.LANCZOS)
     canvas = base.copy().convert("RGBA")
+    # Echelle de la carte : carte plein-cadre en fond + carte scalee centree
+    cs = max(20, min(200, int(card_scale_pct or 100))) / 100.0
+    if abs(cs - 1.0) > 0.001:
+        cw, ch = int(_CARD_W * cs), int(_CARD_H * cs)
+        scaled = base.resize((cw, ch), Image.LANCZOS)
+        px = (_CARD_W - cw) // 2
+        py = (_CARD_H - ch) // 2
+        if cs < 1.0:
+            canvas.paste(scaled, (px, py))
+        else:
+            # carte plus grande : crop au centre
+            canvas = scaled.crop((-px, -py, -px + _CARD_W, -py + _CARD_H)).convert("RGBA")
     scale = max(10, min(300, int(scale_pct or 100))) / 100.0
     bw = int(_CARD_W * scale)
     bh = int(_CARD_H * scale)
@@ -95,6 +110,7 @@ def render_user_card(user_id: int, card_id: int, border: dict,
         offset_x=border.get("offset_x", 0),
         offset_y=border.get("offset_y", 0),
         scale_pct=border.get("scale_pct", 100),
+        card_scale_pct=border.get("card_scale_pct", 100),
     )
     out_path = os.path.join(_CUSTOMS_DIR, f"{user_id}_{card_id}.png")
     out.convert("RGB").save(out_path, "PNG", optimize=True)
@@ -103,7 +119,7 @@ def render_user_card(user_id: int, card_id: int, border: dict,
 
 def render_border_preview_file(border_key: str, filename: str,
                                 offset_x: int = 0, offset_y: int = 0,
-                                scale_pct: int = 100,
+                                scale_pct: int = 100, card_scale_pct: int = 100,
                                 placeholder_card_id: int | None = None) -> str | None:
     """Genere preview placement bordure sur une carte placeholder (dashboard owner).
     Output static/card_customs/_preview_<border_key>.png."""
@@ -117,7 +133,8 @@ def render_border_preview_file(border_key: str, filename: str,
     bimg = _load_border(filename)
     if bimg is None:
         return None
-    out = composite_border_preview(base, bimg, offset_x, offset_y, scale_pct)
+    out = composite_border_preview(base, bimg, offset_x, offset_y, scale_pct,
+                                    card_scale_pct=card_scale_pct)
     out_path = os.path.join(_CUSTOMS_DIR, f"_preview_{border_key}.png")
     out.convert("RGB").save(out_path, "PNG", optimize=True)
     return f"/static/card_customs/_preview_{border_key}.png"

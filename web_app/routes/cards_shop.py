@@ -112,7 +112,7 @@ def register_cards_shop_routes(app, deps):
         from database import border_set_config
         data = request.json or {}
         kwargs = {}
-        for k in ("offset_x", "offset_y", "scale_pct", "enabled"):
+        for k in ("offset_x", "offset_y", "scale_pct", "card_scale_pct", "enabled"):
             if k in data:
                 try:
                     kwargs[k] = int(data[k])
@@ -137,6 +137,7 @@ def register_cards_shop_routes(app, deps):
         ox = data.get("offset_x", b.get("offset_x", 0))
         oy = data.get("offset_y", b.get("offset_y", 0))
         sc = data.get("scale_pct", b.get("scale_pct", 100))
+        csc = data.get("card_scale_pct", b.get("card_scale_pct", 100))
         placeholder = data.get("placeholder_card_id")
         try:
             placeholder = int(placeholder) if placeholder else None
@@ -145,7 +146,7 @@ def register_cards_shop_routes(app, deps):
         rel = render_border_preview_file(
             border_key, b["filename"],
             offset_x=int(ox), offset_y=int(oy), scale_pct=int(sc),
-            placeholder_card_id=placeholder)
+            card_scale_pct=int(csc), placeholder_card_id=placeholder)
         if not rel:
             return jsonify({"error": "génération échouée"}), 500
         return jsonify({"ok": True, "url": f"{rel}?t={int(_t.time())}"})
