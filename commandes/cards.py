@@ -730,7 +730,12 @@ def setup_cards_commands(bot, deps):
             await interaction.followup.send(
                 "La boutique est vide pour le moment. Reviens plus tard !", ephemeral=True)
             return
-        rel = build_shop_image()
+        try:
+            rel = build_shop_image()
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            print(f"[cardshop] build_shop_image err: {e!r}")
+            rel = None
         bal = currency_get(interaction.user.id)
 
         class _ShopView(discord.ui.View):
@@ -778,6 +783,10 @@ def setup_cards_commands(bot, deps):
             if _os.path.exists(local_path):
                 file = discord.File(local_path, filename="cardshop.png")
                 embed.set_image(url="attachment://cardshop.png")
+            else:
+                print(f"[cardshop] image generee mais introuvable: {local_path}")
+        else:
+            print("[cardshop] build_shop_image a retourne None")
         view = _ShopView()
         if file:
             await interaction.followup.send(embed=embed, file=file, view=view)
