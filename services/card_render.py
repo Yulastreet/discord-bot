@@ -43,14 +43,15 @@ def _overlay_stars(canvas: Image.Image, level: int) -> Image.Image:
     level = max(0, min(5, int(level or 0)))
     if level <= 0:
         return canvas
-    star_size = 56
+    star_size = 50
     gap = 4
     star = _get_star(star_size)
     if star is None:
         return canvas
     total_w = level * star_size + (level - 1) * gap
     x0 = (_CARD_W - total_w) // 2
-    y0 = _CARD_H - star_size - 26  # marge basse
+    center_y = int(_CARD_H * 0.77)  # repere : au-dessus du bord bas du cadre
+    y0 = center_y - star_size // 2
     out = canvas.convert("RGBA")
     for i in range(level):
         x = x0 + i * (star_size + gap)
