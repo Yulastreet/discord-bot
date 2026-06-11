@@ -7,10 +7,13 @@ Listener on_message verifie si message correspond a un code event pending.
 from __future__ import annotations
 
 import datetime as _dt
+import math
+import os
 import random
 from typing import Optional
 
 import discord
+from PIL import Image, ImageDraw, ImageFont
 
 from database import (
     card_event_config_all_enabled,
@@ -43,6 +46,75 @@ CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
 def _gen_code() -> str:
     n = random.randint(5, 6)
     return "".join(random.choice(CODE_CHARS) for _ in range(n))
+
+
+_CE_FONT_CACHE: dict = {}
+
+
+def _ce_font(size: int):
+    if size in _CE_FONT_CACHE:
+        return _CE_FONT_CACHE[size]
+    for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                  "C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/arialbd.ttf"):
+        if os.path.exists(path):
+            try:
+                f = ImageFont.truetype(path, size)
+                _CE_FONT_CACHE[size] = f
+                return f
+            except Exception:
+                continue
+    f = ImageFont.load_default()
+    _CE_FONT_CACHE[size] = f
+    return f
+
+
+def _render_drop_image(bot, card: dict, code: str, event_id: int) -> Optional[str]:
+    """Compose carte + bande captcha (code en image, non copiable). Retourne path local."""
+    try:
+        from services.card_render import _load_base, _ROOT
+        cid = card["id"]
+        base = _load_base(int(cid), fallback_url=card.get("image_url"))
+        if base is None:
+            return None
+        base = base.convert("RGBA")
+        W, H = base.size
+        draw = ImageDraw.Draw(base)
+        # Bande sombre translucide en bas
+        band_h = int(H * 0.20)
+        band = Image.new("RGBA", (W, band_h), (0, 0, 0, 165))
+        base.alpha_composite(band, (0, H - band_h))
+        # Bruit : quelques lignes
+        for _ in range(6):
+            x1, y1 = random.randint(0, W), H - band_h + random.randint(0, band_h)
+            x2, y2 = random.randint(0, W), H - band_h + random.randint(0, band_h)
+            draw.line((x1, y1, x2, y2), fill=(255, 255, 255, 60), width=2)
+        # Code : chaque char tourne/jitter, couleur claire
+        font = _ce_font(int(band_h * 0.62))
+        n = len(code)
+        # largeur approx pour centrer
+        char_w = int(W * 0.78 / max(1, n))
+        total_w = char_w * n
+        x0 = (W - total_w) // 2
+        cy = H - band_h // 2
+        for i, ch in enumerate(code):
+            ang = random.uniform(-22, 22)
+            col = random.choice([(255, 240, 170), (180, 242, 58), (120, 200, 255),
+                                  (255, 200, 120), (255, 255, 255)])
+            ci = Image.new("RGBA", (char_w + 20, band_h), (0, 0, 0, 0))
+            cd = ImageDraw.Draw(ci)
+            cd.text((10, int(band_h * 0.12)), ch, font=font, fill=col)
+            ci = ci.rotate(ang, expand=True, resample=Image.BICUBIC)
+            px = x0 + i * char_w - 10 + random.randint(-4, 4)
+            py = cy - ci.height // 2 + random.randint(-6, 6)
+            base.alpha_composite(ci, (max(0, px), max(H - band_h, py)))
+        out_dir = os.path.join(_ROOT, "static", "card_events")
+        os.makedirs(out_dir, exist_ok=True)
+        out_path = os.path.join(out_dir, f"{event_id}.png")
+        base.convert("RGB").save(out_path, "PNG", optimize=True)
+        return out_path
+    except Exception as e:
+        print(f"[card_event] render drop image err: {e}")
+        return None
 
 
 def _now_iso() -> str:
@@ -88,10 +160,17 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
         description=(f"**Rareté :** {rarity.upper()}\n"
                        f"**Origine :** {card.get('subtitle') or '?'}\n"
                        f"**Univers :** {card.get('universe') or '?'}\n\n"
-                       f"⚡ Première personne à taper `{code}` dans ce salon gagne cette carte !"),
+                       f"⚡ Première personne à **taper le code affiché sur l'image** "
+                       f"dans ce salon gagne cette carte !"),
         color=color,
     )
-    if card.get("image_url"):
+    # Image = carte + code captcha (non copiable). Fallback : image carte brute.
+    drop_img_path = _render_drop_image(bot, card, code, event_id)
+    drop_file = None
+    if drop_img_path:
+        drop_file = discord.File(drop_img_path, filename="drop.png")
+        embed.set_image(url="attachment://drop.png")
+    elif card.get("image_url"):
         embed.set_image(url=card["image_url"])
     # Badge animé rareté en thumbnail (emoji custom du support server)
     try:
@@ -101,9 +180,12 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
             embed.set_thumbnail(url=badge_url)
     except Exception:
         pass
-    embed.set_footer(text=f"Event #{event_id} · code: {code}")
+    embed.set_footer(text=f"Event #{event_id}")
     try:
-        msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
+        if drop_file:
+            msg = await channel.send(content="🎁 **Drop Event !**", embed=embed, file=drop_file)
+        else:
+            msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
         card_event_log_update_message(event_id, msg.id, claim_code=code)
         return {"event_id": event_id, "card": card, "message_id": msg.id,
                   "channel_id": channel_id, "claim_code": code}
