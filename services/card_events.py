@@ -6,6 +6,7 @@ Listener on_raw_reaction_add traite les claims.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as _dt
 import random
 from typing import Optional
@@ -108,12 +109,13 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     try:
         msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
         card_event_log_update_message(event_id, msg.id, winning_emoji=winning)
-        # Ajoute toutes les reactions claim possibles
-        for e in CLAIM_EMOJIS:
+        # Ajoute toutes les reactions claim en parallele
+        async def _add(e):
             try:
                 await msg.add_reaction(e)
             except Exception:
                 pass
+        await asyncio.gather(*(_add(e) for e in CLAIM_EMOJIS))
         return {"event_id": event_id, "card": card, "message_id": msg.id,
                   "channel_id": channel_id, "winning_emoji": winning}
     except Exception as e:
@@ -130,20 +132,10 @@ async def handle_reaction_claim(bot, payload: discord.RawReactionActionEvent) ->
     event = card_event_log_get_by_message(payload.message_id)
     if not event:
         return False
-    # Verifie que l'emoji utilise est le bon
+    # Verifie que l'emoji utilise est le bon (ignore mauvaise reaction)
     winning = event.get("winning_emoji")
     used = str(payload.emoji)
     if winning and used != winning:
-        # Mauvaise reaction, retire-la silencieusement
-        try:
-            channel = bot.get_channel(payload.channel_id)
-            if channel:
-                msg = await channel.fetch_message(payload.message_id)
-                user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
-                if msg and user:
-                    await msg.remove_reaction(payload.emoji, user)
-        except Exception:
-            pass
         return False
     ok = card_event_log_claim(event["id"], payload.user_id)
     if not ok:
@@ -153,17 +145,22 @@ async def handle_reaction_claim(bot, payload: discord.RawReactionActionEvent) ->
         user_card_add(payload.user_id, event["card_id"])
     except Exception as e:
         print(f"[card_event claim] add err: {e}")
-    # Update embed pour montrer le claim
+    # Update embed pour montrer le claim + clear reactions
     try:
         channel = bot.get_channel(payload.channel_id)
         if channel:
             msg = await channel.fetch_message(payload.message_id)
-            if msg and msg.embeds:
-                emb = msg.embeds[0]
-                user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
-                emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {user.mention if user else f'<@{payload.user_id}>'}** !"
-                emb.color = 0x4ade80
-                await msg.edit(embed=emb)
+            if msg:
+                if msg.embeds:
+                    emb = msg.embeds[0]
+                    user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
+                    emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {user.mention if user else f'<@{payload.user_id}>'}** !"
+                    emb.color = 0x4ade80
+                    await msg.edit(embed=emb)
+                try:
+                    await msg.clear_reactions()
+                except Exception:
+                    pass
     except Exception as e:
         print(f"[card_event claim update] err: {e}")
     return True
