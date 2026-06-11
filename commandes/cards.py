@@ -122,6 +122,20 @@ def _is_owner(user_id: int | str) -> bool:
     return owner and str(user_id) == owner
 
 
+def _is_support_member(bot, user_id) -> bool:
+    """True si le user est membre du serveur de support (perks : roll x2, wishlist 6)."""
+    try:
+        sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
+        if not sg:
+            return False
+        guild = bot.get_guild(sg)
+        if not guild:
+            return False
+        return guild.get_member(int(user_id)) is not None
+    except Exception:
+        return False
+
+
 def _resolve_card_image(card: dict):
     """Retourne (url_http_ou_None, discord.File_ou_None) pour set_image embed.
 
@@ -245,11 +259,14 @@ def setup_cards_commands(bot, deps):
                 )
                 return
 
-        # Cooldown 1h par (user, guild) - skip pour owner
+        # Cooldown GLOBAL (tous serveurs confondus) - skip pour owner.
+        # Membres du serveur support : 30 min (2 rolls/h). Autres : 1h.
         uid = interaction.user.id
         gid = interaction.guild.id if interaction.guild else None
+        is_support = _is_support_member(bot, uid)
+        cooldown_sec = 1800 if is_support else ROLL_COOLDOWN_SECONDS
         if not _is_owner(uid) and gid:
-            last = roll_cooldown_get(uid, gid)
+            last = roll_cooldown_get(uid, "global")
             if last:
                 try:
                     # last stocke en UTC naive, parse comme UTC-aware
@@ -258,7 +275,7 @@ def setup_cards_commands(bot, deps):
                     now_ts = _time.time()
                     last_ts = last_dt.timestamp()
                     elapsed = now_ts - last_ts
-                    remain = ROLL_COOLDOWN_SECONDS - elapsed
+                    remain = cooldown_sec - elapsed
                     if remain > 0:
                         rh = int(remain // 3600)
                         rm = int((remain % 3600) // 60)
@@ -266,8 +283,10 @@ def setup_cards_commands(bot, deps):
                         wait = f"{rh}h {rm}min" if rh > 0 else f"{rm}min {rs}s"
                         # Discord timestamp absolu epoch (cohérent avec wait)
                         ready_at = int(now_ts + remain)
+                        perk = ("" if is_support else
+                                "\n💡 Rejoins le **serveur support** pour 2 rolls/h (cooldown 30 min) !")
                         await interaction.response.send_message(
-                            f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).",
+                            f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).{perk}",
                             ephemeral=True,
                         )
                         return
@@ -295,7 +314,7 @@ def setup_cards_commands(bot, deps):
         user_card_add(uid, card["id"])
         if not _is_owner(uid) and gid:
             now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            roll_cooldown_set(uid, gid, now_iso)
+            roll_cooldown_set(uid, "global", now_iso)
 
         # Gain d'essences selon rarete (doublon = x2)
         rarity_for_reward = card.get("rarity", "common")
@@ -1040,7 +1059,9 @@ def setup_cards_commands(bot, deps):
 
 
     # === /cardwish <carte> : ajoute/retire de la wishlist ===
-    WISHLIST_MAX = 3  # cap de cartes en wishlist par joueur
+    # Cap : 3 par defaut, 6 pour les membres du serveur support.
+    def _wishlist_max(user_id):
+        return 6 if _is_support_member(bot, user_id) else 3
     @bot.tree.command(name="cardwish", description="Ajoute ou retire une carte de ta wishlist")
     @app_commands.describe(nom="Carte à ajouter/retirer de ta wishlist")
     async def cardwish_cmd(interaction: discord.Interaction, nom: str):
@@ -1049,21 +1070,24 @@ def setup_cards_commands(bot, deps):
         if not card:
             await interaction.response.send_message(f"Carte introuvable : `{nom}`.", ephemeral=True)
             return
+        wl_max = _wishlist_max(interaction.user.id)
         # Cap : seulement si on AJOUTE (toggle off toujours autorisé)
         if not wishlist_has(interaction.user.id, card["id"]):
-            if len(wishlist_list(interaction.user.id)) >= WISHLIST_MAX:
+            if len(wishlist_list(interaction.user.id)) >= wl_max:
+                extra = ("" if wl_max >= 6 else
+                          " Rejoins le **serveur support** pour 6 emplacements !")
                 await interaction.response.send_message(
-                    f"Wishlist pleine ({WISHLIST_MAX} max). Retire une carte avant d'en ajouter.",
+                    f"Wishlist pleine ({wl_max} max). Retire une carte avant d'en ajouter.{extra}",
                     ephemeral=True)
                 return
         added = wishlist_toggle(interaction.user.id, card["id"])
         count = len(wishlist_list(interaction.user.id))
         emoji = RARITY_EMOJIS.get(card.get("rarity"), "⚪")
         if added:
-            msg = (f"💖 **{card['name']}** {emoji} ajoutée à ta wishlist ({count}/{WISHLIST_MAX}). "
+            msg = (f"💖 **{card['name']}** {emoji} ajoutée à ta wishlist ({count}/{wl_max}). "
                    f"Tu seras ping si quelqu'un la tire.")
         else:
-            msg = f"💔 **{card['name']}** {emoji} retirée de ta wishlist ({count}/{WISHLIST_MAX})."
+            msg = f"💔 **{card['name']}** {emoji} retirée de ta wishlist ({count}/{wl_max})."
         await interaction.response.send_message(msg, ephemeral=True)
 
     @cardwish_cmd.autocomplete("nom")
@@ -1087,7 +1111,7 @@ def setup_cards_commands(bot, deps):
         from database import wishlist_list
         target = membre or interaction.user
         items = wishlist_list(target.id)
-        embed = discord.Embed(title=f"💖 Wishlist — {target.display_name} ({len(items)}/{WISHLIST_MAX})",
+        embed = discord.Embed(title=f"💖 Wishlist — {target.display_name} ({len(items)}/{_wishlist_max(target.id)})",
                               color=0xff5fa2)
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
