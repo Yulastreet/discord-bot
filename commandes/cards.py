@@ -621,8 +621,8 @@ def setup_cards_commands(bot, deps):
         color = BORDER_COLORS.get(border_key) if border_key else None
         if color is None:
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        # Titre : nom + ✨ si cosmetique + etoiles fusion (pas d'emoji rareté devant)
-        title = card['name'] + (" ✨" if border_key else "") + ("⭐" * fusion_level)
+        # Titre : ✨ devant si cosmetique + nom + etoiles fusion
+        title = ("✨ " if border_key else "") + card['name'] + ("⭐" * fusion_level)
         embed = discord.Embed(title=title[:256], color=color)
         embed.set_footer(text=f"Carte de {interaction.user.display_name}",
                           icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
@@ -641,6 +641,11 @@ def setup_cards_commands(bot, deps):
             if _os.path.exists(local_path):
                 file = discord.File(local_path, filename="card.png")
                 embed.set_image(url="attachment://card.png")
+            else:
+                print(f"[show] render introuvable: {local_path}")
+        else:
+            print(f"[show] render_user_card a retourne None (card={card['id']} "
+                  f"border={border_key} fusion={fusion_level})")
         if file is None:
             img = card.get("image_url")
             if img and isinstance(img, str) and img.startswith("http"):

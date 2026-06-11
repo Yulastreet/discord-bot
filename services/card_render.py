@@ -47,6 +47,7 @@ def _overlay_stars(canvas: Image.Image, level: int) -> Image.Image:
     gap = 4
     star = _get_star(star_size)
     if star is None:
+        print(f"[card_render] stars.png introuvable: {_STARS_PATH}")
         return canvas
     total_w = level * star_size + (level - 1) * gap
     x0 = (_CARD_W - total_w) // 2
@@ -140,9 +141,12 @@ def render_user_card(user_id: int, card_id: int, border: dict | None = None,
     os.makedirs(_CUSTOMS_DIR, exist_ok=True)
     base = _load_base(card_id, fallback_url)
     if base is None:
+        print(f"[card_render] base introuvable card={card_id} fallback={fallback_url}")
         return None
     if border:
         bimg = _load_border(border["filename"])
+        if bimg is None:
+            print(f"[card_render] bordure introuvable: {border.get('filename')}")
         if bimg is not None:
             out = composite_border_preview(
                 base, bimg,
