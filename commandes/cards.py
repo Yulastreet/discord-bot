@@ -108,6 +108,35 @@ def _is_owner(user_id: int | str) -> bool:
     return owner and str(user_id) == owner
 
 
+def _resolve_card_image(card: dict):
+    """Retourne (url_http_ou_None, discord.File_ou_None) pour set_image embed.
+
+    - image_url http -> (url, None)
+    - chemin local /static/... existant -> (None, File) servi en attachment
+    - render local static/card_renders/<id>.png -> (None, File)
+    """
+    img = card.get("image_url") or ""
+    if isinstance(img, str) and img.startswith("http"):
+        return (img, None)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Chemin local extrait de l'image_url (relatif ou full avec /static/)
+    candidates = []
+    if isinstance(img, str) and "/static/" in img:
+        rel = "static/" + img.split("/static/", 1)[1].split("?")[0]
+        candidates.append(os.path.join(root, rel.replace("/", os.sep)))
+    # Fallback : render local par card_id
+    cid = card.get("id")
+    if cid:
+        candidates.append(os.path.join(root, "static", "card_renders", f"{cid}.png"))
+    for path in candidates:
+        if path and os.path.exists(path):
+            try:
+                return (None, discord.File(path, filename="card.png"))
+            except Exception:
+                pass
+    return (None, None)
+
+
 def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     """Verifie que la commande est lancee dans le salon configure.
     Retourne (ok, channel_mention_si_ko)."""
@@ -286,14 +315,19 @@ def setup_cards_commands(bot, deps):
         thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
         if thumb_url:
             embed.set_thumbnail(url=thumb_url)
-        img = card.get("image_url")
-        if img and isinstance(img, str) and img.startswith("http"):
-            embed.set_image(url=img)
+        img_url, img_file = _resolve_card_image(card)
+        if img_url:
+            embed.set_image(url=img_url)
+        elif img_file:
+            embed.set_image(url="attachment://card.png")
         avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
         embed.set_footer(text=f"Appartient à {interaction.user.display_name}",
                           icon_url=avatar_url)
         view = OwnersView(card["id"], card["name"])
-        await interaction.response.send_message(embed=embed, view=view)
+        if img_file:
+            await interaction.response.send_message(embed=embed, file=img_file, view=view)
+        else:
+            await interaction.response.send_message(embed=embed, view=view)
 
     @roll.autocomplete("univers")
     async def roll_univers_autocomplete(interaction: discord.Interaction, current: str):
@@ -474,15 +508,20 @@ def setup_cards_commands(bot, deps):
             thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
             if thumb_url:
                 embed.set_thumbnail(url=thumb_url)
-            img = card.get("image_url")
-            if img and isinstance(img, str) and img.startswith("http"):
-                embed.set_image(url=img)
+            img_url, img_file = _resolve_card_image(card)
+            if img_url:
+                embed.set_image(url=img_url)
+            elif img_file:
+                embed.set_image(url="attachment://card.png")
             owners = card_owners_count(card["id"])
             if owners > 0:
                 embed.set_footer(text=f"Possédée par {owners} joueur{'s' if owners > 1 else ''}")
             # View toujours present (au moins le bouton Modifier link)
             view = OwnersView(card["id"], card["name"])
-            await interaction.response.send_message(embed=embed, view=view)
+            if img_file:
+                await interaction.response.send_message(embed=embed, file=img_file, view=view)
+            else:
+                await interaction.response.send_message(embed=embed, view=view)
         except Exception as e:
             import traceback
             traceback.print_exc()
