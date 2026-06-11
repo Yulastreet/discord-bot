@@ -36,10 +36,6 @@ def register_cards_events_routes(app, deps):
         from database import list_guilds, get_db, guild_setting_get
         import json as _json
         guilds = list_guilds(active_only=True)
-        # Seulement les serveurs ayant activé la feature Cards Events (opt-in)
-        guilds = [g for g in guilds
-                  if guild_setting_get(str(g.get("guild_id") or g.get("id")),
-                                        "card_events", "0") == "1"]
         # Cache channels chargee depuis guild_channels_cache si dispo
         conn = get_db(); c = conn.cursor()
         try:
@@ -63,6 +59,8 @@ def register_cards_events_routes(app, deps):
                 "name": g.get("name") or "?",
                 "member_count": g.get("member_count") or 0,
                 "channels": channels_by_guild.get(gid, []),
+                # Feature Cards Events activee sur ce serveur ?
+                "events_enabled": guild_setting_get(gid, "card_events", "0") == "1",
             })
         out.sort(key=lambda x: x["name"].lower())
         return jsonify({"items": out})

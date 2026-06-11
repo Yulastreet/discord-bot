@@ -185,11 +185,15 @@ async function loadConfigs() {
     // Render config card pour chaque guild du bot
     const configByGuild = {};
     items.forEach(c => configByGuild[c.guild_id] = c);
-    if (!_guildsCache.length) {
-      grid.innerHTML = '<div class="muted">Aucun serveur.</div>';
+    // Grille config : uniquement les serveurs ayant activé la feature
+    const enabledGuilds = _guildsCache.filter(g => g.events_enabled);
+    if (!enabledGuilds.length) {
+      grid.innerHTML = '<div class="muted">Aucun serveur n\'a activé Cards Events. '
+        + 'Les serveurs l\'activent dans leur onglet Fonctionnalités (10 membres min). '
+        + 'Le trigger manuel ci-dessus reste dispo pour tester sur n\'importe quel serveur.</div>';
       return;
     }
-    grid.innerHTML = _guildsCache.map(g => {
+    grid.innerHTML = enabledGuilds.map(g => {
       const cfg = configByGuild[g.id] || {};
       const enabled = !!cfg.enabled;
       const channelId = cfg.channel_id || '';
