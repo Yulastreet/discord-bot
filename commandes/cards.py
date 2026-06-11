@@ -24,6 +24,11 @@ from database import (
 )
 
 
+import database as _dbmod
+# Racine repo fiable (database.py est a la racine). __file__ de ce module peut
+# resoudre vers un mauvais cwd selon le mode de chargement (cas VPS).
+_REPO_ROOT = os.path.dirname(os.path.abspath(_dbmod.__file__))
+
 ROLL_COOLDOWN_SECONDS = 3600  # 1h, par serveur
 
 RARITY_COLORS = {
@@ -118,7 +123,7 @@ def _resolve_card_image(card: dict):
     img = card.get("image_url") or ""
     if isinstance(img, str) and img.startswith("http"):
         return (img, None)
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = _REPO_ROOT
     # Chemin local extrait de l'image_url (relatif ou full avec /static/)
     candidates = []
     if isinstance(img, str) and "/static/" in img:
@@ -464,8 +469,11 @@ def setup_cards_commands(bot, deps):
                     self._refresh()
                     await interaction.response.edit_message(embed=_build_embed(self.page), view=self)
 
-        view = _CollecView(interaction.user.id, total_pages) if total_pages > 1 else None
-        await interaction.response.send_message(embed=_build_embed(1), view=view)
+        if total_pages > 1:
+            view = _CollecView(interaction.user.id, total_pages)
+            await interaction.response.send_message(embed=_build_embed(1), view=view)
+        else:
+            await interaction.response.send_message(embed=_build_embed(1))
 
 
     # === /card <nom> ===
@@ -610,8 +618,7 @@ def setup_cards_commands(bot, deps):
             # Sert le fichier local en attachment (pas besoin URL publique)
             import os as _os
             local_path = _os.path.join(
-                _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-                rendered_url.lstrip("/").replace("/", _os.sep))
+                _REPO_ROOT, rendered_url.lstrip("/").replace("/", _os.sep))
             if _os.path.exists(local_path):
                 file = discord.File(local_path, filename="card.png")
                 embed.set_image(url="attachment://card.png")
@@ -778,8 +785,7 @@ def setup_cards_commands(bot, deps):
         file = None
         if rel:
             local_path = _os.path.join(
-                _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-                rel.lstrip("/").replace("/", _os.sep))
+                _REPO_ROOT, rel.lstrip("/").replace("/", _os.sep))
             if _os.path.exists(local_path):
                 file = discord.File(local_path, filename="cardshop.png")
                 embed.set_image(url="attachment://cardshop.png")
