@@ -112,17 +112,23 @@
   /* Tuile manquante (vue collection) */
   .pc-tile.missing { opacity:.32; filter: grayscale(1); }
   .pc-tile.missing:hover { opacity:.5; }
-  /* Marquee remerciements */
-  .pc-marquee { overflow:hidden; background: linear-gradient(90deg, var(--bg-1), var(--bg-2), var(--bg-1));
-                 border:1px solid var(--border); border-radius:10px; padding:8px 0; margin-bottom: var(--s-4); }
-  .pc-marquee-track { display:inline-flex; gap:36px; white-space:nowrap; animation: pc-scroll 40s linear infinite;
+  /* Bandeau remerciements (lime, pleine largeur, tout en haut) */
+  .pc-marquee { overflow:hidden; background: oklch(0.86 0.20 130);
+                 padding:9px 0; margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-5)) var(--s-4);
+                 box-shadow: 0 2px 12px oklch(0.86 0.20 130 / .35); }
+  .pc-marquee-track { display:inline-flex; gap:40px; white-space:nowrap; animation: pc-scroll 40s linear infinite;
                        will-change: transform; padding-left:100%; }
   .pc-marquee:hover .pc-marquee-track { animation-play-state: paused; }
-  .pc-marquee-item { font-size:13px; color:var(--text); }
-  .pc-marquee-item .nm { font-weight:800; color: oklch(0.86 0.20 130); }
-  .pc-marquee-item .ct { color: var(--text-2); }
+  .pc-marquee-item { font-size:13px; font-weight:700; color:#10210a; }
+  .pc-marquee-item .nm { font-weight:900; color:#0a1606; }
+  .pc-marquee-item .ct { color:#1c3310; font-weight:600; }
   @keyframes pc-scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 </style>
+
+<!-- Bandeau remerciements contributeurs (pleine largeur, tout en haut) -->
+<div class="pc-marquee" id="pcMarquee" style="display:none;">
+  <div class="pc-marquee-track" id="pcMarqueeTrack"></div>
+</div>
 
 <div class="col gap-6">
   <div class="pc-header">
@@ -140,11 +146,6 @@
       ⚡ FAST EDIT
     </button>
     {% endif %}
-  </div>
-
-  <!-- Marquee remerciements contributeurs -->
-  <div class="pc-marquee" id="pcMarquee" style="display:none;">
-    <div class="pc-marquee-track" id="pcMarqueeTrack"></div>
   </div>
 
   <!-- Drop rates info -->
