@@ -678,6 +678,74 @@ def setup_cards_commands(bot, deps):
             return []
 
 
+    # === /cardshop : boutique hebdo (6 slots) ===
+    @bot.tree.command(name="cardshop", description="Boutique de cartes et cosmétiques (Essences ✨)")
+    async def cardshop_cmd(interaction: discord.Interaction):
+        from database import card_shop_get_slots, currency_get
+        from services.card_shop import build_shop_image, purchase_slot
+        import os as _os
+        await interaction.response.defer()
+        slots = card_shop_get_slots()
+        active = [s for s in slots if s.get("enabled") and s.get("item_type") and s.get("item_ref")]
+        if not active:
+            await interaction.followup.send(
+                "La boutique est vide pour le moment. Reviens plus tard !", ephemeral=True)
+            return
+        rel = build_shop_image()
+        bal = currency_get(interaction.user.id)
+
+        class _ShopView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=300)
+                for s in slots:
+                    n = int(s["slot"])
+                    enabled = bool(s.get("enabled") and s.get("item_type") and s.get("item_ref"))
+                    label = (s.get("label") or f"Slot {n}")[:40]
+                    price = int(s.get("price") or 0)
+                    btn = discord.ui.Button(
+                        label=f"{label} · {price} ✨" if enabled else f"Slot {n}",
+                        style=discord.ButtonStyle.success if enabled else discord.ButtonStyle.secondary,
+                        disabled=not enabled,
+                        row=0 if n <= 3 else 1,
+                        custom_id=f"shop_buy_{n}",
+                    )
+                    btn.callback = self._make_cb(n)
+                    self.add_item(btn)
+
+            def _make_cb(self, slot_n):
+                async def _cb(inter: discord.Interaction):
+                    res = purchase_slot(inter.user.id, slot_n)
+                    if res.get("ok"):
+                        await inter.response.send_message(
+                            f"✅ **{res['item_name']}** acheté pour {res['price']} ✨ !\n"
+                            f"Nouveau solde : **{res['new_balance']}** ✨"
+                            + (f"\nApplique-la avec `/cardcustom`." if res['item_type'] == 'border' else ""),
+                            ephemeral=True)
+                    else:
+                        await inter.response.send_message(
+                            f"❌ {res.get('error', 'Achat échoué.')}", ephemeral=True)
+                return _cb
+
+        embed = discord.Embed(
+            title="🛒 Card Shop",
+            description=f"Ton solde : **{bal}** ✨\nClique sur un bouton pour acheter.",
+            color=0xB9F23A,
+        )
+        file = None
+        if rel:
+            local_path = _os.path.join(
+                _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+                rel.lstrip("/").replace("/", _os.sep))
+            if _os.path.exists(local_path):
+                file = discord.File(local_path, filename="cardshop.png")
+                embed.set_image(url="attachment://cardshop.png")
+        view = _ShopView()
+        if file:
+            await interaction.followup.send(embed=embed, file=file, view=view)
+        else:
+            await interaction.followup.send(embed=embed, view=view)
+
+
     # === /cardtrade <user> ===
     def _parse_card_list(s: str) -> list[tuple[str, int]]:
         """Parse 'Nom1, Nom2 x2, Nom3' -> [(name, qty), ...]. Cap qty 1-99."""
