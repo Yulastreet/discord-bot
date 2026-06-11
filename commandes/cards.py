@@ -517,6 +517,167 @@ def setup_cards_commands(bot, deps):
             return []
 
 
+    # === /essences : solde de monnaie ===
+    @bot.tree.command(name="essences", description="Voir ton solde d'Essences ✨")
+    @app_commands.describe(membre="Voir le solde de quelqu'un d'autre (defaut : toi)")
+    async def essences_cmd(interaction: discord.Interaction, membre: discord.Member = None):
+        from database import currency_get
+        target = membre or interaction.user
+        bal = currency_get(target.id)
+        embed = discord.Embed(
+            title="✨ Essences",
+            description=f"**{target.display_name}** possède **{bal:,}** ✨".replace(",", " "),
+            color=0xB9F23A,
+        )
+        if target.display_avatar:
+            embed.set_thumbnail(url=str(target.display_avatar.url))
+        await interaction.response.send_message(embed=embed, ephemeral=(membre is None))
+
+
+    # === /show <carte> : montre une carte (avec bordure custom si appliquee) ===
+    @bot.tree.command(name="show", description="Montre une de tes cartes (avec sa bordure custom)")
+    @app_commands.describe(nom="Nom de la carte que tu possèdes")
+    async def show_cmd(interaction: discord.Interaction, nom: str):
+        from database import (card_get_by_name, user_card_count_owned,
+                                card_customization_get, border_get)
+        from services.card_render import render_user_card
+        await interaction.response.defer()
+        card = card_get_by_name(nom.strip())
+        if not card:
+            await interaction.followup.send(f"Carte introuvable : `{nom}`.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        if user_card_count_owned(uid, card["id"]) <= 0 and not _is_owner(uid):
+            await interaction.followup.send(
+                f"Tu ne possèdes pas **{card['name']}**. Fais `/roll` pour l'obtenir.",
+                ephemeral=True)
+            return
+        rarity = card.get("rarity", "common")
+        color = RARITY_COLORS.get(rarity, 0x9aa0a6)
+        emoji = _get_rarity_title_emoji(bot, rarity)
+        border_key = card_customization_get(uid, card["id"])
+        embed = discord.Embed(title=f"{emoji} {card['name']}"[:256], color=color)
+        embed.set_footer(text=f"Carte de {interaction.user.display_name}",
+                          icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
+        file = None
+        rendered_url = None
+        if border_key:
+            border = border_get(border_key)
+            if border:
+                rendered_url = render_user_card(uid, card["id"], border,
+                                                 fallback_url=card.get("image_url"))
+                embed.description = f"_Bordure : **{border['name']}**_"
+        if rendered_url:
+            # Sert le fichier local en attachment (pas besoin URL publique)
+            import os as _os
+            local_path = _os.path.join(
+                _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+                rendered_url.lstrip("/").replace("/", _os.sep))
+            if _os.path.exists(local_path):
+                file = discord.File(local_path, filename="card.png")
+                embed.set_image(url="attachment://card.png")
+        if file is None:
+            img = card.get("image_url")
+            if img and isinstance(img, str) and img.startswith("http"):
+                embed.set_image(url=img)
+        if file:
+            await interaction.followup.send(embed=embed, file=file)
+        else:
+            await interaction.followup.send(embed=embed)
+
+    @show_cmd.autocomplete("nom")
+    async def show_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            uid = str(interaction.user.id)
+            rows = c.execute(
+                "SELECT DISTINCT c.name FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                "WHERE uc.user_id = ? AND LOWER(c.name) LIKE ? ORDER BY c.name LIMIT 25",
+                (uid, f"%{q}%")).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100])
+                     for r in rows]
+        except Exception:
+            return []
+
+
+    # === /cardcustom <carte> <bordure> : applique une bordure possedee ===
+    @bot.tree.command(name="cardcustom", description="Applique une bordure que tu possèdes à une de tes cartes")
+    @app_commands.describe(nom="Nom de la carte", bordure="Bordure à appliquer (ou 'aucune' pour retirer)")
+    async def cardcustom_cmd(interaction: discord.Interaction, nom: str, bordure: str):
+        from database import (card_get_by_name, user_card_count_owned,
+                                user_border_has, border_get,
+                                card_customization_set)
+        from services.card_render import render_user_card
+        await interaction.response.defer(ephemeral=True)
+        card = card_get_by_name(nom.strip())
+        if not card:
+            await interaction.followup.send(f"Carte introuvable : `{nom}`.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        if user_card_count_owned(uid, card["id"]) <= 0 and not _is_owner(uid):
+            await interaction.followup.send(
+                f"Tu ne possèdes pas **{card['name']}**.", ephemeral=True)
+            return
+        if card.get("rarity") == "secret":
+            await interaction.followup.send(
+                "Les cartes **secrètes** ne peuvent pas être customisées.", ephemeral=True)
+            return
+        bkey = (bordure or "").strip().lower()
+        if bkey in ("aucune", "none", "retirer", "remove"):
+            card_customization_set(uid, card["id"], None)
+            await interaction.followup.send(
+                f"Bordure retirée de **{card['name']}**.", ephemeral=True)
+            return
+        if not user_border_has(uid, bkey) and not _is_owner(uid):
+            await interaction.followup.send(
+                f"Tu ne possèdes pas cette bordure. Achète-la via `/cardshop`.", ephemeral=True)
+            return
+        border = border_get(bkey)
+        if not border:
+            await interaction.followup.send("Bordure introuvable.", ephemeral=True)
+            return
+        card_customization_set(uid, card["id"], bkey)
+        render_user_card(uid, card["id"], border, fallback_url=card.get("image_url"))
+        await interaction.followup.send(
+            f"✅ Bordure **{border['name']}** appliquée à **{card['name']}** ! "
+            f"Utilise `/show {card['name']}` pour la montrer.", ephemeral=True)
+
+    @cardcustom_cmd.autocomplete("nom")
+    async def cardcustom_nom_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            uid = str(interaction.user.id)
+            rows = c.execute(
+                "SELECT DISTINCT c.name FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                "WHERE uc.user_id = ? AND c.rarity != 'secret' AND LOWER(c.name) LIKE ? "
+                "ORDER BY c.name LIMIT 25", (uid, f"%{q}%")).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100])
+                     for r in rows]
+        except Exception:
+            return []
+
+    @cardcustom_cmd.autocomplete("bordure")
+    async def cardcustom_bordure_autocomplete(interaction: discord.Interaction, current: str):
+        from database import user_borders_list
+        try:
+            uid = interaction.user.id
+            owned = user_borders_list(uid)
+            choices = [app_commands.Choice(name=b["name"], value=b["border_key"]) for b in owned]
+            choices.append(app_commands.Choice(name="Aucune (retirer)", value="aucune"))
+            q = (current or "").strip().lower()
+            if q:
+                choices = [ch for ch in choices if q in ch.name.lower()]
+            return choices[:25]
+        except Exception:
+            return []
+
+
     # === /cardtrade <user> ===
     def _parse_card_list(s: str) -> list[tuple[str, int]]:
         """Parse 'Nom1, Nom2 x2, Nom3' -> [(name, qty), ...]. Cap qty 1-99."""
