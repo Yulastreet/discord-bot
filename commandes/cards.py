@@ -896,10 +896,7 @@ def setup_cards_commands(bot, deps):
         return await _dup_cards_autocomplete(interaction, current)
 
 
-    # === /cardprofile (groupe : setup + voir) ===
-    cardprofile_group = app_commands.Group(
-        name="cardprofile", description="Profil de cartes (3 cartes vedettes + stats)")
-
+    # === /cardprofile : voir un profil OU setup (params optionnels) ===
     async def _owned_cards_autocomplete(interaction: discord.Interaction, current: str):
         from database import get_db
         try:
@@ -916,39 +913,52 @@ def setup_cards_commands(bot, deps):
         except Exception:
             return []
 
-    @cardprofile_group.command(name="setup", description="Définis tes 3 cartes vedettes (milieu = mise en avant)")
-    @app_commands.describe(gauche="Carte de gauche", milieu="Carte du milieu (plus grande)",
-                            droite="Carte de droite")
-    async def cardprofile_setup(interaction: discord.Interaction,
-                                 gauche: str, milieu: str, droite: str):
-        from database import (card_get_by_name, user_card_count_owned, card_profile_set)
-        uid = interaction.user.id
-        resolved = []
-        for label, nm in (("gauche", gauche), ("milieu", milieu), ("droite", droite)):
-            card = card_get_by_name(nm.strip())
-            if not card:
-                await interaction.response.send_message(
-                    f"Carte introuvable ({label}) : `{nm}`.", ephemeral=True)
-                return
-            if user_card_count_owned(uid, card["id"]) <= 0 and not _is_owner(uid):
-                await interaction.response.send_message(
-                    f"Tu ne possèdes pas **{card['name']}** ({label}).", ephemeral=True)
-                return
-            resolved.append(card["id"])
-        card_profile_set(uid, resolved[0], resolved[1], resolved[2])
-        await interaction.response.send_message(
-            "✅ Profil de cartes mis à jour ! Vois-le avec `/cardprofile voir`.", ephemeral=True)
-
-    for _p in ("gauche", "milieu", "droite"):
-        cardprofile_setup.autocomplete(_p)(_owned_cards_autocomplete)
-
-    @cardprofile_group.command(name="voir", description="Voir un profil de cartes (le tien ou celui d'un membre)")
-    @app_commands.describe(membre="Membre dont voir le profil (defaut : toi)")
-    async def cardprofile_voir(interaction: discord.Interaction, membre: discord.Member = None):
-        from database import (card_profile_get, user_card_count, user_card_rarity_breakdown,
+    @bot.tree.command(name="cardprofile",
+                       description="Voir un profil de cartes (ou définir tes 3 cartes vedettes via setup)")
+    @app_commands.describe(
+        membre="Profil à afficher (defaut : toi)",
+        setup_gauche="(setup) carte de gauche",
+        setup_milieu="(setup) carte du milieu (mise en avant)",
+        setup_droite="(setup) carte de droite")
+    async def cardprofile_cmd(interaction: discord.Interaction,
+                               membre: discord.Member = None,
+                               setup_gauche: str = None,
+                               setup_milieu: str = None,
+                               setup_droite: str = None):
+        from database import (card_get_by_name, user_card_count_owned, card_profile_set,
+                               card_profile_get, user_card_count, user_card_rarity_breakdown,
                                currency_get, user_card_fusion_map, user_borders_list)
         from services.card_profile import build_profile_image
         import os as _os
+
+        # --- Mode SETUP : au moins un des 3 champs carte fourni ---
+        if setup_gauche or setup_milieu or setup_droite:
+            if not (setup_gauche and setup_milieu and setup_droite):
+                await interaction.response.send_message(
+                    "Pour configurer ton profil, remplis les **3** cartes "
+                    "(setup_gauche, setup_milieu, setup_droite).", ephemeral=True)
+                return
+            uid = interaction.user.id
+            resolved = []
+            for label, nm in (("gauche", setup_gauche), ("milieu", setup_milieu),
+                               ("droite", setup_droite)):
+                card = card_get_by_name(nm.strip())
+                if not card:
+                    await interaction.response.send_message(
+                        f"Carte introuvable ({label}) : `{nm}`.", ephemeral=True)
+                    return
+                if user_card_count_owned(uid, card["id"]) <= 0 and not _is_owner(uid):
+                    await interaction.response.send_message(
+                        f"Tu ne possèdes pas **{card['name']}** ({label}).", ephemeral=True)
+                    return
+                resolved.append(card["id"])
+            card_profile_set(uid, resolved[0], resolved[1], resolved[2])
+            await interaction.response.send_message(
+                "✅ Profil de cartes mis à jour ! Tape `/cardprofile` pour le voir.",
+                ephemeral=True)
+            return
+
+        # --- Mode VOIR ---
         await interaction.response.defer()
         target = membre or interaction.user
         uid = target.id
@@ -1000,14 +1010,15 @@ def setup_cards_commands(bot, deps):
             note = ("Aucune carte vedette définie. " if target == interaction.user
                     else f"{target.display_name} n'a pas défini de cartes vedettes. ")
             if target == interaction.user:
-                note += "Utilise `/cardprofile setup`."
+                note += "Configure-les avec `/cardprofile setup_gauche: … setup_milieu: … setup_droite: …`."
             embed.description = note
         if file:
             await interaction.followup.send(embed=embed, file=file)
         else:
             await interaction.followup.send(embed=embed)
 
-    bot.tree.add_command(cardprofile_group)
+    for _p in ("setup_gauche", "setup_milieu", "setup_droite"):
+        cardprofile_cmd.autocomplete(_p)(_owned_cards_autocomplete)
 
 
     # === /cardshop : boutique hebdo (6 slots) ===
