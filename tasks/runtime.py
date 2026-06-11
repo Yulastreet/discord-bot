@@ -1502,7 +1502,7 @@ def setup_runtime(bot, deps):
     # Limite : max N commandes par user dans une fenetre glissante
     # (_col deja importe au top du module)
     _USER_CMD_TIMES = _col.defaultdict(list)  # user_id -> [timestamp, ...]
-    _RATE_LIMIT_N      = 6        # 6 commandes
+    _RATE_LIMIT_N      = 12       # 12 commandes
     _RATE_LIMIT_WINDOW = 30.0     # par 30 secondes
 
     def _is_rate_limited(user_id):
