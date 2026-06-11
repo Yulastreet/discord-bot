@@ -300,6 +300,15 @@ def init_db():
         PRIMARY KEY (user_id, card_id)
     )''')
 
+    # ===== Card Wishlist : cartes desirees par user =====
+    c.execute('''CREATE TABLE IF NOT EXISTS card_wishlist (
+        user_id   TEXT NOT NULL,
+        card_id   INTEGER NOT NULL,
+        added_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, card_id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_card ON card_wishlist(card_id)")
+
     # ===== Card Profile : 3 cartes vedettes par user =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_profile (
         user_id   TEXT PRIMARY KEY,
@@ -2369,6 +2378,100 @@ def user_card_rarity_breakdown(user_id):
         (str(user_id),)).fetchall()
     conn.close()
     return {r["rarity"]: int(r["n"]) for r in rows}
+
+
+# ===== WISHLIST =====
+def wishlist_has(user_id, card_id) -> bool:
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM card_wishlist WHERE user_id = ? AND card_id = ?",
+                  (str(user_id), int(card_id))).fetchone()
+    conn.close()
+    return r is not None
+
+
+def wishlist_toggle(user_id, card_id) -> bool:
+    """Ajoute si absent, retire si present. Retourne True si ajoutee, False si retiree."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM card_wishlist WHERE user_id = ? AND card_id = ?",
+                  (str(user_id), int(card_id))).fetchone()
+    if r:
+        c.execute("DELETE FROM card_wishlist WHERE user_id = ? AND card_id = ?",
+                  (str(user_id), int(card_id)))
+        added = False
+    else:
+        c.execute("INSERT OR IGNORE INTO card_wishlist (user_id, card_id) VALUES (?, ?)",
+                  (str(user_id), int(card_id)))
+        added = True
+    conn.commit(); conn.close()
+    return added
+
+
+def wishlist_list(user_id):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT w.card_id, w.added_at, c.name, c.rarity, c.universe "
+        "FROM card_wishlist w JOIN cards c ON c.id = w.card_id "
+        "WHERE w.user_id = ? ORDER BY c.name", (str(user_id),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def wishlist_users_for_card(card_id, exclude_user=None):
+    """Liste des user_id qui ont cette carte en wishlist (hors exclude_user)."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT user_id FROM card_wishlist WHERE card_id = ?",
+                     (int(card_id),)).fetchall()
+    conn.close()
+    out = [r["user_id"] for r in rows]
+    if exclude_user is not None:
+        out = [u for u in out if u != str(exclude_user)]
+    return out
+
+
+# ===== LEADERBOARDS (cartes) =====
+LEADERBOARD_RARITY_POINTS = {
+    "common": 1, "rare": 2, "epic": 5, "legendary": 25, "mythic": 100, "secret": 200,
+}
+
+
+def leaderboard_card_aggregates():
+    """Par user : {user_id: {total, pts, mythic}}. Sur toute la base."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT uc.user_id AS uid, c.rarity AS rarity, COUNT(*) AS n "
+        "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+        "GROUP BY uc.user_id, c.rarity").fetchall()
+    conn.close()
+    agg = {}
+    for r in rows:
+        uid = r["uid"]; rar = r["rarity"]; n = int(r["n"])
+        d = agg.setdefault(uid, {"total": 0, "pts": 0, "mythic": 0})
+        d["total"] += n
+        d["pts"] += LEADERBOARD_RARITY_POINTS.get(rar, 1) * n
+        if rar == "mythic":
+            d["mythic"] += n
+    return agg
+
+
+def leaderboard_essences(limit=10):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT user_id, essences FROM user_currency "
+                     "WHERE essences > 0 ORDER BY essences DESC LIMIT ?",
+                     (int(limit),)).fetchall()
+    conn.close()
+    return [(r["user_id"], int(r["essences"])) for r in rows]
+
+
+def leaderboard_fusions(limit=10):
+    """Top users par nb de cartes fusionnees (>=1 etoile) + total etoiles."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT user_id, COUNT(*) AS cards, SUM(fusion_level) AS stars "
+        "FROM card_customizations WHERE fusion_level > 0 "
+        "GROUP BY user_id ORDER BY stars DESC, cards DESC LIMIT ?",
+        (int(limit),)).fetchall()
+    conn.close()
+    return [(r["user_id"], int(r["cards"]), int(r["stars"] or 0)) for r in rows]
 
 
 # Essences rendues au recyclage d'un doublon (~50% du gain de roll)

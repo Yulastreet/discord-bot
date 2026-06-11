@@ -343,6 +343,24 @@ def setup_cards_commands(bot, deps):
         else:
             await interaction.response.send_message(embed=embed, view=view)
 
+        # Notif wishlist : ping les gens qui veulent cette carte (hors roller)
+        try:
+            from database import wishlist_users_for_card
+            wishers = wishlist_users_for_card(card["id"], exclude_user=uid)
+            if wishers and interaction.guild:
+                mentions = []
+                for wid in wishers[:5]:
+                    m = interaction.guild.get_member(int(wid))
+                    if m:
+                        mentions.append(m.mention)
+                if mentions:
+                    await interaction.channel.send(
+                        f"🔔 {' '.join(mentions)} — **{interaction.user.display_name}** "
+                        f"vient d'obtenir **{card['name']}** de votre wishlist ! "
+                        f"Proposez un échange avec `/cardtrade`.")
+        except Exception as e:
+            print(f"[wishlist notif] {e}")
+
     @roll.autocomplete("univers")
     async def roll_univers_autocomplete(interaction: discord.Interaction, current: str):
         from database import get_db
@@ -1019,6 +1037,130 @@ def setup_cards_commands(bot, deps):
 
     for _p in ("setup_gauche", "setup_milieu", "setup_droite"):
         cardprofile_cmd.autocomplete(_p)(_owned_cards_autocomplete)
+
+
+    # === /cardwish <carte> : ajoute/retire de la wishlist ===
+    @bot.tree.command(name="cardwish", description="Ajoute ou retire une carte de ta wishlist")
+    @app_commands.describe(nom="Carte à ajouter/retirer de ta wishlist")
+    async def cardwish_cmd(interaction: discord.Interaction, nom: str):
+        from database import card_get_by_name, wishlist_toggle
+        card = card_get_by_name(nom.strip())
+        if not card:
+            await interaction.response.send_message(f"Carte introuvable : `{nom}`.", ephemeral=True)
+            return
+        added = wishlist_toggle(interaction.user.id, card["id"])
+        emoji = RARITY_EMOJIS.get(card.get("rarity"), "⚪")
+        if added:
+            msg = f"💖 **{card['name']}** {emoji} ajoutée à ta wishlist. Tu seras ping si quelqu'un la tire."
+        else:
+            msg = f"💔 **{card['name']}** {emoji} retirée de ta wishlist."
+        await interaction.response.send_message(msg, ephemeral=True)
+
+    @cardwish_cmd.autocomplete("nom")
+    async def cardwish_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            rows = c.execute("SELECT name FROM cards WHERE LOWER(name) LIKE ? "
+                             "AND COALESCE(not_obtainable,0)=0 ORDER BY name LIMIT 25",
+                             (f"%{q}%",)).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100]) for r in rows]
+        except Exception:
+            return []
+
+    # === /cardwishlist [membre] : voir la wishlist ===
+    @bot.tree.command(name="cardwishlist", description="Voir ta wishlist (ou celle d'un membre)")
+    @app_commands.describe(membre="Membre dont voir la wishlist (defaut : toi)")
+    async def cardwishlist_cmd(interaction: discord.Interaction, membre: discord.Member = None):
+        from database import wishlist_list
+        target = membre or interaction.user
+        items = wishlist_list(target.id)
+        embed = discord.Embed(title=f"💖 Wishlist — {target.display_name}", color=0xff5fa2)
+        if target.display_avatar:
+            embed.set_thumbnail(url=str(target.display_avatar.url))
+        if not items:
+            embed.description = ("Wishlist vide." + (" Ajoute des cartes avec `/cardwish`."
+                                  if target == interaction.user else ""))
+        else:
+            lines = [f"{RARITY_EMOJIS.get(i['rarity'],'⚪')} **{i['name']}** · _{i.get('universe') or '?'}_"
+                     for i in items[:40]]
+            embed.description = "\n".join(lines)
+            if len(items) > 40:
+                embed.set_footer(text=f"+{len(items)-40} autres")
+        await interaction.response.send_message(embed=embed, ephemeral=(membre is None))
+
+    # === /cardtop <categorie> : classements ===
+    @bot.tree.command(name="cardtop", description="Classements cartes (collection, mythiques, essences, fusions, chance)")
+    @app_commands.describe(categorie="Type de classement")
+    @app_commands.choices(categorie=[
+        app_commands.Choice(name="Valeur de collection", value="value"),
+        app_commands.Choice(name="Mythiques", value="mythic"),
+        app_commands.Choice(name="Essences", value="essences"),
+        app_commands.Choice(name="Fusions (étoiles)", value="fusions"),
+        app_commands.Choice(name="Indice de chance", value="luck"),
+    ])
+    async def cardtop_cmd(interaction: discord.Interaction,
+                           categorie: app_commands.Choice[str] = None):
+        from database import (leaderboard_card_aggregates, leaderboard_essences,
+                               leaderboard_fusions)
+        await interaction.response.defer()
+        cat = categorie.value if categorie else "value"
+
+        def _name(uid):
+            try:
+                m = interaction.guild.get_member(int(uid)) if interaction.guild else None
+                if m:
+                    return m.display_name
+                u = bot.get_user(int(uid))
+                return u.name if u else f"Joueur {str(uid)[:6]}"
+            except Exception:
+                return f"Joueur {str(uid)[:6]}"
+
+        rows = []   # (uid, value_str, sort_key)
+        title = "🏆 Classement"
+        if cat == "essences":
+            title = "🏆 Top Essences ✨"
+            for uid, e in leaderboard_essences(10):
+                rows.append((uid, f"{e} ✨"))
+        elif cat == "fusions":
+            title = "🏆 Top Fusions ⭐"
+            for uid, cards, stars in leaderboard_fusions(10):
+                rows.append((uid, f"{stars} ⭐ ({cards} carte(s))"))
+        else:
+            agg = leaderboard_card_aggregates()
+            if cat == "mythic":
+                title = "🏆 Top Mythiques 🔴"
+                ranked = sorted(((u, d) for u, d in agg.items() if d["mythic"] > 0),
+                                key=lambda x: x[1]["mythic"], reverse=True)[:10]
+                for u, d in ranked:
+                    rows.append((u, f"{d['mythic']} mythique(s)"))
+            elif cat == "luck":
+                title = "🏆 Top Indice de chance 🍀"
+                cand = []
+                for u, d in agg.items():
+                    if d["total"] >= 10:  # min 10 cartes pour etre classe
+                        luck = max(0, min(100, round(d["pts"] / d["total"] / 3.85 * 50)))
+                        cand.append((u, luck, d["total"]))
+                cand.sort(key=lambda x: x[1], reverse=True)
+                for u, luck, tot in cand[:10]:
+                    rows.append((u, f"{luck}% _( {tot} cartes )_"))
+            else:  # value
+                title = "🏆 Top Valeur de collection 💎"
+                ranked = sorted(agg.items(), key=lambda x: x[1]["pts"], reverse=True)[:10]
+                for u, d in ranked:
+                    rows.append((u, f"{d['pts']} pts ({d['total']} cartes)"))
+
+        medals = ["🥇", "🥈", "🥉"] + [f"`#{i}`" for i in range(4, 11)]
+        if not rows:
+            desc = "Pas encore de données pour ce classement."
+        else:
+            desc = "\n".join(f"{medals[i]} **{_name(uid)}** — {val}"
+                             for i, (uid, val) in enumerate(rows))
+        embed = discord.Embed(title=title, description=desc, color=0xF1C40F)
+        embed.set_footer(text="Classement global (tous serveurs)")
+        await interaction.followup.send(embed=embed)
 
 
     # === /cardshop : boutique hebdo (6 slots) ===
