@@ -20,21 +20,11 @@ def register_public_stats_routes(app, deps):
             data = _PUBLIC_STATS_CACHE["data"]
         else:
             db = get_db()
-            try:
-                guild_count = db.execute(
-                    "SELECT COUNT(*) AS n FROM guilds WHERE active = 1"
-                ).fetchone()["n"]
-            except Exception:
-                guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
-            # Membres servis = somme member_count des guilds actifs
-            try:
-                sum_members = db.execute(
-                    "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds WHERE active = 1"
-                ).fetchone()["n"]
-            except Exception:
-                sum_members = db.execute(
-                    "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds"
-                ).fetchone()["n"]
+            guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
+            # Membres servis = somme member_count tous guilds (actifs ou non)
+            sum_members = db.execute(
+                "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds"
+            ).fetchone()["n"]
             # Dedup via guild_members si data suffisamment populee (>=80% du sum)
             try:
                 dedup_count = db.execute(
