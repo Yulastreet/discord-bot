@@ -34,16 +34,18 @@ def main():
         print(f"Jeu inconnu : {game_key}. Dispo : {list(GAMES.keys())}")
         return
     sub = cfg["sub"]
-    universe = cfg["name"]
-    print(f"Jeu={game_key} sub={sub} univers='{universe}'")
+    # Label a matcher : argv[2] override, sinon le nom du jeu (stocke en subtitle a l'import)
+    label = sys.argv[2] if len(sys.argv) > 2 else cfg["name"]
+    print(f"Jeu={game_key} sub={sub} label='{label}' (match subtitle ou universe)")
 
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        "SELECT id, name, rarity, source_image_url, image_url FROM cards WHERE universe = ?",
-        (universe,)).fetchall()
+        "SELECT id, name, rarity, source_image_url, image_url FROM cards "
+        "WHERE subtitle = ? OR universe = ?",
+        (label, label)).fetchall()
     broken = [r for r in rows if _is_broken(r["source_image_url"])]
-    print(f"{len(rows)} cartes '{universe}', {len(broken)} a reparer.")
+    print(f"{len(rows)} cartes '{label}', {len(broken)} a reparer.")
     if not broken:
         conn.close()
         return
