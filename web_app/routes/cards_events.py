@@ -76,6 +76,50 @@ def register_cards_events_routes(app, deps):
         return jsonify({"ok": True, "note": "Channels seront rafraichis sous 2s"})
 
 
+    # ===== Config GLOBALE (s'applique a tous les serveurs feature ON) =====
+    @app.route("/api/owner/card-events/global-config", methods=["GET"])
+    def api_owner_card_events_global_get():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from services.card_events import global_event_config
+        return jsonify(global_event_config())
+
+    @app.route("/api/owner/card-events/global-config", methods=["POST"])
+    def api_owner_card_events_global_set():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import set_setting
+        data = request.json or {}
+        try:
+            mn = max(1, int(data.get("min_interval_min", 300)))
+            mx = max(1, int(data.get("max_interval_min", 600)))
+        except (ValueError, TypeError):
+            return jsonify({"error": "intervalles invalides"}), 400
+        if mn > mx:
+            return jsonify({"error": "min > max"}), 400
+        rar = (data.get("min_rarity") or "rare").strip().lower()
+        if rar not in ("common", "rare", "epic", "legendary", "mythic"):
+            return jsonify({"error": "rareté invalide"}), 400
+        set_setting("card_event_interval_min", mn)
+        set_setting("card_event_interval_max", mx)
+        set_setting("card_event_min_rarity", rar)
+        set_setting("card_event_enabled", "1" if data.get("enabled", True) else "0")
+        return jsonify({"ok": True})
+
+    @app.route("/api/owner/card-events/enabled-guilds", methods=["GET"])
+    def api_owner_card_events_enabled_guilds():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import list_guilds, guild_setting_get
+        out = []
+        for g in list_guilds(active_only=True):
+            gid = str(g.get("guild_id") or g.get("id"))
+            if guild_setting_get(gid, "card_events", "0") == "1":
+                out.append({"id": gid, "name": g.get("name") or "?",
+                            "member_count": g.get("member_count") or 0})
+        out.sort(key=lambda x: x["name"].lower())
+        return jsonify({"items": out})
+
     @app.route("/api/owner/card-events/config/<guild_id>", methods=["POST"])
     def api_owner_card_events_save(guild_id):
         if not _is_owner_session():

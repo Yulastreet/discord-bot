@@ -121,15 +121,57 @@ def _now_iso() -> str:
     return _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _schedule_next_drop(guild_id: str, cfg: dict) -> str:
-    """Calcule prochain drop dans intervalle random [min, max]. UTC ISO."""
-    mn = max(1, int(cfg.get("min_interval_min") or 300))
-    mx = max(mn, int(cfg.get("max_interval_min") or 600))
+def global_event_config() -> dict:
+    """Config GLOBALE des drops (s'applique a tous les serveurs feature ON)."""
+    from database import get_setting
+    try:
+        mn = int(get_setting("card_event_interval_min", "300") or 300)
+    except (ValueError, TypeError):
+        mn = 300
+    try:
+        mx = int(get_setting("card_event_interval_max", "600") or 600)
+    except (ValueError, TypeError):
+        mx = 600
+    rar = (get_setting("card_event_min_rarity", "rare") or "rare").strip().lower()
+    if rar not in ("common", "rare", "epic", "legendary", "mythic"):
+        rar = "rare"
+    return {"min_interval_min": max(1, mn), "max_interval_min": max(1, mx),
+            "min_rarity": rar,
+            "enabled": (get_setting("card_event_enabled", "1") or "1") == "1"}
+
+
+def _schedule_next_drop(guild_id: str, gcfg: dict | None = None) -> str:
+    """Calcule prochain drop dans intervalle global random [min, max]. UTC ISO."""
+    gcfg = gcfg or global_event_config()
+    mn = max(1, int(gcfg.get("min_interval_min") or 300))
+    mx = max(mn, int(gcfg.get("max_interval_min") or 600))
     delay = random.randint(mn, mx)
     next_at = _dt.datetime.utcnow() + _dt.timedelta(minutes=delay)
     next_iso = next_at.strftime("%Y-%m-%d %H:%M:%S")
     card_event_config_set(guild_id, next_drop_at=next_iso)
     return next_iso
+
+
+def _resolve_drop_channel(guild):
+    """Salon de drop d'un serveur : channel_id configure si valide, sinon
+    system_channel, sinon 1er salon texte ou le bot peut ecrire."""
+    from database import card_event_config_get
+    me = guild.me
+    cfg = card_event_config_get(guild.id) or {}
+    cid = cfg.get("channel_id")
+    if cid:
+        ch = guild.get_channel(int(cid)) if str(cid).isdigit() else None
+        if ch and me and ch.permissions_for(me).send_messages:
+            return ch
+    if guild.system_channel and me and guild.system_channel.permissions_for(me).send_messages:
+        return guild.system_channel
+    for ch in guild.text_channels:
+        try:
+            if me and ch.permissions_for(me).send_messages and ch.permissions_for(me).view_channel:
+                return ch
+        except Exception:
+            continue
+    return None
 
 
 async def trigger_event_drop(bot, guild_id: int, channel_id: int,
@@ -241,26 +283,30 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
 
 
 async def check_due_drops(bot) -> int:
-    """Verifie tous les configs enabled et drop si next_drop_at <= now."""
+    """Config GLOBALE : pour chaque serveur ayant la feature activee, drop selon
+    l'intervalle + rareté globaux. Salon auto-resolu. Timer next_drop_at par serveur."""
+    from database import guild_setting_get, card_event_config_get
+    gcfg = global_event_config()
+    if not gcfg.get("enabled"):
+        return 0
     now_iso = _now_iso()
-    configs = card_event_config_all_enabled()
     dropped = 0
-    from database import guild_setting_get
-    for cfg in configs:
-        # Respecte le toggle feature (opt-in par serveur)
-        if guild_setting_get(str(cfg["guild_id"]), "card_events", "0") != "1":
+    for guild in list(bot.guilds):
+        if guild_setting_get(str(guild.id), "card_events", "0") != "1":
             continue
+        cfg = card_event_config_get(guild.id) or {}
         next_at = cfg.get("next_drop_at")
-        if not next_at or next_at > now_iso:
-            if not next_at:
-                _schedule_next_drop(cfg["guild_id"], cfg)
+        if not next_at:
+            _schedule_next_drop(guild.id, gcfg)
             continue
-        result = await trigger_event_drop(
-            bot, int(cfg["guild_id"]), int(cfg["channel_id"]),
-            min_rarity=cfg.get("min_rarity") or "rare",
-            triggered_by="auto",
-        )
-        if result:
-            dropped += 1
-        _schedule_next_drop(cfg["guild_id"], cfg)
+        if next_at > now_iso:
+            continue
+        channel = _resolve_drop_channel(guild)
+        if channel:
+            result = await trigger_event_drop(
+                bot, int(guild.id), int(channel.id),
+                min_rarity=gcfg["min_rarity"], triggered_by="auto")
+            if result:
+                dropped += 1
+        _schedule_next_drop(guild.id, gcfg)
     return dropped

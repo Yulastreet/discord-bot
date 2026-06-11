@@ -104,17 +104,44 @@
     </div>
   </div>
 
-  <!-- Configs par serveur -->
+  <!-- Config GLOBALE -->
   <div class="ce-section">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <h3>⚙ Configurations par serveur</h3>
-      <button class="btn btn-secondary" onclick="refreshAllChannels()" style="padding:6px 12px;font-size:12px;">🔄 Rafraichir tous les salons</button>
-    </div>
+    <h3>⚙ Configuration globale des drops</h3>
     <p class="muted" style="font-size:11px;margin-bottom:12px;">
-      Active la box pour activer les drops automatiques sur ce serveur. Le bot dropera une carte aleatoire toutes les X minutes (intervalle aleatoire entre min et max).
+      Ces réglages s'appliquent à <b>tous les serveurs</b> ayant activé Cards Events.
+      Le bot dropera une carte toutes les X minutes (intervalle aléatoire min-max), au-dessus
+      de la rareté minimale. Le salon est choisi automatiquement par serveur (system channel
+      ou premier salon où le bot peut écrire).
     </p>
-    <div id="cfgGrid" class="ce-grid">
-      <div class="muted">Chargement…</div>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Drops actifs</span>
+        <input id="gcEnabled" type="checkbox" style="width:20px;height:20px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Intervalle min (minutes)</span>
+        <input id="gcMin" type="number" min="1" value="300" class="input" style="width:140px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Intervalle max (minutes)</span>
+        <input id="gcMax" type="number" min="1" value="600" class="input" style="width:140px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Rareté minimum</span>
+        <select id="gcRarity" class="input">
+          <option value="common">Common</option>
+          <option value="rare">Rare</option>
+          <option value="epic">Epic</option>
+          <option value="legendary">Legendary</option>
+          <option value="mythic">Mythic</option>
+        </select>
+      </label>
+      <button class="btn btn-primary" onclick="saveGlobalConfig()">💾 Sauvegarder</button>
+    </div>
+    <div id="gcHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
+    <div style="margin-top:14px;">
+      <h4 style="margin:0 0 6px;font-size:13px;">Serveurs avec Cards Events activé</h4>
+      <div id="enabledGuilds" class="muted" style="font-size:12px;">Chargement…</div>
     </div>
   </div>
 
@@ -176,122 +203,49 @@ async function triggerManual() {
 }
 window.triggerManual = triggerManual;
 
-async function loadConfigs() {
+async function loadGlobalConfig() {
   try {
-    const r = await fetch('/api/owner/card-events/configs');
+    const r = await fetch('/api/owner/card-events/global-config');
     const d = await r.json();
-    const items = d.items || [];
-    const grid = document.getElementById('cfgGrid');
-    // Render config card pour chaque guild du bot
-    const configByGuild = {};
-    items.forEach(c => configByGuild[c.guild_id] = c);
-    // Grille config : uniquement les serveurs ayant activé la feature
-    const enabledGuilds = _guildsCache.filter(g => g.events_enabled);
-    if (!enabledGuilds.length) {
-      grid.innerHTML = '<div class="muted">Aucun serveur n\'a activé Cards Events. '
-        + 'Les serveurs l\'activent dans leur onglet Fonctionnalités (10 membres min). '
-        + 'Le trigger manuel ci-dessus reste dispo pour tester sur n\'importe quel serveur.</div>';
-      return;
-    }
-    grid.innerHTML = enabledGuilds.map(g => {
-      const cfg = configByGuild[g.id] || {};
-      const enabled = !!cfg.enabled;
-      const channelId = cfg.channel_id || '';
-      const minInt = cfg.min_interval_min || 300;
-      const maxInt = cfg.max_interval_min || 600;
-      const minRar = cfg.min_rarity || 'rare';
-      const nextAt = cfg.next_drop_at || '—';
-      return `
-        <div class="ce-card ${enabled ? 'enabled' : ''}" data-gid="${g.id}">
-          <div class="gname">${escHtml(g.name)} <button onclick="refreshChannels('${g.id}')" style="background:transparent;border:none;cursor:pointer;font-size:11px;color:var(--text-2);" title="Rafraichir liste salons">🔄</button></div>
-          <div class="meta">${g.member_count} membres · prochain : ${escHtml(nextAt)}</div>
-          <label style="flex-direction:row;align-items:center;gap:6px;">
-            <input type="checkbox" id="cfg-enabled-${g.id}" ${enabled ? 'checked' : ''}>
-            <span>Drops auto actifs</span>
-          </label>
-          <label>Salon
-            <select id="cfg-channel-${g.id}">
-              <option value="">— Aucun —</option>
-              ${(g.channels || []).map(c => `<option value="${c.id}" ${c.id === channelId ? 'selected' : ''}>#${escHtml(c.name)}</option>`).join('')}
-            </select>
-          </label>
-          <div class="row">
-            <label style="flex:1;">Min (min)
-              <input type="number" id="cfg-min-${g.id}" value="${minInt}" min="1">
-            </label>
-            <label style="flex:1;">Max (min)
-              <input type="number" id="cfg-max-${g.id}" value="${maxInt}" min="1">
-            </label>
-          </div>
-          <label>Rareté min
-            <select id="cfg-rar-${g.id}">
-              <option value="common" ${minRar === 'common' ? 'selected' : ''}>Common</option>
-              <option value="rare" ${minRar === 'rare' ? 'selected' : ''}>Rare</option>
-              <option value="epic" ${minRar === 'epic' ? 'selected' : ''}>Epic</option>
-              <option value="legendary" ${minRar === 'legendary' ? 'selected' : ''}>Legendary</option>
-              <option value="mythic" ${minRar === 'mythic' ? 'selected' : ''}>Mythic</option>
-            </select>
-          </label>
-          <div class="row" style="gap:6px;">
-            <button class="btn btn-primary" onclick="saveCfg('${g.id}')" style="padding:5px 10px;font-size:11px;">💾 Save</button>
-            <button class="btn btn-secondary" onclick="saveCfg('${g.id}', true)" style="padding:5px 10px;font-size:11px;">⟳ Reset timer</button>
-          </div>
-          <div id="cfg-hint-${g.id}" class="muted" style="font-size:10px;"></div>
-        </div>
-      `;
-    }).join('');
+    document.getElementById('gcEnabled').checked = !!d.enabled;
+    document.getElementById('gcMin').value = d.min_interval_min || 300;
+    document.getElementById('gcMax').value = d.max_interval_min || 600;
+    document.getElementById('gcRarity').value = d.min_rarity || 'rare';
   } catch (e) {}
 }
-
-async function saveCfg(gid, resetTimer) {
+async function saveGlobalConfig() {
   const payload = {
-    enabled: document.getElementById('cfg-enabled-' + gid).checked,
-    channel_id: document.getElementById('cfg-channel-' + gid).value || null,
-    min_interval_min: parseInt(document.getElementById('cfg-min-' + gid).value, 10),
-    max_interval_min: parseInt(document.getElementById('cfg-max-' + gid).value, 10),
-    min_rarity: document.getElementById('cfg-rar-' + gid).value,
-    reset_next: !!resetTimer,
+    enabled: document.getElementById('gcEnabled').checked,
+    min_interval_min: parseInt(document.getElementById('gcMin').value, 10) || 300,
+    max_interval_min: parseInt(document.getElementById('gcMax').value, 10) || 600,
+    min_rarity: document.getElementById('gcRarity').value,
   };
-  const hint = document.getElementById('cfg-hint-' + gid);
+  const hint = document.getElementById('gcHint');
   hint.textContent = 'Sauvegarde…';
   try {
-    const r = await fetch(`/api/owner/card-events/config/${gid}`, {
+    const r = await fetch('/api/owner/card-events/global-config', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload),
     });
     const d = await r.json();
-    if (d.ok) {
-      hint.textContent = '✅ Sauvegardé.';
-      loadConfigs();
-    } else { hint.textContent = `❌ ${d.error || 'Erreur'}`; }
+    hint.textContent = d.ok ? '✅ Config globale sauvegardée (s\'applique à tous les serveurs activés).' : `❌ ${d.error || 'Erreur'}`;
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
-window.saveCfg = saveCfg;
+window.saveGlobalConfig = saveGlobalConfig;
 
-async function refreshChannels(gid) {
+async function loadEnabledGuilds() {
   try {
-    await fetch(`/api/owner/card-events/refresh-channels/${gid}`, {method:'POST'});
-    setTimeout(async () => {
-      await loadGuilds();
-      await loadConfigs();
-    }, 2500);
+    const r = await fetch('/api/owner/card-events/enabled-guilds');
+    const d = await r.json();
+    const items = d.items || [];
+    const box = document.getElementById('enabledGuilds');
+    if (!items.length) {
+      box.innerHTML = 'Aucun serveur n\'a activé Cards Events (onglet Fonctionnalités, 10 membres min).';
+      return;
+    }
+    box.innerHTML = items.map(g => `• ${escHtml(g.name)} <span class="muted">(${g.member_count} membres)</span>`).join('<br>');
   } catch (e) {}
 }
-window.refreshChannels = refreshChannels;
-
-async function refreshAllChannels() {
-  for (const g of _guildsCache) {
-    try { await fetch(`/api/owner/card-events/refresh-channels/${g.id}`, {method:'POST'}); }
-    catch (e) {}
-  }
-  setTimeout(async () => {
-    await loadGuilds();
-    await loadConfigs();
-    document.getElementById('trgHint').textContent = '✅ Salons rafraichis.';
-  }, 3000);
-  document.getElementById('trgHint').textContent = 'Rafraichissement en cours…';
-}
-window.refreshAllChannels = refreshAllChannels;
 
 async function loadRecent() {
   try {
@@ -371,7 +325,8 @@ window.rollsGiveUser=rollsGiveUser; window.rollsResetUser=rollsResetUser; window
 
 (async () => {
   await loadGuilds();
-  await loadConfigs();
+  await loadGlobalConfig();
+  await loadEnabledGuilds();
   await loadRecent();
   await loadRollsStatus();
   setInterval(loadRecent, 15000);
