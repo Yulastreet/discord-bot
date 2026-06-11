@@ -410,9 +410,10 @@ def setup_cards_commands(bot, deps):
             if c.get("not_tradeable"):
                 grouped[cid]["nt_count"] += 1
         rows = list(grouped.values())
-        # Cartes equipees d'un cosmetique (pour afficher ✨)
-        from database import user_card_customizations_map
+        # Cartes equipees d'un cosmetique (✨) + niveau de fusion (⭐)
+        from database import user_card_customizations_map, user_card_fusion_map
         custom_map = user_card_customizations_map(target_user.id)
+        fusion_map = user_card_fusion_map(target_user.id)
 
         # Pagine
         PAGE_SIZE = 25
@@ -434,7 +435,8 @@ def setup_cards_commands(bot, deps):
                 nt = c.get("nt_count", 0)
                 nt_tag = f" 🔒{nt}" if nt > 0 else ""
                 cosmetic_tag = " ✨" if custom_map.get(c["card_id"]) else ""
-                lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{c.get('universe') or '?'}_")
+                stars_tag = "⭐" * fusion_map.get(c["card_id"], 0)
+                lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{stars_tag}{count}{nt_tag} · _{c.get('universe') or '?'}_")
             embed.description += "\n\n" + "\n".join(lines)
             embed.set_footer(text=f"Page {page}/{total_pages}")
             if target_user.display_avatar:
@@ -599,7 +601,7 @@ def setup_cards_commands(bot, deps):
     @app_commands.describe(nom="Nom de la carte que tu possèdes")
     async def show_cmd(interaction: discord.Interaction, nom: str):
         from database import (card_get_by_name, user_card_count_owned,
-                                card_customization_get, border_get)
+                                card_customization_get, border_get, card_fusion_get)
         from services.card_render import render_user_card
         await interaction.response.defer()
         card = card_get_by_name(nom.strip())
@@ -614,22 +616,23 @@ def setup_cards_commands(bot, deps):
             return
         rarity = card.get("rarity", "common")
         border_key = card_customization_get(uid, card["id"])
+        fusion_level = card_fusion_get(uid, card["id"])
         # Couleur : bordure si equipee, sinon rareté
         color = BORDER_COLORS.get(border_key) if border_key else None
         if color is None:
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        # Titre : nom + ✨ si cosmetique (pas d'emoji rareté devant)
-        title = card['name'] + (" ✨" if border_key else "")
+        # Titre : nom + ✨ si cosmetique + etoiles fusion (pas d'emoji rareté devant)
+        title = card['name'] + (" ✨" if border_key else "") + ("⭐" * fusion_level)
         embed = discord.Embed(title=title[:256], color=color)
         embed.set_footer(text=f"Carte de {interaction.user.display_name}",
                           icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
         file = None
         rendered_url = None
-        if border_key:
-            border = border_get(border_key)
-            if border:
-                rendered_url = render_user_card(uid, card["id"], border,
-                                                 fallback_url=card.get("image_url"))
+        if border_key or fusion_level > 0:
+            border = border_get(border_key) if border_key else None
+            rendered_url = render_user_card(uid, card["id"], border,
+                                             fusion_level=fusion_level,
+                                             fallback_url=card.get("image_url"))
         if rendered_url:
             # Sert le fichier local en attachment (pas besoin URL publique)
             import os as _os
@@ -671,7 +674,8 @@ def setup_cards_commands(bot, deps):
     async def cardcustom_cmd(interaction: discord.Interaction, nom: str, bordure: str):
         from database import (card_get_by_name, user_card_count_owned,
                                 user_border_has, user_border_consume, border_get,
-                                card_customization_get, card_customization_set)
+                                card_customization_get, card_customization_set,
+                                card_fusion_get)
         from services.card_render import render_user_card
         await interaction.response.defer(ephemeral=True)
         card = card_get_by_name(nom.strip())
@@ -712,7 +716,9 @@ def setup_cards_commands(bot, deps):
                 ephemeral=True)
             return
         card_customization_set(uid, card["id"], bkey)
-        render_user_card(uid, card["id"], border, fallback_url=card.get("image_url"))
+        render_user_card(uid, card["id"], border,
+                          fusion_level=card_fusion_get(uid, card["id"]),
+                          fallback_url=card.get("image_url"))
         await interaction.followup.send(
             f"✅ Bordure **{border['name']}** appliquée à **{card['name']}** ! "
             f"Utilise `/show {card['name']}` pour la montrer.", ephemeral=True)
@@ -772,6 +778,110 @@ def setup_cards_commands(bot, deps):
             embed.description = ("**Bordures** _(non utilisées)_\n" + "\n".join(lines) +
                                   "\n\n_Applique une bordure avec_ `/cardcustom` _(elle est consommée)._")
         await interaction.response.send_message(embed=embed, ephemeral=(membre is None))
+
+
+    # Autocomplete partage : cartes dont le user a des DOUBLONS (>1 copie)
+    async def _dup_cards_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            uid = str(interaction.user.id)
+            rows = c.execute(
+                "SELECT c.name, COUNT(*) AS n FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                "WHERE uc.user_id = ? AND LOWER(c.name) LIKE ? "
+                "GROUP BY uc.card_id HAVING n > 1 ORDER BY c.name LIMIT 25",
+                (uid, f"%{q}%")).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=f"{r['name']} (x{r['n']})"[:100], value=r["name"][:100])
+                     for r in rows]
+        except Exception:
+            return []
+
+
+    # === /cardrecycle : doublons -> essences ===
+    @bot.tree.command(name="cardrecycle", description="Recycle tes doublons en Essences ✨")
+    @app_commands.describe(nom="Carte à recycler (tu gardes toujours 1 exemplaire)",
+                            quantite="Nombre de doublons à recycler (defaut : tous)")
+    async def cardrecycle_cmd(interaction: discord.Interaction, nom: str, quantite: int = None):
+        from database import (card_get_by_name, user_card_count_owned,
+                                user_card_remove_copies, currency_add, ESSENCE_RECYCLE)
+        card = card_get_by_name(nom.strip())
+        if not card:
+            await interaction.response.send_message(f"Carte introuvable : `{nom}`.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        owned = user_card_count_owned(uid, card["id"])
+        dupes = max(0, owned - 1)  # garde toujours 1
+        if dupes <= 0:
+            await interaction.response.send_message(
+                f"Tu n'as pas de doublon de **{card['name']}** à recycler.", ephemeral=True)
+            return
+        qty = dupes if quantite is None else max(1, min(int(quantite), dupes))
+        rarity = card.get("rarity", "common")
+        per = ESSENCE_RECYCLE.get(rarity, 6)
+        removed = user_card_remove_copies(uid, card["id"], qty)
+        gain = per * removed
+        new_bal = currency_add(uid, gain)
+        await interaction.response.send_message(
+            f"♻️ {removed} doublon(s) de **{card['name']}** recyclé(s) → **+{gain}** ✨\n"
+            f"Solde : **{new_bal}** ✨", ephemeral=True)
+
+    @cardrecycle_cmd.autocomplete("nom")
+    async def cardrecycle_autocomplete(interaction: discord.Interaction, current: str):
+        return await _dup_cards_autocomplete(interaction, current)
+
+
+    # === /cardfuse : monte le niveau d'etoiles d'une carte via ses doublons ===
+    @bot.tree.command(name="cardfuse", description="Fusionne tes doublons pour ajouter une étoile à une carte (max 5)")
+    @app_commands.describe(nom="Carte à faire monter en étoile")
+    async def cardfuse_cmd(interaction: discord.Interaction, nom: str):
+        from database import (card_get_by_name, user_card_count_owned,
+                                user_card_remove_copies, card_fusion_get, card_fusion_set,
+                                card_customization_get, border_get,
+                                FUSION_STAR_COSTS, FUSION_MAX_STARS)
+        from services.card_render import render_user_card
+        await interaction.response.defer(ephemeral=True)
+        card = card_get_by_name(nom.strip())
+        if not card:
+            await interaction.followup.send(f"Carte introuvable : `{nom}`.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        if card.get("rarity") == "secret":
+            await interaction.followup.send(
+                "Les cartes **secrètes** ne peuvent pas être fusionnées.", ephemeral=True)
+            return
+        level = card_fusion_get(uid, card["id"])
+        if level >= FUSION_MAX_STARS:
+            await interaction.followup.send(
+                f"**{card['name']}** est déjà au niveau max ({'⭐' * FUSION_MAX_STARS}).",
+                ephemeral=True)
+            return
+        cost = FUSION_STAR_COSTS[level]
+        owned = user_card_count_owned(uid, card["id"])
+        dupes = max(0, owned - 1)  # garde 1 exemplaire de base
+        if dupes < cost:
+            await interaction.followup.send(
+                f"Il te faut **{cost}** doublons de **{card['name']}** pour passer à "
+                f"{'⭐' * (level + 1)} (tu en as {dupes}).", ephemeral=True)
+            return
+        removed = user_card_remove_copies(uid, card["id"], cost)
+        new_level = level + 1
+        card_fusion_set(uid, card["id"], new_level)
+        # Regenere le rendu (garde bordure si equipee)
+        border_key = card_customization_get(uid, card["id"])
+        border = border_get(border_key) if border_key else None
+        render_user_card(uid, card["id"], border, fusion_level=new_level,
+                          fallback_url=card.get("image_url"))
+        nxt = (f"\nProchaine étoile : **{FUSION_STAR_COSTS[new_level]}** doublons."
+               if new_level < FUSION_MAX_STARS else "\nNiveau **max** atteint !")
+        await interaction.followup.send(
+            f"✨ **{card['name']}** fusionnée ! {removed} doublons consommés → {'⭐' * new_level}{nxt}\n"
+            f"Vois-la avec `/show {card['name']}`.", ephemeral=True)
+
+    @cardfuse_cmd.autocomplete("nom")
+    async def cardfuse_autocomplete(interaction: discord.Interaction, current: str):
+        return await _dup_cards_autocomplete(interaction, current)
 
 
     # === /cardshop : boutique hebdo (6 slots) ===

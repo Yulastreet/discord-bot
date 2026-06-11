@@ -18,9 +18,44 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _RENDERS_DIR = os.path.join(_ROOT, "static", "card_renders")
 _CUSTOMS_DIR = os.path.join(_ROOT, "static", "card_customs")
 _BORDERS_DIR = os.path.join(_ROOT, "assets", "cardrelated", "borders")
+_STARS_PATH = os.path.join(_ROOT, "assets", "cardrelated", "stars.png")
 _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 
 _border_cache: dict[str, Image.Image] = {}
+_star_cache: dict[int, Image.Image] = {}
+
+
+def _get_star(size: int) -> Image.Image | None:
+    if size in _star_cache:
+        return _star_cache[size]
+    if not os.path.exists(_STARS_PATH):
+        return None
+    try:
+        img = Image.open(_STARS_PATH).convert("RGBA").resize((size, size), Image.LANCZOS)
+        _star_cache[size] = img
+        return img
+    except Exception:
+        return None
+
+
+def _overlay_stars(canvas: Image.Image, level: int) -> Image.Image:
+    """Pose une rangee de `level` etoiles en bas-centre de la carte."""
+    level = max(0, min(5, int(level or 0)))
+    if level <= 0:
+        return canvas
+    star_size = 56
+    gap = 4
+    star = _get_star(star_size)
+    if star is None:
+        return canvas
+    total_w = level * star_size + (level - 1) * gap
+    x0 = (_CARD_W - total_w) // 2
+    y0 = _CARD_H - star_size - 26  # marge basse
+    out = canvas.convert("RGBA")
+    for i in range(level):
+        x = x0 + i * (star_size + gap)
+        out.paste(star, (x, y0), star)
+    return out
 
 
 def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | None:
@@ -95,25 +130,32 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
     return Image.alpha_composite(canvas, layer)
 
 
-def render_user_card(user_id: int, card_id: int, border: dict,
+def render_user_card(user_id: int, card_id: int, border: dict | None = None,
+                      fusion_level: int = 0,
                       fallback_url: str | None = None) -> str | None:
-    """Genere render carte + bordure pour un user. Retourne URL relative ou None.
+    """Genere render carte custom (bordure et/ou etoiles fusion). URL relative ou None.
 
-    border = dict de la table borders (filename, offset_x, offset_y, scale_pct)."""
+    border = dict table borders (ou None). fusion_level 0-5 = nb d'etoiles."""
     os.makedirs(_CUSTOMS_DIR, exist_ok=True)
     base = _load_base(card_id, fallback_url)
     if base is None:
         return None
-    bimg = _load_border(border["filename"])
-    if bimg is None:
-        return None
-    out = composite_border_preview(
-        base, bimg,
-        offset_x=border.get("offset_x", 0),
-        offset_y=border.get("offset_y", 0),
-        scale_pct=border.get("scale_pct", 100),
-        card_scale_pct=border.get("card_scale_pct", 100),
-    )
+    if border:
+        bimg = _load_border(border["filename"])
+        if bimg is not None:
+            out = composite_border_preview(
+                base, bimg,
+                offset_x=border.get("offset_x", 0),
+                offset_y=border.get("offset_y", 0),
+                scale_pct=border.get("scale_pct", 100),
+                card_scale_pct=border.get("card_scale_pct", 100),
+            )
+        else:
+            out = base.convert("RGBA")
+    else:
+        out = base.convert("RGBA")
+    if fusion_level and fusion_level > 0:
+        out = _overlay_stars(out, fusion_level)
     out_path = os.path.join(_CUSTOMS_DIR, f"{user_id}_{card_id}.png")
     # Garde l'alpha (marges transparentes si carte reduite)
     out.save(out_path, "PNG", optimize=True)

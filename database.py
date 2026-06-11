@@ -180,6 +180,11 @@ def init_db():
         c.execute("ALTER TABLE user_borders ADD COLUMN qty INTEGER DEFAULT 1")
     except Exception:
         pass
+    # Migration : fusion_level sur card_customizations (prestige etoiles 0-5)
+    try:
+        c.execute("ALTER TABLE card_customizations ADD COLUMN fusion_level INTEGER DEFAULT 0")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
@@ -2270,6 +2275,68 @@ def user_card_customizations_map(user_id):
         "WHERE user_id = ? AND border_key IS NOT NULL", (str(user_id),)).fetchall()
     conn.close()
     return {int(r["card_id"]): r["border_key"] for r in rows}
+
+
+# ===== FUSION (prestige etoiles) =====
+def card_fusion_get(user_id, card_id) -> int:
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT fusion_level FROM card_customizations WHERE user_id = ? AND card_id = ?",
+                  (str(user_id), int(card_id))).fetchone()
+    conn.close()
+    return int(r["fusion_level"]) if r and r["fusion_level"] else 0
+
+
+def card_fusion_set(user_id, card_id, level):
+    """Upsert le niveau de fusion (etoiles) d'une carte pour un user."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_customizations (user_id, card_id, fusion_level, updated_at) "
+              "VALUES (?, ?, ?, CURRENT_TIMESTAMP) "
+              "ON CONFLICT(user_id, card_id) DO UPDATE SET fusion_level = excluded.fusion_level, "
+              "updated_at = CURRENT_TIMESTAMP",
+              (str(user_id), int(card_id), int(level)))
+    conn.commit(); conn.close()
+
+
+def user_card_fusion_map(user_id):
+    """Retourne {card_id: fusion_level} pour les cartes ayant >=1 etoile."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT card_id, fusion_level FROM card_customizations "
+        "WHERE user_id = ? AND fusion_level > 0", (str(user_id),)).fetchall()
+    conn.close()
+    return {int(r["card_id"]): int(r["fusion_level"]) for r in rows}
+
+
+def user_card_remove_copies(user_id, card_id, n) -> int:
+    """Supprime n copies (rows) d'une carte pour un user. Retourne nb reellement
+    supprime. Ne verifie pas le 'keep' (a faire cote appelant)."""
+    if n <= 0:
+        return 0
+    conn = get_db(); c = conn.cursor()
+    ids = c.execute("SELECT id FROM user_cards WHERE user_id = ? AND card_id = ? "
+                    "ORDER BY id ASC LIMIT ?",
+                    (str(user_id), int(card_id), int(n))).fetchall()
+    id_list = [r["id"] for r in ids]
+    if id_list:
+        ph = ",".join("?" * len(id_list))
+        c.execute(f"DELETE FROM user_cards WHERE id IN ({ph})", id_list)
+    conn.commit(); conn.close()
+    return len(id_list)
+
+
+# Essences rendues au recyclage d'un doublon (~50% du gain de roll)
+ESSENCE_RECYCLE = {
+    "common":    6,
+    "rare":      14,
+    "epic":      32,
+    "legendary": 110,
+    "mythic":    325,
+    "secret":    500,
+}
+
+# Cout en doublons pour passer du niveau d'etoile L a L+1 (index = niveau actuel)
+FUSION_STAR_COSTS = [2, 3, 4, 5, 6]  # total 20 doublons pour 5 etoiles
+FUSION_MAX_STARS = 5
 
 
 def card_customization_set(user_id, card_id, border_key):
