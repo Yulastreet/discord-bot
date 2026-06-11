@@ -19,7 +19,8 @@ _RENDERS_DIR = os.path.join(_ROOT, "static", "card_renders")
 _CUSTOMS_DIR = os.path.join(_ROOT, "static", "card_customs")
 _BORDERS_DIR = os.path.join(_ROOT, "assets", "cardrelated", "borders")
 _STARS_PATH = os.path.join(_ROOT, "assets", "cardrelated", "stars.png")
-_USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
+_USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+               "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
 _border_cache: dict[str, Image.Image] = {}
 _star_cache: dict[int, Image.Image] = {}
@@ -61,7 +62,8 @@ def _overlay_stars(canvas: Image.Image, level: int) -> Image.Image:
 
 
 def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | None:
-    """Charge le render local de la carte. Fallback : download image_url remote."""
+    """Charge le render local de la carte. Fallback : download image_url remote
+    (UA navigateur + cache local pour eviter de re-telecharger / 429)."""
     local = os.path.join(_RENDERS_DIR, f"{card_id}.png")
     if os.path.exists(local):
         try:
@@ -70,11 +72,22 @@ def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | N
             pass
     if fallback_url and fallback_url.startswith("http"):
         try:
-            req = urllib.request.Request(fallback_url, headers={"User-Agent": _USER_AGENT})
+            req = urllib.request.Request(fallback_url, headers={
+                "User-Agent": _USER_AGENT,
+                "Accept": "image/avif,image/webp,image/png,image/*,*/*;q=0.8",
+                "Referer": "https://tookbot.click/",
+            })
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = resp.read()
             img = Image.open(io.BytesIO(data)).convert("RGBA")
-            return img.resize((_CARD_W, _CARD_H), Image.LANCZOS)
+            img = img.resize((_CARD_W, _CARD_H), Image.LANCZOS)
+            # Cache en local render pour ne plus retelecharger (evite 429)
+            try:
+                os.makedirs(_RENDERS_DIR, exist_ok=True)
+                img.convert("RGB").save(local, "PNG", optimize=True)
+            except Exception:
+                pass
+            return img
         except Exception as e:
             print(f"[card_render] base download err {fallback_url}: {e}")
     return None
