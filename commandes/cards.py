@@ -20,6 +20,7 @@ from database import (
     user_card_count_owned, user_card_transfer_one,
     card_trade_create, card_trade_get, card_trade_items, card_trade_set_status,
     card_suggestion_add,
+    ESSENCE_REWARDS, currency_add,
 )
 
 
@@ -246,10 +247,21 @@ def setup_cards_commands(bot, deps):
             await interaction.response.send_message(
                 f"Aucune carte disponible{label}.", ephemeral=True)
             return
+        # Doublon ? (avant l'ajout) -> essences x2
+        already_owned = user_card_count_owned(uid, card["id"]) > 0
         user_card_add(uid, card["id"])
         if not _is_owner(uid) and gid:
             now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             roll_cooldown_set(uid, gid, now_iso)
+
+        # Gain d'essences selon rarete (doublon = x2)
+        rarity_for_reward = card.get("rarity", "common")
+        essence_base = ESSENCE_REWARDS.get(rarity_for_reward, 12)
+        essence_gain = essence_base * 2 if already_owned else essence_base
+        try:
+            currency_add(uid, essence_gain)
+        except Exception as e:
+            print(f"[roll essence] err: {e}")
 
         # Embed minimaliste
         rarity = card.get("rarity", "common")
@@ -259,10 +271,11 @@ def setup_cards_commands(bot, deps):
         univers = card.get("universe") or "?"
         rarity_display = "?????" if rarity == "secret" else rarity.upper()
         flavor = (card.get("flavor_subtitle") or "").strip()
+        essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
         desc_parts = []
         if flavor:
             desc_parts.append(f"_**{flavor}**_")
-        desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}")
+        desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}\n{essence_line}")
         desc = "\n\n".join(desc_parts)
         embed = discord.Embed(
             title=f"{emoji} {card['name']}"[:256],

@@ -248,6 +248,69 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_event_msg ON card_event_log(message_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_event_status ON card_event_log(status)")
 
+    # ===== Economie Essences : monnaie globale par user =====
+    c.execute('''CREATE TABLE IF NOT EXISTS user_currency (
+        user_id   TEXT PRIMARY KEY,
+        essences  INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # ===== Bordures : catalogue + config placement (owner) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS borders (
+        border_key  TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        filename    TEXT NOT NULL,
+        offset_x    INTEGER DEFAULT 0,
+        offset_y    INTEGER DEFAULT 0,
+        scale_pct   INTEGER DEFAULT 100,
+        enabled     INTEGER DEFAULT 1,
+        sort_order  INTEGER DEFAULT 0,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    # Cosmetiques possedes par user (bordures pour l'instant)
+    c.execute('''CREATE TABLE IF NOT EXISTS user_borders (
+        user_id     TEXT NOT NULL,
+        border_key  TEXT NOT NULL,
+        acquired_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, border_key)
+    )''')
+
+    # Bordure appliquee par un user sur une carte donnee
+    c.execute('''CREATE TABLE IF NOT EXISTS card_customizations (
+        user_id     TEXT NOT NULL,
+        card_id     INTEGER NOT NULL,
+        border_key  TEXT,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, card_id)
+    )''')
+
+    # ===== Card Shop : 6 slots configurables par owner =====
+    c.execute('''CREATE TABLE IF NOT EXISTS card_shop_slots (
+        slot        INTEGER PRIMARY KEY,
+        item_type   TEXT,
+        item_ref    TEXT,
+        price       INTEGER DEFAULT 0,
+        label       TEXT,
+        subtitle    TEXT,
+        enabled     INTEGER DEFAULT 0,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    # Seed slots 1-6 si absent
+    for _slot in range(1, 7):
+        c.execute("INSERT OR IGNORE INTO card_shop_slots (slot, enabled) VALUES (?, 0)", (_slot,))
+    # Seed bordures par defaut (5 fournies)
+    _default_borders = [
+        ("gold",  "Bordure Or",     "gold_border.png",  1),
+        ("leaf",  "Bordure Feuille", "leaf_border.png",  2),
+        ("frost", "Bordure Givre",   "frost_border.png", 3),
+        ("hell",  "Bordure Enfer",   "hell_border.png",  4),
+        ("void",  "Bordure Néant",   "void_border.png",  5),
+    ]
+    for _bk, _bn, _bf, _so in _default_borders:
+        c.execute("INSERT OR IGNORE INTO borders (border_key, name, filename, sort_order) "
+                   "VALUES (?, ?, ?, ?)", (_bk, _bn, _bf, _so))
+
     # Trades de cartes entre joueurs (multi-cartes, non-equivalent)
     c.execute('''CREATE TABLE IF NOT EXISTS card_trades (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2045,6 +2108,162 @@ def card_event_log_recent(limit=50):
         "ORDER BY el.dropped_at DESC LIMIT ?", (int(limit),)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ===== ECONOMIE ESSENCES =====
+# Essences gagnees par /roll selon rarete carte obtenue. Doublon = x2.
+ESSENCE_REWARDS = {
+    "common":    12,
+    "rare":      28,
+    "epic":      65,
+    "legendary": 220,
+    "mythic":    650,
+    "secret":    1000,
+}
+
+
+def currency_get(user_id) -> int:
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT essences FROM user_currency WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    conn.close()
+    return int(r["essences"]) if r else 0
+
+
+def currency_add(user_id, amount: int) -> int:
+    """Ajoute (ou retire si negatif) des essences. Retourne nouveau solde."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_currency (user_id, essences) VALUES (?, ?) "
+              "ON CONFLICT(user_id) DO UPDATE SET essences = essences + excluded.essences, "
+              "updated_at = CURRENT_TIMESTAMP",
+              (str(user_id), int(amount)))
+    r = c.execute("SELECT essences FROM user_currency WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    conn.commit(); conn.close()
+    return int(r["essences"]) if r else 0
+
+
+def currency_spend(user_id, amount: int) -> bool:
+    """Debite si solde suffisant. Retourne True si OK, False sinon. Atomic."""
+    amount = int(amount)
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE user_currency SET essences = essences - ?, updated_at = CURRENT_TIMESTAMP "
+              "WHERE user_id = ? AND essences >= ?",
+              (amount, str(user_id), amount))
+    ok = c.rowcount > 0
+    conn.commit(); conn.close()
+    return ok
+
+
+# ===== BORDURES =====
+def borders_list(enabled_only=False):
+    conn = get_db(); c = conn.cursor()
+    where = "WHERE enabled = 1" if enabled_only else ""
+    rows = c.execute(f"SELECT * FROM borders {where} ORDER BY sort_order, name").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def border_get(border_key):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM borders WHERE border_key = ?", (border_key,)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def border_set_config(border_key, offset_x=None, offset_y=None, scale_pct=None,
+                       enabled=None, name=None):
+    conn = get_db(); c = conn.cursor()
+    sets, vals = [], []
+    for col, v in (("offset_x", offset_x), ("offset_y", offset_y),
+                    ("scale_pct", scale_pct), ("enabled", enabled), ("name", name)):
+        if v is not None:
+            sets.append(f"{col} = ?")
+            vals.append(int(v) if col != "name" else v)
+    if not sets:
+        conn.close(); return False
+    sets.append("updated_at = CURRENT_TIMESTAMP")
+    vals.append(border_key)
+    c.execute(f"UPDATE borders SET {', '.join(sets)} WHERE border_key = ?", vals)
+    conn.commit(); conn.close()
+    return True
+
+
+def user_border_add(user_id, border_key):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO user_borders (user_id, border_key) VALUES (?, ?)",
+              (str(user_id), border_key))
+    conn.commit(); conn.close()
+
+
+def user_border_has(user_id, border_key) -> bool:
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM user_borders WHERE user_id = ? AND border_key = ?",
+                  (str(user_id), border_key)).fetchone()
+    conn.close()
+    return r is not None
+
+
+def user_borders_list(user_id):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT ub.border_key, ub.acquired_at, b.name, b.filename "
+        "FROM user_borders ub JOIN borders b ON b.border_key = ub.border_key "
+        "WHERE ub.user_id = ? ORDER BY ub.acquired_at DESC", (str(user_id),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_customization_set(user_id, card_id, border_key):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_customizations (user_id, card_id, border_key, updated_at) "
+              "VALUES (?, ?, ?, CURRENT_TIMESTAMP) "
+              "ON CONFLICT(user_id, card_id) DO UPDATE SET border_key = excluded.border_key, "
+              "updated_at = CURRENT_TIMESTAMP",
+              (str(user_id), int(card_id), border_key))
+    conn.commit(); conn.close()
+
+
+def card_customization_get(user_id, card_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT border_key FROM card_customizations WHERE user_id = ? AND card_id = ?",
+                  (str(user_id), int(card_id))).fetchone()
+    conn.close()
+    return r["border_key"] if r else None
+
+
+# ===== CARD SHOP =====
+def card_shop_get_slots():
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM card_shop_slots ORDER BY slot").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def card_shop_set_slot(slot, item_type=None, item_ref=None, price=None,
+                        label=None, subtitle=None, enabled=None):
+    conn = get_db(); c = conn.cursor()
+    sets, vals = [], []
+    for col, v in (("item_type", item_type), ("item_ref", item_ref),
+                    ("price", price), ("label", label), ("subtitle", subtitle),
+                    ("enabled", enabled)):
+        if v is not None:
+            vals.append(v)
+            sets.append(f"{col} = ?")
+    if not sets:
+        conn.close(); return False
+    sets.append("updated_at = CURRENT_TIMESTAMP")
+    vals.append(int(slot))
+    c.execute(f"UPDATE card_shop_slots SET {', '.join(sets)} WHERE slot = ?", vals)
+    conn.commit(); conn.close()
+    return True
+
+
+def card_shop_get_slot(slot):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_shop_slots WHERE slot = ?", (int(slot),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
 
 
 def card_pick_random_by_min_rarity(min_rarity: str):
