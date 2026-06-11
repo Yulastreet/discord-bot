@@ -862,15 +862,18 @@ def setup_cards_commands(bot, deps):
                 f"**{card['name']}** est déjà au niveau max ({'⭐' * FUSION_MAX_STARS}).",
                 ephemeral=True)
             return
+        # Cout = nombre d'exemplaires requis (inclut la carte qui garde les etoiles)
         cost = FUSION_STAR_COSTS[level]
         owned = user_card_count_owned(uid, card["id"])
-        dupes = max(0, owned - 1)  # garde 1 exemplaire de base
-        if dupes < cost:
+        if owned < cost:
             await interaction.followup.send(
-                f"Il te faut **{cost}** doublons de **{card['name']}** pour passer à "
-                f"{'⭐' * (level + 1)} (tu en as {dupes}).", ephemeral=True)
+                f"Il te faut **{cost}** exemplaires de **{card['name']}** pour passer à "
+                f"{'⭐' * (level + 1)} (tu en as {owned}). "
+                f"L'un d'eux garde les étoiles, les {cost - 1} autres sont consommés.",
+                ephemeral=True)
             return
-        removed = user_card_remove_copies(uid, card["id"], cost)
+        # Consomme cost-1 copies, la derniere garde les etoiles
+        removed = user_card_remove_copies(uid, card["id"], cost - 1)
         new_level = level + 1
         card_fusion_set(uid, card["id"], new_level)
         # Regenere le rendu (garde bordure si equipee)
@@ -878,10 +881,10 @@ def setup_cards_commands(bot, deps):
         border = border_get(border_key) if border_key else None
         render_user_card(uid, card["id"], border, fusion_level=new_level,
                           fallback_url=card.get("image_url"))
-        nxt = (f"\nProchaine étoile : **{FUSION_STAR_COSTS[new_level]}** doublons."
+        nxt = (f"\nProchaine étoile : **{FUSION_STAR_COSTS[new_level]}** exemplaires."
                if new_level < FUSION_MAX_STARS else "\nNiveau **max** atteint !")
         await interaction.followup.send(
-            f"✨ **{card['name']}** fusionnée ! {removed} doublons consommés → {'⭐' * new_level}{nxt}\n"
+            f"✨ **{card['name']}** fusionnée ! {removed} exemplaires consommés → {'⭐' * new_level}{nxt}\n"
             f"Vois-la avec `/show {card['name']}`.", ephemeral=True)
 
     @cardfuse_cmd.autocomplete("nom")
