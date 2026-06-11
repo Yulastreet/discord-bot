@@ -54,8 +54,10 @@ def _url_ok(url: str) -> bool:
 
 
 def _extract_pid(*urls):
+    """Extrait l'id Pokémon UNIQUEMENT depuis une URL artwork PokeAPI
+    (pas depuis un render local /card_renders/<card_id>.png)."""
     for u in urls:
-        if not u:
+        if not u or "official-artwork" not in u:
             continue
         m = re.search(r"/(\d+)\.png", u)
         if m:
@@ -76,6 +78,19 @@ def _pid_from_name(name):
         return None
 
 
+def _needs_bake(image_url: str) -> bool:
+    """True si l'image n'est PAS un render local (donc à baker en local).
+    Les URLs github/remote ne s'affichent pas dans les embeds Discord."""
+    if not image_url:
+        return True
+    if "/static/card_renders/" in image_url:
+        # render local : OK seulement si le fichier existe sur disque
+        rel = "static/" + image_url.split("/static/", 1)[1].split("?")[0]
+        return not os.path.exists(os.path.join(_ROOT, rel.replace("/", os.sep)))
+    # Tout le reste (github raw, autre remote) -> baker en local
+    return True
+
+
 def main():
     force_all = "--all" in sys.argv
     conn = sqlite3.connect(DB_FILE)
@@ -89,7 +104,7 @@ def main():
     ok = 0
     failed = []
     for i, r in enumerate(rows, 1):
-        if not force_all and _url_ok(r["image_url"]):
+        if not force_all and not _needs_bake(r["image_url"]):
             ok += 1
             continue
         pid = _extract_pid(r["source_image_url"], r["image_url"]) or _pid_from_name(r["name"])
