@@ -150,13 +150,10 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
     return Image.alpha_composite(canvas, layer)
 
 
-def render_user_card(user_id: int, card_id: int, border: dict | None = None,
-                      fusion_level: int = 0,
-                      fallback_url: str | None = None) -> str | None:
-    """Genere render carte custom (bordure et/ou etoiles fusion). URL relative ou None.
-
-    border = dict table borders (ou None). fusion_level 0-5 = nb d'etoiles."""
-    os.makedirs(_CUSTOMS_DIR, exist_ok=True)
+def compose_card_image(card_id: int, border: dict | None = None,
+                        fusion_level: int = 0,
+                        fallback_url: str | None = None) -> Image.Image | None:
+    """Compose la carte (bordure et/ou etoiles) et retourne l'image PIL RGBA, ou None."""
     base = _load_base(card_id, fallback_url)
     if base is None:
         print(f"[card_render] base introuvable card={card_id} fallback={fallback_url}")
@@ -165,7 +162,8 @@ def render_user_card(user_id: int, card_id: int, border: dict | None = None,
         bimg = _load_border(border["filename"])
         if bimg is None:
             print(f"[card_render] bordure introuvable: {border.get('filename')}")
-        if bimg is not None:
+            out = base.convert("RGBA")
+        else:
             out = composite_border_preview(
                 base, bimg,
                 offset_x=border.get("offset_x", 0),
@@ -173,14 +171,22 @@ def render_user_card(user_id: int, card_id: int, border: dict | None = None,
                 scale_pct=border.get("scale_pct", 100),
                 card_scale_pct=border.get("card_scale_pct", 100),
             )
-        else:
-            out = base.convert("RGBA")
     else:
         out = base.convert("RGBA")
     if fusion_level and fusion_level > 0:
         out = _overlay_stars(out, fusion_level)
+    return out
+
+
+def render_user_card(user_id: int, card_id: int, border: dict | None = None,
+                      fusion_level: int = 0,
+                      fallback_url: str | None = None) -> str | None:
+    """Genere render carte custom (bordure et/ou etoiles fusion). URL relative ou None."""
+    os.makedirs(_CUSTOMS_DIR, exist_ok=True)
+    out = compose_card_image(card_id, border, fusion_level, fallback_url)
+    if out is None:
+        return None
     out_path = os.path.join(_CUSTOMS_DIR, f"{user_id}_{card_id}.png")
-    # Garde l'alpha (marges transparentes si carte reduite)
     out.save(out_path, "PNG", optimize=True)
     return f"/static/card_customs/{user_id}_{card_id}.png"
 

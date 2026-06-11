@@ -892,6 +892,113 @@ def setup_cards_commands(bot, deps):
         return await _dup_cards_autocomplete(interaction, current)
 
 
+    # === /cardprofile (groupe : setup + voir) ===
+    cardprofile_group = app_commands.Group(
+        name="cardprofile", description="Profil de cartes (3 cartes vedettes + stats)")
+
+    async def _owned_cards_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            uid = str(interaction.user.id)
+            rows = c.execute(
+                "SELECT DISTINCT c.name FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                "WHERE uc.user_id = ? AND LOWER(c.name) LIKE ? ORDER BY c.name LIMIT 25",
+                (uid, f"%{q}%")).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100])
+                     for r in rows]
+        except Exception:
+            return []
+
+    @cardprofile_group.command(name="setup", description="Définis tes 3 cartes vedettes (milieu = mise en avant)")
+    @app_commands.describe(gauche="Carte de gauche", milieu="Carte du milieu (plus grande)",
+                            droite="Carte de droite")
+    async def cardprofile_setup(interaction: discord.Interaction,
+                                 gauche: str, milieu: str, droite: str):
+        from database import (card_get_by_name, user_card_count_owned, card_profile_set)
+        uid = interaction.user.id
+        resolved = []
+        for label, nm in (("gauche", gauche), ("milieu", milieu), ("droite", droite)):
+            card = card_get_by_name(nm.strip())
+            if not card:
+                await interaction.response.send_message(
+                    f"Carte introuvable ({label}) : `{nm}`.", ephemeral=True)
+                return
+            if user_card_count_owned(uid, card["id"]) <= 0 and not _is_owner(uid):
+                await interaction.response.send_message(
+                    f"Tu ne possèdes pas **{card['name']}** ({label}).", ephemeral=True)
+                return
+            resolved.append(card["id"])
+        card_profile_set(uid, resolved[0], resolved[1], resolved[2])
+        await interaction.response.send_message(
+            "✅ Profil de cartes mis à jour ! Vois-le avec `/cardprofile voir`.", ephemeral=True)
+
+    for _p in ("gauche", "milieu", "droite"):
+        cardprofile_setup.autocomplete(_p)(_owned_cards_autocomplete)
+
+    @cardprofile_group.command(name="voir", description="Voir un profil de cartes (le tien ou celui d'un membre)")
+    @app_commands.describe(membre="Membre dont voir le profil (defaut : toi)")
+    async def cardprofile_voir(interaction: discord.Interaction, membre: discord.Member = None):
+        from database import (card_profile_get, user_card_count, user_card_rarity_breakdown,
+                               currency_get, user_card_fusion_map, user_borders_list)
+        from services.card_profile import build_profile_image
+        import os as _os
+        await interaction.response.defer()
+        target = membre or interaction.user
+        uid = target.id
+        profile = card_profile_get(uid)
+        # Stats
+        total = user_card_count(uid)
+        breakdown = user_card_rarity_breakdown(uid)
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        uniq = c.execute("SELECT COUNT(DISTINCT card_id) AS n FROM user_cards WHERE user_id = ?",
+                          (str(uid),)).fetchone()["n"]
+        conn.close()
+        essences = currency_get(uid)
+        fused = len(user_card_fusion_map(uid))
+        borders_stock = sum(b["qty"] for b in user_borders_list(uid))
+        rar_line = " · ".join(
+            f"{RARITY_EMOJIS.get(r, '⚪')}{breakdown.get(r, 0)}"
+            for r in ("common", "rare", "epic", "legendary", "mythic"))
+        embed = discord.Embed(
+            title=f"🃏 Profil de cartes — {target.display_name}",
+            color=0xB9F23A,
+        )
+        embed.add_field(name="Collection",
+                        value=f"**{total}** cartes · **{uniq}** uniques", inline=True)
+        embed.add_field(name="Essences", value=f"**{essences}** ✨", inline=True)
+        embed.add_field(name="Fusionnées", value=f"**{fused}** carte(s) ⭐", inline=True)
+        embed.add_field(name="Raretés", value=rar_line or "—", inline=False)
+        embed.add_field(name="Bordures en stock", value=f"**{borders_stock}**", inline=True)
+        if target.display_avatar:
+            embed.set_thumbnail(url=str(target.display_avatar.url))
+        embed.set_footer(text=f"Profil de {target.display_name}",
+                          icon_url=str(target.display_avatar.url) if target.display_avatar else None)
+        file = None
+        if profile:
+            rel = build_profile_image(uid, profile)
+            if rel:
+                local_path = _os.path.join(_REPO_ROOT, rel.lstrip("/").replace("/", _os.sep))
+                if _os.path.exists(local_path):
+                    file = discord.File(local_path, filename="profile.png")
+                    embed.set_image(url="attachment://profile.png")
+        if not profile:
+            note = ("Aucune carte vedette définie. " if target == interaction.user
+                    else f"{target.display_name} n'a pas défini de cartes vedettes. ")
+            if target == interaction.user:
+                note += "Utilise `/cardprofile setup`."
+            embed.description = note
+        if file:
+            await interaction.followup.send(embed=embed, file=file)
+        else:
+            await interaction.followup.send(embed=embed)
+
+    bot.tree.add_command(cardprofile_group)
+
+
     # === /cardshop : boutique hebdo (6 slots) ===
     @bot.tree.command(name="cardshop", description="Boutique de cartes et cosmétiques (Essences ✨)")
     async def cardshop_cmd(interaction: discord.Interaction):

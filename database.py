@@ -300,6 +300,15 @@ def init_db():
         PRIMARY KEY (user_id, card_id)
     )''')
 
+    # ===== Card Profile : 3 cartes vedettes par user =====
+    c.execute('''CREATE TABLE IF NOT EXISTS card_profile (
+        user_id   TEXT PRIMARY KEY,
+        left_id   INTEGER,
+        mid_id    INTEGER,
+        right_id  INTEGER,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     # ===== Card Shop : 6 slots configurables par owner =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_shop_slots (
         slot        INTEGER PRIMARY KEY,
@@ -2322,6 +2331,36 @@ def user_card_remove_copies(user_id, card_id, n) -> int:
         c.execute(f"DELETE FROM user_cards WHERE id IN ({ph})", id_list)
     conn.commit(); conn.close()
     return len(id_list)
+
+
+def card_profile_get(user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT left_id, mid_id, right_id FROM card_profile WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_profile_set(user_id, left_id, mid_id, right_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_profile (user_id, left_id, mid_id, right_id, updated_at) "
+              "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) "
+              "ON CONFLICT(user_id) DO UPDATE SET left_id = excluded.left_id, "
+              "mid_id = excluded.mid_id, right_id = excluded.right_id, "
+              "updated_at = CURRENT_TIMESTAMP",
+              (str(user_id), int(left_id), int(mid_id), int(right_id)))
+    conn.commit(); conn.close()
+
+
+def user_card_rarity_breakdown(user_id):
+    """Retourne {rarity: count_de_copies} pour un user."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT c.rarity AS rarity, COUNT(*) AS n FROM user_cards uc "
+        "JOIN cards c ON c.id = uc.card_id WHERE uc.user_id = ? GROUP BY c.rarity",
+        (str(user_id),)).fetchall()
+    conn.close()
+    return {r["rarity"]: int(r["n"]) for r in rows}
 
 
 # Essences rendues au recyclage d'un doublon (~50% du gain de roll)
