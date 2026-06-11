@@ -429,15 +429,6 @@
         <a href="/owner/promo-codes" class="nav-item {{ 'active' if active_nav == 'owner_promo_codes' }}">
           <svg class="ic"><use href="#i-bolt"/></svg> Codes promo
         </a>
-        <a href="/owner/cards" class="nav-item {{ 'active' if active_nav == 'owner_cards' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Cards
-        </a>
-        <a href="/owner/cards/suggestions" class="nav-item {{ 'active' if active_nav == 'owner_card_suggestions' }}">
-          <svg class="ic"><use href="#i-bell"/></svg> Cards Suggest <span id="navSugBadge" class="muted" style="font-size:10px;"></span>
-        </a>
-        <a href="/owner/cards/events" class="nav-item {{ 'active' if active_nav == 'owner_card_events' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Cards Events
-        </a>
         <a href="/owner/premium-analytics" class="nav-item {{ 'active' if active_nav == 'owner_premium_analytics' }}">
           <svg class="ic"><use href="#i-pulse"/></svg> Analytics Premium
         </a>
@@ -452,6 +443,25 @@
         </a>
         <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
           <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
+        </a>
+      </details>
+
+      <details class="nav-cat" data-cat="owner_cards" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">🃏 Owner Cards</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
+        <a href="/owner/cards" class="nav-item {{ 'active' if active_nav == 'owner_cards' }}">
+          <svg class="ic"><use href="#i-grid"/></svg> Cards
+        </a>
+        <a href="/owner/cards/suggestions" class="nav-item {{ 'active' if active_nav == 'owner_card_suggestions' }}">
+          <svg class="ic"><use href="#i-bell"/></svg> Cards Suggest <span id="navSugBadge" class="muted" style="font-size:10px;"></span>
+        </a>
+        <a href="/owner/cards/events" class="nav-item {{ 'active' if active_nav == 'owner_card_events' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Cards Events
+        </a>
+        <a href="/owner/cards/shop" class="nav-item {{ 'active' if active_nav == 'owner_card_shop' }}">
+          <svg class="ic"><use href="#i-grid"/></svg> Cards Shop
         </a>
       </details>
       {% endif %}

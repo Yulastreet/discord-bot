@@ -1,0 +1,270 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_card_shop' %}
+
+{% block title %}Cards Shop · Owner{% endblock %}
+{% block crumb %}Cards Shop{% endblock %}
+
+{% block content %}
+<style>
+  .cs-section { background: var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom: var(--s-4); }
+  .cs-section h3 { margin: 0 0 12px; font-size: 16px; }
+  .cs-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap:12px; }
+  .cs-slot { background: var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .cs-slot.on { border-color:#4ade80; }
+  .cs-slot label { font-size:11px; color:var(--text-2); display:flex; flex-direction:column; gap:4px; }
+  .cs-slot input, .cs-slot select { background: var(--bg-1); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:12px; width:100%; }
+  .cs-slot .row { display:flex; gap:8px; }
+  .cs-preview img { max-width:100%; border-radius:10px; border:1px solid var(--border); }
+  .bd-row { display:grid; grid-template-columns: 280px 1fr; gap:18px; }
+  .bd-controls label { font-size:12px; color:var(--text-2); display:block; margin-bottom:10px; }
+  .bd-controls input[type=range] { width:100%; }
+  .bd-preview img { max-width:300px; border-radius:10px; border:1px solid var(--border); }
+  .ac-results { position:absolute; z-index:50; background:var(--bg-1); border:1px solid var(--border); border-radius:8px; max-height:220px; overflow-y:auto; width:100%; }
+  .ac-results div { padding:6px 10px; font-size:12px; cursor:pointer; }
+  .ac-results div:hover { background:var(--bg-2); }
+</style>
+
+<div class="col gap-7">
+  <div>
+    <h1>🛒 Cards Shop</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm); max-width:64ch;">
+      Configure les 6 emplacements de la boutique (carte ou bordure + prix en Essences ✨).
+      Les joueurs achètent via <code>/cardshop</code>. Previsualise le rendu avant publication.
+    </p>
+  </div>
+
+  <!-- Slots -->
+  <div class="cs-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>🎰 Emplacements (6)</h3>
+      <button class="btn btn-primary" onclick="genPreview()" style="padding:6px 12px;font-size:12px;">👁 Prévisualiser l'image</button>
+    </div>
+    <div id="slotGrid" class="cs-grid"><div class="muted">Chargement…</div></div>
+  </div>
+
+  <!-- Preview image -->
+  <div class="cs-section cs-preview">
+    <h3>🖼 Aperçu boutique</h3>
+    <div id="previewBox"><span class="muted">Clique sur « Prévisualiser l'image ».</span></div>
+  </div>
+
+  <!-- Bordures placement -->
+  <div class="cs-section">
+    <h3>🖌 Bordures — placement</h3>
+    <p class="muted" style="font-size:11px;margin-bottom:12px;">
+      Règle l'emplacement et l'échelle de chaque bordure sur une carte placeholder. Ces réglages
+      s'appliquent automatiquement quand un joueur applique la bordure via <code>/cardcustom</code>.
+    </p>
+    <div class="bd-row">
+      <div class="bd-controls">
+        <label>Bordure
+          <select id="bdSelect" onchange="bdLoad()" class="input"></select>
+        </label>
+        <label>Carte placeholder (ID, optionnel)
+          <input id="bdPlaceholder" type="number" placeholder="ex: 1000" class="input" oninput="bdPreview()">
+        </label>
+        <label>Offset X : <span id="bdOxVal">0</span>
+          <input id="bdOx" type="range" min="-200" max="200" value="0" oninput="bdOxVal.textContent=this.value; bdPreview()">
+        </label>
+        <label>Offset Y : <span id="bdOyVal">0</span>
+          <input id="bdOy" type="range" min="-200" max="200" value="0" oninput="bdOyVal.textContent=this.value; bdPreview()">
+        </label>
+        <label>Échelle % : <span id="bdScVal">100</span>
+          <input id="bdSc" type="range" min="50" max="160" value="100" oninput="bdScVal.textContent=this.value; bdPreview()">
+        </label>
+        <button class="btn btn-primary" onclick="bdSave()" style="margin-top:8px;">💾 Sauvegarder placement</button>
+        <span id="bdHint" class="muted" style="font-size:11px;display:block;margin-top:8px;"></span>
+      </div>
+      <div class="bd-preview">
+        <div id="bdPreviewBox"><span class="muted">Sélectionne une bordure.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function esc(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+let _slots = [];
+let _borders = [];
+
+async function loadSlots(){
+  const r = await fetch('/api/owner/card-shop/slots');
+  const d = await r.json();
+  _slots = d.items || [];
+  renderSlots();
+}
+
+function renderSlots(){
+  const grid = document.getElementById('slotGrid');
+  grid.innerHTML = _slots.map(s => {
+    const n = s.slot;
+    const on = !!s.enabled;
+    const type = s.item_type || '';
+    const itemName = s.item_name || '';
+    return `<div class="cs-slot ${on?'on':''}" data-slot="${n}">
+      <div style="font-weight:700;font-size:13px;">Slot ${n}</div>
+      <label style="flex-direction:row;align-items:center;gap:6px;">
+        <input type="checkbox" id="s-en-${n}" ${on?'checked':''}><span>Actif</span>
+      </label>
+      <label>Type
+        <select id="s-type-${n}" onchange="slotTypeChanged(${n})">
+          <option value="">—</option>
+          <option value="card" ${type==='card'?'selected':''}>Carte</option>
+          <option value="border" ${type==='border'?'selected':''}>Bordure</option>
+        </select>
+      </label>
+      <div id="s-itembox-${n}" style="position:relative;">
+        ${renderItemPicker(n, type, s.item_ref, itemName)}
+      </div>
+      <label>Label affiché
+        <input type="text" id="s-label-${n}" value="${esc(s.label||'')}" placeholder="${esc(itemName)}">
+      </label>
+      <label>Prix (✨)
+        <input type="number" id="s-price-${n}" value="${s.price||0}" min="0">
+      </label>
+      <button class="btn btn-primary" onclick="saveSlot(${n})" style="padding:5px 10px;font-size:11px;">💾 Save slot ${n}</button>
+      <span id="s-hint-${n}" class="muted" style="font-size:10px;"></span>
+    </div>`;
+  }).join('');
+}
+
+function renderItemPicker(n, type, ref, name){
+  if(type==='card'){
+    return `<label>Carte
+      <input type="text" id="s-cardsearch-${n}" value="${esc(name||'')}" placeholder="Chercher une carte…" oninput="cardSearch(${n})" autocomplete="off">
+      <input type="hidden" id="s-ref-${n}" value="${esc(ref||'')}">
+    </label>
+    <div id="s-acres-${n}" class="ac-results" style="display:none;"></div>`;
+  } else if(type==='border'){
+    const opts = _borders.map(b=>`<option value="${b.border_key}" ${b.border_key===ref?'selected':''}>${esc(b.name)}</option>`).join('');
+    return `<label>Bordure
+      <select id="s-ref-${n}"><option value="">—</option>${opts}</select>
+    </label>`;
+  }
+  return `<input type="hidden" id="s-ref-${n}" value="">`;
+}
+
+function slotTypeChanged(n){
+  const type = document.getElementById('s-type-'+n).value;
+  document.getElementById('s-itembox-'+n).innerHTML = renderItemPicker(n, type, '', '');
+}
+
+let _searchTimers = {};
+function cardSearch(n){
+  clearTimeout(_searchTimers[n]);
+  _searchTimers[n] = setTimeout(async ()=>{
+    const q = document.getElementById('s-cardsearch-'+n).value.trim();
+    const box = document.getElementById('s-acres-'+n);
+    const r = await fetch('/api/owner/card-shop/cards-search?q='+encodeURIComponent(q));
+    const d = await r.json();
+    const items = d.items || [];
+    if(!items.length){ box.style.display='none'; return; }
+    box.innerHTML = items.map(c=>`<div onclick="pickCard(${n},${c.id},'${esc(c.name).replace(/'/g,"\\'")}')">${esc(c.name)} <span class="muted">· ${esc(c.rarity||'')} ${esc(c.universe||'')}</span></div>`).join('');
+    box.style.display='block';
+  }, 250);
+}
+function pickCard(n, id, name){
+  document.getElementById('s-ref-'+n).value = id;
+  document.getElementById('s-cardsearch-'+n).value = name;
+  document.getElementById('s-acres-'+n).style.display='none';
+}
+window.slotTypeChanged=slotTypeChanged; window.cardSearch=cardSearch; window.pickCard=pickCard;
+
+async function saveSlot(n){
+  const type = document.getElementById('s-type-'+n).value;
+  const refEl = document.getElementById('s-ref-'+n);
+  const payload = {
+    enabled: document.getElementById('s-en-'+n).checked,
+    item_type: type,
+    item_ref: refEl ? refEl.value : '',
+    label: document.getElementById('s-label-'+n).value,
+    price: parseInt(document.getElementById('s-price-'+n).value,10)||0,
+  };
+  const hint = document.getElementById('s-hint-'+n);
+  hint.textContent='Sauvegarde…';
+  const r = await fetch('/api/owner/card-shop/slot/'+n, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d = await r.json();
+  hint.textContent = d.ok ? '✅ Sauvegardé.' : ('❌ '+(d.error||'?'));
+  if(d.ok) loadSlots();
+}
+window.saveSlot=saveSlot;
+
+async function genPreview(){
+  const box = document.getElementById('previewBox');
+  box.innerHTML = '<span class="muted">Génération…</span>';
+  const r = await fetch('/api/owner/card-shop/preview', {method:'POST'});
+  const d = await r.json();
+  if(d.ok){ box.innerHTML = `<img src="${d.url}" style="max-width:100%;border-radius:10px;border:1px solid var(--border);">`; }
+  else box.innerHTML = '<span class="muted">❌ '+(d.error||'Erreur')+'</span>';
+}
+window.genPreview=genPreview;
+
+// ===== Bordures =====
+async function loadBorders(){
+  const r = await fetch('/api/owner/borders');
+  const d = await r.json();
+  _borders = d.items || [];
+  const sel = document.getElementById('bdSelect');
+  sel.innerHTML = '<option value="">— Choisir —</option>' + _borders.map(b=>`<option value="${b.border_key}">${esc(b.name)}</option>`).join('');
+}
+
+function bdCurrent(){
+  const k = document.getElementById('bdSelect').value;
+  return _borders.find(b=>b.border_key===k);
+}
+function bdLoad(){
+  const b = bdCurrent();
+  if(!b){ document.getElementById('bdPreviewBox').innerHTML='<span class="muted">Sélectionne une bordure.</span>'; return; }
+  document.getElementById('bdOx').value = b.offset_x||0; document.getElementById('bdOxVal').textContent=b.offset_x||0;
+  document.getElementById('bdOy').value = b.offset_y||0; document.getElementById('bdOyVal').textContent=b.offset_y||0;
+  document.getElementById('bdSc').value = b.scale_pct||100; document.getElementById('bdScVal').textContent=b.scale_pct||100;
+  bdPreview();
+}
+window.bdLoad=bdLoad;
+
+let _bdTimer=null;
+function bdPreview(){
+  const b = bdCurrent();
+  if(!b) return;
+  clearTimeout(_bdTimer);
+  _bdTimer = setTimeout(async ()=>{
+    const payload = {
+      offset_x: parseInt(document.getElementById('bdOx').value,10),
+      offset_y: parseInt(document.getElementById('bdOy').value,10),
+      scale_pct: parseInt(document.getElementById('bdSc').value,10),
+      placeholder_card_id: document.getElementById('bdPlaceholder').value || null,
+    };
+    const r = await fetch('/api/owner/borders/'+b.border_key+'/preview', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json();
+    if(d.ok) document.getElementById('bdPreviewBox').innerHTML = `<img src="${d.url}" style="max-width:300px;border-radius:10px;border:1px solid var(--border);">`;
+  }, 200);
+}
+window.bdPreview=bdPreview;
+
+async function bdSave(){
+  const b = bdCurrent();
+  if(!b){ return; }
+  const payload = {
+    offset_x: parseInt(document.getElementById('bdOx').value,10),
+    offset_y: parseInt(document.getElementById('bdOy').value,10),
+    scale_pct: parseInt(document.getElementById('bdSc').value,10),
+  };
+  const hint = document.getElementById('bdHint');
+  hint.textContent='Sauvegarde…';
+  const r = await fetch('/api/owner/borders/'+b.border_key, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d = await r.json();
+  hint.textContent = d.ok ? '✅ Placement sauvegardé.' : '❌ Erreur';
+  // update cache
+  Object.assign(b, payload);
+}
+window.bdSave=bdSave;
+
+(async ()=>{
+  await loadBorders();
+  await loadSlots();
+})();
+</script>
+{% endblock %}
