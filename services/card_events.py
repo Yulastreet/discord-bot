@@ -284,7 +284,7 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
         user_card_add(message.author.id, matched["card_id"])
     except Exception as e:
         print(f"[card_event claim] add err: {e}")
-    # Update embed + react au message gagnant
+    # Update embed : remplace l'image captcha par la carte propre (sans code) + react
     try:
         msg_id = matched.get("message_id")
         if msg_id:
@@ -293,7 +293,17 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
                 emb = event_msg.embeds[0]
                 emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {message.author.mention}** !"
                 emb.color = 0x4ade80
-                await event_msg.edit(embed=emb)
+                # Image propre = render local de la carte (sans bande captcha)
+                import os as _os
+                from services.card_render import _RENDERS_DIR
+                clean_path = _os.path.join(_RENDERS_DIR, f"{matched['card_id']}.png")
+                if _os.path.exists(clean_path):
+                    emb.set_image(url="attachment://card.png")
+                    await event_msg.edit(
+                        embed=emb,
+                        attachments=[discord.File(clean_path, filename="card.png")])
+                else:
+                    await event_msg.edit(embed=emb)
     except Exception as e:
         print(f"[card_event claim update] err: {e}")
     try:
