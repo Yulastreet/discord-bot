@@ -54,6 +54,15 @@ def register_cards_shop_routes(app, deps):
             fields["item_type"] = it if it in ("card", "border") else None
         if "item_ref" in data:
             fields["item_ref"] = str(data["item_ref"]).strip() if data["item_ref"] else None
+        # Pour une carte : si un nom est fourni, resout l'id par nom (fiable meme
+        # si l'utilisateur tape sans cliquer l'autocomplete).
+        if fields.get("item_type") == "card" and (data.get("item_query") or "").strip():
+            from database import card_get_by_name
+            card = card_get_by_name(data["item_query"].strip())
+            if card:
+                fields["item_ref"] = str(card["id"])
+            elif not fields.get("item_ref"):
+                return jsonify({"error": f"Carte introuvable : {data['item_query']}"}), 400
         if "price" in data:
             try:
                 fields["price"] = max(0, int(data["price"]))
