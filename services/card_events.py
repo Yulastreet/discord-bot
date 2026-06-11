@@ -93,6 +93,14 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     )
     if card.get("image_url"):
         embed.set_image(url=card["image_url"])
+    # Badge animé rareté en thumbnail (emoji custom du support server)
+    try:
+        from commandes.cards import _get_rarity_custom_emoji_url
+        badge_url = _get_rarity_custom_emoji_url(bot, rarity)
+        if badge_url:
+            embed.set_thumbnail(url=badge_url)
+    except Exception:
+        pass
     embed.set_footer(text=f"Event #{event_id} · code: {code}")
     try:
         msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
