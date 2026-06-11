@@ -20,15 +20,28 @@ def register_public_stats_routes(app, deps):
             data = _PUBLIC_STATS_CACHE["data"]
         else:
             db = get_db()
-            guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
-            # Membres servis = somme member_count tous guilds (actifs ou non)
-            sum_members = db.execute(
-                "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds"
-            ).fetchone()["n"]
-            # Dedup via guild_members si data suffisamment populee (>=80% du sum)
+            # Serveurs actuels (active=1, bot encore present)
+            try:
+                guild_count = db.execute(
+                    "SELECT COUNT(*) AS n FROM guilds WHERE active = 1"
+                ).fetchone()["n"]
+            except Exception:
+                guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
+            # Membres servis = somme member_count des guilds actifs uniquement
+            try:
+                sum_members = db.execute(
+                    "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds WHERE active = 1"
+                ).fetchone()["n"]
+            except Exception:
+                sum_members = db.execute(
+                    "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds"
+                ).fetchone()["n"]
+            # Dedup via guild_members des guilds actifs uniquement
             try:
                 dedup_count = db.execute(
-                    "SELECT COUNT(DISTINCT user_id) AS n FROM guild_members WHERE is_bot = 0"
+                    "SELECT COUNT(DISTINCT gm.user_id) AS n FROM guild_members gm "
+                    "JOIN guilds g ON g.guild_id = gm.guild_id "
+                    "WHERE gm.is_bot = 0 AND g.active = 1"
                 ).fetchone()["n"]
             except Exception:
                 dedup_count = 0
