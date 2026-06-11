@@ -175,6 +175,11 @@ def init_db():
         c.execute("ALTER TABLE borders ADD COLUMN card_scale_pct INTEGER DEFAULT 100")
     except Exception:
         pass
+    # Migration : qty sur user_borders (bordures consommables, copies en stock)
+    try:
+        c.execute("ALTER TABLE user_borders ADD COLUMN qty INTEGER DEFAULT 1")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
@@ -2195,29 +2200,76 @@ def border_set_config(border_key, offset_x=None, offset_y=None, scale_pct=None,
     return True
 
 
-def user_border_add(user_id, border_key):
+def user_border_add(user_id, border_key, qty=1):
+    """Ajoute qty copies en inventaire (incremente si deja present)."""
     conn = get_db(); c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO user_borders (user_id, border_key) VALUES (?, ?)",
-              (str(user_id), border_key))
+    c.execute("INSERT INTO user_borders (user_id, border_key, qty) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, border_key) DO UPDATE SET qty = qty + excluded.qty",
+              (str(user_id), border_key, int(qty)))
     conn.commit(); conn.close()
 
 
-def user_border_has(user_id, border_key) -> bool:
+def user_border_qty(user_id, border_key) -> int:
     conn = get_db(); c = conn.cursor()
-    r = c.execute("SELECT 1 FROM user_borders WHERE user_id = ? AND border_key = ?",
+    r = c.execute("SELECT qty FROM user_borders WHERE user_id = ? AND border_key = ?",
                   (str(user_id), border_key)).fetchone()
     conn.close()
-    return r is not None
+    return int(r["qty"]) if r and r["qty"] is not None else 0
+
+
+def user_border_has(user_id, border_key) -> bool:
+    """True si au moins 1 copie en stock."""
+    return user_border_qty(user_id, border_key) > 0
+
+
+def user_border_consume(user_id, border_key) -> bool:
+    """Retire 1 copie du stock. True si OK, False si stock vide. Atomic."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE user_borders SET qty = qty - 1 "
+              "WHERE user_id = ? AND border_key = ? AND qty >= 1",
+              (str(user_id), border_key))
+    ok = c.rowcount > 0
+    if ok:
+        c.execute("DELETE FROM user_borders WHERE user_id = ? AND border_key = ? AND qty <= 0",
+                  (str(user_id), border_key))
+    conn.commit(); conn.close()
+    return ok
+
+
+def user_border_remove(user_id, border_key, qty=1):
+    """Owner : retire qty copies (ou tout si qty None)."""
+    conn = get_db(); c = conn.cursor()
+    if qty is None:
+        c.execute("DELETE FROM user_borders WHERE user_id = ? AND border_key = ?",
+                  (str(user_id), border_key))
+    else:
+        c.execute("UPDATE user_borders SET qty = qty - ? WHERE user_id = ? AND border_key = ?",
+                  (int(qty), str(user_id), border_key))
+        c.execute("DELETE FROM user_borders WHERE user_id = ? AND border_key = ? AND qty <= 0",
+                  (str(user_id), border_key))
+    conn.commit(); conn.close()
 
 
 def user_borders_list(user_id):
+    """Inventaire : bordures en stock (qty > 0)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
-        "SELECT ub.border_key, ub.acquired_at, b.name, b.filename "
+        "SELECT ub.border_key, ub.qty, ub.acquired_at, b.name, b.filename "
         "FROM user_borders ub JOIN borders b ON b.border_key = ub.border_key "
-        "WHERE ub.user_id = ? ORDER BY ub.acquired_at DESC", (str(user_id),)).fetchall()
+        "WHERE ub.user_id = ? AND ub.qty > 0 ORDER BY ub.acquired_at DESC",
+        (str(user_id),)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def user_card_customizations_map(user_id):
+    """Retourne {card_id: border_key} des cartes customisees par le user."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT card_id, border_key FROM card_customizations "
+        "WHERE user_id = ? AND border_key IS NOT NULL", (str(user_id),)).fetchall()
+    conn.close()
+    return {int(r["card_id"]): r["border_key"] for r in rows}
 
 
 def card_customization_set(user_id, card_id, border_key):

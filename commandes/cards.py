@@ -401,6 +401,9 @@ def setup_cards_commands(bot, deps):
             if c.get("not_tradeable"):
                 grouped[cid]["nt_count"] += 1
         rows = list(grouped.values())
+        # Cartes equipees d'un cosmetique (pour afficher ✨)
+        from database import user_card_customizations_map
+        custom_map = user_card_customizations_map(target_user.id)
 
         # Pagine
         PAGE_SIZE = 25
@@ -421,7 +424,8 @@ def setup_cards_commands(bot, deps):
                 count = f" x{c['count']}" if c["count"] > 1 else ""
                 nt = c.get("nt_count", 0)
                 nt_tag = f" 🔒{nt}" if nt > 0 else ""
-                lines.append(f"{emoji} **{c['name']}**{count}{nt_tag} · _{c.get('universe') or '?'}_")
+                cosmetic_tag = " ✨" if custom_map.get(c["card_id"]) else ""
+                lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{c.get('universe') or '?'}_")
             embed.description += "\n\n" + "\n".join(lines)
             embed.set_footer(text=f"Page {page}/{total_pages}")
             if target_user.display_avatar:
@@ -654,8 +658,8 @@ def setup_cards_commands(bot, deps):
     @app_commands.describe(nom="Nom de la carte", bordure="Bordure à appliquer (ou 'aucune' pour retirer)")
     async def cardcustom_cmd(interaction: discord.Interaction, nom: str, bordure: str):
         from database import (card_get_by_name, user_card_count_owned,
-                                user_border_has, border_get,
-                                card_customization_set)
+                                user_border_has, user_border_consume, border_get,
+                                card_customization_get, card_customization_set)
         from services.card_render import render_user_card
         await interaction.response.defer(ephemeral=True)
         card = card_get_by_name(nom.strip())
@@ -675,15 +679,25 @@ def setup_cards_commands(bot, deps):
         if bkey in ("aucune", "none", "retirer", "remove"):
             card_customization_set(uid, card["id"], None)
             await interaction.followup.send(
-                f"Bordure retirée de **{card['name']}**.", ephemeral=True)
+                f"Bordure retirée de **{card['name']}** (la bordure est consommée, pas rendue).",
+                ephemeral=True)
             return
-        if not user_border_has(uid, bkey) and not _is_owner(uid):
+        # Deja equipee de cette bordure ? -> no-op, pas de consommation
+        if card_customization_get(uid, card["id"]) == bkey:
             await interaction.followup.send(
-                f"Tu ne possèdes pas cette bordure. Achète-la via `/cardshop`.", ephemeral=True)
+                f"**{card['name']}** a déjà cette bordure équipée.", ephemeral=True)
             return
         border = border_get(bkey)
         if not border:
             await interaction.followup.send("Bordure introuvable.", ephemeral=True)
+            return
+        # Consomme 1 copie du stock (owner exempté)
+        if _is_owner(uid):
+            user_border_consume(uid, bkey)  # best-effort, pas bloquant
+        elif not user_border_consume(uid, bkey):
+            await interaction.followup.send(
+                f"Tu n'as pas **{border['name']}** en stock. Achète-la via `/cardshop`.",
+                ephemeral=True)
             return
         card_customization_set(uid, card["id"], bkey)
         render_user_card(uid, card["id"], border, fallback_url=card.get("image_url"))
@@ -714,7 +728,8 @@ def setup_cards_commands(bot, deps):
         try:
             uid = interaction.user.id
             owned = user_borders_list(uid)
-            choices = [app_commands.Choice(name=b["name"], value=b["border_key"]) for b in owned]
+            choices = [app_commands.Choice(
+                name=f"{b['name']} (x{b['qty']})", value=b["border_key"]) for b in owned]
             choices.append(app_commands.Choice(name="Aucune (retirer)", value="aucune"))
             q = (current or "").strip().lower()
             if q:
@@ -722,6 +737,29 @@ def setup_cards_commands(bot, deps):
             return choices[:25]
         except Exception:
             return []
+
+
+    # === /cardinventory : cosmetiques en stock ===
+    @bot.tree.command(name="cardinventory", description="Voir tes cosmétiques en stock (bordures non utilisées)")
+    @app_commands.describe(membre="Voir l'inventaire de quelqu'un d'autre (defaut : toi)")
+    async def cardinventory_cmd(interaction: discord.Interaction, membre: discord.Member = None):
+        from database import user_borders_list
+        target = membre or interaction.user
+        borders = user_borders_list(target.id)
+        embed = discord.Embed(
+            title=f"🎒 Inventaire cosmétiques — {target.display_name}",
+            color=0xB9F23A,
+        )
+        if target.display_avatar:
+            embed.set_thumbnail(url=str(target.display_avatar.url))
+        if not borders:
+            embed.description = ("Aucun cosmétique en stock.\n"
+                                  "Achète des bordures via `/cardshop`, puis applique-les avec `/cardcustom`.")
+        else:
+            lines = [f"🖼 **{b['name']}** × {b['qty']}" for b in borders]
+            embed.description = ("**Bordures** _(non utilisées)_\n" + "\n".join(lines) +
+                                  "\n\n_Applique une bordure avec_ `/cardcustom` _(elle est consommée)._")
+        await interaction.response.send_message(embed=embed, ephemeral=(membre is None))
 
 
     # === /cardshop : boutique hebdo (6 slots) ===

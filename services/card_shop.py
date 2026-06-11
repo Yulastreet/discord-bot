@@ -200,7 +200,7 @@ def purchase_slot(user_id: int, slot: int) -> dict:
     """Achete l'item du slot pour user. Retourne dict {ok, error, item_name, new_balance}."""
     from database import (card_shop_get_slot, currency_get, currency_spend,
                            card_get, border_get, user_border_add,
-                           user_card_add_with_flag, user_border_has)
+                           user_card_add_with_flag)
     s = card_shop_get_slot(slot)
     if not s or not s.get("enabled") or not s.get("item_type") or not s.get("item_ref"):
         return {"ok": False, "error": "Slot vide ou désactivé."}
@@ -209,8 +209,6 @@ def purchase_slot(user_id: int, slot: int) -> dict:
     item_name = s.get("label") or ""
     # Verifs specifiques
     if item_type == "border":
-        if user_border_has(user_id, s["item_ref"]):
-            return {"ok": False, "error": "Tu possèdes déjà cette bordure."}
         border = border_get(s["item_ref"])
         if not border:
             return {"ok": False, "error": "Bordure introuvable."}

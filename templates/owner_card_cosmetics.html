@@ -1,0 +1,136 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_card_cosmetics' %}
+
+{% block title %}Cards Cosmetics · Owner{% endblock %}
+{% block crumb %}Cards Cosmetics{% endblock %}
+
+{% block content %}
+<style>
+  .cm-section { background: var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom: var(--s-4); }
+  .cm-section h3 { margin:0 0 12px; font-size:16px; }
+  .cm-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap:14px; }
+  .cm-card { background: var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .cm-card img { width:100%; max-width:160px; margin:0 auto; border-radius:8px; }
+  .cm-card .k { font-size:11px; color:var(--text-2); }
+  .cm-card .nm { font-weight:700; font-size:14px; }
+  .cm-give { display:flex; flex-direction:column; gap:8px; }
+  .cm-give input, .cm-give select { background: var(--bg-1); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 10px; font-size:13px; }
+  .cm-give .row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .cm-give label { font-size:11px; color:var(--text-2); display:flex; flex-direction:column; gap:4px; }
+  .userinv { font-size:12px; }
+  .userinv .tag { display:inline-block; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; padding:3px 8px; margin:3px; }
+</style>
+
+<div class="col gap-7">
+  <div>
+    <h1>🎨 Cards Cosmetics</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:64ch;">
+      Tous les cosmétiques (bordures). Donne ou retire des copies à un joueur par son ID Discord.
+      Une bordure en stock s'applique via <code>/cardcustom</code> (consommée à l'usage).
+    </p>
+  </div>
+
+  <!-- Give / Remove -->
+  <div class="cm-section cm-give">
+    <h3>🎁 Donner / Retirer</h3>
+    <div class="row">
+      <label>User ID Discord
+        <input id="cmUser" type="text" placeholder="ex: 123456789012345678" style="min-width:240px;">
+      </label>
+      <label>Bordure
+        <select id="cmBorder"></select>
+      </label>
+      <label>Quantité
+        <input id="cmQty" type="number" value="1" min="1" max="100" style="width:90px;">
+      </label>
+      <button class="btn btn-primary" onclick="cmGive()">🎁 Donner</button>
+      <button class="btn btn-danger" onclick="cmRemove(false)">➖ Retirer</button>
+      <button class="btn btn-secondary" onclick="cmRemove(true)">🗑 Tout retirer</button>
+    </div>
+    <span id="cmHint" class="muted" style="font-size:12px;"></span>
+    <div style="margin-top:10px;">
+      <button class="btn btn-secondary" onclick="cmLoadUser()" style="font-size:12px;padding:5px 10px;">👁 Voir l'inventaire de cet user</button>
+      <div id="cmUserInv" class="userinv" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- Catalogue -->
+  <div class="cm-section">
+    <h3>🖼 Catalogue cosmétiques</h3>
+    <div id="cmGrid" class="cm-grid"><div class="muted">Chargement…</div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function esc(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+let _cos = [];
+
+async function loadCosmetics(){
+  const r = await fetch('/api/owner/cosmetics');
+  const d = await r.json();
+  _cos = d.items || [];
+  // selecteur
+  document.getElementById('cmBorder').innerHTML = _cos.map(b=>`<option value="${b.border_key}">${esc(b.name)} (${b.border_key})</option>`).join('');
+  // grid
+  document.getElementById('cmGrid').innerHTML = _cos.map(b=>`
+    <div class="cm-card">
+      <img src="${b.preview_url}" onerror="this.style.display='none'">
+      <div class="nm">${esc(b.name)}</div>
+      <div class="k">key: <code>${esc(b.border_key)}</code></div>
+      <div class="k">📦 ${b.stock_total} en stock · 🃏 ${b.equipped_total} équipées</div>
+    </div>`).join('');
+}
+
+async function cmGive(){
+  const payload = {
+    user_id: document.getElementById('cmUser').value.trim(),
+    border_key: document.getElementById('cmBorder').value,
+    qty: parseInt(document.getElementById('cmQty').value,10)||1,
+  };
+  const hint = document.getElementById('cmHint');
+  if(!payload.user_id){ hint.textContent='User ID requis.'; return; }
+  hint.textContent='…';
+  const r = await fetch('/api/owner/cosmetics/give', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d = await r.json();
+  hint.textContent = d.ok ? `✅ ${d.given} copie(s) donnée(s).` : ('❌ '+(d.error||'?'));
+  if(d.ok){ loadCosmetics(); cmLoadUser(); }
+}
+window.cmGive=cmGive;
+
+async function cmRemove(all){
+  const payload = {
+    user_id: document.getElementById('cmUser').value.trim(),
+    border_key: document.getElementById('cmBorder').value,
+    qty: parseInt(document.getElementById('cmQty').value,10)||1,
+    all: !!all,
+  };
+  const hint = document.getElementById('cmHint');
+  if(!payload.user_id){ hint.textContent='User ID requis.'; return; }
+  if(all && !confirm('Retirer TOUTES les copies de cette bordure à cet user ?')) return;
+  hint.textContent='…';
+  const r = await fetch('/api/owner/cosmetics/remove', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d = await r.json();
+  hint.textContent = d.ok ? '✅ Retiré.' : ('❌ '+(d.error||'?'));
+  if(d.ok){ loadCosmetics(); cmLoadUser(); }
+}
+window.cmRemove=cmRemove;
+
+async function cmLoadUser(){
+  const uid = document.getElementById('cmUser').value.trim();
+  const box = document.getElementById('cmUserInv');
+  if(!uid){ box.innerHTML=''; return; }
+  const r = await fetch('/api/owner/cosmetics/user/'+encodeURIComponent(uid));
+  const d = await r.json();
+  const inv = d.inventory || [];
+  const eq = d.equipped || [];
+  let html = '<b>Stock :</b> ' + (inv.length ? inv.map(b=>`<span class="tag">${esc(b.name)} ×${b.qty}</span>`).join('') : '<span class="muted">vide</span>');
+  html += '<br><b>Équipées :</b> ' + (eq.length ? eq.map(e=>`<span class="tag">${esc(e.border_name||e.border_key)} → ${esc(e.card_name||('#'+e.card_id))}</span>`).join('') : '<span class="muted">aucune</span>');
+  box.innerHTML = html;
+}
+window.cmLoadUser=cmLoadUser;
+
+loadCosmetics();
+</script>
+{% endblock %}

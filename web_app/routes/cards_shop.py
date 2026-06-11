@@ -12,6 +12,91 @@ def register_cards_shop_routes(app, deps):
         return render_template("owner_card_shop.html",
                                  active_nav="owner_card_shop")
 
+    @app.route("/owner/cards/cosmetics")
+    def owner_cards_cosmetics_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        return render_template("owner_card_cosmetics.html",
+                                 active_nav="owner_card_cosmetics")
+
+    # ===== COSMETICS (bordures) : liste + give/remove =====
+    @app.route("/api/owner/cosmetics", methods=["GET"])
+    def api_owner_cosmetics():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import borders_list, get_db
+        borders = borders_list()
+        # Stats : combien de copies en circulation + combien equipees
+        conn = get_db(); c = conn.cursor()
+        for b in borders:
+            k = b["border_key"]
+            stock = c.execute("SELECT COALESCE(SUM(qty),0) AS n FROM user_borders WHERE border_key = ?",
+                              (k,)).fetchone()["n"]
+            equipped = c.execute("SELECT COUNT(*) AS n FROM card_customizations WHERE border_key = ?",
+                                 (k,)).fetchone()["n"]
+            b["stock_total"] = int(stock or 0)
+            b["equipped_total"] = int(equipped or 0)
+            b["preview_url"] = f"/static/card_customs/_preview_{k}.png"
+        conn.close()
+        return jsonify({"items": borders})
+
+    @app.route("/api/owner/cosmetics/user/<user_id>", methods=["GET"])
+    def api_owner_cosmetics_user(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import user_borders_list, get_db
+        inv = user_borders_list(user_id)
+        # Bordures equipees (sur des cartes)
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT cc.card_id, cc.border_key, b.name AS border_name, ca.name AS card_name "
+            "FROM card_customizations cc "
+            "LEFT JOIN borders b ON b.border_key = cc.border_key "
+            "LEFT JOIN cards ca ON ca.id = cc.card_id "
+            "WHERE cc.user_id = ? AND cc.border_key IS NOT NULL",
+            (str(user_id),)).fetchall()
+        conn.close()
+        return jsonify({"inventory": inv, "equipped": [dict(r) for r in rows]})
+
+    @app.route("/api/owner/cosmetics/give", methods=["POST"])
+    def api_owner_cosmetics_give():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import user_border_add, border_get
+        data = request.json or {}
+        user_id = str(data.get("user_id") or "").strip()
+        border_key = str(data.get("border_key") or "").strip()
+        try:
+            qty = max(1, min(int(data.get("qty", 1)), 100))
+        except (ValueError, TypeError):
+            qty = 1
+        if not user_id or not border_key:
+            return jsonify({"error": "user_id + border_key requis"}), 400
+        if not border_get(border_key):
+            return jsonify({"error": "bordure introuvable"}), 404
+        user_border_add(user_id, border_key, qty=qty)
+        return jsonify({"ok": True, "given": qty})
+
+    @app.route("/api/owner/cosmetics/remove", methods=["POST"])
+    def api_owner_cosmetics_remove():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import user_border_remove
+        data = request.json or {}
+        user_id = str(data.get("user_id") or "").strip()
+        border_key = str(data.get("border_key") or "").strip()
+        if not user_id or not border_key:
+            return jsonify({"error": "user_id + border_key requis"}), 400
+        if data.get("all"):
+            user_border_remove(user_id, border_key, qty=None)
+        else:
+            try:
+                qty = max(1, int(data.get("qty", 1)))
+            except (ValueError, TypeError):
+                qty = 1
+            user_border_remove(user_id, border_key, qty=qty)
+        return jsonify({"ok": True})
+
     # ===== SLOTS SHOP =====
     @app.route("/api/owner/card-shop/slots", methods=["GET"])
     def api_owner_card_shop_slots():
