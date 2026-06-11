@@ -1153,6 +1153,14 @@ def setup_runtime(bot, deps):
             return
         guild_id_str = str(message.guild.id)
 
+        # Card events : claim par captcha texte
+        try:
+            from services.card_events import handle_message_claim
+            if await handle_message_claim(bot, message):
+                return  # claim done, skip rest
+        except Exception as e:
+            print(f"[card_event on_message] err: {e!r}")
+
         # Automod : filtres TookBot+ (mots interdits, invites, spam mentions)
         try:
             from services.automod import automod_on_message
@@ -1787,14 +1795,6 @@ def setup_runtime(bot, deps):
         await bot.wait_until_ready()
 
 
-    @bot.event
-    async def on_raw_reaction_add(payload):
-        # Card events claim
-        try:
-            from services.card_events import handle_reaction_claim
-            await handle_reaction_claim(bot, payload)
-        except Exception as e:
-            print(f"[on_raw_reaction_add card_event] err: {e!r}")
 
 
     @topgg_stats_poster.before_loop

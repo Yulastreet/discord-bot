@@ -165,6 +165,11 @@ def init_db():
         c.execute("ALTER TABLE card_event_log ADD COLUMN winning_emoji TEXT")
     except Exception:
         pass
+    # Migration : claim_code (captcha texte)
+    try:
+        c.execute("ALTER TABLE card_event_log ADD COLUMN claim_code TEXT")
+    except Exception:
+        pass
 
     # Possessions : un user peut posseder plusieurs copies d'une meme carte.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
@@ -1985,15 +1990,31 @@ def card_event_log_create(guild_id, channel_id, card_id, message_id=None,
     return eid
 
 
-def card_event_log_update_message(event_id, message_id, winning_emoji=None):
+def card_event_log_update_message(event_id, message_id, winning_emoji=None,
+                                    claim_code=None):
     conn = get_db(); c = conn.cursor()
+    sets = ["message_id = ?"]
+    vals = [str(message_id)]
     if winning_emoji is not None:
-        c.execute("UPDATE card_event_log SET message_id = ?, winning_emoji = ? WHERE id = ?",
-                  (str(message_id), winning_emoji, int(event_id)))
-    else:
-        c.execute("UPDATE card_event_log SET message_id = ? WHERE id = ?",
-                  (str(message_id), int(event_id)))
+        sets.append("winning_emoji = ?")
+        vals.append(winning_emoji)
+    if claim_code is not None:
+        sets.append("claim_code = ?")
+        vals.append(claim_code)
+    vals.append(int(event_id))
+    c.execute(f"UPDATE card_event_log SET {', '.join(sets)} WHERE id = ?", vals)
     conn.commit(); conn.close()
+
+
+def card_event_log_get_pending_in_channel(channel_id):
+    """Liste events pending dans un salon (pour captcha matching)."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT * FROM card_event_log WHERE channel_id = ? AND status = 'pending' "
+        "AND claim_code IS NOT NULL ORDER BY id DESC LIMIT 10",
+        (str(channel_id),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def card_event_log_get_by_message(message_id):

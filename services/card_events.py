@@ -1,12 +1,11 @@
-"""Cards Events : drops aleatoires dans un salon, 1ere reaction wins.
+"""Cards Events : drops aleatoires dans un salon, captcha texte -> 1er a taper code gagne.
 
 Owner configure par guild : channel + interval (min-max) + min_rarity.
 Loop task verifie chaque minute si un drop doit etre lance.
-Listener on_raw_reaction_add traite les claims.
+Listener on_message verifie si message correspond a un code event pending.
 """
 from __future__ import annotations
 
-import asyncio
 import datetime as _dt
 import random
 from typing import Optional
@@ -17,7 +16,7 @@ from database import (
     card_event_config_all_enabled,
     card_event_config_set,
     card_event_log_create,
-    card_event_log_get_by_message,
+    card_event_log_get_pending_in_channel,
     card_event_log_update_message,
     card_event_log_claim,
     card_pick_random_by_min_rarity,
@@ -37,19 +36,13 @@ RARITY_EMOJIS = {
     "common": "⚪", "rare": "🔵", "epic": "🟣",
     "legendary": "🟠", "mythic": "🔴", "secret": "🌈",
 }
-# Pool d'emojis pour reaction gagnante (ronds + carrés colorés)
-CLAIM_EMOJIS = [
-    "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "🟤", "⚫", "⚪",
-    "🟥", "🟧", "🟨", "🟩", "🟦", "🟪", "🟫", "⬛", "⬜",
-]
-EMOJI_NAMES = {
-    "🔴": "rond rouge", "🟠": "rond orange", "🟡": "rond jaune",
-    "🟢": "rond vert", "🔵": "rond bleu", "🟣": "rond violet",
-    "🟤": "rond marron", "⚫": "rond noir", "⚪": "rond blanc",
-    "🟥": "carré rouge", "🟧": "carré orange", "🟨": "carré jaune",
-    "🟩": "carré vert", "🟦": "carré bleu", "🟪": "carré violet",
-    "🟫": "carré marron", "⬛": "carré noir", "⬜": "carré blanc",
-}
+# Chars sans ambiguite (pas O/0, pas I/l/1)
+CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+CODE_LEN = 5
+
+
+def _gen_code() -> str:
+    return "".join(random.choice(CODE_CHARS) for _ in range(CODE_LEN))
 
 
 def _now_iso() -> str:
@@ -80,18 +73,13 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     if not channel:
         print(f"[card_event] channel {channel_id} introuvable")
         return None
-    # Pick carte
     card = card_pick_random_by_min_rarity(min_rarity)
     if not card:
         print(f"[card_event] aucune carte eligible min_rarity={min_rarity}")
         return None
-    # Create log row
     event_id = card_event_log_create(guild_id, channel_id, card["id"],
                                        triggered_by=triggered_by)
-    # Pick winning emoji
-    winning = random.choice(CLAIM_EMOJIS)
-    winning_name = EMOJI_NAMES.get(winning, winning)
-    # Build embed (titre = nom carte uniquement, sans "Drop Event !")
+    code = _gen_code()
     rarity = card.get("rarity", "common")
     color = RARITY_COLORS.get(rarity, 0x9aa0a6)
     emoji = RARITY_EMOJIS.get(rarity, "⚪")
@@ -100,86 +88,79 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
         description=(f"**Rareté :** {rarity.upper()}\n"
                        f"**Origine :** {card.get('subtitle') or '?'}\n"
                        f"**Univers :** {card.get('universe') or '?'}\n\n"
-                       f"⚡ Première personne à réagir avec le **{winning_name}** {winning} gagne cette carte !"),
+                       f"⚡ Première personne à taper `{code}` dans ce salon gagne cette carte !"),
         color=color,
     )
     if card.get("image_url"):
         embed.set_image(url=card["image_url"])
-    embed.set_footer(text=f"Event #{event_id}")
+    embed.set_footer(text=f"Event #{event_id} · code: {code}")
     try:
         msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
-        card_event_log_update_message(event_id, msg.id, winning_emoji=winning)
-        # Ajoute toutes les reactions claim en parallele
-        async def _add(e):
-            try:
-                await msg.add_reaction(e)
-            except Exception:
-                pass
-        await asyncio.gather(*(_add(e) for e in CLAIM_EMOJIS))
+        card_event_log_update_message(event_id, msg.id, claim_code=code)
         return {"event_id": event_id, "card": card, "message_id": msg.id,
-                  "channel_id": channel_id, "winning_emoji": winning}
+                  "channel_id": channel_id, "claim_code": code}
     except Exception as e:
         print(f"[card_event] erreur send: {e}")
         return None
 
 
-async def handle_reaction_claim(bot, payload: discord.RawReactionActionEvent) -> bool:
-    """Si la reaction concerne un event drop pending, claim pour user.
-    Retourne True si claim effectue."""
-    # Skip bot reactions
-    if payload.user_id == bot.user.id:
+async def handle_message_claim(bot, message: discord.Message) -> bool:
+    """Si message correspond au code d'un event pending dans le salon, claim."""
+    if message.author.bot:
         return False
-    event = card_event_log_get_by_message(payload.message_id)
-    if not event:
+    if not message.guild:
         return False
-    # Verifie que l'emoji utilise est le bon (ignore mauvaise reaction)
-    winning = event.get("winning_emoji")
-    used = str(payload.emoji)
-    if winning and used != winning:
+    content = (message.content or "").strip().upper()
+    if not content or len(content) > 32:
         return False
-    ok = card_event_log_claim(event["id"], payload.user_id)
+    events = card_event_log_get_pending_in_channel(message.channel.id)
+    if not events:
+        return False
+    matched = None
+    for ev in events:
+        code = (ev.get("claim_code") or "").upper()
+        if code and content == code:
+            matched = ev
+            break
+    if not matched:
+        return False
+    ok = card_event_log_claim(matched["id"], message.author.id)
     if not ok:
         return False
-    # Add carte au user
     try:
-        user_card_add(payload.user_id, event["card_id"])
+        user_card_add(message.author.id, matched["card_id"])
     except Exception as e:
         print(f"[card_event claim] add err: {e}")
-    # Update embed pour montrer le claim + clear reactions
+    # Update embed + react au message gagnant
     try:
-        channel = bot.get_channel(payload.channel_id)
-        if channel:
-            msg = await channel.fetch_message(payload.message_id)
-            if msg:
-                if msg.embeds:
-                    emb = msg.embeds[0]
-                    user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
-                    emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {user.mention if user else f'<@{payload.user_id}>'}** !"
-                    emb.color = 0x4ade80
-                    await msg.edit(embed=emb)
-                try:
-                    await msg.clear_reactions()
-                except Exception:
-                    pass
+        msg_id = matched.get("message_id")
+        if msg_id:
+            event_msg = await message.channel.fetch_message(int(msg_id))
+            if event_msg and event_msg.embeds:
+                emb = event_msg.embeds[0]
+                emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {message.author.mention}** !"
+                emb.color = 0x4ade80
+                await event_msg.edit(embed=emb)
     except Exception as e:
         print(f"[card_event claim update] err: {e}")
+    try:
+        await message.add_reaction("🎉")
+    except Exception:
+        pass
     return True
 
 
 async def check_due_drops(bot) -> int:
-    """Verifie tous les configs enabled et drop si next_drop_at <= now.
-    Retourne nb de drops effectues."""
+    """Verifie tous les configs enabled et drop si next_drop_at <= now."""
     now_iso = _now_iso()
     configs = card_event_config_all_enabled()
     dropped = 0
     for cfg in configs:
         next_at = cfg.get("next_drop_at")
         if not next_at or next_at > now_iso:
-            # Init next_drop_at si jamais set
             if not next_at:
                 _schedule_next_drop(cfg["guild_id"], cfg)
             continue
-        # Drop !
         result = await trigger_event_drop(
             bot, int(cfg["guild_id"]), int(cfg["channel_id"]),
             min_rarity=cfg.get("min_rarity") or "rare",
