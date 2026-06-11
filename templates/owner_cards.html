@@ -181,8 +181,13 @@
         </select>
       </label>
       <label>Univers
-        <select id="universeSelect" onchange="resetPageAndLoad()">
+        <select id="universeSelect" onchange="ocUniverseChanged()">
           <option value="">Tous univers</option>
+        </select>
+      </label>
+      <label>Origine
+        <select id="originSelect" onchange="resetPageAndLoad()">
+          <option value="">Toutes origines</option>
         </select>
       </label>
       <label>Trier par
@@ -522,12 +527,14 @@ async function loadCards() {
   const search = document.getElementById('searchInput').value.trim();
   const rar = document.getElementById('raritySelect').value;
   const uni = document.getElementById('universeSelect').value;
+  const ori = (document.getElementById('originSelect') || {}).value || '';
   const sort = document.getElementById('sortSelect').value;
   const perPage = document.getElementById('perPageSelect').value || '50';
   const params = new URLSearchParams();
   if (search) params.set('q', search);
   if (rar) params.set('rarity', rar);
   if (uni) params.set('universe', uni);
+  if (ori) params.set('origin', ori);
   if (sort) params.set('sort', sort);
   params.set('per_page', perPage);
   params.set('page', _currentPage);
@@ -1474,7 +1481,24 @@ async function loadUniversesOwner() {
     });
   } catch (e) {}
 }
+async function loadOriginsOwner() {
+  const uni = (document.getElementById('universeSelect') || {}).value || '';
+  const params = new URLSearchParams();
+  if (uni) params.set('universe', uni);
+  try {
+    const r = await fetch('/api/public/cards/origins?' + params.toString());
+    const d = await r.json();
+    const sel = document.getElementById('originSelect');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Toutes origines</option>' +
+      (d.items || []).map(o => `<option value="${(o.origin||'').replace(/"/g,'&quot;')}">${(o.origin||'')} (${o.count})</option>`).join('');
+    if (cur && [...sel.options].some(op => op.value === cur)) sel.value = cur;
+  } catch (e) {}
+}
+function ocUniverseChanged() { loadOriginsOwner(); resetPageAndLoad(); }
+window.ocUniverseChanged = ocUniverseChanged;
 loadUniversesOwner();
+loadOriginsOwner();
 loadCards();
 </script>
 {% endblock %}

@@ -186,8 +186,13 @@
         </select>
       </label>
       <label>Univers
-        <select id="pcUniverse" onchange="pcResetAndLoad()">
+        <select id="pcUniverse" onchange="pcUniverseChanged()">
           <option value="">Tous univers</option>
+        </select>
+      </label>
+      <label>Origine
+        <select id="pcOrigin" onchange="pcResetAndLoad()">
+          <option value="">Toutes origines</option>
         </select>
       </label>
       <label>Trier par
@@ -457,6 +462,28 @@ async function pcLoadUniverses() {
   } catch (e) {}
 }
 
+async function pcLoadOrigins() {
+  // Origines limitees a l'univers selectionne (sinon toutes)
+  const uni = (document.getElementById('pcUniverse') || {}).value || '';
+  const params = new URLSearchParams();
+  if (uni) params.set('universe', uni);
+  try {
+    const r = await fetch('/api/public/cards/origins?' + params.toString());
+    const d = await r.json();
+    const sel = document.getElementById('pcOrigin');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Toutes origines</option>' +
+      (d.items || []).map(o => `<option value="${pcEsc(o.origin)}">${pcEsc(o.origin)} (${o.count})</option>`).join('');
+    // garde la sélection si toujours dispo
+    if (cur && [...sel.options].some(op => op.value === cur)) sel.value = cur;
+  } catch (e) {}
+}
+function pcUniverseChanged() {
+  pcLoadOrigins();   // re-scope les origines à l'univers choisi
+  pcResetAndLoad();
+}
+window.pcUniverseChanged = pcUniverseChanged;
+
 async function pcLoad() {
   // Refresh stats avec filtres actuels en meme temps
   pcLoadStats();
@@ -464,11 +491,13 @@ async function pcLoad() {
   const q = document.getElementById('pcSearch').value.trim();
   const rar = document.getElementById('pcRarity').value;
   const uni = document.getElementById('pcUniverse').value;
+  const ori = (document.getElementById('pcOrigin') || {}).value || '';
   const sort = document.getElementById('pcSort').value;
   const pp = document.getElementById('pcPerPage').value || '50';
   if (q) params.set('q', q);
   if (rar) params.set('rarity', rar);
   if (uni) params.set('universe', uni);
+  if (ori) params.set('origin', ori);
   if (sort) params.set('sort', sort);
   params.set('per_page', pp);
   params.set('page', pcPage);
@@ -665,6 +694,7 @@ window.pcSubmitEdit = pcSubmitEdit;
 
 pcLoadStats();
 pcLoadUniverses();
+pcLoadOrigins();
 pcLoadContributors();
 pcLoad();
 

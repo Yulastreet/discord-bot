@@ -24,6 +24,7 @@ def register_cards_owner_routes(app, deps):
         from database import card_list_all, card_count_filtered, card_count_total
         rarity = request.args.get("rarity") or None
         universe = request.args.get("universe") or None
+        origin = request.args.get("origin") or None
         search = request.args.get("q") or None
         sort = (request.args.get("sort") or "name_asc").strip()
         try:
@@ -46,6 +47,8 @@ def register_cards_owner_routes(app, deps):
             where.append("rarity = ?"); params.append(rarity)
         if universe:
             where.append("universe = ?"); params.append(universe)
+        if origin:
+            where.append("subtitle = ?"); params.append(origin)
         if search:
             where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
             like = f"%{search.lower()}%"
@@ -108,6 +111,23 @@ def register_cards_owner_routes(app, deps):
             "GROUP BY universe ORDER BY n DESC").fetchall()
         conn.close()
         return jsonify({"items": [{"universe": r["universe"], "count": r["n"]} for r in rows]})
+
+
+    @app.route("/api/public/cards/origins", methods=["GET"])
+    def api_public_cards_origins():
+        """Liste des origines (subtitle) distinctes avec compte. Filtre optionnel par univers."""
+        from database import get_db
+        uni = request.args.get("universe") or None
+        conn = get_db(); c = conn.cursor()
+        where = ["subtitle IS NOT NULL", "subtitle != ''"]
+        params = []
+        if uni:
+            where.append("universe = ?"); params.append(uni)
+        rows = c.execute(
+            f"SELECT subtitle, COUNT(*) AS n FROM cards WHERE {' AND '.join(where)} "
+            f"GROUP BY subtitle ORDER BY subtitle COLLATE NOCASE", params).fetchall()
+        conn.close()
+        return jsonify({"items": [{"origin": r["subtitle"], "count": r["n"]} for r in rows]})
 
 
     @app.route("/api/public/cards/contributors", methods=["GET"])
@@ -733,6 +753,7 @@ def register_cards_owner_routes(app, deps):
         from database import get_db
         rarity = request.args.get("rarity") or None
         universe = request.args.get("universe") or None
+        origin = request.args.get("origin") or None
         search = request.args.get("q") or None
         sort = (request.args.get("sort") or "name_asc").strip()
         try:
@@ -752,6 +773,8 @@ def register_cards_owner_routes(app, deps):
             where.append("rarity = ?"); params.append(rarity)
         if universe:
             where.append("universe = ?"); params.append(universe)
+        if origin:
+            where.append("subtitle = ?"); params.append(origin)
         if search:
             where.append("(LOWER(name) LIKE ? OR LOWER(universe) LIKE ? OR LOWER(subtitle) LIKE ?)")
             like = f"%{search.lower()}%"
