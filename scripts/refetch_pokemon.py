@@ -93,21 +93,35 @@ def _needs_bake(image_url: str) -> bool:
 
 def main():
     force_all = "--all" in sys.argv
+    # --restore-official : restaure l'artwork officiel PokeAPI (par nom) sur les
+    # cartes dont la source N'EST PAS deja un artwork officiel (ex : modifiees via
+    # suggestion). Ne touche pas celles deja sur l'artwork officiel.
+    restore = "--restore-official" in sys.argv
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT id, name, rarity, image_url, source_image_url FROM cards "
-        "WHERE subtitle LIKE 'Pokémon%' OR subtitle LIKE 'Pokemon%'").fetchall()
-    print(f"{len(rows)} cartes Pokémon.")
+        "WHERE subtitle LIKE 'Pokémon GEN%'").fetchall()
+    print(f"{len(rows)} cartes Pokémon (PokeAPI).")
     public_base = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
     fixed = 0
     ok = 0
     failed = []
     for i, r in enumerate(rows, 1):
-        if not force_all and not _needs_bake(r["image_url"]):
+        src = r["source_image_url"] or ""
+        if restore:
+            # Deja sur artwork officiel ? -> on ne touche pas
+            if "official-artwork" in src:
+                ok += 1
+                continue
+        elif not force_all and not _needs_bake(r["image_url"]):
             ok += 1
             continue
-        pid = _extract_pid(r["source_image_url"], r["image_url"]) or _pid_from_name(r["name"])
+        # En mode restore, on derive toujours l'id par le NOM (la source est polluee)
+        if restore:
+            pid = _pid_from_name(r["name"])
+        else:
+            pid = _extract_pid(r["source_image_url"], r["image_url"]) or _pid_from_name(r["name"])
         if not pid:
             failed.append(f"{r['name']} (pid introuvable)")
             continue
