@@ -1040,20 +1040,30 @@ def setup_cards_commands(bot, deps):
 
 
     # === /cardwish <carte> : ajoute/retire de la wishlist ===
+    WISHLIST_MAX = 7  # cap de cartes en wishlist par joueur
     @bot.tree.command(name="cardwish", description="Ajoute ou retire une carte de ta wishlist")
     @app_commands.describe(nom="Carte à ajouter/retirer de ta wishlist")
     async def cardwish_cmd(interaction: discord.Interaction, nom: str):
-        from database import card_get_by_name, wishlist_toggle
+        from database import card_get_by_name, wishlist_toggle, wishlist_has, wishlist_list
         card = card_get_by_name(nom.strip())
         if not card:
             await interaction.response.send_message(f"Carte introuvable : `{nom}`.", ephemeral=True)
             return
+        # Cap : seulement si on AJOUTE (toggle off toujours autorisé)
+        if not wishlist_has(interaction.user.id, card["id"]):
+            if len(wishlist_list(interaction.user.id)) >= WISHLIST_MAX:
+                await interaction.response.send_message(
+                    f"Wishlist pleine ({WISHLIST_MAX} max). Retire une carte avant d'en ajouter.",
+                    ephemeral=True)
+                return
         added = wishlist_toggle(interaction.user.id, card["id"])
+        count = len(wishlist_list(interaction.user.id))
         emoji = RARITY_EMOJIS.get(card.get("rarity"), "⚪")
         if added:
-            msg = f"💖 **{card['name']}** {emoji} ajoutée à ta wishlist. Tu seras ping si quelqu'un la tire."
+            msg = (f"💖 **{card['name']}** {emoji} ajoutée à ta wishlist ({count}/{WISHLIST_MAX}). "
+                   f"Tu seras ping si quelqu'un la tire.")
         else:
-            msg = f"💔 **{card['name']}** {emoji} retirée de ta wishlist."
+            msg = f"💔 **{card['name']}** {emoji} retirée de ta wishlist ({count}/{WISHLIST_MAX})."
         await interaction.response.send_message(msg, ephemeral=True)
 
     @cardwish_cmd.autocomplete("nom")
@@ -1077,7 +1087,8 @@ def setup_cards_commands(bot, deps):
         from database import wishlist_list
         target = membre or interaction.user
         items = wishlist_list(target.id)
-        embed = discord.Embed(title=f"💖 Wishlist — {target.display_name}", color=0xff5fa2)
+        embed = discord.Embed(title=f"💖 Wishlist — {target.display_name} ({len(items)}/{WISHLIST_MAX})",
+                              color=0xff5fa2)
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
         if not items:
