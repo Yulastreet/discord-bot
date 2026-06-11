@@ -25,6 +25,8 @@ def register_cards_shop_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import borders_list, get_db
+        from services.card_render import render_border_preview_file
+        import time as _t
         borders = borders_list()
         # Stats : combien de copies en circulation + combien equipees
         conn = get_db(); c = conn.cursor()
@@ -36,7 +38,16 @@ def register_cards_shop_routes(app, deps):
                                  (k,)).fetchone()["n"]
             b["stock_total"] = int(stock or 0)
             b["equipped_total"] = int(equipped or 0)
-            b["preview_url"] = f"/static/card_customs/_preview_{k}.png"
+            # Regenere la preview avec la config actuelle (evite cache obsolete)
+            try:
+                render_border_preview_file(
+                    k, b["filename"],
+                    offset_x=b.get("offset_x", 0), offset_y=b.get("offset_y", 0),
+                    scale_pct=b.get("scale_pct", 100),
+                    card_scale_pct=b.get("card_scale_pct", 100))
+            except Exception:
+                pass
+            b["preview_url"] = f"/static/card_customs/_preview_{k}.png?t={int(_t.time())}"
         conn.close()
         return jsonify({"items": borders})
 
