@@ -37,12 +37,12 @@ RARITY_EMOJIS = {
     "legendary": "🟠", "mythic": "🔴", "secret": "🌈",
 }
 # Chars sans ambiguite (pas O/0, pas I/l/1)
-CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-CODE_LEN = 5
+CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
 
 
 def _gen_code() -> str:
-    return "".join(random.choice(CODE_CHARS) for _ in range(CODE_LEN))
+    n = random.randint(5, 6)
+    return "".join(random.choice(CODE_CHARS) for _ in range(n))
 
 
 def _now_iso() -> str:
@@ -110,7 +110,7 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
         return False
     if not message.guild:
         return False
-    content = (message.content or "").strip().upper()
+    content = (message.content or "").strip()
     if not content or len(content) > 32:
         return False
     events = card_event_log_get_pending_in_channel(message.channel.id)
@@ -118,7 +118,7 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
         return False
     matched = None
     for ev in events:
-        code = (ev.get("claim_code") or "").upper()
+        code = ev.get("claim_code") or ""
         if code and content == code:
             matched = ev
             break

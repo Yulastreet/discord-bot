@@ -1481,10 +1481,10 @@ def register_cards_owner_routes(app, deps):
         from database import get_db
         conn = get_db(); c = conn.cursor()
         rows = c.execute(
-            "SELECT uc.id AS uc_id, uc.card_id, uc.not_tradeable, uc.obtained_at, "
+            "SELECT uc.id AS uc_id, uc.card_id, uc.not_tradeable, uc.claimed_at, "
             "c.name, c.rarity, c.universe, c.subtitle, c.image_url "
             "FROM user_cards uc LEFT JOIN cards c ON c.id = uc.card_id "
-            "WHERE uc.user_id = ? ORDER BY uc.obtained_at DESC, uc.id DESC",
+            "WHERE uc.user_id = ? ORDER BY uc.claimed_at DESC, uc.id DESC",
             (str(user_id),)).fetchall()
         conn.close()
         return jsonify({"items": [dict(r) for r in rows]})
