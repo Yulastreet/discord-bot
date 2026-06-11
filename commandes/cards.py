@@ -1570,14 +1570,14 @@ def setup_cards_commands(bot, deps):
 
     class TradeModal(discord.ui.Modal, title="Proposer un trade"):
         offer_field = discord.ui.TextInput(
-            label="Tes cartes (separees par virgule)",
+            label="Tes cartes (laisse vide pour ne rien donner)",
             placeholder="Naruto Uzumaki, Goku x2, Vegeta",
-            required=True, max_length=400, style=discord.TextStyle.paragraph,
+            required=False, max_length=400, style=discord.TextStyle.paragraph,
         )
         request_field = discord.ui.TextInput(
-            label="Cartes voulues",
+            label="Cartes voulues (laisse vide pour un don)",
             placeholder="Gojo Satoru, Itadori Yuji",
-            required=True, max_length=400, style=discord.TextStyle.paragraph,
+            required=False, max_length=400, style=discord.TextStyle.paragraph,
         )
 
         def __init__(self, target_user_id: int, is_counter: bool = False,
@@ -1610,11 +1610,12 @@ def setup_cards_commands(bot, deps):
 
         async def on_submit(self, interaction: discord.Interaction):
             try:
-                offer_parsed = _parse_card_list(str(self.offer_field.value))
-                request_parsed = _parse_card_list(str(self.request_field.value))
-                if not offer_parsed or not request_parsed:
+                offer_parsed = _parse_card_list(str(self.offer_field.value or ""))
+                request_parsed = _parse_card_list(str(self.request_field.value or ""))
+                # Au moins UN des deux cotes doit avoir une carte (don unilateral OK)
+                if not offer_parsed and not request_parsed:
                     await interaction.response.send_message(
-                        "Tu dois proposer au moins 1 carte de chaque cote.",
+                        "Indique au moins 1 carte d'un des deux côtés.",
                         ephemeral=True)
                     return
 
