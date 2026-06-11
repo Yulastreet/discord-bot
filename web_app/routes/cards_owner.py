@@ -60,6 +60,7 @@ def register_cards_owner_routes(app, deps):
                              "WHEN 'epic' THEN 2 WHEN 'legendary' THEN 3 WHEN 'mythic' THEN 4 "
                              "WHEN 'secret' THEN 5 ELSE 6 END ASC, name ASC",
             "universe_asc": "universe ASC, name ASC",
+            "subtitle_asc": "subtitle ASC, name ASC",
             "newest":       "id DESC",
             "oldest":       "id ASC",
         }.get(sort, "name ASC")
@@ -765,6 +766,7 @@ def register_cards_owner_routes(app, deps):
                              "WHEN 'epic' THEN 2 WHEN 'legendary' THEN 3 WHEN 'mythic' THEN 4 "
                              "WHEN 'secret' THEN 5 ELSE 6 END ASC, name ASC",
             "universe_asc": "universe ASC, name ASC",
+            "subtitle_asc": "subtitle ASC, name ASC",
             "newest":       "id DESC",
             "oldest":       "id ASC",
         }.get(sort, "name ASC")
