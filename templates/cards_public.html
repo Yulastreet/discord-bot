@@ -114,7 +114,7 @@
   .pc-tile.missing:hover { opacity:.5; }
   /* Bandeau remerciements (lime, pleine largeur, tout en haut) */
   .pc-marquee { overflow:hidden; background: oklch(0.86 0.20 130);
-                 padding:9px 0; margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-5)) var(--s-4);
+                 padding:9px 0; width:100%; margin:0;
                  box-shadow: 0 2px 12px oklch(0.86 0.20 130 / .35); }
   .pc-marquee-track { display:inline-flex; gap:40px; white-space:nowrap; animation: pc-scroll 40s linear infinite;
                        will-change: transform; padding-left:100%; }
@@ -383,7 +383,17 @@ async function pcLoadContributors(){
     ).join('');
     // Duplique pour un défilement continu
     track.innerHTML = '<span class="pc-marquee-item" style="font-weight:800;">🙏 Merci aux contributeurs !</span>' + html + html;
-    document.getElementById('pcMarquee').style.display = 'block';
+    const mq = document.getElementById('pcMarquee');
+    // Sort le bandeau de .content (max-width centré) -> direct dans .main pour
+    // qu'il prenne TOUTE la largeur, juste sous le header (topbar).
+    try {
+      const main = document.querySelector('main.main');
+      const content = main && main.querySelector('.content');
+      if (main && content && mq.parentElement !== main) {
+        main.insertBefore(mq, content);
+      }
+    } catch(e){}
+    mq.style.display = 'block';
   } catch(e){}
 }
 
