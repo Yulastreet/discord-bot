@@ -130,7 +130,7 @@
     <p class="cat-title">{{ cat }}</p>
     <div class="feat-grid">
       {% for f in feature_registry if f.cat == cat %}
-      {% set is_on = settings.get(f.key, '1') == '1' %}
+      {% set is_on = settings.get(f.key, f.get('default', '1')) == '1' %}
       <div class="feat-card {{ '' if is_on else 'disabled' }}" id="card-{{ f.key }}">
         <div class="feat-info">
           <div class="feat-label">{{ f.label }}</div>

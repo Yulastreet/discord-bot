@@ -552,6 +552,17 @@ def register_admin_routes(app, deps):
         if value is None:
             return jsonify({"error": "value requis"}), 400
         val_str = "1" if str(value) in ("1", "true", "True", "on") else "0"
+        # Gate : Cards Events necessite >= 10 membres sur le serveur
+        if key == "card_events" and val_str == "1":
+            from database import get_db
+            conn = get_db(); c = conn.cursor()
+            row = c.execute("SELECT member_count FROM guilds WHERE guild_id = ?",
+                            (str(g_id),)).fetchone()
+            conn.close()
+            mc = int(row["member_count"]) if row and row["member_count"] else 0
+            if mc < 10:
+                return jsonify({"error": f"Cards Events nécessite au moins 10 membres "
+                                          f"(ce serveur en a {mc})."}), 400
         guild_setting_set(g_id, key, val_str)
         return jsonify({"success": True, "key": key, "value": val_str})
 
