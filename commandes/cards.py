@@ -271,42 +271,40 @@ def setup_cards_commands(bot, deps):
                 return
 
         # Cooldown PAR SERVEUR (un timer par guild) - skip pour owner.
-        # Membres du serveur support : 30 min (2 rolls/h). Autres : 1h.
+        # Membres serveur support : 2 charges/h. Autres : 1/h. Chaque charge
+        # recharge 1h apres SA propre utilisation. Les rolls bonus (offerts par
+        # owner) sont consommes en priorite et ne se rechargent pas.
+        from database import (roll_bonus_available, roll_bonus_consume,
+                               roll_events_count, roll_events_oldest_ts, roll_events_add)
         uid = interaction.user.id
         gid = interaction.guild.id if interaction.guild else None
         is_support = _is_support_member(bot, uid)
-        cooldown_sec = 1800 if is_support else ROLL_COOLDOWN_SECONDS
+        max_charges = 2 if is_support else 1
+        use_bonus = False
         if not _is_owner(uid) and gid:
-            last = roll_cooldown_get(uid, gid)
-            if last:
-                try:
-                    # last stocke en UTC naive, parse comme UTC-aware
-                    last_dt = _dt.datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
-                    last_dt = last_dt.replace(tzinfo=_dt.timezone.utc)
+            if roll_bonus_available(uid) > 0:
+                use_bonus = True
+            else:
+                recent = roll_events_count(uid, gid, 3600)
+                if recent >= max_charges:
                     now_ts = _time.time()
-                    last_ts = last_dt.timestamp()
-                    elapsed = now_ts - last_ts
-                    remain = cooldown_sec - elapsed
-                    if remain > 0:
-                        rh = int(remain // 3600)
-                        rm = int((remain % 3600) // 60)
-                        rs = int(remain % 60)
-                        wait = f"{rh}h {rm}min" if rh > 0 else f"{rm}min {rs}s"
-                        # Discord timestamp absolu epoch (cohérent avec wait)
-                        ready_at = int(now_ts + remain)
-                        if is_support:
-                            await interaction.response.send_message(
-                                f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).",
-                                ephemeral=True)
-                        else:
-                            await interaction.response.send_message(
-                                f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R> (dans {wait}).\n"
-                                f"💡 Sur le **serveur support** tu as **2 rolls/h** au lieu de 1 "
-                                f"(cooldown 30 min). Rejoins-le :",
-                                view=_support_view(), ephemeral=True)
-                        return
-                except ValueError:
-                    pass
+                    oldest = roll_events_oldest_ts(uid, gid, 3600)
+                    remain = (3600 - (now_ts - oldest)) if oldest else 3600
+                    if remain < 0:
+                        remain = 0
+                    ready_at = int(now_ts + remain)
+                    if is_support:
+                        await interaction.response.send_message(
+                            f"⏰ Tu as utilisé tes **2 rolls** de l'heure. "
+                            f"Prochain roll <t:{ready_at}:R>.",
+                            ephemeral=True)
+                    else:
+                        await interaction.response.send_message(
+                            f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R>.\n"
+                            f"💡 Sur le **serveur support** tu as **2 rolls/h** au lieu de 1. "
+                            f"Rejoins-le :",
+                            view=_support_view(), ephemeral=True)
+                    return
 
         # Verifie qu'il y a des cartes
         if card_count_total() == 0:
@@ -327,9 +325,13 @@ def setup_cards_commands(bot, deps):
         # Doublon ? (avant l'ajout) -> essences x2
         already_owned = user_card_count_owned(uid, card["id"]) > 0
         user_card_add(uid, card["id"])
+        bonus_left = None
         if not _is_owner(uid) and gid:
-            now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            roll_cooldown_set(uid, gid, now_iso)
+            if use_bonus:
+                roll_bonus_consume(uid)
+                bonus_left = roll_bonus_available(uid)
+            else:
+                roll_events_add(uid, gid)
 
         # Gain d'essences selon rarete (doublon = x2)
         rarity_for_reward = card.get("rarity", "common")
@@ -349,6 +351,8 @@ def setup_cards_commands(bot, deps):
         rarity_display = "?????" if rarity == "secret" else rarity.upper()
         flavor = (card.get("flavor_subtitle") or "").strip()
         essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
+        if bonus_left is not None:
+            essence_line += f"\n🎟️ _Roll bonus utilisé — il t'en reste **{bonus_left}**_"
         desc_parts = []
         if flavor:
             desc_parts.append(f"_**{flavor}**_")

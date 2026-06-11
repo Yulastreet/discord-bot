@@ -300,6 +300,19 @@ def init_db():
         PRIMARY KEY (user_id, card_id)
     )''')
 
+    # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
+    c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id   TEXT NOT NULL,
+        guild_id  TEXT NOT NULL,
+        rolled_at REAL NOT NULL
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_roll_events_uig ON roll_events(user_id, guild_id, rolled_at)")
+    c.execute('''CREATE TABLE IF NOT EXISTS roll_grant_state (
+        user_id   TEXT PRIMARY KEY,
+        consumed  INTEGER DEFAULT 0
+    )''')
+
     # ===== Card Wishlist : cartes desirees par user =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_wishlist (
         user_id   TEXT NOT NULL,
@@ -2378,6 +2391,93 @@ def user_card_rarity_breakdown(user_id):
         (str(user_id),)).fetchall()
     conn.close()
     return {r["rarity"]: int(r["n"]) for r in rows}
+
+
+# ===== ROLL CHARGES (multi-roll par heure, par serveur) =====
+import time as _roll_time
+
+
+def roll_events_count(user_id, guild_id, window_sec=3600) -> int:
+    """Nb de rolls 'normaux' (rechargeables) consommes dans la fenetre."""
+    cutoff = _roll_time.time() - window_sec
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM roll_events "
+                  "WHERE user_id = ? AND guild_id = ? AND rolled_at > ?",
+                  (str(user_id), str(guild_id), cutoff)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def roll_events_oldest_ts(user_id, guild_id, window_sec=3600):
+    """Timestamp epoch du plus vieux roll encore dans la fenetre (ou None)."""
+    cutoff = _roll_time.time() - window_sec
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT MIN(rolled_at) AS t FROM roll_events "
+                  "WHERE user_id = ? AND guild_id = ? AND rolled_at > ?",
+                  (str(user_id), str(guild_id), cutoff)).fetchone()
+    conn.close()
+    return r["t"] if r and r["t"] is not None else None
+
+
+def roll_events_add(user_id, guild_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO roll_events (user_id, guild_id, rolled_at) VALUES (?, ?, ?)",
+              (str(user_id), str(guild_id), _roll_time.time()))
+    # purge vieux events (> 2h) pour ne pas gonfler la table
+    c.execute("DELETE FROM roll_events WHERE rolled_at < ?", (_roll_time.time() - 7200,))
+    conn.commit(); conn.close()
+
+
+def roll_events_reset_all() -> int:
+    """Owner : reset tous les cooldowns de roll (tout le monde peut re-roll)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM roll_events")
+    n = c.rowcount
+    conn.commit(); conn.close()
+    return n
+
+
+# ===== ROLL BONUS (rolls offerts par owner, non rechargeables) =====
+def roll_bonus_available(user_id) -> int:
+    grant = int(get_setting("roll_global_grant", "0") or 0)
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT consumed FROM roll_grant_state WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    conn.close()
+    consumed = int(r["consumed"]) if r else 0
+    return max(0, grant - consumed)
+
+
+def roll_bonus_consume(user_id) -> bool:
+    """Consomme 1 roll bonus. True si dispo, False sinon."""
+    grant = int(get_setting("roll_global_grant", "0") or 0)
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT consumed FROM roll_grant_state WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    consumed = int(r["consumed"]) if r else 0
+    if grant - consumed <= 0:
+        conn.close()
+        return False
+    c.execute("INSERT INTO roll_grant_state (user_id, consumed) VALUES (?, 1) "
+              "ON CONFLICT(user_id) DO UPDATE SET consumed = consumed + 1",
+              (str(user_id),))
+    conn.commit(); conn.close()
+    return True
+
+
+def roll_grant_give_all(n: int) -> int:
+    """Owner : offre n rolls bonus a tout le monde (grant cumulatif). Retourne nouveau grant."""
+    grant = int(get_setting("roll_global_grant", "0") or 0) + int(n)
+    set_setting("roll_global_grant", grant)
+    return grant
+
+
+def roll_grant_reset():
+    """Remet le grant et la consommation a zero (retire les rolls bonus a tous)."""
+    set_setting("roll_global_grant", 0)
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM roll_grant_state")
+    conn.commit(); conn.close()
 
 
 # ===== WISHLIST =====
