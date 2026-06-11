@@ -2246,16 +2246,18 @@ def card_shop_get_slots():
     return [dict(r) for r in rows]
 
 
-def card_shop_set_slot(slot, item_type=None, item_ref=None, price=None,
-                        label=None, subtitle=None, enabled=None):
+_SHOP_SLOT_COLS = {"item_type", "item_ref", "price", "label", "subtitle", "enabled"}
+
+
+def card_shop_set_slot(slot, **fields):
+    """Met a jour le slot. Tout champ present dans fields est ecrit, y compris
+    None/vide (permet de vider un slot). Seules les cles non listees sont ignorees."""
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
-    for col, v in (("item_type", item_type), ("item_ref", item_ref),
-                    ("price", price), ("label", label), ("subtitle", subtitle),
-                    ("enabled", enabled)):
-        if v is not None:
-            vals.append(v)
+    for col, v in fields.items():
+        if col in _SHOP_SLOT_COLS:
             sets.append(f"{col} = ?")
+            vals.append(v)
     if not sets:
         conn.close(); return False
     sets.append("updated_at = CURRENT_TIMESTAMP")

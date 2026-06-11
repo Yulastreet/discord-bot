@@ -47,39 +47,43 @@ def register_cards_shop_routes(app, deps):
         from database import card_shop_set_slot
         if slot < 1 or slot > 6:
             return jsonify({"error": "slot 1-6"}), 400
+        from database import card_get_by_name
+        from services.card_shop import suggested_price
         data = request.json or {}
         fields = {}
-        if "item_type" in data:
-            it = (data["item_type"] or "").strip().lower()
-            fields["item_type"] = it if it in ("card", "border") else None
-        if "item_ref" in data:
-            fields["item_ref"] = str(data["item_ref"]).strip() if data["item_ref"] else None
-        # Pour une carte : si un nom est fourni, resout l'id par nom (fiable meme
-        # si l'utilisateur tape sans cliquer l'autocomplete).
-        if fields.get("item_type") == "card" and (data.get("item_query") or "").strip():
-            from database import card_get_by_name
-            card = card_get_by_name(data["item_query"].strip())
-            if card:
-                fields["item_ref"] = str(card["id"])
-            elif not fields.get("item_ref"):
-                return jsonify({"error": f"Carte introuvable : {data['item_query']}"}), 400
-        if "price" in data:
-            try:
-                fields["price"] = max(0, int(data["price"]))
-            except (ValueError, TypeError):
-                fields["price"] = 0
-        # Si prix absent ou 0 : auto-remplit avec le prix suggere
-        if fields.get("price", 0) <= 0 and fields.get("item_type") and fields.get("item_ref"):
-            from services.card_shop import suggested_price
+        # Type (vide autorise pour vider le slot)
+        it = (data.get("item_type") or "").strip().lower()
+        fields["item_type"] = it if it in ("card", "border") else None
+        # Reference item
+        ref = str(data.get("item_ref") or "").strip()
+        # Carte : resout l'id par nom tapé si fourni (fiable sans clic autocomplete)
+        if fields["item_type"] == "card":
+            q = (data.get("item_query") or "").strip()
+            if q:
+                card = card_get_by_name(q)
+                ref = str(card["id"]) if card else ref
+        fields["item_ref"] = ref or None
+        # Si type/ref vide -> slot vidé : on desactive et reset
+        if not fields["item_type"] or not fields["item_ref"]:
+            fields["item_type"] = None
+            fields["item_ref"] = None
+        # Prix
+        try:
+            price = max(0, int(data.get("price") or 0))
+        except (ValueError, TypeError):
+            price = 0
+        if price <= 0 and fields["item_type"] and fields["item_ref"]:
             sp = suggested_price(fields["item_type"], fields["item_ref"])
             if sp > 0:
-                fields["price"] = sp
-        if "label" in data:
-            fields["label"] = (data["label"] or "").strip()[:60] or None
-        if "subtitle" in data:
-            fields["subtitle"] = (data["subtitle"] or "").strip()[:80] or None
-        if "enabled" in data:
-            fields["enabled"] = 1 if data["enabled"] else 0
+                price = sp
+        fields["price"] = price
+        # Label (vide -> NULL)
+        fields["label"] = (data.get("label") or "").strip()[:60] or None
+        # Enabled (jamais actif si slot vide)
+        enabled = 1 if data.get("enabled") else 0
+        if not fields["item_type"] or not fields["item_ref"]:
+            enabled = 0
+        fields["enabled"] = enabled
         card_shop_set_slot(slot, **fields)
         return jsonify({"ok": True})
 
