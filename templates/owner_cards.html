@@ -365,6 +365,8 @@
       <button class="btn btn-secondary" onclick="cardCropReset()">Reset cadre</button>
       <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(0.2)" title="Zoom +">🔍+</button>
       <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(-0.2)" title="Zoom -">🔍−</button>
+      <button class="btn btn-ghost" onclick="cardCropFlip('h')" title="Miroir horizontal">↔ Miroir H</button>
+      <button class="btn btn-ghost" onclick="cardCropFlip('v')" title="Miroir vertical">↕ Miroir V</button>
       <span style="flex:1;"></span>
       <button class="btn btn-ghost" onclick="closeCardCropper()">Annuler</button>
       <button class="btn btn-primary" onclick="submitCardCrop()">✅ Appliquer recadrage</button>
@@ -661,6 +663,7 @@ function openCardCropper() {
   const img = document.getElementById('cardCropImg');
   img.crossOrigin = 'anonymous';
   img.src = src;
+  _cardFlipX = 1; _cardFlipY = 1;
   document.getElementById('cardCropScrim').style.display = 'grid';
   img.onload = () => {
     if (_cardCropper) { _cardCropper.destroy(); _cardCropper = null; }
@@ -670,14 +673,21 @@ function openCardCropper() {
       autoCropArea: 1.0,   // cadre max au load
       background: true,
       movable: true, zoomable: true, zoomOnWheel: true, zoomOnTouch: true,
-      scalable: false, rotatable: false,
+      scalable: true, rotatable: false,
       cropBoxMovable: true, cropBoxResizable: true,
       minCropBoxWidth: 50, minCropBoxHeight: 75,
       checkOrientation: false,
     });
   };
 }
-function cardCropReset() { if (_cardCropper) _cardCropper.reset(); }
+function cardCropReset() { if (_cardCropper) { _cardCropper.reset(); _cardFlipX = 1; _cardFlipY = 1; _cardCropper.scaleX(1); _cardCropper.scaleY(1); } }
+let _cardFlipX = 1, _cardFlipY = 1;
+function cardCropFlip(axis) {
+  if (!_cardCropper) return;
+  if (axis === 'h') { _cardFlipX = -_cardFlipX; _cardCropper.scaleX(_cardFlipX); }
+  else { _cardFlipY = -_cardFlipY; _cardCropper.scaleY(_cardFlipY); }
+}
+window.cardCropFlip = cardCropFlip;
 function closeCardCropper() {
   if (_cardCropper) { _cardCropper.destroy(); _cardCropper = null; }
   document.getElementById('cardCropScrim').style.display = 'none';
