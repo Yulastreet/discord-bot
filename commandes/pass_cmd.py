@@ -169,7 +169,7 @@ def setup_pass_commands(bot, deps):
             minutes = rem // 60
             await interaction.response.send_message(
                 embed=discord.Embed(
-                    title="⏳ Déjà réclamé",
+                    title=f"⏳ Déjà réclamé — {user.display_name}",
                     description=(
                         f"Tu as déjà récupéré ta récompense aujourd'hui.\n\n"
                         f"Prochaine réclamation dans **{hours}h {minutes}m** (UTC minuit).\n"
@@ -177,7 +177,6 @@ def setup_pass_commands(bot, deps):
                     ),
                     color=0xE67E22,
                 ),
-                ephemeral=True,
             )
             return
 

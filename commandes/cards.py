@@ -1100,7 +1100,7 @@ def setup_cards_commands(bot, deps):
             embed.description = "\n".join(lines)
             if len(items) > 40:
                 embed.set_footer(text=f"+{len(items)-40} autres")
-        await interaction.response.send_message(embed=embed, ephemeral=(membre is None))
+        await interaction.response.send_message(embed=embed)
 
     # === /cardtop <categorie> : classements ===
     @bot.tree.command(name="cardtop", description="Classements cartes (collection, mythiques, essences, fusions, chance)")
