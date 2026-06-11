@@ -44,20 +44,25 @@ def _overlay_stars(canvas: Image.Image, level: int) -> Image.Image:
     level = max(0, min(5, int(level or 0)))
     if level <= 0:
         return canvas
-    star_size = 50
-    gap = 4
-    star = _get_star(star_size)
-    if star is None:
+    if not os.path.exists(_STARS_PATH):
         print(f"[card_render] stars.png introuvable: {_STARS_PATH}")
         return canvas
-    total_w = level * star_size + (level - 1) * gap
-    x0 = (_CARD_W - total_w) // 2
-    center_y = int(_CARD_H * 0.77)  # repere : au-dessus du bord bas du cadre
-    y0 = center_y - star_size // 2
+    base_size = 46
+    mid_size = 64        # etoile centrale agrandie
+    gap = 6
+    center_y = int(_CARD_H * 0.80)  # un peu plus bas, sans toucher le cadre
+    mid_index = level // 2          # etoile du milieu (5 -> index 2)
+    # Tailles de chaque etoile
+    sizes = [mid_size if i == mid_index else base_size for i in range(level)]
+    total_w = sum(sizes) + gap * (level - 1)
     out = canvas.convert("RGBA")
-    for i in range(level):
-        x = x0 + i * (star_size + gap)
-        out.paste(star, (x, y0), star)
+    x = (_CARD_W - total_w) // 2
+    for s in sizes:
+        star = _get_star(s)
+        if star is not None:
+            y = center_y - s // 2  # centre vertical aligne
+            out.paste(star, (x, y), star)
+        x += s + gap
     return out
 
 
