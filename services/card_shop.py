@@ -18,6 +18,34 @@ _RENDERS_DIR = os.path.join(_ROOT, "static", "card_renders")
 _OUT_DIR = os.path.join(_ROOT, "static", "card_shop")
 _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 
+# Prix par defaut suggeres (essences). Base E ~40/roll.
+# epic=20 rolls, legendary=70, mythic=200, bordure=200.
+DEFAULT_CARD_PRICES = {
+    "common":    200,
+    "rare":      400,
+    "epic":      800,
+    "legendary": 2800,
+    "mythic":    8000,
+    "secret":    20000,
+}
+DEFAULT_BORDER_PRICE = 8000
+
+
+def suggested_price(item_type: str, item_ref) -> int:
+    """Prix par defaut suggere selon le type/rarete de l'item."""
+    if item_type == "border":
+        return DEFAULT_BORDER_PRICE
+    if item_type == "card" and item_ref:
+        from database import card_get
+        try:
+            card = card_get(int(item_ref))
+        except (ValueError, TypeError):
+            card = None
+        if card:
+            return DEFAULT_CARD_PRICES.get(card.get("rarity", "common"), 200)
+    return 0
+
+
 # Centres des 6 slots (grille 3x2) sur le fond 1672x941
 SLOT_CENTERS = [
     (420, 300), (836, 300), (1252, 300),   # rangee haut : slots 1,2,3

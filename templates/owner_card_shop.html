@@ -87,6 +87,13 @@
 <script>
 function esc(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
+const DEF_CARD_PRICE = {common:200, rare:400, epic:800, legendary:2800, mythic:8000, secret:20000};
+const DEF_BORDER_PRICE = 8000;
+function fillPriceIfEmpty(n, price){
+  const el = document.getElementById('s-price-'+n);
+  if(el && (!el.value || parseInt(el.value,10)===0)) el.value = price;
+}
+
 let _slots = [];
 let _borders = [];
 
@@ -141,7 +148,7 @@ function renderItemPicker(n, type, ref, name){
   } else if(type==='border'){
     const opts = _borders.map(b=>`<option value="${b.border_key}" ${b.border_key===ref?'selected':''}>${esc(b.name)}</option>`).join('');
     return `<label>Bordure
-      <select id="s-ref-${n}"><option value="">—</option>${opts}</select>
+      <select id="s-ref-${n}" onchange="borderPicked(${n})"><option value="">—</option>${opts}</select>
     </label>`;
   }
   return `<input type="hidden" id="s-ref-${n}" value="">`;
@@ -162,16 +169,21 @@ function cardSearch(n){
     const d = await r.json();
     const items = d.items || [];
     if(!items.length){ box.style.display='none'; return; }
-    box.innerHTML = items.map(c=>`<div onclick="pickCard(${n},${c.id},'${esc(c.name).replace(/'/g,"\\'")}')">${esc(c.name)} <span class="muted">· ${esc(c.rarity||'')} ${esc(c.universe||'')}</span></div>`).join('');
+    box.innerHTML = items.map(c=>`<div onclick="pickCard(${n},${c.id},'${esc(c.name).replace(/'/g,"\\'")}','${esc(c.rarity||'')}')">${esc(c.name)} <span class="muted">· ${esc(c.rarity||'')} ${esc(c.universe||'')}</span></div>`).join('');
     box.style.display='block';
   }, 250);
 }
-function pickCard(n, id, name){
+function pickCard(n, id, name, rarity){
   document.getElementById('s-ref-'+n).value = id;
   document.getElementById('s-cardsearch-'+n).value = name;
   document.getElementById('s-acres-'+n).style.display='none';
+  fillPriceIfEmpty(n, DEF_CARD_PRICE[rarity] || 200);
 }
-window.slotTypeChanged=slotTypeChanged; window.cardSearch=cardSearch; window.pickCard=pickCard;
+function borderPicked(n){
+  const v = document.getElementById('s-ref-'+n).value;
+  if(v) fillPriceIfEmpty(n, DEF_BORDER_PRICE);
+}
+window.slotTypeChanged=slotTypeChanged; window.cardSearch=cardSearch; window.pickCard=pickCard; window.borderPicked=borderPicked;
 
 async function saveSlot(n){
   const type = document.getElementById('s-type-'+n).value;

@@ -18,22 +18,26 @@ def register_cards_shop_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import card_shop_get_slots, card_get, border_get
+        from services.card_shop import suggested_price
         slots = card_shop_get_slots()
-        # Enrichit avec nom item
+        # Enrichit avec nom item + prix suggere
         for s in slots:
             s["item_name"] = None
+            s["item_rarity"] = None
             if s.get("item_type") == "card" and s.get("item_ref"):
                 try:
                     card = card_get(int(s["item_ref"]))
                     if card:
                         s["item_name"] = card.get("name")
                         s["item_image"] = card.get("image_url")
+                        s["item_rarity"] = card.get("rarity")
                 except (ValueError, TypeError):
                     pass
             elif s.get("item_type") == "border" and s.get("item_ref"):
                 b = border_get(s["item_ref"])
                 if b:
                     s["item_name"] = b.get("name")
+            s["suggested_price"] = suggested_price(s.get("item_type"), s.get("item_ref"))
         return jsonify({"items": slots})
 
     @app.route("/api/owner/card-shop/slot/<int:slot>", methods=["POST"])
@@ -55,6 +59,12 @@ def register_cards_shop_routes(app, deps):
                 fields["price"] = max(0, int(data["price"]))
             except (ValueError, TypeError):
                 fields["price"] = 0
+        # Si prix absent ou 0 : auto-remplit avec le prix suggere
+        if fields.get("price", 0) <= 0 and fields.get("item_type") and fields.get("item_ref"):
+            from services.card_shop import suggested_price
+            sp = suggested_price(fields["item_type"], fields["item_ref"])
+            if sp > 0:
+                fields["price"] = sp
         if "label" in data:
             fields["label"] = (data["label"] or "").strip()[:60] or None
         if "subtitle" in data:
