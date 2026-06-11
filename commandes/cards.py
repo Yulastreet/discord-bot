@@ -621,8 +621,8 @@ def setup_cards_commands(bot, deps):
         color = BORDER_COLORS.get(border_key) if border_key else None
         if color is None:
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        # Titre : ✨ devant si cosmetique + nom + etoiles fusion
-        title = ("✨ " if border_key else "") + card['name'] + ("⭐" * fusion_level)
+        # Titre : ✨ devant si cosmetique + nom + espace + etoiles fusion
+        title = ("✨ " if border_key else "") + card['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else "")
         embed = discord.Embed(title=title[:256], color=color)
         embed.set_footer(text=f"Carte de {interaction.user.display_name}",
                           icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
