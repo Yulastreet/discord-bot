@@ -367,6 +367,7 @@
       <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(-0.2)" title="Zoom -">🔍−</button>
       <button class="btn btn-ghost" onclick="cardCropFlip('h')" title="Miroir horizontal">↔ Miroir H</button>
       <button class="btn btn-ghost" onclick="cardCropFlip('v')" title="Miroir vertical">↕ Miroir V</button>
+      <button class="btn btn-ghost" onclick="cardCropLoadUrl()" title="Charger une autre image">🔗 Autre image</button>
       <span style="flex:1;"></span>
       <button class="btn btn-ghost" onclick="closeCardCropper()">Annuler</button>
       <button class="btn btn-primary" onclick="submitCardCrop()">✅ Appliquer recadrage</button>
@@ -702,6 +703,19 @@ function cardCropFlip(axis) {
   else { _cardFlipY = -_cardFlipY; _cardCropper.scaleY(_cardFlipY); }
 }
 window.cardCropFlip = cardCropFlip;
+
+function cardCropLoadUrl() {
+  const url = prompt('Colle l\'URL de l\'image à charger (http) :', '');
+  if (!url || !/^https?:\/\//i.test(url.trim())) {
+    if (url !== null) toast('URL invalide (doit commencer par http).', 'error');
+    return;
+  }
+  const img = document.getElementById('cardCropImg');
+  _cardFlipX = 1; _cardFlipY = 1;
+  img.crossOrigin = 'anonymous';
+  img.src = url.trim();   // onload recree le cropper
+}
+window.cardCropLoadUrl = cardCropLoadUrl;
 function closeCardCropper() {
   if (_cardCropper) { _cardCropper.destroy(); _cardCropper = null; }
   document.getElementById('cardCropScrim').style.display = 'none';
