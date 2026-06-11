@@ -301,7 +301,7 @@ def setup_cards_commands(bot, deps):
                     else:
                         await interaction.response.send_message(
                             f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R>.\n"
-                            f"💡 Sur le **serveur support** tu as **2 rolls/h** au lieu de 1. "
+                            f"💡 Si tu es sur le **serveur support** tu as **2 rolls/h** au lieu de 1. "
                             f"Rejoins-le :",
                             view=_support_view(), ephemeral=True)
                     return
