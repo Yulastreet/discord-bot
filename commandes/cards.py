@@ -1040,7 +1040,7 @@ def setup_cards_commands(bot, deps):
 
 
     # === /cardwish <carte> : ajoute/retire de la wishlist ===
-    WISHLIST_MAX = 7  # cap de cartes en wishlist par joueur
+    WISHLIST_MAX = 3  # cap de cartes en wishlist par joueur
     @bot.tree.command(name="cardwish", description="Ajoute ou retire une carte de ta wishlist")
     @app_commands.describe(nom="Carte à ajouter/retirer de ta wishlist")
     async def cardwish_cmd(interaction: discord.Interaction, nom: str):
