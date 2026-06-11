@@ -2316,6 +2316,14 @@ def user_card_fusion_map(user_id):
     return {int(r["card_id"]): int(r["fusion_level"]) for r in rows}
 
 
+def user_card_set_not_tradeable(user_id, card_id, value=1):
+    """Marque toutes les copies d'une carte d'un user comme (non) tradeable."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE user_cards SET not_tradeable = ? WHERE user_id = ? AND card_id = ?",
+              (1 if value else 0, str(user_id), int(card_id)))
+    conn.commit(); conn.close()
+
+
 def user_card_remove_copies(user_id, card_id, n) -> int:
     """Supprime n copies (rows) d'une carte pour un user. Retourne nb reellement
     supprime. Ne verifie pas le 'keep' (a faire cote appelant)."""
