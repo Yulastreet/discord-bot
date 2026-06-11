@@ -109,6 +109,37 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"items": [{"universe": r["universe"], "count": r["n"]} for r in rows]})
 
 
+    @app.route("/api/public/cards/contributors", methods=["GET"])
+    def api_public_cards_contributors():
+        """Top contributeurs : nb de suggestions approuvees par personne."""
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT suggester_id, "
+            "  MAX(suggester_name) AS name, COUNT(*) AS n "
+            "FROM card_suggestions WHERE status = 'approved' "
+            "GROUP BY suggester_id ORDER BY n DESC LIMIT 30").fetchall()
+        conn.close()
+        return jsonify({"items": [
+            {"name": (r["name"] or "Anonyme"), "count": int(r["n"])} for r in rows]})
+
+
+    @app.route("/api/public/cards/my-collection", methods=["GET"])
+    def api_public_cards_my_collection():
+        """Card_ids possedes par l'utilisateur connecte (pour la vue collection)."""
+        from flask import session as _ses
+        from database import get_db
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        if not uid:
+            return jsonify({"error": "non connecte"}), 401
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute("SELECT DISTINCT card_id FROM user_cards WHERE user_id = ?",
+                         (str(uid),)).fetchall()
+        conn.close()
+        return jsonify({"card_ids": [int(r["card_id"]) for r in rows]})
+
+
     @app.route("/api/public/cards/<int:cid>/suggest-edit", methods=["POST"])
     def api_public_cards_suggest_edit(cid):
         """User logge propose modif d'une carte existante. Owner valide.

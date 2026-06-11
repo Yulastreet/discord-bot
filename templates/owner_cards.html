@@ -13,6 +13,18 @@
     background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
     border-radius: 8px; padding: 8px 12px; font-size: 13px;
   }
+  .oc-filter-btn { display:inline-flex; align-items:center; gap:8px; background: var(--bg-1);
+                    border:1px solid var(--border); border-radius:8px; padding:8px 14px;
+                    color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
+  .oc-filter-btn .chev { font-size:10px; transition: transform .15s; }
+  .oc-filter-btn.open .chev { transform: rotate(180deg); }
+  .oc-filter-panel { display:none; background: var(--bg-1); border:1px solid var(--border);
+                      border-radius:12px; padding:16px; margin-bottom: var(--s-4); }
+  .oc-filter-panel.open { display:block; }
+  .oc-filter-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:12px; }
+  .oc-filter-grid label { font-size:11px; color:var(--text-2); display:flex; flex-direction:column; gap:5px; }
+  .oc-filter-grid select { background: var(--bg-2); color:var(--text); border:1px solid var(--border);
+                            border-radius:8px; padding:8px 12px; font-size:13px; width:100%; }
   .cards-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 12px;
@@ -138,34 +150,7 @@
 
   <div class="cards-toolbar">
     <input type="search" id="searchInput" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="debouncedReload()">
-    <select id="raritySelect" onchange="resetPageAndLoad()">
-      <option value="">Toutes raretés</option>
-      <option value="secret">🌈 Secret ???</option>
-      <option value="mythic">Mythic</option>
-      <option value="legendary">Legendary</option>
-      <option value="epic">Epic</option>
-      <option value="rare">Rare</option>
-      <option value="common">Common</option>
-    </select>
-    <select id="universeSelect" onchange="resetPageAndLoad()">
-      <option value="">Tous univers</option>
-    </select>
-    <select id="sortSelect" onchange="resetPageAndLoad()">
-      <option value="name_asc">Nom A→Z</option>
-      <option value="name_desc">Nom Z→A</option>
-      <option value="rarity_desc">Rareté ↓ (mythic d'abord)</option>
-      <option value="rarity_asc">Rareté ↑ (common d'abord)</option>
-      <option value="universe_asc">Univers A→Z</option>
-      <option value="newest">Plus récent</option>
-      <option value="oldest">Plus ancien</option>
-    </select>
-    <select id="perPageSelect" onchange="resetPageAndLoad()" title="Cartes par page">
-      <option value="25">25 / page</option>
-      <option value="50" selected>50 / page</option>
-      <option value="100">100 / page</option>
-      <option value="250">250 / page</option>
-      <option value="500">500 / page</option>
-    </select>
+    <button class="oc-filter-btn" id="ocFilterBtn" onclick="ocToggleFilters()">⚙ Tous les filtres <span class="chev">▼</span></button>
     <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
     <button class="btn btn-secondary" onclick="openImportCenter()">📦 Centre d'import</button>
     <details class="cards-menu">
@@ -179,6 +164,48 @@
     </details>
     <button class="btn btn-secondary" onclick="toggleSelectMode()" id="selModeBtn">☑ Sélection</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe</button>
+  </div>
+
+  <!-- Panneau filtres dépliable -->
+  <div class="oc-filter-panel" id="ocFilterPanel">
+    <div class="oc-filter-grid">
+      <label>Rareté
+        <select id="raritySelect" onchange="resetPageAndLoad()">
+          <option value="">Toutes raretés</option>
+          <option value="secret">🌈 Secret ???</option>
+          <option value="mythic">Mythic</option>
+          <option value="legendary">Legendary</option>
+          <option value="epic">Epic</option>
+          <option value="rare">Rare</option>
+          <option value="common">Common</option>
+        </select>
+      </label>
+      <label>Univers
+        <select id="universeSelect" onchange="resetPageAndLoad()">
+          <option value="">Tous univers</option>
+        </select>
+      </label>
+      <label>Trier par
+        <select id="sortSelect" onchange="resetPageAndLoad()">
+          <option value="name_asc">Nom A→Z</option>
+          <option value="name_desc">Nom Z→A</option>
+          <option value="universe_asc">Univers A→Z</option>
+          <option value="rarity_desc">Rareté ↓ (mythic d'abord)</option>
+          <option value="rarity_asc">Rareté ↑ (common d'abord)</option>
+          <option value="newest">Plus récent</option>
+          <option value="oldest">Plus ancien</option>
+        </select>
+      </label>
+      <label>Par page
+        <select id="perPageSelect" onchange="resetPageAndLoad()" title="Cartes par page">
+          <option value="25">25 / page</option>
+          <option value="50" selected>50 / page</option>
+          <option value="100">100 / page</option>
+          <option value="250">250 / page</option>
+          <option value="500">500 / page</option>
+        </select>
+      </label>
+    </div>
   </div>
 
   <div class="bulk-bar" id="bulkBar">
@@ -426,6 +453,13 @@ function debouncedReload() {
 function bumpCache() { _imgCacheBust = '?v=' + Date.now(); }
 window.bumpCache = bumpCache;
 function resetPageAndLoad() { _currentPage = 1; loadCards(); }
+function ocToggleFilters() {
+  const p = document.getElementById('ocFilterPanel');
+  const b = document.getElementById('ocFilterBtn');
+  const open = p.classList.toggle('open');
+  b.classList.toggle('open', open);
+}
+window.ocToggleFilters = ocToggleFilters;
 function prevPage() { if (_currentPage > 1) { _currentPage--; loadCards(); window.scrollTo(0, 0); } }
 function nextPage() { if (_currentPage < _totalPages) { _currentPage++; loadCards(); window.scrollTo(0, 0); } }
 function jumpToPage() {
