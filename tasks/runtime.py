@@ -1169,7 +1169,11 @@ def setup_runtime(bot, deps):
             print(f"[automod/on_message] {type(e).__name__}: {e}")
 
         # ===== IA Groq : mention du bot + author dans allowlist =====
-        if (bot.user in message.mentions and not message.author.bot
+        # Restreint au serveur de support uniquement (pas ailleurs).
+        _ai_support_guild = os.getenv("SUPPORT_GUILD_ID", "1502322150822908115")
+        _ai_on_support = bool(message.guild and _ai_support_guild
+                               and str(message.guild.id) == str(_ai_support_guild))
+        if (_ai_on_support and bot.user in message.mentions and not message.author.bot
                 and get_setting("ai_enabled", "0") == "1"):
             try:
                 from services.groq_ai import groq_chat, get_groq_api_key
