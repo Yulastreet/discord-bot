@@ -895,16 +895,28 @@ def setup_runtime(bot, deps):
 
         data = get_welcome(member.guild.id)
         if not data:
+            print(f"[welcome] pas de config pour guild={member.guild.id}")
             return
         channel = bot.get_channel(data["channel_id"])
-        if channel:
-            template = data.get("message") or guild_setting_get(str(member.guild.id), "welcome_template", DEFAULT_WELCOME_MESSAGE)
+        if not channel:
+            # Fallback : fetch direct si pas en cache
             try:
-                send_kwargs = build_welcome_send_kwargs(template, member)
-            except Exception:
-                send_kwargs = {"content": f"Bienvenue {member.mention} !"}
+                channel = await bot.fetch_channel(int(data["channel_id"]))
+            except Exception as e:
+                print(f"[welcome] salon {data['channel_id']} introuvable guild={member.guild.id}: {e}")
+                return
+        template = data.get("message") or guild_setting_get(str(member.guild.id), "welcome_template", DEFAULT_WELCOME_MESSAGE)
+        try:
+            send_kwargs = build_welcome_send_kwargs(template, member)
+        except Exception as e:
+            print(f"[welcome] build kwargs err: {e}")
+            send_kwargs = {"content": f"Bienvenue {member.mention} !"}
+        try:
             await channel.send(**send_kwargs)
-            return
+            print(f"[welcome] envoye guild={member.guild.id} salon={data['channel_id']} user={member.id}")
+        except Exception as e:
+            print(f"[welcome] ECHEC send guild={member.guild.id} salon={data['channel_id']}: {type(e).__name__}: {e}")
+        return
     # ===== MONETIZATION : entitlements Discord =====
 
     def _entitlement_to_dict(ent) -> dict:
