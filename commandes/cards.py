@@ -967,6 +967,12 @@ def setup_cards_commands(bot, deps):
         rar_line = " · ".join(
             f"{RARITY_EMOJIS.get(r, '⚪')}{breakdown.get(r, 0)}"
             for r in ("common", "rare", "epic", "legendary", "mythic"))
+        # Indice de chance : moyenne ponderee par rareté vs moyenne attendue (50% = moyen)
+        _pts = {"common": 1, "rare": 2, "epic": 5, "legendary": 25, "mythic": 100, "secret": 200}
+        _total_pts = sum(_pts.get(r, 1) * n for r, n in breakdown.items())
+        _avg = (_total_pts / total) if total else 0
+        _expected = 3.85  # esperance de points/roll selon les poids de tirage
+        luck = max(0, min(100, round(_avg / _expected * 50))) if total else 0
         embed = discord.Embed(
             title=f"🃏 Profil de cartes — {target.display_name}",
             color=0xB9F23A,
@@ -977,6 +983,7 @@ def setup_cards_commands(bot, deps):
         embed.add_field(name="Fusionnées", value=f"**{fused}** carte(s) ⭐", inline=True)
         embed.add_field(name="Raretés", value=rar_line or "—", inline=False)
         embed.add_field(name="Bordures en stock", value=f"**{borders_stock}**", inline=True)
+        embed.add_field(name="🍀 Indice de chance", value=f"**{luck}%**", inline=True)
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
         embed.set_footer(text=f"Profil de {target.display_name}",

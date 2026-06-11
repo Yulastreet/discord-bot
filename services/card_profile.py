@@ -12,13 +12,13 @@ from services.card_render import compose_card_image, _ROOT
 
 _OUT_DIR = os.path.join(_ROOT, "static", "card_profiles")
 
-# Layout (canvas 1120x620). (cle, largeur, hauteur, centre_x, top_y)
+# Layout (canvas 1120x560). (cle, largeur, hauteur, centre_x, top_y)
 _CANVAS_W = 1120
-_CANVAS_H = 620
+_CANVAS_H = 560
 _LAYOUT = [
-    ("left",  250, 375, 235, 135),
-    ("right", 250, 375, 885, 135),
-    ("mid",   324, 486, 560, 10),   # dessine en dernier (au-dessus)
+    ("left",  290, 435, 215, 110),
+    ("right", 290, 435, 905, 110),
+    ("mid",   330, 495, 560, 10),   # dessine en dernier (au-dessus)
 ]
 
 
