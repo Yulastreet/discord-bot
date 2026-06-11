@@ -69,8 +69,8 @@ def register_cards_events_routes(app, deps):
         """Push une commande bot pour rafraichir cache des channels d'un guild."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from database import bot_command_create
-        bot_command_create(guild_id, "list_guild_channels", {})
+        from database import bot_command_enqueue
+        bot_command_enqueue(guild_id, "list_guild_channels", {})
         return jsonify({"ok": True, "note": "Channels seront rafraichis sous 2s"})
 
 
@@ -117,7 +117,7 @@ def register_cards_events_routes(app, deps):
         """Trigger manuel d'un drop via bot_command queue (cross-process)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from database import bot_command_create
+        from database import bot_command_enqueue
         data = request.json or {}
         guild_id = data.get("guild_id")
         channel_id = data.get("channel_id")
@@ -126,7 +126,7 @@ def register_cards_events_routes(app, deps):
             return jsonify({"error": "guild_id + channel_id requis"}), 400
         if min_rarity not in ("common", "rare", "epic", "legendary", "mythic"):
             return jsonify({"error": "min_rarity invalide"}), 400
-        bot_command_create(guild_id, "card_event_drop", {
+        bot_command_enqueue(guild_id, "card_event_drop", {
             "channel_id": str(channel_id),
             "min_rarity": min_rarity,
         })
