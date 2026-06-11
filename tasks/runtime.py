@@ -899,11 +899,25 @@ def setup_runtime(bot, deps):
             return
         channel = bot.get_channel(data["channel_id"])
         if not channel:
-            # Fallback : fetch direct si pas en cache
+            # Fallback 1 : fetch direct si pas en cache
             try:
                 channel = await bot.fetch_channel(int(data["channel_id"]))
             except Exception as e:
                 print(f"[welcome] salon {data['channel_id']} introuvable guild={member.guild.id}: {e}")
+                channel = None
+        if not channel:
+            # Fallback 2 : salon configure via /setup (welcome) si la table welcome
+            # pointe vers un salon supprime. Auto-repare la table.
+            channel = _resolve_setup_channel(member.guild, "welcome")
+            if channel:
+                try:
+                    from database import set_welcome
+                    set_welcome(member.guild.id, channel.id, data.get("message"))
+                    print(f"[welcome] table reparee -> salon /setup {channel.id} guild={member.guild.id}")
+                except Exception as e:
+                    print(f"[welcome] repair table err: {e}")
+            else:
+                print(f"[welcome] aucun salon valide (table morte + pas de /setup) guild={member.guild.id}")
                 return
         template = data.get("message") or guild_setting_get(str(member.guild.id), "welcome_template", DEFAULT_WELCOME_MESSAGE)
         try:
