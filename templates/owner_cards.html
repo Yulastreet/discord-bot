@@ -647,11 +647,15 @@ window.giveCurrentCard = giveCurrentCard;
 let _cardCropper = null;
 function openCardCropper() {
   if (!_currentPreview) return;
-  const src = _currentPreview.source_image_url || _currentPreview.image_url;
-  if (!src) { toast('Pas de source image.', 'error'); return; }
-  if (src.includes('/card_renders/') || src.includes('/card_suggestions/')) {
-    toast('Source originale perdue (URL deja locale). Re-fetch impossible.', 'error');
-    return;
+  let src = _currentPreview.source_image_url || _currentPreview.image_url;
+  // Source perdue (URL deja locale) : demande une nouvelle image a recadrer
+  if (!src || src.includes('/card_renders/') || src.includes('/card_suggestions/')) {
+    const newUrl = prompt('Source originale perdue. Colle une nouvelle URL d\'image (http) à recadrer pour cette carte :', '');
+    if (!newUrl || !/^https?:\/\//i.test(newUrl.trim())) {
+      if (newUrl !== null) toast('URL invalide (doit commencer par http).', 'error');
+      return;
+    }
+    src = newUrl.trim();
   }
   document.getElementById('cardCropName').textContent = _currentPreview.name;
   const img = document.getElementById('cardCropImg');
