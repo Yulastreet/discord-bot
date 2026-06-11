@@ -69,7 +69,7 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
     if base.size != (_CARD_W, _CARD_H):
         base = base.resize((_CARD_W, _CARD_H), Image.LANCZOS)
     canvas = base.copy().convert("RGBA")
-    # Echelle de la carte : carte plein-cadre en fond + carte scalee centree
+    # Echelle de la carte dans le cadre
     cs = max(20, min(200, int(card_scale_pct or 100))) / 100.0
     if abs(cs - 1.0) > 0.001:
         cw, ch = int(_CARD_W * cs), int(_CARD_H * cs)
@@ -77,7 +77,9 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
         px = (_CARD_W - cw) // 2
         py = (_CARD_H - ch) // 2
         if cs < 1.0:
-            canvas.paste(scaled, (px, py))
+            # Fond sombre uni (pas de carte dupliquee derriere) + carte scalee centree
+            canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (20, 20, 24, 255))
+            canvas.paste(scaled, (px, py), scaled if scaled.mode == "RGBA" else None)
         else:
             # carte plus grande : crop au centre
             canvas = scaled.crop((-px, -py, -px + _CARD_W, -py + _CARD_H)).convert("RGBA")
