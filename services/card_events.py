@@ -245,7 +245,11 @@ async def check_due_drops(bot) -> int:
     now_iso = _now_iso()
     configs = card_event_config_all_enabled()
     dropped = 0
+    from database import guild_setting_get
     for cfg in configs:
+        # Respecte le toggle feature (opt-in par serveur)
+        if guild_setting_get(str(cfg["guild_id"]), "card_events", "0") != "1":
+            continue
         next_at = cfg.get("next_drop_at")
         if not next_at or next_at > now_iso:
             if not next_at:

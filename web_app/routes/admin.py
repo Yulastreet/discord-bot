@@ -531,9 +531,10 @@ def register_admin_routes(app, deps):
         settings = guild_settings_all(g_id)
         features = []
         for f in FEATURE_REGISTRY:
+            default = f.get("default", "1")
             features.append({
                 **f,
-                "enabled": settings.get(f["key"], "1") == "1",
+                "enabled": settings.get(f["key"], default) == "1",
             })
         return jsonify({"features": features})
 

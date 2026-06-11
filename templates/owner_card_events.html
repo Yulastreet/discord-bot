@@ -63,6 +63,25 @@
     </div>
   </div>
 
+  <!-- Gestion des rolls -->
+  <div class="ce-section">
+    <h3>🎲 Gestion des rolls</h3>
+    <p class="muted" style="font-size:11px;margin-bottom:10px;">
+      Reset = remet à zéro le cooldown de roll de <b>tout le monde</b> (chacun peut re-roll tout de suite).
+      Give = offre N rolls bonus à <b>tout le monde</b> (non rechargeables, consommés avant les rolls normaux).
+    </p>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="rollsReset()">♻️ Reset tous les cooldowns</button>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Rolls bonus à donner à tous</span>
+        <input id="rollGiveN" type="number" min="1" max="1000" value="1" class="input" style="width:120px;">
+      </label>
+      <button class="btn btn-primary" onclick="rollsGive()">🎟️ Give à tout le monde</button>
+      <button class="btn btn-danger" onclick="rollsResetGrant()" style="margin-left:auto;">🗑 Retirer les rolls bonus</button>
+    </div>
+    <div id="rollsHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
+  </div>
+
   <!-- Configs par serveur -->
   <div class="ce-section">
     <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -268,10 +287,42 @@ async function loadRecent() {
   } catch (e) {}
 }
 
+async function loadRollsStatus(){
+  try {
+    const r = await fetch('/api/owner/card-events/rolls/status');
+    const d = await r.json();
+    document.getElementById('rollsHint').textContent =
+      `Rolls bonus actifs (par personne) : ${d.global_grant} · rolls normaux utilisés dans la dernière heure : ${d.rolls_last_hour}`;
+  } catch(e){}
+}
+async function rollsReset(){
+  if(!confirm('Reset le cooldown de roll de TOUT LE MONDE ?')) return;
+  const r = await fetch('/api/owner/card-events/rolls/reset', {method:'POST'});
+  const d = await r.json();
+  document.getElementById('rollsHint').textContent = d.ok ? `✅ ${d.cleared} cooldown(s) reset.` : '❌ erreur';
+  loadRollsStatus();
+}
+async function rollsGive(){
+  const n = parseInt(document.getElementById('rollGiveN').value,10)||0;
+  const r = await fetch('/api/owner/card-events/rolls/give', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({n})});
+  const d = await r.json();
+  document.getElementById('rollsHint').textContent = d.ok ? `✅ +${n} rolls bonus pour tout le monde (total ${d.global_grant}).` : ('❌ '+(d.error||'?'));
+  loadRollsStatus();
+}
+async function rollsResetGrant(){
+  if(!confirm('Retirer TOUS les rolls bonus non utilisés à tout le monde ?')) return;
+  const r = await fetch('/api/owner/card-events/rolls/reset-grant', {method:'POST'});
+  const d = await r.json();
+  document.getElementById('rollsHint').textContent = d.ok ? '✅ Rolls bonus retirés.' : '❌ erreur';
+  loadRollsStatus();
+}
+window.rollsReset=rollsReset; window.rollsGive=rollsGive; window.rollsResetGrant=rollsResetGrant;
+
 (async () => {
   await loadGuilds();
   await loadConfigs();
   await loadRecent();
+  await loadRollsStatus();
   setInterval(loadRecent, 15000);
 })();
 </script>

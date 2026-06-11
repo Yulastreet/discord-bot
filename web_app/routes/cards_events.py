@@ -33,9 +33,13 @@ def register_cards_events_routes(app, deps):
         """Liste tous les serveurs du bot (DB) avec leurs salons (cache)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from database import list_guilds, get_db
+        from database import list_guilds, get_db, guild_setting_get
         import json as _json
         guilds = list_guilds(active_only=True)
+        # Seulement les serveurs ayant activé la feature Cards Events (opt-in)
+        guilds = [g for g in guilds
+                  if guild_setting_get(str(g.get("guild_id") or g.get("id")),
+                                        "card_events", "0") == "1"]
         # Cache channels chargee depuis guild_channels_cache si dispo
         conn = get_db(); c = conn.cursor()
         try:
@@ -132,6 +136,51 @@ def register_cards_events_routes(app, deps):
         })
         return jsonify({"ok": True, "note": "Drop dispatché au bot (visible sous 2s)"})
 
+
+    # ===== Gestion des rolls (reset / give) =====
+    @app.route("/api/owner/card-events/rolls/status", methods=["GET"])
+    def api_owner_rolls_status():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_setting, get_db
+        grant = int(get_setting("roll_global_grant", "0") or 0)
+        conn = get_db(); c = conn.cursor()
+        active = c.execute("SELECT COUNT(*) AS n FROM roll_events "
+                           "WHERE rolled_at > ?",
+                           (__import__("time").time() - 3600,)).fetchone()["n"]
+        conn.close()
+        return jsonify({"global_grant": grant, "rolls_last_hour": int(active)})
+
+    @app.route("/api/owner/card-events/rolls/reset", methods=["POST"])
+    def api_owner_rolls_reset():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import roll_events_reset_all
+        n = roll_events_reset_all()
+        return jsonify({"ok": True, "cleared": n})
+
+    @app.route("/api/owner/card-events/rolls/give", methods=["POST"])
+    def api_owner_rolls_give():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import roll_grant_give_all
+        data = request.json or {}
+        try:
+            n = int(data.get("n", 0))
+        except (ValueError, TypeError):
+            n = 0
+        if n <= 0 or n > 1000:
+            return jsonify({"error": "n entre 1 et 1000"}), 400
+        new_grant = roll_grant_give_all(n)
+        return jsonify({"ok": True, "global_grant": new_grant})
+
+    @app.route("/api/owner/card-events/rolls/reset-grant", methods=["POST"])
+    def api_owner_rolls_reset_grant():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import roll_grant_reset
+        roll_grant_reset()
+        return jsonify({"ok": True})
 
     @app.route("/api/owner/card-events/recent", methods=["GET"])
     def api_owner_card_events_recent():

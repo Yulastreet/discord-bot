@@ -23,6 +23,13 @@ FEATURE_REGISTRY = [
         "desc":  "/giveaway create, list, reroll, cancel.",
         "cat":   "Engagement",
     },
+    {
+        "key":     "card_events",
+        "label":   "Cards Events (drops auto)",
+        "desc":    "Drops automatiques de cartes dans un salon (1ere personne à taper le code gagne). Le timing et la rareté sont gérés par l'équipe TookBot.",
+        "cat":     "Engagement",
+        "default": "0",   # opt-in : désactivé par défaut
+    },
     # --- Fun ---
     {
         "key":   "fun",
