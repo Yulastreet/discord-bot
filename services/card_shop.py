@@ -48,11 +48,11 @@ def suggested_price(item_type: str, item_ref) -> int:
 
 # Centres des 6 slots (grille 3x2) sur le fond 1672x941
 SLOT_CENTERS = [
-    (420, 300), (836, 300), (1252, 300),   # rangee haut : slots 1,2,3
-    (420, 645), (836, 645), (1252, 645),   # rangee bas  : slots 4,5,6
+    (378, 285), (836, 285), (1294, 285),   # rangee haut : slots 1,2,3
+    (378, 650), (836, 650), (1294, 650),   # rangee bas  : slots 4,5,6
 ]
-_THUMB_W = 200
-_THUMB_H = 300
+_THUMB_W = 172
+_THUMB_H = 258
 
 _FONT_CACHE: dict = {}
 
@@ -114,10 +114,8 @@ def _border_thumb(filename):
         img = Image.open(path).convert("RGBA")
     except Exception:
         return None
-    # Carte placeholder sombre derriere la bordure pour la rendre lisible
-    base = Image.new("RGBA", (_THUMB_W, _THUMB_H), (40, 42, 48, 255))
-    b = img.resize((_THUMB_W, _THUMB_H), Image.LANCZOS)
-    return Image.alpha_composite(base, b)
+    # Pas de fond : bordure transparente, le bois du shop transparait au centre
+    return img.resize((_THUMB_W, _THUMB_H), Image.LANCZOS)
 
 
 def _draw_star(draw, cx, cy, r, fill):
