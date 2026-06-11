@@ -153,18 +153,39 @@ def _schedule_next_drop(guild_id: str, gcfg: dict | None = None) -> str:
 
 
 def _resolve_drop_channel(guild):
-    """Salon de drop d'un serveur : channel_id configure si valide, sinon
-    system_channel, sinon 1er salon texte ou le bot peut ecrire."""
-    from database import card_event_config_get
+    """Salon de drop d'un serveur, par ordre de priorite :
+    1. salon /cardsetup (guild_card_config) si configure et writable
+    2. salon override card_event_config si defini
+    3. system_channel
+    4. 1er salon texte ou le bot peut ecrire (type general)."""
+    from database import card_event_config_get, guild_card_config_get
     me = guild.me
-    cfg = card_event_config_get(guild.id) or {}
-    cid = cfg.get("channel_id")
-    if cid:
+
+    def _try(cid):
+        if not cid:
+            return None
         ch = guild.get_channel(int(cid)) if str(cid).isdigit() else None
         if ch and me and ch.permissions_for(me).send_messages:
             return ch
+        return None
+
+    # 1. salon configure via /cardsetup
+    try:
+        cards_cfg = guild_card_config_get(guild.id) or {}
+        ch = _try(cards_cfg.get("channel_id"))
+        if ch:
+            return ch
+    except Exception:
+        pass
+    # 2. override event config
+    cfg = card_event_config_get(guild.id) or {}
+    ch = _try(cfg.get("channel_id"))
+    if ch:
+        return ch
+    # 3. system channel
     if guild.system_channel and me and guild.system_channel.permissions_for(me).send_messages:
         return guild.system_channel
+    # 4. premier salon texte writable
     for ch in guild.text_channels:
         try:
             if me and ch.permissions_for(me).send_messages and ch.permissions_for(me).view_channel:
