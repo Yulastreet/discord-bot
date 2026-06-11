@@ -630,7 +630,6 @@ def setup_cards_commands(bot, deps):
             if border:
                 rendered_url = render_user_card(uid, card["id"], border,
                                                  fallback_url=card.get("image_url"))
-                embed.description = f"_Bordure : **{border['name']}**_"
         if rendered_url:
             # Sert le fichier local en attachment (pas besoin URL publique)
             import os as _os
