@@ -39,6 +39,15 @@ RARITY_COLORS = {
     "mythic":    0xff3d57,  # rouge
     "secret":    0x1c1c1e,  # noir profond (laisse le rainbow border briller)
 }
+# Couleur embed par bordure (assortie au visuel de chaque cosmetique)
+BORDER_COLORS = {
+    "gold":  0xFFC83D,  # or
+    "leaf":  0x6AB04C,  # vert feuille
+    "frost": 0x4FC3F7,  # cyan givre
+    "hell":  0xE7402B,  # rouge enfer
+    "void":  0x8E44AD,  # violet neant
+}
+
 RARITY_EMOJIS = {
     "common":    "⚪",
     "rare":      "🔵",
@@ -604,10 +613,14 @@ def setup_cards_commands(bot, deps):
                 ephemeral=True)
             return
         rarity = card.get("rarity", "common")
-        color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        emoji = _get_rarity_title_emoji(bot, rarity)
         border_key = card_customization_get(uid, card["id"])
-        embed = discord.Embed(title=f"{emoji} {card['name']}"[:256], color=color)
+        # Couleur : bordure si equipee, sinon rareté
+        color = BORDER_COLORS.get(border_key) if border_key else None
+        if color is None:
+            color = RARITY_COLORS.get(rarity, 0x9aa0a6)
+        # Titre : nom + ✨ si cosmetique (pas d'emoji rareté devant)
+        title = card['name'] + (" ✨" if border_key else "")
+        embed = discord.Embed(title=title[:256], color=color)
         embed.set_footer(text=f"Carte de {interaction.user.display_name}",
                           icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
         file = None
