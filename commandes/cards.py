@@ -270,14 +270,14 @@ def setup_cards_commands(bot, deps):
                 )
                 return
 
-        # Cooldown GLOBAL (tous serveurs confondus) - skip pour owner.
+        # Cooldown PAR SERVEUR (un timer par guild) - skip pour owner.
         # Membres du serveur support : 30 min (2 rolls/h). Autres : 1h.
         uid = interaction.user.id
         gid = interaction.guild.id if interaction.guild else None
         is_support = _is_support_member(bot, uid)
         cooldown_sec = 1800 if is_support else ROLL_COOLDOWN_SECONDS
         if not _is_owner(uid) and gid:
-            last = roll_cooldown_get(uid, "global")
+            last = roll_cooldown_get(uid, gid)
             if last:
                 try:
                     # last stocke en UTC naive, parse comme UTC-aware
@@ -329,7 +329,7 @@ def setup_cards_commands(bot, deps):
         user_card_add(uid, card["id"])
         if not _is_owner(uid) and gid:
             now_iso = _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            roll_cooldown_set(uid, "global", now_iso)
+            roll_cooldown_set(uid, gid, now_iso)
 
         # Gain d'essences selon rarete (doublon = x2)
         rarity_for_reward = card.get("rarity", "common")

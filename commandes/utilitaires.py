@@ -256,7 +256,7 @@ def _build_command_pages() -> list:
     p4.add_field(
         name="🃏 Collection",
         value=(
-            "**/roll `[univers]`** — tire 1 carte aléatoire. Cooldown **global 1h** "
+            "**/roll `[univers]`** — tire 1 carte aléatoire. Cooldown **1h par serveur** "
             "(30 min = 2/h sur le serveur support). Donne des Essences ✨ selon la rareté\n"
             "**/cardcollec `[membre]` `[rareté]`** — ta collection (✨ = cosmétique, ⭐ = fusion)\n"
             "**/card `<nom>`** — détails d'une carte (autocomplete sur 19k+)\n"
