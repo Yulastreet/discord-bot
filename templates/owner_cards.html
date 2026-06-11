@@ -678,6 +678,19 @@ function openCardCropper() {
       cropBoxMovable: true, cropBoxResizable: true,
       minCropBoxWidth: 50, minCropBoxHeight: 75,
       checkOrientation: false,
+      ready() {
+        // Par defaut : inclure TOUT le sujet (contain pleine largeur en 2:3).
+        try {
+          const cv = _cardCropper.getCanvasData();
+          let w = cv.width, h = w * 3 / 2;     // 2:3 portrait
+          if (h < cv.height) { h = cv.height; w = h * 2 / 3; }
+          _cardCropper.setCropBoxData({
+            width: w, height: h,
+            left: cv.left + (cv.width - w) / 2,
+            top:  cv.top  + (cv.height - h) / 2,
+          });
+        } catch (e) {}
+      },
     });
   };
 }
