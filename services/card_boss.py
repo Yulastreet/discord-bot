@@ -419,6 +419,7 @@ async def _run_boss(bot, bid, msg, view):
         # Tours ALTERNES : 1 tour = 1 action. L'équipe commence, puis le boss, etc.
         turn = 0
         actor = "party"
+        smash_used = False
         while turn < _MAX_TURNS:
             turn += 1
             await asyncio.sleep(_TURN_DELAY)
@@ -443,6 +444,21 @@ async def _run_boss(bot, bid, msg, view):
                     card_boss_set_status(bid, "defeated")
                     break
                 actor = "boss"
+            elif not smash_used and random.random() < 0.25:
+                # Coup special : 1 fois par combat, cible 1 joueur, degats x3
+                smash_used = True
+                target = random.choice(alive)
+                cm = element_matchup(boss["element"], target["element"])
+                dmg = max(1, int(boss["atk"] * cm * 3))
+                new_hp = max(0, target["hp"] - dmg)
+                boss_participant_update(bid, target["user_id"], hp=new_hp)
+                ko = " 💀 **KO !**" if new_hp <= 0 else ""
+                log.append(f"Tour {turn} · 💥 **COUP DÉVASTATEUR !** Le boss cible "
+                           f"**{target['name']}** : -**{_fmt(dmg)}**{ko}")
+                if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
+                    card_boss_set_status(bid, "wiped")
+                    break
+                actor = "party"
             else:
                 # Le boss frappe TOUTE l'équipe (AoE). Déchaîné (<50% PV) = x1.5
                 enraged = boss["hp"] < boss["max_hp"] * 0.5
