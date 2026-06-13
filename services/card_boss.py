@@ -29,7 +29,7 @@ import time as _t
 _RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
 _JOIN_EXPIRE = 900         # si personne ne rejoint, le boss disparaît (15 min)
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
-_QUICK_SECONDS = 30        # delai du demarrage rapide
+_QUICK_SECONDS = 60        # delai du demarrage rapide
 _TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
@@ -49,7 +49,7 @@ def _tier_loot_rarity(tier):
 # Aptitudes de combat
 _APT_LABELS = {"berserker": "Berserker", "support": "Support"}
 _APT_EMOJI = {"berserker": "🩸", "support": "💚"}
-_BERSERK_MULT = 1.15      # dernier coup du berserker
+_BERSERK_MULT = 1.50      # dernier coup du berserker
 _SUPPORT_HEAL = 0.20      # % PV max rendu par soin
 _SUPPORT_TRIGGER = 0.20   # seuil de PV qui declenche le soin
 _SUPPORT_MAX = 2          # nb max de soins par combat
@@ -585,8 +585,12 @@ def add_dummy_participants(bid, n):
         elem = (card.get("element") if card else None) or _r.choice(list(CARD_ELEMENT_LABELS.keys()))
         hp = _r.randint(80000, 220000)
         atk = _r.randint(30000, 75000)
-        boss_participant_add(bid, f"dummy_{i+1}", f"Bot {i+1}", elem, hp, atk,
+        uid = f"dummy_{i+1}"
+        boss_participant_add(bid, uid, f"Bot {i+1}", elem, hp, atk,
                              card_id=(card["id"] if card else None))
+        apt = _r.choice(["berserker", "support", ""])
+        if apt:
+            boss_participant_update(bid, uid, aptitude=apt)
 
 
 async def _run_boss(bot, bid, msg, view):
