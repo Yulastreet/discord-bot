@@ -229,8 +229,13 @@ def register_cards_owner_routes(app, deps):
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         claimed = wheel_claim_today(uid) if uid else None
-        # secondes jusqu'au prochain reset (minuit local serveur)
-        now = _dt.datetime.now()
+        # secondes jusqu'au prochain reset = minuit heure FRANCAISE (Europe/Paris)
+        try:
+            from zoneinfo import ZoneInfo
+            _tz = ZoneInfo("Europe/Paris")
+        except Exception:
+            _tz = None
+        now = _dt.datetime.now(_tz)
         nxt = (now + _dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         reset_in = int((nxt - now).total_seconds())
         return jsonify({

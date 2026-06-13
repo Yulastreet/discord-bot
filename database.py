@@ -2310,8 +2310,13 @@ def currency_spend(user_id, amount: int) -> bool:
 # Recompenses : bonus % d'essences pour la journee (essence_bonus_daily) OU
 # rolls offerts (via roll_give_user). 1 spin / jour / utilisateur.
 def _today_str():
+    """Date du jour en heure FRANCAISE (reset roue a minuit Europe/Paris)."""
     import datetime as _dt
-    return _dt.date.today().isoformat()
+    try:
+        from zoneinfo import ZoneInfo
+        return _dt.datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+    except Exception:
+        return _dt.date.today().isoformat()
 
 
 def _ensure_wheel_tables():
