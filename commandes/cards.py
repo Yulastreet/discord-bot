@@ -1185,7 +1185,7 @@ def setup_cards_commands(bot, deps):
         SPACER = ("​", "​", True)  # champ vide pour aligner les rangées
 
         embed = discord.Embed(
-            title=f"🃏 Profil de cartes — {target.display_name}",
+            title=f"🃏 Profil de cartes ｜ {target.display_name}",
             color=0xB9F23A,
         )
 
