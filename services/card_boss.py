@@ -111,7 +111,12 @@ def _build_battlefield(bid):
                 import io, urllib.request
                 req = urllib.request.Request(boss["image_url"], headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=12) as r:
-                    bimg = Image.open(io.BytesIO(r.read())).convert("RGBA")
+                    _im = Image.open(io.BytesIO(r.read()))
+                    try:
+                        _im.seek(0)  # GIF/WEBP animé : 1ere frame
+                    except Exception:
+                        pass
+                    bimg = _im.convert("RGBA")
             except Exception:
                 bimg = None
         if bimg is None and boss.get("image_url"):
@@ -566,8 +571,14 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
     name = avatar["name"] if avatar else "Entité inconnue"
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
     img = avatar.get("image_url") if avatar else None
+    # ATK du boss scalé par la rareté de l'avatar DANS la fourchette du tier :
+    # le plus bas = atk de base, +12% par cran (ex T5 leg=x1.0, myth=x1.12, secret=x1.24)
+    rng_tier = _TIER_RANGE.get(tier, ["epic"])
+    avatar_rar = (avatar or {}).get("rarity")
+    idx = rng_tier.index(avatar_rar) if avatar_rar in rng_tier else 0
+    boss_atk = int(cfg["atk"] * (1 + idx * 0.12))
     # start_at non defini : le timer ne demarre qu'au 1er joueur
-    bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], cfg["atk"],
+    bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], boss_atk,
                            image_url=img, start_at=None)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)

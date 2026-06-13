@@ -84,7 +84,12 @@ def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | N
             })
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = resp.read()
-            img = Image.open(io.BytesIO(data)).convert("RGBA")
+            im = Image.open(io.BytesIO(data))
+            try:
+                im.seek(0)  # GIF/WEBP animé (cartes secretes) : 1ere frame
+            except Exception:
+                pass
+            img = im.convert("RGBA")
             img = img.resize((_CARD_W, _CARD_H), Image.LANCZOS)
             # Cache en local render pour ne plus retelecharger (evite 429)
             try:
