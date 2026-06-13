@@ -95,10 +95,11 @@
     <h3>🎡 Roue de la chance</h3>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <button class="btn btn-danger" onclick="resetWheel()">♻️ Reset la roue pour tout le monde</button>
+      <button class="btn btn-secondary" onclick="resetWheelWins()">🗑️ Vider la liste des gains</button>
       <span id="wheelHint" class="muted" style="font-size:12px;"></span>
     </div>
     <div class="muted" style="font-size:11px;margin-top:6px;">
-      Efface les tours du jour : chacun pourra re-tourner immédiatement.
+      Reset = chacun peut re-tourner immédiatement. Vider la liste = efface seulement le feed "en direct" (n'autorise pas de re-tourner).
     </div>
   </div>
 
@@ -282,6 +283,18 @@ async function resetWheel() {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.resetWheel = resetWheel;
+
+async function resetWheelWins() {
+  const hint = document.getElementById('wheelHint');
+  if (!confirm('Vider la liste des gains de la roue ?')) return;
+  hint.textContent = 'Suppression…';
+  try {
+    const r = await fetch('/api/owner/card-events/wheel/reset-wins', {method:'POST'});
+    const d = await r.json();
+    hint.textContent = d.ok ? `✅ ${d.cleared} gain(s) effacé(s) du feed.` : `❌ ${d.error || 'Erreur'}`;
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.resetWheelWins = resetWheelWins;
 
 async function loadGlobalConfig() {
   try {

@@ -2341,7 +2341,43 @@ def _ensure_wheel_tables():
         claimed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, day)
     )''')
+    # Journal des gains de la roue (append-only, alimente le feed "en direct")
+    c.execute('''CREATE TABLE IF NOT EXISTS wheel_wins (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      TEXT NOT NULL,
+        reward_type  TEXT,
+        reward_value INTEGER,
+        won_at       TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
     conn.commit(); conn.close()
+
+
+def wheel_win_log(user_id, reward_type, reward_value):
+    """Ajoute un gain au journal (feed en direct)."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO wheel_wins (user_id, reward_type, reward_value) VALUES (?, ?, ?)",
+              (str(user_id), reward_type, int(reward_value)))
+    conn.commit(); conn.close()
+
+
+def wheel_wins_recent(limit=40):
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT user_id, reward_type, reward_value, won_at "
+                     "FROM wheel_wins ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def wheel_wins_reset() -> int:
+    """Owner : vide le journal des gains de la roue. Retourne le nb supprime."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM wheel_wins")
+    n = c.rowcount
+    conn.commit(); conn.close()
+    return int(n)
 
 
 def daily_roll_claimed_today(user_id) -> bool:

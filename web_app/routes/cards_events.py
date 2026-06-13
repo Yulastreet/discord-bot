@@ -210,6 +210,15 @@ def register_cards_events_routes(app, deps):
         n = wheel_reset_all()
         return jsonify({"ok": True, "cleared": n})
 
+    @app.route("/api/owner/card-events/wheel/reset-wins", methods=["POST"])
+    def api_owner_wheel_reset_wins():
+        """Owner : vide le journal des gains de la roue (le feed en direct)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import wheel_wins_reset
+        n = wheel_wins_reset()
+        return jsonify({"ok": True, "cleared": n})
+
 
     # ===== Gestion des rolls (reset / give) =====
     @app.route("/api/owner/card-events/rolls/status", methods=["GET"])

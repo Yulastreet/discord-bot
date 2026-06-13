@@ -262,20 +262,14 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/public/wheel/recent-wins", methods=["GET"])
     def api_public_wheel_recent_wins():
-        """Derniers gains de la roue, tous joueurs confondus."""
-        from database import get_db
+        """Derniers gains de la roue, tous joueurs confondus (journal wheel_wins)."""
+        from database import wheel_wins_recent, get_db
         try:
             limit = max(1, min(int(request.args.get("limit", 40)), 80))
         except ValueError:
             limit = 40
+        rows = wheel_wins_recent(limit)
         conn = get_db(); c = conn.cursor()
-        try:
-            rows = c.execute(
-                "SELECT user_id, reward_type, reward_value, spun_at "
-                "FROM wheel_daily ORDER BY spun_at DESC LIMIT ?", (limit,)).fetchall()
-        except Exception:
-            conn.close()
-            return jsonify({"items": []})
         out = []
         for r in rows:
             m = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
@@ -284,7 +278,7 @@ def register_cards_owner_routes(app, deps):
                 "user": (m["username"] if m and m["username"] else "Inconnu"),
                 "type": r["reward_type"],
                 "value": r["reward_value"],
-                "at": r["spun_at"],
+                "at": r["won_at"],
             })
         conn.close()
         return jsonify({"items": out})
@@ -293,7 +287,7 @@ def register_cards_owner_routes(app, deps):
     def api_public_wheel_spin():
         from flask import session as _ses
         from database import (wheel_claim_today, wheel_record, essence_bonus_set,
-                              roll_give_user)
+                              roll_give_user, wheel_win_log)
         import random as _rnd
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
@@ -318,6 +312,7 @@ def register_cards_owner_routes(app, deps):
             essence_bonus_set(uid, won["value"])
         else:
             roll_give_user(uid, won["value"])
+        wheel_win_log(uid, won["type"], won["value"])  # journal du feed en direct
         # Sequence de defilement facon caisse CS (index gagnant connu du client)
         win_index = _WHEEL_REWARDS.index(won)
         reel = [_rnd.choices(range(len(_WHEEL_REWARDS)),
