@@ -345,8 +345,13 @@ def init_db():
         atk            INTEGER,
         damage         INTEGER DEFAULT 0,
         last_attack    REAL DEFAULT 0,
+        card_id        INTEGER,
         PRIMARY KEY (boss_id, user_id)
     )''')
+    try:
+        c.execute("ALTER TABLE card_boss_participant ADD COLUMN card_id INTEGER")
+    except Exception:
+        pass
 
     # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
     c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
@@ -2698,11 +2703,11 @@ def roll_grant_reset():
 # ===== COMBAT BOSS =====
 # Stats du boss selon le tier (1-5)
 BOSS_TIERS = {
-    1: {"hp": 8000,   "atk": 600,  "label": "Tier 1"},
-    2: {"hp": 25000,  "atk": 1200, "label": "Tier 2"},
-    3: {"hp": 70000,  "atk": 2500, "label": "Tier 3"},
-    4: {"hp": 180000, "atk": 5000, "label": "Tier 4"},
-    5: {"hp": 450000, "atk": 9000, "label": "Tier 5"},
+    1: {"hp": 400000,   "atk": 9000,   "label": "Tier 1"},
+    2: {"hp": 1200000,  "atk": 20000,  "label": "Tier 2"},
+    3: {"hp": 3000000,  "atk": 42000,  "label": "Tier 3"},
+    4: {"hp": 7000000,  "atk": 80000,  "label": "Tier 4"},
+    5: {"hp": 15000000, "atk": 150000, "label": "Tier 5"},
 }
 
 
@@ -2765,16 +2770,17 @@ def card_boss_set_status(boss_id, status):
     conn.commit(); conn.close()
 
 
-def boss_participant_add(boss_id, user_id, name, element, hp, atk) -> bool:
+def boss_participant_add(boss_id, user_id, name, element, hp, atk, card_id=None) -> bool:
     """Ajoute un participant. False si deja present."""
     conn = get_db(); c = conn.cursor()
     exists = c.execute("SELECT 1 FROM card_boss_participant WHERE boss_id = ? AND user_id = ?",
                        (int(boss_id), str(user_id))).fetchone()
     if exists:
         conn.close(); return False
-    c.execute("INSERT INTO card_boss_participant (boss_id, user_id, name, element, max_hp, hp, atk) "
-              "VALUES (?, ?, ?, ?, ?, ?, ?)",
-              (int(boss_id), str(user_id), name, element, int(hp), int(hp), int(atk)))
+    c.execute("INSERT INTO card_boss_participant (boss_id, user_id, name, element, max_hp, hp, atk, card_id) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+              (int(boss_id), str(user_id), name, element, int(hp), int(hp), int(atk),
+               int(card_id) if card_id else None))
     conn.commit(); conn.close()
     return True
 
@@ -2796,7 +2802,7 @@ def boss_participants_list(boss_id):
 
 
 def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None,
-                              element=None):
+                              element=None, card_id=None):
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     if hp is not None:
@@ -2807,6 +2813,8 @@ def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_att
         sets.append("last_attack = ?"); vals.append(float(last_attack))
     if element is not None:
         sets.append("element = ?"); vals.append(element)
+    if card_id is not None:
+        sets.append("card_id = ?"); vals.append(int(card_id))
     if not sets:
         conn.close(); return
     vals += [int(boss_id), str(user_id)]

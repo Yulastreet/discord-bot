@@ -35,11 +35,98 @@ _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
 _TIER_RARITY = {1: "epic", 2: "legendary", 3: "mythic", 4: "mythic", 5: "secret"}
 
 
-def _bar(cur, mx, segments=14):
+def _build_battlefield(bid):
+    """Compose une image 'champ de bataille' : cartes des joueurs en haut,
+    boss en bas, VS au milieu. Retourne le chemin local ou None."""
+    import os
+    from PIL import Image, ImageDraw, ImageFont
+    from services.card_render import _ROOT, _load_base
+    try:
+        boss = card_boss_get(bid)
+        parts = boss_participants_list(bid)
+        W, H = 1000, 640
+        canvas = Image.new("RGBA", (W, H), (20, 14, 30, 255))
+        d = ImageDraw.Draw(canvas)
+        # fond degrade simple
+        for y in range(H):
+            a = int(40 + 30 * (y / H))
+            d.line([(0, y), (W, y)], fill=(a, 18, max(20, 60 - a // 2), 255))
+        def _font(sz):
+            for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                      "C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/arialbd.ttf"):
+                if os.path.exists(p):
+                    try: return ImageFont.truetype(p, sz)
+                    except Exception: pass
+            return ImageFont.load_default()
+        # Cartes joueurs (haut, max 5)
+        pw, ph = 150, 225
+        gap = 16
+        n = min(5, len(parts))
+        total_w = n * pw + (n - 1) * gap
+        x0 = (W - total_w) // 2
+        for i, p in enumerate(parts[:5]):
+            img = _load_base(int(p["card_id"]), None) if p.get("card_id") else None
+            x = x0 + i * (pw + gap)
+            if img is not None:
+                canvas.paste(img.resize((pw, ph), Image.LANCZOS), (x, 30))
+            else:
+                d.rectangle([x, 30, x + pw, 30 + ph], fill=(50, 45, 60, 255))
+            # nom sous la carte
+            nm = (p["name"] or "")[:14]
+            tw = d.textlength(nm, font=_font(18))
+            d.text((x + (pw - tw) / 2 + 1, 261), nm, font=_font(18), fill=(0, 0, 0, 200))
+            d.text((x + (pw - tw) / 2, 260), nm, font=_font(18), fill=(255, 255, 255, 255))
+        # VS
+        vsf = _font(54)
+        vw = d.textlength("⚔ VS", font=vsf)
+        d.text((W / 2 - vw / 2, 300), "⚔ VS", font=vsf, fill=(255, 215, 90, 255))
+        # Boss (bas, centre, plus grand)
+        bw, bh = 220, 330
+        bx = (W - bw) // 2
+        bimg = None
+        if boss.get("image_url") and str(boss["image_url"]).startswith("http"):
+            try:
+                import io, urllib.request
+                req = urllib.request.Request(boss["image_url"], headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=12) as r:
+                    bimg = Image.open(io.BytesIO(r.read())).convert("RGBA")
+            except Exception:
+                bimg = None
+        if bimg is not None:
+            canvas.paste(bimg.resize((bw, bh), Image.LANCZOS), (bx, H - bh - 16))
+        else:
+            d.rectangle([bx, H - bh - 16, bx + bw, H - 16], fill=(60, 20, 30, 255))
+        out_dir = os.path.join(_ROOT, "static", "card_boss")
+        os.makedirs(out_dir, exist_ok=True)
+        out = os.path.join(out_dir, f"{bid}.png")
+        canvas.convert("RGB").save(out, "PNG", optimize=True)
+        return out
+    except Exception as e:
+        print(f"[boss] battlefield err: {e}")
+        return None
+
+
+def _bar(cur, mx, segments=10):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
     pct = int(round(100 * cur / mx)) if mx > 0 else 0
-    return "█" * filled + "░" * (segments - filled) + f"  {pct}%"
+    return "🟥" * filled + "⬛" * (segments - filled) + f"  **{pct}%**"
+
+
+def _default_card(user_id):
+    """Carte de combat par defaut : carte 'milieu' du profil, sinon 1ere possedee."""
+    from database import card_profile_get, get_db
+    prof = card_profile_get(user_id) or {}
+    cid = prof.get("mid_id") or prof.get("left_id") or prof.get("right_id")
+    if cid:
+        card = card_get(int(cid))
+        if card:
+            return card
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT c.* FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                  "WHERE uc.user_id = ? LIMIT 1", (str(user_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
 
 
 def _elem(bot, e):
@@ -70,7 +157,7 @@ def _default_element(user_id):
     return r["element"] if r else "eclat"
 
 
-def build_boss_embed(bot, boss, phase_text="", log=None):
+def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     boss = card_boss_get(boss["id"])
     parts = boss_participants_list(boss["id"])
     color = {"defeated": 0x4ade80, "wiped": 0xff3d57}.get(boss["status"], 0x8e44ad)
@@ -104,8 +191,10 @@ def build_boss_embed(bot, boss, phase_text="", log=None):
         embed.description = "🎉 **Boss vaincu !**"
     elif boss["status"] == "wiped":
         embed.description = "💀 **L'équipe a été anéantie.** Le boss survit."
-    # Image du boss : seulement tant que personne n'a rejoint (phase intro)
-    if not parts and boss.get("image_url") and str(boss["image_url"]).startswith("http"):
+    # Image : battlefield pendant le combat, sinon carte du boss avant le 1er join
+    if battle:
+        embed.set_image(url="attachment://battle.png")
+    elif not parts and boss.get("image_url") and str(boss["image_url"]).startswith("http"):
         embed.set_image(url=boss["image_url"])
     return embed
 
@@ -126,8 +215,11 @@ class JoinView(discord.ui.View):
             await interaction.response.send_message("Tu es déjà dans l'équipe.", ephemeral=True)
             return
         stats = compute_player_combat_stats(uid)
+        dcard = _default_card(uid)
+        delem = (dcard.get("element") if dcard else None) or "eclat"
         boss_participant_add(self.boss_id, uid, interaction.user.display_name,
-                             _default_element(uid), stats["hp"], stats["atk"])
+                             delem, stats["hp"], stats["atk"],
+                             card_id=(dcard["id"] if dcard else None))
         await interaction.response.send_message(
             "🛡️ Tu as rejoint ! Élément par défaut = ta carte vedette. "
             "Utilise **🎴 Choisir ma carte** pour le changer.", ephemeral=True)
@@ -164,7 +256,7 @@ class _ChooseCardModal(discord.ui.Modal, title="Choisir ma carte de combat"):
         if user_card_count_owned(uid, card["id"]) <= 0:
             await interaction.response.send_message(f"Tu ne possèdes pas **{card['name']}**.", ephemeral=True); return
         elem = card.get("element") or "eclat"
-        boss_participant_update(self.boss_id, uid, element=elem)
+        boss_participant_update(self.boss_id, uid, element=elem, card_id=card["id"])
         await interaction.response.send_message(
             f"🎴 Tu combattras avec **{card['name']}** "
             f"({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')}).", ephemeral=True)
@@ -249,9 +341,18 @@ async def _run_boss(bot, bid, msg, view):
         for ch in view.children:
             ch.disabled = True
         log = ["⚔️ **Le combat commence !**"]
+        # Genere le champ de bataille (cartes joueurs vs boss) attaché une fois
+        bf_path = _build_battlefield(bid)
         try:
-            await msg.edit(content="⚔️ **Combat en cours…**",
-                           embed=build_boss_embed(bot, card_boss_get(bid), log=log), view=view)
+            if bf_path:
+                import os as _os
+                await msg.edit(content="⚔️ **Combat en cours…**",
+                               attachments=[discord.File(bf_path, filename="battle.png")],
+                               embed=build_boss_embed(bot, card_boss_get(bid), log=log, battle=True),
+                               view=view)
+            else:
+                await msg.edit(content="⚔️ **Combat en cours…**",
+                               embed=build_boss_embed(bot, card_boss_get(bid), log=log), view=view)
         except Exception:
             pass
 
@@ -288,7 +389,7 @@ async def _run_boss(bot, bid, msg, view):
             ko = " 💀 **KO !**" if new_hp <= 0 else ""
             log.append(f"Tour {turn} · 👹 Le boss frappe **{target['name']}** : -{_fmt(dmg)}{ko}")
             try:
-                await msg.edit(embed=build_boss_embed(bot, card_boss_get(bid), log=log), view=view)
+                await msg.edit(embed=build_boss_embed(bot, card_boss_get(bid), log=log, battle=bool(bf_path)), view=view)
             except Exception:
                 pass
 
@@ -306,6 +407,15 @@ async def _finish(bot, bid, msg, view, log, victory):
     boss = card_boss_get(bid)
     parts = boss_participants_list(bid)
     ch = bot.get_channel(int(boss["channel_id"]))
+
+    # Affiche d'abord le resultat sur l'embed de combat, puis laisse le temps de lire
+    log.append("🎉 **Boss vaincu !**" if victory else "💀 **L'équipe est anéantie.**")
+    try:
+        await msg.edit(content=("🎉 **Victoire !**" if victory else "💀 **Défaite…**"),
+                       embed=build_boss_embed(bot, boss, log=log, battle=True), view=view)
+    except Exception:
+        pass
+    await asyncio.sleep(6)
 
     # Supprime l'embed de combat de base
     try:
