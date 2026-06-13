@@ -425,7 +425,8 @@ def setup_cards_commands(bot, deps):
     # === /collection ===
     @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")
     @app_commands.describe(membre="Membre dont voir la collection (defaut : toi)",
-                            rarete="Filtre par rarete")
+                            rarete="Filtre par rarete",
+                            categorie="Filtre par univers ou origine (ex: Genshin Impact, Film/Série)")
     @app_commands.choices(rarete=[
         app_commands.Choice(name="common", value="common"),
         app_commands.Choice(name="rare", value="rare"),
@@ -435,7 +436,8 @@ def setup_cards_commands(bot, deps):
     ])
     async def collection(interaction: discord.Interaction,
                           membre: discord.Member = None,
-                          rarete: app_commands.Choice[str] = None):
+                          rarete: app_commands.Choice[str] = None,
+                          categorie: str = None):
         if interaction.guild:
             ok, target = _check_channel(interaction)
             if not ok:
@@ -446,12 +448,15 @@ def setup_cards_commands(bot, deps):
                 return
         target_user = membre or interaction.user
         rar_val = rarete.value if rarete else None
-        cards = user_card_list(target_user.id, rarity=rar_val)
+        cat_val = (categorie or "").strip() or None
+        cards = user_card_list(target_user.id, rarity=rar_val, categorie=cat_val)
         total = user_card_count(target_user.id)
         if not cards:
-            msg = f"**{target_user.display_name}** n'a pas encore de cartes"
+            msg = f"**{target_user.display_name}** n'a pas de cartes"
             if rar_val:
                 msg += f" {rar_val}"
+            if cat_val:
+                msg += f" pour **{cat_val}**"
             msg += "."
             await interaction.response.send_message(msg, ephemeral=True)
             return
@@ -479,9 +484,14 @@ def setup_cards_commands(bot, deps):
             start = (page - 1) * PAGE_SIZE
             end = start + PAGE_SIZE
             page_rows = rows[start:end]
+            desc = f"**{total}** cartes ({len(rows)} uniques)"
+            if rar_val:
+                desc += f" • rareté **{rar_val}**"
+            if cat_val:
+                desc += f" • **{cat_val}**"
             embed = discord.Embed(
                 title=f"🃏 Collection de {target_user.display_name}",
-                description=f"**{total}** cartes ({len(rows)} uniques)" + (f" • filtre **{rar_val}**" if rar_val else ""),
+                description=desc,
                 color=0xB9F23A,
             )
             lines = []
@@ -545,6 +555,25 @@ def setup_cards_commands(bot, deps):
             await interaction.response.send_message(embed=_build_embed(1), view=view)
         else:
             await interaction.response.send_message(embed=_build_embed(1))
+
+    @collection.autocomplete("categorie")
+    async def collection_categorie_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            like = f"%{q}%"
+            # Univers + origines (subtitle) matchant la saisie
+            rows = c.execute(
+                "SELECT universe AS v FROM cards WHERE universe IS NOT NULL AND universe != '' "
+                "AND LOWER(universe) LIKE ? GROUP BY universe "
+                "UNION SELECT subtitle AS v FROM cards WHERE subtitle IS NOT NULL AND subtitle != '' "
+                "AND LOWER(subtitle) LIKE ? GROUP BY subtitle LIMIT 25",
+                (like, like)).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["v"][:100], value=r["v"][:100]) for r in rows][:25]
+        except Exception:
+            return []
 
 
     # === /card <nom> ===

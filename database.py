@@ -1907,14 +1907,18 @@ def user_card_add_with_flag(user_id, card_id, not_tradeable=False):
     return new_id
 
 
-def user_card_list(user_id, rarity=None):
-    """Toutes les copies du user, jointes a la carte. ORDER BY rarete desc."""
+def user_card_list(user_id, rarity=None, categorie=None):
+    """Toutes les copies du user, jointes a la carte. ORDER BY rarete desc.
+    categorie : filtre optionnel matchant l'univers OU l'origine (subtitle), insensible casse."""
     conn = get_db(); c = conn.cursor()
     where = "uc.user_id = ?"
     params = [str(user_id)]
     if rarity:
         where += " AND c.rarity = ?"
         params.append(rarity)
+    if categorie:
+        where += " AND (LOWER(c.universe) = LOWER(?) OR LOWER(c.subtitle) = LOWER(?))"
+        params.append(categorie); params.append(categorie)
     # Ordre par rarite (mythic d'abord), puis par card name
     rarity_order = ("CASE c.rarity "
                     "WHEN 'mythic' THEN 0 "
