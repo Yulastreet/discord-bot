@@ -106,6 +106,12 @@ def setup_runtime(bot, deps):
             topgg_stats_poster.start()
         if not card_event_drop_loop.is_running():
             card_event_drop_loop.start()
+        # Reprise des combats de boss orphelins (task asyncio morte au restart)
+        try:
+            from services.card_boss import resume_active_bosses
+            await resume_active_bosses(bot)
+        except Exception as e:
+            print(f"[boss] resume err: {e!r}")
         # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():

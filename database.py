@@ -2746,6 +2746,15 @@ def card_boss_get(boss_id):
     return dict(r) if r else None
 
 
+def card_boss_list_active():
+    """Boss encore en cours (recrutement ou combat) pour reprise au boot."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM card_boss WHERE status IN ('recruiting','fighting') "
+                     "ORDER BY id DESC").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def card_boss_get_by_message(message_id):
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT * FROM card_boss WHERE message_id = ?", (str(message_id),)).fetchone()

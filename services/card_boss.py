@@ -428,6 +428,34 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
     return bid
 
 
+async def resume_active_bosses(bot):
+    """Au boot : relance la boucle des boss restés 'recruiting'/'fighting'.
+    Sans ça, un pm2 restart laisse le boss orphelin (la task asyncio est morte)."""
+    from database import card_boss_list_active
+    resumed = 0
+    for boss in card_boss_list_active():
+        bid = boss["id"]
+        ch = bot.get_channel(int(boss["channel_id"])) if boss.get("channel_id") else None
+        mid = boss.get("message_id")
+        if not ch or not mid:
+            card_boss_set_status(bid, "expired")
+            continue
+        try:
+            msg = await ch.fetch_message(int(mid))
+        except Exception:
+            card_boss_set_status(bid, "expired")  # message supprimé
+            continue
+        view = JoinView(bid)
+        try:
+            bot.add_view(view, message_id=int(mid))
+        except Exception:
+            pass
+        asyncio.create_task(_run_boss(bot, bid, msg, view))
+        resumed += 1
+    if resumed:
+        print(f"[boss] {resumed} combat(s) repris au boot")
+
+
 def add_dummy_participants(bid, n):
     """[Test] Ajoute n combattants factices au boss (stats + element + carte aleatoires)."""
     import random as _r
@@ -447,50 +475,54 @@ def add_dummy_participants(bid, n):
 
 async def _run_boss(bot, bid, msg, view):
     try:
-        # ── Phase recrutement ──
-        # Le timer (start_at) n'est posé qu'au 1er joueur. Sans joueur, on attend
-        # jusqu'a _JOIN_EXPIRE puis le boss disparaît.
-        join_deadline = _t.time() + _JOIN_EXPIRE
-        quick = False
-        while True:
-            await asyncio.sleep(3)
-            boss = card_boss_get(bid)
-            if not boss or boss["status"] != "recruiting":
-                return
-            parts = boss_participants_list(bid)
-            if len(parts) >= _QUICK_START_AT:
-                quick = True
-                break
-            sa = boss.get("start_at")
-            if sa and _t.time() >= sa:
-                break  # timer de 2 min ecoulé
-            if not parts and _t.time() >= join_deadline:
-                break  # personne n'a rejoint -> expiration (gere plus bas)
-        if quick:
-            # compte a rebours rapide (timer visible)
-            qstart = _t.time() + _QUICK_SECONDS
-            card_boss_set_start(bid, qstart)
-            boss = card_boss_get(bid)
-            try:
-                await msg.edit(embed=build_boss_embed(bot, boss,
-                    phase_text=f"⚡ **{_QUICK_START_AT} joueurs !** Le combat démarre <t:{int(qstart)}:R>."))
-            except Exception:
-                pass
-            await asyncio.sleep(_QUICK_SECONDS)
-
-        parts = boss_participants_list(bid)
-        if not parts:
-            card_boss_set_status(bid, "expired")
-            for ch in view.children:
-                ch.disabled = True
-            try:
-                await msg.edit(content="🕸️ **Personne n'a rejoint le combat.**",
-                               embed=build_boss_embed(bot, card_boss_get(bid),
-                                                      phase_text="Aucun participant. Le boss disparaît."),
-                               view=view)
-            except Exception:
-                pass
+        _b0 = card_boss_get(bid)
+        if not _b0:
             return
+        # ── Phase recrutement ── (sautée si on reprend un combat déjà lancé)
+        if _b0["status"] == "recruiting":
+            # Le timer (start_at) n'est posé qu'au 1er joueur. Sans joueur, on attend
+            # jusqu'a _JOIN_EXPIRE puis le boss disparaît.
+            join_deadline = _t.time() + _JOIN_EXPIRE
+            quick = False
+            while True:
+                await asyncio.sleep(3)
+                boss = card_boss_get(bid)
+                if not boss or boss["status"] != "recruiting":
+                    return
+                parts = boss_participants_list(bid)
+                if len(parts) >= _QUICK_START_AT:
+                    quick = True
+                    break
+                sa = boss.get("start_at")
+                if sa and _t.time() >= sa:
+                    break  # timer de 2 min ecoulé
+                if not parts and _t.time() >= join_deadline:
+                    break  # personne n'a rejoint -> expiration (gere plus bas)
+            if quick:
+                # compte a rebours rapide (timer visible)
+                qstart = _t.time() + _QUICK_SECONDS
+                card_boss_set_start(bid, qstart)
+                boss = card_boss_get(bid)
+                try:
+                    await msg.edit(embed=build_boss_embed(bot, boss,
+                        phase_text=f"⚡ **{_QUICK_START_AT} joueurs !** Le combat démarre <t:{int(qstart)}:R>."))
+                except Exception:
+                    pass
+                await asyncio.sleep(_QUICK_SECONDS)
+
+            parts = boss_participants_list(bid)
+            if not parts:
+                card_boss_set_status(bid, "expired")
+                for ch in view.children:
+                    ch.disabled = True
+                try:
+                    await msg.edit(content="🕸️ **Personne n'a rejoint le combat.**",
+                                   embed=build_boss_embed(bot, card_boss_get(bid),
+                                                          phase_text="Aucun participant. Le boss disparaît."),
+                                   view=view)
+                except Exception:
+                    pass
+                return
 
         # ── Combat automatique ──
         card_boss_set_status(bid, "fighting")
