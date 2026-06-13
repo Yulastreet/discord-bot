@@ -29,7 +29,7 @@ _RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
 _JOIN_EXPIRE = 900         # si personne ne rejoint, le boss disparaît (15 min)
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
 _QUICK_SECONDS = 10        # delai du demarrage rapide
-_TURN_DELAY = 4.0          # secondes entre 2 tours auto
+_TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
 
@@ -420,6 +420,7 @@ async def _run_boss(bot, bid, msg, view):
         turn = 0
         actor = "party"
         smash_used = False
+        enrage_announced = False
         while turn < _MAX_TURNS:
             turn += 1
             await asyncio.sleep(_TURN_DELAY)
@@ -463,6 +464,9 @@ async def _run_boss(bot, bid, msg, view):
                 # Le boss frappe TOUTE l'équipe (AoE). Déchaîné (<50% PV) = x1.5
                 enraged = boss["hp"] < boss["max_hp"] * 0.5
                 rage = 1.5 if enraged else 1.0
+                if enraged and not enrage_announced:
+                    enrage_announced = True
+                    log.append("🔥 **Le boss se déchaîne et inflige 1,5x plus de dégâts !**")
                 kos = []
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
@@ -472,8 +476,7 @@ async def _run_boss(bot, bid, msg, view):
                     if new_hp <= 0:
                         kos.append(p["name"])
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
-                rage_txt = "🔥 **DÉCHAÎNÉ !** " if enraged else ""
-                log.append(f"Tour {turn} · 👹 {rage_txt}Le boss frappe toute l'équipe : "
+                log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
                            f"~**{_fmt(int(boss['atk'] * rage))}**{ko_txt}")
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
