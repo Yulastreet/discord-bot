@@ -1466,7 +1466,8 @@ def setup_cards_commands(bot, deps):
 
     # === /bossspawn : fait apparaitre un boss (owner, test) ===
     @bot.tree.command(name="bossspawn", description="[Owner] Fait apparaître un boss à combattre dans ce salon")
-    @app_commands.describe(tier="Difficulté du boss (1 à 5)")
+    @app_commands.describe(tier="Difficulté du boss (1 à 5)",
+                            dummies="[Test] Nb de combattants factices à ajouter (0-4)")
     @app_commands.choices(tier=[
         app_commands.Choice(name="Tier 1 (facile)", value=1),
         app_commands.Choice(name="Tier 2", value=2),
@@ -1474,19 +1475,28 @@ def setup_cards_commands(bot, deps):
         app_commands.Choice(name="Tier 4", value=4),
         app_commands.Choice(name="Tier 5 (raid)", value=5),
     ])
-    async def bossspawn_cmd(interaction: discord.Interaction, tier: app_commands.Choice[int] = None):
+    async def bossspawn_cmd(interaction: discord.Interaction,
+                             tier: app_commands.Choice[int] = None,
+                             dummies: int = 0):
         if not _is_owner(interaction.user.id):
             await interaction.response.send_message("Owner uniquement.", ephemeral=True)
             return
         if not interaction.guild:
             await interaction.response.send_message("À utiliser dans un serveur.", ephemeral=True)
             return
-        from services.card_boss import spawn_boss
+        from services.card_boss import spawn_boss, add_dummy_participants
         t = tier.value if tier else 1
         await interaction.response.send_message(f"🐲 Invocation d'un boss Tier {t}…", ephemeral=True)
         bid = await spawn_boss(bot, interaction.guild.id, interaction.channel.id, tier=t)
         if not bid:
             await interaction.followup.send("Échec de l'invocation (salon/carte introuvable).", ephemeral=True)
+            return
+        d = max(0, min(4, int(dummies or 0)))
+        if d:
+            add_dummy_participants(bid, d)
+            await interaction.followup.send(
+                f"🤖 {d} combattant(s) factice(s) ajouté(s). Rejoins pour compléter l'équipe.",
+                ephemeral=True)
 
 
     # === /cardhelp : guide complet du système de cartes ===

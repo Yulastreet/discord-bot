@@ -313,6 +313,23 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
     return bid
 
 
+def add_dummy_participants(bid, n):
+    """[Test] Ajoute n combattants factices au boss (stats + element + carte aleatoires)."""
+    import random as _r
+    rarities = ["common", "rare", "epic", "legendary", "mythic"]
+    for i in range(int(n)):
+        card = None
+        for _ in range(3):
+            card = card_pick_random_exact_rarity(_r.choice(rarities))
+            if card:
+                break
+        elem = (card.get("element") if card else None) or _r.choice(list(CARD_ELEMENT_LABELS.keys()))
+        hp = _r.randint(80000, 220000)
+        atk = _r.randint(30000, 75000)
+        boss_participant_add(bid, f"dummy_{i+1}", f"Bot {i+1}", elem, hp, atk,
+                             card_id=(card["id"] if card else None))
+
+
 async def _run_boss(bot, bid, msg, view):
     try:
         # ── Phase recrutement ──
@@ -463,13 +480,16 @@ async def _finish(bot, bid, msg, view, log, victory):
     if not ch:
         return
 
-    mentions = " ".join(f"<@{p['user_id']}>" for p in parts) or "—"
+    def _is_dummy(uid):
+        return str(uid).startswith("dummy_")
+    real_parts = [p for p in parts if not _is_dummy(p["user_id"])]
+    mentions = " ".join(f"<@{p['user_id']}>" for p in real_parts) or "—"
 
     if victory:
         tier = boss["tier"]
         rar = _TIER_RARITY.get(tier, "epic")
         loot_lines = []
-        for p in parts:
+        for p in real_parts:
             if p["damage"] <= 0:
                 continue
             ess = tier * 150 + p["damage"] // 200
