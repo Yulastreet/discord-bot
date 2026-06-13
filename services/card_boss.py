@@ -65,7 +65,7 @@ def _build_battlefield(bid):
     en haut, VS au centre, boss en bas. Cartes joueurs avec bordure + etoiles.
     Retourne le chemin local ou None."""
     import os
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image
     from services.card_render import _ROOT, _load_base
     from services.card_profile import _card_image_for
     try:
@@ -77,15 +77,6 @@ def _build_battlefield(bid):
         else:
             canvas = Image.new("RGBA", (1672, 941), (24, 16, 32, 255))
         W, H = canvas.size
-        d = ImageDraw.Draw(canvas)
-
-        def _font(sz):
-            for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                      "C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/arialbd.ttf"):
-                if os.path.exists(p):
-                    try: return ImageFont.truetype(p, sz)
-                    except Exception: pass
-            return ImageFont.load_default()
 
         # Tailles uniformes joueurs + boss
         cw, ch = 250, 375
@@ -109,13 +100,6 @@ def _build_battlefield(bid):
                         img = _load_base(int(p["card_id"]), None)
                 if img is not None:
                     _place_card(img, x0 + i * (cw + gap), top_y)
-
-        # VS au centre
-        f = _font(96)
-        vs = "VS"
-        tw = d.textlength(vs, font=f)
-        d.text((W / 2 - tw / 2 + 3, H / 2 - 60 + 3), vs, font=f, fill=(0, 0, 0, 220))
-        d.text((W / 2 - tw / 2, H / 2 - 60), vs, font=f, fill=(255, 214, 64, 255))
 
         # Boss (bas centre, meme taille)
         by = H - ch - 25
@@ -290,35 +274,47 @@ class JoinView(discord.ui.View):
             card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
         await interaction.response.send_message(
             "🛡️ Tu as rejoint ! Élément par défaut = ta carte vedette.\n"
-            "Ouvre **⚙️ Paramètres de combat** pour choisir ta carte et ton aptitude.", ephemeral=True)
+            "Utilise **🎴 Carte** et **🩸 Aptitude** pour te préparer.", ephemeral=True)
         try:
             await interaction.message.edit(embed=build_boss_embed(interaction.client, boss), view=self)
         except Exception:
             pass
 
-    @discord.ui.button(label="Paramètres de combat", style=discord.ButtonStyle.secondary, emoji="⚙️")
-    async def settings(self, interaction, btn):
+    def _check(self, interaction):
         boss = card_boss_get(self.boss_id)
         if not boss or boss["status"] != "recruiting":
-            await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True)
-            return
+            return "Le recrutement est terminé."
+        if not boss_participant_get(self.boss_id, interaction.user.id):
+            return "Rejoins d'abord (🛡️)."
+        return None
+
+    @discord.ui.button(label="Carte", style=discord.ButtonStyle.secondary, emoji="🎴")
+    async def card_btn(self, interaction, btn):
+        err = self._check(interaction)
+        if err:
+            await interaction.response.send_message(err, ephemeral=True); return
+        view = _CardPickerView(self.boss_id, interaction.user.id, interaction.client)
+        await interaction.response.send_message(content="🎴 **Choisis ta carte de combat**",
+                                                embed=view.build_embed(), view=view, ephemeral=True)
+
+    @discord.ui.button(label="Aptitude", style=discord.ButtonStyle.secondary, emoji="🩸")
+    async def apt_btn(self, interaction, btn):
+        err = self._check(interaction)
+        if err:
+            await interaction.response.send_message(err, ephemeral=True); return
         p = boss_participant_get(self.boss_id, interaction.user.id)
-        if not p:
-            await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True)
-            return
-        cur_apt = _APT_LABELS.get(p.get("aptitude"))
         await interaction.response.send_message(
-            _settings_text(cur_apt),
-            view=_SettingsView(self.boss_id, show_card=bool(cur_apt)), ephemeral=True)
+            _aptitude_text(_APT_LABELS.get(p.get("aptitude"))),
+            view=_AptitudeView(self.boss_id), ephemeral=True)
 
 
-def _settings_text(cur_apt_label):
-    base = ("⚙️ **Paramètres de combat**\n"
-            "**🩸 Berserker** — à sa mort, reste à 1 PV, inflige x1.15 puis meurt.\n"
+def _aptitude_text(cur_apt_label):
+    base = ("🩸 **Aptitude de combat**\n"
+            "**🩸 Berserker** — à sa mort, reste à 1 PV, inflige x1.50 puis meurt.\n"
             "**💚 Support** — sous 20% PV, se soigne de 20% (2 fois max).\n\n"
-            "Choisis ton aptitude ci-dessous.")
+            "Choisis ci-dessous.")
     if cur_apt_label:
-        base += f"\n✅ Aptitude : **{cur_apt_label}** — clique 🎴 **Choisir ma carte**."
+        base += f"\n✅ Actuelle : **{cur_apt_label}**."
     return base
 
 
@@ -337,33 +333,15 @@ async def _refresh_boss_msg(client, boss_id):
         pass
 
 
-class _OpenPickerButton(discord.ui.Button):
+class _AptitudeView(discord.ui.View):
     def __init__(self, boss_id):
-        super().__init__(label="Choisir ma carte", style=discord.ButtonStyle.primary, emoji="🎴")
-        self.boss_id = boss_id
-
-    async def callback(self, interaction):
-        boss = card_boss_get(self.boss_id)
-        if not boss or boss["status"] != "recruiting":
-            await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True); return
-        if not boss_participant_get(self.boss_id, interaction.user.id):
-            await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True); return
-        view = _CardPickerView(self.boss_id, interaction.user.id, interaction.client)
-        await interaction.response.edit_message(content="🎴 **Choisis ta carte de combat**",
-                                                embed=view.build_embed(), view=view)
-
-
-class _SettingsView(discord.ui.View):
-    def __init__(self, boss_id, show_card=False):
         super().__init__(timeout=300)
         self.boss_id = boss_id
-        if show_card:
-            self.add_item(_OpenPickerButton(boss_id))
 
     @discord.ui.select(placeholder="Choisir une aptitude…", min_values=1, max_values=1,
                        options=[
                            discord.SelectOption(label="Berserker", value="berserker", emoji="🩸",
-                                                description="À la mort : 1 PV, dernier coup x1.15, puis meurt"),
+                                                description="À la mort : 1 PV, dernier coup x1.50, puis meurt"),
                            discord.SelectOption(label="Support", value="support", emoji="💚",
                                                 description="Sous 20% PV : soin de 20% (2 fois max)"),
                            discord.SelectOption(label="Aucune", value="none", emoji="➖",
@@ -379,10 +357,7 @@ class _SettingsView(discord.ui.View):
         boss_participant_update(self.boss_id, interaction.user.id,
                                 aptitude=("" if val == "none" else val))
         lbl = _APT_LABELS.get(val)
-        # Révèle le bouton "Choisir ma carte" sur le message éphémère
-        await interaction.response.edit_message(
-            content=_settings_text(lbl),
-            view=_SettingsView(self.boss_id, show_card=True))
+        await interaction.response.edit_message(content=_aptitude_text(lbl), view=self)
         await _refresh_boss_msg(interaction.client, self.boss_id)
 
 
