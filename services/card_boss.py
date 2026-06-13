@@ -28,7 +28,7 @@ import time as _t
 _RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
 _JOIN_EXPIRE = 900         # si personne ne rejoint, le boss disparaît (15 min)
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
-_QUICK_SECONDS = 10        # delai du demarrage rapide
+_QUICK_SECONDS = 30        # delai du demarrage rapide
 _TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
@@ -146,6 +146,15 @@ def _cemoji(bot, name, fallback):
     return fallback
 
 
+def _small_bar(bot, cur, mx, segments=8):
+    """Mini barre PV des membres : uniquement lifebarfull / lifebarempty."""
+    cur = max(0, cur)
+    filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
+    full = _cemoji(bot, "lifebarfull", "🟥")
+    empty = _cemoji(bot, "lifebarempty", "⬛")
+    return full * filled + empty * (segments - filled)
+
+
 def _bar(bot, cur, mx, enraged=False, segments=15):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
@@ -225,7 +234,7 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     elif boss["status"] == "recruiting":
         if boss.get("start_at"):
             info = (f"🐲 **Recrutement !** Le combat démarre <t:{int(boss['start_at'])}:R>\n"
-                    f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
+                    f"(ou {_QUICK_SECONDS} s si **{_QUICK_START_AT}** joueurs).\n"
                     f"🛡️ **Rejoindre** puis ⚙️ **Paramètres de combat**.")
         else:
             info = ("🐲 **En attente d'un premier combattant…**\n"
@@ -239,10 +248,13 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         embed.add_field(name="​", value=info, inline=False)
     if parts:
         lines = []
+        fighting = boss["status"] == "fighting"
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
             lines.append(f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))} "
                          f"❤️ {_fmt(max(0,p['hp']))} · 🗡️ {_fmt(p['atk'])}{ko}")
+            if fighting:
+                lines.append(_small_bar(bot, p["hp"], p.get("max_hp") or p["hp"]))
         embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
