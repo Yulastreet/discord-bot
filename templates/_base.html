@@ -556,7 +556,9 @@
           <svg class="ic"><use href="#i-swords"/></svg> League of Legends
         </a>
       </details>
+      {% endif %}
 
+      <!-- Cartes a collectionner : visible par TOUT LE MONDE (hors gating serveur) -->
       <details class="nav-cat" data-cat="cartes_collec" open>
         <summary class="nav-section">
           <span class="nav-section-label">🃏 Cartes à collectionner</span>
@@ -572,7 +574,6 @@
           <svg class="ic"><use href="#i-bolt"/></svg> Roue de la chance
         </a>
       </details>
-      {% endif %}
 
       {% if discord_user and discord_user.user_id %}
       <details class="nav-cat" data-cat="premium" open>
