@@ -2335,7 +2335,39 @@ def _ensure_wheel_tables():
         pct     INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, day)
     )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS daily_roll_claims (
+        user_id    TEXT NOT NULL,
+        day        TEXT NOT NULL,
+        claimed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, day)
+    )''')
     conn.commit(); conn.close()
+
+
+def daily_roll_claimed_today(user_id) -> bool:
+    """True si le user a deja recupere son roll quotidien gratuit aujourd'hui (FR)."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM daily_roll_claims WHERE user_id = ? AND day = ?",
+                  (str(user_id), _today_str())).fetchone()
+    conn.close()
+    return r is not None
+
+
+def daily_roll_grant(user_id) -> bool:
+    """Octroie 1 roll gratuit du jour. False si deja recupere aujourd'hui."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    try:
+        c.execute("INSERT INTO daily_roll_claims (user_id, day) VALUES (?, ?)",
+                  (str(user_id), _today_str()))
+        conn.commit(); ok = True
+    except Exception:
+        ok = False
+    conn.close()
+    if ok:
+        roll_give_user(user_id, 1)
+    return ok
 
 
 def wheel_claim_today(user_id):

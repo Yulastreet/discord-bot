@@ -41,6 +41,12 @@
   .wh-timer .clk { font-size:54px; font-weight:900; letter-spacing:2px; line-height:1.1;
                    font-variant-numeric:tabular-nums; color:var(--text); }
   .wh-timer.ready .clk { color:#7bdc6b; font-size:34px; }
+  .wh-daily { display:flex; align-items:center; justify-content:space-between; gap:16px;
+              margin-top:22px; border:1px solid var(--border); border-radius:12px;
+              padding:14px 18px; background:var(--bg-1); }
+  .wh-daily-txt { display:flex; flex-direction:column; gap:2px; }
+  .wh-daily-txt .t { font-size:16px; font-weight:800; }
+  .wh-daily-txt .s { font-size:12px; color:var(--text-2); }
   .wh-gain { display:none; align-items:center; gap:16px; margin-top:16px;
              border:2px solid var(--accent); border-radius:14px; padding:16px 22px;
              background:linear-gradient(120deg, rgba(255,255,255,.04), transparent); }
@@ -81,6 +87,15 @@
     <div class="lbl">Prochain tour dans</div>
     <div id="whClock" class="clk">--:--:--</div>
   </div>
+
+  <div class="wh-daily">
+    <div class="wh-daily-txt">
+      <span class="t">🎟️ Roll quotidien gratuit</span>
+      <span class="s">1 roll offert chaque jour (reset minuit, heure FR).</span>
+    </div>
+    <button id="drBtn" class="btn btn-primary" onclick="claimDailyRoll()" disabled>Chargement…</button>
+  </div>
+  <div id="drHint" class="wh-note" style="text-align:center;"></div>
 </div>
 
 <script>
@@ -175,10 +190,27 @@
       } else {
         btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
       }
+      // Daily roll gratuit
+      const dr = document.getElementById('drBtn');
+      if (!d.logged_in){ dr.disabled = true; dr.textContent = '🔒 Connecte-toi'; }
+      else if (d.daily_roll_claimed){ dr.disabled = true; dr.textContent = '✅ Récupéré aujourd\'hui'; }
+      else { dr.disabled = false; dr.textContent = '🎟️ Récupérer 1 roll'; }
     } catch(e){
       document.getElementById('whSpin').textContent = 'Erreur de chargement';
     }
   }
+
+  window.claimDailyRoll = async function(){
+    const dr = document.getElementById('drBtn');
+    const hint = document.getElementById('drHint');
+    dr.disabled = true; hint.textContent = '';
+    try {
+      const r = await fetch('/api/public/daily-roll/claim', {method:'POST'});
+      const d = await r.json();
+      if (d.ok){ dr.textContent = '✅ Récupéré aujourd\'hui'; hint.textContent = '🎟️ +1 roll ajouté à ton compte !'; }
+      else { dr.textContent = '✅ Indisponible'; hint.textContent = '❌ ' + (d.error || 'Erreur'); }
+    } catch(e){ hint.textContent = 'Erreur réseau'; dr.disabled = false; dr.textContent = '🎟️ Récupérer 1 roll'; }
+  };
 
   window.spin = async function(){
     if (busy) return;

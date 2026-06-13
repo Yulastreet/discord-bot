@@ -224,7 +224,7 @@ def register_cards_owner_routes(app, deps):
     @app.route("/api/public/wheel/status", methods=["GET"])
     def api_public_wheel_status():
         from flask import session as _ses
-        from database import wheel_claim_today, essence_bonus_get
+        from database import wheel_claim_today, essence_bonus_get, daily_roll_claimed_today
         import datetime as _dt
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
@@ -245,7 +245,20 @@ def register_cards_owner_routes(app, deps):
             "bonus_today": essence_bonus_get(uid) if uid else 0,
             "rewards": _WHEEL_REWARDS,
             "reset_in": reset_in,
+            "daily_roll_claimed": daily_roll_claimed_today(uid) if uid else False,
         })
+
+    @app.route("/api/public/daily-roll/claim", methods=["POST"])
+    def api_public_daily_roll_claim():
+        from flask import session as _ses
+        from database import daily_roll_grant
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        if not uid:
+            return jsonify({"error": "Connecte-toi pour récupérer ton roll."}), 401
+        if not daily_roll_grant(uid):
+            return jsonify({"error": "Roll quotidien déjà récupéré aujourd'hui."}), 400
+        return jsonify({"ok": True})
 
     @app.route("/api/public/wheel/spin", methods=["POST"])
     def api_public_wheel_spin():
