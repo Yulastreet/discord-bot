@@ -388,9 +388,11 @@ class _PageCardSelect(discord.ui.Select):
         opts = []
         for c in page_rows[:25]:
             cnt = f" x{c['count']}" if c.get("count", 1) > 1 else ""
-            desc = f"{(c.get('rarity') or '?')} · {(c.get('universe') or '?')}"[:100]
+            st = int(c.get("stars", 0))
+            star_lbl = f" {st}★" if st else ""
+            desc = f"{(c.get('rarity') or '?')}{(' '+st*'⭐') if st else ''} · {(c.get('universe') or '?')}"[:100]
             opts.append(discord.SelectOption(
-                label=f"{c['name']}{cnt}"[:100], value=str(c["card_id"]),
+                label=f"{c['name']}{star_lbl}{cnt}"[:100], value=str(c["card_id"]),
                 emoji=RARITY_EMOJIS.get(c.get("rarity"), "⚪"), description=desc))
         if not opts:
             opts = [discord.SelectOption(label="(aucune carte)", value="none")]
@@ -419,15 +421,16 @@ class _CardPickerView(discord.ui.View):
         self._sync_dynamic()
 
     def _load(self):
-        from database import user_card_list
+        from database import user_card_list, user_card_fusion_map
         cards = user_card_list(self.user_id)
+        fmap = user_card_fusion_map(self.user_id)
         grouped = {}
         for c in cards:
             if self.element and (c.get("element") or "") != self.element:
                 continue
             cid = c["card_id"]
             if cid not in grouped:
-                grouped[cid] = {**c, "count": 0}
+                grouped[cid] = {**c, "count": 0, "stars": int(fmap.get(cid, 0))}
             grouped[cid]["count"] += 1
         self.rows = list(grouped.values())
         self.total_pages = max(1, (len(self.rows) + 24) // 25)
@@ -458,8 +461,9 @@ class _CardPickerView(discord.ui.View):
             el = _elem(self.bot, c.get("element"))
             pre = f"{emoji}｜{el}" if el else emoji
             cnt = f" x{c['count']}" if c["count"] > 1 else ""
+            stars = "⭐" * int(c.get("stars", 0))
             uni = c.get("universe") or "?"
-            lines.append(f"{pre} **{c['name']}**{cnt} · _{uni}_")
+            lines.append(f"{pre} **{c['name']}**{stars}{cnt} · _{uni}_")
         elem_lbl = CARD_ELEMENT_LABELS.get(self.element, "tous") if self.element else "tous"
         embed = discord.Embed(
             title="🎴 Choisis ta carte de combat", color=0x8e44ad,
