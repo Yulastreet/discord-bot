@@ -2471,6 +2471,19 @@ def user_card_rarity_breakdown(user_id):
     return {r["rarity"]: int(r["n"]) for r in rows}
 
 
+def user_collection_origins(user_id):
+    """Origines (subtitle) presentes dans la collection d'un user + nb cartes uniques."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT c.subtitle AS origin, COUNT(DISTINCT uc.card_id) AS n "
+        "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+        "WHERE uc.user_id = ? AND c.subtitle IS NOT NULL AND c.subtitle != '' "
+        "GROUP BY c.subtitle ORDER BY c.subtitle COLLATE NOCASE",
+        (str(user_id),)).fetchall()
+    conn.close()
+    return [(r["origin"], int(r["n"])) for r in rows]
+
+
 def user_unique_rarity_breakdown(user_id):
     """Retourne {rarity: nb_cartes_uniques} (distinctes) pour un user."""
     conn = get_db(); c = conn.cursor()

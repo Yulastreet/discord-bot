@@ -466,50 +466,36 @@ def setup_cards_commands(bot, deps):
         target_user = membre or interaction.user
         rar_val = rarete.value if rarete else None
         cat_val = (categorie or "").strip() or None
-        cards = user_card_list(target_user.id, rarity=rar_val, categorie=cat_val)
-        total = user_card_count(target_user.id)
-        if not cards:
-            msg = f"**{target_user.display_name}** n'a pas de cartes"
-            if rar_val:
-                msg += f" {rar_val}"
-            if cat_val:
-                msg += f" pour **{cat_val}**"
-            msg += "."
-            await interaction.response.send_message(msg, ephemeral=True)
-            return
-
-        # Regroupe par carte (count duplicates)
-        grouped: dict[int, dict] = {}
-        for c in cards:
-            cid = c["card_id"]
-            if cid not in grouped:
-                grouped[cid] = {**c, "count": 0, "nt_count": 0}
-            grouped[cid]["count"] += 1
-            if c.get("not_tradeable"):
-                grouped[cid]["nt_count"] += 1
-        rows = list(grouped.values())
-        # Cartes equipees d'un cosmetique (✨) + niveau de fusion (⭐)
-        from database import user_card_customizations_map, user_card_fusion_map
+        from database import (user_card_customizations_map, user_card_fusion_map,
+                               user_collection_origins)
         custom_map = user_card_customizations_map(target_user.id)
         fusion_map = user_card_fusion_map(target_user.id)
-
-        # Pagine
+        total = user_card_count(target_user.id)
+        owner_id = interaction.user.id
         PAGE_SIZE = 25
-        total_pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
 
-        def _build_embed(page: int) -> discord.Embed:
-            start = (page - 1) * PAGE_SIZE
-            end = start + PAGE_SIZE
-            page_rows = rows[start:end]
+        def _grouped_rows(cat):
+            cards = user_card_list(target_user.id, rarity=rar_val, categorie=cat)
+            grouped: dict[int, dict] = {}
+            for c in cards:
+                cid = c["card_id"]
+                if cid not in grouped:
+                    grouped[cid] = {**c, "count": 0, "nt_count": 0}
+                grouped[cid]["count"] += 1
+                if c.get("not_tradeable"):
+                    grouped[cid]["nt_count"] += 1
+            return list(grouped.values())
+
+        def _build_embed(rows, cat, page, total_pages):
+            page_rows = rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
             desc = f"**{total}** cartes ({len(rows)} uniques)"
             if rar_val:
                 desc += f" • rareté **{rar_val}**"
-            if cat_val:
-                desc += f" • **{cat_val}**"
+            if cat:
+                desc += f" • **{cat}**"
             embed = discord.Embed(
                 title=f"🃏 Collection de {target_user.display_name}",
-                description=desc,
-                color=0xB9F23A,
+                description=desc, color=0xB9F23A,
             )
             lines = []
             for c in page_rows:
@@ -521,10 +507,7 @@ def setup_cards_commands(bot, deps):
                 cosmetic_tag = " ✨" if custom_map.get(c["card_id"]) else ""
                 total_n = c["count"]
                 if fusion > 0:
-                    # Ligne 1 : l'exemplaire etoilé (1 copie, verrouillé)
-                    stars_tag = "⭐" * fusion
-                    lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{stars_tag} 🔒 · _{uni}_")
-                    # Ligne 2 : les doublons en trop, non etoilés
+                    lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{'⭐' * fusion} 🔒 · _{uni}_")
                     extra = total_n - 1
                     if extra > 0:
                         cnt = f" x{extra}" if extra > 1 else ""
@@ -534,18 +517,19 @@ def setup_cards_commands(bot, deps):
                     nt = c.get("nt_count", 0)
                     nt_tag = f" 🔒{nt}" if nt > 0 else ""
                     lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{uni}_")
-            embed.description += "\n\n" + "\n".join(lines)
+            embed.description += "\n\n" + ("\n".join(lines) if lines else "_(vide)_")
             embed.set_footer(text=f"Page {page}/{total_pages}")
             if target_user.display_avatar:
                 embed.set_thumbnail(url=str(target_user.display_avatar.url))
             return embed
 
         class _CollecView(discord.ui.View):
-            def __init__(self, owner_id: int, total_pages: int):
+            def __init__(self, rows, cat):
                 super().__init__(timeout=300)
-                self.owner_id = owner_id
+                self.rows = rows
+                self.cat = cat
                 self.page = 1
-                self.total_pages = total_pages
+                self.total_pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
                 self._refresh()
 
             def _refresh(self):
@@ -554,38 +538,116 @@ def setup_cards_commands(bot, deps):
                 self.counter.label = f"{self.page} / {self.total_pages}"
 
             async def _guard(self, interaction):
-                if interaction.user.id != self.owner_id:
+                if interaction.user.id != owner_id:
                     await interaction.response.send_message(
                         "Ce menu n'est pas pour toi. Fais ta propre `/cardcollec`.",
                         ephemeral=True)
                     return False
                 return True
 
-            @discord.ui.button(label="◀ Précédent", style=discord.ButtonStyle.secondary)
+            @discord.ui.button(label="◀ Précédent", style=discord.ButtonStyle.secondary, row=0)
             async def prev_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 if self.page > 1:
-                    self.page -= 1
-                    self._refresh()
-                    await interaction.response.edit_message(embed=_build_embed(self.page), view=self)
+                    self.page -= 1; self._refresh()
+                    await interaction.response.edit_message(
+                        embed=_build_embed(self.rows, self.cat, self.page, self.total_pages), view=self)
 
-            @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
+            @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=0)
             async def counter(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 pass
 
-            @discord.ui.button(label="Suivant ▶", style=discord.ButtonStyle.secondary)
+            @discord.ui.button(label="Suivant ▶", style=discord.ButtonStyle.secondary, row=0)
             async def next_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 if self.page < self.total_pages:
-                    self.page += 1
-                    self._refresh()
-                    await interaction.response.edit_message(embed=_build_embed(self.page), view=self)
+                    self.page += 1; self._refresh()
+                    await interaction.response.edit_message(
+                        embed=_build_embed(self.rows, self.cat, self.page, self.total_pages), view=self)
 
-        if total_pages > 1:
-            view = _CollecView(interaction.user.id, total_pages)
-            await interaction.response.send_message(embed=_build_embed(1), view=view)
-        else:
-            await interaction.response.send_message(embed=_build_embed(1))
+            @discord.ui.button(label="📚 Parcourir les origines", style=discord.ButtonStyle.success, row=1)
+            async def browse_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                if not await self._guard(interaction): return
+                view = _OriginsView()
+                await interaction.response.edit_message(
+                    embed=view.build_embed(), view=view)
+
+        def _make_collec_view(cat):
+            rows = _grouped_rows(cat)
+            view = _CollecView(rows, cat)
+            return _build_embed(rows, cat, 1, view.total_pages), view
+
+        # Navigateur d'origines (style "Browse Series")
+        class _OriginsView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=300)
+                self.origins = user_collection_origins(target_user.id)
+                self.page = 0
+                self.per = 25
+                self._build_select()
+
+            def build_embed(self):
+                tp = max(1, (len(self.origins) + self.per - 1) // self.per)
+                return discord.Embed(
+                    title=f"📚 Origines de {target_user.display_name}",
+                    description=f"Choisis une origine dans le menu déroulant.\n"
+                                f"_{len(self.origins)} origines · page {self.page + 1}/{tp}_",
+                    color=0xB9F23A,
+                )
+
+            def _build_select(self):
+                self.clear_items()
+                chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
+                opts = [discord.SelectOption(label=o[:100], description=f"{n} carte(s)")
+                        for o, n in chunk]
+                sel = discord.ui.Select(placeholder="Sélectionne une origine…",
+                                          options=opts or [discord.SelectOption(label="—")], row=0)
+                async def _on_select(inter: discord.Interaction):
+                    if inter.user.id != owner_id:
+                        await inter.response.send_message("Pas ton menu.", ephemeral=True); return
+                    chosen = sel.values[0]
+                    emb, v = _make_collec_view(chosen)
+                    await inter.response.edit_message(embed=emb, view=v)
+                sel.callback = _on_select
+                self.add_item(sel)
+                # boutons page + retour
+                tp = max(1, (len(self.origins) + self.per - 1) // self.per)
+                prev = discord.ui.Button(label="◀", style=discord.ButtonStyle.secondary,
+                                          row=1, disabled=self.page <= 0)
+                nxt = discord.ui.Button(label="▶", style=discord.ButtonStyle.secondary,
+                                         row=1, disabled=self.page >= tp - 1)
+                back = discord.ui.Button(label="↩ Retour", style=discord.ButtonStyle.danger, row=1)
+                async def _prev(i):
+                    if i.user.id != owner_id:
+                        await i.response.send_message("Pas ton menu.", ephemeral=True); return
+                    self.page -= 1; self._build_select()
+                    await i.response.edit_message(embed=self.build_embed(), view=self)
+                async def _nxt(i):
+                    if i.user.id != owner_id:
+                        await i.response.send_message("Pas ton menu.", ephemeral=True); return
+                    self.page += 1; self._build_select()
+                    await i.response.edit_message(embed=self.build_embed(), view=self)
+                async def _back(i):
+                    if i.user.id != owner_id:
+                        await i.response.send_message("Pas ton menu.", ephemeral=True); return
+                    emb, v = _make_collec_view(None)
+                    await i.response.edit_message(embed=emb, view=v)
+                prev.callback = _prev; nxt.callback = _nxt; back.callback = _back
+                self.add_item(prev); self.add_item(nxt); self.add_item(back)
+
+        # Envoi initial
+        first_rows = _grouped_rows(cat_val)
+        if not first_rows:
+            msg = f"**{target_user.display_name}** n'a pas de cartes"
+            if rar_val:
+                msg += f" {rar_val}"
+            if cat_val:
+                msg += f" pour **{cat_val}**"
+            await interaction.response.send_message(msg + ".", ephemeral=True)
+            return
+        view = _CollecView(first_rows, cat_val)
+        await interaction.response.send_message(
+            embed=_build_embed(first_rows, cat_val, 1, view.total_pages), view=view)
 
     @collection.autocomplete("categorie")
     async def collection_categorie_autocomplete(interaction: discord.Interaction, current: str):
