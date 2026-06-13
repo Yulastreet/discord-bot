@@ -255,7 +255,19 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
                          f"❤️ {_fmt(max(0,p['hp']))} · 🗡️ {_fmt(p['atk'])}{ko}")
             if fighting:
                 lines.append(_small_bar(bot, p["hp"], p.get("max_hp") or p["hp"]))
-        embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
+        # Les emojis perso sont longs (~26 car) : on découpe en plusieurs champs
+        # pour ne jamais dépasser la limite Discord de 1024 car/valeur.
+        chunks, cur = [], ""
+        for ln in lines:
+            if cur and len(cur) + len(ln) + 1 > 1000:
+                chunks.append(cur); cur = ln
+            else:
+                cur = f"{cur}\n{ln}" if cur else ln
+        if cur:
+            chunks.append(cur)
+        for i, chunk in enumerate(chunks):
+            name = f"🛡️ Équipe ({len(parts)})" if i == 0 else "​"
+            embed.add_field(name=name, value=chunk, inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
     # Image : battlefield pendant le combat, sinon carte du boss durant le recrutement
