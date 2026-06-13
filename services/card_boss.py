@@ -174,6 +174,21 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     embed.add_field(name="❤️ PV du boss",
                     value=f"**{_fmt(boss['hp'])}** / {_fmt(boss['max_hp'])}\n`{_bar(boss['hp'], boss['max_hp'])}`",
                     inline=False)
+    # Info (recrutement / résultat) JUSTE SOUS les PV
+    info = ""
+    if phase_text:
+        info = phase_text
+    elif boss["status"] == "recruiting":
+        when = f"<t:{int(boss['start_at'])}:R>" if boss.get("start_at") else "bientôt"
+        info = (f"🐲 **Recrutement !** Le combat démarre {when} "
+                f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
+                f"🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
+    elif boss["status"] == "defeated":
+        info = "🎉 **Boss vaincu !**"
+    elif boss["status"] == "wiped":
+        info = "💀 **L'équipe a été anéantie.** Le boss survit."
+    if info:
+        embed.add_field(name="​", value=info, inline=False)
     if parts:
         lines = []
         for p in parts[:12]:
@@ -183,14 +198,6 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
-    if phase_text:
-        embed.description = phase_text
-    elif boss["status"] == "recruiting" and parts and boss.get("start_at"):
-        embed.description = f"⏳ Le combat démarre <t:{int(boss['start_at'])}:R>."
-    elif boss["status"] == "defeated":
-        embed.description = "🎉 **Boss vaincu !**"
-    elif boss["status"] == "wiped":
-        embed.description = "💀 **L'équipe a été anéantie.** Le boss survit."
     # Image : battlefield pendant le combat, sinon carte du boss durant le recrutement
     if battle:
         embed.set_image(url="attachment://battle.png")
@@ -285,10 +292,7 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
                            image_url=img, start_at=start_at)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)
-    embed = build_boss_embed(bot, boss,
-                              phase_text=f"🐲 **Recrutement !** Le combat démarre <t:{int(start_at)}:R> "
-                                         f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
-                                         f"**🛡️ Rejoindre** puis **🎴 Choisir ma carte**.")
+    embed = build_boss_embed(bot, boss)
     view = JoinView(bid)
     msg = await channel.send(content="🐲 **Un boss est apparu !**", embed=embed, view=view)
     card_boss_set_message(bid, msg.id)
