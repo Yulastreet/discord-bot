@@ -112,7 +112,7 @@ def _build_battlefield(bid):
         return None
 
 
-def _bar(cur, mx, segments=10):
+def _bar(cur, mx, segments=15):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
     pct = int(round(100 * cur / mx)) if mx > 0 else 0
