@@ -225,15 +225,21 @@ def register_cards_owner_routes(app, deps):
     def api_public_wheel_status():
         from flask import session as _ses
         from database import wheel_claim_today, essence_bonus_get
+        import datetime as _dt
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         claimed = wheel_claim_today(uid) if uid else None
+        # secondes jusqu'au prochain reset (minuit local serveur)
+        now = _dt.datetime.now()
+        nxt = (now + _dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        reset_in = int((nxt - now).total_seconds())
         return jsonify({
             "logged_in": bool(uid),
             "claimed": claimed is not None,
             "claim": claimed,
             "bonus_today": essence_bonus_get(uid) if uid else 0,
             "rewards": _WHEEL_REWARDS,
+            "reset_in": reset_in,
         })
 
     @app.route("/api/public/wheel/spin", methods=["POST"])

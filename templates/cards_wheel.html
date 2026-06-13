@@ -34,6 +34,11 @@
            border-radius:8px; padding:8px 10px; font-size:13px; }
   .wh-od .pc { color:var(--text-2); font-weight:700; }
   .wh-note { color:var(--text-2); font-size:12px; margin-top:6px; }
+  .wh-timer { margin-top:22px; text-align:center; }
+  .wh-timer .lbl { font-size:13px; color:var(--text-2); text-transform:uppercase; letter-spacing:.06em; }
+  .wh-timer .clk { font-size:54px; font-weight:900; letter-spacing:2px; line-height:1.1;
+                   font-variant-numeric:tabular-nums; color:var(--text); }
+  .wh-timer.ready .clk { color:#7bdc6b; font-size:34px; }
 </style>
 
 <div class="wh-wrap">
@@ -55,13 +60,42 @@
 
   <h3 style="margin:22px 0 6px;">Récompenses & chances</h3>
   <div id="whGrid" class="wh-grid"></div>
+
+  <div id="whTimer" class="wh-timer" style="display:none;">
+    <div class="lbl">Prochain tour dans</div>
+    <div id="whClock" class="clk">--:--:--</div>
+  </div>
 </div>
 
 <script>
 (function(){
   let REWARDS = [];
   let busy = false;
+  let resetAt = 0;        // timestamp (ms) du prochain reset
+  let timerStarted = false;
   const CELL = 150;
+
+  function fmt2(n){ return String(n).padStart(2,'0'); }
+  function tick(){
+    const t = document.getElementById('whTimer');
+    const clk = document.getElementById('whClock');
+    let secs = Math.max(0, Math.round((resetAt - Date.now())/1000));
+    if (secs <= 0){
+      t.classList.add('ready');
+      clk.textContent = 'Disponible !';
+      return;
+    }
+    const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+    clk.textContent = `${fmt2(h)}:${fmt2(m)}:${fmt2(s)}`;
+  }
+  function showCountdown(resetInSecs){
+    resetAt = Date.now() + (resetInSecs*1000);
+    const t = document.getElementById('whTimer');
+    t.style.display = 'block';
+    t.classList.remove('ready');
+    tick();
+    if (!timerStarted){ timerStarted = true; setInterval(tick, 1000); }
+  }
 
   function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function icon(r){ return r.type === 'roll' ? '🎟️' : '✨'; }
@@ -99,6 +133,7 @@
       const r = await fetch('/api/public/wheel/status');
       const d = await r.json();
       REWARDS = d.rewards || [];
+      window._resetIn = d.reset_in || 0;
       buildInitialReel();
       renderOdds();
       const btn = document.getElementById('whSpin');
@@ -106,14 +141,13 @@
       const note = document.getElementById('whNote');
       if (!d.logged_in){
         btn.disabled = true; btn.textContent = '🔒 Connecte-toi pour jouer';
-        return;
-      }
-      if (d.claimed){
+      } else if (d.claimed){
         btn.disabled = true; btn.textContent = '✅ Déjà tourné aujourd\'hui';
         const cl = d.claim || {};
         const lbl = cl.reward_type === 'roll' ? `+${cl.reward_value} roll(s)` : `+${cl.reward_value}% essences`;
         res.innerHTML = `Récompense du jour : <span style="color:var(--accent)">${lbl}</span>`;
         if (d.bonus_today) note.textContent = `Bonus d'essences actif aujourd'hui : +${d.bonus_today}%`;
+        showCountdown(d.reset_in || 0);
       } else {
         btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
       }
@@ -159,6 +193,7 @@
       const lbl = w.type === 'roll' ? `+${w.value} roll(s) 🎟️` : `+${w.value}% d'essences ✨ (aujourd'hui)`;
       res.innerHTML = `🎉 Tu gagnes : <span style="color:${w.color}; font-weight:900">${esc(lbl)}</span>`;
       btn.textContent = '✅ Déjà tourné aujourd\'hui';
+      showCountdown(window._resetIn || 0);
       busy = false;
     }, 5600);
   };
