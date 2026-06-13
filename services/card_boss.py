@@ -541,9 +541,15 @@ async def _apply_card_choice(interaction, boss_id, card):
         match_txt = "🟦 **Désavantage** contre le boss (x0.8 dégâts)"
     else:
         match_txt = "⚪ Neutre contre le boss"
+    # Detail du calcul ATK : rareté + etoiles de fusion
+    calc = f"{stats['rarity'] or '?'} ×{stats['rar_mult']:.2f}"
+    if stats["stars"] > 0:
+        calc += (f" · {stats['stars']}⭐ +{int(stats['stars'] * 20)}% "
+                 f"(×{stats['star_mult']:.2f})")
+    calc += f" = **×{stats['mult']:.2f}**"
     await interaction.response.send_message(
         f"🎴 **{card['name']}** ({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')})\n"
-        f"🗡️ ATK **{_fmt(stats['atk'])}** _(carte {stats['rarity'] or '?'} ×{stats['mult']:.2f})_ "
+        f"🗡️ ATK **{_fmt(stats['atk'])}** _({calc})_ "
         f"· ❤️ PV **{_fmt(stats['hp'])}** _(collection)_\n{match_txt}",
         ephemeral=True)
     await _refresh_boss_msg(interaction.client, boss_id)

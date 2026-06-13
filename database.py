@@ -2604,14 +2604,18 @@ def engaged_combat_stats(user_id, card_id):
     base = compute_player_combat_stats(user_id)
     card = card_get(int(card_id)) if card_id else None
     rar = (card or {}).get("rarity")
-    mult = CARD_RARITY_COMBAT_MULT.get(rar, 1.0)
-    stars = card_fusion_get(user_id, int(card_id)) if card_id else 0
-    mult *= 1.0 + min(5, int(stars)) * CARD_STAR_COMBAT_BONUS
+    rar_mult = CARD_RARITY_COMBAT_MULT.get(rar, 1.0)
+    stars = int(card_fusion_get(user_id, int(card_id))) if card_id else 0
+    star_mult = 1.0 + min(5, stars) * CARD_STAR_COMBAT_BONUS
+    mult = rar_mult * star_mult
     return {
         "hp": max(1, int(base["hp"])),
         "atk": max(1, int(base["atk"] * mult)),
         "mult": mult,
         "rarity": rar,
+        "rar_mult": rar_mult,
+        "stars": stars,
+        "star_mult": star_mult,
     }
 
 
