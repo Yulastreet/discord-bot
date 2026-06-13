@@ -135,11 +135,25 @@ def _build_battlefield(bid):
         return None
 
 
-def _bar(cur, mx, segments=15):
+def _cemoji(bot, name, fallback):
+    """Emoji personnalisé du serveur support (résolu par nom), sinon fallback."""
+    try:
+        e = discord.utils.get(bot.emojis, name=name)
+        if e:
+            return str(e)
+    except Exception:
+        pass
+    return fallback
+
+
+def _bar(bot, cur, mx, enraged=False, segments=15):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
     pct = int(round(100 * cur / mx)) if mx > 0 else 0
-    return "🟥" * filled + "⬛" * (segments - filled) + f"  **{pct}%**"
+    # Emojis perso : pleine / déchainée (sections restantes) / vide (sections perdues)
+    full = _cemoji(bot, "lifebardechaine" if enraged else "lifebarfull", "🟥")
+    empty = _cemoji(bot, "lifebarempty", "⬛")
+    return full * filled + empty * (segments - filled) + f"  **{pct}%**"
 
 
 def _default_card(user_id):
@@ -200,8 +214,9 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     weak_txt = " ".join(f"{_elem(bot, w)} {CARD_ELEMENT_LABELS.get(w,'?')}" for w in weak) or "—"
     embed.add_field(name="Faible contre", value=weak_txt, inline=True)
     embed.add_field(name="ATK", value=f"🗡️ {_fmt(boss['atk'])}", inline=True)
+    _enraged = boss["status"] == "fighting" and boss["hp"] < boss["max_hp"] * 0.5
     embed.add_field(name=f"❤️ PV du boss : {_fmt(boss['hp'])} / {_fmt(boss['max_hp'])}",
-                    value=_bar(boss['hp'], boss['max_hp']),
+                    value=_bar(bot, boss['hp'], boss['max_hp'], enraged=_enraged),
                     inline=False)
     # Info (recrutement / résultat) JUSTE SOUS les PV
     info = ""
@@ -226,9 +241,8 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         lines = []
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
-            mx = p.get("max_hp") or p["hp"]
             lines.append(f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))} "
-                         f"`[{int(max(0,p['hp']))}/{int(mx)} ❤️]` · 🗡️ {_fmt(p['atk'])}{ko}")
+                         f"❤️ {_fmt(max(0,p['hp']))} · 🗡️ {_fmt(p['atk'])}{ko}")
         embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
