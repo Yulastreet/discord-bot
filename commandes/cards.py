@@ -991,7 +991,25 @@ def setup_cards_commands(bot, deps):
 
     @cardfuse_cmd.autocomplete("nom")
     async def cardfuse_autocomplete(interaction: discord.Interaction, current: str):
-        return await _dup_cards_autocomplete(interaction, current)
+        # Comme _dup_cards mais EXCLUT les cartes deja maxées (5⭐) et les secret
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            uid = str(interaction.user.id)
+            rows = c.execute(
+                "SELECT c.name, COUNT(*) AS n, "
+                "  COALESCE(cc.fusion_level, 0) AS lvl "
+                "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                "LEFT JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
+                "WHERE uc.user_id = ? AND c.rarity != 'secret' AND LOWER(c.name) LIKE ? "
+                "GROUP BY uc.card_id HAVING n > 1 AND lvl < 5 ORDER BY c.name LIMIT 25",
+                (uid, f"%{q}%")).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=f"{r['name']} (x{r['n']}{' ' + '⭐'*r['lvl'] if r['lvl'] else ''})"[:100],
+                                          value=r["name"][:100]) for r in rows]
+        except Exception:
+            return []
 
 
     # === /cardup : tier-up (doublons d'une rareté -> 1 carte rareté au-dessus) ===
