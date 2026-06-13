@@ -25,7 +25,8 @@ from database import (
 )
 import time as _t
 
-_RECRUIT_SECONDS = 120     # fenetre de recrutement par defaut
+_RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
+_JOIN_EXPIRE = 900         # si personne ne rejoint, le boss disparaît (15 min)
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
 _QUICK_SECONDS = 10        # delai du demarrage rapide
 _TURN_DELAY = 4.0          # secondes entre 2 tours auto
@@ -179,10 +180,14 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     if phase_text:
         info = phase_text
     elif boss["status"] == "recruiting":
-        when = f"<t:{int(boss['start_at'])}:R>" if boss.get("start_at") else "bientôt"
-        info = (f"🐲 **Recrutement !** Le combat démarre {when} "
-                f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
-                f"🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
+        if boss.get("start_at"):
+            info = (f"🐲 **Recrutement !** Le combat démarre <t:{int(boss['start_at'])}:R> "
+                    f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
+                    f"🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
+        else:
+            info = ("🐲 **En attente d'un premier combattant…** Le timer de 2 min "
+                    "démarre dès qu'un joueur rejoint.\n"
+                    "🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
     elif boss["status"] == "defeated":
         info = "🎉 **Boss vaincu !**"
     elif boss["status"] == "wiped":
@@ -227,6 +232,9 @@ class JoinView(discord.ui.View):
         boss_participant_add(self.boss_id, uid, interaction.user.display_name,
                              delem, stats["hp"], stats["atk"],
                              card_id=(dcard["id"] if dcard else None))
+        # 1er joueur -> demarre le timer de 2 min
+        if not boss.get("start_at"):
+            card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
         await interaction.response.send_message(
             "🛡️ Tu as rejoint ! Élément par défaut = ta carte vedette. "
             "Utilise **🎴 Choisir ma carte** pour le changer.", ephemeral=True)
@@ -287,9 +295,9 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
     name = avatar["name"] if avatar else "Entité inconnue"
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
     img = avatar.get("image_url") if avatar else None
-    start_at = _t.time() + _RECRUIT_SECONDS
+    # start_at non defini : le timer ne demarre qu'au 1er joueur
     bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], cfg["atk"],
-                           image_url=img, start_at=start_at)
+                           image_url=img, start_at=None)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)
     embed = build_boss_embed(bot, boss)
@@ -303,17 +311,24 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
 async def _run_boss(bot, bid, msg, view):
     try:
         # ── Phase recrutement ──
-        waited = 0.0
+        # Le timer (start_at) n'est posé qu'au 1er joueur. Sans joueur, on attend
+        # jusqu'a _JOIN_EXPIRE puis le boss disparaît.
+        join_deadline = _t.time() + _JOIN_EXPIRE
         quick = False
-        while waited < _RECRUIT_SECONDS:
+        while True:
             await asyncio.sleep(3)
-            waited += 3
             boss = card_boss_get(bid)
             if not boss or boss["status"] != "recruiting":
                 return
-            if len(boss_participants_list(bid)) >= _QUICK_START_AT:
+            parts = boss_participants_list(bid)
+            if len(parts) >= _QUICK_START_AT:
                 quick = True
                 break
+            sa = boss.get("start_at")
+            if sa and _t.time() >= sa:
+                break  # timer de 2 min ecoulé
+            if not parts and _t.time() >= join_deadline:
+                break  # personne n'a rejoint -> expiration (gere plus bas)
         if quick:
             # compte a rebours rapide (timer visible)
             qstart = _t.time() + _QUICK_SECONDS
