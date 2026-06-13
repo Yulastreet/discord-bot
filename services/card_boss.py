@@ -186,7 +186,7 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         info = phase_text
     elif boss["status"] == "recruiting":
         if boss.get("start_at"):
-            info = (f"🐲 **Recrutement !** Le combat démarre <t:{int(boss['start_at'])}:R> "
+            info = (f"🐲 **Recrutement !** Le combat démarre <t:{int(boss['start_at'])}:R>\n"
                     f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
                     f"🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
         else:
