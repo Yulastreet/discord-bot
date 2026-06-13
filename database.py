@@ -330,7 +330,7 @@ def init_db():
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_msg ON card_boss(message_id)")
-    for _col, _ddl in (("start_at", "REAL"), ("image_url", "TEXT")):
+    for _col, _ddl in (("start_at", "REAL"), ("image_url", "TEXT"), ("atk_spawn", "INTEGER")):
         try:
             c.execute(f"ALTER TABLE card_boss ADD COLUMN {_col} {_ddl}")
         except Exception:
@@ -2802,11 +2802,11 @@ def card_boss_set_stats(boss_id, max_hp, atk):
 def card_boss_create(guild_id, channel_id, name, element, tier, max_hp, atk,
                       image_url=None, start_at=None):
     conn = get_db(); c = conn.cursor()
-    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk, image_url, start_at) "
-              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk, image_url, start_at, atk_spawn) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
               (str(guild_id), str(channel_id), name, element, int(tier),
                int(max_hp), int(max_hp), int(atk), image_url,
-               float(start_at) if start_at else None))
+               float(start_at) if start_at else None, int(atk)))
     bid = c.lastrowid
     conn.commit(); conn.close()
     return bid

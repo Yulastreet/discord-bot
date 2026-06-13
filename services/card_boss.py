@@ -680,8 +680,10 @@ def _scale_boss_to_team(bid):
         # il ne fait que grossir pour les equipes fortes (anti-powercreep).
         scaled_hp = int(sc["hp"] * sum_atk)
         scaled_atk = int(sc["atk"] * (sum_hp / n))
-        # facteur de rareté de l'avatar deja applique a l'atk au spawn
-        avatar_factor = (boss["atk"] / cfg["atk"]) if cfg.get("atk") else 1.0
+        # facteur de rareté de l'avatar : depuis atk_spawn (IMMUABLE), pas boss.atk
+        # (qui est muté par ce meme calcul a chaque join -> compound exponentiel)
+        atk_spawn = boss.get("atk_spawn") or boss["atk"]
+        avatar_factor = (atk_spawn / cfg["atk"]) if cfg.get("atk") else 1.0
         new_hp = max(cfg.get("hp", scaled_hp), scaled_hp)
         new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * avatar_factor)
         card_boss_set_stats(bid, new_hp, new_atk)
