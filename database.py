@@ -2565,8 +2565,8 @@ PLAYER_ATK_WEIGHTS = {
 # supplementaire ne compte que pour SOFT_DECAY. Lisse l'ecart entre joueurs et
 # evite l'inflation absurde des nombres. (N'affecte PAS la difficulte car le boss
 # scale sur cette meme valeur — voir team_scaled_boss_stats.)
-COLLECTION_SOFT_T = 300
-COLLECTION_SOFT_DECAY = 0.5
+COLLECTION_SOFT_T = 3000
+COLLECTION_SOFT_DECAY = 0.7
 
 
 def _collection_soft_factor(total_cards):
