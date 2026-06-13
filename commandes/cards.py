@@ -588,10 +588,13 @@ def setup_cards_commands(bot, deps):
 
             def build_embed(self):
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
+                chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
+                lines = "\n".join(f"**{o}** · {n} carte(s)" for o, n in chunk) or "_(aucune)_"
                 return discord.Embed(
                     title=f"📚 Origines de {target_user.display_name}",
-                    description=f"Choisis une origine dans le menu déroulant.\n"
-                                f"_{len(self.origins)} origines · page {self.page + 1}/{tp}_",
+                    description=(f"_{len(self.origins)} origines · page {self.page + 1}/{tp}_\n"
+                                  f"{lines}\n\n"
+                                  f"Navigue avec ◀ ▶ ou choisis dans le menu déroulant."),
                     color=0xB9F23A,
                 )
 
