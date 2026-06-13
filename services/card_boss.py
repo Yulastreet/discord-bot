@@ -191,10 +191,10 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         embed.description = "🎉 **Boss vaincu !**"
     elif boss["status"] == "wiped":
         embed.description = "💀 **L'équipe a été anéantie.** Le boss survit."
-    # Image : battlefield pendant le combat, sinon carte du boss avant le 1er join
+    # Image : battlefield pendant le combat, sinon carte du boss durant le recrutement
     if battle:
         embed.set_image(url="attachment://battle.png")
-    elif not parts and boss.get("image_url") and str(boss["image_url"]).startswith("http"):
+    elif boss["status"] == "recruiting" and boss.get("image_url") and str(boss["image_url"]).startswith("http"):
         embed.set_image(url=boss["image_url"])
     return embed
 
