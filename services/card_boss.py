@@ -33,7 +33,17 @@ _TURN_DELAY = 4.0          # secondes entre 2 tours auto
 _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
 
-_TIER_RARITY = {1: "epic", 2: "legendary", 3: "mythic", 4: "mythic", 5: "secret"}
+# Fourchette de rareté de la carte "avatar" du boss selon le tier
+_TIER_RANGE = {
+    1: ["common", "rare"],
+    2: ["rare", "epic"],
+    3: ["rare", "epic", "legendary"],
+    4: ["epic", "legendary", "mythic"],
+    5: ["legendary", "mythic", "secret"],
+}
+# Rareté du loot = le max de la fourchette du tier
+def _tier_loot_rarity(tier):
+    return _TIER_RANGE.get(tier, ["epic"])[-1]
 
 
 def _build_battlefield(bid):
@@ -296,7 +306,16 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
         return None
     tier = max(1, min(5, int(tier)))
     cfg = BOSS_TIERS[tier]
-    avatar = card_pick_random_exact_rarity(_TIER_RARITY.get(tier, "epic")) or card_pick_random_exact_rarity("epic")
+    # Avatar du boss : rareté aléatoire dans la fourchette du tier
+    rng = list(_TIER_RANGE.get(tier, ["epic"]))
+    random.shuffle(rng)
+    avatar = None
+    for _r in rng:
+        avatar = card_pick_random_exact_rarity(_r)
+        if avatar:
+            break
+    if not avatar:
+        avatar = card_pick_random_exact_rarity("epic")
     name = avatar["name"] if avatar else "Entité inconnue"
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
     img = avatar.get("image_url") if avatar else None
@@ -425,14 +444,17 @@ async def _run_boss(bot, bid, msg, view):
                     break
                 actor = "boss"
             else:
-                target = random.choice(alive)
-                cm = element_matchup(boss["element"], target["element"])
-                dmg = max(1, int(boss["atk"] * cm))
-                new_hp = max(0, target["hp"] - dmg)
-                boss_participant_update(bid, target["user_id"], hp=new_hp)
-                bff = " 🔥" if cm > 1 else ""
-                ko = " 💀 **KO !**" if new_hp <= 0 else ""
-                log.append(f"Tour {turn} · 👹 Le boss frappe **{target['name']}** : -{_fmt(dmg)}{bff}{ko}")
+                # Le boss frappe TOUTE l'équipe (AoE)
+                kos = []
+                for p in alive:
+                    cm = element_matchup(boss["element"], p["element"])
+                    dmg = max(1, int(boss["atk"] * cm))
+                    new_hp = max(0, p["hp"] - dmg)
+                    boss_participant_update(bid, p["user_id"], hp=new_hp)
+                    if new_hp <= 0:
+                        kos.append(p["name"])
+                ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
+                log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : ~**{_fmt(boss['atk'])}**{ko_txt}")
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -487,7 +509,7 @@ async def _finish(bot, bid, msg, view, log, victory):
 
     if victory:
         tier = boss["tier"]
-        rar = _TIER_RARITY.get(tier, "epic")
+        rar = _tier_loot_rarity(tier)
         loot_lines = []
         for p in real_parts:
             if p["damage"] <= 0:
