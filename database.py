@@ -2483,13 +2483,14 @@ def user_unique_rarity_breakdown(user_id):
 
 
 # ===== STATS DE COMBAT (joueur) : derivees des cartes uniques pondérées =====
-PLAYER_HP_BASE = 100
-PLAYER_ATK_BASE = 20
+PLAYER_HP_BASE = 50
+PLAYER_ATK_BASE = 25
+# Gros chiffres = plus impressionnant. Cible : carte rare ~500 PV / 270 ATK.
 PLAYER_HP_WEIGHTS = {
-    "common": 10, "rare": 25, "epic": 60, "legendary": 180, "mythic": 500, "secret": 800,
+    "common": 300, "rare": 500, "epic": 900, "legendary": 1800, "mythic": 4000, "secret": 6000,
 }
 PLAYER_ATK_WEIGHTS = {
-    "common": 2, "rare": 6, "epic": 18, "legendary": 60, "mythic": 180, "secret": 300,
+    "common": 150, "rare": 270, "epic": 500, "legendary": 1000, "mythic": 2200, "secret": 3500,
 }
 
 
