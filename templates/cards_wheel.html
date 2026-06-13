@@ -277,7 +277,11 @@
   function winLabel(it){
     return it.type === 'roll' ? `+${it.value} roll${it.value>1?'s':''}` : `+${it.value}% essences`;
   }
-  function winColor(it){ return it.type === 'roll' ? '#7bdc6b' : '#a86dff'; }
+  function winColor(it){
+    const rw = findReward(it.type, it.value);
+    if (rw) return rw.color;
+    return it.type === 'roll' ? '#7bdc6b' : '#a86dff';  // fallback si REWARDS pas encore chargé
+  }
 
   async function loadWins(){
     try {
