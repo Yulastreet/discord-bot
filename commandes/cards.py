@@ -929,7 +929,7 @@ def setup_cards_commands(bot, deps):
         from database import (card_get_by_name, user_card_count_owned,
                                 user_card_remove_copies, card_fusion_get, card_fusion_set,
                                 card_customization_get, border_get,
-                                user_card_set_not_tradeable,
+                                user_card_lock_one,
                                 FUSION_STAR_COSTS, FUSION_MAX_STARS)
         from services.card_render import render_user_card
         await interaction.response.defer(ephemeral=True)
@@ -962,8 +962,9 @@ def setup_cards_commands(bot, deps):
         removed = user_card_remove_copies(uid, card["id"], cost - 1)
         new_level = level + 1
         card_fusion_set(uid, card["id"], new_level)
-        # Carte fusionnee -> non tradeable (recyclage seul possible)
-        user_card_set_not_tradeable(uid, card["id"], 1)
+        # Verrouille UNE copie (celle qui porte les etoiles). Les doublons en trop
+        # restent echangeables et recyclables.
+        user_card_lock_one(uid, card["id"])
         # Regenere le rendu (garde bordure si equipee)
         border_key = card_customization_get(uid, card["id"])
         border = border_get(border_key) if border_key else None
@@ -973,7 +974,7 @@ def setup_cards_commands(bot, deps):
                if new_level < FUSION_MAX_STARS else "\nNiveau **max** atteint !")
         await interaction.followup.send(
             f"✨ **{card['name']}** fusionnée ! {removed} exemplaires consommés → {'⭐' * new_level}{nxt}\n"
-            f"🔒 Elle devient **non échangeable** (recyclage uniquement).\n"
+            f"🔒 L'exemplaire étoilé devient non échangeable (tes doublons en trop restent libres).\n"
             f"Vois-la avec `/show {card['name']}`.", ephemeral=True)
 
     @cardfuse_cmd.autocomplete("nom")

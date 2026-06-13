@@ -2354,6 +2354,22 @@ def user_card_set_not_tradeable(user_id, card_id, value=1):
     conn.commit(); conn.close()
 
 
+def user_card_lock_one(user_id, card_id):
+    """Verrouille UNE seule copie (la carte qui porte les etoiles). Les doublons
+    en trop restent echangeables/recyclables. No-op si une copie est deja verrouillee."""
+    conn = get_db(); c = conn.cursor()
+    already = c.execute(
+        "SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ? AND card_id = ? "
+        "AND COALESCE(not_tradeable,0) = 1", (str(user_id), int(card_id))).fetchone()["n"]
+    if int(already) == 0:
+        row = c.execute(
+            "SELECT id FROM user_cards WHERE user_id = ? AND card_id = ? "
+            "ORDER BY id ASC LIMIT 1", (str(user_id), int(card_id))).fetchone()
+        if row:
+            c.execute("UPDATE user_cards SET not_tradeable = 1 WHERE id = ?", (row["id"],))
+    conn.commit(); conn.close()
+
+
 def user_card_remove_copies(user_id, card_id, n) -> int:
     """Supprime n copies (rows) d'une carte pour un user. Retourne nb reellement
     supprime. Ne verifie pas le 'keep' (a faire cote appelant)."""
