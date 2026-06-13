@@ -444,17 +444,21 @@ async def _run_boss(bot, bid, msg, view):
                     break
                 actor = "boss"
             else:
-                # Le boss frappe TOUTE l'équipe (AoE)
+                # Le boss frappe TOUTE l'équipe (AoE). Déchaîné (<50% PV) = x1.5
+                enraged = boss["hp"] < boss["max_hp"] * 0.5
+                rage = 1.5 if enraged else 1.0
                 kos = []
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
-                    dmg = max(1, int(boss["atk"] * cm))
+                    dmg = max(1, int(boss["atk"] * cm * rage))
                     new_hp = max(0, p["hp"] - dmg)
                     boss_participant_update(bid, p["user_id"], hp=new_hp)
                     if new_hp <= 0:
                         kos.append(p["name"])
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
-                log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : ~**{_fmt(boss['atk'])}**{ko_txt}")
+                rage_txt = "🔥 **DÉCHAÎNÉ !** " if enraged else ""
+                log.append(f"Tour {turn} · 👹 {rage_txt}Le boss frappe toute l'équipe : "
+                           f"~**{_fmt(int(boss['atk'] * rage))}**{ko_txt}")
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
