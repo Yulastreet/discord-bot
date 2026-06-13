@@ -1169,8 +1169,8 @@ def setup_cards_commands(bot, deps):
         essences = currency_get(uid)
         fused = len(user_card_fusion_map(uid))
         borders_stock = sum(b["qty"] for b in user_borders_list(uid))
-        rar_line = " · ".join(
-            f"{RARITY_EMOJIS.get(r, '⚪')}{breakdown.get(r, 0)}"
+        rar_line = "　　".join(
+            f"{RARITY_EMOJIS.get(r, '⚪')} **{breakdown.get(r, 0)}**"
             for r in ("common", "rare", "epic", "legendary", "mythic"))
         # Indice de chance : moyenne ponderee par rareté vs moyenne attendue (50% = moyen)
         _pts = {"common": 1, "rare": 2, "epic": 5, "legendary": 25, "mythic": 100, "secret": 200}
@@ -1178,26 +1178,38 @@ def setup_cards_commands(bot, deps):
         _avg = (_total_pts / total) if total else 0
         _expected = 3.85  # esperance de points/roll selon les poids de tirage
         luck = max(0, min(100, round(_avg / _expected * 50))) if total else 0
+        from database import compute_player_combat_stats
+        cs = compute_player_combat_stats(uid)
+        def _fmt(n):
+            return f"{int(n):,}".replace(",", " ")
+        SPACER = ("​", "​", True)  # champ vide pour aligner les rangées
+
         embed = discord.Embed(
             title=f"🃏 Profil de cartes — {target.display_name}",
             color=0xB9F23A,
         )
-        embed.add_field(name="Collection",
-                        value=f"**{total}** cartes · **{uniq}** uniques", inline=True)
-        embed.add_field(name="Essences", value=f"**{essences}** ✨", inline=True)
-        embed.add_field(name="Fusionnées", value=f"**{fused}** carte(s) ⭐", inline=True)
-        # Stats de combat (cartes uniques pondérées + bonus étoiles)
-        from database import compute_player_combat_stats
-        cs = compute_player_combat_stats(uid)
+
+        # ── Rangée 1 : vue d'ensemble ──
+        embed.add_field(name="📦 Collection",
+                        value=f"**{_fmt(total)}** cartes\n**{_fmt(uniq)}** uniques", inline=True)
+        embed.add_field(name="✨ Essences", value=f"**{_fmt(essences)}**", inline=True)
+        embed.add_field(name="🍀 Chance", value=f"**{luck}%**", inline=True)
+
+        # ── Rangée 2 : combat (pleine largeur) ──
+        bonus_txt = f"   ·   _bonus fusion +{min(50, cs['stars'])}%_" if cs['stars'] else ""
         embed.add_field(
             name="⚔️ Stats de combat",
-            value=f"❤️ **PV :** {cs['hp']:,}".replace(",", " ") + "\n"
-                  f"🗡️ **ATK :** {cs['atk']:,}".replace(",", " ")
-                  + (f"\n_(bonus fusion +{min(50, cs['stars'])}%)_" if cs['stars'] else ""),
-            inline=True)
-        embed.add_field(name="Raretés", value=rar_line or "—", inline=False)
-        embed.add_field(name="Bordures en stock", value=f"**{borders_stock}**", inline=True)
-        embed.add_field(name="🍀 Indice de chance", value=f"**{luck}%**", inline=True)
+            value=f"❤️ PV **{_fmt(cs['hp'])}**　　🗡️ ATK **{_fmt(cs['atk'])}**{bonus_txt}",
+            inline=False)
+
+        # ── Rangée 3 : progression ──
+        embed.add_field(name="⭐ Fusionnées", value=f"**{_fmt(fused)}** carte(s)", inline=True)
+        embed.add_field(name="🖼️ Bordures", value=f"**{_fmt(borders_stock)}** en stock", inline=True)
+        embed.add_field(name=SPACER[0], value=SPACER[1], inline=True)
+
+        # ── Rangée 4 : raretés (pleine largeur) ──
+        embed.add_field(name="🎴 Raretés", value=rar_line or "—", inline=False)
+
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
         embed.set_footer(text=f"Profil de {target.display_name}",
