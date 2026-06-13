@@ -47,13 +47,57 @@ _TIER_RANGE = {
 def _tier_loot_rarity(tier):
     return _TIER_RANGE.get(tier, ["epic"])[-1]
 
-# Aptitudes de combat
-_APT_LABELS = {"berserker": "Berserker", "support": "Support"}
-_APT_EMOJI = {"berserker": "🩸", "support": "💚"}
-_BERSERK_MULT = 1.50      # dernier coup du berserker
-_SUPPORT_HEAL = 0.20      # % PV max rendu par soin
-_SUPPORT_TRIGGER = 0.20   # seuil de PV qui declenche le soin
-_SUPPORT_MAX = 2          # nb max de soins par combat
+# Aptitudes de combat (5 roles distincts, chacun avec un cout)
+_APT_LABELS = {
+    "berserker": "Berserker", "gardien": "Gardien", "soigneur": "Soigneur",
+    "duelliste": "Duelliste", "executeur": "Exécuteur",
+}
+_APT_EMOJI = {
+    "berserker": "🩸", "gardien": "🛡️", "soigneur": "💚",
+    "duelliste": "⚔️", "executeur": "💀",
+}
+# Berserker : +ATK / +degats subis
+_BERSERK_ATK = 1.30
+_BERSERK_TAKEN = 1.25
+# Gardien : -degats subis / -ATK
+_GARDIEN_TAKEN = 0.65
+_GARDIEN_ATK = 0.85
+# Soigneur : soigne le plus blesse / -ATK
+_SOIGNEUR_ATK = 0.85
+_SOIGNEUR_HEAL = 0.12     # % PV max rendu au plus blesse, par tour d'equipe
+# Duelliste : avantage elementaire amplifie
+_DUELLISTE_ADV = 1.50     # remplace le x1.25 quand on a l'avantage
+# Executeur : +ATK quand le boss est dechaine (<50% PV)
+_EXECUTEUR_ATK = 1.40
+
+
+def _apt_atk_mult(apt, matchup, boss_enraged):
+    """Multiplicateur d'ATK offensif du a l'aptitude (hors matchup de base)."""
+    if apt == "berserker":
+        return _BERSERK_ATK
+    if apt == "gardien":
+        return _GARDIEN_ATK
+    if apt == "soigneur":
+        return _SOIGNEUR_ATK
+    if apt == "executeur" and boss_enraged:
+        return _EXECUTEUR_ATK
+    return 1.0
+
+
+def _apt_matchup(apt, matchup):
+    """Matchup effectif : le Duelliste amplifie l'avantage elementaire."""
+    if apt == "duelliste" and matchup > 1.0:
+        return _DUELLISTE_ADV
+    return matchup
+
+
+def _apt_taken_mult(apt):
+    """Multiplicateur de degats SUBIS du a l'aptitude."""
+    if apt == "berserker":
+        return _BERSERK_TAKEN
+    if apt == "gardien":
+        return _GARDIEN_TAKEN
+    return 1.0
 
 
 def _apt_badge(apt):
@@ -318,8 +362,11 @@ class JoinView(discord.ui.View):
 
 def _aptitude_text(cur_apt_label):
     base = ("🩸 **Aptitude de combat**\n"
-            "**🩸 Berserker** — à sa mort, reste à 1 PV, inflige x1.50 puis meurt.\n"
-            "**💚 Support** — sous 20% PV, se soigne de 20% (2 fois max).\n\n"
+            "**🩸 Berserker** — +30% ATK, mais +25% dégâts subis.\n"
+            "**🛡️ Gardien** — -35% dégâts subis, mais -15% ATK.\n"
+            "**💚 Soigneur** — soigne le plus blessé de +12% PV/tour, -15% ATK.\n"
+            "**⚔️ Duelliste** — avantage élémentaire ×1.5 (au lieu de ×1.25).\n"
+            "**💀 Exécuteur** — +40% ATK quand le boss est déchaîné (<50% PV).\n\n"
             "Choisis ci-dessous.")
     if cur_apt_label:
         base += f"\n✅ Actuelle : **{cur_apt_label}**."
@@ -349,9 +396,15 @@ class _AptitudeView(discord.ui.View):
     @discord.ui.select(placeholder="Choisir une aptitude…", min_values=1, max_values=1,
                        options=[
                            discord.SelectOption(label="Berserker", value="berserker", emoji="🩸",
-                                                description="À la mort : 1 PV, dernier coup x1.50, puis meurt"),
-                           discord.SelectOption(label="Support", value="support", emoji="💚",
-                                                description="Sous 20% PV : soin de 20% (2 fois max)"),
+                                                description="+30% ATK, +25% dégâts subis"),
+                           discord.SelectOption(label="Gardien", value="gardien", emoji="🛡️",
+                                                description="-35% dégâts subis, -15% ATK"),
+                           discord.SelectOption(label="Soigneur", value="soigneur", emoji="💚",
+                                                description="Soigne le plus blessé +12% PV/tour, -15% ATK"),
+                           discord.SelectOption(label="Duelliste", value="duelliste", emoji="⚔️",
+                                                description="Avantage élémentaire ×1.5"),
+                           discord.SelectOption(label="Exécuteur", value="executeur", emoji="💀",
+                                                description="+40% ATK quand boss déchaîné"),
                            discord.SelectOption(label="Aucune", value="none", emoji="➖",
                                                 description="Pas d'aptitude"),
                        ])
@@ -642,7 +695,7 @@ def add_dummy_participants(bid, n):
         uid = f"dummy_{i+1}"
         boss_participant_add(bid, uid, f"Bot {i+1}", elem, hp, atk,
                              card_id=(card["id"] if card else None))
-        apt = _r.choice(["berserker", "support", ""])
+        apt = _r.choice(["berserker", "gardien", "soigneur", "duelliste", "executeur", ""])
         if apt:
             boss_participant_update(bid, uid, aptitude=apt)
 
@@ -774,38 +827,32 @@ async def _run_boss(bot, bid, msg, view):
         actor = "party"
         smash_used = False
         enrage_announced = False
-        # Etat des aptitudes (en memoire pour la duree du combat)
-        heals_used = {}   # uid -> nb de soins support utilisés
-        berserk_armed = {p["user_id"] for p in boss_participants_list(bid)
-                         if (p.get("aptitude") or "") == "berserker"}
-        berserk_dying = set()  # uid maintenus à 1 PV jusqu'à leur dernier coup
+        def _apt(p):
+            return p.get("aptitude") or ""
 
         def _boss_hit(p, dmg):
-            """Applique des degats a un participant en gerant le sursaut Berserker.
-            Retourne (new_hp, ko_bool, berserk_saved_bool)."""
-            uid = p["user_id"]
-            new_hp = max(0, p["hp"] - dmg)
-            saved = False
-            if new_hp <= 0 and uid in berserk_armed:
-                new_hp = 1
-                berserk_armed.discard(uid)
-                berserk_dying.add(uid)
-                saved = True
-            boss_participant_update(bid, uid, hp=new_hp)
-            return new_hp, (new_hp <= 0), saved
+            """Applique les degats a un participant (apres mult d'aptitude defensive).
+            Retourne (new_hp, ko_bool)."""
+            real = max(1, int(dmg * _apt_taken_mult(_apt(p))))
+            new_hp = max(0, p["hp"] - real)
+            boss_participant_update(bid, p["user_id"], hp=new_hp)
+            return new_hp, (new_hp <= 0), real
 
-        def _apply_supports():
-            """Soigne les supports sous le seuil (max _SUPPORT_MAX fois)."""
-            for p in boss_participants_list(bid):
-                if (p.get("aptitude") or "") != "support" or p["hp"] <= 0:
+        def _apply_heals():
+            """Chaque Soigneur vivant soigne le membre le plus blessé (+%PV max)."""
+            healers = [p for p in boss_participants_list(bid)
+                       if _apt(p) == "soigneur" and p["hp"] > 0]
+            for _h in healers:
+                cur = boss_participants_list(bid)
+                # cible = membre vivant le plus bas en % PV (qui n'est pas full)
+                cand = [p for p in cur if 0 < p["hp"] < (p.get("max_hp") or p["hp"])]
+                if not cand:
                     continue
-                uid = p["user_id"]
-                mx = p.get("max_hp") or p["hp"]
-                if p["hp"] < mx * _SUPPORT_TRIGGER and heals_used.get(uid, 0) < _SUPPORT_MAX:
-                    heal = int(mx * _SUPPORT_HEAL)
-                    boss_participant_update(bid, uid, hp=min(mx, p["hp"] + heal))
-                    heals_used[uid] = heals_used.get(uid, 0) + 1
-                    log.append(f"Tour {turn} · 💚 **{p['name']}** se soigne (+{_fmt(heal)} PV)")
+                tgt = min(cand, key=lambda p: p["hp"] / (p.get("max_hp") or p["hp"]))
+                mx = tgt.get("max_hp") or tgt["hp"]
+                heal = int(mx * _SOIGNEUR_HEAL)
+                boss_participant_update(bid, tgt["user_id"], hp=min(mx, tgt["hp"] + heal))
+                log.append(f"Tour {turn} · 💚 **{_h['name']}** soigne **{tgt['name']}** (+{_fmt(heal)} PV)")
 
         while turn < _MAX_TURNS:
             turn += 1
@@ -818,23 +865,19 @@ async def _run_boss(bot, bid, msg, view):
                 card_boss_set_status(bid, "wiped")
                 break
             if actor == "party":
+                boss_enraged = boss["hp"] < boss["max_hp"] * 0.5
                 total = 0
                 best_eff = 1.0
                 for p in alive:
-                    m = element_matchup(p["element"], boss["element"])
-                    mult = _BERSERK_MULT if p["user_id"] in berserk_dying else 1.0
-                    total += max(1, int(p["atk"] * m * mult))
+                    apt = _apt(p)
+                    m = _apt_matchup(apt, element_matchup(p["element"], boss["element"]))
+                    am = _apt_atk_mult(apt, m, boss_enraged)
+                    total += max(1, int(p["atk"] * m * am))
                     best_eff = max(best_eff, m)
                 boss_hp = card_boss_apply_damage(bid, total)
                 eff = " 🔥" if best_eff > 1 else ""
                 log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
-                # Les berserkers ayant frappé une dernière fois s'effondrent
-                if berserk_dying:
-                    names = {p["user_id"]: p["name"] for p in alive}
-                    for uid in list(berserk_dying):
-                        boss_participant_update(bid, uid, hp=0)
-                        berserk_dying.discard(uid)
-                        log.append(f"Tour {turn} · 🩸 **{names.get(uid,'?')}** s'effondre après un dernier coup.")
+                _apply_heals()
                 if boss_hp <= 0:
                     card_boss_set_status(bid, "defeated")
                     break
@@ -845,11 +888,11 @@ async def _run_boss(bot, bid, msg, view):
                 target = random.choice(alive)
                 cm = element_matchup(boss["element"], target["element"])
                 dmg = max(1, int(boss["atk"] * cm * 3))
-                new_hp, dead, saved = _boss_hit(target, dmg)
-                ko = " 🩸 **survit à 1 PV !**" if saved else (" 💀 **KO !**" if dead else "")
+                new_hp, dead, real = _boss_hit(target, dmg)
+                ko = " 💀 **KO !**" if dead else ""
                 log.append(f"Tour {turn} · 💥 **COUP DÉVASTATEUR !** Le boss cible "
-                           f"**{target['name']}** : -**{_fmt(dmg)}**{ko}")
-                _apply_supports()
+                           f"**{target['name']}** : -**{_fmt(real)}**{ko}")
+                _apply_heals()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -861,23 +904,19 @@ async def _run_boss(bot, bid, msg, view):
                 if enraged and not enrage_announced:
                     enrage_announced = True
                     log.append("🔥 **Le boss se déchaîne et inflige 1,5x plus de dégâts !**")
-                kos, saves = [], []
+                kos = []
                 total_dmg = 0
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
                     dmg = max(1, int(boss["atk"] * cm * rage))
-                    real = min(dmg, p["hp"])  # degats reellement infliges
+                    new_hp, dead, real = _boss_hit(p, dmg)
                     total_dmg += real
-                    new_hp, dead, saved = _boss_hit(p, dmg)
-                    if saved:
-                        saves.append(p["name"])
-                    elif dead:
+                    if dead:
                         kos.append(p["name"])
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
-                save_txt = f" · 🩸 {', '.join(saves)} survit à 1 PV" if saves else ""
                 log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
-                           f"**{_fmt(total_dmg)}**{ko_txt}{save_txt}")
-                _apply_supports()
+                           f"**{_fmt(total_dmg)}**{ko_txt}")
+                _apply_heals()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
