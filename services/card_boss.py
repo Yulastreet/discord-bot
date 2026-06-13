@@ -203,7 +203,7 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         lines = []
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
-            lines.append(f"{_elem(bot, p['element'])} **{p['name']}** — ❤️ {_fmt(max(0,p['hp']))}"
+            lines.append(f"{_elem(bot, p['element'])} **{p['name']}** ❤️ {_fmt(max(0,p['hp']))}"
                          f" · 🗡️ {_fmt(p['atk'])}{ko}")
         embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
