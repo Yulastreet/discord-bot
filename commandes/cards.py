@@ -21,6 +21,7 @@ from database import (
     card_trade_create, card_trade_get, card_trade_items, card_trade_set_status,
     card_suggestion_add,
     ESSENCE_REWARDS, currency_add,
+    CARD_ELEMENT_LABELS as _ELEM_LABELS,
 )
 
 
@@ -95,6 +96,19 @@ def _get_rarity_title_emoji(bot, rarity: str) -> str:
         if s:
             return s
     return RARITY_EMOJIS.get(rarity, "⚪")
+
+
+def _get_element_emoji(bot, element: str) -> str:
+    """Emoji custom support de l'element (par nom) sinon fallback unicode."""
+    from database import CARD_ELEMENT_EMOJI, CARD_ELEMENT_EMOJI_NAME
+    if not element:
+        return ""
+    name = CARD_ELEMENT_EMOJI_NAME.get(element)
+    if name:
+        s = _get_inline_emoji_str(bot, name)
+        if s:
+            return s
+    return CARD_ELEMENT_EMOJI.get(element, "")
 
 
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
@@ -351,6 +365,9 @@ def setup_cards_commands(bot, deps):
         rarity_display = "?????" if rarity == "secret" else rarity.upper()
         flavor = (card.get("flavor_subtitle") or "").strip()
         essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
+        _elem = card.get("element")
+        if _elem:
+            essence_line += f"  {_get_element_emoji(bot, _elem)}"
         if bonus_left is not None:
             essence_line += f"\n🎟️ _Roll bonus utilisé — il t'en reste **{bonus_left}**_"
         desc_parts = []
@@ -497,6 +514,8 @@ def setup_cards_commands(bot, deps):
             lines = []
             for c in page_rows:
                 emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
+                elem = _get_element_emoji(bot, c.get("element"))
+                pre = f"{emoji}｜{elem}" if elem else emoji
                 uni = c.get("universe") or "?"
                 fusion = fusion_map.get(c["card_id"], 0)
                 cosmetic_tag = " ✨" if custom_map.get(c["card_id"]) else ""
@@ -504,17 +523,17 @@ def setup_cards_commands(bot, deps):
                 if fusion > 0:
                     # Ligne 1 : l'exemplaire etoilé (1 copie, verrouillé)
                     stars_tag = "⭐" * fusion
-                    lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{stars_tag} 🔒 · _{uni}_")
+                    lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{stars_tag} 🔒 · _{uni}_")
                     # Ligne 2 : les doublons en trop, non etoilés
                     extra = total_n - 1
                     if extra > 0:
                         cnt = f" x{extra}" if extra > 1 else ""
-                        lines.append(f"{emoji} **{c['name']}**{cnt} · _{uni}_")
+                        lines.append(f"{pre} **{c['name']}**{cnt} · _{uni}_")
                 else:
                     count = f" x{total_n}" if total_n > 1 else ""
                     nt = c.get("nt_count", 0)
                     nt_tag = f" 🔒{nt}" if nt > 0 else ""
-                    lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{uni}_")
+                    lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{uni}_")
             embed.description += "\n\n" + "\n".join(lines)
             embed.set_footer(text=f"Page {page}/{total_pages}")
             if target_user.display_avatar:
@@ -615,10 +634,12 @@ def setup_cards_commands(bot, deps):
             univers = card.get("universe") or "?"
             rarity_display = "?????" if rarity == "secret" else rarity.upper()
             flavor = (card.get("flavor_subtitle") or "").strip()
+            elem = card.get("element")
+            elem_line = f"\n**Élément :** {_get_element_emoji(bot, elem)} {_ELEM_LABELS.get(elem, '')}" if elem else ""
             desc_parts = []
             if flavor:
                 desc_parts.append(f"_**{flavor}**_")
-            desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}")
+            desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}{elem_line}")
             desc = "\n\n".join(desc_parts)
             embed = discord.Embed(
                 title=f"{emoji} {card['name']}"[:256],

@@ -160,6 +160,20 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
     except Exception:
         pass
+    # Migration : element (aleatoire par carte) pour le systeme de combat
+    try:
+        c.execute("ALTER TABLE cards ADD COLUMN element TEXT")
+    except Exception:
+        pass
+    # Backfill : assigne un element aleatoire aux cartes qui n'en ont pas (one-shot)
+    try:
+        c.execute(
+            "UPDATE cards SET element = CASE ABS(RANDOM()) % 5 "
+            "WHEN 0 THEN 'eclat' WHEN 1 THEN 'abysse' WHEN 2 THEN 'fracture' "
+            "WHEN 3 THEN 'vif' ELSE 'neant' END "
+            "WHERE element IS NULL OR element = ''")
+    except Exception:
+        pass
     # Migration : winning_emoji sur card_event_log
     try:
         c.execute("ALTER TABLE card_event_log ADD COLUMN winning_emoji TEXT")
@@ -1772,13 +1786,53 @@ CARD_RARITY_WEIGHTS = {
     "secret":    0,   # poids 0 = jamais roll auto, owner-give uniquement
 }
 
+# Elements (combat). Cycle pentagone : chaque element bat les 2 SUIVANTS,
+# perd contre les 2 PRECEDENTS. Ordre = eclat>abysse>fracture>vif>neant>eclat.
+CARD_ELEMENTS = ["eclat", "abysse", "fracture", "vif", "neant"]
+CARD_ELEMENT_LABELS = {
+    "eclat": "Éclat", "abysse": "Abysse", "fracture": "Fracture",
+    "vif": "Vif", "neant": "Néant",
+}
+# Emoji unicode fallback (en attendant les emojis custom du support)
+CARD_ELEMENT_EMOJI = {
+    "eclat": "🔆", "abysse": "🌊", "fracture": "⛓", "vif": "🩸", "neant": "🕳",
+}
+# Nom de l'emoji custom support (cherche par nom, sinon fallback unicode)
+CARD_ELEMENT_EMOJI_NAME = {
+    "eclat": "elem_eclat", "abysse": "elem_abysse", "fracture": "elem_fracture",
+    "vif": "elem_vif", "neant": "elem_neant",
+}
+
+
+def element_matchup(attacker: str, defender: str) -> float:
+    """Multiplicateur de degats attacker -> defender.
+    Avantage (+25%) si defender dans les 2 suivants, desavantage (-20%) si
+    dans les 2 precedents, neutre sinon."""
+    try:
+        ia = CARD_ELEMENTS.index(attacker)
+        idd = CARD_ELEMENTS.index(defender)
+    except (ValueError, AttributeError):
+        return 1.0
+    n = len(CARD_ELEMENTS)
+    diff = (idd - ia) % n   # 1,2 = attacker bat defender ; 3,4 = desavantage
+    if diff in (1, 2):
+        return 1.25
+    if diff in (3, 4):
+        return 0.8
+    return 1.0
+
+
+def random_element() -> str:
+    return _rd_cards.choice(CARD_ELEMENTS) if "_rd_cards" in globals() else __import__("random").choice(CARD_ELEMENTS)
+
 
 def card_add(name, universe=None, subtitle=None, rarity="common",
-              image_url=None, description=None, flavor_subtitle=None):
+              image_url=None, description=None, flavor_subtitle=None, element=None):
     conn = get_db(); c = conn.cursor()
-    c.execute('''INSERT INTO cards (name, universe, subtitle, rarity, image_url, description, flavor_subtitle)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)''',
-              (name, universe, subtitle, rarity, image_url, description, flavor_subtitle))
+    elem = element if element in CARD_ELEMENTS else random_element()
+    c.execute('''INSERT INTO cards (name, universe, subtitle, rarity, image_url, description, flavor_subtitle, element)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              (name, universe, subtitle, rarity, image_url, description, flavor_subtitle, elem))
     cid = c.lastrowid
     conn.commit(); conn.close()
     return cid
@@ -1927,7 +1981,7 @@ def user_card_list(user_id, rarity=None, categorie=None):
                     "WHEN 'rare' THEN 3 "
                     "WHEN 'common' THEN 4 ELSE 5 END")
     rows = c.execute(
-        f"SELECT uc.*, c.name, c.universe, c.subtitle, c.rarity, c.image_url "
+        f"SELECT uc.*, c.name, c.universe, c.subtitle, c.rarity, c.image_url, c.element "
         f"FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
         f"WHERE {where} ORDER BY {rarity_order} ASC, c.name ASC", params,
     ).fetchall()
