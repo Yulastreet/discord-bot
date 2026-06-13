@@ -1,0 +1,169 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_wheel' %}
+
+{% block title %}Roue de la chance · TookBot{% endblock %}
+{% block crumb %}Roue de la chance{% endblock %}
+
+{% block content %}
+<style>
+  .wh-wrap { max-width: 860px; }
+  .wh-case { position:relative; overflow:hidden; border:1px solid var(--border);
+             border-radius:14px; background:var(--bg-1); padding:0; height:148px; }
+  .wh-track { display:flex; height:100%; will-change:transform;
+              transition: transform 5.4s cubic-bezier(.12,.62,.16,1); }
+  .wh-cell { flex:0 0 150px; width:150px; height:100%; display:flex; flex-direction:column;
+             align-items:center; justify-content:center; gap:6px; border-right:1px solid var(--bg-2);
+             box-sizing:border-box; }
+  .wh-cell .ic { font-size:30px; line-height:1; }
+  .wh-cell .lb { font-size:13px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+  .wh-marker { position:absolute; top:0; bottom:0; left:50%; width:3px; margin-left:-1.5px;
+               background:linear-gradient(#ffd24a,#ff7b3d); box-shadow:0 0 12px rgba(255,180,60,.9); z-index:3; }
+  .wh-marker::before, .wh-marker::after { content:''; position:absolute; left:50%; transform:translateX(-50%);
+               border-left:7px solid transparent; border-right:7px solid transparent; }
+  .wh-marker::before { top:-1px; border-top:9px solid #ffd24a; }
+  .wh-marker::after  { bottom:-1px; border-bottom:9px solid #ffd24a; }
+  .wh-fade { position:absolute; top:0; bottom:0; width:90px; z-index:2; pointer-events:none; }
+  .wh-fade.l { left:0; background:linear-gradient(90deg, var(--bg-1), transparent); }
+  .wh-fade.r { right:0; background:linear-gradient(270deg, var(--bg-1), transparent); }
+  .wh-actions { display:flex; align-items:center; gap:12px; margin-top:14px; }
+  .wh-result { font-size:16px; font-weight:800; min-height:24px; }
+  .wh-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+             gap:8px; margin-top:18px; }
+  .wh-od { display:flex; align-items:center; justify-content:space-between; gap:8px;
+           background:var(--bg-1); border:1px solid var(--border); border-left-width:4px;
+           border-radius:8px; padding:8px 10px; font-size:13px; }
+  .wh-od .pc { color:var(--text-2); font-weight:700; }
+  .wh-note { color:var(--text-2); font-size:12px; margin-top:6px; }
+</style>
+
+<div class="wh-wrap">
+  <h2 style="margin:0 0 4px;">🎡 Roue de la chance quotidienne</h2>
+  <p class="muted" style="margin:0 0 16px;">Un tour par jour. Gagne un bonus d'essences (pour aujourd'hui) ou des rolls (à utiliser quand tu veux).</p>
+
+  <div class="wh-case">
+    <div class="wh-fade l"></div>
+    <div class="wh-fade r"></div>
+    <div class="wh-marker"></div>
+    <div id="whTrack" class="wh-track"></div>
+  </div>
+
+  <div class="wh-actions">
+    <button id="whSpin" class="btn btn-primary" onclick="spin()" disabled>Chargement…</button>
+    <div id="whResult" class="wh-result"></div>
+  </div>
+  <div id="whNote" class="wh-note"></div>
+
+  <h3 style="margin:22px 0 6px;">Récompenses & chances</h3>
+  <div id="whGrid" class="wh-grid"></div>
+</div>
+
+<script>
+(function(){
+  let REWARDS = [];
+  let busy = false;
+  const CELL = 150;
+
+  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function icon(r){ return r.type === 'roll' ? '🎟️' : '✨'; }
+
+  function cellHtml(r){
+    return `<div class="wh-cell" style="background:linear-gradient(160deg, ${r.color}33, ${r.color}11); border-bottom:3px solid ${r.color};">
+      <div class="ic">${icon(r)}</div>
+      <div class="lb" style="color:${r.color}">${esc(r.label)}</div>
+    </div>`;
+  }
+
+  function buildInitialReel(){
+    const track = document.getElementById('whTrack');
+    // remplissage decoratif aleatoire
+    let html = '';
+    for (let i=0;i<24;i++){ html += cellHtml(REWARDS[Math.floor(Math.random()*REWARDS.length)]); }
+    track.style.transition='none'; track.style.transform='translateX(0)';
+    track.innerHTML = html;
+  }
+
+  function renderOdds(claimed){
+    const total = REWARDS.reduce((s,r)=>s+r.weight,0);
+    const grid = document.getElementById('whGrid');
+    grid.innerHTML = REWARDS.map(r => {
+      const pc = (100*r.weight/total);
+      const p = pc >= 10 ? pc.toFixed(0) : pc.toFixed(1);
+      return `<div class="wh-od" style="border-left-color:${r.color}">
+        <span>${icon(r)} <strong style="color:${r.color}">${esc(r.label)}</strong></span>
+        <span class="pc">${p}%</span></div>`;
+    }).join('');
+  }
+
+  async function load(){
+    try {
+      const r = await fetch('/api/public/wheel/status');
+      const d = await r.json();
+      REWARDS = d.rewards || [];
+      buildInitialReel();
+      renderOdds();
+      const btn = document.getElementById('whSpin');
+      const res = document.getElementById('whResult');
+      const note = document.getElementById('whNote');
+      if (!d.logged_in){
+        btn.disabled = true; btn.textContent = '🔒 Connecte-toi pour jouer';
+        return;
+      }
+      if (d.claimed){
+        btn.disabled = true; btn.textContent = '✅ Déjà tourné aujourd\'hui';
+        const cl = d.claim || {};
+        const lbl = cl.reward_type === 'roll' ? `+${cl.reward_value} roll(s)` : `+${cl.reward_value}% essences`;
+        res.innerHTML = `Récompense du jour : <span style="color:var(--accent)">${lbl}</span>`;
+        if (d.bonus_today) note.textContent = `Bonus d'essences actif aujourd'hui : +${d.bonus_today}%`;
+      } else {
+        btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
+      }
+    } catch(e){
+      document.getElementById('whSpin').textContent = 'Erreur de chargement';
+    }
+  }
+
+  window.spin = async function(){
+    if (busy) return;
+    busy = true;
+    const btn = document.getElementById('whSpin');
+    const res = document.getElementById('whResult');
+    btn.disabled = true; btn.textContent = '🎡 …';
+    res.textContent = '';
+    let data;
+    try {
+      const r = await fetch('/api/public/wheel/spin', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+      data = await r.json();
+    } catch(e){ res.textContent = 'Erreur réseau'; busy=false; btn.disabled=false; btn.textContent='🎡 Tourner la roue'; return; }
+    if (!data.ok){
+      res.textContent = '❌ ' + (data.error || 'Erreur');
+      busy = false; btn.disabled = true; btn.textContent = '✅ Indisponible';
+      return;
+    }
+    // Construit la bande a partir du reel renvoye
+    const track = document.getElementById('whTrack');
+    const reel = data.reel, winPos = data.win_pos;
+    track.style.transition='none';
+    track.style.transform='translateX(0)';
+    track.innerHTML = reel.map(idx => cellHtml(REWARDS[idx])).join('');
+    // viewport
+    const vp = track.parentElement.clientWidth;
+    // jitter dans la case gagnante pour un arret realiste
+    const jitter = (Math.random()*0.6 - 0.3) * CELL;
+    const targetX = -(winPos*CELL + CELL/2 - vp/2 + jitter);
+    // force reflow puis lance la transition
+    void track.offsetWidth;
+    track.style.transition = 'transform 5.4s cubic-bezier(.12,.62,.16,1)';
+    track.style.transform = `translateX(${targetX}px)`;
+    setTimeout(()=>{
+      const w = data.won;
+      const lbl = w.type === 'roll' ? `+${w.value} roll(s) 🎟️` : `+${w.value}% d'essences ✨ (aujourd'hui)`;
+      res.innerHTML = `🎉 Tu gagnes : <span style="color:${w.color}; font-weight:900">${esc(lbl)}</span>`;
+      btn.textContent = '✅ Déjà tourné aujourd\'hui';
+      busy = false;
+    }, 5600);
+  };
+
+  load();
+})();
+</script>
+{% endblock %}

@@ -977,7 +977,8 @@ async def _finish(bot, bid, msg, view, log, victory):
             if p["damage"] <= 0:
                 continue
             ess = tier * 150 + p["damage"] // 200
-            currency_add(p["user_id"], ess)
+            from database import essence_reward_add
+            ess = essence_reward_add(p["user_id"], ess)  # applique bonus roue du jour
             card = card_pick_random_exact_rarity(rar)
             extra = ""
             if card:

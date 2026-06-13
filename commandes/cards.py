@@ -352,7 +352,8 @@ def setup_cards_commands(bot, deps):
         essence_base = ESSENCE_REWARDS.get(rarity_for_reward, 12)
         essence_gain = essence_base * 2 if already_owned else essence_base
         try:
-            currency_add(uid, essence_gain)
+            from database import essence_reward_add
+            essence_gain = essence_reward_add(uid, essence_gain)  # applique bonus roue du jour
         except Exception as e:
             print(f"[roll essence] err: {e}")
 
@@ -1001,8 +1002,9 @@ def setup_cards_commands(bot, deps):
         rarity = card.get("rarity", "common")
         per = ESSENCE_RECYCLE.get(rarity, 6)
         removed = user_card_remove_copies(uid, card["id"], qty)
-        gain = per * removed
-        new_bal = currency_add(uid, gain)
+        from database import essence_reward_add, currency_get
+        gain = essence_reward_add(uid, per * removed)  # applique bonus roue du jour
+        new_bal = currency_get(uid)
         await interaction.response.send_message(
             f"♻️ {removed} doublon(s) de **{card['name']}** recyclé(s) → **+{gain}** ✨\n"
             f"Solde : **{new_bal}** ✨", ephemeral=True)

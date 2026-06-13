@@ -555,8 +555,21 @@
         <a href="/lol" class="nav-item {{ 'active' if active_nav == 'lol' }}">
           <svg class="ic"><use href="#i-swords"/></svg> League of Legends
         </a>
+      </details>
+
+      <details class="nav-cat" data-cat="cartes_collec" open>
+        <summary class="nav-section">
+          <span class="nav-section-label">🃏 Cartes à collectionner</span>
+          <svg class="ic chevron"><use href="#i-caret-down"/></svg>
+        </summary>
         <a href="/cards" class="nav-item {{ 'active' if active_nav == 'public_cards' }}">
           <svg class="ic"><use href="#i-grid"/></svg> Cartes
+        </a>
+        <a href="/cards/live" class="nav-item {{ 'active' if active_nav == 'cards_live' }}">
+          <svg class="ic"><use href="#i-pulse"/></svg> Obtention temps réel
+        </a>
+        <a href="/cards/wheel" class="nav-item {{ 'active' if active_nav == 'cards_wheel' }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> Roue de la chance
         </a>
       </details>
       {% endif %}

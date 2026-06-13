@@ -2,6 +2,20 @@
 from flask import render_template, request, jsonify
 
 
+# Recompenses de la roue quotidienne. Plus la valeur est forte, plus le poids est
+# faible (donc rare). Les chances affichees = weight / somme des weights.
+_WHEEL_REWARDS = [
+    {"type": "essence", "value": 2,  "weight": 30, "label": "+2% essences",  "color": "#9aa0a6"},
+    {"type": "essence", "value": 5,  "weight": 20, "label": "+5% essences",  "color": "#4cb5f9"},
+    {"type": "roll",    "value": 1,  "weight": 18, "label": "+1 roll",       "color": "#7bdc6b"},
+    {"type": "essence", "value": 10, "weight": 12, "label": "+10% essences", "color": "#a86dff"},
+    {"type": "roll",    "value": 2,  "weight": 10, "label": "+2 rolls",      "color": "#2ec16b"},
+    {"type": "essence", "value": 20, "weight": 5,  "label": "+20% essences", "color": "#ffa726"},
+    {"type": "roll",    "value": 3,  "weight": 4,  "label": "+3 rolls",      "color": "#ff9f43"},
+    {"type": "roll",    "value": 5,  "weight": 1,  "label": "+5 rolls",      "color": "#ff3d57"},
+]
+
+
 def register_cards_owner_routes(app, deps):
     globals().update(deps)
 
@@ -160,6 +174,104 @@ def register_cards_owner_routes(app, deps):
         conn.close()
         return jsonify({"card_ids": [int(r["card_id"]) for r in rows]})
 
+
+    # ===== OBTENTION TEMPS REEL =====
+    @app.route("/cards/live")
+    def public_cards_live_page():
+        return render_template("cards_live.html", active_nav="cards_live")
+
+    @app.route("/api/public/cards/recent-acquisitions", methods=["GET"])
+    def api_public_cards_recent_acquisitions():
+        """Dernieres cartes obtenues, tous serveurs confondus."""
+        from database import get_db
+        try:
+            limit = max(1, min(int(request.args.get("limit", 60)), 120))
+        except ValueError:
+            limit = 60
+        after = request.args.get("after")  # id du dernier vu (pour le poll)
+        conn = get_db(); c = conn.cursor()
+        params = []
+        where = ""
+        if after and str(after).isdigit():
+            where = "WHERE uc.id > ?"
+            params.append(int(after))
+        params.append(limit)
+        rows = c.execute(
+            f"SELECT uc.id, uc.user_id, uc.claimed_at, ca.name, ca.rarity "
+            f"FROM user_cards uc JOIN cards ca ON ca.id = uc.card_id "
+            f"{where} ORDER BY uc.id DESC LIMIT ?", params).fetchall()
+        # Resout le pseudo + avatar via guild_members (1 ligne quelconque par user)
+        out = []
+        for r in rows:
+            m = c.execute("SELECT username, avatar_url FROM guild_members "
+                          "WHERE user_id = ? LIMIT 1", (str(r["user_id"]),)).fetchone()
+            out.append({
+                "id": r["id"],
+                "user": (m["username"] if m and m["username"] else "Inconnu"),
+                "avatar": (m["avatar_url"] if m else None),
+                "name": r["name"],
+                "rarity": r["rarity"],
+                "at": r["claimed_at"],
+            })
+        conn.close()
+        return jsonify({"items": out})
+
+    # ===== ROUE DE LA CHANCE QUOTIDIENNE =====
+    @app.route("/cards/wheel")
+    def public_cards_wheel_page():
+        return render_template("cards_wheel.html", active_nav="cards_wheel")
+
+    @app.route("/api/public/wheel/status", methods=["GET"])
+    def api_public_wheel_status():
+        from flask import session as _ses
+        from database import wheel_claim_today, essence_bonus_get
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        claimed = wheel_claim_today(uid) if uid else None
+        return jsonify({
+            "logged_in": bool(uid),
+            "claimed": claimed is not None,
+            "claim": claimed,
+            "bonus_today": essence_bonus_get(uid) if uid else 0,
+            "rewards": _WHEEL_REWARDS,
+        })
+
+    @app.route("/api/public/wheel/spin", methods=["POST"])
+    def api_public_wheel_spin():
+        from flask import session as _ses
+        from database import (wheel_claim_today, wheel_record, essence_bonus_set,
+                              roll_give_user)
+        import random as _rnd
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        if not uid:
+            return jsonify({"error": "Connecte-toi pour jouer."}), 401
+        if wheel_claim_today(uid):
+            return jsonify({"error": "Tu as deja tourne la roue aujourd'hui."}), 400
+        # Tirage pondere
+        total = sum(r["weight"] for r in _WHEEL_REWARDS)
+        pick = _rnd.uniform(0, total)
+        acc = 0
+        won = _WHEEL_REWARDS[-1]
+        for r in _WHEEL_REWARDS:
+            acc += r["weight"]
+            if pick <= acc:
+                won = r
+                break
+        # Enregistre (anti double-spin) AVANT d'octroyer
+        if not wheel_record(uid, won["type"], won["value"]):
+            return jsonify({"error": "Tu as deja tourne la roue aujourd'hui."}), 400
+        if won["type"] == "essence":
+            essence_bonus_set(uid, won["value"])
+        else:
+            roll_give_user(uid, won["value"])
+        # Sequence de defilement facon caisse CS (index gagnant connu du client)
+        win_index = _WHEEL_REWARDS.index(won)
+        reel = [_rnd.choices(range(len(_WHEEL_REWARDS)),
+                             weights=[r["weight"] for r in _WHEEL_REWARDS])[0]
+                for _ in range(60)]
+        reel[55] = win_index  # case sous le marqueur a l'arret
+        return jsonify({"ok": True, "won": won, "reel": reel, "win_pos": 55})
 
     @app.route("/api/public/cards/<int:cid>/suggest-edit", methods=["POST"])
     def api_public_cards_suggest_edit(cid):

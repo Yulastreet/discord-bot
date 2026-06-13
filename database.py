@@ -2306,6 +2306,86 @@ def currency_spend(user_id, amount: int) -> bool:
     return ok
 
 
+# ===== ROUE DE LA CHANCE QUOTIDIENNE =====
+# Recompenses : bonus % d'essences pour la journee (essence_bonus_daily) OU
+# rolls offerts (via roll_give_user). 1 spin / jour / utilisateur.
+def _today_str():
+    import datetime as _dt
+    return _dt.date.today().isoformat()
+
+
+def _ensure_wheel_tables():
+    conn = get_db(); c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS wheel_daily (
+        user_id      TEXT NOT NULL,
+        day          TEXT NOT NULL,
+        reward_type  TEXT,
+        reward_value INTEGER,
+        spun_at      TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, day)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS essence_bonus_daily (
+        user_id TEXT NOT NULL,
+        day     TEXT NOT NULL,
+        pct     INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, day)
+    )''')
+    conn.commit(); conn.close()
+
+
+def wheel_claim_today(user_id):
+    """Retourne le spin du jour (dict) ou None si pas encore tourne."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM wheel_daily WHERE user_id = ? AND day = ?",
+                  (str(user_id), _today_str())).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def wheel_record(user_id, reward_type, reward_value) -> bool:
+    """Enregistre le spin du jour. False si deja tourne aujourd'hui."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    try:
+        c.execute("INSERT INTO wheel_daily (user_id, day, reward_type, reward_value) "
+                  "VALUES (?, ?, ?, ?)",
+                  (str(user_id), _today_str(), reward_type, int(reward_value)))
+        conn.commit(); ok = True
+    except Exception:
+        ok = False
+    conn.close()
+    return ok
+
+
+def essence_bonus_get(user_id) -> int:
+    """Bonus % d'essences actif aujourd'hui pour ce user (0 si aucun)."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT pct FROM essence_bonus_daily WHERE user_id = ? AND day = ?",
+                  (str(user_id), _today_str())).fetchone()
+    conn.close()
+    return int(r["pct"]) if r else 0
+
+
+def essence_bonus_set(user_id, pct):
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO essence_bonus_daily (user_id, day, pct) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, day) DO UPDATE SET pct = excluded.pct",
+              (str(user_id), _today_str(), int(pct)))
+    conn.commit(); conn.close()
+
+
+def essence_reward_add(user_id, base_amount) -> int:
+    """Ajoute des essences en appliquant le bonus % du jour. Retourne le gain reel."""
+    base = int(base_amount)
+    pct = essence_bonus_get(user_id)
+    gain = base + (base * pct) // 100
+    currency_add(user_id, gain)
+    return gain
+
+
 # ===== BORDURES =====
 def borders_list(enabled_only=False):
     conn = get_db(); c = conn.cursor()

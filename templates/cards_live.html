@@ -1,0 +1,112 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_live' %}
+
+{% block title %}Obtention temps réel · TookBot{% endblock %}
+{% block crumb %}Obtention temps réel{% endblock %}
+
+{% block content %}
+<style>
+  .live-wrap { max-width: 820px; }
+  .live-head { display:flex; align-items:center; gap:10px; margin-bottom: var(--s-4); }
+  .live-dot { width:10px; height:10px; border-radius:50%; background:#2ec16b;
+              box-shadow:0 0 0 0 rgba(46,193,107,.6); animation: live-pulse 1.6s infinite; }
+  @keyframes live-pulse { 0%{box-shadow:0 0 0 0 rgba(46,193,107,.55);} 70%{box-shadow:0 0 0 8px rgba(46,193,107,0);} 100%{box-shadow:0 0 0 0 rgba(46,193,107,0);} }
+  .live-feed { display:flex; flex-direction:column; gap:6px; }
+  .live-row { display:flex; align-items:center; gap:10px; background:var(--bg-1);
+              border:1px solid var(--border); border-radius:10px; padding:9px 12px;
+              font-size:14px; animation: live-in .35s ease; }
+  @keyframes live-in { from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:none;} }
+  .live-av { width:26px; height:26px; border-radius:50%; object-fit:cover; background:var(--bg-2); flex:none; }
+  .live-user { font-weight:800; color:var(--text); }
+  .live-got { color:var(--text-2); }
+  .live-card { font-weight:700; color:var(--text); }
+  .live-rar { font-weight:900; text-transform:uppercase; letter-spacing:.04em; font-size:12px; }
+  .live-rdot { width:9px; height:9px; border-radius:50%; display:inline-block; flex:none; }
+  .rar-common    { color:#9aa0a6; } .bg-common    { background:#9aa0a6; }
+  .rar-rare      { color:#4cb5f9; } .bg-rare      { background:#4cb5f9; }
+  .rar-epic      { color:#a86dff; } .bg-epic      { background:#a86dff; }
+  .rar-legendary { color:#ffa726; } .bg-legendary { background:#ffa726; }
+  .rar-mythic    { color:#ff3d57; } .bg-mythic    { background:#ff3d57; }
+  .rar-secret    { background: linear-gradient(90deg,#ff0080,#ff8c00,#ffd700,#00ff80,#00bfff,#8a2be2);
+                   -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .bg-secret     { background: linear-gradient(90deg,#ff0080,#ffd700,#00bfff,#8a2be2); }
+  .live-empty { color:var(--text-2); padding:18px; text-align:center; }
+</style>
+
+<div class="live-wrap">
+  <div class="live-head">
+    <span class="live-dot"></span>
+    <h2 style="margin:0;">Obtention en direct</h2>
+    <span class="muted" style="font-size:12px;">tous serveurs confondus</span>
+  </div>
+  <div id="liveFeed" class="live-feed">
+    <div class="live-empty">Chargement…</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const RAR = {
+    common:'Common', rare:'Rare', epic:'Epic',
+    legendary:'Legendary', mythic:'Mythic', secret:'Secret'
+  };
+  const MAX = 60;
+  let lastId = 0;
+  let seen = new Set();
+
+  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+  function rowHtml(it){
+    const rk = (it.rarity||'common').toLowerCase();
+    const av = it.avatar ? `<img class="live-av" src="${esc(it.avatar)}" onerror="this.style.visibility='hidden'">`
+                         : `<span class="live-av"></span>`;
+    return `<div class="live-row" data-id="${it.id}">
+      ${av}
+      <span class="live-rdot bg-${rk}"></span>
+      <span><span class="live-user">@${esc(it.user)}</span>
+      <span class="live-got"> a obtenu </span>
+      <span class="live-card">${esc(it.name)}</span>
+      <span class="live-rar rar-${rk}"> ${esc(RAR[rk]||rk)}</span></span>
+    </div>`;
+  }
+
+  function prepend(items){
+    const feed = document.getElementById('liveFeed');
+    const fresh = items.filter(it => !seen.has(it.id));
+    if (!fresh.length) return;
+    // items arrivent en DESC (plus recent d'abord) ; on insere en tete dans l'ordre
+    fresh.sort((a,b)=>a.id-b.id);
+    for (const it of fresh){
+      seen.add(it.id);
+      if (it.id > lastId) lastId = it.id;
+      feed.insertAdjacentHTML('afterbegin', rowHtml(it));
+    }
+    // cap
+    while (feed.children.length > MAX) feed.removeChild(feed.lastChild);
+  }
+
+  async function load(initial){
+    try {
+      const url = initial ? '/api/public/cards/recent-acquisitions?limit=60'
+                          : `/api/public/cards/recent-acquisitions?after=${lastId}&limit=60`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const items = d.items || [];
+      if (initial){
+        const feed = document.getElementById('liveFeed');
+        if (!items.length){ feed.innerHTML = '<div class="live-empty">Aucune carte obtenue pour le moment.</div>'; return; }
+        feed.innerHTML = '';
+        items.sort((a,b)=>a.id-b.id);
+        for (const it of items){ seen.add(it.id); if(it.id>lastId) lastId=it.id; feed.insertAdjacentHTML('afterbegin', rowHtml(it)); }
+        while (feed.children.length > MAX) feed.removeChild(feed.lastChild);
+      } else {
+        prepend(items);
+      }
+    } catch(e){}
+  }
+
+  load(true);
+  setInterval(()=>load(false), 4000);
+})();
+</script>
+{% endblock %}
