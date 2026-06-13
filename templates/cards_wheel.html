@@ -6,7 +6,7 @@
 
 {% block content %}
 <style>
-  .wh-wrap { max-width: 860px; }
+  .wh-wrap { width: 100%; }
   .wh-case { position:relative; overflow:hidden; border:1px solid var(--border);
              border-radius:14px; background:var(--bg-1); padding:0; height:148px; }
   .wh-track { display:flex; height:100%; will-change:transform;
@@ -30,7 +30,7 @@
   .wh-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
              gap:8px; margin-top:18px; }
   .wh-od { display:flex; align-items:center; justify-content:space-between; gap:8px;
-           background:var(--bg-1); border:1px solid var(--border); border-left-width:4px;
+           background:var(--bg-1); border:1px solid var(--border);
            border-radius:8px; padding:8px 10px; font-size:13px; }
   .wh-od .pc { color:var(--text-2); font-weight:700; }
   .wh-note { color:var(--text-2); font-size:12px; margin-top:6px; }
@@ -88,7 +88,7 @@
     grid.innerHTML = REWARDS.map(r => {
       const pc = (100*r.weight/total);
       const p = pc >= 10 ? pc.toFixed(0) : pc.toFixed(1);
-      return `<div class="wh-od" style="border-left-color:${r.color}">
+      return `<div class="wh-od">
         <span>${icon(r)} <strong style="color:${r.color}">${esc(r.label)}</strong></span>
         <span class="pc">${p}%</span></div>`;
     }).join('');
