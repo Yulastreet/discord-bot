@@ -2783,8 +2783,8 @@ BOSS_TIERS = {
 # gagne. Roller plus grossit le boss d'autant => jamais trivial.
 # Facteurs calibres pour reproduire l'equilibrage de reference (cf BOSS_TIERS).
 BOSS_TIER_SCALE = {
-    1: {"hp": 1.8,  "atk": 0.06},
-    2: {"hp": 4.1,  "atk": 0.10},
+    1: {"hp": 3.0,  "atk": 0.06},
+    2: {"hp": 5.5,  "atk": 0.10},
     3: {"hp": 7.9,  "atk": 0.13},
     4: {"hp": 11.8, "atk": 0.15},
     5: {"hp": 15.1, "atk": 0.17},
