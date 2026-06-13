@@ -61,11 +61,13 @@ def _apt_badge(apt):
 
 
 def _build_battlefield(bid):
-    """Compose le champ de bataille sur le fond bossfightbg.png : cartes des
-    joueurs en haut, boss en bas, VS au milieu. Retourne le chemin local ou None."""
+    """Compose le champ de bataille sur le fond bossfightbg.png : 5 cartes joueurs
+    en haut, VS au centre, boss en bas. Cartes joueurs avec bordure + etoiles.
+    Retourne le chemin local ou None."""
     import os
     from PIL import Image, ImageDraw, ImageFont
     from services.card_render import _ROOT, _load_base
+    from services.card_profile import _card_image_for
     try:
         boss = card_boss_get(bid)
         parts = boss_participants_list(bid)
@@ -85,33 +87,39 @@ def _build_battlefield(bid):
                     except Exception: pass
             return ImageFont.load_default()
 
-        def _label(cx, y, text, fsz=26):
-            f = _font(fsz)
-            tw = d.textlength(text, font=f)
-            d.text((cx - tw / 2 + 2, y + 2), text, font=f, fill=(0, 0, 0, 220))
-            d.text((cx - tw / 2, y), text, font=f, fill=(255, 255, 255, 255))
+        # Tailles uniformes joueurs + boss
+        cw, ch = 250, 375
+        gap = 30
 
-        # Cartes joueurs (haut, max 5)
-        pw, ph = 210, 315
-        gap = 24
+        def _place_card(img, x, y):
+            r = img.convert("RGBA").resize((cw, ch), Image.LANCZOS)
+            canvas.paste(r, (int(x), int(y)), r)
+
+        # Cartes joueurs (haut, max 5) avec bordure + etoiles
+        top_y = 25
         n = min(5, len(parts))
         if n:
-            total_w = n * pw + (n - 1) * gap
+            total_w = n * cw + (n - 1) * gap
             x0 = (W - total_w) // 2
             for i, p in enumerate(parts[:5]):
-                img = _load_base(int(p["card_id"]), None) if p.get("card_id") else None
-                x = x0 + i * (pw + gap)
+                img = None
+                if p.get("card_id"):
+                    img = _card_image_for(p["user_id"], int(p["card_id"]))
+                    if img is None:
+                        img = _load_base(int(p["card_id"]), None)
                 if img is not None:
-                    canvas.paste(img.resize((pw, ph), Image.LANCZOS), (x, 40), img.resize((pw, ph)).convert("RGBA"))
-                _label(x + pw / 2, 40 + ph + 6, (p["name"] or "")[:16], 22)
+                    _place_card(img, x0 + i * (cw + gap), top_y)
 
         # VS au centre
-        _label(W / 2, H / 2 - 50, "⚔ VS", 70)
+        f = _font(96)
+        vs = "VS"
+        tw = d.textlength(vs, font=f)
+        d.text((W / 2 - tw / 2 + 3, H / 2 - 60 + 3), vs, font=f, fill=(0, 0, 0, 220))
+        d.text((W / 2 - tw / 2, H / 2 - 60), vs, font=f, fill=(255, 214, 64, 255))
 
-        # Boss (bas centre, plus grand)
-        bw, bh = 300, 450
-        bx = (W - bw) // 2
-        by = H - bh - 30
+        # Boss (bas centre, meme taille)
+        by = H - ch - 25
+        bx = (W - cw) // 2
         bimg = None
         if boss.get("image_url") and str(boss["image_url"]).startswith("http"):
             try:
@@ -121,10 +129,11 @@ def _build_battlefield(bid):
                     bimg = Image.open(io.BytesIO(r.read())).convert("RGBA")
             except Exception:
                 bimg = None
+        if bimg is None and boss.get("image_url"):
+            # fallback : carte locale si l'avatar du boss est une carte connue
+            bimg = _load_base(0, boss.get("image_url"))
         if bimg is not None:
-            rb = bimg.resize((bw, bh), Image.LANCZOS)
-            canvas.paste(rb, (bx, by), rb)
-        _label(W / 2, by - 36, (boss.get("name") or "Boss")[:24], 30)
+            _place_card(bimg, bx, by)
 
         out_dir = os.path.join(_ROOT, "static", "card_boss")
         os.makedirs(out_dir, exist_ok=True)
