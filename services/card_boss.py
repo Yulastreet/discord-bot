@@ -676,14 +676,15 @@ def _scale_boss_to_team(bid):
             sum_atk += base_atk
             sum_hp += base_hp
         n = len(parts)
-        # Scaling PUR (pas de plancher) : le boss matche la puissance de l'equipe.
-        # Les tiers se distinguent par le facteur (T5 >> T1 = combat plus long = wipe).
-        scaled_hp = max(1, int(sc["hp"] * sum_atk))
-        scaled_atk = max(1, int(sc["atk"] * (sum_hp / n)))
+        # Plancher = tier de reference : le boss ne descend jamais sous BOSS_TIERS,
+        # il ne fait que grossir pour les equipes fortes (anti-powercreep).
+        scaled_hp = int(sc["hp"] * sum_atk)
+        scaled_atk = int(sc["atk"] * (sum_hp / n))
         # facteur de rareté de l'avatar deja applique a l'atk au spawn
         avatar_factor = (boss["atk"] / cfg["atk"]) if cfg.get("atk") else 1.0
-        new_atk = max(1, int(scaled_atk * avatar_factor))
-        card_boss_set_stats(bid, scaled_hp, new_atk)
+        new_hp = max(cfg.get("hp", scaled_hp), scaled_hp)
+        new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * avatar_factor)
+        card_boss_set_stats(bid, new_hp, new_atk)
     except Exception as e:
         print(f"[boss] scale err: {e!r}")
 
