@@ -2471,6 +2471,46 @@ def user_card_rarity_breakdown(user_id):
     return {r["rarity"]: int(r["n"]) for r in rows}
 
 
+def user_unique_rarity_breakdown(user_id):
+    """Retourne {rarity: nb_cartes_uniques} (distinctes) pour un user."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT c.rarity AS rarity, COUNT(DISTINCT uc.card_id) AS n FROM user_cards uc "
+        "JOIN cards c ON c.id = uc.card_id WHERE uc.user_id = ? GROUP BY c.rarity",
+        (str(user_id),)).fetchall()
+    conn.close()
+    return {r["rarity"]: int(r["n"]) for r in rows}
+
+
+# ===== STATS DE COMBAT (joueur) : derivees des cartes uniques pondérées =====
+PLAYER_HP_BASE = 100
+PLAYER_ATK_BASE = 20
+PLAYER_HP_WEIGHTS = {
+    "common": 10, "rare": 25, "epic": 60, "legendary": 180, "mythic": 500, "secret": 800,
+}
+PLAYER_ATK_WEIGHTS = {
+    "common": 2, "rare": 6, "epic": 18, "legendary": 60, "mythic": 180, "secret": 300,
+}
+
+
+def compute_player_combat_stats(user_id):
+    """PV + ATK d'un joueur selon ses cartes UNIQUES pondérées par rareté,
+    + bonus des etoiles de fusion (+1% PV/ATK par etoile, cap +50%).
+    Retourne {hp, atk, unique_total, stars}."""
+    uniq = user_unique_rarity_breakdown(user_id)
+    hp = PLAYER_HP_BASE + sum(PLAYER_HP_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
+    atk = PLAYER_ATK_BASE + sum(PLAYER_ATK_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
+    fmap = user_card_fusion_map(user_id)
+    stars = sum(fmap.values())
+    mult = 1.0 + min(0.50, stars * 0.01)
+    return {
+        "hp": int(hp * mult),
+        "atk": int(atk * mult),
+        "unique_total": sum(uniq.values()),
+        "stars": stars,
+    }
+
+
 # ===== ROLL CHARGES (multi-roll par heure, par serveur) =====
 import time as _roll_time
 

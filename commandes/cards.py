@@ -1186,6 +1186,15 @@ def setup_cards_commands(bot, deps):
                         value=f"**{total}** cartes · **{uniq}** uniques", inline=True)
         embed.add_field(name="Essences", value=f"**{essences}** ✨", inline=True)
         embed.add_field(name="Fusionnées", value=f"**{fused}** carte(s) ⭐", inline=True)
+        # Stats de combat (cartes uniques pondérées + bonus étoiles)
+        from database import compute_player_combat_stats
+        cs = compute_player_combat_stats(uid)
+        embed.add_field(
+            name="⚔️ Stats de combat",
+            value=f"❤️ **PV :** {cs['hp']:,}".replace(",", " ") + "\n"
+                  f"🗡️ **ATK :** {cs['atk']:,}".replace(",", " ")
+                  + (f"\n_(bonus fusion +{min(50, cs['stars'])}%)_" if cs['stars'] else ""),
+            inline=True)
         embed.add_field(name="Raretés", value=rar_line or "—", inline=False)
         embed.add_field(name="Bordures en stock", value=f"**{borders_stock}**", inline=True)
         embed.add_field(name="🍀 Indice de chance", value=f"**{luck}%**", inline=True)
