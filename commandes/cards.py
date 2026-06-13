@@ -1182,39 +1182,27 @@ def setup_cards_commands(bot, deps):
         cs = compute_player_combat_stats(uid)
         def _fmt(n):
             return f"{int(n):,}".replace(",", " ")
-        SPACER = ("​", "​", True)  # champ vide pour aligner les rangées
-        DIV = "─────────────────────────"
-        def _divider():
-            embed.add_field(name="​", value=DIV, inline=False)
+        DIV = "══════════════════════════════"
+        bonus_txt = f"  ·  _bonus fusion +{min(50, cs['stars'])}%_" if cs['stars'] else ""
+
+        body = (
+            f"📦 **Collection** ｜ {_fmt(total)} cartes · {_fmt(uniq)} uniques\n"
+            f"✨ **Essences** ｜ {_fmt(essences)}　　🍀 **Chance** ｜ {luck}%\n"
+            f"{DIV}\n"
+            f"⚔️ **Stats de combat**\n"
+            f"❤️ PV **{_fmt(cs['hp'])}**　　🗡️ ATK **{_fmt(cs['atk'])}**{bonus_txt}\n"
+            f"{DIV}\n"
+            f"⭐ **Fusionnées** ｜ {_fmt(fused)}　　🖼️ **Bordures** ｜ {_fmt(borders_stock)}\n"
+            f"{DIV}\n"
+            f"🎴 **Raretés**\n"
+            f"{rar_line or '—'}"
+        )
 
         embed = discord.Embed(
             title=f"🃏 Profil de cartes ｜ {target.display_name}",
+            description=body,
             color=0xB9F23A,
         )
-
-        # ── Rangée 1 : vue d'ensemble ──
-        embed.add_field(name="📦 Collection",
-                        value=f"**{_fmt(total)}** cartes\n**{_fmt(uniq)}** uniques", inline=True)
-        embed.add_field(name="✨ Essences", value=f"**{_fmt(essences)}**", inline=True)
-        embed.add_field(name="🍀 Chance", value=f"**{luck}%**", inline=True)
-        _divider()
-
-        # ── Rangée 2 : combat (pleine largeur) ──
-        bonus_txt = f"   ·   _bonus fusion +{min(50, cs['stars'])}%_" if cs['stars'] else ""
-        embed.add_field(
-            name="⚔️ Stats de combat",
-            value=f"❤️ PV **{_fmt(cs['hp'])}**　　🗡️ ATK **{_fmt(cs['atk'])}**{bonus_txt}",
-            inline=False)
-        _divider()
-
-        # ── Rangée 3 : progression ──
-        embed.add_field(name="⭐ Fusionnées", value=f"**{_fmt(fused)}** carte(s)", inline=True)
-        embed.add_field(name="🖼️ Bordures", value=f"**{_fmt(borders_stock)}** en stock", inline=True)
-        embed.add_field(name=SPACER[0], value=SPACER[1], inline=True)
-        _divider()
-
-        # ── Rangée 4 : raretés (pleine largeur) ──
-        embed.add_field(name="🎴 Raretés", value=rar_line or "—", inline=False)
 
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
