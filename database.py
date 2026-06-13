@@ -2656,26 +2656,31 @@ CARDUP_COST = {"common": 5, "rare": 5, "epic": 5, "legendary": 5}
 
 
 def user_duplicate_count_by_rarity(user_id, rarity) -> int:
-    """Nb de copies en trop (au-dela de 1 par carte) de cette rareté pour le user."""
+    """Nb de copies en trop (au-dela de 1 par carte) de cette rareté, UNIQUEMENT
+    pour les cartes deja maxées (fusion 5 etoiles)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
-        "SELECT uc.card_id, COUNT(*) AS n FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
-        "WHERE uc.user_id = ? AND c.rarity = ? GROUP BY uc.card_id",
+        "SELECT uc.card_id, COUNT(*) AS n FROM user_cards uc "
+        "JOIN cards c ON c.id = uc.card_id "
+        "JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
+        "WHERE uc.user_id = ? AND c.rarity = ? AND cc.fusion_level >= 5 "
+        "GROUP BY uc.card_id",
         (str(user_id), rarity)).fetchall()
     conn.close()
     return sum(max(0, int(r["n"]) - 1) for r in rows)
 
 
 def user_consume_duplicates_by_rarity(user_id, rarity, n) -> int:
-    """Supprime n copies en trop (garde 1 par carte) de cette rareté. Garde en
-    priorite la copie verrouillee (etoilee). Retourne nb reellement supprime."""
+    """Supprime n copies en trop (garde 1 par carte) de cette rareté, UNIQUEMENT
+    sur les cartes maxées (5 etoiles). Garde la copie etoilee. Retourne nb supprime."""
     if n <= 0:
         return 0
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT uc.id, uc.card_id, COALESCE(uc.not_tradeable,0) AS nt "
         "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
-        "WHERE uc.user_id = ? AND c.rarity = ? "
+        "JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
+        "WHERE uc.user_id = ? AND c.rarity = ? AND cc.fusion_level >= 5 "
         "ORDER BY uc.card_id ASC, uc.not_tradeable DESC, uc.id ASC",
         (str(user_id), rarity)).fetchall()
     # Par carte : garde la 1ere (verrouillee en priorite), le reste = supprimable

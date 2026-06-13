@@ -984,8 +984,8 @@ def setup_cards_commands(bot, deps):
 
     # === /cardup : tier-up (doublons d'une rareté -> 1 carte rareté au-dessus) ===
     @bot.tree.command(name="cardup",
-                       description="Fusionne des doublons d'une rareté pour 1 carte aléatoire de la rareté au-dessus")
-    @app_commands.describe(rarete="Rareté des doublons à sacrifier")
+                       description="Sacrifie les doublons de tes cartes 5⭐ pour 1 carte aléatoire de la rareté au-dessus")
+    @app_commands.describe(rarete="Rareté des doublons (de cartes 5⭐) à sacrifier")
     @app_commands.choices(rarete=[
         app_commands.Choice(name="Common → Rare", value="common"),
         app_commands.Choice(name="Rare → Epic", value="rare"),
@@ -1007,8 +1007,10 @@ def setup_cards_commands(bot, deps):
         avail = user_duplicate_count_by_rarity(uid, src)
         if avail < cost:
             await interaction.followup.send(
-                f"Il te faut **{cost}** doublons **{src}** (copies en trop, 1 gardée par carte). "
-                f"Tu en as **{avail}**.", ephemeral=True)
+                f"Il te faut **{cost}** doublons **{src}** de cartes **déjà 5⭐** "
+                f"(copies en trop au-delà de la carte étoilée). Tu en as **{avail}**.\n"
+                f"_Maxe une carte {src} à 5⭐ avec `/cardfuse`, ses doublons en trop deviennent utilisables ici._",
+                ephemeral=True)
             return
         removed = user_consume_duplicates_by_rarity(uid, src, cost)
         reward = card_pick_random_exact_rarity(nxt)
@@ -1022,7 +1024,7 @@ def setup_cards_commands(bot, deps):
         color = RARITY_COLORS.get(nxt, 0x9aa0a6)
         embed = discord.Embed(
             title=f"⬆️ Tier-up réussi !",
-            description=(f"{removed} doublons **{src}** sacrifiés →\n"
+            description=(f"{removed} doublons **{src}** (cartes 5⭐) sacrifiés →\n"
                           f"# {emoji} {reward['name']}\n"
                           f"**Rareté :** {nxt.upper()} · **Origine :** {reward.get('subtitle') or '?'}"),
             color=color,
