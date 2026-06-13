@@ -572,6 +572,11 @@ def setup_cards_commands(bot, deps):
                 await interaction.response.edit_message(
                     embed=view.build_embed(), view=view)
 
+            @discord.ui.button(label="🔍 Rechercher", style=discord.ButtonStyle.secondary, row=1)
+            async def search_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                if not await self._guard(interaction): return
+                await interaction.response.send_modal(_SearchOriginModal())
+
         def _make_collec_view(cat):
             rows = _grouped_rows(cat)
             view = _CollecView(rows, cat)
@@ -579,10 +584,14 @@ def setup_cards_commands(bot, deps):
 
         # Navigateur d'origines (style "Browse Series")
         class _OriginsView(discord.ui.View):
-            def __init__(self):
+            def __init__(self, query=None):
                 super().__init__(timeout=300)
-                # Toutes les origines du catalogue + compteur possédé
-                self.origins = all_card_origins()
+                self.query = (query or "").strip()
+                all_o = all_card_origins()
+                if self.query:
+                    ql = self.query.lower()
+                    all_o = [(o, n) for o, n in all_o if ql in o.lower()]
+                self.origins = all_o
                 self.owned = dict(user_collection_origins(target_user.id))
                 self.page = 0
                 self.per = 25
@@ -592,10 +601,11 @@ def setup_cards_commands(bot, deps):
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
                 lines = "\n".join(
-                    f"**{o}** · {self.owned.get(o, 0)}/{n}" for o, n in chunk) or "_(aucune)_"
+                    f"**{o}** · {self.owned.get(o, 0)}/{n}" for o, n in chunk) or "_(aucun résultat)_"
+                q_txt = f" · recherche : **{self.query}**" if self.query else ""
                 return discord.Embed(
                     title=f"📚 Origines — collection de {target_user.display_name}",
-                    description=(f"_{len(self.origins)} origines · page {self.page + 1}/{tp}_\n"
+                    description=(f"_{len(self.origins)} origines · page {self.page + 1}/{tp}{q_txt}_\n"
                                   f"{lines}\n\n"
                                   f"_possédées/total._ Navigue avec ◀ ▶ ou choisis dans le menu."),
                     color=0xB9F23A,
@@ -642,6 +652,13 @@ def setup_cards_commands(bot, deps):
                     await i.response.edit_message(embed=emb, view=v)
                 prev.callback = _prev; nxt.callback = _nxt; back.callback = _back
                 self.add_item(prev); self.add_item(nxt); self.add_item(back)
+
+        class _SearchOriginModal(discord.ui.Modal, title="Rechercher une origine"):
+            q = discord.ui.TextInput(label="Nom de l'origine / série",
+                                      placeholder="ex: Genshin, Naruto…", required=True, max_length=100)
+            async def on_submit(self, inter: discord.Interaction):
+                view = _OriginsView(query=str(self.q.value))
+                await inter.response.edit_message(embed=view.build_embed(), view=view)
 
         # Envoi initial
         first_rows = _grouped_rows(cat_val)
