@@ -314,6 +314,35 @@ def init_db():
         PRIMARY KEY (user_id, card_id)
     )''')
 
+    # ===== Combat de boss coopératif =====
+    c.execute('''CREATE TABLE IF NOT EXISTS card_boss (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id    TEXT,
+        channel_id  TEXT,
+        message_id  TEXT,
+        name        TEXT,
+        element     TEXT,
+        tier        INTEGER DEFAULT 1,
+        max_hp      INTEGER,
+        hp          INTEGER,
+        atk         INTEGER,
+        status      TEXT DEFAULT 'open',
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_msg ON card_boss(message_id)")
+    c.execute('''CREATE TABLE IF NOT EXISTS card_boss_participant (
+        boss_id        INTEGER NOT NULL,
+        user_id        TEXT NOT NULL,
+        name           TEXT,
+        element        TEXT,
+        max_hp         INTEGER,
+        hp             INTEGER,
+        atk            INTEGER,
+        damage         INTEGER DEFAULT 0,
+        last_attack    REAL DEFAULT 0,
+        PRIMARY KEY (boss_id, user_id)
+    )''')
+
     # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
     c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2658,6 +2687,108 @@ def roll_grant_reset():
     set_setting("roll_global_grant", 0)
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM roll_grant_state")
+    conn.commit(); conn.close()
+
+
+# ===== COMBAT BOSS =====
+# Stats du boss selon le tier (1-5)
+BOSS_TIERS = {
+    1: {"hp": 8000,   "atk": 600,  "label": "Tier 1"},
+    2: {"hp": 25000,  "atk": 1200, "label": "Tier 2"},
+    3: {"hp": 70000,  "atk": 2500, "label": "Tier 3"},
+    4: {"hp": 180000, "atk": 5000, "label": "Tier 4"},
+    5: {"hp": 450000, "atk": 9000, "label": "Tier 5"},
+}
+
+
+def card_boss_create(guild_id, channel_id, name, element, tier, max_hp, atk):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+              (str(guild_id), str(channel_id), name, element, int(tier), int(max_hp), int(max_hp), int(atk)))
+    bid = c.lastrowid
+    conn.commit(); conn.close()
+    return bid
+
+
+def card_boss_get(boss_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_boss WHERE id = ?", (int(boss_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_boss_get_by_message(message_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_boss WHERE message_id = ?", (str(message_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_boss_set_message(boss_id, message_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_boss SET message_id = ? WHERE id = ?", (str(message_id), int(boss_id)))
+    conn.commit(); conn.close()
+
+
+def card_boss_apply_damage(boss_id, dmg) -> int:
+    """Retire dmg au boss (atomic). Retourne le HP restant (>=0)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_boss SET hp = MAX(0, hp - ?) WHERE id = ?", (int(dmg), int(boss_id)))
+    r = c.execute("SELECT hp FROM card_boss WHERE id = ?", (int(boss_id),)).fetchone()
+    conn.commit(); conn.close()
+    return int(r["hp"]) if r else 0
+
+
+def card_boss_set_status(boss_id, status):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_boss SET status = ? WHERE id = ?", (status, int(boss_id)))
+    conn.commit(); conn.close()
+
+
+def boss_participant_add(boss_id, user_id, name, element, hp, atk) -> bool:
+    """Ajoute un participant. False si deja present."""
+    conn = get_db(); c = conn.cursor()
+    exists = c.execute("SELECT 1 FROM card_boss_participant WHERE boss_id = ? AND user_id = ?",
+                       (int(boss_id), str(user_id))).fetchone()
+    if exists:
+        conn.close(); return False
+    c.execute("INSERT INTO card_boss_participant (boss_id, user_id, name, element, max_hp, hp, atk) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?)",
+              (int(boss_id), str(user_id), name, element, int(hp), int(hp), int(atk)))
+    conn.commit(); conn.close()
+    return True
+
+
+def boss_participant_get(boss_id, user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_boss_participant WHERE boss_id = ? AND user_id = ?",
+                  (int(boss_id), str(user_id))).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def boss_participants_list(boss_id):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM card_boss_participant WHERE boss_id = ? "
+                     "ORDER BY damage DESC", (int(boss_id),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None):
+    conn = get_db(); c = conn.cursor()
+    sets, vals = [], []
+    if hp is not None:
+        sets.append("hp = ?"); vals.append(max(0, int(hp)))
+    if add_damage is not None:
+        sets.append("damage = damage + ?"); vals.append(int(add_damage))
+    if last_attack is not None:
+        sets.append("last_attack = ?"); vals.append(float(last_attack))
+    if not sets:
+        conn.close(); return
+    vals += [int(boss_id), str(user_id)]
+    c.execute(f"UPDATE card_boss_participant SET {', '.join(sets)} WHERE boss_id = ? AND user_id = ?", vals)
     conn.commit(); conn.close()
 
 
