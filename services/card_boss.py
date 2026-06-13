@@ -463,10 +463,10 @@ async def _run_boss(bot, bid, msg, view):
             else:
                 # Le boss frappe TOUTE l'équipe (AoE). Déchaîné (<50% PV) = x1.5
                 enraged = boss["hp"] < boss["max_hp"] * 0.5
-                rage = 1.5 if enraged else 1.0
+                rage = 1.25 if enraged else 1.0
                 if enraged and not enrage_announced:
                     enrage_announced = True
-                    log.append("🔥 **Le boss se déchaîne et inflige 1,5x plus de dégâts !**")
+                    log.append("🔥 **Le boss se déchaîne et inflige 1,25x plus de dégâts !**")
                 kos = []
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
