@@ -190,8 +190,8 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
                     f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
                     f"🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
         else:
-            info = ("🐲 **En attente d'un premier combattant…** Le timer de 2 min "
-                    "démarre dès qu'un joueur rejoint.\n"
+            info = ("🐲 **En attente d'un premier combattant…**\n"
+                    "Le timer de 2 min démarre dès qu'un joueur rejoint.\n"
                     "🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
     elif boss["status"] == "defeated":
         info = "🎉 **Boss vaincu !**"
