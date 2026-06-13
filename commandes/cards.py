@@ -367,7 +367,7 @@ def setup_cards_commands(bot, deps):
         essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
         _elem = card.get("element")
         if _elem:
-            essence_line += f"  {_get_element_emoji(bot, _elem)}"
+            essence_line += f" · **Élément :** {_get_element_emoji(bot, _elem)} {_ELEM_LABELS.get(_elem, '')}"
         if bonus_left is not None:
             essence_line += f"\n🎟️ _Roll bonus utilisé — il t'en reste **{bonus_left}**_"
         desc_parts = []
