@@ -7,12 +7,12 @@ from flask import render_template, request, jsonify
 _WHEEL_REWARDS = [
     {"type": "essence", "value": 2,  "weight": 30, "label": "+2% essences",  "color": "#9aa0a6"},
     {"type": "essence", "value": 5,  "weight": 20, "label": "+5% essences",  "color": "#4cb5f9"},
-    {"type": "roll",    "value": 1,  "weight": 18, "label": "+1 roll",       "color": "#7bdc6b"},
+    {"type": "roll",    "value": 2,  "weight": 18, "label": "+2 rolls",      "color": "#7bdc6b"},
     {"type": "essence", "value": 10, "weight": 12, "label": "+10% essences", "color": "#a86dff"},
-    {"type": "roll",    "value": 2,  "weight": 10, "label": "+2 rolls",      "color": "#2ec16b"},
+    {"type": "roll",    "value": 3,  "weight": 10, "label": "+3 rolls",      "color": "#2ec16b"},
     {"type": "essence", "value": 20, "weight": 5,  "label": "+20% essences", "color": "#ffa726"},
-    {"type": "roll",    "value": 3,  "weight": 4,  "label": "+3 rolls",      "color": "#ff9f43"},
-    {"type": "roll",    "value": 5,  "weight": 1,  "label": "+5 rolls",      "color": "#ff3d57"},
+    {"type": "roll",    "value": 5,  "weight": 4,  "label": "+5 rolls",      "color": "#ff9f43"},
+    {"type": "roll",    "value": 10, "weight": 1,  "label": "+10 rolls",     "color": "#ff3d57"},
 ]
 
 
@@ -259,6 +259,35 @@ def register_cards_owner_routes(app, deps):
         if not daily_roll_grant(uid):
             return jsonify({"error": "Roll quotidien déjà récupéré aujourd'hui."}), 400
         return jsonify({"ok": True})
+
+    @app.route("/api/public/wheel/recent-wins", methods=["GET"])
+    def api_public_wheel_recent_wins():
+        """Derniers gains de la roue, tous joueurs confondus."""
+        from database import get_db
+        try:
+            limit = max(1, min(int(request.args.get("limit", 40)), 80))
+        except ValueError:
+            limit = 40
+        conn = get_db(); c = conn.cursor()
+        try:
+            rows = c.execute(
+                "SELECT user_id, reward_type, reward_value, spun_at "
+                "FROM wheel_daily ORDER BY spun_at DESC LIMIT ?", (limit,)).fetchall()
+        except Exception:
+            conn.close()
+            return jsonify({"items": []})
+        out = []
+        for r in rows:
+            m = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
+                          (str(r["user_id"]),)).fetchone()
+            out.append({
+                "user": (m["username"] if m and m["username"] else "Inconnu"),
+                "type": r["reward_type"],
+                "value": r["reward_value"],
+                "at": r["spun_at"],
+            })
+        conn.close()
+        return jsonify({"items": out})
 
     @app.route("/api/public/wheel/spin", methods=["POST"])
     def api_public_wheel_spin():
