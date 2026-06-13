@@ -179,6 +179,28 @@ def register_cards_events_routes(app, deps):
         return jsonify({"ok": True, "note": "Drop dispatché au bot (visible sous 2s)"})
 
 
+    @app.route("/api/owner/card-events/spawn-boss", methods=["POST"])
+    def api_owner_spawn_boss():
+        """Spawn un boss de combat via bot_command queue (cross-process)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import bot_command_enqueue
+        data = request.json or {}
+        guild_id = data.get("guild_id")
+        channel_id = data.get("channel_id")
+        try:
+            tier = max(1, min(5, int(data.get("tier") or 1)))
+        except (ValueError, TypeError):
+            return jsonify({"error": "tier invalide (1-5)"}), 400
+        if not guild_id or not channel_id:
+            return jsonify({"error": "guild_id + channel_id requis"}), 400
+        bot_command_enqueue(guild_id, "boss_spawn", {
+            "channel_id": str(channel_id),
+            "tier": tier,
+        })
+        return jsonify({"ok": True, "note": f"Boss Tier {tier} dispatché (visible sous 2s)"})
+
+
     # ===== Gestion des rolls (reset / give) =====
     @app.route("/api/owner/card-events/rolls/status", methods=["GET"])
     def api_owner_rolls_status():

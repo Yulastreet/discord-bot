@@ -63,6 +63,33 @@
     </div>
   </div>
 
+  <!-- Spawn boss de combat -->
+  <div class="ce-section ce-trigger" style="margin-top:14px;">
+    <h3>⚔️ Spawn boss de combat</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Serveur</span>
+        <select id="bossGuild" onchange="bossGuildChanged()" class="input"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Salon</span>
+        <select id="bossChannel" class="input"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Tier</span>
+        <select id="bossTier" class="input">
+          <option value="1">Tier 1</option>
+          <option value="2">Tier 2</option>
+          <option value="3" selected>Tier 3</option>
+          <option value="4">Tier 4</option>
+          <option value="5">Tier 5</option>
+        </select>
+      </label>
+      <button class="btn btn-primary" onclick="spawnBoss()">⚔️ Spawn boss</button>
+    </div>
+    <div id="bossHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
+  </div>
+
   <!-- Gestion des rolls -->
   <div class="ce-section">
     <h3>🎲 Gestion des rolls</h3>
@@ -167,8 +194,10 @@ async function loadGuilds() {
     const r = await fetch('/api/owner/card-events/guilds');
     const d = await r.json();
     _guildsCache = d.items || [];
-    const sel = document.getElementById('trgGuild');
-    sel.innerHTML = '<option value="">— Choisir —</option>' + _guildsCache.map(g => `<option value="${g.id}">${escHtml(g.name)} (${g.member_count})</option>`).join('');
+    const opts = '<option value="">— Choisir —</option>' + _guildsCache.map(g => `<option value="${g.id}">${escHtml(g.name)} (${g.member_count})</option>`).join('');
+    document.getElementById('trgGuild').innerHTML = opts;
+    const bsel = document.getElementById('bossGuild');
+    if (bsel) bsel.innerHTML = opts;
   } catch (e) {}
 }
 function trgGuildChanged() {
@@ -202,6 +231,33 @@ async function triggerManual() {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.triggerManual = triggerManual;
+
+function bossGuildChanged() {
+  const gid = document.getElementById('bossGuild').value;
+  const g = _guildsCache.find(x => x.id === gid);
+  const ch = document.getElementById('bossChannel');
+  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
+  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+}
+window.bossGuildChanged = bossGuildChanged;
+
+async function spawnBoss() {
+  const gid = document.getElementById('bossGuild').value;
+  const cid = document.getElementById('bossChannel').value;
+  const tier = document.getElementById('bossTier').value;
+  const hint = document.getElementById('bossHint');
+  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
+  hint.textContent = 'Spawn en cours…';
+  try {
+    const r = await fetch('/api/owner/card-events/spawn-boss', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({guild_id: gid, channel_id: cid, tier: parseInt(tier, 10)}),
+    });
+    const d = await r.json();
+    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.spawnBoss = spawnBoss;
 
 async function loadGlobalConfig() {
   try {
