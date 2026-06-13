@@ -2650,6 +2650,59 @@ ESSENCE_RECYCLE = {
 FUSION_STAR_COSTS = [2, 3, 4, 5, 6]  # total 20 doublons pour 5 etoiles
 FUSION_MAX_STARS = 5
 
+# Tier-up (/cardup) : consomme N doublons d'une rareté -> 1 carte rareté au-dessus
+CARDUP_NEXT = {"common": "rare", "rare": "epic", "epic": "legendary", "legendary": "mythic"}
+CARDUP_COST = {"common": 5, "rare": 5, "epic": 5, "legendary": 5}
+
+
+def user_duplicate_count_by_rarity(user_id, rarity) -> int:
+    """Nb de copies en trop (au-dela de 1 par carte) de cette rareté pour le user."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT uc.card_id, COUNT(*) AS n FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+        "WHERE uc.user_id = ? AND c.rarity = ? GROUP BY uc.card_id",
+        (str(user_id), rarity)).fetchall()
+    conn.close()
+    return sum(max(0, int(r["n"]) - 1) for r in rows)
+
+
+def user_consume_duplicates_by_rarity(user_id, rarity, n) -> int:
+    """Supprime n copies en trop (garde 1 par carte) de cette rareté. Garde en
+    priorite la copie verrouillee (etoilee). Retourne nb reellement supprime."""
+    if n <= 0:
+        return 0
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT uc.id, uc.card_id, COALESCE(uc.not_tradeable,0) AS nt "
+        "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+        "WHERE uc.user_id = ? AND c.rarity = ? "
+        "ORDER BY uc.card_id ASC, uc.not_tradeable DESC, uc.id ASC",
+        (str(user_id), rarity)).fetchall()
+    # Par carte : garde la 1ere (verrouillee en priorite), le reste = supprimable
+    removable = []
+    seen = set()
+    for r in rows:
+        cid = r["card_id"]
+        if cid not in seen:
+            seen.add(cid)          # 1ere copie gardee
+            continue
+        removable.append(r["id"])
+    to_del = removable[:int(n)]
+    if to_del:
+        ph = ",".join("?" * len(to_del))
+        c.execute(f"DELETE FROM user_cards WHERE id IN ({ph})", to_del)
+    conn.commit(); conn.close()
+    return len(to_del)
+
+
+def card_pick_random_exact_rarity(rarity):
+    """Carte aleatoire obtenable d'une rareté exacte (pour reward /cardup)."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM cards WHERE rarity = ? AND COALESCE(not_obtainable,0) = 0 "
+                  "ORDER BY RANDOM() LIMIT 1", (rarity,)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
 
 def card_customization_set(user_id, card_id, border_key):
     conn = get_db(); c = conn.cursor()

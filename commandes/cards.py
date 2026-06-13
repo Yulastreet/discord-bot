@@ -982,6 +982,62 @@ def setup_cards_commands(bot, deps):
         return await _dup_cards_autocomplete(interaction, current)
 
 
+    # === /cardup : tier-up (doublons d'une rareté -> 1 carte rareté au-dessus) ===
+    @bot.tree.command(name="cardup",
+                       description="Fusionne des doublons d'une rareté pour 1 carte aléatoire de la rareté au-dessus")
+    @app_commands.describe(rarete="Rareté des doublons à sacrifier")
+    @app_commands.choices(rarete=[
+        app_commands.Choice(name="Common → Rare", value="common"),
+        app_commands.Choice(name="Rare → Epic", value="rare"),
+        app_commands.Choice(name="Epic → Legendary", value="epic"),
+        app_commands.Choice(name="Legendary → Mythic", value="legendary"),
+    ])
+    async def cardup_cmd(interaction: discord.Interaction, rarete: app_commands.Choice[str]):
+        from database import (CARDUP_NEXT, CARDUP_COST, user_duplicate_count_by_rarity,
+                               user_consume_duplicates_by_rarity, card_pick_random_exact_rarity,
+                               user_card_add)
+        await interaction.response.defer()
+        src = rarete.value
+        nxt = CARDUP_NEXT.get(src)
+        cost = CARDUP_COST.get(src)
+        if not nxt or not cost:
+            await interaction.followup.send("Rareté invalide.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        avail = user_duplicate_count_by_rarity(uid, src)
+        if avail < cost:
+            await interaction.followup.send(
+                f"Il te faut **{cost}** doublons **{src}** (copies en trop, 1 gardée par carte). "
+                f"Tu en as **{avail}**.", ephemeral=True)
+            return
+        removed = user_consume_duplicates_by_rarity(uid, src, cost)
+        reward = card_pick_random_exact_rarity(nxt)
+        if not reward:
+            await interaction.followup.send(
+                f"Aucune carte **{nxt}** disponible pour la récompense (réessaie plus tard).",
+                ephemeral=True)
+            return
+        user_card_add(uid, reward["id"])
+        emoji = _get_rarity_title_emoji(bot, nxt)
+        color = RARITY_COLORS.get(nxt, 0x9aa0a6)
+        embed = discord.Embed(
+            title=f"⬆️ Tier-up réussi !",
+            description=(f"{removed} doublons **{src}** sacrifiés →\n"
+                          f"# {emoji} {reward['name']}\n"
+                          f"**Rareté :** {nxt.upper()} · **Origine :** {reward.get('subtitle') or '?'}"),
+            color=color,
+        )
+        img_url, img_file = _resolve_card_image(reward)
+        if img_url:
+            embed.set_image(url=img_url)
+        elif img_file:
+            embed.set_image(url="attachment://card.png")
+        if img_file:
+            await interaction.followup.send(embed=embed, file=img_file)
+        else:
+            await interaction.followup.send(embed=embed)
+
+
     # === /cardprofile : voir un profil OU setup (params optionnels) ===
     async def _owned_cards_autocomplete(interaction: discord.Interaction, current: str):
         from database import get_db
