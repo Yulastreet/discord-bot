@@ -1194,9 +1194,8 @@ def setup_cards_commands(bot, deps):
                         value=f"{_fmt(total)} cartes\n{_fmt(uniq)} uniques", inline=True)
         embed.add_field(name="✨ Essences", value=f"{_fmt(essences)}", inline=True)
         embed.add_field(name="🍀 Chance", value=f"{luck}%", inline=True)
-        # Reste : un seul bloc (separateurs ══ exacts, sans gap parasite)
+        # Reste : un seul bloc. Le 1er separateur = NOM du champ (evite la ligne vide).
         block = (
-            f"{DIV}\n"
             f"⚔️ **Stats de combat**\n"
             f"❤️ PV **{_fmt(cs['hp'])}**　　🗡️ ATK **{_fmt(cs['atk'])}**{bonus_txt}\n"
             f"{DIV}\n"
@@ -1205,7 +1204,7 @@ def setup_cards_commands(bot, deps):
             f"🎴 **Raretés**\n"
             f"{rar_line or '—'}"
         )
-        embed.add_field(name="​", value=block, inline=False)
+        embed.add_field(name=DIV, value=block, inline=False)
 
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
