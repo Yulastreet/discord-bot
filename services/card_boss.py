@@ -17,12 +17,13 @@ import discord
 
 from database import (
     BOSS_TIERS, card_boss_create, card_boss_get, card_boss_set_message,
-    card_boss_apply_damage, card_boss_set_status,
+    card_boss_apply_damage, card_boss_set_status, card_boss_set_start,
     boss_participant_add, boss_participant_get, boss_participants_list,
     boss_participant_update, compute_player_combat_stats, element_matchup,
     card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
-    user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS,
+    user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
 )
+import time as _t
 
 _RECRUIT_SECONDS = 120     # fenetre de recrutement par defaut
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
@@ -79,8 +80,10 @@ def build_boss_embed(bot, boss, phase_text="", log=None):
     embed.add_field(name="Élément",
                     value=f"{_elem(bot, boss['element'])} {CARD_ELEMENT_LABELS.get(boss['element'],'?')}",
                     inline=True)
+    weak = element_weaknesses(boss["element"])
+    weak_txt = " ".join(f"{_elem(bot, w)} {CARD_ELEMENT_LABELS.get(w,'?')}" for w in weak) or "—"
+    embed.add_field(name="Faible contre", value=weak_txt, inline=True)
     embed.add_field(name="ATK", value=f"🗡️ {_fmt(boss['atk'])}", inline=True)
-    embed.add_field(name="Participants", value=f"👥 {len(parts)}", inline=True)
     embed.add_field(name="❤️ PV du boss",
                     value=f"**{_fmt(boss['hp'])}** / {_fmt(boss['max_hp'])}\n`{_bar(boss['hp'], boss['max_hp'])}`",
                     inline=False)
@@ -90,15 +93,20 @@ def build_boss_embed(bot, boss, phase_text="", log=None):
             ko = " 💀" if p["hp"] <= 0 else ""
             lines.append(f"{_elem(bot, p['element'])} **{p['name']}** — ❤️ {_fmt(max(0,p['hp']))}"
                          f" · 🗡️ {_fmt(p['atk'])}{ko}")
-        embed.add_field(name="🛡️ Équipe", value="\n".join(lines), inline=False)
+        embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
     if phase_text:
         embed.description = phase_text
+    elif boss["status"] == "recruiting" and parts and boss.get("start_at"):
+        embed.description = f"⏳ Le combat démarre <t:{int(boss['start_at'])}:R>."
     elif boss["status"] == "defeated":
-        embed.description = "🎉 **Boss vaincu !** Récompenses distribuées."
+        embed.description = "🎉 **Boss vaincu !**"
     elif boss["status"] == "wiped":
         embed.description = "💀 **L'équipe a été anéantie.** Le boss survit."
+    # Image du boss : seulement tant que personne n'a rejoint (phase intro)
+    if not parts and boss.get("image_url") and str(boss["image_url"]).startswith("http"):
+        embed.set_image(url=boss["image_url"])
     return embed
 
 
@@ -179,15 +187,16 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
     avatar = card_pick_random_exact_rarity(_TIER_RARITY.get(tier, "epic")) or card_pick_random_exact_rarity("epic")
     name = avatar["name"] if avatar else "Entité inconnue"
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
-    bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], cfg["atk"])
+    img = avatar.get("image_url") if avatar else None
+    start_at = _t.time() + _RECRUIT_SECONDS
+    bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], cfg["atk"],
+                           image_url=img, start_at=start_at)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)
     embed = build_boss_embed(bot, boss,
-                              phase_text=f"🐲 **Recrutement !** Le combat démarre dans **2 min** "
+                              phase_text=f"🐲 **Recrutement !** Le combat démarre <t:{int(start_at)}:R> "
                                          f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
                                          f"**🛡️ Rejoindre** puis **🎴 Choisir ma carte**.")
-    if avatar and str(avatar.get("image_url") or "").startswith("http"):
-        embed.set_image(url=avatar["image_url"])
     view = JoinView(bid)
     msg = await channel.send(content="🐲 **Un boss est apparu !**", embed=embed, view=view)
     card_boss_set_message(bid, msg.id)
@@ -210,11 +219,13 @@ async def _run_boss(bot, bid, msg, view):
                 quick = True
                 break
         if quick:
-            # compte a rebours rapide
+            # compte a rebours rapide (timer visible)
+            qstart = _t.time() + _QUICK_SECONDS
+            card_boss_set_start(bid, qstart)
             boss = card_boss_get(bid)
             try:
                 await msg.edit(embed=build_boss_embed(bot, boss,
-                    phase_text=f"⚡ **{_QUICK_START_AT} joueurs !** Le combat démarre dans **{_QUICK_SECONDS} s**."))
+                    phase_text=f"⚡ **{_QUICK_START_AT} joueurs !** Le combat démarre <t:{int(qstart)}:R>."))
             except Exception:
                 pass
             await asyncio.sleep(_QUICK_SECONDS)
@@ -294,12 +305,28 @@ async def _run_boss(bot, bid, msg, view):
 async def _finish(bot, bid, msg, view, log, victory):
     boss = card_boss_get(bid)
     parts = boss_participants_list(bid)
-    for ch in view.children:
-        ch.disabled = True
-    loot_lines = []
+    ch = bot.get_channel(int(boss["channel_id"]))
+
+    # Supprime l'embed de combat de base
+    try:
+        await msg.delete()
+    except Exception:
+        try:
+            for c in view.children:
+                c.disabled = True
+            await msg.edit(view=view)
+        except Exception:
+            pass
+
+    if not ch:
+        return
+
+    mentions = " ".join(f"<@{p['user_id']}>" for p in parts) or "—"
+
     if victory:
         tier = boss["tier"]
         rar = _TIER_RARITY.get(tier, "epic")
+        loot_lines = []
         for p in parts:
             if p["damage"] <= 0:
                 continue
@@ -309,20 +336,21 @@ async def _finish(bot, bid, msg, view, log, victory):
             extra = ""
             if card:
                 user_card_add(p["user_id"], card["id"])
-                extra = f" + **{card['name']}**"
-            loot_lines.append(f"<@{p['user_id']}> : +{ess} ✨{extra}")
-        log.append("🎉 **Boss vaincu !**")
+                extra = f" + **{card['name']}** {RARITY_HINT.get(rar,'')}"
+            loot_lines.append(f"<@{p['user_id']}> — +{ess} ✨{extra} _(dégâts {_fmt(p['damage'])})_")
+        embed = discord.Embed(
+            title=f"🎉 {boss['name']} vaincu !",
+            description=f"Bravo {mentions} !\n\n**🎁 Butin :**\n" + ("\n".join(loot_lines) or "—"),
+            color=0x4ade80)
+        await ch.send(content=mentions, embed=embed,
+                       allowed_mentions=discord.AllowedMentions(users=True))
     else:
-        log.append("💀 **Défaite.**")
-    try:
-        await msg.edit(content=("🎉 **Victoire !**" if victory else "💀 **Défaite…**"),
-                       embed=build_boss_embed(bot, boss, log=log), view=view)
-    except Exception:
-        pass
-    if victory and loot_lines:
-        try:
-            ch = bot.get_channel(int(boss["channel_id"]))
-            if ch:
-                await ch.send("🎁 **Butin du boss :**\n" + "\n".join(loot_lines[:20]))
-        except Exception:
-            pass
+        embed = discord.Embed(
+            title=f"💀 Défaite contre {boss['name']}",
+            description=f"L'équipe ({mentions}) a été anéantie. Le boss survit. Pas de butin.",
+            color=0xff3d57)
+        await ch.send(content=mentions, embed=embed,
+                       allowed_mentions=discord.AllowedMentions(users=True))
+
+
+RARITY_HINT = {"epic": "🟣", "legendary": "🟠", "mythic": "🔴", "secret": "🌈"}

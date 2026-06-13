@@ -330,6 +330,11 @@ def init_db():
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_msg ON card_boss(message_id)")
+    for _col, _ddl in (("start_at", "REAL"), ("image_url", "TEXT")):
+        try:
+            c.execute(f"ALTER TABLE card_boss ADD COLUMN {_col} {_ddl}")
+        except Exception:
+            pass
     c.execute('''CREATE TABLE IF NOT EXISTS card_boss_participant (
         boss_id        INTEGER NOT NULL,
         user_id        TEXT NOT NULL,
@@ -2701,14 +2706,28 @@ BOSS_TIERS = {
 }
 
 
-def card_boss_create(guild_id, channel_id, name, element, tier, max_hp, atk):
+def card_boss_create(guild_id, channel_id, name, element, tier, max_hp, atk,
+                      image_url=None, start_at=None):
     conn = get_db(); c = conn.cursor()
-    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk) "
-              "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-              (str(guild_id), str(channel_id), name, element, int(tier), int(max_hp), int(max_hp), int(atk)))
+    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk, image_url, start_at) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              (str(guild_id), str(channel_id), name, element, int(tier),
+               int(max_hp), int(max_hp), int(atk), image_url,
+               float(start_at) if start_at else None))
     bid = c.lastrowid
     conn.commit(); conn.close()
     return bid
+
+
+def card_boss_set_start(boss_id, start_at):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_boss SET start_at = ? WHERE id = ?", (float(start_at), int(boss_id)))
+    conn.commit(); conn.close()
+
+
+def element_weaknesses(element):
+    """Retourne les elements qui ont l'avantage contre `element` (le battent)."""
+    return [e for e in CARD_ELEMENTS if element_matchup(e, element) > 1.0]
 
 
 def card_boss_get(boss_id):
