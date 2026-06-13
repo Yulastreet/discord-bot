@@ -19,7 +19,8 @@ from database import (
     BOSS_TIERS, card_boss_create, card_boss_get, card_boss_set_message,
     card_boss_apply_damage, card_boss_set_status, card_boss_set_start,
     boss_participant_add, boss_participant_get, boss_participants_list,
-    boss_participant_update, compute_player_combat_stats, element_matchup,
+    boss_participant_update, compute_player_combat_stats, engaged_combat_stats,
+    element_matchup,
     card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
     user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
     CARD_ELEMENTS,
@@ -263,12 +264,12 @@ class JoinView(discord.ui.View):
         if boss_participant_get(self.boss_id, uid):
             await interaction.response.send_message("Tu es déjà dans l'équipe.", ephemeral=True)
             return
-        stats = compute_player_combat_stats(uid)
         dcard = _default_card(uid)
         delem = (dcard.get("element") if dcard else None) or "eclat"
+        dcid = dcard["id"] if dcard else None
+        stats = engaged_combat_stats(uid, dcid) if dcid else compute_player_combat_stats(uid)
         boss_participant_add(self.boss_id, uid, interaction.user.display_name,
-                             delem, stats["hp"], stats["atk"],
-                             card_id=(dcard["id"] if dcard else None))
+                             delem, stats["hp"], stats["atk"], card_id=dcid)
         # 1er joueur -> demarre le timer de 2 min
         if not boss.get("start_at"):
             card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
@@ -486,10 +487,24 @@ class _ChooseCardModal(discord.ui.Modal, title="Choisir ma carte de combat"):
         if user_card_count_owned(uid, card["id"]) <= 0:
             await interaction.response.send_message(f"Tu ne possèdes pas **{card['name']}**.", ephemeral=True); return
         elem = card.get("element") or "eclat"
-        boss_participant_update(self.boss_id, uid, element=elem, card_id=card["id"])
+        stats = engaged_combat_stats(uid, card["id"])
+        boss = card_boss_get(self.boss_id)
+        # Recalcule PV/ATK selon la carte engagée (PV plein car recrutement)
+        boss_participant_update(self.boss_id, uid, element=elem, card_id=card["id"],
+                                atk=stats["atk"], max_hp=stats["hp"], hp=stats["hp"])
+        # Indique l'avantage élémentaire vs le boss courant
+        m = element_matchup(elem, boss["element"]) if boss else 1.0
+        if m > 1:
+            match_txt = "🔥 **Avantage** contre le boss (x1.25 dégâts)"
+        elif m < 1:
+            match_txt = "🟦 **Désavantage** contre le boss (x0.8 dégâts)"
+        else:
+            match_txt = "⚪ Neutre contre le boss"
         await interaction.response.send_message(
-            f"🎴 Tu combattras avec **{card['name']}** "
-            f"({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')}).", ephemeral=True)
+            f"🎴 **{card['name']}** ({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')})\n"
+            f"🗡️ ATK **{_fmt(stats['atk'])}** _(carte {stats['rarity'] or '?'} ×{stats['mult']:.2f})_ "
+            f"· ❤️ PV **{_fmt(stats['hp'])}** _(collection)_\n{match_txt}",
+            ephemeral=True)
         await _refresh_boss_msg(interaction.client, self.boss_id)
 
 

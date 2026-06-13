@@ -2562,8 +2562,10 @@ PLAYER_ATK_WEIGHTS = {
 
 
 def compute_player_combat_stats(user_id):
-    """PV + ATK d'un joueur selon ses cartes UNIQUES pondérées par rareté,
+    """PV + ATK de BASE d'un joueur selon ses cartes UNIQUES pondérées par rareté,
     + bonus des etoiles de fusion (+1% PV/ATK par etoile, cap +50%).
+    C'est le socle 'collection' (recompense le temps de jeu). La carte ENGAGEE
+    applique ensuite un multiplicateur (voir engaged_combat_stats).
     Retourne {hp, atk, unique_total, stars}."""
     uniq = user_unique_rarity_breakdown(user_id)
     hp = PLAYER_HP_BASE + sum(PLAYER_HP_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
@@ -2576,6 +2578,37 @@ def compute_player_combat_stats(user_id):
         "atk": int(atk * mult),
         "unique_total": sum(uniq.values()),
         "stars": stars,
+    }
+
+
+# Multiplicateur d'ATK selon la RARETE de la carte engagée au combat.
+# Cree l'arbitrage "carte qui contre l'element (faible)" vs "grosse carte (neutre)".
+# IMPORTANT : s'applique a l'ATK SEULE. Les PV viennent de la collection (= ta
+# profondeur de jeu = ton mur), sinon la grosse carte serait a la fois plus
+# tanky ET plus forte, et le contre elementaire ne servirait jamais.
+# Ancre : epic = 1.0. common contre-element (0.8 x1.25 = 1.0) ~ epic neutre.
+CARD_RARITY_COMBAT_MULT = {
+    "common": 0.80, "rare": 0.92, "epic": 1.05,
+    "legendary": 1.25, "mythic": 1.55, "secret": 1.90,
+}
+CARD_STAR_COMBAT_BONUS = 0.03   # +3% ATK par etoile de fusion (cap 5 etoiles)
+
+
+def engaged_combat_stats(user_id, card_id):
+    """Stats de combat REELLES. PV = socle collection (inchange). ATK = socle x
+    modificateur de la carte engagée (rareté + etoiles de fusion de CETTE carte).
+    Retourne {hp, atk, mult, rarity}."""
+    base = compute_player_combat_stats(user_id)
+    card = card_get(int(card_id)) if card_id else None
+    rar = (card or {}).get("rarity")
+    mult = CARD_RARITY_COMBAT_MULT.get(rar, 1.0)
+    stars = card_fusion_get(user_id, int(card_id)) if card_id else 0
+    mult *= 1.0 + min(5, int(stars)) * CARD_STAR_COMBAT_BONUS
+    return {
+        "hp": max(1, int(base["hp"])),
+        "atk": max(1, int(base["atk"] * mult)),
+        "mult": mult,
+        "rarity": rar,
     }
 
 
@@ -2706,12 +2739,15 @@ def roll_grant_reset():
 
 # ===== COMBAT BOSS =====
 # Stats du boss selon le tier (1-5)
+# Equilibrage (carte engagée x rareté désormais). Reference joueurs :
+#   ATK base collection ~ 60k (moyen) a ~100k (gros rolleur), x carte ~0.8..1.55,
+#   x matchup 0.8..1.25. T1 soloable par un gros joueur, T3 exige une vraie equipe.
 BOSS_TIERS = {
-    1: {"hp": 400000,   "atk": 22000,  "label": "Tier 1"},
-    2: {"hp": 1200000,  "atk": 50000,  "label": "Tier 2"},
-    3: {"hp": 3000000,  "atk": 110000, "label": "Tier 3"},
-    4: {"hp": 7000000,  "atk": 230000, "label": "Tier 4"},
-    5: {"hp": 15000000, "atk": 450000, "label": "Tier 5"},
+    1: {"hp": 550000,   "atk": 7000,   "label": "Tier 1"},
+    2: {"hp": 1250000,  "atk": 12000,  "label": "Tier 2"},
+    3: {"hp": 2400000,  "atk": 15000,  "label": "Tier 3"},
+    4: {"hp": 3600000,  "atk": 17000,  "label": "Tier 4"},
+    5: {"hp": 4600000,  "atk": 20000,  "label": "Tier 5"},
 }
 
 
@@ -2815,11 +2851,15 @@ def boss_participants_list(boss_id):
 
 
 def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None,
-                              element=None, card_id=None, aptitude=None):
+                              element=None, card_id=None, aptitude=None, atk=None, max_hp=None):
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     if hp is not None:
         sets.append("hp = ?"); vals.append(max(0, int(hp)))
+    if max_hp is not None:
+        sets.append("max_hp = ?"); vals.append(max(1, int(max_hp)))
+    if atk is not None:
+        sets.append("atk = ?"); vals.append(max(1, int(atk)))
     if add_damage is not None:
         sets.append("damage = damage + ?"); vals.append(int(add_damage))
     if last_attack is not None:
