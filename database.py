@@ -2776,7 +2776,8 @@ def boss_participants_list(boss_id):
     return [dict(r) for r in rows]
 
 
-def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None):
+def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None,
+                              element=None):
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     if hp is not None:
@@ -2785,6 +2786,8 @@ def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_att
         sets.append("damage = damage + ?"); vals.append(int(add_damage))
     if last_attack is not None:
         sets.append("last_attack = ?"); vals.append(float(last_attack))
+    if element is not None:
+        sets.append("element = ?"); vals.append(element)
     if not sets:
         conn.close(); return
     vals += [int(boss_id), str(user_id)]
