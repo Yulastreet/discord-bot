@@ -497,12 +497,24 @@ def setup_cards_commands(bot, deps):
             lines = []
             for c in page_rows:
                 emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
-                count = f" x{c['count']}" if c["count"] > 1 else ""
-                nt = c.get("nt_count", 0)
-                nt_tag = f" 🔒{nt}" if nt > 0 else ""
+                uni = c.get("universe") or "?"
+                fusion = fusion_map.get(c["card_id"], 0)
                 cosmetic_tag = " ✨" if custom_map.get(c["card_id"]) else ""
-                stars_tag = "⭐" * fusion_map.get(c["card_id"], 0)
-                lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{stars_tag}{count}{nt_tag} · _{c.get('universe') or '?'}_")
+                total_n = c["count"]
+                if fusion > 0:
+                    # Ligne 1 : l'exemplaire etoilé (1 copie, verrouillé)
+                    stars_tag = "⭐" * fusion
+                    lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{stars_tag} 🔒 · _{uni}_")
+                    # Ligne 2 : les doublons en trop, non etoilés
+                    extra = total_n - 1
+                    if extra > 0:
+                        cnt = f" x{extra}" if extra > 1 else ""
+                        lines.append(f"{emoji} **{c['name']}**{cnt} · _{uni}_")
+                else:
+                    count = f" x{total_n}" if total_n > 1 else ""
+                    nt = c.get("nt_count", 0)
+                    nt_tag = f" 🔒{nt}" if nt > 0 else ""
+                    lines.append(f"{emoji} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{uni}_")
             embed.description += "\n\n" + "\n".join(lines)
             embed.set_footer(text=f"Page {page}/{total_pages}")
             if target_user.display_avatar:
