@@ -39,6 +39,13 @@
   .wh-timer .clk { font-size:54px; font-weight:900; letter-spacing:2px; line-height:1.1;
                    font-variant-numeric:tabular-nums; color:var(--text); }
   .wh-timer.ready .clk { color:#7bdc6b; font-size:34px; }
+  .wh-gain { display:none; align-items:center; gap:16px; margin-top:16px;
+             border:2px solid var(--accent); border-radius:14px; padding:16px 22px;
+             background:linear-gradient(120deg, rgba(255,255,255,.04), transparent); }
+  .wh-gain .gic { font-size:44px; line-height:1; }
+  .wh-gain .gtxt { display:flex; flex-direction:column; gap:2px; }
+  .wh-gain .gtop { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-2); }
+  .wh-gain .glb { font-size:28px; font-weight:900; }
 </style>
 
 <div class="wh-wrap">
@@ -55,6 +62,14 @@
   <div class="wh-actions">
     <button id="whSpin" class="btn btn-primary" onclick="spin()" disabled>Chargement…</button>
     <div id="whResult" class="wh-result"></div>
+  </div>
+
+  <div id="whGain" class="wh-gain">
+    <div class="gic">✨</div>
+    <div class="gtxt">
+      <span class="gtop">🎁 Gain du jour</span>
+      <span class="glb"></span>
+    </div>
   </div>
   <div id="whNote" class="wh-note"></div>
 
@@ -74,6 +89,18 @@
   let resetAt = 0;        // timestamp (ms) du prochain reset
   let timerStarted = false;
   const CELL = 150;
+
+  function findReward(type, value){ return REWARDS.find(r => r.type===type && r.value==value); }
+  function showGain(type, value){
+    const rw = findReward(type, value) || {type, value, color:'var(--accent)',
+      label: (type==='roll' ? `+${value} roll(s)` : `+${value}% essences`)};
+    const g = document.getElementById('whGain');
+    g.style.display = 'flex';
+    g.style.borderColor = rw.color;
+    g.querySelector('.gic').textContent = rw.type==='roll' ? '🎟️' : '✨';
+    g.querySelector('.glb').innerHTML = `<span style="color:${rw.color}">${esc(rw.label)}</span>`
+      + (rw.type==='essence' ? ' <span style="font-size:14px;color:var(--text-2);font-weight:600">sur tes gains du jour</span>' : '');
+  }
 
   function fmt2(n){ return String(n).padStart(2,'0'); }
   function tick(){
@@ -144,9 +171,7 @@
       } else if (d.claimed){
         btn.disabled = true; btn.textContent = '✅ Déjà tourné aujourd\'hui';
         const cl = d.claim || {};
-        const lbl = cl.reward_type === 'roll' ? `+${cl.reward_value} roll(s)` : `+${cl.reward_value}% essences`;
-        res.innerHTML = `Récompense du jour : <span style="color:var(--accent)">${lbl}</span>`;
-        if (d.bonus_today) note.textContent = `Bonus d'essences actif aujourd'hui : +${d.bonus_today}%`;
+        showGain(cl.reward_type, cl.reward_value);
         showCountdown(d.reset_in || 0);
       } else {
         btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
@@ -193,6 +218,7 @@
       const lbl = w.type === 'roll' ? `+${w.value} roll(s) 🎟️` : `+${w.value}% d'essences ✨ (aujourd'hui)`;
       res.innerHTML = `🎉 Tu gagnes : <span style="color:${w.color}; font-weight:900">${esc(lbl)}</span>`;
       btn.textContent = '✅ Déjà tourné aujourd\'hui';
+      showGain(w.type, w.value);
       showCountdown(window._resetIn || 0);
       busy = false;
     }, 5600);
