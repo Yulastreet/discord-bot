@@ -2591,7 +2591,8 @@ CARD_RARITY_COMBAT_MULT = {
     "common": 0.80, "rare": 0.92, "epic": 1.05,
     "legendary": 1.25, "mythic": 1.55, "secret": 1.90,
 }
-CARD_STAR_COMBAT_BONUS = 0.03   # +3% ATK par etoile de fusion (cap 5 etoiles)
+# +5%/etoile (cap 5 = +25%) : une epic 5* (1.05x1.25=1.31) bat une legendary brute (1.25)
+CARD_STAR_COMBAT_BONUS = 0.05
 
 
 def engaged_combat_stats(user_id, card_id):
