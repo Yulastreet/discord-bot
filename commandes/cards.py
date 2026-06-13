@@ -467,7 +467,7 @@ def setup_cards_commands(bot, deps):
         rar_val = rarete.value if rarete else None
         cat_val = (categorie or "").strip() or None
         from database import (user_card_customizations_map, user_card_fusion_map,
-                               user_collection_origins)
+                               user_collection_origins, all_card_origins)
         custom_map = user_card_customizations_map(target_user.id)
         fusion_map = user_card_fusion_map(target_user.id)
         total = user_card_count(target_user.id)
@@ -581,7 +581,9 @@ def setup_cards_commands(bot, deps):
         class _OriginsView(discord.ui.View):
             def __init__(self):
                 super().__init__(timeout=300)
-                self.origins = user_collection_origins(target_user.id)
+                # Toutes les origines du catalogue + compteur possédé
+                self.origins = all_card_origins()
+                self.owned = dict(user_collection_origins(target_user.id))
                 self.page = 0
                 self.per = 25
                 self._build_select()
@@ -589,19 +591,22 @@ def setup_cards_commands(bot, deps):
             def build_embed(self):
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
-                lines = "\n".join(f"**{o}** · {n} carte(s)" for o, n in chunk) or "_(aucune)_"
+                lines = "\n".join(
+                    f"**{o}** · {self.owned.get(o, 0)}/{n}" for o, n in chunk) or "_(aucune)_"
                 return discord.Embed(
-                    title=f"📚 Origines de {target_user.display_name}",
+                    title=f"📚 Origines — collection de {target_user.display_name}",
                     description=(f"_{len(self.origins)} origines · page {self.page + 1}/{tp}_\n"
                                   f"{lines}\n\n"
-                                  f"Navigue avec ◀ ▶ ou choisis dans le menu déroulant."),
+                                  f"_possédées/total._ Navigue avec ◀ ▶ ou choisis dans le menu."),
                     color=0xB9F23A,
                 )
 
             def _build_select(self):
                 self.clear_items()
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
-                opts = [discord.SelectOption(label=o[:100], description=f"{n} carte(s)")
+                opts = [discord.SelectOption(
+                            label=o[:100],
+                            description=f"{self.owned.get(o, 0)}/{n} possédée(s)")
                         for o, n in chunk]
                 sel = discord.ui.Select(placeholder="Sélectionne une origine…",
                                           options=opts or [discord.SelectOption(label="—")], row=0)
