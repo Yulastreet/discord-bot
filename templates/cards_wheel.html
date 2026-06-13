@@ -25,8 +25,10 @@
   .wh-fade { position:absolute; top:0; bottom:0; width:90px; z-index:2; pointer-events:none; }
   .wh-fade.l { left:0; background:linear-gradient(90deg, var(--bg-1), transparent); }
   .wh-fade.r { right:0; background:linear-gradient(270deg, var(--bg-1), transparent); }
-  .wh-actions { display:flex; align-items:center; gap:12px; margin-top:14px; }
-  .wh-result { font-size:16px; font-weight:800; min-height:24px; }
+  .wh-actions { display:flex; justify-content:center; margin-top:18px; }
+  .wh-spin-btn { font-size:18px; font-weight:900; padding:14px 42px; border-radius:12px;
+                 letter-spacing:.02em; box-shadow:0 6px 22px rgba(123,220,107,.25); }
+  .wh-spin-btn:not(:disabled):hover { transform:translateY(-1px); }
   .wh-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
              gap:8px; margin-top:18px; }
   .wh-od { display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -60,8 +62,7 @@
   </div>
 
   <div class="wh-actions">
-    <button id="whSpin" class="btn btn-primary" onclick="spin()" disabled>Chargement…</button>
-    <div id="whResult" class="wh-result"></div>
+    <button id="whSpin" class="btn btn-primary wh-spin-btn" onclick="spin()" disabled>Chargement…</button>
   </div>
 
   <div id="whGain" class="wh-gain">
@@ -164,8 +165,6 @@
       buildInitialReel();
       renderOdds();
       const btn = document.getElementById('whSpin');
-      const res = document.getElementById('whResult');
-      const note = document.getElementById('whNote');
       if (!d.logged_in){
         btn.disabled = true; btn.textContent = '🔒 Connecte-toi pour jouer';
       } else if (d.claimed){
@@ -185,16 +184,16 @@
     if (busy) return;
     busy = true;
     const btn = document.getElementById('whSpin');
-    const res = document.getElementById('whResult');
+    const note = document.getElementById('whNote');
     btn.disabled = true; btn.textContent = '🎡 …';
-    res.textContent = '';
+    note.textContent = '';
     let data;
     try {
       const r = await fetch('/api/public/wheel/spin', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
       data = await r.json();
-    } catch(e){ res.textContent = 'Erreur réseau'; busy=false; btn.disabled=false; btn.textContent='🎡 Tourner la roue'; return; }
+    } catch(e){ note.textContent = 'Erreur réseau'; busy=false; btn.disabled=false; btn.textContent='🎡 Tourner la roue'; return; }
     if (!data.ok){
-      res.textContent = '❌ ' + (data.error || 'Erreur');
+      note.textContent = '❌ ' + (data.error || 'Erreur');
       busy = false; btn.disabled = true; btn.textContent = '✅ Indisponible';
       return;
     }
@@ -215,8 +214,6 @@
     track.style.transform = `translateX(${targetX}px)`;
     setTimeout(()=>{
       const w = data.won;
-      const lbl = w.type === 'roll' ? `+${w.value} roll(s) 🎟️` : `+${w.value}% d'essences ✨ (aujourd'hui)`;
-      res.innerHTML = `🎉 Tu gagnes : <span style="color:${w.color}; font-weight:900">${esc(lbl)}</span>`;
       btn.textContent = '✅ Déjà tourné aujourd\'hui';
       showGain(w.type, w.value);
       showCountdown(window._resetIn || 0);
