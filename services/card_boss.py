@@ -380,7 +380,9 @@ async def _run_boss(bot, bid, msg, view):
         except Exception:
             pass
 
+        # Tours ALTERNES : 1 tour = 1 action. L'équipe commence, puis le boss, etc.
         turn = 0
+        actor = "party"
         while turn < _MAX_TURNS:
             turn += 1
             await asyncio.sleep(_TURN_DELAY)
@@ -391,27 +393,33 @@ async def _run_boss(bot, bid, msg, view):
             if not alive:
                 card_boss_set_status(bid, "wiped")
                 break
-            # Equipe attaque
-            total = 0
-            best_eff = 1.0
-            for p in alive:
-                m = element_matchup(p["element"], boss["element"])
-                total += max(1, int(p["atk"] * m))
-                best_eff = max(best_eff, m)
-            boss_hp = card_boss_apply_damage(bid, total)
-            eff = " 🔥" if best_eff > 1 else ""
-            log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
-            if boss_hp <= 0:
-                card_boss_set_status(bid, "defeated")
-                break
-            # Boss riposte sur une cible aleatoire
-            target = random.choice(alive)
-            cm = element_matchup(boss["element"], target["element"])
-            dmg = int(boss["atk"] * cm * _BOSS_RATIO)
-            new_hp = max(0, target["hp"] - dmg)
-            boss_participant_update(bid, target["user_id"], hp=new_hp)
-            ko = " 💀 **KO !**" if new_hp <= 0 else ""
-            log.append(f"Tour {turn} · 👹 Le boss frappe **{target['name']}** : -{_fmt(dmg)}{ko}")
+            if actor == "party":
+                total = 0
+                best_eff = 1.0
+                for p in alive:
+                    m = element_matchup(p["element"], boss["element"])
+                    total += max(1, int(p["atk"] * m))
+                    best_eff = max(best_eff, m)
+                boss_hp = card_boss_apply_damage(bid, total)
+                eff = " 🔥" if best_eff > 1 else ""
+                log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
+                if boss_hp <= 0:
+                    card_boss_set_status(bid, "defeated")
+                    break
+                actor = "boss"
+            else:
+                target = random.choice(alive)
+                cm = element_matchup(boss["element"], target["element"])
+                dmg = max(1, int(boss["atk"] * cm))
+                new_hp = max(0, target["hp"] - dmg)
+                boss_participant_update(bid, target["user_id"], hp=new_hp)
+                bff = " 🔥" if cm > 1 else ""
+                ko = " 💀 **KO !**" if new_hp <= 0 else ""
+                log.append(f"Tour {turn} · 👹 Le boss frappe **{target['name']}** : -{_fmt(dmg)}{bff}{ko}")
+                if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
+                    card_boss_set_status(bid, "wiped")
+                    break
+                actor = "party"
             try:
                 await msg.edit(embed=build_boss_embed(bot, card_boss_get(bid), log=log, battle=bool(bf_path)), view=view)
             except Exception:

@@ -2703,11 +2703,11 @@ def roll_grant_reset():
 # ===== COMBAT BOSS =====
 # Stats du boss selon le tier (1-5)
 BOSS_TIERS = {
-    1: {"hp": 400000,   "atk": 9000,   "label": "Tier 1"},
-    2: {"hp": 1200000,  "atk": 20000,  "label": "Tier 2"},
-    3: {"hp": 3000000,  "atk": 42000,  "label": "Tier 3"},
-    4: {"hp": 7000000,  "atk": 80000,  "label": "Tier 4"},
-    5: {"hp": 15000000, "atk": 150000, "label": "Tier 5"},
+    1: {"hp": 400000,   "atk": 22000,  "label": "Tier 1"},
+    2: {"hp": 1200000,  "atk": 50000,  "label": "Tier 2"},
+    3: {"hp": 3000000,  "atk": 110000, "label": "Tier 3"},
+    4: {"hp": 7000000,  "atk": 230000, "label": "Tier 4"},
+    5: {"hp": 15000000, "atk": 450000, "label": "Tier 5"},
 }
 
 
