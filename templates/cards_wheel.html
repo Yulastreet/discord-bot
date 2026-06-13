@@ -53,17 +53,16 @@
   .live-dot2 { width:9px; height:9px; border-radius:50%; background:#2ec16b;
                box-shadow:0 0 0 0 rgba(46,193,107,.6); animation: live-pulse2 1.6s infinite; }
   @keyframes live-pulse2 { 0%{box-shadow:0 0 0 0 rgba(46,193,107,.55);} 70%{box-shadow:0 0 0 7px rgba(46,193,107,0);} 100%{box-shadow:0 0 0 0 rgba(46,193,107,0);} }
-  .wh-wins-marquee { overflow:hidden; border:1px solid var(--border); border-radius:10px;
-                     background:var(--bg-1); padding:9px 0; -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-                     mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
-  .wh-wins-track { display:flex; gap:0; width:max-content; animation: wins-scroll 38s linear infinite; }
-  .wh-wins-track:hover { animation-play-state:paused; }
-  @keyframes wins-scroll { from{transform:translateX(0);} to{transform:translateX(-50%);} }
-  .wh-win { display:inline-flex; align-items:center; gap:7px; padding:0 18px; font-size:13px; white-space:nowrap; }
+  .wins-feed { display:flex; flex-direction:column; gap:6px; }
+  .wh-win { display:flex; align-items:center; gap:10px; background:var(--bg-1);
+            border:1px solid var(--border); border-radius:10px; padding:9px 12px;
+            font-size:14px; animation: win-in .35s ease; }
+  @keyframes win-in { from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:none;} }
+  .wh-win .dot { width:9px; height:9px; border-radius:50%; flex:none; }
   .wh-win .u { font-weight:800; color:var(--text); }
   .wh-win .g { font-weight:900; }
-  .wh-win .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
-  .wh-win-empty { padding:0 18px; color:var(--text-2); font-size:13px; }
+  .wh-win-empty { color:var(--text-2); font-size:13px; padding:14px; text-align:center;
+                  background:var(--bg-1); border:1px solid var(--border); border-radius:10px; }
   .wh-gain { display:none; align-items:center; gap:16px; margin-top:16px;
              border:2px solid var(--accent); border-radius:14px; padding:16px 22px;
              background:linear-gradient(120deg, rgba(255,255,255,.04), transparent); }
@@ -116,9 +115,7 @@
 
   <div class="wh-wins">
     <div class="wh-wins-title"><span class="live-dot2"></span> Gains de la roue en direct</div>
-    <div class="wh-wins-marquee">
-      <div id="winsTrack" class="wh-wins-track"></div>
-    </div>
+    <div id="winsFeed" class="wins-feed"></div>
   </div>
 </div>
 
@@ -287,20 +284,18 @@
       const r = await fetch('/api/public/wheel/recent-wins?limit=40');
       const d = await r.json();
       const items = d.items || [];
-      const track = document.getElementById('winsTrack');
+      const feed = document.getElementById('winsFeed');
       if (!items.length){
-        track.style.animation = 'none';
-        track.innerHTML = '<span class="wh-win-empty">Aucun gain pour le moment — sois le premier à tourner la roue !</span>';
+        feed.innerHTML = '<div class="wh-win-empty">Aucun gain pour le moment — sois le premier à tourner la roue !</div>';
         return;
       }
-      const one = items.map(it => {
+      // items en DESC (plus recent d'abord) = ordre d'affichage
+      feed.innerHTML = items.map(it => {
         const col = winColor(it);
-        return `<span class="wh-win"><span class="dot" style="background:${col}"></span>`
-          + `<span class="u">@${esc(it.user)}</span> a gagné `
-          + `<span class="g" style="color:${col}">${esc(winLabel(it))}</span></span>`;
+        return `<div class="wh-win"><span class="dot" style="background:${col}"></span>`
+          + `<span><span class="u">@${esc(it.user)}</span> a gagné `
+          + `<span class="g" style="color:${col}">${esc(winLabel(it))}</span></span></div>`;
       }).join('');
-      track.style.animation = '';
-      track.innerHTML = one + one; // duplique pour boucle continue (-50%)
     } catch(e){}
   }
 
