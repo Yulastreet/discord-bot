@@ -2561,6 +2561,22 @@ PLAYER_ATK_WEIGHTS = {
 }
 
 
+# Soft cap collection : au-dela de SOFT_T cartes possedees (total), chaque carte
+# supplementaire ne compte que pour SOFT_DECAY. Lisse l'ecart entre joueurs et
+# evite l'inflation absurde des nombres. (N'affecte PAS la difficulte car le boss
+# scale sur cette meme valeur — voir team_scaled_boss_stats.)
+COLLECTION_SOFT_T = 300
+COLLECTION_SOFT_DECAY = 0.5
+
+
+def _collection_soft_factor(total_cards):
+    n = int(total_cards or 0)
+    if n <= COLLECTION_SOFT_T:
+        return 1.0
+    eff = COLLECTION_SOFT_T + (n - COLLECTION_SOFT_T) * COLLECTION_SOFT_DECAY
+    return eff / n
+
+
 def compute_player_combat_stats(user_id):
     """PV + ATK de BASE d'un joueur selon ses cartes UNIQUES pondérées par rareté,
     + bonus des etoiles de fusion (+1% PV/ATK par etoile, cap +50%).
@@ -2573,9 +2589,10 @@ def compute_player_combat_stats(user_id):
     fmap = user_card_fusion_map(user_id)
     stars = sum(fmap.values())
     mult = 1.0 + min(0.50, stars * 0.01)
+    soft = _collection_soft_factor(user_card_count(user_id))
     return {
-        "hp": int(hp * mult),
-        "atk": int(atk * mult),
+        "hp": int(hp * mult * soft),
+        "atk": int(atk * mult * soft),
         "unique_total": sum(uniq.values()),
         "stars": stars,
     }
@@ -2756,6 +2773,30 @@ BOSS_TIERS = {
     4: {"hp": 3600000,  "atk": 17000,  "label": "Tier 4"},
     5: {"hp": 4600000,  "atk": 20000,  "label": "Tier 5"},
 }
+
+# Scaling anti-powercreep : au lancement du combat, les PV/ATK du boss sont
+# recalcules a partir de la puissance REELLE de l'equipe presente.
+#   PV boss  = HP_FACTOR[tier] x somme(ATK base de l'equipe)
+#   ATK boss = ATK_FACTOR[tier] x (PV base moyen de l'equipe)
+# La base = socle collection (sans mult carte/etoiles/element/aptitude), donc
+# fusionner/contrer/sortir une grosse rareté reste un avantage NON budgete = on
+# gagne. Roller plus grossit le boss d'autant => jamais trivial.
+# Facteurs calibres pour reproduire l'equilibrage de reference (cf BOSS_TIERS).
+BOSS_TIER_SCALE = {
+    1: {"hp": 1.8,  "atk": 0.06},
+    2: {"hp": 4.1,  "atk": 0.10},
+    3: {"hp": 7.9,  "atk": 0.13},
+    4: {"hp": 11.8, "atk": 0.15},
+    5: {"hp": 15.1, "atk": 0.17},
+}
+
+
+def card_boss_set_stats(boss_id, max_hp, atk):
+    """Fixe PV (= max et courant) et ATK du boss (scaling sur l'equipe au lancement)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_boss SET max_hp = ?, hp = ?, atk = ? WHERE id = ?",
+              (int(max_hp), int(max_hp), int(atk), int(boss_id)))
+    conn.commit(); conn.close()
 
 
 def card_boss_create(guild_id, channel_id, name, element, tier, max_hp, atk,

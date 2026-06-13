@@ -20,7 +20,7 @@ from database import (
     card_boss_apply_damage, card_boss_set_status, card_boss_set_start,
     boss_participant_add, boss_participant_get, boss_participants_list,
     boss_participant_update, compute_player_combat_stats, engaged_combat_stats,
-    element_matchup,
+    element_matchup, BOSS_TIER_SCALE, card_boss_set_stats,
     card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
     user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
     CARD_ELEMENTS,
@@ -645,6 +645,50 @@ def add_dummy_participants(bid, n):
             boss_participant_update(bid, uid, aptitude=apt)
 
 
+def _scale_boss_to_team(bid):
+    """Recalcule PV/ATK du boss selon la puissance de BASE de l'equipe presente.
+    Le boss ne descend jamais sous son tier de reference (plancher), il ne fait
+    que grossir pour les equipes fortes -> anti-powercreep sans risque de trivial."""
+    try:
+        boss = card_boss_get(bid)
+        if not boss:
+            return
+        tier = boss["tier"]
+        cfg = BOSS_TIERS.get(tier, {})
+        sc = BOSS_TIER_SCALE.get(tier)
+        if not sc or not cfg:
+            return
+        parts = boss_participants_list(bid)
+        if not parts:
+            return
+        # somme ATK base, moyenne PV base de l'equipe (socle collection, hors carte)
+        sum_atk = 0
+        sum_hp = 0
+        for p in parts:
+            uid = p["user_id"]
+            if _is_dummy(uid):
+                base_atk, base_hp = int(p["atk"]), int(p.get("max_hp") or p["hp"])
+            else:
+                st = compute_player_combat_stats(uid)
+                base_atk, base_hp = st["atk"], st["hp"]
+            sum_atk += base_atk
+            sum_hp += base_hp
+        n = len(parts)
+        scaled_hp = int(sc["hp"] * sum_atk)
+        scaled_atk = int(sc["atk"] * (sum_hp / n))
+        # facteur de rareté de l'avatar deja applique a l'atk au spawn
+        avatar_factor = (boss["atk"] / cfg["atk"]) if cfg.get("atk") else 1.0
+        new_hp = max(cfg.get("hp", scaled_hp), scaled_hp)
+        new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * avatar_factor)
+        card_boss_set_stats(bid, new_hp, new_atk)
+    except Exception as e:
+        print(f"[boss] scale err: {e!r}")
+
+
+def _is_dummy(uid):
+    return str(uid).startswith("dummy_")
+
+
 async def _run_boss(bot, bid, msg, view):
     try:
         _b0 = card_boss_get(bid)
@@ -695,6 +739,9 @@ async def _run_boss(bot, bid, msg, view):
                 except Exception:
                     pass
                 return
+
+        # ── Scaling anti-powercreep : recalcule les PV/ATK du boss selon l'equipe ──
+        _scale_boss_to_team(bid)
 
         # ── Combat automatique ──
         card_boss_set_status(bid, "fighting")
