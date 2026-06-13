@@ -378,8 +378,33 @@ class _ElementFilterSelect(discord.ui.Select):
         view.element = None if v == "all" else v
         view.page = 1
         view._load()
-        view._sync_filter()
+        view._sync_dynamic()
         await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class _PageCardSelect(discord.ui.Select):
+    def __init__(self, page_rows):
+        from commandes.cards import RARITY_EMOJIS
+        opts = []
+        for c in page_rows[:25]:
+            cnt = f" x{c['count']}" if c.get("count", 1) > 1 else ""
+            desc = f"{(c.get('rarity') or '?')} · {(c.get('universe') or '?')}"[:100]
+            opts.append(discord.SelectOption(
+                label=f"{c['name']}{cnt}"[:100], value=str(c["card_id"]),
+                emoji=RARITY_EMOJIS.get(c.get("rarity"), "⚪"), description=desc))
+        if not opts:
+            opts = [discord.SelectOption(label="(aucune carte)", value="none")]
+        super().__init__(placeholder="Choisir une carte de cette page…",
+                         min_values=1, max_values=1, options=opts, row=1)
+
+    async def callback(self, interaction):
+        if self.values[0] == "none":
+            await interaction.response.defer(); return
+        from database import card_get
+        card = card_get(int(self.values[0]))
+        if not card:
+            await interaction.response.send_message("Carte introuvable.", ephemeral=True); return
+        await _apply_card_choice(interaction, self.view.boss_id, card)
 
 
 class _CardPickerView(discord.ui.View):
@@ -391,8 +416,7 @@ class _CardPickerView(discord.ui.View):
         self.element = element
         self.page = 1
         self._load()
-        self.add_item(_ElementFilterSelect(element))
-        self._refresh()
+        self._sync_dynamic()
 
     def _load(self):
         from database import user_card_list
@@ -410,12 +434,14 @@ class _CardPickerView(discord.ui.View):
         if self.page > self.total_pages:
             self.page = self.total_pages
 
-    def _sync_filter(self):
-        # remplace le select pour refléter le filtre courant (default)
+    def _sync_dynamic(self):
+        # reconstruit les 2 selects (filtre élément + cartes de la page courante)
         for it in list(self.children):
-            if isinstance(it, _ElementFilterSelect):
+            if isinstance(it, (_ElementFilterSelect, _PageCardSelect)):
                 self.remove_item(it)
         self.add_item(_ElementFilterSelect(self.element))
+        page_rows = self.rows[(self.page - 1) * 25: self.page * 25]
+        self.add_item(_PageCardSelect(page_rows))
         self._refresh()
 
     def _refresh(self):
@@ -440,30 +466,30 @@ class _CardPickerView(discord.ui.View):
             description=f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**\n\n"
                         + ("\n".join(lines) if lines else "_(aucune carte)_"))
         embed.set_footer(text=f"Page {self.page}/{self.total_pages} · "
-                              "clique 🎴 Choisir ma carte puis tape son nom")
+                              "choisis dans la liste déroulante ou par nom 🎴")
         return embed
 
-    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, row=2)
     async def prev_btn(self, interaction, btn):
         if self.page > 1:
-            self.page -= 1; self._refresh()
+            self.page -= 1; self._sync_dynamic()
             await interaction.response.edit_message(embed=self.build_embed(), view=self)
         else:
             await interaction.response.defer()
 
-    @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=1)
+    @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=2)
     async def counter(self, interaction, btn):
         pass
 
-    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, row=2)
     async def next_btn(self, interaction, btn):
         if self.page < self.total_pages:
-            self.page += 1; self._refresh()
+            self.page += 1; self._sync_dynamic()
             await interaction.response.edit_message(embed=self.build_embed(), view=self)
         else:
             await interaction.response.defer()
 
-    @discord.ui.button(label="Choisir ma carte", style=discord.ButtonStyle.success, emoji="🎴", row=2)
+    @discord.ui.button(label="Choisir par nom", style=discord.ButtonStyle.success, emoji="🎴", row=3)
     async def confirm(self, interaction, btn):
         boss = card_boss_get(self.boss_id)
         if not boss or boss["status"] != "recruiting":
@@ -481,31 +507,37 @@ class _ChooseCardModal(discord.ui.Modal, title="Choisir ma carte de combat"):
 
     async def on_submit(self, interaction):
         card = card_get_by_name(str(self.nom.value).strip())
-        uid = interaction.user.id
         if not card:
             await interaction.response.send_message("Carte introuvable.", ephemeral=True); return
-        if user_card_count_owned(uid, card["id"]) <= 0:
-            await interaction.response.send_message(f"Tu ne possèdes pas **{card['name']}**.", ephemeral=True); return
-        elem = card.get("element") or "eclat"
-        stats = engaged_combat_stats(uid, card["id"])
-        boss = card_boss_get(self.boss_id)
-        # Recalcule PV/ATK selon la carte engagée (PV plein car recrutement)
-        boss_participant_update(self.boss_id, uid, element=elem, card_id=card["id"],
-                                atk=stats["atk"], max_hp=stats["hp"], hp=stats["hp"])
-        # Indique l'avantage élémentaire vs le boss courant
-        m = element_matchup(elem, boss["element"]) if boss else 1.0
-        if m > 1:
-            match_txt = "🔥 **Avantage** contre le boss (x1.25 dégâts)"
-        elif m < 1:
-            match_txt = "🟦 **Désavantage** contre le boss (x0.8 dégâts)"
-        else:
-            match_txt = "⚪ Neutre contre le boss"
-        await interaction.response.send_message(
-            f"🎴 **{card['name']}** ({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')})\n"
-            f"🗡️ ATK **{_fmt(stats['atk'])}** _(carte {stats['rarity'] or '?'} ×{stats['mult']:.2f})_ "
-            f"· ❤️ PV **{_fmt(stats['hp'])}** _(collection)_\n{match_txt}",
-            ephemeral=True)
-        await _refresh_boss_msg(interaction.client, self.boss_id)
+        await _apply_card_choice(interaction, self.boss_id, card)
+
+
+async def _apply_card_choice(interaction, boss_id, card):
+    """Engage la carte `card` pour le joueur : recalcule ATK/PV, maj équipe, confirme."""
+    uid = interaction.user.id
+    boss = card_boss_get(boss_id)
+    if not boss or boss["status"] != "recruiting":
+        await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True); return
+    if user_card_count_owned(uid, card["id"]) <= 0:
+        await interaction.response.send_message(f"Tu ne possèdes pas **{card['name']}**.", ephemeral=True); return
+    elem = card.get("element") or "eclat"
+    stats = engaged_combat_stats(uid, card["id"])
+    # Recalcule PV/ATK selon la carte engagée (PV plein car recrutement)
+    boss_participant_update(boss_id, uid, element=elem, card_id=card["id"],
+                            atk=stats["atk"], max_hp=stats["hp"], hp=stats["hp"])
+    m = element_matchup(elem, boss["element"]) if boss else 1.0
+    if m > 1:
+        match_txt = "🔥 **Avantage** contre le boss (x1.25 dégâts)"
+    elif m < 1:
+        match_txt = "🟦 **Désavantage** contre le boss (x0.8 dégâts)"
+    else:
+        match_txt = "⚪ Neutre contre le boss"
+    await interaction.response.send_message(
+        f"🎴 **{card['name']}** ({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')})\n"
+        f"🗡️ ATK **{_fmt(stats['atk'])}** _(carte {stats['rarity'] or '?'} ×{stats['mult']:.2f})_ "
+        f"· ❤️ PV **{_fmt(stats['hp'])}** _(collection)_\n{match_txt}",
+        ephemeral=True)
+    await _refresh_boss_msg(interaction.client, boss_id)
 
 
 async def spawn_boss(bot, guild_id, channel_id, tier=1):
