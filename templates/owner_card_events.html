@@ -90,6 +90,18 @@
     <div id="bossHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
   </div>
 
+  <!-- Reset roue de la chance -->
+  <div class="ce-section ce-trigger" style="margin-top:14px;">
+    <h3>🎡 Roue de la chance</h3>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-danger" onclick="resetWheel()">♻️ Reset la roue pour tout le monde</button>
+      <span id="wheelHint" class="muted" style="font-size:12px;"></span>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:6px;">
+      Efface les tours du jour : chacun pourra re-tourner immédiatement.
+    </div>
+  </div>
+
   <!-- Gestion des rolls -->
   <div class="ce-section">
     <h3>🎲 Gestion des rolls</h3>
@@ -258,6 +270,18 @@ async function spawnBoss() {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.spawnBoss = spawnBoss;
+
+async function resetWheel() {
+  const hint = document.getElementById('wheelHint');
+  if (!confirm('Reset la roue du jour pour TOUT LE MONDE ?')) return;
+  hint.textContent = 'Reset en cours…';
+  try {
+    const r = await fetch('/api/owner/card-events/wheel/reset', {method:'POST'});
+    const d = await r.json();
+    hint.textContent = d.ok ? `✅ ${d.cleared} tour(s) effacé(s). Tout le monde peut re-tourner.` : `❌ ${d.error || 'Erreur'}`;
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.resetWheel = resetWheel;
 
 async function loadGlobalConfig() {
   try {

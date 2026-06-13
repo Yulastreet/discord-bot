@@ -2363,6 +2363,17 @@ def wheel_record(user_id, reward_type, reward_value) -> bool:
     return ok
 
 
+def wheel_reset_all() -> int:
+    """Owner : reset la roue du jour pour TOUT LE MONDE (chacun peut re-tourner).
+    Retourne le nb de spins effaces."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM wheel_daily WHERE day = ?", (_today_str(),))
+    n = c.rowcount
+    conn.commit(); conn.close()
+    return int(n)
+
+
 def essence_bonus_get(user_id) -> int:
     """Bonus % d'essences actif aujourd'hui pour ce user (0 si aucun)."""
     _ensure_wheel_tables()

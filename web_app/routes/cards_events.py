@@ -201,6 +201,16 @@ def register_cards_events_routes(app, deps):
         return jsonify({"ok": True, "note": f"Boss Tier {tier} dispatché (visible sous 2s)"})
 
 
+    @app.route("/api/owner/card-events/wheel/reset", methods=["POST"])
+    def api_owner_wheel_reset():
+        """Owner : reset la roue de la chance du jour pour tout le monde."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import wheel_reset_all
+        n = wheel_reset_all()
+        return jsonify({"ok": True, "cleared": n})
+
+
     # ===== Gestion des rolls (reset / give) =====
     @app.route("/api/owner/card-events/rolls/status", methods=["GET"])
     def api_owner_rolls_status():
