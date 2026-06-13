@@ -441,20 +441,9 @@ def setup_cards_commands(bot, deps):
 
     # === /collection ===
     @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")
-    @app_commands.describe(membre="Membre dont voir la collection (defaut : toi)",
-                            rarete="Filtre par rarete",
-                            categorie="Filtre par univers ou origine (ex: Genshin Impact, Film/Série)")
-    @app_commands.choices(rarete=[
-        app_commands.Choice(name="common", value="common"),
-        app_commands.Choice(name="rare", value="rare"),
-        app_commands.Choice(name="epic", value="epic"),
-        app_commands.Choice(name="legendary", value="legendary"),
-        app_commands.Choice(name="mythic", value="mythic"),
-    ])
+    @app_commands.describe(membre="Membre dont voir la collection (defaut : toi)")
     async def collection(interaction: discord.Interaction,
-                          membre: discord.Member = None,
-                          rarete: app_commands.Choice[str] = None,
-                          categorie: str = None):
+                          membre: discord.Member = None):
         if interaction.guild:
             ok, target = _check_channel(interaction)
             if not ok:
@@ -464,8 +453,8 @@ def setup_cards_commands(bot, deps):
                 )
                 return
         target_user = membre or interaction.user
-        rar_val = rarete.value if rarete else None
-        cat_val = (categorie or "").strip() or None
+        rar_val = None
+        cat_val = None
         from database import (user_card_customizations_map, user_card_fusion_map,
                                user_collection_origins, all_card_origins)
         custom_map = user_card_customizations_map(target_user.id)
@@ -673,25 +662,6 @@ def setup_cards_commands(bot, deps):
         view = _CollecView(first_rows, cat_val)
         await interaction.response.send_message(
             embed=_build_embed(first_rows, cat_val, 1, view.total_pages), view=view)
-
-    @collection.autocomplete("categorie")
-    async def collection_categorie_autocomplete(interaction: discord.Interaction, current: str):
-        from database import get_db
-        try:
-            conn = get_db(); c = conn.cursor()
-            q = (current or "").strip().lower()
-            like = f"%{q}%"
-            # Univers + origines (subtitle) matchant la saisie
-            rows = c.execute(
-                "SELECT universe AS v FROM cards WHERE universe IS NOT NULL AND universe != '' "
-                "AND LOWER(universe) LIKE ? GROUP BY universe "
-                "UNION SELECT subtitle AS v FROM cards WHERE subtitle IS NOT NULL AND subtitle != '' "
-                "AND LOWER(subtitle) LIKE ? GROUP BY subtitle LIMIT 25",
-                (like, like)).fetchall()
-            conn.close()
-            return [app_commands.Choice(name=r["v"][:100], value=r["v"][:100]) for r in rows][:25]
-        except Exception:
-            return []
 
 
     # === /card <nom> ===
