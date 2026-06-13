@@ -45,6 +45,19 @@ _TIER_RANGE = {
 def _tier_loot_rarity(tier):
     return _TIER_RANGE.get(tier, ["epic"])[-1]
 
+# Aptitudes de combat
+_APT_LABELS = {"berserker": "Berserker", "support": "Support"}
+_APT_EMOJI = {"berserker": "🩸", "support": "💚"}
+_BERSERK_MULT = 1.15      # dernier coup du berserker
+_SUPPORT_HEAL = 0.20      # % PV max rendu par soin
+_SUPPORT_TRIGGER = 0.20   # seuil de PV qui declenche le soin
+_SUPPORT_MAX = 2          # nb max de soins par combat
+
+
+def _apt_badge(apt):
+    e = _APT_EMOJI.get(apt)
+    return f" {e}" if e else ""
+
 
 def _build_battlefield(bid):
     """Compose le champ de bataille sur le fond bossfightbg.png : cartes des
@@ -187,8 +200,8 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     weak_txt = " ".join(f"{_elem(bot, w)} {CARD_ELEMENT_LABELS.get(w,'?')}" for w in weak) or "—"
     embed.add_field(name="Faible contre", value=weak_txt, inline=True)
     embed.add_field(name="ATK", value=f"🗡️ {_fmt(boss['atk'])}", inline=True)
-    embed.add_field(name="❤️ PV du boss",
-                    value=f"**{_fmt(boss['hp'])}** / {_fmt(boss['max_hp'])}\n`{_bar(boss['hp'], boss['max_hp'])}`",
+    embed.add_field(name=f"❤️ PV du boss : {_fmt(boss['hp'])} / {_fmt(boss['max_hp'])}",
+                    value=_bar(boss['hp'], boss['max_hp']),
                     inline=False)
     # Info (recrutement / résultat) JUSTE SOUS les PV
     info = ""
@@ -198,11 +211,11 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         if boss.get("start_at"):
             info = (f"🐲 **Recrutement !** Le combat démarre <t:{int(boss['start_at'])}:R>\n"
                     f"(ou 10 s si **{_QUICK_START_AT}** joueurs).\n"
-                    f"🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
+                    f"🛡️ **Rejoindre** puis ⚙️ **Paramètres de combat**.")
         else:
             info = ("🐲 **En attente d'un premier combattant…**\n"
                     "Le timer de 2 min démarre dès qu'un joueur rejoint.\n"
-                    "🛡️ **Rejoindre** puis 🎴 **Choisir ma carte**.")
+                    "🛡️ **Rejoindre** puis ⚙️ **Paramètres de combat**.")
     elif boss["status"] == "defeated":
         info = "🎉 **Boss vaincu !**"
     elif boss["status"] == "wiped":
@@ -213,8 +226,9 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         lines = []
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
-            lines.append(f"{_elem(bot, p['element'])} **{p['name']}** ❤️ {_fmt(max(0,p['hp']))}"
-                         f" · 🗡️ {_fmt(p['atk'])}{ko}")
+            mx = p.get("max_hp") or p["hp"]
+            lines.append(f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))} "
+                         f"`[{int(max(0,p['hp']))}/{int(mx)} ❤️]` · 🗡️ {_fmt(p['atk'])}{ko}")
         embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
@@ -251,22 +265,82 @@ class JoinView(discord.ui.View):
         if not boss.get("start_at"):
             card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
         await interaction.response.send_message(
-            "🛡️ Tu as rejoint ! Élément par défaut = ta carte vedette. "
-            "Utilise **🎴 Choisir ma carte** pour le changer.", ephemeral=True)
+            "🛡️ Tu as rejoint ! Élément par défaut = ta carte vedette.\n"
+            "Ouvre **⚙️ Paramètres de combat** pour choisir ta carte et ton aptitude.", ephemeral=True)
         try:
             await interaction.message.edit(embed=build_boss_embed(interaction.client, boss), view=self)
         except Exception:
             pass
 
-    @discord.ui.button(label="Choisir ma carte", style=discord.ButtonStyle.secondary, emoji="🎴")
-    async def choose(self, interaction, btn):
+    @discord.ui.button(label="Paramètres de combat", style=discord.ButtonStyle.secondary, emoji="⚙️")
+    async def settings(self, interaction, btn):
         boss = card_boss_get(self.boss_id)
         if not boss or boss["status"] != "recruiting":
             await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True)
             return
-        if not boss_participant_get(self.boss_id, interaction.user.id):
+        p = boss_participant_get(self.boss_id, interaction.user.id)
+        if not p:
             await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True)
             return
+        cur_apt = _APT_LABELS.get(p.get("aptitude"), "aucune")
+        await interaction.response.send_message(
+            "⚙️ **Paramètres de combat**\n"
+            f"🎴 Carte : utilise le bouton ci-dessous.\n"
+            f"Aptitude actuelle : **{cur_apt}**\n\n"
+            "**🩸 Berserker** — à sa mort, reste à 1 PV, inflige x1.15 puis meurt.\n"
+            "**💚 Support** — sous 20% PV, se soigne de 20% (2 fois max).",
+            view=_SettingsView(self.boss_id), ephemeral=True)
+
+
+async def _refresh_boss_msg(client, boss_id):
+    """Rafraichit l'embed du message principal du boss (appelé depuis l'éphémère)."""
+    boss = card_boss_get(boss_id)
+    if not boss or not boss.get("message_id"):
+        return
+    ch = client.get_channel(int(boss["channel_id"]))
+    if not ch:
+        return
+    try:
+        m = await ch.fetch_message(int(boss["message_id"]))
+        await m.edit(embed=build_boss_embed(client, boss))
+    except Exception:
+        pass
+
+
+class _SettingsView(discord.ui.View):
+    def __init__(self, boss_id):
+        super().__init__(timeout=300)
+        self.boss_id = boss_id
+
+    @discord.ui.select(placeholder="Choisir une aptitude…", min_values=1, max_values=1,
+                       options=[
+                           discord.SelectOption(label="Berserker", value="berserker", emoji="🩸",
+                                                description="À la mort : 1 PV, dernier coup x1.15, puis meurt"),
+                           discord.SelectOption(label="Support", value="support", emoji="💚",
+                                                description="Sous 20% PV : soin de 20% (2 fois max)"),
+                           discord.SelectOption(label="Aucune", value="none", emoji="➖",
+                                                description="Pas d'aptitude"),
+                       ])
+    async def pick_apt(self, interaction, select):
+        boss = card_boss_get(self.boss_id)
+        if not boss or boss["status"] != "recruiting":
+            await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True); return
+        if not boss_participant_get(self.boss_id, interaction.user.id):
+            await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True); return
+        val = select.values[0]
+        boss_participant_update(self.boss_id, interaction.user.id,
+                                aptitude=("" if val == "none" else val))
+        lbl = _APT_LABELS.get(val, "aucune")
+        await interaction.response.send_message(f"✅ Aptitude : **{lbl}**.", ephemeral=True)
+        await _refresh_boss_msg(interaction.client, self.boss_id)
+
+    @discord.ui.button(label="Choisir ma carte", style=discord.ButtonStyle.primary, emoji="🎴")
+    async def choose_card(self, interaction, btn):
+        boss = card_boss_get(self.boss_id)
+        if not boss or boss["status"] != "recruiting":
+            await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True); return
+        if not boss_participant_get(self.boss_id, interaction.user.id):
+            await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True); return
         await interaction.response.send_modal(_ChooseCardModal(self.boss_id))
 
 
@@ -290,11 +364,7 @@ class _ChooseCardModal(discord.ui.Modal, title="Choisir ma carte de combat"):
         await interaction.response.send_message(
             f"🎴 Tu combattras avec **{card['name']}** "
             f"({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')}).", ephemeral=True)
-        try:
-            boss = card_boss_get(self.boss_id)
-            await interaction.message.edit(embed=build_boss_embed(interaction.client, boss))
-        except Exception:
-            pass
+        await _refresh_boss_msg(interaction.client, self.boss_id)
 
 
 async def spawn_boss(bot, guild_id, channel_id, tier=1):
@@ -421,6 +491,39 @@ async def _run_boss(bot, bid, msg, view):
         actor = "party"
         smash_used = False
         enrage_announced = False
+        # Etat des aptitudes (en memoire pour la duree du combat)
+        heals_used = {}   # uid -> nb de soins support utilisés
+        berserk_armed = {p["user_id"] for p in boss_participants_list(bid)
+                         if (p.get("aptitude") or "") == "berserker"}
+        berserk_dying = set()  # uid maintenus à 1 PV jusqu'à leur dernier coup
+
+        def _boss_hit(p, dmg):
+            """Applique des degats a un participant en gerant le sursaut Berserker.
+            Retourne (new_hp, ko_bool, berserk_saved_bool)."""
+            uid = p["user_id"]
+            new_hp = max(0, p["hp"] - dmg)
+            saved = False
+            if new_hp <= 0 and uid in berserk_armed:
+                new_hp = 1
+                berserk_armed.discard(uid)
+                berserk_dying.add(uid)
+                saved = True
+            boss_participant_update(bid, uid, hp=new_hp)
+            return new_hp, (new_hp <= 0), saved
+
+        def _apply_supports():
+            """Soigne les supports sous le seuil (max _SUPPORT_MAX fois)."""
+            for p in boss_participants_list(bid):
+                if (p.get("aptitude") or "") != "support" or p["hp"] <= 0:
+                    continue
+                uid = p["user_id"]
+                mx = p.get("max_hp") or p["hp"]
+                if p["hp"] < mx * _SUPPORT_TRIGGER and heals_used.get(uid, 0) < _SUPPORT_MAX:
+                    heal = int(mx * _SUPPORT_HEAL)
+                    boss_participant_update(bid, uid, hp=min(mx, p["hp"] + heal))
+                    heals_used[uid] = heals_used.get(uid, 0) + 1
+                    log.append(f"Tour {turn} · 💚 **{p['name']}** se soigne (+{_fmt(heal)} PV)")
+
         while turn < _MAX_TURNS:
             turn += 1
             await asyncio.sleep(_TURN_DELAY)
@@ -436,11 +539,19 @@ async def _run_boss(bot, bid, msg, view):
                 best_eff = 1.0
                 for p in alive:
                     m = element_matchup(p["element"], boss["element"])
-                    total += max(1, int(p["atk"] * m))
+                    mult = _BERSERK_MULT if p["user_id"] in berserk_dying else 1.0
+                    total += max(1, int(p["atk"] * m * mult))
                     best_eff = max(best_eff, m)
                 boss_hp = card_boss_apply_damage(bid, total)
                 eff = " 🔥" if best_eff > 1 else ""
                 log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
+                # Les berserkers ayant frappé une dernière fois s'effondrent
+                if berserk_dying:
+                    names = {p["user_id"]: p["name"] for p in alive}
+                    for uid in list(berserk_dying):
+                        boss_participant_update(bid, uid, hp=0)
+                        berserk_dying.discard(uid)
+                        log.append(f"Tour {turn} · 🩸 **{names.get(uid,'?')}** s'effondre après un dernier coup.")
                 if boss_hp <= 0:
                     card_boss_set_status(bid, "defeated")
                     break
@@ -451,11 +562,11 @@ async def _run_boss(bot, bid, msg, view):
                 target = random.choice(alive)
                 cm = element_matchup(boss["element"], target["element"])
                 dmg = max(1, int(boss["atk"] * cm * 3))
-                new_hp = max(0, target["hp"] - dmg)
-                boss_participant_update(bid, target["user_id"], hp=new_hp)
-                ko = " 💀 **KO !**" if new_hp <= 0 else ""
+                new_hp, dead, saved = _boss_hit(target, dmg)
+                ko = " 🩸 **survit à 1 PV !**" if saved else (" 💀 **KO !**" if dead else "")
                 log.append(f"Tour {turn} · 💥 **COUP DÉVASTATEUR !** Le boss cible "
                            f"**{target['name']}** : -**{_fmt(dmg)}**{ko}")
+                _apply_supports()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -467,17 +578,20 @@ async def _run_boss(bot, bid, msg, view):
                 if enraged and not enrage_announced:
                     enrage_announced = True
                     log.append("🔥 **Le boss se déchaîne et inflige 1,25x plus de dégâts !**")
-                kos = []
+                kos, saves = [], []
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
                     dmg = max(1, int(boss["atk"] * cm * rage))
-                    new_hp = max(0, p["hp"] - dmg)
-                    boss_participant_update(bid, p["user_id"], hp=new_hp)
-                    if new_hp <= 0:
+                    new_hp, dead, saved = _boss_hit(p, dmg)
+                    if saved:
+                        saves.append(p["name"])
+                    elif dead:
                         kos.append(p["name"])
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
+                save_txt = f" · 🩸 {', '.join(saves)} survit à 1 PV" if saves else ""
                 log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
-                           f"~**{_fmt(int(boss['atk'] * rage))}**{ko_txt}")
+                           f"~**{_fmt(int(boss['atk'] * rage))}**{ko_txt}{save_txt}")
+                _apply_supports()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break

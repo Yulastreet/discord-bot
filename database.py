@@ -352,6 +352,10 @@ def init_db():
         c.execute("ALTER TABLE card_boss_participant ADD COLUMN card_id INTEGER")
     except Exception:
         pass
+    try:
+        c.execute("ALTER TABLE card_boss_participant ADD COLUMN aptitude TEXT")
+    except Exception:
+        pass
 
     # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
     c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
@@ -2802,7 +2806,7 @@ def boss_participants_list(boss_id):
 
 
 def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None,
-                              element=None, card_id=None):
+                              element=None, card_id=None, aptitude=None):
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     if hp is not None:
@@ -2815,6 +2819,8 @@ def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_att
         sets.append("element = ?"); vals.append(element)
     if card_id is not None:
         sets.append("card_id = ?"); vals.append(int(card_id))
+    if aptitude is not None:
+        sets.append("aptitude = ?"); vals.append(aptitude)
     if not sets:
         conn.close(); return
     vals += [int(boss_id), str(user_id)]
