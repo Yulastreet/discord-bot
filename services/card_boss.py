@@ -226,7 +226,7 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         if boss.get("start_at"):
             info = (f"🐲 **Recrutement !** Le combat démarre <t:{int(boss['start_at'])}:R>\n"
                     f"(ou {_QUICK_SECONDS} s si **{_QUICK_START_AT}** joueurs).\n"
-                    f"🛡️ **Rejoindre** puis ⚙️ **Paramètres de combat**.")
+                    f"🛡️ **Rejoindre** puis 🎴 **Carte** / 🩸 **Aptitude**.")
         else:
             info = ("🐲 **En attente d'un premier combattant…**\n"
                     "Le timer de 2 min démarre dès qu'un joueur rejoint.\n"
@@ -278,11 +278,13 @@ class JoinView(discord.ui.View):
         # 1er joueur -> demarre le timer de 2 min
         if not boss.get("start_at"):
             card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
+        # Scaling live : le boss grossit selon l'equipe presente (aperçu pendant le recrutement)
+        _scale_boss_to_team(self.boss_id)
         await interaction.response.send_message(
             "🛡️ Tu as rejoint ! Élément par défaut = ta carte vedette.\n"
             "Utilise **🎴 Carte** et **🩸 Aptitude** pour te préparer.", ephemeral=True)
         try:
-            await interaction.message.edit(embed=build_boss_embed(interaction.client, boss), view=self)
+            await interaction.message.edit(embed=build_boss_embed(interaction.client, card_boss_get(self.boss_id)), view=self)
         except Exception:
             pass
 
