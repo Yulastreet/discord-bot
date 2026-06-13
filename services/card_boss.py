@@ -22,6 +22,7 @@ from database import (
     boss_participant_update, compute_player_combat_stats, element_matchup,
     card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
     user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
+    CARD_ELEMENTS,
 )
 import time as _t
 
@@ -146,15 +147,6 @@ def _cemoji(bot, name, fallback):
     return fallback
 
 
-def _small_bar(bot, cur, mx, segments=8):
-    """Mini barre PV des membres : uniquement lifebarfull / lifebarempty."""
-    cur = max(0, cur)
-    filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
-    full = _cemoji(bot, "lifebarfull", "🟥")
-    empty = _cemoji(bot, "lifebarempty", "⬛")
-    return full * filled + empty * (segments - filled)
-
-
 def _bar(bot, cur, mx, enraged=False, segments=15):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
@@ -248,26 +240,11 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         embed.add_field(name="​", value=info, inline=False)
     if parts:
         lines = []
-        fighting = boss["status"] == "fighting"
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
             lines.append(f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))} "
                          f"❤️ {_fmt(max(0,p['hp']))} · 🗡️ {_fmt(p['atk'])}{ko}")
-            if fighting:
-                lines.append(_small_bar(bot, p["hp"], p.get("max_hp") or p["hp"]))
-        # Les emojis perso sont longs (~26 car) : on découpe en plusieurs champs
-        # pour ne jamais dépasser la limite Discord de 1024 car/valeur.
-        chunks, cur = [], ""
-        for ln in lines:
-            if cur and len(cur) + len(ln) + 1 > 1000:
-                chunks.append(cur); cur = ln
-            else:
-                cur = f"{cur}\n{ln}" if cur else ln
-        if cur:
-            chunks.append(cur)
-        for i, chunk in enumerate(chunks):
-            name = f"🛡️ Équipe ({len(parts)})" if i == 0 else "​"
-            embed.add_field(name=name, value=chunk, inline=False)
+        embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
     # Image : battlefield pendant le combat, sinon carte du boss durant le recrutement
@@ -320,14 +297,20 @@ class JoinView(discord.ui.View):
         if not p:
             await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True)
             return
-        cur_apt = _APT_LABELS.get(p.get("aptitude"), "aucune")
+        cur_apt = _APT_LABELS.get(p.get("aptitude"))
         await interaction.response.send_message(
-            "⚙️ **Paramètres de combat**\n"
-            f"🎴 Carte : utilise le bouton ci-dessous.\n"
-            f"Aptitude actuelle : **{cur_apt}**\n\n"
+            _settings_text(cur_apt),
+            view=_SettingsView(self.boss_id, show_card=bool(cur_apt)), ephemeral=True)
+
+
+def _settings_text(cur_apt_label):
+    base = ("⚙️ **Paramètres de combat**\n"
             "**🩸 Berserker** — à sa mort, reste à 1 PV, inflige x1.15 puis meurt.\n"
-            "**💚 Support** — sous 20% PV, se soigne de 20% (2 fois max).",
-            view=_SettingsView(self.boss_id), ephemeral=True)
+            "**💚 Support** — sous 20% PV, se soigne de 20% (2 fois max).\n\n"
+            "Choisis ton aptitude ci-dessous.")
+    if cur_apt_label:
+        base += f"\n✅ Aptitude : **{cur_apt_label}** — clique 🎴 **Choisir ma carte**."
+    return base
 
 
 async def _refresh_boss_msg(client, boss_id):
@@ -345,10 +328,28 @@ async def _refresh_boss_msg(client, boss_id):
         pass
 
 
-class _SettingsView(discord.ui.View):
+class _OpenPickerButton(discord.ui.Button):
     def __init__(self, boss_id):
+        super().__init__(label="Choisir ma carte", style=discord.ButtonStyle.primary, emoji="🎴")
+        self.boss_id = boss_id
+
+    async def callback(self, interaction):
+        boss = card_boss_get(self.boss_id)
+        if not boss or boss["status"] != "recruiting":
+            await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True); return
+        if not boss_participant_get(self.boss_id, interaction.user.id):
+            await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True); return
+        view = _CardPickerView(self.boss_id, interaction.user.id, interaction.client)
+        await interaction.response.edit_message(content="🎴 **Choisis ta carte de combat**",
+                                                embed=view.build_embed(), view=view)
+
+
+class _SettingsView(discord.ui.View):
+    def __init__(self, boss_id, show_card=False):
         super().__init__(timeout=300)
         self.boss_id = boss_id
+        if show_card:
+            self.add_item(_OpenPickerButton(boss_id))
 
     @discord.ui.select(placeholder="Choisir une aptitude…", min_values=1, max_values=1,
                        options=[
@@ -368,17 +369,120 @@ class _SettingsView(discord.ui.View):
         val = select.values[0]
         boss_participant_update(self.boss_id, interaction.user.id,
                                 aptitude=("" if val == "none" else val))
-        lbl = _APT_LABELS.get(val, "aucune")
-        await interaction.response.send_message(f"✅ Aptitude : **{lbl}**.", ephemeral=True)
+        lbl = _APT_LABELS.get(val)
+        # Révèle le bouton "Choisir ma carte" sur le message éphémère
+        await interaction.response.edit_message(
+            content=_settings_text(lbl),
+            view=_SettingsView(self.boss_id, show_card=True))
         await _refresh_boss_msg(interaction.client, self.boss_id)
 
-    @discord.ui.button(label="Choisir ma carte", style=discord.ButtonStyle.primary, emoji="🎴")
-    async def choose_card(self, interaction, btn):
+
+class _ElementFilterSelect(discord.ui.Select):
+    def __init__(self, current):
+        opts = [discord.SelectOption(label="Tous les éléments", value="all",
+                                     default=(current is None))]
+        for e in CARD_ELEMENTS:
+            opts.append(discord.SelectOption(label=CARD_ELEMENT_LABELS.get(e, e),
+                                             value=e, default=(current == e)))
+        super().__init__(placeholder="Filtrer par élément…", min_values=1, max_values=1,
+                         options=opts, row=0)
+
+    async def callback(self, interaction):
+        view = self.view
+        v = self.values[0]
+        view.element = None if v == "all" else v
+        view.page = 1
+        view._load()
+        view._sync_filter()
+        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+
+
+class _CardPickerView(discord.ui.View):
+    def __init__(self, boss_id, user_id, bot, element=None):
+        super().__init__(timeout=300)
+        self.boss_id = boss_id
+        self.user_id = user_id
+        self.bot = bot
+        self.element = element
+        self.page = 1
+        self._load()
+        self.add_item(_ElementFilterSelect(element))
+        self._refresh()
+
+    def _load(self):
+        from database import user_card_list
+        cards = user_card_list(self.user_id)
+        grouped = {}
+        for c in cards:
+            if self.element and (c.get("element") or "") != self.element:
+                continue
+            cid = c["card_id"]
+            if cid not in grouped:
+                grouped[cid] = {**c, "count": 0}
+            grouped[cid]["count"] += 1
+        self.rows = list(grouped.values())
+        self.total_pages = max(1, (len(self.rows) + 24) // 25)
+        if self.page > self.total_pages:
+            self.page = self.total_pages
+
+    def _sync_filter(self):
+        # remplace le select pour refléter le filtre courant (default)
+        for it in list(self.children):
+            if isinstance(it, _ElementFilterSelect):
+                self.remove_item(it)
+        self.add_item(_ElementFilterSelect(self.element))
+        self._refresh()
+
+    def _refresh(self):
+        self.prev_btn.disabled = self.page <= 1
+        self.next_btn.disabled = self.page >= self.total_pages
+        self.counter.label = f"{self.page} / {self.total_pages}"
+
+    def build_embed(self):
+        from commandes.cards import RARITY_EMOJIS
+        page_rows = self.rows[(self.page - 1) * 25: self.page * 25]
+        lines = []
+        for c in page_rows:
+            emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
+            el = _elem(self.bot, c.get("element"))
+            pre = f"{emoji}｜{el}" if el else emoji
+            cnt = f" x{c['count']}" if c["count"] > 1 else ""
+            uni = c.get("universe") or "?"
+            lines.append(f"{pre} **{c['name']}**{cnt} · _{uni}_")
+        elem_lbl = CARD_ELEMENT_LABELS.get(self.element, "tous") if self.element else "tous"
+        embed = discord.Embed(
+            title="🎴 Choisis ta carte de combat", color=0x8e44ad,
+            description=f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**\n\n"
+                        + ("\n".join(lines) if lines else "_(aucune carte)_"))
+        embed.set_footer(text=f"Page {self.page}/{self.total_pages} · "
+                              "clique 🎴 Choisir ma carte puis tape son nom")
+        return embed
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, row=1)
+    async def prev_btn(self, interaction, btn):
+        if self.page > 1:
+            self.page -= 1; self._refresh()
+            await interaction.response.edit_message(embed=self.build_embed(), view=self)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=1)
+    async def counter(self, interaction, btn):
+        pass
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, row=1)
+    async def next_btn(self, interaction, btn):
+        if self.page < self.total_pages:
+            self.page += 1; self._refresh()
+            await interaction.response.edit_message(embed=self.build_embed(), view=self)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label="Choisir ma carte", style=discord.ButtonStyle.success, emoji="🎴", row=2)
+    async def confirm(self, interaction, btn):
         boss = card_boss_get(self.boss_id)
         if not boss or boss["status"] != "recruiting":
             await interaction.response.send_message("Le recrutement est terminé.", ephemeral=True); return
-        if not boss_participant_get(self.boss_id, interaction.user.id):
-            await interaction.response.send_message("Rejoins d'abord (🛡️).", ephemeral=True); return
         await interaction.response.send_modal(_ChooseCardModal(self.boss_id))
 
 
@@ -649,9 +753,12 @@ async def _run_boss(bot, bid, msg, view):
                     enrage_announced = True
                     log.append("🔥 **Le boss se déchaîne et inflige 1,25x plus de dégâts !**")
                 kos, saves = [], []
+                total_dmg = 0
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
                     dmg = max(1, int(boss["atk"] * cm * rage))
+                    real = min(dmg, p["hp"])  # degats reellement infliges
+                    total_dmg += real
                     new_hp, dead, saved = _boss_hit(p, dmg)
                     if saved:
                         saves.append(p["name"])
@@ -660,7 +767,7 @@ async def _run_boss(bot, bid, msg, view):
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
                 save_txt = f" · 🩸 {', '.join(saves)} survit à 1 PV" if saves else ""
                 log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
-                           f"~**{_fmt(int(boss['atk'] * rage))}**{ko_txt}{save_txt}")
+                           f"**{_fmt(total_dmg)}**{ko_txt}{save_txt}")
                 _apply_supports()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
