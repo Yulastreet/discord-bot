@@ -1183,7 +1183,7 @@ def setup_cards_commands(bot, deps):
         def _fmt(n):
             return f"{int(n):,}".replace(",", " ")
         DIV = "══════════════════════════════"
-        bonus_txt = f"  ·  _bonus fusion +{min(50, cs['stars'])}%_" if cs['stars'] else ""
+        bonus_txt = f"\n_bonus fusion +{min(50, cs['stars'])}%_" if cs['stars'] else ""
 
         body = (
             f"📦 **Collection** ｜ {_fmt(total)} cartes · {_fmt(uniq)} uniques\n"
