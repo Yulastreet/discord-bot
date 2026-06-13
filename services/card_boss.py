@@ -37,21 +37,22 @@ _TIER_RARITY = {1: "epic", 2: "legendary", 3: "mythic", 4: "mythic", 5: "secret"
 
 
 def _build_battlefield(bid):
-    """Compose une image 'champ de bataille' : cartes des joueurs en haut,
-    boss en bas, VS au milieu. Retourne le chemin local ou None."""
+    """Compose le champ de bataille sur le fond bossfightbg.png : cartes des
+    joueurs en haut, boss en bas, VS au milieu. Retourne le chemin local ou None."""
     import os
     from PIL import Image, ImageDraw, ImageFont
     from services.card_render import _ROOT, _load_base
     try:
         boss = card_boss_get(bid)
         parts = boss_participants_list(bid)
-        W, H = 1000, 640
-        canvas = Image.new("RGBA", (W, H), (20, 14, 30, 255))
+        bg_path = os.path.join(_ROOT, "assets", "cardrelated", "bossfightbg.png")
+        if os.path.exists(bg_path):
+            canvas = Image.open(bg_path).convert("RGBA")
+        else:
+            canvas = Image.new("RGBA", (1672, 941), (24, 16, 32, 255))
+        W, H = canvas.size
         d = ImageDraw.Draw(canvas)
-        # fond degrade simple
-        for y in range(H):
-            a = int(40 + 30 * (y / H))
-            d.line([(0, y), (W, y)], fill=(a, 18, max(20, 60 - a // 2), 255))
+
         def _font(sz):
             for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
                       "C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/arialbd.ttf"):
@@ -59,31 +60,34 @@ def _build_battlefield(bid):
                     try: return ImageFont.truetype(p, sz)
                     except Exception: pass
             return ImageFont.load_default()
+
+        def _label(cx, y, text, fsz=26):
+            f = _font(fsz)
+            tw = d.textlength(text, font=f)
+            d.text((cx - tw / 2 + 2, y + 2), text, font=f, fill=(0, 0, 0, 220))
+            d.text((cx - tw / 2, y), text, font=f, fill=(255, 255, 255, 255))
+
         # Cartes joueurs (haut, max 5)
-        pw, ph = 150, 225
-        gap = 16
+        pw, ph = 210, 315
+        gap = 24
         n = min(5, len(parts))
-        total_w = n * pw + (n - 1) * gap
-        x0 = (W - total_w) // 2
-        for i, p in enumerate(parts[:5]):
-            img = _load_base(int(p["card_id"]), None) if p.get("card_id") else None
-            x = x0 + i * (pw + gap)
-            if img is not None:
-                canvas.paste(img.resize((pw, ph), Image.LANCZOS), (x, 30))
-            else:
-                d.rectangle([x, 30, x + pw, 30 + ph], fill=(50, 45, 60, 255))
-            # nom sous la carte
-            nm = (p["name"] or "")[:14]
-            tw = d.textlength(nm, font=_font(18))
-            d.text((x + (pw - tw) / 2 + 1, 261), nm, font=_font(18), fill=(0, 0, 0, 200))
-            d.text((x + (pw - tw) / 2, 260), nm, font=_font(18), fill=(255, 255, 255, 255))
-        # VS
-        vsf = _font(54)
-        vw = d.textlength("⚔ VS", font=vsf)
-        d.text((W / 2 - vw / 2, 300), "⚔ VS", font=vsf, fill=(255, 215, 90, 255))
-        # Boss (bas, centre, plus grand)
-        bw, bh = 220, 330
+        if n:
+            total_w = n * pw + (n - 1) * gap
+            x0 = (W - total_w) // 2
+            for i, p in enumerate(parts[:5]):
+                img = _load_base(int(p["card_id"]), None) if p.get("card_id") else None
+                x = x0 + i * (pw + gap)
+                if img is not None:
+                    canvas.paste(img.resize((pw, ph), Image.LANCZOS), (x, 40), img.resize((pw, ph)).convert("RGBA"))
+                _label(x + pw / 2, 40 + ph + 6, (p["name"] or "")[:16], 22)
+
+        # VS au centre
+        _label(W / 2, H / 2 - 50, "⚔ VS", 70)
+
+        # Boss (bas centre, plus grand)
+        bw, bh = 300, 450
         bx = (W - bw) // 2
+        by = H - bh - 30
         bimg = None
         if boss.get("image_url") and str(boss["image_url"]).startswith("http"):
             try:
@@ -94,9 +98,10 @@ def _build_battlefield(bid):
             except Exception:
                 bimg = None
         if bimg is not None:
-            canvas.paste(bimg.resize((bw, bh), Image.LANCZOS), (bx, H - bh - 16))
-        else:
-            d.rectangle([bx, H - bh - 16, bx + bw, H - 16], fill=(60, 20, 30, 255))
+            rb = bimg.resize((bw, bh), Image.LANCZOS)
+            canvas.paste(rb, (bx, by), rb)
+        _label(W / 2, by - 36, (boss.get("name") or "Boss")[:24], 30)
+
         out_dir = os.path.join(_ROOT, "static", "card_boss")
         os.makedirs(out_dir, exist_ok=True)
         out = os.path.join(out_dir, f"{bid}.png")
