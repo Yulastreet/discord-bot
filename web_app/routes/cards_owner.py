@@ -363,6 +363,8 @@ def register_cards_owner_routes(app, deps):
         sugg_dir = _os.path.join(_os.path.dirname(_RENDERS_DIR), "card_suggestions")
         _os.makedirs(sugg_dir, exist_ok=True)
         public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        # Original (non croppe) que le cropper a utilise : preserve pour re-crop futur
+        original_image_url = None
         if is_multipart:
             f = request.files["cropped"]
             try:
@@ -377,8 +379,12 @@ def register_cards_owner_routes(app, deps):
                                           "PNG", optimize=True)
             rel = f"/static/card_suggestions/{fname}"
             final_image_url = (public_base + rel) if public_base else rel
+            # l'URL d'origine que le cropper a chargee (envoyee par le client)
+            original_image_url = (request.form.get("original_url") or "").strip() or None
         else:
             final_image_url = new_image_url_json or None
+            # une URL collee EST l'original (non croppe)
+            original_image_url = final_image_url
 
         # Si rien de change : reject
         rarity_changed = new_rarity and new_rarity != (card.get("rarity") or "")
@@ -401,6 +407,7 @@ def register_cards_owner_routes(app, deps):
                 suggestion_type="edit",
                 target_card_id=cid,
                 proposed_rarity=new_rarity or None,
+                original_image_url=original_image_url,
             )
         except Exception as e:
             return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
@@ -590,6 +597,7 @@ def register_cards_owner_routes(app, deps):
             if not target:
                 return jsonify({"error": "carte cible introuvable"}), 404
             new_image_url = sugg.get("image_url") or ""
+            original = sugg.get("original_image_url")
 
             conn = get_db(); c = conn.cursor()
             fields = []; params = []
@@ -601,16 +609,20 @@ def register_cards_owner_routes(app, deps):
             proposed_rar = sugg.get("proposed_rarity")
             if proposed_rar and proposed_rar in ("common","rare","epic","legendary","mythic","secret"):
                 fields.append("rarity = ?"); params.append(proposed_rar)
-            # Image
+            # Image : la source (= original NON croppe) est preservee pour re-crop.
+            # Jamais le crop. Si pas d'original fourni, on garde l'existante.
             image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
             if image_changed:
-                fields.append("source_image_url = ?"); params.append(new_image_url)
+                src_orig = original or target.get("source_image_url")
+                if src_orig:
+                    fields.append("source_image_url = ?"); params.append(src_orig)
             if fields:
                 params.append(tcid)
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
 
-            # Re-bake si image OU rarete change
+            # Re-bake si image OU rarete change. L'affichage (image_url) = render
+            # du crop propose + overlay rarete. La source reste l'original.
             final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
             rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
             rebaked = False
@@ -618,21 +630,14 @@ def register_cards_owner_routes(app, deps):
                 from services.cards_overlay import composite_card
                 import os as _os
                 src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
-                if src_for_bake and "/card_renders/" not in src_for_bake and "/card_suggestions/" not in src_for_bake:
+                if src_for_bake and "/card_renders/" not in src_for_bake:
                     try:
                         url = composite_card(src_for_bake, final_rarity, tcid)
                         if url:
                             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
                             final = (public_base + url) if public_base else url
                             conn = get_db(); c = conn.cursor()
-                            # IMPORTANT : save source_image_url si pas deja set
-                            # pour pouvoir re-cropper plus tard
-                            if not target.get("source_image_url"):
-                                c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
-                                           (final, src_for_bake, tcid))
-                            else:
-                                c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                           (final, tcid))
+                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, tcid))
                             conn.commit(); conn.close()
                             rebaked = True
                     except Exception as e:
@@ -701,6 +706,7 @@ def register_cards_owner_routes(app, deps):
             if not target:
                 return {"ok": False, "error": "carte cible introuvable"}
             new_image_url = sugg.get("image_url") or ""
+            original = sugg.get("original_image_url")
             conn = get_db(); c = conn.cursor()
             fields = []; params = []
             for k in ("name", "universe", "subtitle"):
@@ -710,31 +716,29 @@ def register_cards_owner_routes(app, deps):
             proposed_rar = sugg.get("proposed_rarity")
             if proposed_rar and proposed_rar in ("common","rare","epic","legendary","mythic","secret"):
                 fields.append("rarity = ?"); params.append(proposed_rar)
+            # Source = original NON croppe (preserve re-crop). Jamais le crop.
             image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
             if image_changed:
-                fields.append("source_image_url = ?"); params.append(new_image_url)
+                src_orig = original or target.get("source_image_url")
+                if src_orig:
+                    fields.append("source_image_url = ?"); params.append(src_orig)
             if fields:
                 params.append(tcid)
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
             final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
             rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
-            # Rebake si image OU rarete change
+            # Rebake si image OU rarete change : image_url = render du crop + overlay
             if image_changed or rarity_changed:
                 src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
-                if src_for_bake and "/card_renders/" not in src_for_bake and "/card_suggestions/" not in src_for_bake:
+                if src_for_bake and "/card_renders/" not in src_for_bake:
                     try:
                         url = composite_card(src_for_bake, final_rarity, tcid)
                         if url:
                             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
                             final = (public_base + url) if public_base else url
                             conn = get_db(); c = conn.cursor()
-                            if not target.get("source_image_url"):
-                                c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
-                                           (final, src_for_bake, tcid))
-                            else:
-                                c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                                           (final, tcid))
+                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, tcid))
                             conn.commit(); conn.close()
                     except Exception as e:
                         print(f"[bulk approve edit rebake] err {tcid}: {e}")

@@ -245,6 +245,7 @@ def init_db():
         ("suggestion_type", "TEXT DEFAULT 'new'"),
         ("target_card_id", "INTEGER"),
         ("proposed_rarity", "TEXT"),
+        ("original_image_url", "TEXT"),
     ):
         try:
             c.execute(f"ALTER TABLE card_suggestions ADD COLUMN {col} {ddl}")
@@ -2064,20 +2065,20 @@ def card_suggestion_add(suggester_id, suggester_name, guild_id, channel_id,
                           name, universe=None, subtitle=None,
                           image_url=None, source_type="url",
                           suggestion_type="new", target_card_id=None,
-                          proposed_rarity=None):
+                          proposed_rarity=None, original_image_url=None):
     conn = get_db(); c = conn.cursor()
     c.execute('''INSERT INTO card_suggestions
                  (suggester_id, suggester_name, guild_id, channel_id,
                   name, universe, subtitle, image_url, source_type,
-                  suggestion_type, target_card_id, proposed_rarity)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  suggestion_type, target_card_id, proposed_rarity, original_image_url)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (str(suggester_id), suggester_name,
                 str(guild_id) if guild_id else None,
                 str(channel_id) if channel_id else None,
                 name, universe, subtitle, image_url, source_type,
                 suggestion_type,
                 int(target_card_id) if target_card_id else None,
-                proposed_rarity))
+                proposed_rarity, original_image_url))
     sid = c.lastrowid
     conn.commit(); conn.close()
     return sid

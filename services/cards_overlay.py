@@ -23,6 +23,7 @@ _ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
                             "assets", "card_overlays")
 _OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "static", "card_renders")
+_PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _overlay_cache: dict[str, Image.Image] = {}
 
@@ -30,6 +31,21 @@ _overlay_cache: dict[str, Image.Image] = {}
 def _download_image(url: str, timeout: int = 15) -> Image.Image | None:
     if not url:
         return None
+    # Chemin local servi en /static/... (ou full URL pointant sur notre domaine) :
+    # lire le fichier sur le disque (evite un aller-retour HTTP et marche sans PUBLIC_BASE_URL).
+    local_rel = None
+    if url.startswith("/static/"):
+        local_rel = url
+    elif "/static/" in url and url.startswith("http"):
+        local_rel = "/static/" + url.split("/static/", 1)[1]
+    if local_rel:
+        p = os.path.join(_PROJ_ROOT, local_rel.lstrip("/").split("?")[0].replace("/", os.sep))
+        if os.path.exists(p):
+            try:
+                return Image.open(p).convert("RGBA")
+            except Exception as e:
+                print(f"[overlay] local open err {p}: {e}")
+                return None
     # Skip SVG : PIL ne supporte pas. Convertir via cairosvg si dispo.
     is_svg = ".svg" in url.lower().split("?")[0]
     try:
