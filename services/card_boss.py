@@ -908,7 +908,7 @@ async def _run_boss(bot, bid, msg, view):
                 # T4+ : le boss se soigne une fois quand il tombe sous 20% PV
                 if boss_self_heal and not boss_healed and 0 < boss_hp < boss["max_hp"] * 0.20:
                     boss_healed = True
-                    heal = int(boss["max_hp"] * 0.20)
+                    heal = int(boss["max_hp"] * 0.10)
                     boss_hp = card_boss_heal(bid, heal)
                     log.append(f"Tour {turn} · 🩹 **Le boss se régénère (+{_fmt(heal)} PV) !**")
                 if boss_hp <= 0:
