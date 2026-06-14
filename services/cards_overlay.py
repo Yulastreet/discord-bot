@@ -184,13 +184,15 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
           f"workers={workers}, host_sources={host_sources}")
 
     # 1. Filter rows a baker
+    # NON-DESTRUCTIF : si un render local existe deja (cadrage manuel approuve),
+    # on NE le regenere PAS. On heberge seulement la source (only_source=True).
+    # Le render n'est (re)genere que pour les cartes SANS render local, ou en --force.
     to_bake = []
     for r in rows:
         img = r.get("image_url") or ""
         src = r.get("source_image_url") or ""
         render_local = "/card_renders/" in img
         source_local = "/card_sources/" in src
-        # Deja fait : render local + (original local OU on n'heberge pas les sources)
         if not force and render_local and (source_local or not host_sources):
             stats["skipped"] += 1
             continue
@@ -198,8 +200,9 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
         if not source or "/card_renders/" in source:
             stats["failed"] += 1
             continue
-        to_bake.append((r["id"], source, r.get("rarity", "common")))
-    print(f"[overlay] {len(to_bake)} cards a baker, {stats['skipped']} skipped, "
+        only_source = render_local and not force   # render OK -> on ne touche pas l'image
+        to_bake.append((r["id"], source, r.get("rarity", "common"), only_source))
+    print(f"[overlay] {len(to_bake)} cards a traiter, {stats['skipped']} skipped, "
           f"{stats['failed']} sans source")
 
     counter = {"done": 0, "ok": 0, "fail": 0}
@@ -208,22 +211,24 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
     total = len(to_bake)
 
     def _worker(item):
-        cid, source, rarity = item
+        cid, source, rarity, only_source = item
         source_local_url = None
         bake_from = source
+        url = None
         try:
             if host_sources:
                 rel_src = localize_source(cid, source)
                 if rel_src:
                     source_local_url = (pub + rel_src) if pub else rel_src
                     bake_from = rel_src  # composite depuis l'original local (chemin /static)
-            url = composite_card(bake_from, rarity, cid)
+            if not only_source:   # NE re-bake PAS un render existant (cadrage manuel)
+                url = composite_card(bake_from, rarity, cid)
         except Exception as e:
             print(f"[overlay] worker err cid={cid}: {e}")
             url = None
         with counter_lock:
             counter["done"] += 1
-            counter["ok" if url else "fail"] += 1
+            counter["ok" if (url or (only_source and source_local_url)) else "fail"] += 1
             if counter["done"] % 100 == 0 or counter["done"] == total:
                 pct = counter["done"] * 100 // max(1, total)
                 print(f"[overlay] progress {counter['done']}/{total} ({pct}%) "
@@ -231,22 +236,25 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
             if progress_cb and counter["done"] % 20 == 0:
                 try: progress_cb(counter["done"], total)
                 except Exception: pass
-        return cid, url, source_local_url
+        return cid, url, source_local_url, only_source
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for cid, url, src_local in ex.map(_worker, to_bake):
-            if url:
-                final = (pub + url) if pub else url
-                results.append((cid, final, src_local))
+        for cid, url, src_local, only_source in ex.map(_worker, to_bake):
+            final = (pub + url) if (url and pub) else url
+            results.append((cid, final, src_local, only_source))
 
-    # Bulk DB update : image_url (render local) + source_image_url (original local)
+    # Bulk DB update. only_source -> on ne touche QUE source_image_url (render preservé).
     if results:
         conn = get_db(); c = conn.cursor()
-        for cid, final_url, src_local in results:
-            if src_local:
+        for cid, final_url, src_local, only_source in results:
+            if only_source:
+                if src_local:
+                    c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
+                               (src_local, cid))
+            elif final_url and src_local:
                 c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
                            (final_url, src_local, cid))
-            else:
+            elif final_url:
                 c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final_url, cid))
         conn.commit(); conn.close()
     stats["updated"] = len(results)
