@@ -535,6 +535,18 @@ def _clean_referrer(ref: str):
     return host[:120]
 
 
+@app.after_request
+def _static_cors(resp):
+    """Autorise le cross-origin sur /static (images) pour que le cropper (canvas
+    crossOrigin) puisse re-cropper l'original servi par le domaine sans 'tainted canvas'."""
+    try:
+        if request.path.startswith("/static/"):
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+    except Exception:
+        pass
+    return resp
+
+
 def _track_cors(resp):
     """Autorise le beacon cross-origin depuis la landing (tookbot.click -> dashboard.tookbot.click)."""
     origin = request.headers.get("Origin", "")

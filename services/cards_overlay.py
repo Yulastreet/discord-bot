@@ -24,8 +24,33 @@ _ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 _OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "static", "card_renders")
 _PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Originaux non-croppes heberges localement (pour re-cropper meme dans 3 ans)
+_SOURCES_DIR = os.path.join(_PROJ_ROOT, "static", "card_sources")
 
 _overlay_cache: dict[str, Image.Image] = {}
+
+
+def localize_source(card_id: int, source_url: str) -> str | None:
+    """Telecharge l'image ORIGINALE (non croppee) et la sauve en local
+    (webp q95, dimensions d'origine conservees) pour un re-crop perenne.
+    Retourne l'URL relative /static/card_sources/<id>.webp, ou None si echec."""
+    if not source_url:
+        return None
+    rel = f"/static/card_sources/{card_id}.webp"
+    # Deja l'original local de CETTE carte ? rien a faire.
+    if f"/card_sources/{card_id}.webp" in source_url:
+        return rel if os.path.exists(os.path.join(_SOURCES_DIR, f"{card_id}.webp")) else None
+    src = _download_image(source_url)
+    if src is None:
+        return None
+    try:
+        os.makedirs(_SOURCES_DIR, exist_ok=True)
+        src.convert("RGB").save(os.path.join(_SOURCES_DIR, f"{card_id}.webp"),
+                                "WEBP", quality=95, method=6)
+        return rel
+    except Exception as e:
+        print(f"[overlay] localize_source err cid={card_id}: {e}")
+        return None
 
 
 def _download_image(url: str, timeout: int = 15) -> Image.Image | None:
@@ -145,63 +170,61 @@ def _save_render(img: "Image.Image", card_id: int) -> str:
 
 
 def bake_all_cards(force: bool = False, public_base_url: str | None = None,
-                     workers: int = 10, progress_cb=None) -> dict:
-    """Boucle parallelisee. ThreadPool pour download+composite (I/O bound).
-    DB writes regroupes en bulk a la fin pour eviter contention SQLite."""
+                     workers: int = 10, progress_cb=None, host_sources: bool = True) -> dict:
+    """Boucle parallelisee. ThreadPool pour download+localize+composite (I/O bound).
+    Heberge l'ORIGINAL en local (re-crop perenne) ET le render. DB writes en bulk.
+    Une carte est consideree faite si son image_url ET sa source pointent en local."""
     from database import get_db, card_list_all
     from concurrent.futures import ThreadPoolExecutor
     import threading
 
+    pub = (public_base_url or "").rstrip("/")
     rows = card_list_all(limit=50000)
     stats = {"updated": 0, "skipped": 0, "failed": 0, "total": len(rows)}
-    print(f"[overlay] bake_all_cards : {len(rows)} cards, force={force}, workers={workers}")
+    print(f"[overlay] bake_all_cards : {len(rows)} cards, force={force}, "
+          f"workers={workers}, host_sources={host_sources}")
 
     # 1. Filter rows a baker
     to_bake = []
     for r in rows:
         img = r.get("image_url") or ""
-        src = r.get("source_image_url")
-        already = "/static/card_renders/" in img or "/card_renders/" in img
-        if not force and already:
+        src = r.get("source_image_url") or ""
+        render_local = "/card_renders/" in img
+        source_local = "/card_sources/" in src
+        # Deja fait : render local + (original local OU on n'heberge pas les sources)
+        if not force and render_local and (source_local or not host_sources):
             stats["skipped"] += 1
             continue
-        source = src or img
+        source = (r.get("source_image_url") or img)
         if not source or "/card_renders/" in source:
             stats["failed"] += 1
             continue
-        to_bake.append((r["id"], source, r.get("rarity", "common"), src is not None))
+        to_bake.append((r["id"], source, r.get("rarity", "common")))
     print(f"[overlay] {len(to_bake)} cards a baker, {stats['skipped']} skipped, "
           f"{stats['failed']} sans source")
 
-    # 2. Save source_image_url pour ceux qui n'en ont pas encore (one-time)
-    needs_src = [(cid, source) for cid, source, _, had_src in to_bake if not had_src]
-    if needs_src:
-        conn = get_db(); c = conn.cursor()
-        for cid, source in needs_src:
-            c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
-                       (source, cid))
-        conn.commit(); conn.close()
-        print(f"[overlay] sauve source_image_url pour {len(needs_src)} cards")
-
-    # 3. Parallel composite
     counter = {"done": 0, "ok": 0, "fail": 0}
     counter_lock = threading.Lock()
-    results = []
+    results = []   # (cid, render_url, source_local_url_or_None)
     total = len(to_bake)
 
     def _worker(item):
-        cid, source, rarity, _ = item
+        cid, source, rarity = item
+        source_local_url = None
+        bake_from = source
         try:
-            url = composite_card(source, rarity, cid)
+            if host_sources:
+                rel_src = localize_source(cid, source)
+                if rel_src:
+                    source_local_url = (pub + rel_src) if pub else rel_src
+                    bake_from = rel_src  # composite depuis l'original local (chemin /static)
+            url = composite_card(bake_from, rarity, cid)
         except Exception as e:
             print(f"[overlay] worker err cid={cid}: {e}")
             url = None
         with counter_lock:
             counter["done"] += 1
-            if url:
-                counter["ok"] += 1
-            else:
-                counter["fail"] += 1
+            counter["ok" if url else "fail"] += 1
             if counter["done"] % 100 == 0 or counter["done"] == total:
                 pct = counter["done"] * 100 // max(1, total)
                 print(f"[overlay] progress {counter['done']}/{total} ({pct}%) "
@@ -209,20 +232,23 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
             if progress_cb and counter["done"] % 20 == 0:
                 try: progress_cb(counter["done"], total)
                 except Exception: pass
-        return cid, url
+        return cid, url, source_local_url
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        for cid, url in ex.map(_worker, to_bake):
+        for cid, url, src_local in ex.map(_worker, to_bake):
             if url:
-                final = (public_base_url.rstrip("/") + url) if public_base_url else url
-                results.append((cid, final))
+                final = (pub + url) if pub else url
+                results.append((cid, final, src_local))
 
-    # 4. Bulk DB update
+    # Bulk DB update : image_url (render local) + source_image_url (original local)
     if results:
         conn = get_db(); c = conn.cursor()
-        for cid, final_url in results:
-            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
-                       (final_url, cid))
+        for cid, final_url, src_local in results:
+            if src_local:
+                c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                           (final_url, src_local, cid))
+            else:
+                c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final_url, cid))
         conn.commit(); conn.close()
     stats["updated"] = len(results)
     stats["failed"] += (len(to_bake) - len(results))

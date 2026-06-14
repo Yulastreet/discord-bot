@@ -573,6 +573,50 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"count": card_suggestion_count_pending()})
 
 
+    def _approve_apply_image(tcid, new_image_url, original, target, final_rarity, image_changed):
+        """Approbation modif image : héberge l'ORIGINAL en local (source_image_url,
+        re-crop perenne), bake le render depuis le crop proposé, supprime le crop
+        de suggestion consommé. Retourne True si re-bake OK."""
+        from services.cards_overlay import composite_card, localize_source
+        from database import get_db
+        import os as _os
+        public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        # 1. Localise l'original (pour pouvoir re-cropper meme dans 3 ans)
+        src_local = None
+        if image_changed:
+            orig = original or target.get("source_image_url") or target.get("image_url")
+            rel = localize_source(tcid, orig) if orig else None
+            if rel:
+                src_local = (public_base + rel) if public_base else rel
+        # 2. Render = bake du crop proposé (framing) ; sinon re-bake source pour rarete
+        src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
+        rebaked = False
+        if src_for_bake and "/card_renders/" not in src_for_bake:
+            try:
+                url = composite_card(src_for_bake, final_rarity, tcid)
+                if url:
+                    final = (public_base + url) if public_base else url
+                    conn = get_db(); c = conn.cursor()
+                    if src_local:
+                        c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                                   (final, src_local, tcid))
+                    else:
+                        c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, tcid))
+                    conn.commit(); conn.close()
+                    rebaked = True
+            except Exception as e:
+                print(f"[approve apply image] err {tcid}: {e}")
+        # 3. Supprime le crop de suggestion consommé (evite l'orphelin sur disque)
+        if new_image_url and "/card_suggestions/" in new_image_url:
+            try:
+                fname = new_image_url.split("/card_suggestions/", 1)[1].split("?")[0]
+                cropfp = _os.path.join(_os.path.dirname(_RENDERS_DIR), "card_suggestions", fname)
+                if _os.path.exists(cropfp):
+                    _os.remove(cropfp)
+            except Exception:
+                pass
+        return rebaked
+
     @app.route("/api/owner/card-suggestions/<int:sid>/approve", methods=["POST"])
     def api_owner_card_suggestion_approve(sid):
         if not _is_owner_session():
@@ -609,39 +653,19 @@ def register_cards_owner_routes(app, deps):
             proposed_rar = sugg.get("proposed_rarity")
             if proposed_rar and proposed_rar in ("common","rare","epic","legendary","mythic","secret"):
                 fields.append("rarity = ?"); params.append(proposed_rar)
-            # Image : la source (= original NON croppe) est preservee pour re-crop.
-            # Jamais le crop. Si pas d'original fourni, on garde l'existante.
             image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
-            if image_changed:
-                src_orig = original or target.get("source_image_url")
-                if src_orig:
-                    fields.append("source_image_url = ?"); params.append(src_orig)
             if fields:
                 params.append(tcid)
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
 
-            # Re-bake si image OU rarete change. L'affichage (image_url) = render
-            # du crop propose + overlay rarete. La source reste l'original.
+            # Image : héberge l'ORIGINAL en local (re-crop perenne) + render = crop.
             final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
             rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
             rebaked = False
             if image_changed or rarity_changed:
-                from services.cards_overlay import composite_card
-                import os as _os
-                src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
-                if src_for_bake and "/card_renders/" not in src_for_bake:
-                    try:
-                        url = composite_card(src_for_bake, final_rarity, tcid)
-                        if url:
-                            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
-                            final = (public_base + url) if public_base else url
-                            conn = get_db(); c = conn.cursor()
-                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, tcid))
-                            conn.commit(); conn.close()
-                            rebaked = True
-                    except Exception as e:
-                        print(f"[approve edit rebake] err {tcid}: {e}")
+                rebaked = _approve_apply_image(tcid, new_image_url, original, target,
+                                                final_rarity, image_changed)
 
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
             return jsonify({"ok": True, "card_id": tcid, "type": "edit",
@@ -716,32 +740,17 @@ def register_cards_owner_routes(app, deps):
             proposed_rar = sugg.get("proposed_rarity")
             if proposed_rar and proposed_rar in ("common","rare","epic","legendary","mythic","secret"):
                 fields.append("rarity = ?"); params.append(proposed_rar)
-            # Source = original NON croppe (preserve re-crop). Jamais le crop.
             image_changed = (new_image_url and new_image_url != (target.get("image_url") or ""))
-            if image_changed:
-                src_orig = original or target.get("source_image_url")
-                if src_orig:
-                    fields.append("source_image_url = ?"); params.append(src_orig)
             if fields:
                 params.append(tcid)
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
             final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
             rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
-            # Rebake si image OU rarete change : image_url = render du crop + overlay
+            # Image : héberge l'original (re-crop perenne) + render du crop + cleanup
             if image_changed or rarity_changed:
-                src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
-                if src_for_bake and "/card_renders/" not in src_for_bake:
-                    try:
-                        url = composite_card(src_for_bake, final_rarity, tcid)
-                        if url:
-                            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
-                            final = (public_base + url) if public_base else url
-                            conn = get_db(); c = conn.cursor()
-                            c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, tcid))
-                            conn.commit(); conn.close()
-                    except Exception as e:
-                        print(f"[bulk approve edit rebake] err {tcid}: {e}")
+                _approve_apply_image(tcid, new_image_url, original, target,
+                                     final_rarity, image_changed)
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
             return {"ok": True, "card_id": tcid, "type": "edit"}
 
