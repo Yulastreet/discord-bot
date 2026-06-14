@@ -45,10 +45,10 @@ def localize_source(card_id: int, source_url: str) -> str | None:
         return None
     try:
         os.makedirs(_SOURCES_DIR, exist_ok=True)
-        # Lossless + alpha preservée (RGBA) : l'original reste fidele (re-crop net,
-        # pas de fond noir colle sur les images transparentes).
+        # Lossy q90 mais ALPHA preservée (RGBA) : transparence gardée pour re-crop,
+        # encodage rapide + fichier petit (lossless sur gros originaux = trop lent).
         src.save(os.path.join(_SOURCES_DIR, f"{card_id}.webp"),
-                 "WEBP", lossless=True, method=4)
+                 "WEBP", quality=90, method=4)
         return rel
     except Exception as e:
         print(f"[overlay] localize_source err cid={card_id}: {e}")
@@ -158,7 +158,8 @@ def _save_render(img: "Image.Image", card_id: int) -> str:
     degradés de l'overlay / fonds unis). Plus lourd que lossy mais propre.
     Supprime l'ancien .png s'il existe (evite les doublons sur disque)."""
     out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
-    img.convert("RGB").save(out_path, "WEBP", lossless=True, method=4)
+    # lossless (pas de banding sur l'overlay) + method=0 = encodage rapide
+    img.convert("RGB").save(out_path, "WEBP", lossless=True, method=0)
     old_png = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
     if os.path.exists(old_png):
         try:
