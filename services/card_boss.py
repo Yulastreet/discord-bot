@@ -889,8 +889,11 @@ async def _run_boss(bot, bid, msg, view):
                     apt = _apt(p)
                     m = _apt_matchup(apt, element_matchup(p["element"], boss["element"]))
                     am = _apt_atk_mult(apt, m, boss_enraged)
-                    total += max(1, int(p["atk"] * m * am))
+                    pdmg = max(1, int(p["atk"] * m * am))
+                    total += pdmg
                     best_eff = max(best_eff, m)
+                    # enregistre la contribution de chaque joueur (pour le butin/MVP)
+                    boss_participant_update(bid, p["user_id"], add_damage=pdmg)
                 boss_hp = card_boss_apply_damage(bid, total)
                 eff = " 🔥" if best_eff > 1 else ""
                 log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
@@ -992,12 +995,13 @@ async def _finish(bot, bid, msg, view, log, victory):
         # Rareté de la carte AVATAR affrontée -> determine la recompense "carte"
         avatar_card = card_get(boss["card_id"]) if boss.get("card_id") else None
         avatar_rar = (avatar_card or {}).get("rarity") or _tier_loot_rarity(tier)
+        # Tri par degats decroissants -> le 1er = MVP
+        winners = sorted([p for p in real_parts if p["damage"] > 0],
+                         key=lambda x: -x["damage"])
         loot_lines = []
-        for p in real_parts:
-            if p["damage"] <= 0:
-                continue
+        for idx, p in enumerate(winners):
             ess = essence_reward_add(p["user_id"], tier * 150 + p["damage"] // 200)
-            parts_loot = [f"+{ess} ✨"]
+            parts_loot = [f"+{_fmt(ess)} ✨"]
             # 1. Recompense carte selon la rareté de l'avatar
             if avatar_rar == "secret":
                 user_item_add(p["user_id"], "golden_roll", 1)
@@ -1007,17 +1011,23 @@ async def _finish(bot, bid, msg, view, log, victory):
                 parts_loot.append("🔴 **Fragment Mythic**")
             elif avatar_card:
                 user_card_add(p["user_id"], avatar_card["id"])
-                parts_loot.append(f"**{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}")
+                parts_loot.append(f"🎴 **{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}")
             # 2. Rolls bonus selon le tier
             n_rolls = _boss_roll_reward(tier)
             if n_rolls:
                 roll_give_user(p["user_id"], n_rolls)
                 parts_loot.append(f"🎟️ **+{n_rolls} rolls**")
-            loot_lines.append(f"<@{p['user_id']}> — " + " · ".join(parts_loot)
-                              + f" _(dégâts {_fmt(p['damage'])})_")
+            crown = "👑 " if idx == 0 else "▫️ "
+            loot_lines.append(f"{crown}<@{p['user_id']}> _(dégâts {_fmt(p['damage'])})_\n"
+                              f"　→ " + " · ".join(parts_loot))
+        reward_hdr = {
+            "secret": "🌈 Avatar secret → **Golden Roll** pour tous",
+            "mythic": "🔴 Avatar mythic → **Fragment Mythic** pour tous",
+        }.get(avatar_rar, f"🎴 Carte : **{(avatar_card or {}).get('name','?')}** {RARITY_HINT.get(avatar_rar,'')}")
         embed = discord.Embed(
-            title=f"🎉 {boss['name']} vaincu !",
-            description=f"Bravo {mentions} !\n\n**🎁 Butin :**\n" + ("\n".join(loot_lines) or "—")
+            title=f"🎉 {boss['name']} vaincu ! (Tier {tier})",
+            description=f"Bravo {mentions} !\n{reward_hdr}\n\n**🎁 Butin (par dégâts) :**\n"
+                        + ("\n".join(loot_lines) or "—")
                         + "\n\n_Fragments & Golden Rolls : voir_ `/cardinventory`.",
             color=0x4ade80)
         await ch.send(content=mentions, embed=embed,
