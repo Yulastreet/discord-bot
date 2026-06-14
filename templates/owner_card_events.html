@@ -87,6 +87,9 @@
       </label>
       <button class="btn btn-primary" onclick="spawnBoss()">⚔️ Spawn boss</button>
     </div>
+    <div style="margin-top:8px;">
+      <button class="btn btn-secondary" onclick="bossRefreshChannels()">🔄 Rafraîchir les salons du serveur</button>
+    </div>
     <div id="bossHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
   </div>
 
@@ -271,6 +274,22 @@ async function spawnBoss() {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.spawnBoss = spawnBoss;
+
+async function bossRefreshChannels() {
+  const gid = document.getElementById('bossGuild').value;
+  const hint = document.getElementById('bossHint');
+  if (!gid) { hint.textContent = 'Choisis d\'abord un serveur.'; return; }
+  hint.textContent = '🔄 Rafraîchissement des salons… (~2s)';
+  try {
+    await fetch(`/api/owner/card-events/refresh-channels/${gid}`, {method:'POST'});
+    await new Promise(r => setTimeout(r, 2500));
+    await loadGuilds();                 // recharge le cache (avec les salons à jour)
+    document.getElementById('bossGuild').value = gid;
+    bossGuildChanged();                 // re-peuple le select salon
+    hint.textContent = '✅ Salons rafraîchis.';
+  } catch (e) { hint.textContent = 'Erreur : ' + e.message; }
+}
+window.bossRefreshChannels = bossRefreshChannels;
 
 async function resetWheel() {
   const hint = document.getElementById('wheelHint');
