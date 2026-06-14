@@ -962,27 +962,98 @@ def setup_cards_commands(bot, deps):
             return []
 
 
-    # === /cardinventory : cosmetiques en stock ===
-    @bot.tree.command(name="cardinventory", description="Voir tes cosmétiques en stock (bordures non utilisées)")
-    @app_commands.describe(membre="Voir l'inventaire de quelqu'un d'autre (defaut : toi)")
-    async def cardinventory_cmd(interaction: discord.Interaction, membre: discord.Member = None):
-        from database import user_borders_list
-        target = membre or interaction.user
+    # === /cardinventory : items & cosmetiques en stock ===
+    _FRAGMENTS_PER_MYTHIC = 5
+
+    def _inv_embed(target):
+        from database import (user_borders_list, user_item_get, roll_bonus_available)
+        frags = user_item_get(target.id, "mythic_fragment")
+        golden = user_item_get(target.id, "golden_roll")
+        rolls = roll_bonus_available(target.id)
         borders = user_borders_list(target.id)
-        embed = discord.Embed(
-            title=f"🎒 Inventaire cosmétiques — {target.display_name}",
-            color=0xB9F23A,
-        )
+        embed = discord.Embed(title=f"🎒 Inventaire — {target.display_name}", color=0xB9F23A)
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
-        if not borders:
-            embed.description = ("Aucun cosmétique en stock.\n"
-                                  "Achète des bordures via `/cardshop`, puis applique-les avec `/cardcustom`.")
-        else:
-            lines = [f"🖼 **{b['name']}** × {b['qty']}" for b in borders]
-            embed.description = ("**Bordures** _(non utilisées)_\n" + "\n".join(lines) +
-                                  "\n\n_Applique une bordure avec_ `/cardcustom` _(elle est consommée)._")
-        await interaction.response.send_message(embed=embed, ephemeral=(membre is None))
+        lines = [
+            f"🎟️ **Rolls bonus** : {rolls}  _(utilisables au_ `/roll`_)_",
+            f"🔴 **Fragments Mythic** : {frags} / {_FRAGMENTS_PER_MYTHIC}  _(→ 1 mythic)_",
+            f"🌈 **Golden Rolls** : {golden}  _(→ 1 légendaire garanti)_",
+        ]
+        embed.add_field(name="Objets", value="\n".join(lines), inline=False)
+        if borders:
+            bl = [f"🖼 **{b['name']}** × {b['qty']}" for b in borders]
+            embed.add_field(name="Bordures (non utilisées)",
+                            value="\n".join(bl) + "\n_Applique via_ `/cardcustom`.", inline=False)
+        return embed, frags, golden
+
+    class _InventoryView(discord.ui.View):
+        def __init__(self, owner_id):
+            super().__init__(timeout=180)
+            self.owner_id = owner_id
+
+        async def _guard(self, interaction):
+            if interaction.user.id != self.owner_id:
+                await interaction.response.send_message("Ce n'est pas ton inventaire.", ephemeral=True)
+                return False
+            return True
+
+        @discord.ui.button(label="Utiliser Golden Roll", style=discord.ButtonStyle.success, emoji="🌈")
+        async def use_golden(self, interaction, btn):
+            if not await self._guard(interaction):
+                return
+            from database import user_item_consume, card_pick_random_exact_rarity, user_card_add
+            uid = interaction.user.id
+            if not user_item_consume(uid, "golden_roll", 1):
+                await interaction.response.send_message("Tu n'as pas de Golden Roll.", ephemeral=True)
+                return
+            card = card_pick_random_exact_rarity("legendary")
+            if not card:
+                from database import user_item_add
+                user_item_add(uid, "golden_roll", 1)  # remboursé
+                await interaction.response.send_message("Aucune légendaire dispo, Golden Roll rendu.", ephemeral=True)
+                return
+            user_card_add(uid, card["id"])
+            embed, *_ = _inv_embed(interaction.user)
+            await interaction.response.edit_message(embed=embed, view=_InventoryView(uid))
+            await interaction.followup.send(
+                f"🌈 **Golden Roll !** Tu obtiens **{card['name']}** 🟠 (légendaire) !", ephemeral=True)
+
+        @discord.ui.button(label="Craft Mythic (5 fragments)", style=discord.ButtonStyle.danger, emoji="🔴")
+        async def craft_mythic(self, interaction, btn):
+            if not await self._guard(interaction):
+                return
+            from database import user_item_consume, card_pick_random_exact_rarity, user_card_add
+            uid = interaction.user.id
+            if not user_item_consume(uid, "mythic_fragment", _FRAGMENTS_PER_MYTHIC):
+                await interaction.response.send_message(
+                    f"Il te faut {_FRAGMENTS_PER_MYTHIC} Fragments Mythic.", ephemeral=True)
+                return
+            card = card_pick_random_exact_rarity("mythic")
+            if not card:
+                from database import user_item_add
+                user_item_add(uid, "mythic_fragment", _FRAGMENTS_PER_MYTHIC)  # remboursé
+                await interaction.response.send_message("Aucune mythic dispo, fragments rendus.", ephemeral=True)
+                return
+            user_card_add(uid, card["id"])
+            embed, *_ = _inv_embed(interaction.user)
+            await interaction.response.edit_message(embed=embed, view=_InventoryView(uid))
+            await interaction.followup.send(
+                f"🔴 **Craft !** Tu obtiens **{card['name']}** 🔴 (mythic) !", ephemeral=True)
+
+    @bot.tree.command(name="cardinventory", description="Tes objets : rolls, fragments mythic, golden rolls, bordures")
+    @app_commands.describe(membre="Voir l'inventaire de quelqu'un d'autre (defaut : toi)")
+    async def cardinventory_cmd(interaction: discord.Interaction, membre: discord.Member = None):
+        target = membre or interaction.user
+        embed, frags, golden = _inv_embed(target)
+        view = None
+        if membre is None and (golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC):
+            view = _InventoryView(interaction.user.id)
+            for ch in view.children:
+                if "Golden" in ch.label:
+                    ch.disabled = golden <= 0
+                if "Craft" in ch.label:
+                    ch.disabled = frags < _FRAGMENTS_PER_MYTHIC
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=(membre is None))
 
 
     # Autocomplete partage : cartes dont le user a des DOUBLONS (>1 copie)

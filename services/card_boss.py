@@ -47,6 +47,22 @@ _TIER_RANGE = {
 def _tier_loot_rarity(tier):
     return _TIER_RANGE.get(tier, ["epic"])[-1]
 
+
+# Rolls offerts en victoire selon le tier (le max a ~5% de chance).
+#   T4 : 2-5 (5=5%) | T5 : 5-15 (15=5%). T1-3 : aucun.
+_BOSS_ROLL_WEIGHTS = {
+    4: {2: 45, 3: 30, 4: 20, 5: 5},
+    5: {5: 26, 6: 18, 7: 14, 8: 11, 9: 8, 10: 6, 11: 5, 12: 3,
+        13: 2, 14: 2, 15: 5},
+}
+
+
+def _boss_roll_reward(tier):
+    w = _BOSS_ROLL_WEIGHTS.get(tier)
+    if not w:
+        return 0
+    return random.choices(list(w.keys()), weights=list(w.values()), k=1)[0]
+
 # Aptitudes de combat (5 roles distincts, chacun avec un cout)
 _APT_LABELS = {
     "berserker": "Berserker", "gardien": "Gardien", "soigneur": "Soigneur",
@@ -638,9 +654,10 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
     avatar_rar = (avatar or {}).get("rarity")
     idx = rng_tier.index(avatar_rar) if avatar_rar in rng_tier else 0
     boss_atk = int(cfg["atk"] * (1 + idx * 0.12))
+    avatar_cid = avatar["id"] if avatar else None
     # start_at non defini : le timer ne demarre qu'au 1er joueur
     bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], boss_atk,
-                           image_url=img, start_at=None)
+                           image_url=img, start_at=None, card_id=avatar_cid)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)
     embed = build_boss_embed(bot, boss)
@@ -970,24 +987,38 @@ async def _finish(bot, bid, msg, view, log, victory):
     mentions = " ".join(f"<@{p['user_id']}>" for p in real_parts) or "—"
 
     if victory:
+        from database import (essence_reward_add, card_get, user_item_add, roll_give_user)
         tier = boss["tier"]
-        rar = _tier_loot_rarity(tier)
+        # Rareté de la carte AVATAR affrontée -> determine la recompense "carte"
+        avatar_card = card_get(boss["card_id"]) if boss.get("card_id") else None
+        avatar_rar = (avatar_card or {}).get("rarity") or _tier_loot_rarity(tier)
         loot_lines = []
         for p in real_parts:
             if p["damage"] <= 0:
                 continue
-            ess = tier * 150 + p["damage"] // 200
-            from database import essence_reward_add
-            ess = essence_reward_add(p["user_id"], ess)  # applique bonus roue du jour
-            card = card_pick_random_exact_rarity(rar)
-            extra = ""
-            if card:
-                user_card_add(p["user_id"], card["id"])
-                extra = f" + **{card['name']}** {RARITY_HINT.get(rar,'')}"
-            loot_lines.append(f"<@{p['user_id']}> — +{ess} ✨{extra} _(dégâts {_fmt(p['damage'])})_")
+            ess = essence_reward_add(p["user_id"], tier * 150 + p["damage"] // 200)
+            parts_loot = [f"+{ess} ✨"]
+            # 1. Recompense carte selon la rareté de l'avatar
+            if avatar_rar == "secret":
+                user_item_add(p["user_id"], "golden_roll", 1)
+                parts_loot.append("🌈 **Golden Roll**")
+            elif avatar_rar == "mythic":
+                user_item_add(p["user_id"], "mythic_fragment", 1)
+                parts_loot.append("🔴 **Fragment Mythic**")
+            elif avatar_card:
+                user_card_add(p["user_id"], avatar_card["id"])
+                parts_loot.append(f"**{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}")
+            # 2. Rolls bonus selon le tier
+            n_rolls = _boss_roll_reward(tier)
+            if n_rolls:
+                roll_give_user(p["user_id"], n_rolls)
+                parts_loot.append(f"🎟️ **+{n_rolls} rolls**")
+            loot_lines.append(f"<@{p['user_id']}> — " + " · ".join(parts_loot)
+                              + f" _(dégâts {_fmt(p['damage'])})_")
         embed = discord.Embed(
             title=f"🎉 {boss['name']} vaincu !",
-            description=f"Bravo {mentions} !\n\n**🎁 Butin :**\n" + ("\n".join(loot_lines) or "—"),
+            description=f"Bravo {mentions} !\n\n**🎁 Butin :**\n" + ("\n".join(loot_lines) or "—")
+                        + "\n\n_Fragments & Golden Rolls : voir_ `/cardinventory`.",
             color=0x4ade80)
         await ch.send(content=mentions, embed=embed,
                        allowed_mentions=discord.AllowedMentions(users=True))

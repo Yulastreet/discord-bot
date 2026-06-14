@@ -331,7 +331,8 @@ def init_db():
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_msg ON card_boss(message_id)")
-    for _col, _ddl in (("start_at", "REAL"), ("image_url", "TEXT"), ("atk_spawn", "INTEGER")):
+    for _col, _ddl in (("start_at", "REAL"), ("image_url", "TEXT"), ("atk_spawn", "INTEGER"),
+                       ("card_id", "INTEGER")):
         try:
             c.execute(f"ALTER TABLE card_boss ADD COLUMN {_col} {_ddl}")
         except Exception:
@@ -2965,16 +2966,58 @@ def card_boss_set_stats(boss_id, max_hp, atk):
 
 
 def card_boss_create(guild_id, channel_id, name, element, tier, max_hp, atk,
-                      image_url=None, start_at=None):
+                      image_url=None, start_at=None, card_id=None):
     conn = get_db(); c = conn.cursor()
-    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk, image_url, start_at, atk_spawn) "
-              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    c.execute("INSERT INTO card_boss (guild_id, channel_id, name, element, tier, max_hp, hp, atk, image_url, start_at, atk_spawn, card_id) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
               (str(guild_id), str(channel_id), name, element, int(tier),
                int(max_hp), int(max_hp), int(atk), image_url,
-               float(start_at) if start_at else None, int(atk)))
+               float(start_at) if start_at else None, int(atk),
+               int(card_id) if card_id else None))
     bid = c.lastrowid
     conn.commit(); conn.close()
     return bid
+
+
+# ===== INVENTAIRE D'ITEMS (fragments mythic, golden roll, ...) =====
+def _ensure_user_items():
+    conn = get_db(); c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS user_items (
+        user_id  TEXT NOT NULL,
+        item_key TEXT NOT NULL,
+        qty      INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, item_key)
+    )''')
+    conn.commit(); conn.close()
+
+
+def user_item_get(user_id, item_key) -> int:
+    _ensure_user_items()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT qty FROM user_items WHERE user_id = ? AND item_key = ?",
+                  (str(user_id), item_key)).fetchone()
+    conn.close()
+    return int(r["qty"]) if r else 0
+
+
+def user_item_add(user_id, item_key, n=1):
+    _ensure_user_items()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_items (user_id, item_key, qty) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, item_key) DO UPDATE SET qty = qty + excluded.qty",
+              (str(user_id), item_key, int(n)))
+    conn.commit(); conn.close()
+
+
+def user_item_consume(user_id, item_key, n=1) -> bool:
+    """Retire n exemplaires si dispo (atomic). True si consomme."""
+    _ensure_user_items()
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE user_items SET qty = qty - ? WHERE user_id = ? AND item_key = ? AND qty >= ?",
+              (int(n), str(user_id), item_key, int(n)))
+    ok = c.rowcount > 0
+    conn.commit(); conn.close()
+    return ok
 
 
 def card_boss_set_start(boss_id, start_at):
