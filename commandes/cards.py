@@ -965,6 +965,39 @@ def setup_cards_commands(bot, deps):
     # === /cardinventory : items & cosmetiques en stock ===
     _FRAGMENTS_PER_MYTHIC = 5
 
+    def _card_result_display(card, owner, essence_gain, already_owned):
+        """Construit l'embed/fichier/vue d'une carte obtenue, MEME FORMAT que /roll.
+        Retourne (embed, img_file_ou_None, view)."""
+        rarity = card.get("rarity", "common")
+        color = RARITY_COLORS.get(rarity, 0x9aa0a6)
+        emoji = _get_rarity_title_emoji(bot, rarity)
+        origine = card.get("subtitle") or "?"
+        univers = card.get("universe") or "?"
+        rarity_display = "?????" if rarity == "secret" else rarity.upper()
+        flavor = (card.get("flavor_subtitle") or "").strip()
+        essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
+        _elem = card.get("element")
+        if _elem:
+            essence_line += f"\n**Élément :** {_get_element_emoji(bot, _elem)} {_ELEM_LABELS.get(_elem, '')}"
+        desc_parts = []
+        if flavor:
+            desc_parts.append(f"_**{flavor}**_")
+        desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n"
+                          f"**Univers :** {univers}\n{essence_line}")
+        embed = discord.Embed(title=f"{emoji} {card['name']}"[:256],
+                              description="\n\n".join(desc_parts), color=color)
+        thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
+        if thumb_url:
+            embed.set_thumbnail(url=thumb_url)
+        img_url, img_file = _resolve_card_image(card)
+        if img_url:
+            embed.set_image(url=img_url)
+        elif img_file:
+            embed.set_image(url="attachment://card.png")
+        avatar_url = str(owner.display_avatar.url) if owner.display_avatar else None
+        embed.set_footer(text=f"Appartient à {owner.display_name}", icon_url=avatar_url)
+        return embed, img_file, OwnersView(card["id"], card["name"])
+
     def _inv_embed(target):
         from database import (user_borders_list, user_item_get, roll_bonus_available)
         frags = user_item_get(target.id, "mythic_fragment")
@@ -1001,7 +1034,8 @@ def setup_cards_commands(bot, deps):
         async def use_golden(self, interaction, btn):
             if not await self._guard(interaction):
                 return
-            from database import user_item_consume, card_pick_random_exact_rarity, user_card_add
+            from database import (user_item_consume, card_pick_random_exact_rarity, user_card_add,
+                                  user_card_count_owned, essence_reward_add, ESSENCE_REWARDS)
             uid = interaction.user.id
             if not user_item_consume(uid, "golden_roll", 1):
                 await interaction.response.send_message("Tu n'as pas de Golden Roll.", ephemeral=True)
@@ -1012,11 +1046,17 @@ def setup_cards_commands(bot, deps):
                 user_item_add(uid, "golden_roll", 1)  # remboursé
                 await interaction.response.send_message("Aucune légendaire dispo, Golden Roll rendu.", ephemeral=True)
                 return
+            already = user_card_count_owned(uid, card["id"]) > 0
             user_card_add(uid, card["id"])
-            embed, *_ = _inv_embed(interaction.user)
-            await interaction.response.edit_message(embed=embed, view=_InventoryView(uid))
-            await interaction.followup.send(
-                f"🌈 **Golden Roll !** Tu obtiens **{card['name']}** 🟠 (légendaire) !", ephemeral=True)
+            base = ESSENCE_REWARDS.get("legendary", 220) * (2 if already else 1)
+            ess = essence_reward_add(uid, base)
+            embed, img_file, view = _card_result_display(card, interaction.user, ess, already)
+            # PUBLIC, meme forme qu'un /roll, avec mention du coupon hors embed
+            content = "🌈 **Roll effectué avec un coupon Golden Roll** (légendaire garanti)"
+            if img_file:
+                await interaction.response.send_message(content=content, embed=embed, file=img_file, view=view)
+            else:
+                await interaction.response.send_message(content=content, embed=embed, view=view)
 
         @discord.ui.button(label="Craft Mythic (5 fragments)", style=discord.ButtonStyle.danger, emoji="🔴")
         async def craft_mythic(self, interaction, btn):
