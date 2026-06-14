@@ -111,6 +111,12 @@ def _get_element_emoji(bot, element: str) -> str:
     return CARD_ELEMENT_EMOJI.get(element, "")
 
 
+def _golden_emoji(bot) -> str:
+    """Emoji custom 'goldenroll' (par nom) sinon fallback unicode arc-en-ciel."""
+    s = _get_inline_emoji_str(bot, "goldenroll")
+    return s or "🌈"
+
+
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
     """Cherche emoji custom dans tous les guilds du bot (support server inclus).
     Cache CDN URL (gif si animé, png sinon). Pour usage en thumbnail embed."""
@@ -1010,7 +1016,7 @@ def setup_cards_commands(bot, deps):
         lines = [
             f"🎟️ **Rolls bonus** : {rolls}  _(utilisables au_ `/roll`_)_",
             f"🔴 **Fragments Mythic** : {frags} / {_FRAGMENTS_PER_MYTHIC}  _(→ 1 mythic)_",
-            f"🌈 **Golden Rolls** : {golden}  _(→ 1 légendaire garanti)_",
+            f"{_golden_emoji(bot)} **Golden Rolls** : {golden}  _(→ 1 légendaire garanti)_",
         ]
         embed.add_field(name="Objets", value="\n".join(lines), inline=False)
         if borders:
@@ -1023,6 +1029,9 @@ def setup_cards_commands(bot, deps):
         def __init__(self, owner_id):
             super().__init__(timeout=180)
             self.owner_id = owner_id
+            ge = discord.utils.get(bot.emojis, name="goldenroll")
+            if ge:
+                self.use_golden.emoji = ge
 
         async def _guard(self, interaction):
             if interaction.user.id != self.owner_id:
@@ -1052,7 +1061,7 @@ def setup_cards_commands(bot, deps):
             ess = essence_reward_add(uid, base)
             embed, img_file, view = _card_result_display(card, interaction.user, ess, already)
             # PUBLIC, meme forme qu'un /roll, avec mention du coupon hors embed
-            content = "🌈 **Roll effectué avec un coupon Golden Roll** (légendaire garanti)"
+            content = f"{_golden_emoji(bot)} **Roll effectué avec un coupon Golden Roll** (légendaire garanti)"
             if img_file:
                 await interaction.response.send_message(content=content, embed=embed, file=img_file, view=view)
             else:

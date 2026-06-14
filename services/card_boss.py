@@ -1029,7 +1029,7 @@ async def _finish(bot, bid, msg, view, log, victory):
             # 1. Recompense carte selon la rareté de l'avatar
             if avatar_rar == "secret":
                 user_item_add(p["user_id"], "golden_roll", 1)
-                parts_loot.append("🌈 **Golden Roll**")
+                parts_loot.append(f"{_cemoji(bot, 'goldenroll', '🌈')} **Golden Roll**")
             elif avatar_rar == "mythic":
                 user_item_add(p["user_id"], "mythic_fragment", 1)
                 parts_loot.append("🔴 **Fragment Mythic**")
@@ -1045,7 +1045,7 @@ async def _finish(bot, bid, msg, view, log, victory):
             loot_lines.append(f"{crown}<@{p['user_id']}> _(dégâts {_fmt(p['damage'])})_\n"
                               f"　→ " + " · ".join(parts_loot))
         reward_hdr = {
-            "secret": "🌈 Avatar secret → **Golden Roll** pour tous",
+            "secret": f"{_cemoji(bot, 'goldenroll', '🌈')} Avatar secret → **Golden Roll** pour tous",
             "mythic": "🔴 Avatar mythic → **Fragment Mythic** pour tous",
         }.get(avatar_rar, f"🎴 Carte : **{(avatar_card or {}).get('name','?')}** {RARITY_HINT.get(avatar_rar,'')}")
         embed = discord.Embed(
