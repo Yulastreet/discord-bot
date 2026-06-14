@@ -1023,7 +1023,7 @@ async def _finish(bot, bid, msg, view, log, victory):
         cap = _ESS_CAP.get(tier, 1000)
         loot_lines = []
         for idx, p in enumerate(winners):
-            base_ess = min(cap, tier * 100 + p["damage"] // 4000)
+            base_ess = min(cap, tier * 100 + p["damage"] // 1000)
             ess = essence_reward_add(p["user_id"], base_ess)
             parts_loot = [f"+{_fmt(ess)} ✨"]
             # 1. Recompense carte selon la rareté de l'avatar
