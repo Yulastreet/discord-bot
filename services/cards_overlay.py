@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import urllib.request
 from PIL import Image
 
@@ -40,6 +41,18 @@ def _existing_source_rel(card_id):
     return None
 
 
+def _normalize_source_url(url: str) -> str:
+    """Normalise certaines CDN pour obtenir l'ORIGINAL non-converti.
+    Wikia/Fandom (static.wikia.nocookie.net) livre du WebP lossy par defaut sur
+    les thumbnails (.../File.png/revision/latest) -> on coupe a l'extension et on
+    force ?format=original pour recuperer le PNG/JPG d'origine lossless."""
+    if "wikia.nocookie.net" in url or "fandom" in url:
+        m = re.search(r"^(.*?\.(?:png|jpe?g|gif|webp))", url, re.I)
+        base = m.group(1) if m else url.split("?")[0]
+        return base + "?format=original"
+    return url
+
+
 def localize_source(card_id: int, source_url: str) -> str | None:
     """Telecharge l'ORIGINAL et sauve les OCTETS BRUTS (format d'origine, ZERO
     re-encodage = qualite parfaite, alpha gardee, pas de banding). Retourne l'URL
@@ -49,17 +62,19 @@ def localize_source(card_id: int, source_url: str) -> str | None:
     # Deja l'original local de CETTE carte ? rien a faire.
     if f"/card_sources/{card_id}." in source_url:
         return _existing_source_rel(card_id)
+    fetch_url = _normalize_source_url(source_url)
     try:
-        req = urllib.request.Request(source_url, headers={"User-Agent": _USER_AGENT})
+        req = urllib.request.Request(fetch_url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=25) as r:
             data = r.read()
             ct = (r.headers.get("Content-Type") or "").lower()
     except Exception as e:
         print(f"[overlay] localize dl err cid={card_id}: {e}")
         return None
-    # Extension : depuis l'URL, sinon le content-type, defaut .png
-    low = source_url.split("?")[0].lower()
-    ext = next((e for e in _SRC_EXTS if low.endswith(e)), None)
+    # Extension : basename du chemin (gere .png au milieu d'URL), sinon content-type
+    path = fetch_url.split("?")[0]
+    base = path.rsplit("/", 1)[-1].lower()
+    ext = next((e for e in _SRC_EXTS if base.endswith(e)), None)
     if not ext:
         ext = (".png" if "png" in ct else ".webp" if "webp" in ct
                else ".gif" if "gif" in ct else ".jpg")
