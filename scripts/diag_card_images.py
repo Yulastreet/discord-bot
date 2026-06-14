@@ -37,6 +37,22 @@ def main():
     for k, v in sorted(by_uni.items(), key=lambda x: -x[1])[:30]:
         print("  %5d  %s" % (v, k))
 
+    # Exemples d'URLs actuelles pour les origines a re-deriver (pour savoir la source)
+    print("\n--- exemples d'URLs actuelles (2 par origine, top 6) ---")
+    full = c.execute("SELECT id,name,subtitle,universe,image_url,source_image_url "
+                     "FROM cards").fetchall()
+    top = [k for k, _ in sorted(by_uni.items(), key=lambda x: -x[1])[:6]]
+    seen = {k: 0 for k in top}
+    for r in full:
+        if _has_raw(r["id"]):
+            continue
+        k = (r["subtitle"] or r["universe"] or "?")
+        if k in seen and seen[k] < 2:
+            seen[k] += 1
+            print(f"[{k}] #{r['id']} {r['name']}")
+            print(f"    image_url : {(r['image_url'] or '')[:95]}")
+            print(f"    source    : {(r['source_image_url'] or '')[:95]}")
+
 
 if __name__ == "__main__":
     main()
