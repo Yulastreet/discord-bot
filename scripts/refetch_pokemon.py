@@ -16,7 +16,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.cards_overlay import composite_card
+from services.cards_overlay import composite_card, localize_source
 
 DB_FILE = os.getenv("DB_PATH") or "bot_database.db"
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -126,11 +126,15 @@ def main():
             failed.append(f"{r['name']} (pid introuvable)")
             continue
         art = f"{_ARTWORK}/{pid}.png"
-        url = composite_card(art, r["rarity"] or "common", r["id"])
+        # Heberge le PNG officiel BRUT (transparent, alpha gardee) pour re-crop propre
+        rel = localize_source(r["id"], art)
+        src_for_bake = rel or art
+        src_db = ((public_base + rel) if (rel and public_base) else rel) or art
+        url = composite_card(src_for_bake, r["rarity"] or "common", r["id"])
         if url:
             final = (public_base + url) if public_base else url
             conn.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
-                         (final, art, r["id"]))
+                         (final, src_db, r["id"]))
             conn.commit()
             fixed += 1
             if fixed % 20 == 0:
