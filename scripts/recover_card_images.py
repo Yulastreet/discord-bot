@@ -55,6 +55,7 @@ def main():
     ap.add_argument("--export", help="Chemin d'un export JSON pre-bake (cards_export.json)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--workers", type=int, default=12, help="Threads paralleles (defaut 12)")
     args = ap.parse_args()
     if not args.backup and not args.export:
         print("Fournis --export cards_export.json (recommande) ou --backup <db>"); sys.exit(1)
@@ -89,55 +90,74 @@ def main():
     if args.limit:
         cards = cards[:args.limit]
 
-    n_src = n_render = n_keep = n_noorig = 0
-    for i, row in enumerate(cards, 1):
-        cid = row["id"]; rarity = row["rarity"] or "common"
+    # Pré-filtre : cartes avec un original récupérable
+    work = []
+    n_noorig = 0
+    for row in cards:
+        cid = row["id"]
         bimg, bsrc = backup.get(cid, (None, None))
         orig = _true_original(bimg, bsrc)
-        png_survived = os.path.exists(os.path.join(_RENDERS_DIR, f"{cid}.png"))
-
         if not orig:
             n_noorig += 1
             continue
-        if args.dry_run:
-            act = "keep-render" if png_survived else "re-bake"
+        work.append((cid, row["rarity"] or "common", orig))
+
+    if args.dry_run:
+        for cid, rarity, orig in work[:30]:
+            act = "keep-render" if os.path.exists(os.path.join(_RENDERS_DIR, f"{cid}.png")) else "re-bake"
             print(f"[dry] #{cid} orig={orig[:60]} -> {act}")
-            continue
+        print(f"\n[dry] {len(work)} cartes recuperables | {n_noorig} sans original")
+        return
 
-        # a. ré-héberge l'original en alpha (re-telecharge)
-        rel = localize_source(cid, orig)
+    # Parallèle (IO bound : download + bake). Ecritures DB regroupees en bulk.
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    workers = max(1, args.workers)
+    counter = {"done": 0}
+    lock = threading.Lock()
+    results = []   # (cid, new_img_or_None, src_local)
+    total = len(work)
+
+    def _worker(item):
+        cid, rarity, orig = item
+        rel = localize_source(cid, orig)   # re-download alpha
         if not rel:
-            print(f"! #{cid} original injoignable : {orig[:70]}")
-            continue
+            return cid, None, None, "fail"
         src_local = (pub + rel) if pub else rel
-        n_src += 1
-
-        # b. render : on garde le .png survivant (cadrage manuel), sinon re-bake lossless
         new_img = None
-        if not png_survived:
+        kind = "keep"
+        if not os.path.exists(os.path.join(_RENDERS_DIR, f"{cid}.png")):
             url = composite_card(rel, rarity, cid)
             if url:
                 new_img = (pub + url) if pub else url
-                n_render += 1
-        else:
-            n_keep += 1
+                kind = "rebake"
+        with lock:
+            counter["done"] += 1
+            if counter["done"] % 200 == 0 or counter["done"] == total:
+                print(f"progress {counter['done']}/{total}")
+        return cid, new_img, src_local, kind
 
-        conn = get_db(); c = conn.cursor()
+    rows_out = []
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for cid, new_img, src_local, kind in ex.map(_worker, work):
+            if src_local:
+                rows_out.append((cid, new_img, src_local))
+
+    # Bulk DB update
+    n_render = n_keep = 0
+    conn = get_db(); c = conn.cursor()
+    for cid, new_img, src_local in rows_out:
         if new_img:
             c.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
-                       (new_img, src_local, cid))
+                       (new_img, src_local, cid)); n_render += 1
         else:
             c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?", (src_local, cid))
-        conn.commit(); conn.close()
+            n_keep += 1
+    conn.commit(); conn.close()
 
-        if i % 200 == 0:
-            print(f"progress {i}/{len(cards)} | sources={n_src} re-bake={n_render} "
-                  f"keep={n_keep} sans-orig={n_noorig}")
-
-    print(f"\nFini. originaux re-heberges={n_src} | renders re-bakes={n_render} | "
-          f"renders gardes={n_keep} | sans original recuperable={n_noorig}")
-    if n_noorig:
-        print(f"-> {n_noorig} cartes sans original dans le backup : a re-sourcer a la main.")
+    print(f"\nFini. originaux re-heberges={len(rows_out)} | renders re-bakes={n_render} | "
+          f"renders gardes={n_keep} | sans original recuperable={n_noorig} | "
+          f"echecs download={len(work) - len(rows_out)}")
 
 
 if __name__ == "__main__":
