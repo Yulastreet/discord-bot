@@ -81,6 +81,12 @@ print(f"[env] loaded {_env_file}", flush=True)
 
 app = Flask(__name__)
 
+# Declare le type MIME WebP : sinon Flask sert les .webp en octet-stream et
+# Discord refuse d'afficher l'image (embeds cartes/boss). Le navigateur sniffe,
+# pas Discord -> indispensable pour les renders webp.
+import mimetypes as _mimetypes
+_mimetypes.add_type("image/webp", ".webp")
+
 # Silence werkzeug GET /static/* logs (spam quand grid charge 500+ images)
 import logging as _logging
 class _StaticFilter(_logging.Filter):
