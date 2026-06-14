@@ -1053,7 +1053,8 @@ def setup_cards_commands(bot, deps):
                     ch.disabled = golden <= 0
                 if "Craft" in ch.label:
                     ch.disabled = frags < _FRAGMENTS_PER_MYTHIC
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=(membre is None))
+        await interaction.response.send_message(
+            embed=embed, view=(view or discord.utils.MISSING), ephemeral=(membre is None))
 
 
     # Autocomplete partage : cartes dont le user a des DOUBLONS (>1 copie)
