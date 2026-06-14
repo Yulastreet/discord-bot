@@ -85,9 +85,11 @@
       <span class="badge badge-mono" id="userId"></span>
     </div>
     <div class="row" style="gap:var(--s-2);flex-wrap:wrap;">
+      {% if is_owner %}
       <a href="/duels" class="btn btn-secondary">
         <svg class="ic"><use href="#i-swords"/></svg> Voir profil duel
       </a>
+      {% endif %}
       {% if is_owner %}
         <button id="premiumToggleBtn" class="btn btn-secondary" type="button" disabled title="Cartes de niveau premium (backgrounds custom, badges)">
           <svg class="ic"><use href="#i-bolt"/></svg> <span id="premiumToggleLabel">Niveau Premium…</span>
