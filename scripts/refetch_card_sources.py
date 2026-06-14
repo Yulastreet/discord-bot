@@ -16,15 +16,18 @@ import sqlite3
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.cards_fandom_games import GAMES, _fetch_pageimages
-from services.cards_overlay import composite_card
+from services.cards_overlay import composite_card, localize_source
 
 DB_FILE = os.getenv("DB_PATH") or "bot_database.db"
 
 
 def _is_broken(src):
+    """Source a re-deriver : vide, ou pointant sur un fichier LOCAL (render, crop,
+    ou source flattée par l'ancien bake) -> on veut le vrai original Fandom."""
     if not src:
         return True
-    return "/card_renders/" in src or "/card_suggestions/" in src
+    return ("/card_renders/" in src or "/card_suggestions/" in src
+            or "/card_sources/" in src or "/static/" in src)
 
 
 def main():
@@ -64,13 +67,16 @@ def main():
         if not thumb:
             missed.append(r["name"])
             continue
-        conn.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
-                     (thumb, r["id"]))
-        conn.commit()
-        url = composite_card(thumb, r["rarity"] or "common", r["id"])
+        # Heberge l'original BRUT (re-crop perenne + qualite parfaite)
+        rel = localize_source(r["id"], thumb)
+        src_for_bake = rel or thumb
+        src_db = ((public_base + rel) if (rel and public_base) else rel) or thumb
+        # Render lossless depuis l'original brut
+        url = composite_card(src_for_bake, r["rarity"] or "common", r["id"])
         if url:
             final = (public_base + url) if public_base else url
-            conn.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, r["id"]))
+            conn.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                         (final, src_db, r["id"]))
             conn.commit()
             fixed += 1
             if fixed % 20 == 0:

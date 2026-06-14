@@ -59,6 +59,44 @@ def _pick_rarity():
                           weights=list(_RARITY_SPREAD.values()), k=1)[0]
 
 
+def _refresh_existing(villagers, dry):
+    """Re-derive l'image des cartes AC deja en base : telecharge l'original brut
+    depuis Nookipedia (dodo.ac) + re-bake lossless. Repare les artefacts."""
+    from database import get_db, card_get_by_name
+    from services.cards_overlay import localize_source, composite_card
+    pub = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+    by_name = {(v.get("name") or "").strip().lower(): (v.get("image_url") or "").strip()
+               for v in villagers}
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT id,name,rarity FROM cards WHERE subtitle = ?", (_ORIGIN,)).fetchall()
+    conn.close()
+    print(f"{len(rows)} cartes AC en base a rafraichir.")
+    fixed = miss = 0
+    for r in rows:
+        img = by_name.get((r["name"] or "").strip().lower())
+        if not img:
+            miss += 1; continue
+        if dry:
+            print(f"[dry] #{r['id']} {r['name']} <- {img[:60]}"); fixed += 1; continue
+        rel = localize_source(r["id"], img)
+        if not rel:
+            print(f"  ECHEC dl #{r['id']} {r['name']}"); miss += 1; continue
+        url = composite_card(rel, r["rarity"] or "common", r["id"])
+        conn = get_db(); cc = conn.cursor()
+        src_db = (pub + rel) if pub else rel
+        if url:
+            final = (pub + url) if pub else url
+            cc.execute("UPDATE cards SET image_url = ?, source_image_url = ? WHERE id = ?",
+                       (final, src_db, r["id"]))
+        else:
+            cc.execute("UPDATE cards SET source_image_url = ? WHERE id = ?", (src_db, r["id"]))
+        conn.commit(); conn.close()
+        fixed += 1
+        if fixed % 50 == 0:
+            print(f"  ... {fixed} rafraichies")
+    print(f"\nFini refresh AC. reparees={fixed} | sans match Nookipedia={miss}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--key", help="Cle API Nookipedia (sinon env NOOKIPEDIA_API_KEY)")
@@ -66,6 +104,8 @@ def main():
                     help="Force une rarete pour tous (sinon repartie)")
     ap.add_argument("--limit", type=int, default=0, help="Limite (test)")
     ap.add_argument("--dry-run", action="store_true", help="N'ecrit rien")
+    ap.add_argument("--refresh", action="store_true",
+                    help="Re-derive l'image des cartes AC existantes (heberge brut + re-bake)")
     args = ap.parse_args()
 
     api_key = args.key or os.getenv("NOOKIPEDIA_API_KEY")
@@ -78,6 +118,10 @@ def main():
     if args.limit:
         villagers = villagers[:args.limit]
     print(f"{len(villagers)} villageois recus.\n")
+
+    if args.refresh:
+        _refresh_existing(villagers, args.dry_run)
+        return
 
     added = skipped = noimg = 0
     for v in villagers:
