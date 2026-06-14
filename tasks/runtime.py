@@ -106,6 +106,8 @@ def setup_runtime(bot, deps):
             topgg_stats_poster.start()
         if not card_event_drop_loop.is_running():
             card_event_drop_loop.start()
+        if not card_render_bake_loop.is_running():
+            card_render_bake_loop.start()
         # Reprise des combats de boss orphelins (task asyncio morte au restart)
         try:
             from services.card_boss import resume_active_bosses
@@ -1828,6 +1830,24 @@ def setup_runtime(bot, deps):
 
     @card_event_drop_loop.before_loop
     async def _before_card_event_loop():
+        await bot.wait_until_ready()
+
+    @tasks.loop(hours=24)
+    async def card_render_bake_loop():
+        """Reparation anti-liens-morts : bake les renders locaux manquants
+        (cartes ajoutees par import/suggestion dont l'image est encore externe)."""
+        try:
+            import asyncio as _aio
+            from services.cards_overlay import bake_all_cards
+            pub = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/") or None
+            stats = await _aio.to_thread(bake_all_cards, False, pub, 8)
+            if stats.get("updated"):
+                print(f"[card_render_bake] {stats['updated']} render(s) bakes")
+        except Exception as e:
+            print(f"[card_render_bake] err: {e!r}")
+
+    @card_render_bake_loop.before_loop
+    async def _before_card_render_bake():
         await bot.wait_until_ready()
 
 

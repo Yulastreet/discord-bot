@@ -94,12 +94,13 @@ def _overlay_stars(canvas: Image.Image, level: int, rarity: str | None = None) -
 def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | None:
     """Charge le render local de la carte. Fallback : download image_url remote
     (UA navigateur + cache local pour eviter de re-telecharger / 429)."""
-    local = os.path.join(_RENDERS_DIR, f"{card_id}.png")
-    if os.path.exists(local):
-        try:
-            return Image.open(local).convert("RGBA")
-        except Exception:
-            pass
+    for _ext in (".webp", ".png"):
+        local = os.path.join(_RENDERS_DIR, f"{card_id}{_ext}")
+        if os.path.exists(local):
+            try:
+                return Image.open(local).convert("RGBA")
+            except Exception:
+                pass
     if fallback_url and fallback_url.startswith("http"):
         try:
             req = urllib.request.Request(fallback_url, headers={
@@ -116,10 +117,11 @@ def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | N
                 pass
             img = im.convert("RGBA")
             img = img.resize((_CARD_W, _CARD_H), Image.LANCZOS)
-            # Cache en local render pour ne plus retelecharger (evite 429)
+            # Cache en local render (webp leger) pour ne plus retelecharger (evite 429)
             try:
                 os.makedirs(_RENDERS_DIR, exist_ok=True)
-                img.convert("RGB").save(local, "PNG", optimize=True)
+                img.convert("RGB").save(os.path.join(_RENDERS_DIR, f"{card_id}.webp"),
+                                        "WEBP", quality=92, method=6)
             except Exception:
                 pass
             return img

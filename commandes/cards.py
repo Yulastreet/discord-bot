@@ -164,29 +164,53 @@ def _is_support_member(bot, user_id) -> bool:
 def _resolve_card_image(card: dict):
     """Retourne (url_http_ou_None, discord.File_ou_None) pour set_image embed.
 
-    - image_url http -> (url, None)
-    - chemin local /static/... existant -> (None, File) servi en attachment
-    - render local static/card_renders/<id>.png -> (None, File)
+    PRIORITE AU RENDER LOCAL : on ne hotlink JAMAIS un hote externe tant qu'un
+    render local existe (anti-liens-morts). Ordre :
+      1. render local static/card_renders/<id>.(webp|png) -> servi via domaine
+         (PUBLIC_BASE_URL) sinon en attachment.
+      2. image_url qui pointe deja sur un /static/ local existant.
+      3. dernier recours : image_url distante http (peut mourir, seulement si
+         aucun render local).
     """
+    root = _REPO_ROOT
+    cid = card.get("id")
     img = card.get("image_url") or ""
+    public_base = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+
+    # 1+2. Trouve un fichier render local
+    local_rel = None
+    local_path = None
+    if cid:
+        for ext in (".webp", ".png"):
+            p = os.path.join(root, "static", "card_renders", f"{cid}{ext}")
+            if os.path.exists(p):
+                local_rel = f"/static/card_renders/{cid}{ext}"; local_path = p
+                break
+    if local_rel is None and isinstance(img, str) and "/static/" in img:
+        rel = "/static/" + img.split("/static/", 1)[1].split("?")[0]
+        p = os.path.join(root, rel.lstrip("/").replace("/", os.sep))
+        if os.path.exists(p):
+            local_rel = rel; local_path = p
+
+    if local_rel:
+        if public_base:
+            # Servi par ton domaine : Discord proxifie, jamais d'hote externe
+            return (public_base + local_rel, None)
+        # Pas de domaine public (dev) : attachment. Re-encode en PNG pour matcher
+        # le 'attachment://card.png' attendu par les callers.
+        try:
+            import io as _io
+            from PIL import Image as _PImg
+            buf = _io.BytesIO()
+            _PImg.open(local_path).convert("RGB").save(buf, "PNG")
+            buf.seek(0)
+            return (None, discord.File(buf, filename="card.png"))
+        except Exception:
+            pass
+
+    # 3. Dernier recours : distante
     if isinstance(img, str) and img.startswith("http"):
         return (img, None)
-    root = _REPO_ROOT
-    # Chemin local extrait de l'image_url (relatif ou full avec /static/)
-    candidates = []
-    if isinstance(img, str) and "/static/" in img:
-        rel = "static/" + img.split("/static/", 1)[1].split("?")[0]
-        candidates.append(os.path.join(root, rel.replace("/", os.sep)))
-    # Fallback : render local par card_id
-    cid = card.get("id")
-    if cid:
-        candidates.append(os.path.join(root, "static", "card_renders", f"{cid}.png"))
-    for path in candidates:
-        if path and os.path.exists(path):
-            try:
-                return (None, discord.File(path, filename="card.png"))
-            except Exception:
-                pass
     return (None, None)
 
 

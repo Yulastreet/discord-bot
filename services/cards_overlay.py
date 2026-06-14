@@ -116,19 +116,32 @@ def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
         # Pas d'overlay : flatten sur fond sombre (gere transparence sources)
         bg = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
         bg.paste(src, (0, 0), src)
-        out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
-        bg.convert("RGB").save(out_path, "PNG", optimize=True)
-        return f"/static/card_renders/{card_id}.png"
+        return _save_render(bg, card_id)
 
     # Composite : fond sombre opaque + src (avec alpha) + overlay au-dessus
     # Fix images avec fond transparent qui devenaient noires/buggy sans bg.
     canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
     canvas.paste(src, (0, 0), src)  # 3eme arg = mask alpha de src
     canvas = Image.alpha_composite(canvas, overlay)
+    return _save_render(canvas, card_id)
 
-    out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
-    canvas.convert("RGB").save(out_path, "PNG", optimize=True)
-    return f"/static/card_renders/{card_id}.png"
+
+# Qualite WebP : q92 = visuellement identique au PNG, ~70% plus leger.
+_WEBP_QUALITY = 92
+
+
+def _save_render(img: "Image.Image", card_id: int) -> str:
+    """Sauve le render en WebP (leger, hebergé localement). Retourne l'URL relative.
+    Supprime l'ancien .png s'il existe (evite les doublons sur disque)."""
+    out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
+    img.convert("RGB").save(out_path, "WEBP", quality=_WEBP_QUALITY, method=6)
+    old_png = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
+    if os.path.exists(old_png):
+        try:
+            os.remove(old_png)
+        except Exception:
+            pass
+    return f"/static/card_renders/{card_id}.webp"
 
 
 def bake_all_cards(force: bool = False, public_base_url: str | None = None,
