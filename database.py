@@ -2893,6 +2893,18 @@ def roll_give_user(user_id, n: int) -> int:
     return roll_bonus_available(user_id)
 
 
+def roll_set_user(user_id, n):
+    """Owner : fixe le nombre EXACT de rolls bonus dispo d'un user.
+    On annule sa part du grant global (consumed = grant) et on met credits = n."""
+    grant = int(get_setting("roll_global_grant", "0") or 0)
+    n = max(0, int(n))
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO roll_grant_state (user_id, consumed, credits) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id) DO UPDATE SET consumed = ?, credits = ?",
+              (str(user_id), grant, n, grant, n))
+    conn.commit(); conn.close()
+
+
 def roll_reset_user_cooldown(user_id) -> int:
     """Owner : reset le cooldown de roll d'UN user (tous serveurs)."""
     conn = get_db(); c = conn.cursor()
@@ -3018,6 +3030,26 @@ def user_item_consume(user_id, item_key, n=1) -> bool:
     ok = c.rowcount > 0
     conn.commit(); conn.close()
     return ok
+
+
+def user_item_set(user_id, item_key, qty):
+    """Owner : fixe la quantite exacte d'un item."""
+    _ensure_user_items()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_items (user_id, item_key, qty) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, item_key) DO UPDATE SET qty = excluded.qty",
+              (str(user_id), item_key, max(0, int(qty))))
+    conn.commit(); conn.close()
+
+
+def currency_set(user_id, amount):
+    """Owner : fixe le solde d'essences exact."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_currency (user_id, essences) VALUES (?, ?) "
+              "ON CONFLICT(user_id) DO UPDATE SET essences = excluded.essences, "
+              "updated_at = CURRENT_TIMESTAMP",
+              (str(user_id), max(0, int(amount))))
+    conn.commit(); conn.close()
 
 
 def card_boss_set_start(boss_id, start_at):

@@ -470,16 +470,38 @@ function setupCardsAdmin() {
       const r = await fetch(`/api/owner/user/${uid}/inventory`);
       if (!r.ok) return;
       const d = await r.json();
-      const chip = (txt) => `<span style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:4px 10px;">${txt}</span>`;
-      let html = chip(`✨ ${d.essences} essences`)
-        + chip(`🎟️ ${d.rolls} rolls bonus`)
-        + chip(`🔴 ${d.mythic_fragments} fragments mythic`)
-        + chip(`🌈 ${d.golden_rolls} golden rolls`);
+      const fld = (lbl, id, val) => `<label style="display:flex;flex-direction:column;gap:3px;font-size:var(--t-xs);">
+          <span class="muted">${lbl}</span>
+          <input id="inv_${id}" type="number" min="0" value="${val}" class="input" style="width:120px;"></label>`;
+      let html = fld('✨ Essences', 'essences', d.essences)
+        + fld('🎟️ Rolls bonus', 'rolls', d.rolls)
+        + fld('🔴 Fragments Mythic', 'mythic_fragments', d.mythic_fragments)
+        + fld('🌈 Golden Rolls', 'golden_rolls', d.golden_rolls)
+        + `<button id="invSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-end;">💾 Enregistrer items</button>`;
       if (d.borders && d.borders.length) {
-        html += d.borders.map(b => chip(`🖼 ${b.name} ×${b.qty}`)).join('');
+        html += '<div style="flex-basis:100%;font-size:var(--t-xs);" class="muted">Bordures : '
+          + d.borders.map(b => `${b.name} ×${b.qty}`).join(', ') + '</div>';
       }
       inv.innerHTML = html;
+      inv.style.alignItems = 'flex-end';
+      document.getElementById('invSaveBtn').addEventListener('click', saveInventory);
     } catch (e) {}
+  }
+  async function saveInventory() {
+    const payload = {};
+    for (const k of ['essences', 'rolls', 'mythic_fragments', 'golden_rolls']) {
+      const el = document.getElementById('inv_' + k);
+      if (el) payload[k] = parseInt(el.value, 10);
+    }
+    try {
+      const r = await fetch(`/api/owner/user/${uid}/inventory/set`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (d.success) { hintEl.textContent = '✅ Inventaire mis à jour.'; refreshInventory(); }
+      else hintEl.textContent = 'Erreur : ' + (d.error || '?');
+    } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
   }
   refreshInventory();
 

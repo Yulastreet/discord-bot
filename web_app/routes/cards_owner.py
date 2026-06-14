@@ -1614,6 +1614,35 @@ def register_cards_owner_routes(app, deps):
             "borders": [{"name": b["name"], "qty": b["qty"]} for b in user_borders_list(user_id)],
         })
 
+    @app.route("/api/owner/user/<user_id>/inventory/set", methods=["POST"])
+    def api_owner_user_inventory_set(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (currency_set, roll_set_user, user_item_set,
+                              user_item_get, roll_bonus_available, currency_get)
+        data = request.json or {}
+
+        def _int(v):
+            try:
+                return max(0, int(v))
+            except (TypeError, ValueError):
+                return None
+        if "essences" in data and _int(data["essences"]) is not None:
+            currency_set(user_id, _int(data["essences"]))
+        if "rolls" in data and _int(data["rolls"]) is not None:
+            roll_set_user(user_id, _int(data["rolls"]))
+        if "mythic_fragments" in data and _int(data["mythic_fragments"]) is not None:
+            user_item_set(user_id, "mythic_fragment", _int(data["mythic_fragments"]))
+        if "golden_rolls" in data and _int(data["golden_rolls"]) is not None:
+            user_item_set(user_id, "golden_roll", _int(data["golden_rolls"]))
+        return jsonify({
+            "success": True,
+            "rolls": roll_bonus_available(user_id),
+            "mythic_fragments": user_item_get(user_id, "mythic_fragment"),
+            "golden_rolls": user_item_get(user_id, "golden_roll"),
+            "essences": currency_get(user_id),
+        })
+
     @app.route("/api/owner/user/<user_id>/cards/clear", methods=["POST"])
     def api_owner_user_cards_clear(user_id):
         if not _is_owner_session():
