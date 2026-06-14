@@ -156,6 +156,7 @@
       <button id="cardsResetCdBtn" class="btn btn-secondary" type="button">⟳ Reset cooldown /roll (tous serveurs)</button>
     </div>
     <div id="cardsAdminHint" class="muted" style="font-size:var(--t-xs);margin-top:8px;"></div>
+    <div id="cardsInventory" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;font-size:var(--t-sm);"></div>
   </div>
 
   <!-- Cards List modal owner-only -->
@@ -459,6 +460,26 @@ function setupCardsAdmin() {
     } catch (e) { labelEl.textContent = 'Erreur : ' + e.message; }
   }
   refreshCount();
+
+  async function refreshInventory() {
+    const inv = document.getElementById('cardsInventory');
+    if (!inv) return;
+    try {
+      const r = await fetch(`/api/owner/user/${uid}/inventory`);
+      if (!r.ok) return;
+      const d = await r.json();
+      const chip = (txt) => `<span style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:4px 10px;">${txt}</span>`;
+      let html = chip(`✨ ${d.essences} essences`)
+        + chip(`🎟️ ${d.rolls} rolls bonus`)
+        + chip(`🔴 ${d.mythic_fragments} fragments mythic`)
+        + chip(`🌈 ${d.golden_rolls} golden rolls`);
+      if (d.borders && d.borders.length) {
+        html += d.borders.map(b => chip(`🖼 ${b.name} ×${b.qty}`)).join('');
+      }
+      inv.innerHTML = html;
+    } catch (e) {}
+  }
+  refreshInventory();
 
   document.getElementById('cardsGiveBtn').addEventListener('click', openGiveCard);
   document.getElementById('cardsListBtn').addEventListener('click', () => openCardsList(uid, refreshCount));

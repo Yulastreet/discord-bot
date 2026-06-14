@@ -1600,6 +1600,20 @@ def register_cards_owner_routes(app, deps):
                          "cooldowns_active": int(cds)})
 
 
+    @app.route("/api/owner/user/<user_id>/inventory", methods=["GET"])
+    def api_owner_user_inventory(user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (user_item_get, roll_bonus_available, user_borders_list,
+                              currency_get)
+        return jsonify({
+            "rolls": roll_bonus_available(user_id),
+            "mythic_fragments": user_item_get(user_id, "mythic_fragment"),
+            "golden_rolls": user_item_get(user_id, "golden_roll"),
+            "essences": currency_get(user_id),
+            "borders": [{"name": b["name"], "qty": b["qty"]} for b in user_borders_list(user_id)],
+        })
+
     @app.route("/api/owner/user/<user_id>/cards/clear", methods=["POST"])
     def api_owner_user_cards_clear(user_id):
         if not _is_owner_session():
