@@ -45,8 +45,10 @@ def localize_source(card_id: int, source_url: str) -> str | None:
         return None
     try:
         os.makedirs(_SOURCES_DIR, exist_ok=True)
-        src.convert("RGB").save(os.path.join(_SOURCES_DIR, f"{card_id}.webp"),
-                                "WEBP", quality=95, method=6)
+        # Lossless + alpha preservée (RGBA) : l'original reste fidele (re-crop net,
+        # pas de fond noir colle sur les images transparentes).
+        src.save(os.path.join(_SOURCES_DIR, f"{card_id}.webp"),
+                 "WEBP", lossless=True, method=4)
         return rel
     except Exception as e:
         print(f"[overlay] localize_source err cid={card_id}: {e}")
@@ -151,15 +153,12 @@ def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
     return _save_render(canvas, card_id)
 
 
-# Qualite WebP : q92 = visuellement identique au PNG, ~70% plus leger.
-_WEBP_QUALITY = 92
-
-
 def _save_render(img: "Image.Image", card_id: int) -> str:
-    """Sauve le render en WebP (leger, hebergé localement). Retourne l'URL relative.
+    """Sauve le render en WebP LOSSLESS (zéro perte, pas de banding sur les
+    degradés de l'overlay / fonds unis). Plus lourd que lossy mais propre.
     Supprime l'ancien .png s'il existe (evite les doublons sur disque)."""
     out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
-    img.convert("RGB").save(out_path, "WEBP", quality=_WEBP_QUALITY, method=6)
+    img.convert("RGB").save(out_path, "WEBP", lossless=True, method=4)
     old_png = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
     if os.path.exists(old_png):
         try:
