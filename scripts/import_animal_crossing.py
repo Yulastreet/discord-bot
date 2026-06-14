@@ -20,7 +20,17 @@ import random
 import sys
 import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+
+# Charge le .env (meme logique que bot.py) pour recuperer NOOKIPEDIA_API_KEY
+try:
+    from dotenv import load_dotenv
+    _env = os.path.join(_ROOT, ".env.dev") if os.path.exists(os.path.join(_ROOT, ".env.dev")) \
+        else os.path.join(_ROOT, ".env")
+    load_dotenv(_env)
+except Exception:
+    pass
 
 from database import card_add, card_get_by_name  # noqa: E402
 
