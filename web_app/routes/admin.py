@@ -328,12 +328,26 @@ def register_admin_routes(app, deps):
 
     @app.route("/settings")
     def settings_page():
-        from database import GUILD_DEFAULT_SETTINGS
+        from database import GUILD_DEFAULT_SETTINGS, guild_card_config_get
         g_id = gid()
+        card_cfg = guild_card_config_get(g_id) or {}
         return render_template("settings.html",
                                active_nav="settings",
                                settings=guild_settings_all(g_id),
-                               defaults=GUILD_DEFAULT_SETTINGS)
+                               defaults=GUILD_DEFAULT_SETTINGS,
+                               card_channel_id=str(card_cfg.get("channel_id") or ""))
+
+    @app.route("/api/guild-cards-channel", methods=["POST"])
+    def api_guild_cards_channel():
+        from database import guild_card_config_set
+        g_id = gid()
+        if not g_id:
+            return jsonify({"error": "no_guild"}), 400
+        data = request.json or {}
+        cid = (data.get("channel_id") or "").strip()
+        # vide = aucune restriction (commandes cartes autorisees partout)
+        guild_card_config_set(g_id, channel_id=(cid or None), enabled=True)
+        return jsonify({"success": True, "channel_id": cid or None})
 
     @app.route("/api/settings", methods=["GET"])
     def api_settings_get():

@@ -97,6 +97,25 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>🃏 Cartes à collectionner</h2>
+    <p class="muted" style="font-size:var(--t-sm);margin-bottom:12px;">
+      Salon où les commandes cartes (`/roll`, `/cardcollec`…) sont autorisées. Vide = autorisées partout. Équivalent de `/cardsetup`.
+    </p>
+    <div class="grid grid-2">
+      <div class="field">
+        <label>Salon des cartes</label>
+        <select id="cards_channel_id"><option value="">— Aucun (partout) —</option></select>
+      </div>
+      <div class="field" style="display:flex;align-items:flex-end;">
+        <button class="btn btn-primary" onclick="saveCardsChannel()">
+          <svg class="ic"><use href="#i-check"/></svg> Enregistrer le salon cartes
+        </button>
+      </div>
+    </div>
+    <div id="cardsChannelHint" class="muted" style="font-size:var(--t-xs);margin-top:6px;"></div>
+  </div>
+
   <div class="row end gap-3">
     <button class="btn btn-ghost" onclick="resetDefaults()">Restaurer les défauts</button>
     <button class="btn btn-primary" onclick="saveSettings()">
@@ -136,6 +155,41 @@ const PRESENTATION_CURRENT = {
     }
   } catch (_) {}
 })();
+
+// Charge les salons texte pour le select cartes
+const CARDS_CHANNEL_CURRENT = '{{ card_channel_id }}';
+(async function loadCardsChannels() {
+  const sel = document.getElementById('cards_channel_id');
+  if (!sel) return;
+  try {
+    const r = await fetch('/api/channels?type=text');
+    const d = await r.json();
+    for (const c of (d.channels || [])) {
+      const opt = document.createElement('option');
+      opt.value = String(c.channel_id);
+      opt.textContent = '#' + (c.name || c.channel_id);
+      if (String(c.channel_id) === String(CARDS_CHANNEL_CURRENT)) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch (_) {}
+})();
+
+async function saveCardsChannel() {
+  const sel = document.getElementById('cards_channel_id');
+  const hint = document.getElementById('cardsChannelHint');
+  try {
+    const res = await fetch('/api/guild-cards-channel', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({channel_id: sel.value}),
+    });
+    const d = await res.json();
+    if (d.success) {
+      const msg = d.channel_id ? 'Salon cartes défini.' : 'Restriction retirée (cartes autorisées partout).';
+      toast(msg); if (hint) hint.textContent = '✅ ' + msg;
+    } else toast(d.error || 'Erreur', 'error');
+  } catch (e) { toast(e.message, 'error'); }
+}
+window.saveCardsChannel = saveCardsChannel;
 
 async function saveSettings() {
   const payload = {};
