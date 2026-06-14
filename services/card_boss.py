@@ -912,7 +912,6 @@ async def _run_boss(bot, bid, msg, view):
                 ko = " 💀 **KO !**" if dead else ""
                 log.append(f"Tour {turn} · 💥 **COUP DÉVASTATEUR !** Le boss cible "
                            f"**{target['name']}** : -**{_fmt(real)}**{ko}")
-                _apply_heals()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -936,7 +935,6 @@ async def _run_boss(bot, bid, msg, view):
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
                 log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
                            f"**{_fmt(total_dmg)}**{ko_txt}")
-                _apply_heals()
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
