@@ -30,28 +30,54 @@ _SOURCES_DIR = os.path.join(_PROJ_ROOT, "static", "card_sources")
 _overlay_cache: dict[str, Image.Image] = {}
 
 
+_SRC_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+
+
+def _existing_source_rel(card_id):
+    for e in _SRC_EXTS:
+        if os.path.exists(os.path.join(_SOURCES_DIR, f"{card_id}{e}")):
+            return f"/static/card_sources/{card_id}{e}"
+    return None
+
+
 def localize_source(card_id: int, source_url: str) -> str | None:
-    """Telecharge l'image ORIGINALE (non croppee) et la sauve en local
-    (webp q95, dimensions d'origine conservees) pour un re-crop perenne.
-    Retourne l'URL relative /static/card_sources/<id>.webp, ou None si echec."""
+    """Telecharge l'ORIGINAL et sauve les OCTETS BRUTS (format d'origine, ZERO
+    re-encodage = qualite parfaite, alpha gardee, pas de banding). Retourne l'URL
+    relative /static/card_sources/<id>.<ext>, ou None si echec."""
     if not source_url:
         return None
-    rel = f"/static/card_sources/{card_id}.webp"
     # Deja l'original local de CETTE carte ? rien a faire.
-    if f"/card_sources/{card_id}.webp" in source_url:
-        return rel if os.path.exists(os.path.join(_SOURCES_DIR, f"{card_id}.webp")) else None
-    src = _download_image(source_url)
-    if src is None:
+    if f"/card_sources/{card_id}." in source_url:
+        return _existing_source_rel(card_id)
+    try:
+        req = urllib.request.Request(source_url, headers={"User-Agent": _USER_AGENT})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            data = r.read()
+            ct = (r.headers.get("Content-Type") or "").lower()
+    except Exception as e:
+        print(f"[overlay] localize dl err cid={card_id}: {e}")
         return None
+    # Extension : depuis l'URL, sinon le content-type, defaut .png
+    low = source_url.split("?")[0].lower()
+    ext = next((e for e in _SRC_EXTS if low.endswith(e)), None)
+    if not ext:
+        ext = (".png" if "png" in ct else ".webp" if "webp" in ct
+               else ".gif" if "gif" in ct else ".jpg")
+    if ext == ".jpeg":
+        ext = ".jpg"
     try:
         os.makedirs(_SOURCES_DIR, exist_ok=True)
-        # Lossy q90 mais ALPHA preservée (RGBA) : transparence gardée pour re-crop,
-        # encodage rapide + fichier petit (lossless sur gros originaux = trop lent).
-        src.save(os.path.join(_SOURCES_DIR, f"{card_id}.webp"),
-                 "WEBP", quality=90, method=4)
-        return rel
+        # purge les anciennes versions (autre ext / vieux webp ré-encodé)
+        for e in _SRC_EXTS:
+            old = os.path.join(_SOURCES_DIR, f"{card_id}{e}")
+            if e != ext and os.path.exists(old):
+                try: os.remove(old)
+                except Exception: pass
+        with open(os.path.join(_SOURCES_DIR, f"{card_id}{ext}"), "wb") as f:
+            f.write(data)
+        return f"/static/card_sources/{card_id}{ext}"
     except Exception as e:
-        print(f"[overlay] localize_source err cid={card_id}: {e}")
+        print(f"[overlay] localize save err cid={card_id}: {e}")
         return None
 
 
