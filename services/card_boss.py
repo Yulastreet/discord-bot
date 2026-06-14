@@ -64,7 +64,7 @@ _GARDIEN_TAKEN = 0.65
 _GARDIEN_ATK = 0.85
 # Soigneur : soigne le plus blesse / -ATK
 _SOIGNEUR_ATK = 0.85
-_SOIGNEUR_HEAL = 0.12     # % PV max rendu au plus blesse, par tour d'equipe
+_SOIGNEUR_HEAL = 0.10     # % PV max rendu au plus blesse, par tour d'equipe
 # Duelliste : avantage elementaire amplifie
 _DUELLISTE_ADV = 1.50     # remplace le x1.25 quand on a l'avantage
 # Executeur : +ATK quand le boss est dechaine (<50% PV)
@@ -364,7 +364,7 @@ def _aptitude_text(cur_apt_label):
     base = ("🩸 **Aptitude de combat**\n"
             "**🩸 Berserker** — +30% ATK, mais +25% dégâts subis.\n"
             "**🛡️ Gardien** — -35% dégâts subis, mais -15% ATK.\n"
-            "**💚 Soigneur** — soigne le plus blessé de +12% PV/tour, -15% ATK.\n"
+            "**💚 Soigneur** — soigne le plus blessé de +10% PV/tour, -15% ATK.\n"
             "**⚔️ Duelliste** — avantage élémentaire ×1.5 (au lieu de ×1.25).\n"
             "**💀 Exécuteur** — +40% ATK quand le boss est déchaîné (<50% PV).\n\n"
             "Choisis ci-dessous.")
@@ -400,7 +400,7 @@ class _AptitudeView(discord.ui.View):
                            discord.SelectOption(label="Gardien", value="gardien", emoji="🛡️",
                                                 description="-35% dégâts subis, -15% ATK"),
                            discord.SelectOption(label="Soigneur", value="soigneur", emoji="💚",
-                                                description="Soigne le plus blessé +12% PV/tour, -15% ATK"),
+                                                description="Soigne le plus blessé +10% PV/tour, -15% ATK"),
                            discord.SelectOption(label="Duelliste", value="duelliste", emoji="⚔️",
                                                 description="Avantage élémentaire ×1.5"),
                            discord.SelectOption(label="Exécuteur", value="executeur", emoji="💀",
