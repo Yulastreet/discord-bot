@@ -1,7 +1,8 @@
-"""Diagnostic : cartes SANS original brut recupere (= risque d'artefact, a re-deriver).
+"""Health-check images cartes : artefacts (source flattée .webp) + liens externes.
 
-Une carte est 'OK' si elle a un fichier brut static/card_sources/<id>.<ext>
-(recupere proprement). Sinon = pas d'original propre -> potentiellement artefactee.
+- source brute OK  : static/card_sources/<id>.(png|jpg|jpeg|gif)  -> propre
+- source flattée   : static/card_sources/<id>.webp               -> ARTEFACT (re-deriver)
+- pas de source    : check image_url (externe = risque lien mort)
 """
 import os
 import sys
@@ -11,47 +12,56 @@ sys.path.insert(0, _ROOT)
 from database import get_db  # noqa: E402
 
 _SOURCES_DIR = os.path.join(_ROOT, "static", "card_sources")
-_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+_RENDERS_DIR = os.path.join(_ROOT, "static", "card_renders")
+_RAW = (".png", ".jpg", ".jpeg", ".gif")
 
 
-def _has_raw(cid):
-    return any(os.path.exists(os.path.join(_SOURCES_DIR, f"{cid}{e}")) for e in _EXTS)
+def _src_kind(cid):
+    if os.path.exists(os.path.join(_SOURCES_DIR, f"{cid}.webp")):
+        return "flat"
+    if any(os.path.exists(os.path.join(_SOURCES_DIR, f"{cid}{e}")) for e in _RAW):
+        return "raw"
+    return "none"
+
+
+def _ext_url(u):
+    return (bool(u) and u.startswith("http") and "/static/" not in u
+            and "/card_renders/" not in u and "/card_sources/" not in u)
+
+
+def _has_render(cid, img):
+    if "/card_renders/" in (img or ""):
+        return True
+    return (os.path.exists(os.path.join(_RENDERS_DIR, f"{cid}.webp"))
+            or os.path.exists(os.path.join(_RENDERS_DIR, f"{cid}.png")))
 
 
 def main():
     c = get_db().cursor()
-    rows = c.execute("SELECT id,name,universe,subtitle FROM cards").fetchall()
-    ok = no_raw = 0
-    by_uni = {}
-    for r in rows:
-        if _has_raw(r["id"]):
-            ok += 1
-        else:
-            no_raw += 1
-            k = (r["subtitle"] or r["universe"] or "?")
-            by_uni[k] = by_uni.get(k, 0) + 1
-    print("total cartes:", len(rows))
-    print("avec original brut recupere (propres):", ok)
-    print("SANS original brut (a re-deriver depuis la source):", no_raw)
-    print("\norigines des cartes a re-deriver (top 30):")
-    for k, v in sorted(by_uni.items(), key=lambda x: -x[1])[:30]:
-        print("  %5d  %s" % (v, k))
-
-    # Exemples d'URLs actuelles pour les origines a re-deriver (pour savoir la source)
-    print("\n--- exemples d'URLs actuelles (2 par origine, top 6) ---")
-    full = c.execute("SELECT id,name,subtitle,universe,image_url,source_image_url "
+    rows = c.execute("SELECT id,name,universe,subtitle,image_url,source_image_url "
                      "FROM cards").fetchall()
-    top = [k for k, _ in sorted(by_uni.items(), key=lambda x: -x[1])[:6]]
-    seen = {k: 0 for k in top}
-    for r in full:
-        if _has_raw(r["id"]):
-            continue
-        k = (r["subtitle"] or r["universe"] or "?")
-        if k in seen and seen[k] < 2:
-            seen[k] += 1
-            print(f"[{k}] #{r['id']} {r['name']}")
-            print(f"    image_url : {(r['image_url'] or '')[:95]}")
-            print(f"    source    : {(r['source_image_url'] or '')[:95]}")
+    raw = flat = none = 0
+    flat_uni, linkrisk = {}, 0
+    for r in rows:
+        k = _src_kind(r["id"])
+        if k == "raw":
+            raw += 1
+        elif k == "flat":
+            flat += 1
+            u = (r["subtitle"] or r["universe"] or "?")
+            flat_uni[u] = flat_uni.get(u, 0) + 1
+        else:
+            none += 1
+        if not _has_render(r["id"], r["image_url"]) and _ext_url(r["image_url"]):
+            linkrisk += 1
+    print("total cartes:", len(rows))
+    print("source brute propre (png/jpg):", raw)
+    print("source flattée .webp (ARTEFACT, a re-deriver):", flat)
+    print("sans source locale:", none)
+    print("risque lien mort (pas de render local + image externe):", linkrisk)
+    print("\norigines des artefactées (.webp) - top 30 :")
+    for k, v in sorted(flat_uni.items(), key=lambda x: -x[1])[:30]:
+        print("  %5d  %s" % (v, k))
 
 
 if __name__ == "__main__":
