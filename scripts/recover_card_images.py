@@ -51,23 +51,36 @@ def _true_original(bimg, bsrc):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--backup", required=True, help="Chemin du backup DB pre-bake")
+    ap.add_argument("--backup", help="Chemin d'un backup DB pre-bake (.db)")
+    ap.add_argument("--export", help="Chemin d'un export JSON pre-bake (cards_export.json)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
+    if not args.backup and not args.export:
+        print("Fournis --export cards_export.json (recommande) ou --backup <db>"); sys.exit(1)
 
     pub = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
-    bpath = args.backup if os.path.isabs(args.backup) else os.path.join(_ROOT, args.backup)
-    if not os.path.exists(bpath):
-        print(f"Backup introuvable : {bpath}"); sys.exit(1)
 
-    # 1. Map id -> (image_url, source_image_url) du backup pre-bake
-    bc = sqlite3.connect(bpath); bc.row_factory = sqlite3.Row
+    # 1. Map id -> (image_url, source_image_url) pre-bake (export JSON ou DB)
     backup = {}
-    for r in bc.execute("SELECT id, image_url, source_image_url FROM cards"):
-        backup[r["id"]] = (r["image_url"], r["source_image_url"])
-    bc.close()
-    print(f"Backup : {len(backup)} cartes.")
+    if args.export:
+        import json
+        epath = args.export if os.path.isabs(args.export) else os.path.join(_ROOT, args.export)
+        if not os.path.exists(epath):
+            print(f"Export introuvable : {epath}"); sys.exit(1)
+        data = json.load(open(epath, encoding="utf-8"))
+        rows = (data.get("tables", {}) or {}).get("cards") or data.get("cards") or []
+        for r in rows:
+            backup[r["id"]] = (r.get("image_url"), r.get("source_image_url"))
+    else:
+        bpath = args.backup if os.path.isabs(args.backup) else os.path.join(_ROOT, args.backup)
+        if not os.path.exists(bpath):
+            print(f"Backup introuvable : {bpath}"); sys.exit(1)
+        bc = sqlite3.connect(bpath); bc.row_factory = sqlite3.Row
+        for r in bc.execute("SELECT id, image_url, source_image_url FROM cards"):
+            backup[r["id"]] = (r["image_url"], r["source_image_url"])
+        bc.close()
+    print(f"Source pre-bake : {len(backup)} cartes.")
 
     # 2. Cartes actuelles
     conn = get_db(); c = conn.cursor()
