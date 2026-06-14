@@ -23,42 +23,67 @@ _USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
 _border_cache: dict[str, Image.Image] = {}
-_star_cache: dict[int, Image.Image] = {}
+_star_cache: dict[tuple, Image.Image] = {}
+
+# Etoiles par rareté (assets/cardrelated). secret -> fichier mythic (pas de fichier dedie).
+_STARS_BY_RARITY = {
+    "common":    "starscommune.png",
+    "rare":      "starsrare.png",
+    "epic":      "starsepic.png",
+    "legendary": "starslegendaire.png",
+    "mythic":    "starsmythic.png",
+    "secret":    "starsmythic.png",
+}
 
 
-def _get_star(size: int) -> Image.Image | None:
-    if size in _star_cache:
-        return _star_cache[size]
-    if not os.path.exists(_STARS_PATH):
+def _star_path(rarity: str | None) -> str:
+    fname = _STARS_BY_RARITY.get((rarity or "").lower())
+    if fname:
+        p = os.path.join(_ROOT, "assets", "cardrelated", fname)
+        if os.path.exists(p):
+            return p
+    return _STARS_PATH  # fallback ancien sprite unique
+
+
+def _get_star(rarity: str | None, size: int) -> Image.Image | None:
+    key = ((rarity or "").lower(), size)
+    if key in _star_cache:
+        return _star_cache[key]
+    path = _star_path(rarity)
+    if not os.path.exists(path):
         return None
     try:
-        img = Image.open(_STARS_PATH).convert("RGBA").resize((size, size), Image.LANCZOS)
-        _star_cache[size] = img
+        img = Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS)
+        _star_cache[key] = img
         return img
     except Exception:
         return None
 
 
-def _overlay_stars(canvas: Image.Image, level: int) -> Image.Image:
-    """Pose une rangee de `level` etoiles en bas-centre de la carte."""
+def _overlay_stars(canvas: Image.Image, level: int, rarity: str | None = None) -> Image.Image:
+    """Pose une rangee de `level` etoiles (sprite selon rarete) en bas-centre.
+    L'etoile du milieu est agrandie UNIQUEMENT a 5 etoiles ; sinon toutes egales."""
     level = max(0, min(5, int(level or 0)))
     if level <= 0:
         return canvas
-    if not os.path.exists(_STARS_PATH):
-        print(f"[card_render] stars.png introuvable: {_STARS_PATH}")
+    path = _star_path(rarity)
+    if not os.path.exists(path):
+        print(f"[card_render] sprite etoiles introuvable: {path}")
         return canvas
     base_size = 46
-    mid_size = 64        # etoile centrale agrandie
+    mid_size = 64        # etoile centrale agrandie (5 etoiles seulement)
     gap = 6
     center_y = int(_CARD_H * 0.80)  # un peu plus bas, sans toucher le cadre
-    mid_index = level // 2          # etoile du milieu (5 -> index 2)
-    # Tailles de chaque etoile
-    sizes = [mid_size if i == mid_index else base_size for i in range(level)]
+    if level >= 5:
+        mid_index = level // 2      # etoile du milieu (5 -> index 2)
+        sizes = [mid_size if i == mid_index else base_size for i in range(level)]
+    else:
+        sizes = [base_size] * level  # avant 5 : toutes la meme taille
     total_w = sum(sizes) + gap * (level - 1)
     out = canvas.convert("RGBA")
     x = (_CARD_W - total_w) // 2
     for s in sizes:
-        star = _get_star(s)
+        star = _get_star(rarity, s)
         if star is not None:
             y = center_y - s // 2  # centre vertical aligne
             out.paste(star, (x, y), star)
@@ -179,7 +204,14 @@ def compose_card_image(card_id: int, border: dict | None = None,
     else:
         out = base.convert("RGBA")
     if fusion_level and fusion_level > 0:
-        out = _overlay_stars(out, fusion_level)
+        rarity = None
+        try:
+            from database import card_get
+            _c = card_get(int(card_id))
+            rarity = _c.get("rarity") if _c else None
+        except Exception:
+            rarity = None
+        out = _overlay_stars(out, fusion_level, rarity)
     return out
 
 
