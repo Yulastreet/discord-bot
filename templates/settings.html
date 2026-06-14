@@ -131,7 +131,7 @@
 const FIELDS   = ['xp_min', 'xp_max', 'xp_cooldown_seconds', 'xp_curve_exponent',
                   'welcome_template',
                   'presentation_enabled', 'presentation_channel_id'];
-const DEFAULTS = JSON.parse('{{ defaults|tojson|safe }}');
+const DEFAULTS = {{ defaults|tojson|safe }};
 const PRESENTATION_CURRENT = {
   enabled: '{{ settings.get("presentation_enabled", "0") }}',
   channel: '{{ settings.get("presentation_channel_id", "") }}',
