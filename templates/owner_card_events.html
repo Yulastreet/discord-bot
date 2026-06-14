@@ -102,6 +102,29 @@
       <button class="btn btn-secondary" onclick="bossRefreshChannels()">🔄 Rafraîchir les salons du serveur</button>
     </div>
     <div id="bossHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
+
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">🔁 Cercle des éléments</div>
+      <div class="muted" style="font-size:11px;margin-bottom:10px;">
+        Chacun est <b style="color:#7bdc6b;">fort (×1.25)</b> contre le suivant et
+        <b style="color:#ff7b7b;">faible (×0.8)</b> contre le précédent.
+        Cycle : 🔆 Éclat → 🌊 Abysse → ⛓ Fracture → 🩸 Vif → 🕳 Néant → 🔆
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="text-align:left;color:var(--muted,#888);">
+          <th style="padding:5px 8px;">Élément</th>
+          <th style="padding:5px 8px;color:#7bdc6b;">Fort contre ×1.25</th>
+          <th style="padding:5px 8px;color:#ff7b7b;">Faible contre ×0.8</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🔆 Éclat</td><td style="padding:5px 8px;">🌊 Abysse</td><td style="padding:5px 8px;">🕳 Néant</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🌊 Abysse</td><td style="padding:5px 8px;">⛓ Fracture</td><td style="padding:5px 8px;">🔆 Éclat</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">⛓ Fracture</td><td style="padding:5px 8px;">🩸 Vif</td><td style="padding:5px 8px;">🌊 Abysse</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🩸 Vif</td><td style="padding:5px 8px;">🕳 Néant</td><td style="padding:5px 8px;">⛓ Fracture</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🕳 Néant</td><td style="padding:5px 8px;">🔆 Éclat</td><td style="padding:5px 8px;">🩸 Vif</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Reset roue de la chance -->
