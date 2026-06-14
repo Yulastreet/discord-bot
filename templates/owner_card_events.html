@@ -85,6 +85,17 @@
           <option value="5">Tier 5</option>
         </select>
       </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Élément (optionnel)</span>
+        <select id="bossElement" class="input">
+          <option value="">Aléatoire</option>
+          <option value="eclat">🔆 Éclat</option>
+          <option value="abysse">🌊 Abysse</option>
+          <option value="fracture">⛓ Fracture</option>
+          <option value="vif">🩸 Vif</option>
+          <option value="neant">🕳 Néant</option>
+        </select>
+      </label>
       <button class="btn btn-primary" onclick="spawnBoss()">⚔️ Spawn boss</button>
     </div>
     <div style="margin-top:8px;">
@@ -261,13 +272,14 @@ async function spawnBoss() {
   const gid = document.getElementById('bossGuild').value;
   const cid = document.getElementById('bossChannel').value;
   const tier = document.getElementById('bossTier').value;
+  const element = document.getElementById('bossElement').value;
   const hint = document.getElementById('bossHint');
   if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
   hint.textContent = 'Spawn en cours…';
   try {
     const r = await fetch('/api/owner/card-events/spawn-boss', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({guild_id: gid, channel_id: cid, tier: parseInt(tier, 10)}),
+      body: JSON.stringify({guild_id: gid, channel_id: cid, tier: parseInt(tier, 10), element: element}),
     });
     const d = await r.json();
     hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;

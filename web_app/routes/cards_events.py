@@ -194,11 +194,16 @@ def register_cards_events_routes(app, deps):
             return jsonify({"error": "tier invalide (1-5)"}), 400
         if not guild_id or not channel_id:
             return jsonify({"error": "guild_id + channel_id requis"}), 400
+        element = (data.get("element") or "").strip().lower() or None
+        if element and element not in ("eclat", "abysse", "fracture", "vif", "neant"):
+            return jsonify({"error": "element invalide"}), 400
         bot_command_enqueue(guild_id, "boss_spawn", {
             "channel_id": str(channel_id),
             "tier": tier,
+            "element": element,
         })
-        return jsonify({"ok": True, "note": f"Boss Tier {tier} dispatché (visible sous 2s)"})
+        suffix = f" élément {element}" if element else ""
+        return jsonify({"ok": True, "note": f"Boss Tier {tier}{suffix} dispatché (visible sous 2s)"})
 
 
     @app.route("/api/owner/card-events/wheel/reset", methods=["POST"])

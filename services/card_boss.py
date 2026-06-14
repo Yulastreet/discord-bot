@@ -626,7 +626,7 @@ async def _apply_card_choice(interaction, boss_id, card):
     await _refresh_boss_msg(interaction.client, boss_id)
 
 
-async def spawn_boss(bot, guild_id, channel_id, tier=1):
+async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None):
     guild = bot.get_guild(int(guild_id))
     if not guild:
         return None
@@ -635,14 +635,22 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1):
         return None
     tier = max(1, min(5, int(tier)))
     cfg = BOSS_TIERS[tier]
+    # element optionnel : avatar contraint a cet element (sinon n'importe lequel)
+    elem_filter = element if element in CARD_ELEMENT_LABELS else None
     # Avatar du boss : rareté aléatoire dans la fourchette du tier
     rng = list(_TIER_RANGE.get(tier, ["epic"]))
     random.shuffle(rng)
     avatar = None
     for _r in rng:
-        avatar = card_pick_random_exact_rarity(_r)
+        avatar = card_pick_random_exact_rarity(_r, element=elem_filter)
         if avatar:
             break
+    if not avatar and elem_filter:
+        # aucune carte de cet element dans la fourchette -> on relâche le filtre
+        for _r in rng:
+            avatar = card_pick_random_exact_rarity(_r)
+            if avatar:
+                break
     if not avatar:
         avatar = card_pick_random_exact_rarity("epic")
     name = avatar["name"] if avatar else "Entité inconnue"

@@ -2642,9 +2642,10 @@ def setup_runtime(bot, deps):
                 tier = max(1, min(5, int(payload.get("tier") or 1)))
             except (ValueError, TypeError):
                 tier = 1
+            element = (payload.get("element") or "").strip() or None
             if not channel_id:
                 raise ValueError("channel_id requis")
-            bid = await spawn_boss(bot, int(gid), int(channel_id), tier=tier)
+            bid = await spawn_boss(bot, int(gid), int(channel_id), tier=tier, element=element)
             if not bid:
                 raise RuntimeError("spawn echoue (salon introuvable ou pas de cartes)")
             return

@@ -3333,11 +3333,16 @@ def user_consume_duplicates_by_rarity(user_id, rarity, n) -> int:
     return len(to_del)
 
 
-def card_pick_random_exact_rarity(rarity):
-    """Carte aleatoire obtenable d'une rareté exacte (pour reward /cardup)."""
+def card_pick_random_exact_rarity(rarity, element=None):
+    """Carte aleatoire obtenable d'une rareté exacte. Filtre element optionnel."""
     conn = get_db(); c = conn.cursor()
-    r = c.execute("SELECT * FROM cards WHERE rarity = ? AND COALESCE(not_obtainable,0) = 0 "
-                  "ORDER BY RANDOM() LIMIT 1", (rarity,)).fetchone()
+    if element:
+        r = c.execute("SELECT * FROM cards WHERE rarity = ? AND element = ? "
+                      "AND COALESCE(not_obtainable,0) = 0 ORDER BY RANDOM() LIMIT 1",
+                      (rarity, element)).fetchone()
+    else:
+        r = c.execute("SELECT * FROM cards WHERE rarity = ? AND COALESCE(not_obtainable,0) = 0 "
+                      "ORDER BY RANDOM() LIMIT 1", (rarity,)).fetchone()
     conn.close()
     return dict(r) if r else None
 
