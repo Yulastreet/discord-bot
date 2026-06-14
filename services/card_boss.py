@@ -1018,9 +1018,13 @@ async def _finish(bot, bid, msg, view, log, victory):
         # Tri par degats decroissants -> le 1er = MVP
         winners = sorted([p for p in real_parts if p["damage"] > 0],
                          key=lambda x: -x["damage"])
+        # Essences : base + part de degats, CAPPÉ par tier (T5 = 5000 max, hors bonus roue)
+        _ESS_CAP = {1: 800, 2: 1500, 3: 2500, 4: 3500, 5: 5000}
+        cap = _ESS_CAP.get(tier, 1000)
         loot_lines = []
         for idx, p in enumerate(winners):
-            ess = essence_reward_add(p["user_id"], tier * 150 + p["damage"] // 200)
+            base_ess = min(cap, tier * 100 + p["damage"] // 4000)
+            ess = essence_reward_add(p["user_id"], base_ess)
             parts_loot = [f"+{_fmt(ess)} ✨"]
             # 1. Recompense carte selon la rareté de l'avatar
             if avatar_rar == "secret":
