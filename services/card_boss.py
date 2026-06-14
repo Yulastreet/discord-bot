@@ -840,9 +840,16 @@ async def _run_boss(bot, bid, msg, view):
             pass
 
         # Tours ALTERNES : 1 tour = 1 action. L'équipe commence, puis le boss, etc.
+        from database import card_boss_heal
+        tier = boss["tier"]
+        # T4+ : dechainement plus fort. T5 : coup devastateur 2 fois.
+        enrage_mult = 1.65 if tier >= 4 else 1.50
+        max_smashes = 2 if tier >= 5 else 1
+        boss_self_heal = (tier >= 4)   # T4+ : le boss se soigne 1x sous 20% PV
         turn = 0
         actor = "party"
-        smash_used = False
+        smash_count = 0
+        boss_healed = False
         enrage_announced = False
         def _apt(p):
             return p.get("aptitude") or ""
@@ -898,13 +905,19 @@ async def _run_boss(bot, bid, msg, view):
                 eff = " 🔥" if best_eff > 1 else ""
                 log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
                 _apply_heals()
+                # T4+ : le boss se soigne une fois quand il tombe sous 20% PV
+                if boss_self_heal and not boss_healed and 0 < boss_hp < boss["max_hp"] * 0.20:
+                    boss_healed = True
+                    heal = int(boss["max_hp"] * 0.20)
+                    boss_hp = card_boss_heal(bid, heal)
+                    log.append(f"Tour {turn} · 🩹 **Le boss se régénère (+{_fmt(heal)} PV) !**")
                 if boss_hp <= 0:
                     card_boss_set_status(bid, "defeated")
                     break
                 actor = "boss"
-            elif not smash_used and random.random() < 0.25:
-                # Coup special : 1 fois par combat, cible 1 joueur, degats x3
-                smash_used = True
+            elif smash_count < max_smashes and random.random() < 0.25:
+                # Coup special : cible 1 joueur, degats x3 (T5 : jusqu'a 2x/combat)
+                smash_count += 1
                 target = random.choice(alive)
                 cm = element_matchup(boss["element"], target["element"])
                 dmg = max(1, int(boss["atk"] * cm * 3))
@@ -917,12 +930,13 @@ async def _run_boss(bot, bid, msg, view):
                     break
                 actor = "party"
             else:
-                # Le boss frappe TOUTE l'équipe (AoE). Déchaîné (<50% PV) = x1.5
+                # Le boss frappe TOUTE l'équipe (AoE). Déchaîné (<50% PV).
                 enraged = boss["hp"] < boss["max_hp"] * 0.5
-                rage = 1.50 if enraged else 1.0
+                rage = enrage_mult if enraged else 1.0
                 if enraged and not enrage_announced:
                     enrage_announced = True
-                    log.append("🔥 **Le boss se déchaîne et inflige 1,5x plus de dégâts !**")
+                    log.append(f"🔥 **Le boss se déchaîne et inflige {enrage_mult:.2f}x"
+                               f" plus de dégâts !**".replace(".", ","))
                 kos = []
                 total_dmg = 0
                 for p in alive:

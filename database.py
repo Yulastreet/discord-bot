@@ -3101,6 +3101,16 @@ def card_boss_apply_damage(boss_id, dmg) -> int:
     return int(r["hp"]) if r else 0
 
 
+def card_boss_heal(boss_id, amount) -> int:
+    """Soigne le boss (cappe a max_hp). Retourne le HP apres soin."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_boss SET hp = MIN(max_hp, hp + ?) WHERE id = ?",
+              (int(amount), int(boss_id)))
+    r = c.execute("SELECT hp FROM card_boss WHERE id = ?", (int(boss_id),)).fetchone()
+    conn.commit(); conn.close()
+    return int(r["hp"]) if r else 0
+
+
 def card_boss_set_status(boss_id, status):
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_boss SET status = ? WHERE id = ?", (status, int(boss_id)))
