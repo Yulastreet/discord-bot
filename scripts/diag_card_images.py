@@ -1,39 +1,40 @@
-"""Diagnostic : etat des images de cartes (recuperable direct vs original perdu)."""
+"""Diagnostic : cartes SANS original brut recupere (= risque d'artefact, a re-deriver).
+
+Une carte est 'OK' si elle a un fichier brut static/card_sources/<id>.<ext>
+(recupere proprement). Sinon = pas d'original propre -> potentiellement artefactee.
+"""
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
 from database import get_db  # noqa: E402
 
+_SOURCES_DIR = os.path.join(_ROOT, "static", "card_sources")
+_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
-def _ext(u):
-    return (bool(u) and u.startswith("http")
-            and "/static/" not in u and "/card_renders/" not in u
-            and "/card_sources/" not in u)
+
+def _has_raw(cid):
+    return any(os.path.exists(os.path.join(_SOURCES_DIR, f"{cid}{e}")) for e in _EXTS)
 
 
 def main():
     c = get_db().cursor()
-    rows = c.execute("SELECT id,name,universe,subtitle,image_url,source_image_url "
-                     "FROM cards").fetchall()
-    src_ext = img_ext = both_local = 0
-    lost = {}
+    rows = c.execute("SELECT id,name,universe,subtitle FROM cards").fetchall()
+    ok = no_raw = 0
+    by_uni = {}
     for r in rows:
-        se = _ext(r["source_image_url"]); ie = _ext(r["image_url"])
-        if se:
-            src_ext += 1
-        if ie:
-            img_ext += 1
-        if not se and not ie:
-            both_local += 1
+        if _has_raw(r["id"]):
+            ok += 1
+        else:
+            no_raw += 1
             k = (r["subtitle"] or r["universe"] or "?")
-            lost[k] = lost.get(k, 0) + 1
+            by_uni[k] = by_uni.get(k, 0) + 1
     print("total cartes:", len(rows))
-    print("source_image_url externe (recuperable direct):", src_ext)
-    print("image_url externe (recuperable direct):", img_ext)
-    print("TOUT local (original perdu, a re-deriver):", both_local)
-    print("\norigines des perdues (top 25):")
-    for k, v in sorted(lost.items(), key=lambda x: -x[1])[:25]:
+    print("avec original brut recupere (propres):", ok)
+    print("SANS original brut (a re-deriver depuis la source):", no_raw)
+    print("\norigines des cartes a re-deriver (top 30):")
+    for k, v in sorted(by_uni.items(), key=lambda x: -x[1])[:30]:
         print("  %5d  %s" % (v, k))
 
 
