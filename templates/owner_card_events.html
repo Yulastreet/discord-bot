@@ -194,6 +194,40 @@
     <div id="simHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
   </div>
 
+  <!-- Faux drop (troll) -->
+  <div class="ce-section ce-trigger" style="margin-top:14px;">
+    <h3>🤡 Faux drop (troll)</h3>
+    <div class="muted" style="font-size:11px;margin-bottom:8px;">
+      Drop classique (image + code à taper) de la carte de ton choix. Une fois claim, le bot révèle que c'était faux et se moque — <b>aucune carte donnée</b>.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Serveur</span>
+        <select id="fakeGuild" onchange="fakeGuildChanged()" class="input"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Salon</span>
+        <select id="fakeChannel" class="input"></select>
+      </label>
+      <button class="btn btn-primary" onclick="fakeDrop()">🤡 Lancer le troll</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Carte affichée (le piège)</span>
+        <input id="fakeCardSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();fakeCardSearchGo();}">
+      </label>
+      <button class="btn" onclick="fakeCardSearchGo()">🔍 Chercher</button>
+    </div>
+    <div id="fakeCardResults" style="margin-top:8px;display:none;">
+      <select id="fakeCardPick" class="input" onchange="fakeCardPicked()"></select>
+    </div>
+    <div id="fakeCardChosen" class="muted" style="font-size:12px;margin-top:6px;display:none;">
+      🎯 Carte : <b id="fakeCardChosenName"></b>
+    </div>
+    <div id="fakeHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
+  </div>
+
   <!-- Reset roue de la chance -->
   <div class="ce-section ce-trigger" style="margin-top:14px;">
     <h3>🎡 Roue de la chance</h3>
@@ -317,6 +351,8 @@ async function loadGuilds() {
     if (bsel) bsel.innerHTML = opts;
     const ssel = document.getElementById('simGuild');
     if (ssel) ssel.innerHTML = opts;
+    const fsel = document.getElementById('fakeGuild');
+    if (fsel) fsel.innerHTML = opts;
   } catch (e) {}
 }
 function trgGuildChanged() {
@@ -492,6 +528,66 @@ async function simulateRoll() {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.simulateRoll = simulateRoll;
+
+// ---- Faux drop (troll) ----
+function fakeGuildChanged() {
+  const gid = document.getElementById('fakeGuild').value;
+  const g = _guildsCache.find(x => x.id === gid);
+  const ch = document.getElementById('fakeChannel');
+  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
+  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+}
+window.fakeGuildChanged = fakeGuildChanged;
+
+let _fakeCardId = null;
+async function fakeCardSearchGo() {
+  const q = (document.getElementById('fakeCardSearch').value || '').trim();
+  const hint = document.getElementById('fakeHint');
+  if (!q) { hint.textContent = 'Tape un nom de carte.'; return; }
+  hint.textContent = 'Recherche…';
+  try {
+    const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
+    const d = await r.json();
+    const sel = document.getElementById('fakeCardPick');
+    const box = document.getElementById('fakeCardResults');
+    const items = d.items || [];
+    if (!items.length) { hint.textContent = 'Aucune carte trouvée.'; box.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">— Choisir une carte (' + items.length + ') —</option>' +
+      items.map(c => `<option value="${c.id}">${escHtml(c.name)} · ${escHtml((c.rarity||'').toUpperCase())} · ${escHtml(c.universe||'?')} · #${c.id}</option>`).join('');
+    box.style.display = 'block';
+    hint.textContent = items.length >= 25 ? '25+ résultats, affine ta recherche.' : '';
+  } catch (e) { hint.textContent = `Erreur recherche : ${e.message}`; }
+}
+window.fakeCardSearchGo = fakeCardSearchGo;
+
+function fakeCardPicked() {
+  const sel = document.getElementById('fakeCardPick');
+  _fakeCardId = sel.value || null;
+  const box = document.getElementById('fakeCardChosen');
+  if (_fakeCardId) {
+    document.getElementById('fakeCardChosenName').textContent = sel.options[sel.selectedIndex].textContent;
+    box.style.display = 'block';
+  } else { box.style.display = 'none'; }
+}
+window.fakeCardPicked = fakeCardPicked;
+
+async function fakeDrop() {
+  const gid = document.getElementById('fakeGuild').value;
+  const cid = document.getElementById('fakeChannel').value;
+  const hint = document.getElementById('fakeHint');
+  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
+  if (!_fakeCardId) { hint.textContent = 'Choisis une carte (recherche + sélection).'; return; }
+  hint.textContent = 'Troll en cours…';
+  try {
+    const r = await fetch('/api/owner/card-events/fake-drop', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({guild_id: gid, channel_id: cid, card_id: parseInt(_fakeCardId, 10)}),
+    });
+    const d = await r.json();
+    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.fakeDrop = fakeDrop;
 
 async function bossRefreshChannels() {
   const gid = document.getElementById('bossGuild').value;

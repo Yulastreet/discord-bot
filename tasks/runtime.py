@@ -2655,6 +2655,21 @@ def setup_runtime(bot, deps):
                 raise RuntimeError("spawn echoue (salon introuvable ou pas de cartes)")
             return
 
+        elif name == "fake_drop":
+            # Drop normal (image + code) mais marque fake_troll : au claim, le bot
+            # se moque et ne donne RIEN (cf handle_message_claim).
+            from services.card_events import trigger_event_drop
+            channel_id = payload.get("channel_id")
+            card_id = payload.get("card_id")
+            if not channel_id or not card_id:
+                raise ValueError("channel_id + card_id requis")
+            result = await trigger_event_drop(
+                bot, int(gid), int(channel_id),
+                card_id=int(card_id), triggered_by="fake_troll")
+            if not result:
+                raise RuntimeError("fake drop echoue (salon/carte introuvable)")
+            return
+
         elif name == "simulate_roll":
             # Faux roll de test : poste le format /roll + ping les wishers, SANS
             # ajouter la carte a une collection (test pur des notifs wishlist).

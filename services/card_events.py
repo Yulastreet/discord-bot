@@ -325,6 +325,39 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
     ok = card_event_log_claim(matched["id"], message.author.id)
     if not ok:
         return False
+    # === FAUX DROP (troll) : aucune carte donnee, le bot se moque ===
+    if (matched.get("triggered_by") or "") == "fake_troll":
+        from database import card_get
+        cname = (card_get(matched["card_id"]) or {}).get("name", "cette carte")
+        try:
+            msg_id = matched.get("message_id")
+            if msg_id:
+                event_msg = await message.channel.fetch_message(int(msg_id))
+                if event_msg and event_msg.embeds:
+                    emb = event_msg.embeds[0]
+                    emb.description = (emb.description or "") + \
+                        f"\n\n🤡 **{message.author.mention} s'est fait troll !**"
+                    emb.color = 0xff3d57
+                    await event_msg.edit(embed=emb)
+        except Exception as e:
+            print(f"[fake drop] edit err: {e}")
+        troll = random.choice([
+            f"🤡 Mdrrr **{message.author.display_name}**, tu pensais vraiment avoir **{cname}** ? "
+            f"Faux drop, t'as RIEN gagné. 😹",
+            f"😹 Hahaha **{message.author.display_name}** a foncé sur **{cname}**… "
+            f"sauf que c'était un PIÈGE. Zéro carte. 🤡",
+            f"🤡 Plot twist : **{cname}** n'existait jamais. Bien joué pour rien "
+            f"**{message.author.display_name}** 💀",
+        ])
+        try:
+            await message.channel.send(troll)
+        except Exception:
+            pass
+        try:
+            await message.add_reaction("🤡")
+        except Exception:
+            pass
+        return True
     try:
         user_card_add(message.author.id, matched["card_id"])
     except Exception as e:
