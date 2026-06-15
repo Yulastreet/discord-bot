@@ -355,37 +355,53 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         embed.add_field(name="​", value=info, inline=False)
     if parts:
         plist = parts[:12]
-        # 3 colonnes inline alignees par Discord : Combattant / PV / ATK.
-        # 2e ligne sous le pseudo : barre de vie EN COMBAT, sinon puissance (prepa).
-        # Retiree si ça depasse la limite 1024/champ (la totale du groupe reste).
         in_battle = bool(battle) or boss["status"] == "fighting"
-        seg = _fit_segments(len(plist))
-
-        def _name_cells(line2):
-            cells = []
+        if in_battle:
+            # EN COMBAT : 1 bloc par joueur (pas de colonnes), barre de vie 10 segments.
+            blocks = []
             for p in plist:
                 ko = " 💀" if p["hp"] <= 0 else ""
-                line = f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko}"
-                if line2 == "bar":
-                    line += "\n" + _player_bar(bot, p["hp"], p.get("max_hp") or p["hp"], seg)
-                elif line2 == "power":
-                    line += f"\n⚡{_power_digits(bot, combat_power(p.get('max_hp') or p['hp'], p['atk']))}"
-                cells.append(line)
-            return cells
-
-        mode = "bar" if in_battle else "power"
-        name_cells = _name_cells(mode)
-        if len("​\n" + "\n".join(name_cells)) > 1000:
-            mode = None
-            name_cells = _name_cells(None)
-        # col PV/ATK : 2e ligne vide quand la 2e ligne existe (alignement des rangees)
-        pad = "\n​" if mode else ""
-        hp_cells = [f"{_fmt(max(0, p['hp']))}{pad}" for p in plist]
-        atk_cells = [f"{_fmt(p['atk'])}{pad}" for p in plist]
-        embed.add_field(name=f"🛡️ Équipe ({len(parts)})",
-                        value="​\n" + "\n".join(name_cells), inline=True)
-        embed.add_field(name="❤️ PV", value="​\n" + "\n".join(hp_cells), inline=True)
-        embed.add_field(name="🗡️ ATK", value="​\n" + "\n".join(atk_cells), inline=True)
+                bar = _player_bar(bot, p["hp"], p.get("max_hp") or p["hp"], 10)
+                blocks.append(
+                    f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko} "
+                    f"🗡️ {_fmt(p['atk'])}\n"
+                    f"HP ❤️ {bar}")
+            # Decoupe en plusieurs champs (barres lourdes : limite 1024/champ).
+            chunks, cur = [], ""
+            for b in blocks:
+                add = ("\n" if cur else "") + b
+                if cur and len(cur) + len(add) > 950:
+                    chunks.append(cur); cur = b
+                else:
+                    cur += add
+            if cur:
+                chunks.append(cur)
+            for i, ch in enumerate(chunks):
+                embed.add_field(name=(f"🛡️ Équipe ({len(parts)})" if i == 0 else "​"),
+                                value=(("​\n" + ch) if i == 0 else ch), inline=False)
+        else:
+            # PREPA : 3 colonnes inline alignees par Discord, puissance sous le pseudo.
+            def _name_cells(with_power):
+                cells = []
+                for p in plist:
+                    ko = " 💀" if p["hp"] <= 0 else ""
+                    line = f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko}"
+                    if with_power:
+                        line += f"\n⚡{_power_digits(bot, combat_power(p.get('max_hp') or p['hp'], p['atk']))}"
+                    cells.append(line)
+                return cells
+            with_power = True
+            name_cells = _name_cells(True)
+            if len("​\n" + "\n".join(name_cells)) > 1000:
+                with_power = False
+                name_cells = _name_cells(False)
+            pad = "\n​" if with_power else ""
+            hp_cells = [f"{_fmt(max(0, p['hp']))}{pad}" for p in plist]
+            atk_cells = [f"{_fmt(p['atk'])}{pad}" for p in plist]
+            embed.add_field(name=f"🛡️ Équipe ({len(parts)})",
+                            value="​\n" + "\n".join(name_cells), inline=True)
+            embed.add_field(name="❤️ PV", value="​\n" + "\n".join(hp_cells), inline=True)
+            embed.add_field(name="🗡️ ATK", value="​\n" + "\n".join(atk_cells), inline=True)
         total_pw = sum(combat_power(p.get('max_hp') or p['hp'], p['atk']) for p in parts)
         embed.add_field(name="⚡ Puissance totale du groupe",
                         value=_power_digits(bot, total_pw), inline=False)
