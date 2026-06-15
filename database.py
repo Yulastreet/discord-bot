@@ -2779,6 +2779,15 @@ CARD_RARITY_COMBAT_MULT = {
     "common": 0.80, "rare": 0.92, "epic": 1.05,
     "legendary": 1.25, "mythic": 1.55, "secret": 1.90,
 }
+
+# Puissance de combat (affichage flashy) = PV + ATK x poids. Cappee a 999999999999999.
+COMBAT_POWER_ATK_WEIGHT = 2
+COMBAT_POWER_MAX = 999999999999999
+
+
+def combat_power(hp, atk) -> int:
+    p = int(hp) + int(atk) * COMBAT_POWER_ATK_WEIGHT
+    return max(0, min(COMBAT_POWER_MAX, p))
 # +20%/etoile (cap 5 = +100%, x2.0). La FUSION est le vrai axe de puissance (recompense
 # l'investissement) plutot que la chance au roll. Ainsi une common 5* (0.80x2.0=1.60)
 # bat une mythic brute (1.55). Les valeurs 0* ne changent pas -> equilibrage boss preserve.

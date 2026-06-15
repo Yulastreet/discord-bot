@@ -23,8 +23,9 @@ from database import (
     element_matchup, BOSS_TIER_SCALE, card_boss_set_stats,
     card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
     user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
-    CARD_ELEMENTS,
+    CARD_ELEMENTS, combat_power,
 )
+import os as _os
 import time as _t
 
 _RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
@@ -206,6 +207,19 @@ def _cemoji(bot, name, fallback):
     return fallback
 
 
+def _power_digits(bot, n) -> str:
+    """Nombre -> emojis chiffres custom du SEUL serveur support (noms '0_'..'9_').
+    Restreint au support (noms courts '4_' en collision avec d'autres serveurs)."""
+    sg = int((_os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
+    guild = bot.get_guild(sg) if sg else None
+    by_name = {}
+    if guild:
+        for e in guild.emojis:
+            by_name[e.name.lower()] = str(e)
+    return "".join(by_name.get(f"{ch}_", ch) if ch.isdigit() else ch
+                   for ch in str(int(n)))
+
+
 def _bar(bot, cur, mx, enraged=False, segments=15):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
@@ -275,8 +289,10 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     embed.add_field(name="Faible contre", value=weak_txt, inline=True)
     embed.add_field(name="ATK", value=f"🗡️ {_fmt(boss['atk'])}", inline=True)
     _enraged = boss["status"] == "fighting" and boss["hp"] < boss["max_hp"] * 0.5
+    boss_pw = _power_digits(bot, combat_power(boss['max_hp'], boss['atk']))
     embed.add_field(name=f"❤️ PV du boss : {_fmt(boss['hp'])} / {_fmt(boss['max_hp'])}",
-                    value=_bar(bot, boss['hp'], boss['max_hp'], enraged=_enraged),
+                    value=_bar(bot, boss['hp'], boss['max_hp'], enraged=_enraged)
+                          + f"\n⚡ **PUISSANCE** : {boss_pw}",
                     inline=False)
     # Info (recrutement / résultat) JUSTE SOUS les PV
     info = ""
@@ -298,12 +314,28 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     if info:
         embed.add_field(name="​", value=info, inline=False)
     if parts:
-        lines = []
+        blocks = []
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
-            lines.append(f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))} "
-                         f"❤️ {_fmt(max(0,p['hp']))} · 🗡️ {_fmt(p['atk'])}{ko}")
-        embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="\n".join(lines), inline=False)
+            pw = _power_digits(bot, combat_power(p.get('max_hp') or p['hp'], p['atk']))
+            blocks.append(
+                f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko}\n"
+                f"⚡ {pw}\n"
+                f"❤️ {_fmt(max(0,p['hp']))} · 🗡️ {_fmt(p['atk'])}")
+        # Decoupe en plusieurs champs (limite 1024/champ avec les emojis chiffres).
+        chunks, cur = [], ""
+        for b in blocks:
+            add = ("\n\n" if cur else "") + b
+            if cur and len(cur) + len(add) > 950:
+                chunks.append(cur); cur = b
+            else:
+                cur += add
+        if cur:
+            chunks.append(cur)
+        for i, ch in enumerate(chunks):
+            # blank line apres le header sur le 1er champ
+            embed.add_field(name=(f"🛡️ Équipe ({len(parts)})" if i == 0 else "​"),
+                            value=(("​\n" + ch) if i == 0 else ch), inline=False)
     if log:
         embed.add_field(name="📜 Combat", value="\n".join(log[-4:]), inline=False)
     # Image : battlefield pendant le combat, sinon carte du boss durant le recrutement

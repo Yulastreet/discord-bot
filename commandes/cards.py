@@ -123,16 +123,6 @@ def _roll_emoji(bot) -> str:
     return s or "🎟️"
 
 
-# Poids de l'ATK dans la puissance de combat (PV = poids 1). Reglable.
-_POWER_ATK_WEIGHT = 2
-
-
-def combat_power(hp, atk) -> int:
-    """Puissance de combat = PV + ATK x poids. Cappee a 999999999999999."""
-    p = int(hp) + int(atk) * _POWER_ATK_WEIGHT
-    return max(0, min(999999999999999, p))
-
-
 def _power_emoji_str(bot, n) -> str:
     """Nombre -> suite d'emojis chiffres custom du SERVEUR SUPPORT (noms '0_'..'9_').
     Recherche limitee au support (noms '4_' etc en collision avec d'autres serveurs).
@@ -1457,7 +1447,7 @@ def setup_cards_commands(bot, deps):
         _avg = (_total_pts / total) if total else 0
         _expected = 3.85  # esperance de points/roll selon les poids de tirage
         luck = max(0, min(100, round(_avg / _expected * 50))) if total else 0
-        from database import compute_player_combat_stats
+        from database import compute_player_combat_stats, combat_power
         cs = compute_player_combat_stats(uid)
         def _fmt(n):
             return f"{int(n):,}".replace(",", " ")
