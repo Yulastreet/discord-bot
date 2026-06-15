@@ -220,6 +220,28 @@ def _power_digits(bot, n) -> str:
                    for ch in str(int(n)))
 
 
+def _boss_image_url(boss):
+    """URL http affichable pour l'image du boss. image_url distante directe,
+    sinon resout le render local de l'avatar via le domaine (PUBLIC_BASE_URL).
+    Les cartes hebergees ont une image_url /static relative que set_image refuse."""
+    img = boss.get("image_url") or ""
+    if isinstance(img, str) and img.startswith("http"):
+        return img
+    try:
+        from commandes.cards import _resolve_card_image
+        cid = boss.get("card_id")
+        card = card_get(cid) if cid else None
+        if not card and cid:
+            card = {"id": cid, "image_url": img}
+        if card:
+            url, _file = _resolve_card_image(card)
+            if url:
+                return url
+    except Exception:
+        pass
+    return None
+
+
 def _bar(bot, cur, mx, enraged=False, segments=15):
     cur = max(0, cur)
     filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
@@ -344,8 +366,10 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     # Image : battlefield pendant le combat, sinon carte du boss durant le recrutement
     if battle:
         embed.set_image(url="attachment://battle.png")
-    elif boss["status"] == "recruiting" and boss.get("image_url") and str(boss["image_url"]).startswith("http"):
-        embed.set_image(url=boss["image_url"])
+    elif boss["status"] == "recruiting":
+        burl = _boss_image_url(boss)
+        if burl:
+            embed.set_image(url=burl)
     return embed
 
 
