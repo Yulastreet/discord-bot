@@ -314,6 +314,9 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     if info:
         embed.add_field(name="​", value=info, inline=False)
     if parts:
+        total_pw = sum(combat_power(p.get('max_hp') or p['hp'], p['atk']) for p in parts)
+        embed.add_field(name="⚡ Puissance totale du groupe",
+                        value=_power_digits(bot, total_pw), inline=False)
         blocks = []
         for p in parts[:12]:
             ko = " 💀" if p["hp"] <= 0 else ""
