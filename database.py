@@ -2748,24 +2748,42 @@ def _collection_soft_factor(total_cards):
     return eff / n
 
 
+# Bonus de fusion (% sur PV+ATK de base). Lineaire 1%/etoile jusqu'a 15, puis
+# courbe logarithmique a rendement decroissant, SANS cap (pente continue a 15).
+FUSION_CURVE_KNEE = 15
+FUSION_CURVE_A = 30.0
+
+
+def fusion_bonus_pct(stars) -> float:
+    """Retourne le bonus de fusion en POURCENT (ex 23.4) pour un total d'etoiles."""
+    import math
+    s = max(0, int(stars))
+    if s <= FUSION_CURVE_KNEE:
+        return float(s)
+    return FUSION_CURVE_KNEE + FUSION_CURVE_A * math.log(
+        1 + (s - FUSION_CURVE_KNEE) / FUSION_CURVE_A)
+
+
 def compute_player_combat_stats(user_id):
     """PV + ATK de BASE d'un joueur selon ses cartes UNIQUES pondérées par rareté,
-    + bonus des etoiles de fusion (+1% PV/ATK par etoile, cap +50%).
+    + bonus des etoiles de fusion (courbe fusion_bonus_pct, sans cap).
     C'est le socle 'collection' (recompense le temps de jeu). La carte ENGAGEE
     applique ensuite un multiplicateur (voir engaged_combat_stats).
-    Retourne {hp, atk, unique_total, stars}."""
+    Retourne {hp, atk, unique_total, stars, bonus_pct}."""
     uniq = user_unique_rarity_breakdown(user_id)
     hp = PLAYER_HP_BASE + sum(PLAYER_HP_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
     atk = PLAYER_ATK_BASE + sum(PLAYER_ATK_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
     fmap = user_card_fusion_map(user_id)
     stars = sum(fmap.values())
-    mult = 1.0 + min(0.50, stars * 0.01)
+    bonus_pct = fusion_bonus_pct(stars)
+    mult = 1.0 + bonus_pct / 100.0
     soft = _collection_soft_factor(user_card_count(user_id))
     return {
         "hp": int(hp * mult * soft),
         "atk": int(atk * mult * soft),
         "unique_total": sum(uniq.values()),
         "stars": stars,
+        "bonus_pct": bonus_pct,
     }
 
 

@@ -1458,7 +1458,7 @@ def setup_cards_commands(bot, deps):
         def _fmt(n):
             return f"{int(n):,}".replace(",", " ")
         DIV = "══════════════════════════════"
-        bonus_inline = f" _(bonus fusion +{min(50, cs['stars'])}%)_" if cs['stars'] else ""
+        bonus_inline = f" _(bonus fusion +{round(cs.get('bonus_pct', 0))}%)_" if cs['stars'] else ""
         power = combat_power(cs['hp'], cs['atk'])
         power_emojis = _power_emoji_str(bot, power)
 
