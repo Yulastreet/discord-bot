@@ -2312,6 +2312,147 @@ def setup_cards_commands(bot, deps):
             msg += "\n_(Le forward salon support a échoué mais ta suggestion est bien enregistrée.)_"
         await interaction.response.send_message(msg, ephemeral=True)
 
+    # === /cardmodify : proposer la modification d'une carte EXISTANTE ===
+    @bot.tree.command(name="cardmodify",
+                       description="Proposer une modification d'une carte existante (rareté, univers, image…)")
+    @app_commands.describe(
+        nom="Nom EXACT de la carte existante à modifier",
+        rarete="Nouvelle rareté (optionnel)",
+        univers="Nouvel univers (optionnel)",
+        origine="Nouvelle origine (optionnel)",
+        nouveau_nom="Nouveau nom (optionnel)",
+        image_url="Nouvelle image par URL (optionnel)",
+        image="Nouvelle image en pièce jointe (optionnel)",
+    )
+    @app_commands.choices(univers=[
+        app_commands.Choice(name="Anime / Manga",  value="Anime"),
+        app_commands.Choice(name="Jeu Vidéo",      value="Jeu Vidéo"),
+        app_commands.Choice(name="Film / Série",   value="Film/Série"),
+        app_commands.Choice(name="Comics",          value="Comics"),
+        app_commands.Choice(name="Autre",           value="Autre"),
+    ])
+    @app_commands.choices(rarete=[
+        app_commands.Choice(name="⚪ Common",      value="common"),
+        app_commands.Choice(name="🔵 Rare",         value="rare"),
+        app_commands.Choice(name="🟣 Epic",         value="epic"),
+        app_commands.Choice(name="🟠 Legendary",    value="legendary"),
+        app_commands.Choice(name="🔴 Mythic",       value="mythic"),
+        app_commands.Choice(name="🌈 Secret",       value="secret"),
+    ])
+    async def cardmodify(interaction: discord.Interaction,
+                          nom: str,
+                          rarete: app_commands.Choice[str] = None,
+                          univers: app_commands.Choice[str] = None,
+                          origine: str = None,
+                          nouveau_nom: str = None,
+                          image_url: str = None,
+                          image: discord.Attachment = None):
+        from database import card_get_by_name, card_suggestion_add
+        card = card_get_by_name(nom.strip())
+        if not card:
+            await interaction.response.send_message(
+                f"Carte introuvable : `{nom}`. Pour proposer une NOUVELLE carte, "
+                f"utilise `/cardsuggest`.", ephemeral=True)
+            return
+        # Image optionnelle (URL ou piece jointe)
+        final_url = None
+        source_type = None
+        if image:
+            ct = (image.content_type or "").lower()
+            if not ct.startswith("image/"):
+                await interaction.response.send_message(
+                    "La pièce jointe doit être une image.", ephemeral=True)
+                return
+            if image.size > 8 * 1024 * 1024:
+                await interaction.response.send_message(
+                    "Image trop lourde (max 8 Mo).", ephemeral=True)
+                return
+            final_url = image.url
+            source_type = "attachment"
+        elif image_url:
+            u = image_url.strip()
+            if not (u.startswith("http://") or u.startswith("https://")):
+                await interaction.response.send_message(
+                    "L'URL doit commencer par http:// ou https://.", ephemeral=True)
+                return
+            final_url = u
+            source_type = "url"
+        new_rar = rarete.value if rarete else None
+        new_uni = univers.value if univers else None
+        new_origin = (origine or "").strip() or None
+        new_name = (nouveau_nom or "").strip()[:100] or None
+        if not any([new_rar, new_uni, new_origin, new_name, final_url]):
+            await interaction.response.send_message(
+                "Indique au moins un changement (rareté, univers, origine, nom ou image).",
+                ephemeral=True)
+            return
+        try:
+            sid = card_suggestion_add(
+                suggester_id=interaction.user.id,
+                suggester_name=str(interaction.user),
+                guild_id=interaction.guild.id if interaction.guild else None,
+                channel_id=interaction.channel.id if interaction.channel else None,
+                name=new_name or card["name"],   # NOT NULL : nouveau nom sinon actuel
+                universe=new_uni,
+                subtitle=new_origin,
+                image_url=final_url,
+                source_type=source_type or "url",
+                suggestion_type="edit",
+                target_card_id=card["id"],
+                proposed_rarity=new_rar,
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Erreur enregistrement : `{type(e).__name__}`. Re-essaie.",
+                ephemeral=True)
+            return
+        # Resume des changements proposes
+        changes = []
+        if new_name:
+            changes.append(f"Nom → **{new_name}**")
+        if new_rar:
+            changes.append(f"Rareté → **{new_rar}**")
+        if new_uni:
+            changes.append(f"Univers → **{new_uni}**")
+        if new_origin:
+            changes.append(f"Origine → **{new_origin}**")
+        if final_url:
+            changes.append("Image → **nouvelle**")
+        embed = discord.Embed(
+            title=f"✏ Modification #{sid} — {card['name']}",
+            description=(f"_Carte #{card['id']} · actuellement **{card.get('rarity','?')}**_\n\n"
+                        + "\n".join(f"• {c}" for c in changes)),
+            color=0xF2B33A)
+        if final_url:
+            embed.set_image(url=final_url)
+        avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
+        embed.set_footer(text=f"Proposée par {interaction.user.display_name}", icon_url=avatar_url)
+        support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
+        forward_ok = False
+        if support_channel:
+            try:
+                await support_channel.send(embed=embed)
+                forward_ok = True
+            except Exception as e:
+                print(f"[cardmodify] forward err: {e}")
+        msg = f"✅ **Modification envoyée à l'équipe.** Numéro #{sid}."
+        if not forward_ok:
+            msg += "\n_(Le forward salon support a échoué mais c'est bien enregistré.)_"
+        await interaction.response.send_message(msg, ephemeral=True)
+
+    @cardmodify.autocomplete("nom")
+    async def cardmodify_autocomplete(interaction: discord.Interaction, current: str):
+        from database import get_db
+        try:
+            conn = get_db(); c = conn.cursor()
+            q = (current or "").strip().lower()
+            rows = c.execute("SELECT name FROM cards WHERE LOWER(name) LIKE ? "
+                             "ORDER BY name LIMIT 25", (f"%{q}%",)).fetchall()
+            conn.close()
+            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100]) for r in rows]
+        except Exception:
+            return []
+
     @bot.tree.command(name="cardtrade", description="Proposer un echange de cartes a un autre joueur")
     @app_commands.describe(joueur="Joueur a qui proposer l'echange")
     async def cardtrade(interaction: discord.Interaction, joueur: discord.Member):
