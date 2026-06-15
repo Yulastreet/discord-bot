@@ -71,11 +71,24 @@ def _ce_font(size: int):
 def _render_drop_image(bot, card: dict, code: str, event_id: int) -> Optional[str]:
     """Compose carte + bande captcha (code en image, non copiable). Retourne path local."""
     try:
-        from services.card_render import _load_base, _ROOT
+        from services.card_render import _load_base, _ROOT, _CARD_W, _CARD_H
         cid = card["id"]
         base = _load_base(int(cid), fallback_url=card.get("image_url"))
+        # _load_base ne gere que le fallback http : tente aussi un /static/ local
         if base is None:
-            return None
+            img = card.get("image_url") or ""
+            if isinstance(img, str) and "/static/" in img:
+                rel = "/static/" + img.split("/static/", 1)[1].split("?")[0]
+                p = os.path.join(_ROOT, rel.lstrip("/").replace("/", os.sep))
+                if os.path.exists(p):
+                    try:
+                        base = Image.open(p).convert("RGBA")
+                    except Exception:
+                        base = None
+        # Dernier recours : canvas plein (le CODE doit TOUJOURS apparaitre -> claimable)
+        if base is None:
+            print(f"[card_event] pas d'image base carte {cid} -> canvas de secours")
+            base = Image.new("RGBA", (_CARD_W, _CARD_H), (28, 28, 36, 255))
         base = base.convert("RGBA")
         W, H = base.size
         draw = ImageDraw.Draw(base)
