@@ -48,6 +48,16 @@ _TIER_RANGE = {
 def _tier_loot_rarity(tier):
     return _TIER_RANGE.get(tier, ["epic"])[-1]
 
+# Difficulte supplementaire selon la rareté de l'avatar DANS la fourchette du tier.
+# Multiplicatif : facteur = step^cran, applique aux PV ET a l'ATK du boss (par-dessus
+# le scaling d'equipe). Plus le tier est haut, plus l'ecart entre raretes est brutal.
+# T5 : Legendary x1.0, Mythic x1.5, Secret x2.25. Reglable.
+_TIER_RARITY_STEP = {1: 1.10, 2: 1.12, 3: 1.15, 4: 1.25, 5: 1.50}
+
+
+def _avatar_difficulty(tier, idx):
+    return _TIER_RARITY_STEP.get(tier, 1.12) ** idx
+
 
 # Rolls offerts en victoire selon le tier (le max a ~5% de chance).
 #   T4 : 2-5 (5=5%) | T5 : 5-15 (15=5%). T1-3 : aucun.
@@ -788,12 +798,13 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None):
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
     img = avatar.get("image_url") if avatar else None
     # Stats du boss scalées par la rareté de l'avatar DANS la fourchette du tier :
-    # ATK +12%/cran (ex T5 leg=x1.0, myth=x1.12, secret=x1.24), PV +6%/cran (leger).
+    # facteur = step^cran (multiplicatif, raide aux hauts tiers), sur PV ET ATK.
     rng_tier = _TIER_RANGE.get(tier, ["epic"])
     avatar_rar = (avatar or {}).get("rarity")
     idx = rng_tier.index(avatar_rar) if avatar_rar in rng_tier else 0
-    boss_atk = int(cfg["atk"] * (1 + idx * 0.12))
-    boss_hp = int(cfg["hp"] * (1 + idx * 0.06))
+    diff = _avatar_difficulty(tier, idx)
+    boss_atk = int(cfg["atk"] * diff)
+    boss_hp = int(cfg["hp"] * diff)
     avatar_cid = avatar["id"] if avatar else None
     # start_at non defini : le timer ne demarre qu'au 1er joueur
     bid = card_boss_create(guild_id, channel_id, name, element, tier, boss_hp, boss_atk,
@@ -900,12 +911,13 @@ def _scale_boss_to_team(bid):
         scaled_atk = int(sc["atk"] * (sum_hp / n))
         # facteur de rareté de l'avatar : depuis atk_spawn (IMMUABLE), pas boss.atk
         # (qui est muté par ce meme calcul a chaque join -> compound exponentiel)
+        # Facteur de difficulte rareté avatar (= step^cran), depuis atk_spawn IMMUABLE
+        # (boss.atk est muté par ce calcul a chaque join -> compound exponentiel).
         atk_spawn = boss.get("atk_spawn") or boss["atk"]
-        avatar_factor = (atk_spawn / cfg["atk"]) if cfg.get("atk") else 1.0
-        # PV : bonus rareté = moitie du bonus ATK (leger). +12%/cran ATK -> +6%/cran PV.
-        hp_factor = 1.0 + (avatar_factor - 1.0) * 0.5
-        new_hp = int(max(cfg.get("hp", scaled_hp), scaled_hp) * hp_factor)
-        new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * avatar_factor)
+        diff = (atk_spawn / cfg["atk"]) if cfg.get("atk") else 1.0
+        # Applique a PV ET ATK : boss plus tanky ET plus letal aux hautes raretes.
+        new_hp = int(max(cfg.get("hp", scaled_hp), scaled_hp) * diff)
+        new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * diff)
         card_boss_set_stats(bid, new_hp, new_atk)
     except Exception as e:
         print(f"[boss] scale err: {e!r}")
