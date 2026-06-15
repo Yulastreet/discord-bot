@@ -7,7 +7,13 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon-180.png">
   <title>Connexion · TookBot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Cinzel = fallback web proche de Felix Titling (titling romain majuscules) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
+    /* "Felix Titling" si dispo (Windows/owner), sinon Cinzel (web), sinon serif */
+    :root { --titling: "Felix Titling", "Cinzel", Georgia, "Times New Roman", serif; }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
@@ -39,17 +45,17 @@
     .brand { display: flex; align-items: center; gap: 16px; }
     .brand img { width: 64px; height: 64px; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
     .brand .b-title {
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: var(--titling);
       font-size: clamp(22px, 2.1vw, 40px); font-weight: 700;
       letter-spacing: 0.04em; line-height: 1;
     }
     .brand .b-sub {
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: var(--titling);
       font-size: clamp(11px, 0.9vw, 16px); letter-spacing: 0.22em;
       text-transform: uppercase; color: rgba(255,255,255,0.78); margin-top: 6px;
     }
     .panel-content h1 {
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: var(--titling);
       font-weight: 700; margin: 8px 0 0;
       font-size: clamp(30px, 3.4vw, 64px); letter-spacing: 0.06em;
       text-transform: uppercase; line-height: 1;
