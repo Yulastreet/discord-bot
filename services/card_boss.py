@@ -59,6 +59,25 @@ def _avatar_difficulty(tier, idx):
     return _TIER_RARITY_STEP.get(tier, 1.12) ** idx
 
 
+_RARITY_ORDER = ["common", "rare", "epic", "legendary", "mythic", "secret"]
+
+
+def _avatar_idx(tier, rarity):
+    """Cran de difficulte de la rareté dans la fourchette du tier. Hors fourchette
+    (rareté forcee depuis le dashboard) : clamp selon le rang global."""
+    rng = _TIER_RANGE.get(tier, ["epic"])
+    if rarity in rng:
+        return rng.index(rarity)
+    try:
+        rank = _RARITY_ORDER.index(rarity)
+    except ValueError:
+        return 0
+    rng_ranks = [_RARITY_ORDER.index(r) for r in rng if r in _RARITY_ORDER]
+    if rng_ranks and rank >= max(rng_ranks):
+        return len(rng) - 1
+    return 0
+
+
 # Rolls offerts en victoire selon le tier (le max a ~5% de chance).
 #   T4 : 2-5 (5=5%) | T5 : 5-15 (15=5%). T1-3 : aucun.
 _BOSS_ROLL_WEIGHTS = {
@@ -767,7 +786,7 @@ async def _apply_card_choice(interaction, boss_id, card):
     await _refresh_boss_msg(interaction.client, boss_id)
 
 
-async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None):
+async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=None):
     guild = bot.get_guild(int(guild_id))
     if not guild:
         return None
@@ -778,30 +797,35 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None):
     cfg = BOSS_TIERS[tier]
     # element optionnel : avatar contraint a cet element (sinon n'importe lequel)
     elem_filter = element if element in CARD_ELEMENT_LABELS else None
-    # Avatar du boss : rareté aléatoire dans la fourchette du tier
-    rng = list(_TIER_RANGE.get(tier, ["epic"]))
-    random.shuffle(rng)
+    rarity = rarity if rarity in _RARITY_ORDER else None
     avatar = None
-    for _r in rng:
-        avatar = card_pick_random_exact_rarity(_r, element=elem_filter)
-        if avatar:
-            break
-    if not avatar and elem_filter:
-        # aucune carte de cet element dans la fourchette -> on relâche le filtre
+    # rareté forcee (dashboard) : avatar de CETTE rareté exacte
+    if rarity:
+        avatar = (card_pick_random_exact_rarity(rarity, element=elem_filter)
+                  or card_pick_random_exact_rarity(rarity))
+    # sinon : rareté aléatoire dans la fourchette du tier
+    if not avatar:
+        rng = list(_TIER_RANGE.get(tier, ["epic"]))
+        random.shuffle(rng)
         for _r in rng:
-            avatar = card_pick_random_exact_rarity(_r)
+            avatar = card_pick_random_exact_rarity(_r, element=elem_filter)
             if avatar:
                 break
+        if not avatar and elem_filter:
+            # aucune carte de cet element dans la fourchette -> on relâche le filtre
+            for _r in rng:
+                avatar = card_pick_random_exact_rarity(_r)
+                if avatar:
+                    break
     if not avatar:
         avatar = card_pick_random_exact_rarity("epic")
     name = avatar["name"] if avatar else "Entité inconnue"
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
     img = avatar.get("image_url") if avatar else None
-    # Stats du boss scalées par la rareté de l'avatar DANS la fourchette du tier :
-    # facteur = step^cran (multiplicatif, raide aux hauts tiers), sur PV ET ATK.
-    rng_tier = _TIER_RANGE.get(tier, ["epic"])
+    # Stats du boss scalées par la rareté de l'avatar : facteur = step^cran
+    # (multiplicatif, raide aux hauts tiers), sur PV ET ATK. idx robuste hors fourchette.
     avatar_rar = (avatar or {}).get("rarity")
-    idx = rng_tier.index(avatar_rar) if avatar_rar in rng_tier else 0
+    idx = _avatar_idx(tier, avatar_rar)
     diff = _avatar_difficulty(tier, idx)
     boss_atk = int(cfg["atk"] * diff)
     boss_hp = int(cfg["hp"] * diff)

@@ -213,12 +213,18 @@ def register_cards_events_routes(app, deps):
         element = (data.get("element") or "").strip().lower() or None
         if element and element not in ("eclat", "abysse", "fracture", "vif", "neant"):
             return jsonify({"error": "element invalide"}), 400
+        rarity = (data.get("rarity") or "").strip().lower() or None
+        if rarity and rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
+            return jsonify({"error": "rareté invalide"}), 400
         bot_command_enqueue(guild_id, "boss_spawn", {
             "channel_id": str(channel_id),
             "tier": tier,
             "element": element,
+            "rarity": rarity,
         })
         suffix = f" élément {element}" if element else ""
+        if rarity:
+            suffix += f" rareté {rarity}"
         return jsonify({"ok": True, "note": f"Boss Tier {tier}{suffix} dispatché (visible sous 2s)"})
 
 
