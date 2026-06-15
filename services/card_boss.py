@@ -253,6 +253,23 @@ def _bar(bot, cur, mx, enraged=False, segments=15):
     return full * filled + empty * (segments - filled) + f"  **{pct}%**"
 
 
+def _fit_segments(n_players: int) -> int:
+    """Nb de segments de barre de vie joueur tenant sous la limite 1024/champ.
+    Les emojis de barre sont lourds (~39 chars), on reduit si beaucoup de joueurs."""
+    if n_players <= 1:
+        return 8
+    budget = max(120, 1000 // n_players - 80)
+    return max(3, min(8, budget // 39))
+
+
+def _player_bar(bot, cur, mx, segments=8):
+    cur = max(0, cur)
+    filled = min(segments, int(round(segments * cur / mx))) if mx > 0 else 0
+    full = _cemoji(bot, "playerlifebarfull", "🟩")
+    empty = _cemoji(bot, "lifebarempty", "⬛")
+    return full * filled + empty * (segments - filled)
+
+
 def _default_card(user_id):
     """Carte de combat par defaut : carte 'milieu' du profil, sinon 1ere possedee."""
     from database import card_profile_get, get_db
@@ -339,24 +356,30 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     if parts:
         plist = parts[:12]
         # 3 colonnes inline alignees par Discord : Combattant / PV / ATK.
-        # Puissance par joueur (emojis lourds) gardee sous le pseudo SI ça tient
-        # sous la limite 1024/champ, sinon retiree (la totale du groupe reste).
-        def _name_cells(with_power):
+        # 2e ligne sous le pseudo : barre de vie EN COMBAT, sinon puissance (prepa).
+        # Retiree si ça depasse la limite 1024/champ (la totale du groupe reste).
+        in_battle = bool(battle) or boss["status"] == "fighting"
+        seg = _fit_segments(len(plist))
+
+        def _name_cells(line2):
             cells = []
             for p in plist:
                 ko = " 💀" if p["hp"] <= 0 else ""
                 line = f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko}"
-                if with_power:
+                if line2 == "bar":
+                    line += "\n" + _player_bar(bot, p["hp"], p.get("max_hp") or p["hp"], seg)
+                elif line2 == "power":
                     line += f"\n⚡{_power_digits(bot, combat_power(p.get('max_hp') or p['hp'], p['atk']))}"
                 cells.append(line)
             return cells
-        with_power = True
-        name_cells = _name_cells(True)
+
+        mode = "bar" if in_battle else "power"
+        name_cells = _name_cells(mode)
         if len("​\n" + "\n".join(name_cells)) > 1000:
-            with_power = False
-            name_cells = _name_cells(False)
-        # col PV/ATK : 2e ligne vide quand la puissance est affichee (alignement des rangees)
-        pad = "\n​" if with_power else ""
+            mode = None
+            name_cells = _name_cells(None)
+        # col PV/ATK : 2e ligne vide quand la 2e ligne existe (alignement des rangees)
+        pad = "\n​" if mode else ""
         hp_cells = [f"{_fmt(max(0, p['hp']))}{pad}" for p in plist]
         atk_cells = [f"{_fmt(p['atk'])}{pad}" for p in plist]
         embed.add_field(name=f"🛡️ Équipe ({len(parts)})",
