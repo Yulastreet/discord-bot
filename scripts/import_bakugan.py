@@ -43,17 +43,23 @@ _ATTRS = ("Pyrus", "Aquos", "Haos", "Darkus", "Ventus", "Subterra")
 _JUNK_CATS = {
     "Merchandise", "Weapons", "Ultimate Weapons", "Vestal Technology",
     "Battle Gear", "BakuNano", "Mobile Assault", "Traps", "Gauntlets",
+    "Bakugan vs Marvel",
 }
-# Titres clairement non-creature.
+# Titres clairement non-creature (accessoires, pages concept/mode/attaque).
 _JUNK_TITLE = re.compile(
-    r"^(Baku[\s\-]?[A-Z0-9]|List of\b)|(\bSystem\b|\bLauncher\b|\bGauntlet\b|\bGear\b)",
+    r"^(Baku[\s\-]?[A-Z0-9]|List of\b|Unknown\b|Unnamed\b)"
+    r"|(\bSystem\b|\bLauncher\b|\bGauntlet\b|\bGear\b|\bMode\b|\bGate Cards\b"
+    r"|\bSpecial Attack\b|\bAttribute\b|\bTreatments?\b|\bSoldiers\b)",
     re.I)
 
 
 def _creature_attr(title, cats):
     """Retourne l'attribut Bakugan si la page est une vraie creature, sinon None.
-    Creature = a une categorie espece '... Bakugan' (Season N / New Vestroia /
-    {Attr} Bakugan...) OU un attribut, ET pas de marqueur junk."""
+    Creature = a une categorie espece '... Bakugan' OU un attribut, ET pas de
+    marqueur junk. Exclut les pages concept/groupe dont le NOM finit par 'Bakugan'
+    (ex 'Guardian Bakugan', 'Nonet Bakugan') et les pages d'attribut."""
+    if title.endswith(" Bakugan") or title in _ATTRS:
+        return False, None
     names = {c.replace("Category:", "") for c in cats}
     if names & _JUNK_CATS or _JUNK_TITLE.search(title):
         return False, None
