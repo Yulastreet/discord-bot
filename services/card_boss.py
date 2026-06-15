@@ -207,16 +207,17 @@ def _cemoji(bot, name, fallback):
     return fallback
 
 
-def _power_digits(bot, n) -> str:
-    """Nombre -> emojis chiffres custom du SEUL serveur support (noms '0_'..'9_').
-    Restreint au support (noms courts '4_' en collision avec d'autres serveurs)."""
+def _power_digits(bot, n, suffix="_") -> str:
+    """Nombre -> emojis chiffres custom du SEUL serveur support.
+    suffix='_' -> noms '0_'..'9_' (joueurs). suffix='boss' -> '0boss'..'9boss'.
+    Restreint au support (noms courts en collision avec d'autres serveurs)."""
     sg = int((_os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
     guild = bot.get_guild(sg) if sg else None
     by_name = {}
     if guild:
         for e in guild.emojis:
             by_name[e.name.lower()] = str(e)
-    return "".join(by_name.get(f"{ch}_", ch) if ch.isdigit() else ch
+    return "".join(by_name.get(f"{ch}{suffix}", ch) if ch.isdigit() else ch
                    for ch in str(int(n)))
 
 
@@ -311,7 +312,7 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     embed.add_field(name="Faible contre", value=weak_txt, inline=True)
     embed.add_field(name="ATK", value=f"🗡️ {_fmt(boss['atk'])}", inline=True)
     _enraged = boss["status"] == "fighting" and boss["hp"] < boss["max_hp"] * 0.5
-    boss_pw = _power_digits(bot, combat_power(boss['max_hp'], boss['atk']))
+    boss_pw = _power_digits(bot, combat_power(boss['max_hp'], boss['atk']), suffix="boss")
     embed.add_field(name=f"❤️ PV du boss : {_fmt(boss['hp'])} / {_fmt(boss['max_hp'])}",
                     value=_bar(bot, boss['hp'], boss['max_hp'], enraged=_enraged)
                           + f"\n⚡ **PUISSANCE** : {boss_pw}",
