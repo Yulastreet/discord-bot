@@ -787,15 +787,16 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None):
     name = avatar["name"] if avatar else "Entité inconnue"
     element = (avatar.get("element") if avatar else None) or random.choice(list(CARD_ELEMENT_LABELS.keys()))
     img = avatar.get("image_url") if avatar else None
-    # ATK du boss scalé par la rareté de l'avatar DANS la fourchette du tier :
-    # le plus bas = atk de base, +12% par cran (ex T5 leg=x1.0, myth=x1.12, secret=x1.24)
+    # Stats du boss scalées par la rareté de l'avatar DANS la fourchette du tier :
+    # ATK +12%/cran (ex T5 leg=x1.0, myth=x1.12, secret=x1.24), PV +6%/cran (leger).
     rng_tier = _TIER_RANGE.get(tier, ["epic"])
     avatar_rar = (avatar or {}).get("rarity")
     idx = rng_tier.index(avatar_rar) if avatar_rar in rng_tier else 0
     boss_atk = int(cfg["atk"] * (1 + idx * 0.12))
+    boss_hp = int(cfg["hp"] * (1 + idx * 0.06))
     avatar_cid = avatar["id"] if avatar else None
     # start_at non defini : le timer ne demarre qu'au 1er joueur
-    bid = card_boss_create(guild_id, channel_id, name, element, tier, cfg["hp"], boss_atk,
+    bid = card_boss_create(guild_id, channel_id, name, element, tier, boss_hp, boss_atk,
                            image_url=img, start_at=None, card_id=avatar_cid)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)
@@ -901,7 +902,9 @@ def _scale_boss_to_team(bid):
         # (qui est muté par ce meme calcul a chaque join -> compound exponentiel)
         atk_spawn = boss.get("atk_spawn") or boss["atk"]
         avatar_factor = (atk_spawn / cfg["atk"]) if cfg.get("atk") else 1.0
-        new_hp = max(cfg.get("hp", scaled_hp), scaled_hp)
+        # PV : bonus rareté = moitie du bonus ATK (leger). +12%/cran ATK -> +6%/cran PV.
+        hp_factor = 1.0 + (avatar_factor - 1.0) * 0.5
+        new_hp = int(max(cfg.get("hp", scaled_hp), scaled_hp) * hp_factor)
         new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * avatar_factor)
         card_boss_set_stats(bid, new_hp, new_atk)
     except Exception as e:
