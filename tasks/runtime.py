@@ -2598,12 +2598,13 @@ def setup_runtime(bot, deps):
             channel_id = payload.get("channel_id")
             min_rarity = (payload.get("min_rarity") or "rare").strip().lower()
             exact_rarity = bool(payload.get("exact_rarity"))
+            card_id = payload.get("card_id") or None
             if not channel_id:
                 raise ValueError("channel_id requis")
             result = await trigger_event_drop(
                 bot, int(gid), int(channel_id),
                 min_rarity=min_rarity, exact_rarity=exact_rarity,
-                triggered_by="manual")
+                card_id=card_id, triggered_by="manual")
             if not result:
                 raise RuntimeError("drop echoue (carte ou salon introuvable)")
             return

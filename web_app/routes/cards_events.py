@@ -169,16 +169,28 @@ def register_cards_events_routes(app, deps):
         channel_id = data.get("channel_id")
         min_rarity = (data.get("min_rarity") or "rare").strip().lower()
         exact_rarity = bool(data.get("exact_rarity"))
+        card_id = data.get("card_id") or None
         if not guild_id or not channel_id:
             return jsonify({"error": "guild_id + channel_id requis"}), 400
-        # secret autorisé seulement en rareté EXACTE (jamais comme plancher min)
-        valid = ("common", "rare", "epic", "legendary", "mythic") + (("secret",) if exact_rarity else ())
-        if min_rarity not in valid:
-            return jsonify({"error": "rareté invalide"}), 400
+        # Carte precise : on valide juste qu'elle existe (ignore la rarete)
+        if card_id:
+            from database import card_get
+            try:
+                card_id = int(card_id)
+            except (ValueError, TypeError):
+                return jsonify({"error": "card_id invalide"}), 400
+            if not card_get(card_id):
+                return jsonify({"error": "carte introuvable"}), 404
+        else:
+            # secret autorisé seulement en rareté EXACTE (jamais comme plancher min)
+            valid = ("common", "rare", "epic", "legendary", "mythic") + (("secret",) if exact_rarity else ())
+            if min_rarity not in valid:
+                return jsonify({"error": "rareté invalide"}), 400
         bot_command_enqueue(guild_id, "card_event_drop", {
             "channel_id": str(channel_id),
             "min_rarity": min_rarity,
             "exact_rarity": exact_rarity,
+            "card_id": card_id,
         })
         return jsonify({"ok": True, "note": "Drop dispatché au bot (visible sous 2s)"})
 

@@ -62,6 +62,22 @@
       <input type="checkbox" id="trgExact" onchange="trgExactChanged()">
       <span>Rareté exacte (sinon : cette rareté <b>ou plus</b>)</span>
     </label>
+    <!-- Carte precise : si choisie, ignore la rarete -->
+    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Carte précise (optionnel — ignore la rareté)</span>
+        <input id="trgCardSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();trgCardSearchGo();}">
+      </label>
+      <button class="btn" onclick="trgCardSearchGo()">🔍 Chercher</button>
+    </div>
+    <div id="trgCardResults" style="margin-top:8px;display:none;">
+      <select id="trgCardPick" class="input" onchange="trgCardPicked()"></select>
+    </div>
+    <div id="trgCardChosen" class="muted" style="font-size:12px;margin-top:6px;display:none;">
+      🎯 Carte choisie : <b id="trgCardChosenName"></b>
+      <a href="#" onclick="trgCardClear();return false;" style="margin-left:8px;">✖ revenir à l'aléatoire</a>
+    </div>
     <div id="trgHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
     <div class="muted" style="font-size:11px;margin-top:6px;">
       Si les salons ne s'affichent pas : clic sur 🔄 à côté du serveur dans les configs ci-dessous pour rafraîchir.
@@ -277,6 +293,45 @@ function trgExactChanged() {
 }
 window.trgExactChanged = trgExactChanged;
 
+let _trgCardId = null;
+async function trgCardSearchGo() {
+  const q = (document.getElementById('trgCardSearch').value || '').trim();
+  const hint = document.getElementById('trgHint');
+  if (!q) { hint.textContent = 'Tape un nom de carte à chercher.'; return; }
+  hint.textContent = 'Recherche…';
+  try {
+    const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
+    const d = await r.json();
+    const sel = document.getElementById('trgCardPick');
+    const box = document.getElementById('trgCardResults');
+    const items = d.items || [];
+    if (!items.length) { hint.textContent = 'Aucune carte trouvée.'; box.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">— Choisir une carte (' + items.length + ') —</option>' +
+      items.map(c => `<option value="${c.id}">${escHtml(c.name)} · ${escHtml((c.rarity||'').toUpperCase())} · ${escHtml(c.universe||'?')} · #${c.id}</option>`).join('');
+    box.style.display = 'block';
+    hint.textContent = items.length >= 25 ? '25+ résultats, affine ta recherche.' : '';
+  } catch (e) { hint.textContent = `Erreur recherche : ${e.message}`; }
+}
+window.trgCardSearchGo = trgCardSearchGo;
+
+function trgCardPicked() {
+  const sel = document.getElementById('trgCardPick');
+  const v = sel.value;
+  if (!v) { trgCardClear(); return; }
+  _trgCardId = v;
+  document.getElementById('trgCardChosenName').textContent = sel.options[sel.selectedIndex].textContent;
+  document.getElementById('trgCardChosen').style.display = 'block';
+}
+window.trgCardPicked = trgCardPicked;
+
+function trgCardClear() {
+  _trgCardId = null;
+  document.getElementById('trgCardChosen').style.display = 'none';
+  document.getElementById('trgCardResults').style.display = 'none';
+  const sel = document.getElementById('trgCardPick'); if (sel) sel.value = '';
+}
+window.trgCardClear = trgCardClear;
+
 async function triggerManual() {
   const gid = document.getElementById('trgGuild').value;
   const cid = document.getElementById('trgChannel').value;
@@ -288,7 +343,7 @@ async function triggerManual() {
   try {
     const r = await fetch('/api/owner/card-events/trigger', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({guild_id: gid, channel_id: cid, min_rarity: rar, exact_rarity: exact}),
+      body: JSON.stringify({guild_id: gid, channel_id: cid, min_rarity: rar, exact_rarity: exact, card_id: _trgCardId}),
     });
     const d = await r.json();
     if (d.ok) {
