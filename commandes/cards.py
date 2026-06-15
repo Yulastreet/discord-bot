@@ -540,13 +540,14 @@ def setup_cards_commands(bot, deps):
             wishers = wishlist_users_for_card(card["id"], exclude_user=uid)
             if wishers and interaction.guild:
                 mentions = []
-                for wid in wishers[:5]:
+                for wid in wishers[:50]:
                     m = interaction.guild.get_member(int(wid))
                     if m:
                         mentions.append(m.mention)
                 if mentions:
+                    # mentions dans un spoiler : ping quand meme, mais pas de gros bloc
                     await interaction.channel.send(
-                        f"🔔 {' '.join(mentions)} — **{interaction.user.display_name}** "
+                        f"🔔 ||{' '.join(mentions)}|| — **{interaction.user.display_name}** "
                         f"vient d'obtenir **{card['name']}** de votre wishlist ! "
                         f"Proposez un échange avec `/cardtrade`.")
         except Exception as e:

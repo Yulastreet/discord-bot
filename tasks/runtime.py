@@ -2693,10 +2693,10 @@ def setup_runtime(bot, deps):
             try:
                 wishers = wishlist_users_for_card(int(card_id)) or []
                 mentions = [m.mention for m in
-                            (guild.get_member(int(w)) for w in wishers[:5]) if m]
+                            (guild.get_member(int(w)) for w in wishers[:50]) if m]
                 if mentions:
                     await channel.send(
-                        f"🔔 {' '.join(mentions)} — une simulation vient de poster "
+                        f"🔔 ||{' '.join(mentions)}|| — une simulation vient de poster "
                         f"**{card['name']}** de votre wishlist ! "
                         f"Proposez un échange avec `/cardtrade`.")
             except Exception as e:
