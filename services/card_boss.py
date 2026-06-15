@@ -385,21 +385,29 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
                     embed.add_field(name="​", value=cur, inline=False)
         else:
             # PREPA : 3 colonnes inline alignees par Discord, puissance sous le pseudo.
-            def _name_cells(with_power):
+            # Degradation douce vs limite 1024 : emojis -> texte -> rien (puissance
+            # tjrs visible meme avec 5 joueurs ou des puissances a 7 chiffres).
+            def _name_cells(power_mode):  # 'emoji' | 'plain' | None
                 cells = []
                 for p in plist:
                     ko = " 💀" if p["hp"] <= 0 else ""
                     line = f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko}"
-                    if with_power:
-                        line += f"\n⚡{_power_digits(bot, combat_power(p.get('max_hp') or p['hp'], p['atk']))}"
+                    pw = combat_power(p.get('max_hp') or p['hp'], p['atk'])
+                    if power_mode == "emoji":
+                        line += f"\n⚡{_power_digits(bot, pw)}"
+                    elif power_mode == "plain":
+                        line += f"\n⚡ {_fmt(pw)}"
                     cells.append(line)
                 return cells
-            with_power = True
-            name_cells = _name_cells(True)
+            mode = "emoji"
+            name_cells = _name_cells("emoji")
             if len("​\n" + "\n".join(name_cells)) > 1000:
-                with_power = False
-                name_cells = _name_cells(False)
-            pad = "\n​" if with_power else ""
+                mode = "plain"
+                name_cells = _name_cells("plain")
+                if len("​\n" + "\n".join(name_cells)) > 1000:
+                    mode = None
+                    name_cells = _name_cells(None)
+            pad = "\n​" if mode else ""
             hp_cells = [f"{_fmt(max(0, p['hp']))}{pad}" for p in plist]
             atk_cells = [f"{_fmt(p['atk'])}{pad}" for p in plist]
             embed.add_field(name=f"🛡️ Équipe ({len(parts)})",
