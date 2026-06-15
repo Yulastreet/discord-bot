@@ -7,115 +7,121 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon-180.png">
   <title>Connexion · TookBot</title>
-  {% include "_styles.html" %}
   <style>
-    /* Position du bouton Discord sur l'artwork (design 1920x1080). Ajustable. */
-    :root {
-      --btn-left: 85%;   /* centre horizontal du bouton, % de la largeur */
-      --btn-top: 65.5%;  /* centre vertical du bouton, % de la hauteur */
-      --btn-w: 26%;      /* largeur de la zone cliquable */
-      --btn-h: 6%;       /* hauteur de la zone cliquable */
-    }
-    html, body { height: 100%; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
     body {
-      margin: 0; padding: 0; overflow: hidden;
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+      overflow: hidden; color: #fff;
       background: #0a0a0f url("/static/login_bg.png") center / cover no-repeat;
     }
-    .login-stage { position: fixed; inset: 0; }
-    /* Hotspot cliquable PILE sur le bouton dessiné dans l'image */
-    .login-discord {
-      position: absolute;
-      left: var(--btn-left); top: var(--btn-top);
-      width: var(--btn-w); height: var(--btn-h);
-      transform: translate(-50%, -50%);
-      border-radius: 10px;
-      cursor: pointer;
-      background: transparent;
-      transition: background .15s ease, box-shadow .15s ease;
+    /* Flou gaussien 64 derriere le panneau : backdrop-filter masque par la forme
+       du panel PNG (meme cadrage cover -> alignement parfait avec le fond). */
+    .panel-blur {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      -webkit-backdrop-filter: blur(64px); backdrop-filter: blur(64px);
+      -webkit-mask: url("/static/login_panel.png") center / cover no-repeat;
+              mask: url("/static/login_panel.png") center / cover no-repeat;
     }
-    .login-discord:hover {
-      background: rgba(255,255,255,0.10);
-      box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 6px 24px rgba(0,0,0,0.3);
+    /* Le panneau (tint / verre depoli / bords) par-dessus le flou. */
+    .panel-img {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background: url("/static/login_panel.png") center / cover no-repeat;
     }
-    .login-discord:focus-visible {
-      outline: none; background: rgba(255,255,255,0.12);
-      box-shadow: 0 0 0 2px #5865F2;
+    /* Contenu HTML net positionne sur la zone du panneau (design 1920x1080). */
+    .panel-content {
+      position: fixed; z-index: 3;
+      top: 0; bottom: 0; left: 61.5%; right: 2%;
+      display: flex; flex-direction: column; justify-content: center;
+      gap: 22px; padding: 0 3% 0 0;
+      text-shadow: 0 1px 12px rgba(0,0,0,0.25);
     }
-    /* Message d'erreur discret en haut */
+    .brand { display: flex; align-items: center; gap: 16px; }
+    .brand img { width: 64px; height: 64px; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .brand .b-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(22px, 2.1vw, 40px); font-weight: 700;
+      letter-spacing: 0.04em; line-height: 1;
+    }
+    .brand .b-sub {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(11px, 0.9vw, 16px); letter-spacing: 0.22em;
+      text-transform: uppercase; color: rgba(255,255,255,0.78); margin-top: 6px;
+    }
+    .panel-content h1 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 700; margin: 8px 0 0;
+      font-size: clamp(30px, 3.4vw, 64px); letter-spacing: 0.06em;
+      text-transform: uppercase; line-height: 1;
+    }
+    .panel-content .desc {
+      font-size: clamp(13px, 1vw, 18px); line-height: 1.5;
+      color: rgba(255,255,255,0.9); max-width: 30ch;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .btn-discord {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; max-width: 420px; padding: 14px 18px; margin-top: 6px;
+      border-radius: 12px; background: #5865F2; color: #fff;
+      text-decoration: none; font-weight: 600; font-size: clamp(13px, 1.05vw, 18px);
+      border: none; cursor: pointer; transition: background .15s ease, transform .12s ease;
+      box-shadow: 0 8px 28px rgba(88,101,242,0.45);
+    }
+    .btn-discord:hover { background: #4752c4; transform: translateY(-1px); }
+    .btn-discord svg { width: 20px; height: 20px; }
     .login-err {
-      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 16px; left: 24px; z-index: 10;
       background: rgba(220,40,60,0.92); color: #fff;
       padding: 10px 16px; border-radius: 10px; font-size: 14px;
-      z-index: 10; box-shadow: 0 6px 24px rgba(0,0,0,0.4); max-width: 90vw;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.4); max-width: 60vw;
     }
-    /* Repli si OAuth indispo / pas de méthode : carte centrée lisible */
-    .login-fallback {
-      position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
-    }
-    .login-fallback .card {
-      background: rgba(15,16,22,0.92); border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 16px; padding: 28px; max-width: 380px; width: 100%;
-      color: #fff; backdrop-filter: blur(8px);
-    }
-    .login-fallback h1 { font-size: 20px; margin: 0 0 6px; }
-    .login-fallback p { color: #c9c9d2; font-size: 14px; margin: 0 0 16px; }
-    .btn-discord {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      width: 100%; padding: 12px 16px; border-radius: 10px;
-      background: #5865F2; color: #fff; text-decoration: none; font-weight: 600;
-      border: none; cursor: pointer;
-    }
-    .btn-discord:hover { background: #4752c4; }
-    .btn-discord svg { width: 18px; height: 18px; }
-    /* Écran étroit (mobile) : l'artwork large cache le panneau -> carte centrée */
-    @media (max-width: 820px) {
-      .login-stage { display: none; }
-    }
-    @media (min-width: 821px) {
-      .login-fallback { display: none; }
-    }
-    /* Lien fallback mot de passe discret en bas (si configuré) */
-    .pw-fallback {
-      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-      z-index: 10; font-size: 12px;
-    }
+    .pw-fallback { position: fixed; bottom: 14px; left: 24px; z-index: 10; font-size: 12px; }
     .pw-fallback summary { color: rgba(255,255,255,0.55); cursor: pointer; }
-    .pw-fallback form {
-      margin-top: 8px; display: flex; gap: 8px;
-      background: rgba(15,16,22,0.9); padding: 10px; border-radius: 10px;
-    }
+    .pw-fallback form { margin-top: 8px; display: flex; gap: 8px; background: rgba(15,16,22,0.9); padding: 10px; border-radius: 10px; }
     .pw-fallback input { padding: 8px 10px; border-radius: 8px; border: 1px solid #333; background:#111; color:#fff; }
     .pw-fallback button { padding: 8px 12px; border-radius: 8px; border: none; background:#2a2a33; color:#fff; cursor:pointer; }
+
+    /* Mobile / etroit : artwork large -> on remplace par une carte centree lisible */
+    @media (max-width: 860px) {
+      .panel-blur, .panel-img { display: none; }
+      .panel-content {
+        inset: 0; left: 0; right: 0; align-items: center; text-align: center;
+        padding: 24px; background: rgba(8,9,14,0.62);
+        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      }
+      .panel-content .desc { max-width: 34ch; }
+      .btn-discord { max-width: 360px; }
+    }
   </style>
 </head>
 <body>
   {% if error %}<div class="login-err">{{ error }}</div>{% endif %}
 
-  {% if oauth_enabled %}
-  <!-- Desktop : artwork plein écran + hotspot sur le bouton dessiné -->
-  <div class="login-stage">
-    <a class="login-discord" href="/oauth/login" aria-label="Se connecter avec Discord"></a>
-  </div>
-  {% endif %}
+  <div class="panel-blur"></div>
+  <div class="panel-img"></div>
 
-  <!-- Mobile / repli : carte centrée -->
-  <div class="login-fallback">
-    <div class="card">
-      <h1>Connexion</h1>
-      {% if oauth_enabled %}
-      <p>Connecte-toi avec Discord pour accéder au tableau de bord.</p>
-      <a class="btn-discord" href="/oauth/login">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.249.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-        </svg>
-        Se connecter avec Discord
-      </a>
-      {% elif not password_fallback %}
-      <p>Aucune méthode de connexion configurée. Définis DISCORD_CLIENT_ID/SECRET ou WEB_PASSWORD dans le <code>.env</code>.</p>
-      {% else %}
-      <p>Connexion par mot de passe.</p>
-      {% endif %}
+  <div class="panel-content">
+    <div class="brand">
+      <img src="/static/favicon-512.png" alt="">
+      <div>
+        <div class="b-title">BOT CONSOLE</div>
+        <div class="b-sub">Espace privé</div>
+      </div>
     </div>
+
+    <h1>Connexion</h1>
+    <div class="desc">Connecte-toi avec Discord pour accéder au tableau de bord.</div>
+
+    {% if oauth_enabled %}
+    <a class="btn-discord" href="/oauth/login">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.249.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+      </svg>
+      Se connecter avec Discord
+    </a>
+    {% elif not password_fallback %}
+    <div class="desc">Aucune méthode de connexion configurée. Définis DISCORD_CLIENT_ID/SECRET ou WEB_PASSWORD dans le <code>.env</code>.</div>
+    {% endif %}
   </div>
 
   {% if password_fallback %}
