@@ -123,6 +123,26 @@ def _roll_emoji(bot) -> str:
     return s or "🎟️"
 
 
+# Poids de l'ATK dans la puissance de combat (PV = poids 1). Reglable.
+_POWER_ATK_WEIGHT = 2
+
+
+def combat_power(hp, atk) -> int:
+    """Puissance de combat = PV + ATK x poids. Cappee a 999999999999999."""
+    p = int(hp) + int(atk) * _POWER_ATK_WEIGHT
+    return max(0, min(999999999999999, p))
+
+
+def _power_emoji_str(bot, n) -> str:
+    """Nombre -> suite d'emojis chiffres custom du support (noms '0_'..'9_').
+    Fallback : chiffres unicode si emoji introuvable."""
+    out = []
+    for ch in str(int(n)):
+        e = _get_inline_emoji_str(bot, f"{ch}_") if ch.isdigit() else ""
+        out.append(e or ch)
+    return "".join(out)
+
+
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
     """Cherche emoji custom dans tous les guilds du bot (support server inclus).
     Cache CDN URL (gif si animé, png sinon). Pour usage en thumbnail embed."""
@@ -1435,7 +1455,9 @@ def setup_cards_commands(bot, deps):
         def _fmt(n):
             return f"{int(n):,}".replace(",", " ")
         DIV = "══════════════════════════════"
-        bonus_txt = f"\n_bonus fusion +{min(50, cs['stars'])}%_" if cs['stars'] else ""
+        bonus_inline = f" _(bonus fusion +{min(50, cs['stars'])}%)_" if cs['stars'] else ""
+        power = combat_power(cs['hp'], cs['atk'])
+        power_emojis = _power_emoji_str(bot, power)
 
         embed = discord.Embed(
             title=f"🃏 Profil de cartes ｜ {target.display_name}",
@@ -1448,8 +1470,10 @@ def setup_cards_commands(bot, deps):
         embed.add_field(name="🍀 Chance", value=f"{luck}%", inline=True)
         # Reste : un seul bloc. Le 1er separateur = NOM du champ (evite la ligne vide).
         block = (
-            f"⚔️ **Stats de combat**\n"
-            f"❤️ PV **{_fmt(cs['hp'])}**　　🗡️ ATK **{_fmt(cs['atk'])}**{bonus_txt}\n"
+            f"⚔️ **STATS DE COMBAT**{bonus_inline}\n"
+            f"❤️ PV **{_fmt(cs['hp'])}**　　🗡️ ATK **{_fmt(cs['atk'])}**\n"
+            f"⚡ **PUISSANCE DE COMBAT :**\n"
+            f"{power_emojis}\n"
             f"{DIV}\n"
             f"⭐ **Fusionnées** ｜ {_fmt(fused)}　　🖼️ **Bordures** ｜ {_fmt(borders_stock)}\n"
             f"{DIV}\n"
