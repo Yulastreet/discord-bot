@@ -357,28 +357,32 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
         plist = parts[:12]
         in_battle = bool(battle) or boss["status"] == "fighting"
         if in_battle:
-            # EN COMBAT : 1 bloc par joueur (pas de colonnes), barre de vie 10 segments.
+            # EN COMBAT : barre de vie 10 segments + HP exact qui descend.
             blocks = []
             for p in plist:
                 ko = " 💀" if p["hp"] <= 0 else ""
-                bar = _player_bar(bot, p["hp"], p.get("max_hp") or p["hp"], 10)
+                mx = p.get("max_hp") or p["hp"]
+                bar = _player_bar(bot, p["hp"], mx, 10)
                 blocks.append(
                     f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko} "
                     f"🗡️ {_fmt(p['atk'])}\n"
-                    f"HP ❤️ {bar}")
-            # Decoupe en plusieurs champs (barres lourdes : limite 1024/champ).
-            chunks, cur = [], ""
-            for b in blocks:
-                add = ("\n" if cur else "") + b
-                if cur and len(cur) + len(add) > 950:
-                    chunks.append(cur); cur = b
-                else:
-                    cur += add
-            if cur:
-                chunks.append(cur)
-            for i, ch in enumerate(chunks):
-                embed.add_field(name=(f"🛡️ Équipe ({len(parts)})" if i == 0 else "​"),
-                                value=(("​\n" + ch) if i == 0 else ch), inline=False)
+                    f"HP ❤️ {bar} **{_fmt(max(0, p['hp']))}**")
+            embed.add_field(name=f"🛡️ Équipe ({len(parts)})", value="​", inline=False)
+            if len(blocks) <= 8:
+                # 1 champ par joueur -> espacement uniforme
+                for b in blocks:
+                    embed.add_field(name="​", value=b, inline=False)
+            else:
+                # trop de joueurs : on regroupe pour tenir sous 25 champs / 6000 chars
+                cur = ""
+                for b in blocks:
+                    add = ("\n" if cur else "") + b
+                    if cur and len(cur) + len(add) > 950:
+                        embed.add_field(name="​", value=cur, inline=False); cur = b
+                    else:
+                        cur += add
+                if cur:
+                    embed.add_field(name="​", value=cur, inline=False)
         else:
             # PREPA : 3 colonnes inline alignees par Discord, puissance sous le pseudo.
             def _name_cells(with_power):
