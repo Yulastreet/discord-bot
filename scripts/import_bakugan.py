@@ -31,7 +31,7 @@ sys.path.insert(0, _ROOT)
 from database import card_add, card_get_by_name  # noqa: E402
 
 _API = "https://bakugan.fandom.com/api.php"
-_UNIVERSE = "Bakugan"
+_UNIVERSE = "Anime"
 _ORIGIN = "Bakugan"
 _UA = "TookBot/1.0 (https://tookbot.click)"
 
