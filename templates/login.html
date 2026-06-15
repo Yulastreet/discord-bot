@@ -52,21 +52,27 @@
       letter-spacing: 0.22em; text-transform: uppercase;
       color: rgba(223,231,244,0.82); margin-top: 7px;
     }
-    .panel h1 {
-      font-family: var(--titling); font-weight: 700; color: #fff;
-      margin: clamp(22px, 4vh, 48px) 0 0;
-      font-size: clamp(38px, 6.2vh, 76px); letter-spacing: 0.08em;
+    /* Colonne = largeur du bouton. CONNEXION et la phrase se calent dessus via
+       les unites de conteneur (cqw = 1% de la largeur de .col). */
+    .col {
+      width: clamp(300px, 33vh, 460px);
+      container-type: inline-size;
+      margin-top: clamp(22px, 4vh, 48px);
+    }
+    .col h1 {
+      font-family: var(--titling); font-weight: 700; color: #fff; margin: 0;
+      font-size: 14.5cqw; letter-spacing: 0.06em; white-space: nowrap;
       text-transform: uppercase; line-height: 1;
     }
-    .panel .desc {
-      font-size: clamp(13px, 1.7vh, 18px); line-height: 1.5;
-      color: rgba(255,255,255,0.94); max-width: 33ch;
-      text-transform: uppercase; letter-spacing: 0.04em;
+    .col .desc {
+      font-size: 5.4cqw; line-height: 1.45;
+      color: rgba(255,255,255,0.94);
+      text-transform: uppercase; letter-spacing: 0.02em;
       margin: clamp(8px, 1.4vh, 16px) 0 0;
     }
     .btn-discord {
       display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; max-width: 460px; padding: 15px 18px; margin-top: clamp(16px, 2.4vh, 28px);
+      width: 100%; padding: 15px 18px; margin-top: clamp(16px, 2.4vh, 28px);
       border-radius: 12px; background: #5865F2; color: #fff;
       text-decoration: none; font-weight: 600; font-size: clamp(13px, 1.7vh, 18px);
       border: none; cursor: pointer; transition: background .15s ease, transform .12s ease;
@@ -111,19 +117,21 @@
       </div>
     </div>
 
-    <h1>Connexion</h1>
-    <div class="desc">Connecte-toi avec Discord pour accéder au tableau de bord.</div>
+    <div class="col">
+      <h1>Connexion</h1>
+      <div class="desc">Connecte-toi avec Discord pour<br>accéder au tableau de bord.</div>
 
-    {% if oauth_enabled %}
-    <a class="btn-discord" href="/oauth/login">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.249.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-      </svg>
-      Se connecter avec Discord
-    </a>
-    {% elif not password_fallback %}
-    <div class="desc">Aucune méthode de connexion configurée. Définis DISCORD_CLIENT_ID/SECRET ou WEB_PASSWORD dans le <code>.env</code>.</div>
-    {% endif %}
+      {% if oauth_enabled %}
+      <a class="btn-discord" href="/oauth/login">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.249.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+        </svg>
+        Se connecter avec Discord
+      </a>
+      {% elif not password_fallback %}
+      <div class="desc" style="font-size:14px;">Aucune méthode de connexion configurée. Définis DISCORD_CLIENT_ID/SECRET ou WEB_PASSWORD dans le <code>.env</code>.</div>
+      {% endif %}
+    </div>
   </aside>
 
   {% if password_fallback %}
