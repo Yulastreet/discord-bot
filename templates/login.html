@@ -48,33 +48,35 @@
     }
     /* brand DANS la colonne -> BOT CONSOLE ne depasse jamais la largeur du bouton.
        Icone agrandie : son arete droite tombe ~sous la fin du 1er N de CONNEXION. */
-    .col .brand { display: flex; align-items: center; gap: 4cqw; margin: 0; }
+    /* BOT CONSOLE aligne sur le HAUT de l'icone, va jusqu'au bord du bouton. */
+    .col .brand { display: flex; align-items: flex-start; gap: 4cqw; margin: 0; }
     .col .brand img { width: 26cqw; height: 26cqw; border-radius: 18px;
                       box-shadow: 0 4px 16px rgba(0,0,0,0.35); flex: none; }
     .col .b-title {
       font-family: var(--titling); font-weight: 700; line-height: 1; color: #fff;
-      font-size: 7cqw; letter-spacing: 0.02em; white-space: nowrap;
+      font-size: 10cqw; letter-spacing: 0.02em; white-space: nowrap;
     }
+    /* ESPACE PRIVE juste dessous, etire jusque sous le S de CONSOLE. */
     .col .b-sub {
-      font-family: var(--titling); font-size: 3cqw;
-      letter-spacing: 0.2em; text-transform: uppercase;
-      color: rgba(223,231,244,0.82); margin-top: 0.6cqw; white-space: nowrap;
+      font-family: var(--titling); font-size: 4cqw;
+      letter-spacing: 0.9cqw; text-transform: uppercase;
+      color: rgba(223,231,244,0.82); margin-top: 1.2cqw; white-space: nowrap;
     }
     .col h1 {
       font-family: var(--titling); font-weight: 700; color: #fff;
-      margin: clamp(18px, 3vh, 40px) 0 0;
+      margin: clamp(16px, 2.6vh, 36px) 0 0;
       font-size: 13cqw; letter-spacing: 0.04em; white-space: nowrap;
       text-transform: uppercase; line-height: 1;
     }
     .col .desc {
       font-size: 5.4cqw; line-height: 1.45;
-      color: rgba(255,255,255,0.94);
+      color: rgba(223,231,244,0.82);
       text-transform: uppercase; letter-spacing: 0.02em;
-      margin: clamp(8px, 1.4vh, 16px) 0 0;
+      margin: clamp(3px, 0.7vh, 9px) 0 0;
     }
     .btn-discord {
       display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; padding: 15px 18px; margin-top: clamp(16px, 2.4vh, 28px);
+      width: 100%; padding: 15px 18px; margin-top: clamp(10px, 1.5vh, 18px);
       border-radius: 12px; background: #5865F2; color: #fff;
       text-decoration: none; font-weight: 600; font-size: clamp(13px, 1.7vh, 18px);
       border: none; cursor: pointer; transition: background .15s ease, transform .12s ease;
