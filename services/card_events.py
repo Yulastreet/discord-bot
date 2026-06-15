@@ -293,17 +293,19 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
                 emb = event_msg.embeds[0]
                 emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {message.author.mention}** !"
                 emb.color = 0x4ade80
-                # Image propre = render local de la carte (sans bande captcha)
-                import os as _os
-                from services.card_render import _RENDERS_DIR
-                clean_path = _os.path.join(_RENDERS_DIR, f"{matched['card_id']}.png")
-                if _os.path.exists(clean_path):
+                # Image propre = render local (webp/png) ou domaine public, SANS bande
+                # captcha. attachments=[] / [file] vire l'ancienne image (le code).
+                from database import card_get
+                from commandes.cards import _resolve_card_image
+                url, clean_file = _resolve_card_image(card_get(matched["card_id"]) or {})
+                if url:
+                    emb.set_image(url=url)
+                    await event_msg.edit(embed=emb, attachments=[])
+                elif clean_file:
                     emb.set_image(url="attachment://card.png")
-                    await event_msg.edit(
-                        embed=emb,
-                        attachments=[discord.File(clean_path, filename="card.png")])
+                    await event_msg.edit(embed=emb, attachments=[clean_file])
                 else:
-                    await event_msg.edit(embed=emb)
+                    await event_msg.edit(embed=emb, attachments=[])
     except Exception as e:
         print(f"[card_event claim update] err: {e}")
     try:
