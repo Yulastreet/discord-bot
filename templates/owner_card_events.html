@@ -46,17 +46,22 @@
         <select id="trgChannel" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Rareté min</span>
+        <span class="muted" id="trgRarityLbl">Rareté min</span>
         <select id="trgRarity" class="input">
           <option value="common">Common</option>
           <option value="rare" selected>Rare</option>
           <option value="epic">Epic</option>
           <option value="legendary">Legendary</option>
           <option value="mythic">Mythic</option>
+          <option value="secret" hidden disabled>Secret</option>
         </select>
       </label>
       <button class="btn btn-primary" onclick="triggerManual()">🎁 Lancer drop</button>
     </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:8px;cursor:pointer;">
+      <input type="checkbox" id="trgExact" onchange="trgExactChanged()">
+      <span>Rareté exacte (sinon : cette rareté <b>ou plus</b>)</span>
+    </label>
     <div id="trgHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
     <div class="muted" style="font-size:11px;margin-top:6px;">
       Si les salons ne s'affichent pas : clic sur 🔄 à côté du serveur dans les configs ci-dessous pour rafraîchir.
@@ -259,17 +264,31 @@ function trgGuildChanged() {
 }
 window.trgGuildChanged = trgGuildChanged;
 
+function trgExactChanged() {
+  const exact = document.getElementById('trgExact').checked;
+  document.getElementById('trgRarityLbl').textContent = exact ? 'Rareté exacte' : 'Rareté min';
+  // 'secret' jamais dispo comme plancher min
+  const secret = document.querySelector('#trgRarity option[value="secret"]');
+  if (secret) {
+    secret.hidden = !exact; secret.disabled = !exact;
+    if (!exact && document.getElementById('trgRarity').value === 'secret')
+      document.getElementById('trgRarity').value = 'mythic';
+  }
+}
+window.trgExactChanged = trgExactChanged;
+
 async function triggerManual() {
   const gid = document.getElementById('trgGuild').value;
   const cid = document.getElementById('trgChannel').value;
   const rar = document.getElementById('trgRarity').value;
+  const exact = document.getElementById('trgExact').checked;
   const hint = document.getElementById('trgHint');
   if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
   hint.textContent = 'Drop en cours…';
   try {
     const r = await fetch('/api/owner/card-events/trigger', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({guild_id: gid, channel_id: cid, min_rarity: rar}),
+      body: JSON.stringify({guild_id: gid, channel_id: cid, min_rarity: rar, exact_rarity: exact}),
     });
     const d = await r.json();
     if (d.ok) {

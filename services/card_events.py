@@ -197,9 +197,10 @@ def _resolve_drop_channel(guild):
 
 async def trigger_event_drop(bot, guild_id: int, channel_id: int,
                                 min_rarity: str = "rare",
+                                exact_rarity: bool = False,
                                 triggered_by: str = "auto") -> Optional[dict]:
     """Drop une carte dans le salon. Retourne dict {event_id, card, message_id}
-    ou None si echec."""
+    ou None si echec. exact_rarity=True -> carte de cette rareté EXACTE (sinon min)."""
     guild = bot.get_guild(int(guild_id))
     if not guild:
         print(f"[card_event] guild {guild_id} introuvable")
@@ -208,9 +209,13 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     if not channel:
         print(f"[card_event] channel {channel_id} introuvable")
         return None
-    card = card_pick_random_by_min_rarity(min_rarity)
+    if exact_rarity:
+        from database import card_pick_random_exact_rarity
+        card = card_pick_random_exact_rarity(min_rarity)
+    else:
+        card = card_pick_random_by_min_rarity(min_rarity)
     if not card:
-        print(f"[card_event] aucune carte eligible min_rarity={min_rarity}")
+        print(f"[card_event] aucune carte eligible rarity={min_rarity} exact={exact_rarity}")
         return None
     event_id = card_event_log_create(guild_id, channel_id, card["id"],
                                        triggered_by=triggered_by)
