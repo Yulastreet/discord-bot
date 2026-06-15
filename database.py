@@ -2199,16 +2199,23 @@ def card_event_config_all_enabled():
 
 
 def card_event_log_create(guild_id, channel_id, card_id, message_id=None,
-                            triggered_by="auto"):
+                            triggered_by="auto", claim_code=None):
     conn = get_db(); c = conn.cursor()
     c.execute('''INSERT INTO card_event_log
-                 (guild_id, channel_id, card_id, message_id, triggered_by)
-                 VALUES (?, ?, ?, ?, ?)''',
+                 (guild_id, channel_id, card_id, message_id, triggered_by, claim_code)
+                 VALUES (?, ?, ?, ?, ?, ?)''',
               (str(guild_id), str(channel_id), int(card_id),
-                str(message_id) if message_id else None, triggered_by))
+                str(message_id) if message_id else None, triggered_by, claim_code))
     eid = c.lastrowid
     conn.commit(); conn.close()
     return eid
+
+
+def card_event_log_delete(event_id):
+    """Supprime un event (ex : echec d'envoi du message -> pas de ghost)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM card_event_log WHERE id = ?", (int(event_id),))
+    conn.commit(); conn.close()
 
 
 def card_event_log_update_message(event_id, message_id, winning_emoji=None,

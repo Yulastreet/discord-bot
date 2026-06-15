@@ -235,9 +235,11 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     if not card:
         print(f"[card_event] aucune carte eligible rarity={min_rarity} exact={exact_rarity} card_id={card_id}")
         return None
-    event_id = card_event_log_create(guild_id, channel_id, card["id"],
-                                       triggered_by=triggered_by)
+    # Code genere et ENREGISTRE des la creation (avant le send) : le claim matche
+    # par code, donc meme si l'update du message_id echoue plus tard, c'est claimable.
     code = _gen_code()
+    event_id = card_event_log_create(guild_id, channel_id, card["id"],
+                                       triggered_by=triggered_by, claim_code=code)
     rarity = card.get("rarity", "common")
     color = RARITY_COLORS.get(rarity, 0x9aa0a6)
     emoji = RARITY_EMOJIS.get(rarity, "⚪")
@@ -281,12 +283,23 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
             msg = await channel.send(content=content, embed=embed, file=drop_file, allowed_mentions=allowed)
         else:
             msg = await channel.send(content=content, embed=embed, allowed_mentions=allowed)
-        card_event_log_update_message(event_id, msg.id, claim_code=code)
-        return {"event_id": event_id, "card": card, "message_id": msg.id,
-                  "channel_id": channel_id, "claim_code": code}
     except Exception as e:
+        # Envoi rate : on retire le ghost (sinon event sans message). Le retry du
+        # dispatch repartira proprement.
         print(f"[card_event] erreur send: {e}")
+        try:
+            from database import card_event_log_delete
+            card_event_log_delete(event_id)
+        except Exception:
+            pass
         return None
+    # Message envoye + code deja en base -> claimable. msg_id best-effort (non-fatal).
+    try:
+        card_event_log_update_message(event_id, msg.id)
+    except Exception as e:
+        print(f"[card_event] update message_id err (claim reste OK via code): {e}")
+    return {"event_id": event_id, "card": card, "message_id": msg.id,
+              "channel_id": channel_id, "claim_code": code}
 
 
 async def handle_message_claim(bot, message: discord.Message) -> bool:
