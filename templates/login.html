@@ -18,58 +18,55 @@
     html, body { height: 100%; margin: 0; }
     body {
       font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-      overflow: hidden; color: #fff;
-      background: #0a0a0f url("/static/login_bg.png") center / cover no-repeat;
+      overflow: hidden; color: #fff; background: #7fb6dd;
     }
-    /* Flou gaussien 64 derriere le panneau : backdrop-filter masque par la forme
-       du panel PNG (meme cadrage cover -> alignement parfait avec le fond). */
-    .panel-blur {
-      position: fixed; inset: 0; z-index: 1; pointer-events: none;
-      -webkit-backdrop-filter: blur(64px); backdrop-filter: blur(64px);
-      -webkit-mask: url("/static/login_panel.png") center / cover no-repeat;
-              mask: url("/static/login_panel.png") center / cover no-repeat;
-    }
-    /* Le panneau (tint / verre depoli / bords) par-dessus le flou. */
-    .panel-img {
-      position: fixed; inset: 0; z-index: 2; pointer-events: none;
-      background: url("/static/login_panel.png") center / cover no-repeat;
-    }
-    /* Contenu HTML net positionne sur la zone du panneau (design 1920x1080). */
+    /* Toutes les couches calees par HAUTEUR + ancrees a DROITE -> pleine hauteur
+       1080 toujours visible (bevel des coins preserve), panneau colle au bord droit,
+       et meme cadrage entre fond / flou / panneau / masque (alignement parfait). */
+    .layer { position: fixed; inset: 0; background-repeat: no-repeat;
+             background-position: right center; background-size: auto 100%; }
+    .bg     { z-index: 0; background-image: url("/static/login_bg.png"); }
+    /* Flou gaussien 64 : copie de l'artwork floutee, masquee a la forme du panneau */
+    .blur   { z-index: 1; background-image: url("/static/login_bg.png");
+              filter: blur(64px);
+              -webkit-mask: url("/static/login_panel.png") right center / auto 100% no-repeat;
+                      mask: url("/static/login_panel.png") right center / auto 100% no-repeat; }
+    .panel  { z-index: 2; background-image: url("/static/login_panel.png"); pointer-events: none; }
+
+    /* Contenu net, ancre a droite dans le panneau (panneau = ~69.7vh de large) */
     .panel-content {
-      position: fixed; z-index: 3;
-      top: 0; bottom: 0; left: 61.5%; right: 2%;
+      position: fixed; z-index: 3; top: 6%; bottom: 0; right: 5vh; width: 58vh;
       display: flex; flex-direction: column; justify-content: center;
-      gap: 22px; padding: 0 3% 0 0;
-      text-shadow: 0 1px 12px rgba(0,0,0,0.25);
+      gap: clamp(14px, 2.4vh, 30px);
+      text-shadow: 0 1px 12px rgba(0,0,0,0.22);
     }
     .brand { display: flex; align-items: center; gap: 16px; }
-    .brand img { width: 64px; height: 64px; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .brand img { width: clamp(48px, 6vh, 72px); height: clamp(48px, 6vh, 72px);
+                 border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
     .brand .b-title {
-      font-family: var(--titling);
-      font-size: clamp(22px, 2.1vw, 40px); font-weight: 700;
-      letter-spacing: 0.04em; line-height: 1;
+      font-family: var(--titling); font-weight: 700; line-height: 1;
+      font-size: clamp(22px, 3.4vh, 42px); letter-spacing: 0.04em;
     }
     .brand .b-sub {
-      font-family: var(--titling);
-      font-size: clamp(11px, 0.9vw, 16px); letter-spacing: 0.22em;
-      text-transform: uppercase; color: rgba(255,255,255,0.78); margin-top: 6px;
+      font-family: var(--titling); font-size: clamp(11px, 1.5vh, 18px);
+      letter-spacing: 0.24em; text-transform: uppercase;
+      color: rgba(255,255,255,0.78); margin-top: 6px;
     }
     .panel-content h1 {
-      font-family: var(--titling);
-      font-weight: 700; margin: 8px 0 0;
-      font-size: clamp(30px, 3.4vw, 64px); letter-spacing: 0.06em;
+      font-family: var(--titling); font-weight: 700; margin: 0;
+      font-size: clamp(34px, 6vh, 70px); letter-spacing: 0.06em;
       text-transform: uppercase; line-height: 1;
     }
     .panel-content .desc {
-      font-size: clamp(13px, 1vw, 18px); line-height: 1.5;
-      color: rgba(255,255,255,0.9); max-width: 30ch;
+      font-size: clamp(13px, 1.8vh, 19px); line-height: 1.5;
+      color: rgba(255,255,255,0.92); max-width: 30ch;
       text-transform: uppercase; letter-spacing: 0.04em;
     }
     .btn-discord {
       display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; max-width: 420px; padding: 14px 18px; margin-top: 6px;
+      width: 100%; max-width: 460px; padding: 14px 18px; margin-top: 4px;
       border-radius: 12px; background: #5865F2; color: #fff;
-      text-decoration: none; font-weight: 600; font-size: clamp(13px, 1.05vw, 18px);
+      text-decoration: none; font-weight: 600; font-size: clamp(13px, 1.7vh, 18px);
       border: none; cursor: pointer; transition: background .15s ease, transform .12s ease;
       box-shadow: 0 8px 28px rgba(88,101,242,0.45);
     }
@@ -82,29 +79,28 @@
       box-shadow: 0 6px 24px rgba(0,0,0,0.4); max-width: 60vw;
     }
     .pw-fallback { position: fixed; bottom: 14px; left: 24px; z-index: 10; font-size: 12px; }
-    .pw-fallback summary { color: rgba(255,255,255,0.55); cursor: pointer; }
+    .pw-fallback summary { color: rgba(255,255,255,0.7); cursor: pointer; }
     .pw-fallback form { margin-top: 8px; display: flex; gap: 8px; background: rgba(15,16,22,0.9); padding: 10px; border-radius: 10px; }
     .pw-fallback input { padding: 8px 10px; border-radius: 8px; border: 1px solid #333; background:#111; color:#fff; }
     .pw-fallback button { padding: 8px 12px; border-radius: 8px; border: none; background:#2a2a33; color:#fff; cursor:pointer; }
 
-    /* Mobile / etroit : artwork large -> on remplace par une carte centree lisible */
+    /* Mobile / etroit : carte centree lisible (le panneau a droite serait trop serre) */
     @media (max-width: 860px) {
-      .panel-blur, .panel-img { display: none; }
+      .panel { display: none; }
       .panel-content {
-        inset: 0; left: 0; right: 0; align-items: center; text-align: center;
-        padding: 24px; background: rgba(8,9,14,0.62);
-        -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+        inset: 0; right: 0; width: auto; align-items: center; text-align: center;
+        padding: 24px; background: rgba(8,9,14,0.55);
       }
       .panel-content .desc { max-width: 34ch; }
-      .btn-discord { max-width: 360px; }
     }
   </style>
 </head>
 <body>
   {% if error %}<div class="login-err">{{ error }}</div>{% endif %}
 
-  <div class="panel-blur"></div>
-  <div class="panel-img"></div>
+  <div class="layer bg"></div>
+  <div class="layer blur"></div>
+  <div class="layer panel"></div>
 
   <div class="panel-content">
     <div class="brand">
