@@ -1164,9 +1164,10 @@ def setup_cards_commands(bot, deps):
     @app_commands.describe(membre="Voir l'inventaire de quelqu'un d'autre (defaut : toi)")
     async def cardinventory_cmd(interaction: discord.Interaction, membre: discord.Member = None):
         target = membre or interaction.user
+        is_self = target.id == interaction.user.id
         embed, frags, golden = _inv_embed(target)
         view = None
-        if membre is None and (golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC):
+        if is_self and (golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC):
             view = _InventoryView(interaction.user.id)
             for ch in view.children:
                 if "Golden" in ch.label:
@@ -1174,7 +1175,7 @@ def setup_cards_commands(bot, deps):
                 if "Craft" in ch.label:
                     ch.disabled = frags < _FRAGMENTS_PER_MYTHIC
         await interaction.response.send_message(
-            embed=embed, view=(view or discord.utils.MISSING), ephemeral=(membre is None))
+            embed=embed, view=(view or discord.utils.MISSING), ephemeral=is_self)
 
 
     # Autocomplete partage : cartes dont le user a des DOUBLONS (>1 copie)
