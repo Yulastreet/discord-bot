@@ -830,7 +830,9 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=Non
     avatar_rar = (avatar or {}).get("rarity")
     idx = _avatar_idx(tier, avatar_rar)
     diff = _avatar_difficulty(tier, idx)
-    boss_atk = int(cfg["atk"] * diff)
+    # PV : facteur plein (tanky = DPS check). ATK : adouci (diff^0.6) pour ne pas
+    # one-shot l'equipe avant qu'elle puisse DPS le boss.
+    boss_atk = int(cfg["atk"] * diff ** 0.6)
     boss_hp = int(cfg["hp"] * diff)
     avatar_cid = avatar["id"] if avatar else None
     # start_at non defini : le timer ne demarre qu'au 1er joueur
@@ -936,15 +938,15 @@ def _scale_boss_to_team(bid):
         # il ne fait que grossir pour les equipes fortes (anti-powercreep).
         scaled_hp = int(sc["hp"] * sum_atk)
         scaled_atk = int(sc["atk"] * (sum_hp / n))
-        # facteur de rareté de l'avatar : depuis atk_spawn (IMMUABLE), pas boss.atk
-        # (qui est muté par ce meme calcul a chaque join -> compound exponentiel)
-        # Facteur de difficulte rareté avatar (= step^cran), depuis atk_spawn IMMUABLE
-        # (boss.atk est muté par ce calcul a chaque join -> compound exponentiel).
-        atk_spawn = boss.get("atk_spawn") or boss["atk"]
-        diff = (atk_spawn / cfg["atk"]) if cfg.get("atk") else 1.0
-        # Applique a PV ET ATK : boss plus tanky ET plus letal aux hautes raretes.
+        # Facteur de difficulte rareté avatar (= step^cran), recalcule depuis la
+        # rareté de l'avatar (card_id, immuable) -> pas de compound a chaque join.
+        avatar = card_get(boss["card_id"]) if boss.get("card_id") else None
+        idx = _avatar_idx(tier, (avatar or {}).get("rarity"))
+        diff = _avatar_difficulty(tier, idx)
+        # PV : facteur plein (tanky = DPS check). ATK : adouci (diff^0.6) pour ne pas
+        # one-shot l'equipe avant qu'elle puisse DPS.
         new_hp = int(max(cfg.get("hp", scaled_hp), scaled_hp) * diff)
-        new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * diff)
+        new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * diff ** 0.6)
         card_boss_set_stats(bid, new_hp, new_atk)
     except Exception as e:
         print(f"[boss] scale err: {e!r}")
