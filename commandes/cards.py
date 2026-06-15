@@ -134,12 +134,19 @@ def combat_power(hp, atk) -> int:
 
 
 def _power_emoji_str(bot, n) -> str:
-    """Nombre -> suite d'emojis chiffres custom du support (noms '0_'..'9_').
+    """Nombre -> suite d'emojis chiffres custom du SERVEUR SUPPORT (noms '0_'..'9_').
+    Recherche limitee au support (noms '4_' etc en collision avec d'autres serveurs).
     Fallback : chiffres unicode si emoji introuvable."""
+    sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
+    guild = bot.get_guild(sg) if sg else None
+    # map nom -> emoji du seul serveur support
+    by_name = {}
+    if guild:
+        for e in guild.emojis:
+            by_name[e.name.lower()] = str(e)
     out = []
     for ch in str(int(n)):
-        e = _get_inline_emoji_str(bot, f"{ch}_") if ch.isdigit() else ""
-        out.append(e or ch)
+        out.append(by_name.get(f"{ch}_", ch) if ch.isdigit() else ch)
     return "".join(out)
 
 
