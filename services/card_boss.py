@@ -207,18 +207,34 @@ def _cemoji(bot, name, fallback):
     return fallback
 
 
+def _power_compact(n) -> str:
+    """>=1M -> 'XmYYY' (millions + m + milliers, unites droppees). Ex 1345986 -> '1m345'.
+    Sinon le nombre entier. Le 'm' = emoji custom million."""
+    n = int(n)
+    if n >= 1_000_000:
+        return f"{n // 1_000_000}m{(n // 1000) % 1000:03d}"
+    return str(n)
+
+
 def _power_digits(bot, n, suffix="_") -> str:
-    """Nombre -> emojis chiffres custom du SEUL serveur support.
+    """Nombre -> emojis chiffres custom du SEUL serveur support (format compact 'm').
     suffix='_' -> noms '0_'..'9_' (joueurs). suffix='boss' -> '0boss'..'9boss'.
-    Restreint au support (noms courts en collision avec d'autres serveurs)."""
+    'm' -> emoji custom 'm'. Restreint au support (collision de noms courts)."""
     sg = int((_os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
     guild = bot.get_guild(sg) if sg else None
     by_name = {}
     if guild:
         for e in guild.emojis:
             by_name[e.name.lower()] = str(e)
-    return "".join(by_name.get(f"{ch}{suffix}", ch) if ch.isdigit() else ch
-                   for ch in str(int(n)))
+    out = []
+    for ch in _power_compact(n):
+        if ch == "m":
+            out.append(by_name.get("m", "M"))
+        elif ch.isdigit():
+            out.append(by_name.get(f"{ch}{suffix}", ch))
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def _boss_image_url(boss):

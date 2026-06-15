@@ -124,19 +124,25 @@ def _roll_emoji(bot) -> str:
 
 
 def _power_emoji_str(bot, n) -> str:
-    """Nombre -> suite d'emojis chiffres custom du SERVEUR SUPPORT (noms '0_'..'9_').
-    Recherche limitee au support (noms '4_' etc en collision avec d'autres serveurs).
-    Fallback : chiffres unicode si emoji introuvable."""
+    """Nombre -> emojis chiffres custom du SERVEUR SUPPORT (noms '0_'..'9_', 'm').
+    Format compact >=1M : 'XmYYY' (ex 1345986 -> 1m345). Recherche limitee au
+    support (noms courts en collision). Fallback : chiffres unicode."""
     sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
     guild = bot.get_guild(sg) if sg else None
-    # map nom -> emoji du seul serveur support
     by_name = {}
     if guild:
         for e in guild.emojis:
             by_name[e.name.lower()] = str(e)
+    n = int(n)
+    s = f"{n // 1_000_000}m{(n // 1000) % 1000:03d}" if n >= 1_000_000 else str(n)
     out = []
-    for ch in str(int(n)):
-        out.append(by_name.get(f"{ch}_", ch) if ch.isdigit() else ch)
+    for ch in s:
+        if ch == "m":
+            out.append(by_name.get("m", "M"))
+        elif ch.isdigit():
+            out.append(by_name.get(f"{ch}_", ch))
+        else:
+            out.append(ch)
     return "".join(out)
 
 
