@@ -160,6 +160,40 @@
     </div>
   </div>
 
+  <!-- Simuler un roll (test wishlist) -->
+  <div class="ce-section ce-trigger" style="margin-top:14px;">
+    <h3>🎲 Simuler un roll (test)</h3>
+    <div class="muted" style="font-size:11px;margin-bottom:8px;">
+      Poste une carte au format <code>/roll</code> dans un salon + ping les wishers. Ne donne la carte à personne (test pur des notifs wishlist).
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Serveur</span>
+        <select id="simGuild" onchange="simGuildChanged()" class="input"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Salon</span>
+        <select id="simChannel" class="input"></select>
+      </label>
+      <button class="btn btn-primary" onclick="simulateRoll()">🎲 Simuler</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+        <span class="muted">Carte</span>
+        <input id="simCardSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();simCardSearchGo();}">
+      </label>
+      <button class="btn" onclick="simCardSearchGo()">🔍 Chercher</button>
+    </div>
+    <div id="simCardResults" style="margin-top:8px;display:none;">
+      <select id="simCardPick" class="input" onchange="simCardPicked()"></select>
+    </div>
+    <div id="simCardChosen" class="muted" style="font-size:12px;margin-top:6px;display:none;">
+      🎯 Carte : <b id="simCardChosenName"></b>
+    </div>
+    <div id="simHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
+  </div>
+
   <!-- Reset roue de la chance -->
   <div class="ce-section ce-trigger" style="margin-top:14px;">
     <h3>🎡 Roue de la chance</h3>
@@ -281,6 +315,8 @@ async function loadGuilds() {
     document.getElementById('trgGuild').innerHTML = opts;
     const bsel = document.getElementById('bossGuild');
     if (bsel) bsel.innerHTML = opts;
+    const ssel = document.getElementById('simGuild');
+    if (ssel) ssel.innerHTML = opts;
   } catch (e) {}
 }
 function trgGuildChanged() {
@@ -396,6 +432,66 @@ async function spawnBoss() {
   } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
 }
 window.spawnBoss = spawnBoss;
+
+// ---- Simuler un roll (test wishlist) ----
+function simGuildChanged() {
+  const gid = document.getElementById('simGuild').value;
+  const g = _guildsCache.find(x => x.id === gid);
+  const ch = document.getElementById('simChannel');
+  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
+  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+}
+window.simGuildChanged = simGuildChanged;
+
+let _simCardId = null;
+async function simCardSearchGo() {
+  const q = (document.getElementById('simCardSearch').value || '').trim();
+  const hint = document.getElementById('simHint');
+  if (!q) { hint.textContent = 'Tape un nom de carte.'; return; }
+  hint.textContent = 'Recherche…';
+  try {
+    const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
+    const d = await r.json();
+    const sel = document.getElementById('simCardPick');
+    const box = document.getElementById('simCardResults');
+    const items = d.items || [];
+    if (!items.length) { hint.textContent = 'Aucune carte trouvée.'; box.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">— Choisir une carte (' + items.length + ') —</option>' +
+      items.map(c => `<option value="${c.id}">${escHtml(c.name)} · ${escHtml((c.rarity||'').toUpperCase())} · ${escHtml(c.universe||'?')} · #${c.id}</option>`).join('');
+    box.style.display = 'block';
+    hint.textContent = items.length >= 25 ? '25+ résultats, affine ta recherche.' : '';
+  } catch (e) { hint.textContent = `Erreur recherche : ${e.message}`; }
+}
+window.simCardSearchGo = simCardSearchGo;
+
+function simCardPicked() {
+  const sel = document.getElementById('simCardPick');
+  _simCardId = sel.value || null;
+  const box = document.getElementById('simCardChosen');
+  if (_simCardId) {
+    document.getElementById('simCardChosenName').textContent = sel.options[sel.selectedIndex].textContent;
+    box.style.display = 'block';
+  } else { box.style.display = 'none'; }
+}
+window.simCardPicked = simCardPicked;
+
+async function simulateRoll() {
+  const gid = document.getElementById('simGuild').value;
+  const cid = document.getElementById('simChannel').value;
+  const hint = document.getElementById('simHint');
+  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
+  if (!_simCardId) { hint.textContent = 'Choisis une carte (recherche + sélection).'; return; }
+  hint.textContent = 'Simulation en cours…';
+  try {
+    const r = await fetch('/api/owner/card-events/simulate-roll', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({guild_id: gid, channel_id: cid, card_id: parseInt(_simCardId, 10)}),
+    });
+    const d = await r.json();
+    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;
+  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+}
+window.simulateRoll = simulateRoll;
 
 async function bossRefreshChannels() {
   const gid = document.getElementById('bossGuild').value;

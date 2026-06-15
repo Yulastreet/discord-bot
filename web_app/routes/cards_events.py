@@ -228,6 +228,32 @@ def register_cards_events_routes(app, deps):
         return jsonify({"ok": True, "note": f"Boss Tier {tier}{suffix} dispatché (visible sous 2s)"})
 
 
+    @app.route("/api/owner/card-events/simulate-roll", methods=["POST"])
+    def api_owner_simulate_roll():
+        """Faux roll de test : poste le format /roll + ping wishers, sans rien donner."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import bot_command_enqueue, card_get
+        data = request.json or {}
+        guild_id = data.get("guild_id")
+        channel_id = data.get("channel_id")
+        card_id = data.get("card_id")
+        if not guild_id or not channel_id or not card_id:
+            return jsonify({"error": "guild_id + channel_id + card_id requis"}), 400
+        try:
+            card_id = int(card_id)
+        except (ValueError, TypeError):
+            return jsonify({"error": "card_id invalide"}), 400
+        card = card_get(card_id)
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        bot_command_enqueue(guild_id, "simulate_roll", {
+            "channel_id": str(channel_id),
+            "card_id": card_id,
+        })
+        return jsonify({"ok": True, "note": f"Roll simulé de {card['name']} dispatché (visible sous 2s)"})
+
+
     @app.route("/api/owner/card-events/wheel/reset", methods=["POST"])
     def api_owner_wheel_reset():
         """Owner : reset la roue de la chance du jour pour tout le monde."""

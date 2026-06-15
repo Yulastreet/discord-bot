@@ -2655,5 +2655,38 @@ def setup_runtime(bot, deps):
                 raise RuntimeError("spawn echoue (salon introuvable ou pas de cartes)")
             return
 
+        elif name == "simulate_roll":
+            # Faux roll de test : poste le format /roll + ping les wishers, SANS
+            # ajouter la carte a une collection (test pur des notifs wishlist).
+            from commandes.cards import build_roll_embed
+            from database import card_get, wishlist_users_for_card
+            channel_id = payload.get("channel_id")
+            card_id = payload.get("card_id")
+            if not channel_id or not card_id:
+                raise ValueError("channel_id + card_id requis")
+            card = card_get(int(card_id))
+            if not card:
+                raise RuntimeError("carte introuvable")
+            channel = guild.get_channel(int(channel_id))
+            if not channel:
+                raise RuntimeError("salon introuvable")
+            embed, img_file, view = build_roll_embed(bot, card, "Roll simulé (test)")
+            if img_file:
+                await channel.send(embed=embed, file=img_file, view=view)
+            else:
+                await channel.send(embed=embed, view=view)
+            try:
+                wishers = wishlist_users_for_card(int(card_id)) or []
+                mentions = [m.mention for m in
+                            (guild.get_member(int(w)) for w in wishers[:5]) if m]
+                if mentions:
+                    await channel.send(
+                        f"🔔 {' '.join(mentions)} — une simulation vient de poster "
+                        f"**{card['name']}** de votre wishlist ! "
+                        f"Proposez un échange avec `/cardtrade`.")
+            except Exception as e:
+                print(f"[simulate_roll wish] {e}")
+            return
+
         else:
             raise ValueError(f"commande inconnue: {name}")

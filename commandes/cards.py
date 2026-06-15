@@ -249,6 +249,40 @@ def _resolve_card_image(card: dict):
     return (None, None)
 
 
+def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
+                     essence_gain=0, already_owned=False):
+    """Construit l'embed d'un roll (meme format que /roll). Reutilise par /roll,
+    le golden roll et la simulation dashboard. Retourne (embed, img_file, view)."""
+    rarity = card.get("rarity", "common")
+    color = RARITY_COLORS.get(rarity, 0x9aa0a6)
+    emoji = _get_rarity_title_emoji(bot, rarity)
+    origine = card.get("subtitle") or "?"
+    univers = card.get("universe") or "?"
+    rarity_display = "?????" if rarity == "secret" else rarity.upper()
+    flavor = (card.get("flavor_subtitle") or "").strip()
+    essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
+    _elem = card.get("element")
+    if _elem:
+        essence_line += f"\n**Élément :** {_get_element_emoji(bot, _elem)} {_ELEM_LABELS.get(_elem, '')}"
+    desc_parts = []
+    if flavor:
+        desc_parts.append(f"_**{flavor}**_")
+    desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n"
+                      f"**Univers :** {univers}\n{essence_line}")
+    embed = discord.Embed(title=f"{emoji} {card['name']}"[:256],
+                          description="\n\n".join(desc_parts), color=color)
+    thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
+    if thumb_url:
+        embed.set_thumbnail(url=thumb_url)
+    img_url, img_file = _resolve_card_image(card)
+    if img_url:
+        embed.set_image(url=img_url)
+    elif img_file:
+        embed.set_image(url="attachment://card.png")
+    embed.set_footer(text=f"Appartient à {roller_name}", icon_url=roller_avatar_url)
+    return embed, img_file, OwnersView(card["id"], card["name"])
+
+
 def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     """Verifie que la commande est lancee dans le salon configure.
     Retourne (ok, channel_mention_si_ko)."""
