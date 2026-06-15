@@ -18,31 +18,31 @@
     html, body { height: 100%; margin: 0; }
     body {
       font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-      overflow: hidden; color: #fff; background: #7fb6dd;
+      overflow: hidden; color: #fff;
     }
-    /* Toutes les couches calees par HAUTEUR + ancrees a DROITE -> pleine hauteur
-       1080 toujours visible (bevel des coins preserve), panneau colle au bord droit,
-       et meme cadrage entre fond / flou / panneau / masque (alignement parfait). */
-    .layer { position: fixed; inset: 0; background-repeat: no-repeat;
-             background-position: right center; background-size: auto 100%; }
-    .bg     { z-index: 0; background-image: url("/static/login_bg.png"); }
-    /* Flou gaussien 64 : copie de l'artwork floutee, masquee a la forme du panneau */
-    .blur   { z-index: 1; background-image: url("/static/login_bg.png");
-              filter: blur(64px);
-              -webkit-mask: url("/static/login_panel.png") right center / auto 100% no-repeat;
-                      mask: url("/static/login_panel.png") right center / auto 100% no-repeat; }
-    .panel  { z-index: 2; background-image: url("/static/login_panel.png"); pointer-events: none; }
-
-    /* Contenu net, ancre a droite dans le panneau (panneau = ~69.7vh de large) */
-    .panel-content {
-      position: fixed; z-index: 3; top: 6%; bottom: 0; right: 5vh; width: 58vh;
+    /* Artwork plein ecran */
+    .bg {
+      position: fixed; inset: 0; z-index: 0;
+      background: #7fb6dd url("/static/login_bg.png") center / cover no-repeat;
+    }
+    /* Panneau : noir translucide + flou gaussien 64, colle a droite, coins
+       arrondis a GAUCHE. Construit en CSS (pas d'image). */
+    .panel {
+      position: fixed; z-index: 2; top: 0; bottom: 0; right: 0;
+      width: clamp(380px, 39%, 820px);
+      background: rgba(6, 10, 18, 0.42);
+      -webkit-backdrop-filter: blur(64px); backdrop-filter: blur(64px);
+      border-top-left-radius: 44px; border-bottom-left-radius: 44px;
+      border-left: 1px solid rgba(255,255,255,0.10);
+      box-shadow: -20px 0 60px rgba(0,0,0,0.25);
       display: flex; flex-direction: column; justify-content: center;
       gap: clamp(14px, 2.4vh, 30px);
-      text-shadow: 0 1px 12px rgba(0,0,0,0.22);
+      padding: 0 clamp(34px, 4.5vw, 80px);
+      text-shadow: 0 1px 12px rgba(0,0,0,0.3);
     }
     .brand { display: flex; align-items: center; gap: 16px; }
     .brand img { width: clamp(48px, 6vh, 72px); height: clamp(48px, 6vh, 72px);
-                 border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+                 border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
     .brand .b-title {
       font-family: var(--titling); font-weight: 700; line-height: 1;
       font-size: clamp(22px, 3.4vh, 42px); letter-spacing: 0.04em;
@@ -52,19 +52,19 @@
       letter-spacing: 0.24em; text-transform: uppercase;
       color: rgba(255,255,255,0.78); margin-top: 6px;
     }
-    .panel-content h1 {
-      font-family: var(--titling); font-weight: 700; margin: 0;
-      font-size: clamp(34px, 6vh, 70px); letter-spacing: 0.06em;
+    .panel h1 {
+      font-family: var(--titling); font-weight: 700; margin: 6px 0 0;
+      font-size: clamp(34px, 6vh, 72px); letter-spacing: 0.06em;
       text-transform: uppercase; line-height: 1;
     }
-    .panel-content .desc {
+    .panel .desc {
       font-size: clamp(13px, 1.8vh, 19px); line-height: 1.5;
-      color: rgba(255,255,255,0.92); max-width: 30ch;
+      color: rgba(255,255,255,0.92); max-width: 32ch;
       text-transform: uppercase; letter-spacing: 0.04em;
     }
     .btn-discord {
       display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%; max-width: 460px; padding: 14px 18px; margin-top: 4px;
+      width: 100%; max-width: 460px; padding: 15px 18px; margin-top: 6px;
       border-radius: 12px; background: #5865F2; color: #fff;
       text-decoration: none; font-weight: 600; font-size: clamp(13px, 1.7vh, 18px);
       border: none; cursor: pointer; transition: background .15s ease, transform .12s ease;
@@ -84,25 +84,23 @@
     .pw-fallback input { padding: 8px 10px; border-radius: 8px; border: 1px solid #333; background:#111; color:#fff; }
     .pw-fallback button { padding: 8px 12px; border-radius: 8px; border: none; background:#2a2a33; color:#fff; cursor:pointer; }
 
-    /* Mobile / etroit : carte centree lisible (le panneau a droite serait trop serre) */
+    /* Mobile / etroit : panneau pleine largeur, texte centre */
     @media (max-width: 860px) {
-      .panel { display: none; }
-      .panel-content {
-        inset: 0; right: 0; width: auto; align-items: center; text-align: center;
-        padding: 24px; background: rgba(8,9,14,0.55);
+      .panel {
+        width: 100%; border-radius: 0; border-left: none;
+        align-items: center; text-align: center;
+        background: rgba(6,10,18,0.58);
       }
-      .panel-content .desc { max-width: 34ch; }
+      .panel .desc { max-width: 34ch; }
     }
   </style>
 </head>
 <body>
   {% if error %}<div class="login-err">{{ error }}</div>{% endif %}
 
-  <div class="layer bg"></div>
-  <div class="layer blur"></div>
-  <div class="layer panel"></div>
+  <div class="bg"></div>
 
-  <div class="panel-content">
+  <aside class="panel">
     <div class="brand">
       <img src="/static/favicon-512.png" alt="">
       <div>
@@ -124,7 +122,7 @@
     {% elif not password_fallback %}
     <div class="desc">Aucune méthode de connexion configurée. Définis DISCORD_CLIENT_ID/SECRET ou WEB_PASSWORD dans le <code>.env</code>.</div>
     {% endif %}
-  </div>
+  </aside>
 
   {% if password_fallback %}
   <details class="pw-fallback">
