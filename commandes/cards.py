@@ -1613,7 +1613,7 @@ def setup_cards_commands(bot, deps):
                 return _cb
 
         view = _WishlistView(items) if (is_self and items) else None
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=(view or discord.utils.MISSING))
 
     # === /cardtop <categorie> : classements ===
     @bot.tree.command(name="cardtop", description="Classements cartes (collection, mythiques, essences, fusions, chance)")
