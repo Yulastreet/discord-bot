@@ -184,6 +184,11 @@ def init_db():
         c.execute("ALTER TABLE card_event_log ADD COLUMN claim_code TEXT")
     except Exception:
         pass
+    # Migration : role a ping sur drop event / boss (fans de la feature cartes)
+    try:
+        c.execute("ALTER TABLE guild_card_config ADD COLUMN ping_role_id TEXT")
+    except Exception:
+        pass
     # Migration : card_scale_pct sur borders (echelle de la carte dans le cadre)
     try:
         c.execute("ALTER TABLE borders ADD COLUMN card_scale_pct INTEGER DEFAULT 100")
@@ -3527,7 +3532,7 @@ def guild_card_config_get(guild_id):
     return dict(r) if r else None
 
 
-def guild_card_config_set(guild_id, channel_id=None, enabled=None):
+def guild_card_config_set(guild_id, channel_id=None, enabled=None, ping_role_id=...):
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO guild_card_config (guild_id) VALUES (?)",
               (str(guild_id),))
@@ -3537,6 +3542,9 @@ def guild_card_config_set(guild_id, channel_id=None, enabled=None):
         fields.append("channel_id = ?"); values.append(str(channel_id) if channel_id else None)
     if enabled is not None:
         fields.append("enabled = ?"); values.append(1 if enabled else 0)
+    # sentinelle ... -> ne pas toucher ; None -> effacer le role
+    if ping_role_id is not ...:
+        fields.append("ping_role_id = ?"); values.append(str(ping_role_id) if ping_role_id else None)
     if fields:
         fields.append("updated_at = CURRENT_TIMESTAMP")
         c.execute(f"UPDATE guild_card_config SET {', '.join(fields)} WHERE guild_id = ?",

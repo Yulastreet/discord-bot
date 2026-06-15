@@ -670,7 +670,15 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None):
     boss = card_boss_get(bid)
     embed = build_boss_embed(bot, boss)
     view = JoinView(bid)
-    msg = await channel.send(content="🐲 **Un boss est apparu !**", embed=embed, view=view)
+    # Ping du role "fans de cartes" si configure (/cardsetup role)
+    from database import guild_card_config_get
+    _role_id = (guild_card_config_get(guild_id) or {}).get("ping_role_id")
+    content = "🐲 **Un boss est apparu !**"
+    allowed = discord.AllowedMentions.none()
+    if _role_id:
+        content = f"<@&{_role_id}> {content}"
+        allowed = discord.AllowedMentions(roles=True)
+    msg = await channel.send(content=content, embed=embed, view=view, allowed_mentions=allowed)
     card_boss_set_message(bid, msg.id)
     asyncio.create_task(_run_boss(bot, bid, msg, view))
     return bid

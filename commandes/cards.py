@@ -280,16 +280,33 @@ def setup_cards_commands(bot, deps):
     cards_grp = app_commands.Group(name="cards", description="Collection de cartes pop culture")
 
     # === /cardsetup admin (alias top-level pour clarte) ===
-    @bot.tree.command(name="cardsetup", description="Definir le salon ou les commandes cartes sont autorisees (admin)")
-    @app_commands.describe(salon="Salon textuel ou les commandes cartes seront limitees")
+    @bot.tree.command(name="cardsetup", description="Definir le salon des cartes + role a ping sur drop/boss (admin)")
+    @app_commands.describe(
+        salon="Salon textuel ou les commandes cartes seront limitees",
+        role="(Optionnel) Role pinge a chaque drop event et spawn de boss")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def cardsetup(interaction: discord.Interaction, salon: discord.TextChannel):
-        guild_card_config_set(interaction.guild.id, channel_id=salon.id, enabled=True)
-        await interaction.response.send_message(
-            f"✅ Salon des cartes configure sur {salon.mention}. "
-            f"Les commandes `/roll`, `/cardcollec`, `/card` ne marcheront que dans ce salon.",
-            ephemeral=True,
-        )
+    async def cardsetup(interaction: discord.Interaction, salon: discord.TextChannel,
+                        role: discord.Role = None):
+        guild_card_config_set(interaction.guild.id, channel_id=salon.id, enabled=True,
+                              ping_role_id=(role.id if role else ...))
+        msg = (f"✅ Salon des cartes configure sur {salon.mention}. "
+               f"Les commandes `/roll`, `/cardcollec`, `/card` ne marcheront que dans ce salon.")
+        if role:
+            msg += f"\n🔔 Role {role.mention} sera pinge a chaque drop event et spawn de boss."
+        await interaction.response.send_message(msg, ephemeral=True)
+
+    @bot.tree.command(name="cardsetup_role", description="Definir/retirer le role pinge sur drop event et boss (admin)")
+    @app_commands.describe(role="Role a ping (laisse vide pour retirer le ping)")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def cardsetup_role(interaction: discord.Interaction, role: discord.Role = None):
+        guild_card_config_set(interaction.guild.id, ping_role_id=(role.id if role else None))
+        if role:
+            await interaction.response.send_message(
+                f"🔔 Role {role.mention} sera pinge a chaque drop event et spawn de boss.",
+                ephemeral=True)
+        else:
+            await interaction.response.send_message(
+                "🔕 Plus aucun role pinge sur les drops / boss.", ephemeral=True)
 
     @bot.tree.command(name="cardsetup_disable", description="Desactive la restriction de salon cartes (admin)")
     @app_commands.checks.has_permissions(manage_guild=True)

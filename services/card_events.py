@@ -249,11 +249,20 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     except Exception:
         pass
     embed.set_footer(text=f"Event #{event_id}")
+    # Ping du role "fans de cartes" si configure (/cardsetup role)
+    from database import guild_card_config_get
+    _cfg = guild_card_config_get(guild.id) or {}
+    _role_id = _cfg.get("ping_role_id")
+    content = "🎁 **Drop Event !**"
+    allowed = discord.AllowedMentions.none()
+    if _role_id:
+        content = f"<@&{_role_id}> {content}"
+        allowed = discord.AllowedMentions(roles=True)
     try:
         if drop_file:
-            msg = await channel.send(content="🎁 **Drop Event !**", embed=embed, file=drop_file)
+            msg = await channel.send(content=content, embed=embed, file=drop_file, allowed_mentions=allowed)
         else:
-            msg = await channel.send(content="🎁 **Drop Event !**", embed=embed)
+            msg = await channel.send(content=content, embed=embed, allowed_mentions=allowed)
         card_event_log_update_message(event_id, msg.id, claim_code=code)
         return {"event_id": event_id, "card": card, "message_id": msg.id,
                   "channel_id": channel_id, "claim_code": code}
