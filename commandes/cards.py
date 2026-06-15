@@ -117,6 +117,12 @@ def _golden_emoji(bot) -> str:
     return s or "🌈"
 
 
+def _roll_emoji(bot) -> str:
+    """Emoji custom 'roll' (serveur support, par nom) sinon fallback ticket."""
+    s = _get_inline_emoji_str(bot, "roll")
+    return s or "🎟️"
+
+
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
     """Cherche emoji custom dans tous les guilds du bot (support server inclus).
     Cache CDN URL (gif si animé, png sinon). Pour usage en thumbnail embed."""
@@ -442,7 +448,7 @@ def setup_cards_commands(bot, deps):
         if _elem:
             essence_line += f"\n**Élément :** {_get_element_emoji(bot, _elem)} {_ELEM_LABELS.get(_elem, '')}"
         if bonus_left is not None:
-            essence_line += f"\n🎟️ _Roll bonus utilisé — il t'en reste **{bonus_left}**_"
+            essence_line += f"\n{_roll_emoji(bot)} _Roll bonus utilisé — il t'en reste **{bonus_left}**_"
         desc_parts = []
         if flavor:
             desc_parts.append(f"_**{flavor}**_")
@@ -1056,7 +1062,7 @@ def setup_cards_commands(bot, deps):
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
         lines = [
-            f"🎟️ **Rolls bonus** : {rolls}  _(utilisables au_ `/roll`_)_",
+            f"{_roll_emoji(bot)} **Rolls bonus** : {rolls}  _(utilisables au_ `/roll`_)_",
             f"🔴 **Fragments Mythic** : {frags} / {_FRAGMENTS_PER_MYTHIC}  _(→ 1 mythic)_",
             f"{_golden_emoji(bot)} **Golden Rolls** : {golden}  _(→ 1 légendaire garanti)_",
         ]

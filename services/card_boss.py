@@ -1048,7 +1048,7 @@ async def _finish(bot, bid, msg, view, log, victory):
             n_rolls = _boss_roll_reward(tier)
             if n_rolls:
                 roll_give_user(p["user_id"], n_rolls)
-                parts_loot.append(f"🎟️ **+{n_rolls} rolls**")
+                parts_loot.append(f"{_cemoji(bot, 'roll', '🎟️')} **+{n_rolls} rolls**")
             crown = "👑 " if idx == 0 else "▫️ "
             loot_lines.append(f"{crown}<@{p['user_id']}> _(dégâts {_fmt(p['damage'])})_\n"
                               f"　→ " + " · ".join(parts_loot))
