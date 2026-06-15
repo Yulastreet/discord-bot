@@ -91,17 +91,31 @@ def _download(url: str):
 
 
 def _card_thumb(card_id, image_url):
-    """Charge render local de la carte, fallback download."""
-    local = os.path.join(_RENDERS_DIR, f"{card_id}.png")
+    """Charge render local de la carte (webp/png), puis /static local, puis download."""
     img = None
-    if os.path.exists(local):
-        try:
-            img = Image.open(local).convert("RGBA")
-        except Exception:
-            img = None
-    if img is None and image_url:
+    # 1. render local : webp d'abord (migration), puis png
+    for ext in (".webp", ".png"):
+        local = os.path.join(_RENDERS_DIR, f"{card_id}{ext}")
+        if os.path.exists(local):
+            try:
+                img = Image.open(local).convert("RGBA")
+                break
+            except Exception:
+                img = None
+    # 2. image_url pointant sur un /static/ local (evite un download qui peut 429)
+    if img is None and isinstance(image_url, str) and "/static/" in image_url:
+        rel = "/static/" + image_url.split("/static/", 1)[1].split("?")[0]
+        p = os.path.join(_ROOT, rel.lstrip("/").replace("/", os.sep))
+        if os.path.exists(p):
+            try:
+                img = Image.open(p).convert("RGBA")
+            except Exception:
+                img = None
+    # 3. dernier recours : download distant
+    if img is None and image_url and str(image_url).startswith("http"):
         img = _download(image_url)
     if img is None:
+        print(f"[card_shop] thumb introuvable card={card_id} url={image_url}")
         return None
     return img.resize((_THUMB_W, _THUMB_H), Image.LANCZOS)
 
