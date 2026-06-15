@@ -138,7 +138,7 @@ def _power_emoji_str(bot, n) -> str:
     out = []
     for ch in s:
         if ch == "m":
-            out.append(by_name.get("m", "M"))
+            out.append(by_name.get("m_", "M"))
         elif ch.isdigit():
             out.append(by_name.get(f"{ch}_", ch))
         else:

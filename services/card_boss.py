@@ -246,19 +246,22 @@ def _power_compact(n) -> str:
 
 
 def _power_digits(bot, n, suffix="_") -> str:
-    """Nombre -> emojis chiffres custom du SEUL serveur support (format compact 'm').
-    suffix='_' -> noms '0_'..'9_' (joueurs). suffix='boss' -> '0boss'..'9boss'.
-    'm' -> emoji custom 'm'. Restreint au support (collision de noms courts)."""
+    """Nombre -> emojis chiffres custom du SEUL serveur support.
+    suffix='_' -> '0_'..'9_' (joueurs) + format compact million (emoji 'm_').
+    suffix='boss' -> '0boss'..'9boss', PAS d'emoji million -> nombre entier.
+    Restreint au support (collision de noms courts)."""
     sg = int((_os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
     guild = bot.get_guild(sg) if sg else None
     by_name = {}
     if guild:
         for e in guild.emojis:
             by_name[e.name.lower()] = str(e)
+    # boss : pas d'emoji million -> nombre entier complet. Joueurs : format compact.
+    s = str(int(n)) if suffix == "boss" else _power_compact(n)
     out = []
-    for ch in _power_compact(n):
+    for ch in s:
         if ch == "m":
-            out.append(by_name.get("m", "M"))
+            out.append(by_name.get("m_", "M"))
         elif ch.isdigit():
             out.append(by_name.get(f"{ch}{suffix}", ch))
         else:
