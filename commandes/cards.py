@@ -2423,15 +2423,29 @@ def setup_cards_commands(bot, deps):
             description=(f"_Carte #{card['id']} · actuellement **{card.get('rarity','?')}**_\n\n"
                         + "\n".join(f"• {c}" for c in changes)),
             color=0xF2B33A)
-        if final_url:
-            embed.set_image(url=final_url)
+        # Image : la nouvelle si fournie, sinon l'image ACTUELLE de la carte
+        img_for_embed = final_url
+        embed_file = None
+        if not img_for_embed:
+            _u, _f = _resolve_card_image(card)
+            if _u:
+                img_for_embed = _u
+            elif _f:
+                embed_file = _f
+        if img_for_embed:
+            embed.set_image(url=img_for_embed)
+        elif embed_file:
+            embed.set_image(url="attachment://card.png")
         avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
         embed.set_footer(text=f"Proposée par {interaction.user.display_name}", icon_url=avatar_url)
         support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
         forward_ok = False
         if support_channel:
             try:
-                await support_channel.send(embed=embed)
+                if embed_file:
+                    await support_channel.send(embed=embed, file=embed_file)
+                else:
+                    await support_channel.send(embed=embed)
                 forward_ok = True
             except Exception as e:
                 print(f"[cardmodify] forward err: {e}")
