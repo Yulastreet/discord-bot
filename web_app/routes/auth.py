@@ -148,6 +148,26 @@ def register_auth_routes(app, deps):
                     "is_server_owner":  bool(gd.get("owner")),
                 })
 
+        # Guildes que l'user gere mais SANS le bot -> liste "Ajouter TookBot".
+        invitable = []
+        for gd in (guilds_user or []):
+            gid = str(gd.get("id") or "")
+            if not gid or gid in bot_guild_ids:
+                continue
+            try:
+                perms = int(gd.get("permissions", 0) or 0)
+            except (TypeError, ValueError):
+                perms = 0
+            if gd.get("owner") or (perms & PERM_ADMINISTRATOR) or (perms & PERM_MANAGE_GUILD):
+                icon = gd.get("icon")
+                invitable.append({
+                    "guild_id": gid,
+                    "name": gd.get("name"),
+                    "icon_url": (f"https://cdn.discordapp.com/icons/{gid}/{icon}.png?size=128"
+                                 if icon else None),
+                })
+        invitable = invitable[:60]
+
         # On autorise tous les utilisateurs Discord a se connecter (acces page /premium,
         # gestion de leurs achats, etc.). Sans guild commune mod/admin, ils ne verront
         # juste pas le dashboard de moderation — geres par le middleware d'acces.
@@ -170,6 +190,7 @@ def register_auth_routes(app, deps):
             "is_owner":             is_owner,
             "accessible_guild_ids": [g["guild_id"] for g in accessible],
             "guilds_meta":          accessible,
+            "invitable_guilds":     invitable,
         }
         session.pop("oauth_state", None)
         _record_login(_client_ip(), True, username=session["discord"]["username"])
@@ -192,7 +213,11 @@ def register_auth_routes(app, deps):
             if g_id and any(gd["guild_id"] == g_id for gd in g.guilds):
                 session["guild_id"] = g_id
                 return redirect("/dashboard")
-        return render_template("select_guild.html", guilds=g.guilds)
+        disc = session.get("discord") or {}
+        return render_template("select_guild.html", guilds=g.guilds,
+                               invitable=disc.get("invitable_guilds") or [],
+                               client_id=DISCORD_CLIENT_ID,
+                               discord_user=disc)
 
     @app.route("/api/select-guild", methods=["POST"])
     def api_select_guild():

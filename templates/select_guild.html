@@ -21,66 +21,72 @@
   {% include "_styles.html" %}
   <style>
     body { min-height: 100vh; }
-    /* Fond d'ambiance : artwork TookBot fortement assombri (texture subtile +
-       remplit l'ecran meme avec peu de serveurs). */
     .page-bg {
       position: fixed; inset: 0; z-index: -2;
       background:
         radial-gradient(70% 55% at 50% 0%, rgba(125,182,221,0.14), transparent 70%),
-        linear-gradient(rgba(8,10,16,0.58), rgba(8,10,16,0.78)),
+        linear-gradient(rgba(8,10,16,0.60), rgba(8,10,16,0.80)),
         url("/static/login_bg.png") center / cover no-repeat fixed;
     }
-    .wrap { max-width: 2000px; margin: 0 auto; padding: 0 clamp(28px, 4vw, 80px) 80px; }
 
-    /* Barre sticky : titre + recherche + actions toujours accessibles */
-    .topbar {
-      position: sticky; top: 0; z-index: 20;
-      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-      padding: 18px 0 16px; margin: 0 0 24px;
-      background: rgba(10,12,18,0.78); border-bottom: 1px solid rgba(255,255,255,0.10);
+    /* Header global sticky */
+    .topnav {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px clamp(20px, 4vw, 64px);
+      background: rgba(10,12,18,0.82); border-bottom: 1px solid rgba(255,255,255,0.10);
       -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     }
-    .topbar .tb-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
-    .topbar .eyebrow { color: var(--accent); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
-    .topbar h1 { font-size: var(--t-xl); margin: 0; line-height: 1.1; }
-    .tb-search {
-      position: relative; flex: 1 1 240px; min-width: 200px; max-width: 360px;
-    }
+    .topnav .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+    .topnav .brand img { width: 36px; height: 36px; border-radius: 9px; }
+    .topnav .brand b { font-size: 16px; letter-spacing: 0.02em; }
+    .topnav .brand span { display: block; font-size: 10px; letter-spacing: 0.14em;
+                          text-transform: uppercase; color: var(--accent); font-weight: 700; }
+    .topnav .me { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 14px; }
+    .topnav .me img { width: 28px; height: 28px; border-radius: 50%; }
+
+    .wrap { max-width: 2000px; margin: 0 auto; padding: 26px clamp(20px, 4vw, 64px) 80px; }
+    .page-head h1 { font-size: var(--t-2xl); margin: 0 0 6px; }
+    .page-head p { color: var(--text-2); max-width: 70ch; font-size: var(--t-sm); margin: 0; }
+
+    .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 22px 0 8px; }
+    .tb-search { position: relative; flex: 1 1 260px; max-width: 420px; }
     .tb-search input {
-      width: 100%; padding: 10px 14px 10px 38px; border-radius: 10px;
-      background: var(--bg-1); border: 1px solid var(--border); color: var(--text);
+      width: 100%; padding: 11px 14px 11px 40px; border-radius: 11px;
+      background: rgba(20,22,30,0.7); border: 1px solid rgba(255,255,255,0.10); color: var(--text);
       font-size: var(--t-sm); outline: none;
     }
     .tb-search input:focus { border-color: var(--accent); }
-    .tb-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    .tb-search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
                      width: 16px; height: 16px; color: var(--text-3); }
-    .tb-actions { display: flex; gap: 8px; }
 
-    .lead { color: var(--text-2); max-width: 64ch; font-size: var(--t-sm); margin: 0 0 18px; }
-    .count { color: var(--text-3); font-size: var(--t-sm); margin: 0 0 12px; }
+    .section-title {
+      display: flex; align-items: center; gap: 10px; margin: 30px 0 14px;
+      font-size: var(--t-md); font-weight: 700; color: var(--text);
+    }
+    .section-title .badge {
+      font-size: 12px; font-weight: 600; color: var(--text-2);
+      background: rgba(255,255,255,0.08); padding: 2px 9px; border-radius: 999px;
+    }
+    .section-title .hint { font-weight: 400; font-size: var(--t-sm); color: var(--text-3); }
 
     .guild-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 420px));
-      justify-content: center;
-      gap: 14px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 420px));
+      justify-content: start; gap: 14px;
     }
     .guild-card {
       display: flex; align-items: center; gap: 14px;
-      background: rgba(20,22,30,0.66);
-      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(20,22,30,0.66); border: 1px solid rgba(255,255,255,0.09);
       -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       border-radius: 14px; padding: 14px 16px; cursor: pointer;
-      transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-out), box-shadow 160ms;
+      transition: border-color 160ms, background 160ms, transform 120ms, box-shadow 160ms;
       text-align: left; color: var(--text); font-family: var(--font-sans); width: 100%;
     }
     .guild-card:hover { border-color: var(--accent); background: rgba(30,34,44,0.78);
                         transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
-    .gc-icon {
-      width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
-      background: var(--bg-2); display: grid; place-items: center;
-      font-weight: 700; color: var(--accent); font-size: 19px; flex-shrink: 0;
-    }
+    .gc-icon { width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
+               background: var(--bg-2); display: grid; place-items: center;
+               font-weight: 700; color: var(--accent); font-size: 19px; flex-shrink: 0; }
     .gc-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .gc-name { font-weight: 600; font-size: var(--t-md);
                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -91,55 +97,73 @@
     .gc-arrow { color: var(--text-3); flex-shrink: 0; transition: transform 120ms, color 120ms; }
     .guild-card:hover .gc-arrow { color: var(--accent); transform: translateX(2px); }
 
-    .guild-empty {
-      padding: var(--s-9); text-align: center; max-width: 520px; margin: 0 auto;
-      background: rgba(20,22,30,0.66); border: 1px dashed rgba(255,255,255,0.14);
-      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-      border-radius: var(--r-3);
+    /* Carte "ajouter" : pas cliquable globalement, bouton dedie */
+    .add-card { cursor: default; flex-wrap: wrap; }
+    .add-card:hover { transform: none; border-color: rgba(255,255,255,0.14); background: rgba(20,22,30,0.66); box-shadow: none; }
+    .add-card .gc-meta { color: var(--text-3); }
+    .btn-add {
+      flex: 1 0 100%; margin-top: 4px; display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: var(--t-sm); font-weight: 600;
+      background: rgba(125,200,120,0.14); border: 1px solid rgba(125,200,120,0.4); color: #b6f0a8;
+      text-decoration: none; transition: background 140ms;
     }
+    .btn-add:hover { background: rgba(125,200,120,0.24); }
+
+    .empty { padding: 28px; text-align: center; color: var(--text-3); font-size: var(--t-sm);
+             background: rgba(20,22,30,0.5); border: 1px dashed rgba(255,255,255,0.12); border-radius: 14px; }
     #noresult { padding: 40px; text-align: center; color: var(--text-3); }
   </style>
 </head>
 <body>
   <div class="page-bg"></div>
+
+  <nav class="topnav">
+    <div class="brand">
+      <img src="/static/favicon-512.png" alt="">
+      <div><b>TookBot</b><span>Bot Console</span></div>
+    </div>
+    <a href="/general" class="btn btn-primary">
+      <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
+    </a>
+    {% if discord_user and discord_user.avatar %}
+    <div class="me"><img src="{{ discord_user.avatar }}" alt="">{{ discord_user.username }}</div>
+    {% endif %}
+    <a href="/logout" class="btn btn-ghost">Déconnexion</a>
+  </nav>
+
   <div class="wrap">
-    <header class="topbar">
-      <div class="tb-title">
-        <span class="eyebrow">Bot Console</span>
-        <h1>Choisis un serveur</h1>
-      </div>
-      {% if guilds %}
+    <div class="page-head">
+      <h1>Choisis un serveur</h1>
+      <p>Le tableau de bord est cadré sur un serveur Discord à la fois (sauf la vue d'ensemble cross-serveur).</p>
+    </div>
+
+    {% if guilds or invitable %}
+    <div class="toolbar">
       <label class="tb-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="q" type="search" placeholder="Rechercher un serveur…" oninput="filterGuilds()" autocomplete="off">
       </label>
-      {% endif %}
-      <div class="tb-actions">
-        <a href="/general" class="btn btn-primary">
-          <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
-        </a>
-        <a href="/logout" class="btn btn-ghost">Déconnexion</a>
-      </div>
-    </header>
+    </div>
+    {% endif %}
 
-    <p class="lead">Le tableau de bord est cadré sur un serveur Discord à la fois (sauf la vue d'ensemble cross-serveur). Sélectionne celui que tu veux monitorer.</p>
-
+    {# ===== Serveurs avec le bot -> acces direct dashboard ===== #}
+    <div class="section-title">
+      🟢 Serveurs avec TookBot
+      <span class="badge" id="cnt-active">{{ guilds|length }}</span>
+      <span class="hint">— clique pour ouvrir le dashboard</span>
+    </div>
     {% if guilds %}
-    <p class="count" id="count">{{ guilds|length }} serveur{{ 's' if guilds|length > 1 else '' }}</p>
     <form method="POST" id="pickerForm">
       <input type="hidden" name="guild_id" id="pickerInput">
-      <div class="guild-grid" id="grid">
+      <div class="guild-grid" id="grid-active">
         {% for gd in guilds %}
         <button type="button" class="guild-card" data-name="{{ (gd.name or '')|lower }}" data-id="{{ gd.guild_id }}" onclick="pick('{{ gd.guild_id }}')">
-          {% if gd.icon_url %}
-            <img class="gc-icon" src="{{ gd.icon_url }}" alt="">
-          {% else %}
-            <div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>
-          {% endif %}
+          {% if gd.icon_url %}<img class="gc-icon" src="{{ gd.icon_url }}" alt="">
+          {% else %}<div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>{% endif %}
           <div class="gc-info">
             <span class="gc-name">{{ gd.name or 'Serveur' }}</span>
             <span class="gc-meta">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               {{ gd.member_count }} membres
             </span>
             <span class="gc-id">{{ gd.guild_id }}</span>
@@ -149,13 +173,39 @@
         {% endfor %}
       </div>
     </form>
-    <div id="noresult" hidden>Aucun serveur ne correspond à ta recherche.</div>
     {% else %}
-    <div class="guild-empty">
-      <h3 style="margin-bottom: 8px;">Aucun serveur détecté</h3>
-      <p class="muted">Le bot n'est pas encore connecté à un serveur Discord, ou il n'a pas terminé son démarrage. Démarre <code>bot.py</code> et recharge cette page.</p>
+    <div class="empty">Le bot n'est sur aucun de tes serveurs gérables. Ajoute-le ci-dessous.</div>
+    {% endif %}
+
+    {# ===== Serveurs sans le bot -> bouton ajouter ===== #}
+    {% if invitable %}
+    <div class="section-title">
+      ➕ Ajouter TookBot
+      <span class="badge" id="cnt-invite">{{ invitable|length }}</span>
+      <span class="hint">— tes serveurs où le bot n'est pas encore</span>
+    </div>
+    <div class="guild-grid" id="grid-invite">
+      {% for gd in invitable %}
+      <div class="guild-card add-card" data-name="{{ (gd.name or '')|lower }}" data-id="{{ gd.guild_id }}">
+        <div style="display:flex;align-items:center;gap:14px;width:100%;">
+          {% if gd.icon_url %}<img class="gc-icon" src="{{ gd.icon_url }}" alt="">
+          {% else %}<div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>{% endif %}
+          <div class="gc-info">
+            <span class="gc-name">{{ gd.name or 'Serveur' }}</span>
+            <span class="gc-meta">Non configuré</span>
+          </div>
+        </div>
+        <a class="btn-add" target="_blank" rel="noopener"
+           href="https://discord.com/oauth2/authorize?client_id={{ client_id }}&permissions=8&scope=bot+applications.commands&guild_id={{ gd.guild_id }}&disable_guild_select=true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Ajouter au serveur
+        </a>
+      </div>
+      {% endfor %}
     </div>
     {% endif %}
+
+    <div id="noresult" hidden>Aucun serveur ne correspond à ta recherche.</div>
   </div>
 
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -176,15 +226,18 @@
     }
     function filterGuilds() {
       const q = (document.getElementById('q').value || '').trim().toLowerCase();
-      let n = 0;
-      document.querySelectorAll('.guild-card').forEach(c => {
+      let nA = 0, nI = 0;
+      document.querySelectorAll('#grid-active .guild-card').forEach(c => {
         const show = !q || (c.dataset.name || '').includes(q) || (c.dataset.id || '').includes(q);
-        c.style.display = show ? '' : 'none';
-        if (show) n++;
+        c.style.display = show ? '' : 'none'; if (show) nA++;
       });
-      const cnt = document.getElementById('count');
-      if (cnt) cnt.textContent = n + ' serveur' + (n > 1 ? 's' : '');
-      document.getElementById('noresult').hidden = n > 0;
+      document.querySelectorAll('#grid-invite .guild-card').forEach(c => {
+        const show = !q || (c.dataset.name || '').includes(q) || (c.dataset.id || '').includes(q);
+        c.style.display = show ? '' : 'none'; if (show) nI++;
+      });
+      const a = document.getElementById('cnt-active'); if (a) a.textContent = nA;
+      const i = document.getElementById('cnt-invite'); if (i) i.textContent = nI;
+      document.getElementById('noresult').hidden = (nA + nI) > 0;
     }
   </script>
 </body>
