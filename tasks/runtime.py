@@ -1187,6 +1187,16 @@ def setup_runtime(bot, deps):
             return
         guild_id_str = str(message.guild.id)
 
+        # Salon support cartes : seul l'owner du bot peut ecrire. Les autres
+        # passent par /cardsuggest et /cardmodify (slash). On supprime le reste.
+        if message.channel and getattr(message.channel, "id", None) == 1513592894265757716:
+            try:
+                if not await bot.is_owner(message.author):
+                    await message.delete()
+                    return
+            except Exception:
+                pass
+
         # Card events : claim par captcha texte
         try:
             from services.card_events import handle_message_claim
