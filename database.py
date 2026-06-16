@@ -2025,6 +2025,31 @@ def user_card_add_cheat(user_id, card_id):
     return new_id
 
 
+def forced_roll_set(user_id, card_id):
+    """Owner cheat : force la carte du PROCHAIN /roll de cet user."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS forced_roll (user_id TEXT PRIMARY KEY, card_id INTEGER)")
+    c.execute("INSERT INTO forced_roll (user_id, card_id) VALUES (?, ?) "
+              "ON CONFLICT(user_id) DO UPDATE SET card_id = excluded.card_id",
+              (str(user_id), int(card_id)))
+    conn.commit(); conn.close()
+
+
+def forced_roll_pop(user_id):
+    """Retourne et CONSOMME la carte forcee (None si aucune)."""
+    conn = get_db(); c = conn.cursor()
+    try:
+        r = c.execute("SELECT card_id FROM forced_roll WHERE user_id = ?",
+                      (str(user_id),)).fetchone()
+    except Exception:
+        conn.close(); return None
+    if not r:
+        conn.close(); return None
+    c.execute("DELETE FROM forced_roll WHERE user_id = ?", (str(user_id),))
+    conn.commit(); conn.close()
+    return int(r["card_id"])
+
+
 def user_card_add_with_flag(user_id, card_id, not_tradeable=False):
     """Comme user_card_add mais avec flag not_tradeable."""
     conn = get_db(); c = conn.cursor()

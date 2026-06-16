@@ -540,6 +540,28 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "added": added, "by_rarity": by_rarity})
 
 
+    @app.route("/api/owner/cards-cheat/force-next", methods=["POST"])
+    def api_owner_cards_cheat_force():
+        """Owner : force la carte exacte de SON prochain /roll."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from flask import session as _ses
+        from database import forced_roll_set, card_get
+        uid = (_ses.get("discord") or {}).get("user_id")
+        if not uid:
+            return jsonify({"error": "session sans user_id"}), 403
+        data = request.json or {}
+        try:
+            cid = int(data.get("card_id"))
+        except (ValueError, TypeError):
+            return jsonify({"error": "card_id invalide"}), 400
+        card = card_get(cid)
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        forced_roll_set(uid, cid)
+        return jsonify({"ok": True, "name": card["name"]})
+
+
     @app.route("/owner/cards/suggestions")
     def owner_cards_suggestions_page():
         if not _is_owner_session():

@@ -579,7 +579,12 @@ def setup_cards_commands(bot, deps):
 
         # Pioche + add (avec filtre univers si fourni)
         univers_filter = (univers or "").strip() or None
-        card = card_roll_random(universe=univers_filter)
+        # Owner cheat : carte forcee pour le prochain roll (consommee une fois)
+        from database import forced_roll_pop, card_get
+        _forced = forced_roll_pop(uid)
+        card = card_get(_forced) if _forced else None
+        if not card:
+            card = card_roll_random(universe=univers_filter)
         if not card:
             label = f" dans l'univers `{univers_filter}`" if univers_filter else ""
             await interaction.response.send_message(

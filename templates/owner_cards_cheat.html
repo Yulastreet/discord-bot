@@ -40,6 +40,68 @@
   <div id="ccResult" class="muted"></div>
 </div>
 
+<div class="cc-section" style="margin-top:16px;">
+  <h3>🎯 Forcer mon prochain /roll</h3>
+  <p class="sub">Choisis une carte : ton <b>prochain</b> <code>/roll</code> sur Discord donnera exactement celle-ci (une fois).</p>
+
+  <div class="cc-field" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <label>Carte</label>
+      <input id="fcSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();fcSearchGo();}">
+    </div>
+    <button class="btn" onclick="fcSearchGo()">🔍 Chercher</button>
+  </div>
+  <div id="fcResults" style="margin-bottom:14px;display:none;">
+    <select id="fcPick" class="input" onchange="fcPicked()"></select>
+  </div>
+  <button class="btn btn-primary" id="fcBtn" onclick="fcForce()" disabled>🎯 Forcer le prochain roll</button>
+  <div id="fcResult" class="muted" style="margin-top:14px;"></div>
+</div>
+
+<script>
+let _fcCardId = null;
+async function fcSearchGo() {
+  const q = (document.getElementById('fcSearch').value || '').trim();
+  const res = document.getElementById('fcResult');
+  if (!q) { res.textContent = 'Tape un nom de carte.'; return; }
+  res.textContent = 'Recherche…';
+  try {
+    const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
+    const d = await r.json();
+    const sel = document.getElementById('fcPick'), box = document.getElementById('fcResults');
+    const items = d.items || [];
+    if (!items.length) { res.textContent = 'Aucune carte trouvée.'; box.style.display='none'; return; }
+    sel.innerHTML = '<option value="">— Choisir (' + items.length + ') —</option>' +
+      items.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml((c.rarity||'').toUpperCase())} · ${escapeHtml(c.universe||'?')} · #${c.id}</option>`).join('');
+    box.style.display = 'block'; res.textContent = '';
+  } catch (e) { res.textContent = 'Erreur : ' + e.message; }
+}
+window.fcSearchGo = fcSearchGo;
+function fcPicked() {
+  const sel = document.getElementById('fcPick');
+  _fcCardId = sel.value || null;
+  document.getElementById('fcBtn').disabled = !_fcCardId;
+}
+window.fcPicked = fcPicked;
+async function fcForce() {
+  if (!_fcCardId) return;
+  const res = document.getElementById('fcResult');
+  res.textContent = 'En cours…';
+  try {
+    const r = await fetch('/api/owner/cards-cheat/force-next', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({card_id: parseInt(_fcCardId, 10)}),
+    });
+    const d = await r.json();
+    res.innerHTML = d.ok ? `✅ Ton prochain <code>/roll</code> donnera <b>${escapeHtml(d.name)}</b>.`
+                         : `❌ ${d.error || 'Erreur'}`;
+  } catch (e) { res.textContent = 'Erreur : ' + e.message; }
+}
+window.fcForce = fcForce;
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+
 <script>
 async function ccRoll() {
   const count = parseInt(document.getElementById('ccCount').value, 10) || 1;
