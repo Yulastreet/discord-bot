@@ -2035,19 +2035,35 @@ def forced_roll_set(user_id, card_id):
     conn.commit(); conn.close()
 
 
-def forced_roll_pop(user_id):
-    """Retourne et CONSOMME la carte forcee (None si aucune)."""
+def forced_roll_get(user_id):
+    """Retourne la carte forcee SANS la consommer (None si aucune)."""
     conn = get_db(); c = conn.cursor()
     try:
         r = c.execute("SELECT card_id FROM forced_roll WHERE user_id = ?",
                       (str(user_id),)).fetchone()
     except Exception:
         conn.close(); return None
-    if not r:
-        conn.close(); return None
-    c.execute("DELETE FROM forced_roll WHERE user_id = ?", (str(user_id),))
-    conn.commit(); conn.close()
-    return int(r["card_id"])
+    conn.close()
+    return int(r["card_id"]) if r else None
+
+
+def forced_roll_clear(user_id):
+    """Consomme/efface la carte forcee."""
+    conn = get_db(); c = conn.cursor()
+    try:
+        c.execute("DELETE FROM forced_roll WHERE user_id = ?", (str(user_id),))
+        conn.commit()
+    except Exception:
+        pass
+    conn.close()
+
+
+def forced_roll_pop(user_id):
+    """Retourne et CONSOMME la carte forcee (None si aucune)."""
+    cid = forced_roll_get(user_id)
+    if cid is not None:
+        forced_roll_clear(user_id)
+    return cid
 
 
 def user_card_add_with_flag(user_id, card_id, not_tradeable=False):

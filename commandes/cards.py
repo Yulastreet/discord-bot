@@ -579,10 +579,17 @@ def setup_cards_commands(bot, deps):
 
         # Pioche + add (avec filtre univers si fourni)
         univers_filter = (univers or "").strip() or None
-        # Owner cheat : carte forcee pour le prochain roll (consommee une fois)
-        from database import forced_roll_pop, card_get
-        _forced = forced_roll_pop(uid)
-        card = card_get(_forced) if _forced else None
+        # Owner cheat : carte forcee. Appliquee SEULEMENT si elle respecte le filtre
+        # univers du roll (sinon roll normal, et la carte forcee reste en attente).
+        from database import forced_roll_get, forced_roll_clear, card_get
+        card = None
+        _forced_id = forced_roll_get(uid)
+        if _forced_id:
+            fc = card_get(_forced_id)
+            if fc and (not univers_filter
+                       or (fc.get("universe") or "").lower() == univers_filter.lower()):
+                card = fc
+                forced_roll_clear(uid)   # consomme seulement si elle matche
         if not card:
             card = card_roll_random(universe=univers_filter)
         if not card:
