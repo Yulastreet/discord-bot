@@ -88,6 +88,29 @@ def _get_inline_emoji_str(bot, emoji_name: str) -> str:
     return ""
 
 
+# Cache mémoire des noms de cartes pour les autocompletes : evite de taper la DB
+# a chaque frappe (20k+ cartes -> blocage/timeout = "Echec des options de chargement").
+_CARD_NAMES_CACHE = {"all": [], "obtainable": [], "ts": 0.0}
+
+
+def _card_names_cached(obtainable_only=False):
+    import time as _t
+    now = _t.time()
+    if now - _CARD_NAMES_CACHE["ts"] > 120 or not _CARD_NAMES_CACHE["all"]:
+        try:
+            from database import get_db
+            conn = get_db(); c = conn.cursor()
+            rows = c.execute("SELECT name, COALESCE(not_obtainable,0) AS no FROM cards "
+                             "WHERE name IS NOT NULL ORDER BY name").fetchall()
+            conn.close()
+            _CARD_NAMES_CACHE["all"] = [r["name"] for r in rows]
+            _CARD_NAMES_CACHE["obtainable"] = [r["name"] for r in rows if not r["no"]]
+            _CARD_NAMES_CACHE["ts"] = now
+        except Exception:
+            pass
+    return _CARD_NAMES_CACHE["obtainable"] if obtainable_only else _CARD_NAMES_CACHE["all"]
+
+
 def _get_rarity_title_emoji(bot, rarity: str) -> str:
     """Pour secret : emoji custom 'rainbow' inline. Sinon : unicode par defaut."""
     inline_name = _RARITY_INLINE_EMOJI_NAME.get(rarity)
@@ -1594,19 +1617,12 @@ def setup_cards_commands(bot, deps):
     async def cardwish_autocomplete(interaction: discord.Interaction, current: str):
         import asyncio as _aio
         q = (current or "").strip().lower()
-        def _query():
-            from database import get_db
-            conn = get_db(); c = conn.cursor()
-            rows = c.execute("SELECT name FROM cards WHERE LOWER(name) LIKE ? "
-                             "AND COALESCE(not_obtainable,0)=0 ORDER BY name LIMIT 25",
-                             (f"%{q}%",)).fetchall()
-            conn.close()
-            return [r["name"] for r in rows]
         try:
-            names = await _aio.wait_for(_aio.to_thread(_query), timeout=2.5)
-            return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names]
+            names = await _aio.wait_for(_aio.to_thread(_card_names_cached, True), timeout=2.5)
         except Exception:
-            return []
+            names = _CARD_NAMES_CACHE.get("obtainable") or []
+        out = [n for n in names if q in n.lower()][:25] if q else names[:25]
+        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
 
     # === /cardwishlist [membre] : voir la wishlist ===
     @bot.tree.command(name="cardwishlist", description="Voir ta wishlist (ou celle d'un membre)")
@@ -2472,20 +2488,12 @@ def setup_cards_commands(bot, deps):
     async def cardmodify_autocomplete(interaction: discord.Interaction, current: str):
         import asyncio as _aio
         q = (current or "").strip().lower()
-        def _query():
-            from database import get_db
-            conn = get_db(); c = conn.cursor()
-            rows = c.execute("SELECT name FROM cards WHERE LOWER(name) LIKE ? "
-                             "ORDER BY name LIMIT 25", (f"%{q}%",)).fetchall()
-            conn.close()
-            return [r["name"] for r in rows]
         try:
-            # thread + timeout : ne bloque jamais la boucle async (sinon "Echec
-            # des options de chargement" pour tout le monde sous charge)
-            names = await _aio.wait_for(_aio.to_thread(_query), timeout=2.5)
-            return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names]
+            names = await _aio.wait_for(_aio.to_thread(_card_names_cached), timeout=2.5)
         except Exception:
-            return []
+            names = _CARD_NAMES_CACHE.get("all") or []
+        out = [n for n in names if q in n.lower()][:25] if q else names[:25]
+        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
 
     @bot.tree.command(name="cardtrade", description="Proposer un echange de cartes a un autre joueur")
     @app_commands.describe(joueur="Joueur a qui proposer l'echange")
