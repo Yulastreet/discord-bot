@@ -20,136 +20,135 @@
   </script>
   {% include "_styles.html" %}
   <style>
-    body {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      padding: var(--s-7);
-      position: relative;
-      overflow: hidden;
+    body { min-height: 100vh; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px 64px; }
+
+    /* Barre sticky : titre + recherche + actions toujours accessibles */
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 18px 0 16px; margin-bottom: 20px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
     }
-    .picker-bg {
-      position: absolute;
-      pointer-events: none;
-      width: 720px; height: 720px;
-      background: radial-gradient(closest-side, var(--accent-soft), transparent 70%);
-      top: -260px; left: 50%;
-      transform: translateX(-50%);
-      opacity: 0.5;
-      z-index: -1;
+    .topbar .tb-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+    .topbar .eyebrow { color: var(--accent); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+    .topbar h1 { font-size: var(--t-xl); margin: 0; line-height: 1.1; }
+    .tb-search {
+      position: relative; flex: 1 1 240px; min-width: 200px; max-width: 360px;
     }
-    .picker {
-      width: 100%;
-      max-width: 720px;
+    .tb-search input {
+      width: 100%; padding: 10px 14px 10px 38px; border-radius: 10px;
+      background: var(--bg-1); border: 1px solid var(--border); color: var(--text);
+      font-size: var(--t-sm); outline: none;
     }
-    .picker-head {
-      margin-bottom: var(--s-7);
-    }
-    .picker-head .eyebrow { color: var(--accent); }
-    .picker-head h1 { font-size: var(--t-2xl); margin: 8px 0 6px; }
-    .picker-head p { color: var(--text-2); max-width: 56ch; font-size: var(--t-md); }
+    .tb-search input:focus { border-color: var(--accent); }
+    .tb-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+                     width: 16px; height: 16px; color: var(--text-3); }
+    .tb-actions { display: flex; gap: 8px; }
+
+    .lead { color: var(--text-2); max-width: 64ch; font-size: var(--t-sm); margin: 0 0 18px; }
+    .count { color: var(--text-3); font-size: var(--t-sm); margin: 0 0 12px; }
 
     .guild-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: var(--s-3);
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
     }
     .guild-card {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s-3);
-      background: var(--bg-1);
-      border: 1px solid var(--border);
-      border-radius: var(--r-3);
-      padding: var(--s-5);
-      cursor: pointer;
-      transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 160ms var(--ease-out);
-      text-align: left;
-      color: var(--text);
-      font-family: var(--font-sans);
+      display: flex; align-items: center; gap: 14px;
+      background: var(--bg-1); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 16px; cursor: pointer;
+      transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-out);
+      text-align: left; color: var(--text); font-family: var(--font-sans); width: 100%;
     }
-    .guild-card:hover {
-      border-color: var(--accent);
-      background: var(--bg-2);
-      transform: translateY(-2px);
+    .guild-card:hover { border-color: var(--accent); background: var(--bg-2); transform: translateY(-2px); }
+    .gc-icon {
+      width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
+      background: var(--bg-2); display: grid; place-items: center;
+      font-weight: 700; color: var(--accent); font-size: 19px; flex-shrink: 0;
     }
-    .guild-card .gc-head {
-      display: flex; align-items: center; gap: var(--s-3);
-    }
-    .guild-card .gc-icon {
-      width: 44px; height: 44px;
-      border-radius: var(--r-2);
-      object-fit: cover;
-      background: var(--bg-2);
-      display: grid; place-items: center;
-      font-weight: 700;
-      color: var(--accent);
-      font-size: 18px;
-      letter-spacing: -0.02em;
-      flex-shrink: 0;
-    }
-    .guild-card .gc-name { font-weight: 600; font-size: var(--t-md); }
-    .guild-card .gc-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
-    .guild-card .gc-meta { font-size: var(--t-sm); color: var(--text-2); }
+    .gc-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .gc-name { font-weight: 600; font-size: var(--t-md);
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gc-meta { display: flex; align-items: center; gap: 6px; font-size: var(--t-sm); color: var(--text-2); }
+    .gc-meta svg { width: 14px; height: 14px; opacity: 0.7; }
+    .gc-id { font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gc-arrow { color: var(--text-3); flex-shrink: 0; transition: transform 120ms, color 120ms; }
+    .guild-card:hover .gc-arrow { color: var(--accent); transform: translateX(2px); }
+
     .guild-empty {
-      padding: var(--s-9);
-      text-align: center;
-      background: var(--bg-1);
-      border: 1px dashed var(--border);
-      border-radius: var(--r-3);
+      padding: var(--s-9); text-align: center;
+      background: var(--bg-1); border: 1px dashed var(--border); border-radius: var(--r-3);
     }
+    #noresult { padding: 40px; text-align: center; color: var(--text-3); }
   </style>
 </head>
 <body>
-  <div class="picker-bg"></div>
-  <div class="picker">
-    <div class="picker-head">
-      <span class="eyebrow">Bot Console</span>
-      <h1>Choisis un serveur</h1>
-      <p>Le tableau de bord est cadré sur un serveur Discord à la fois (sauf la vue d'ensemble cross-serveur). Sélectionne celui que tu veux monitorer.</p>
-    </div>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="tb-title">
+        <span class="eyebrow">Bot Console</span>
+        <h1>Choisis un serveur</h1>
+      </div>
+      {% if guilds %}
+      <label class="tb-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="q" type="search" placeholder="Rechercher un serveur…" oninput="filterGuilds()" autocomplete="off">
+      </label>
+      {% endif %}
+      <div class="tb-actions">
+        <a href="/general" class="btn btn-primary">
+          <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
+        </a>
+        <a href="/logout" class="btn btn-ghost">Déconnexion</a>
+      </div>
+    </header>
+
+    <p class="lead">Le tableau de bord est cadré sur un serveur Discord à la fois (sauf la vue d'ensemble cross-serveur). Sélectionne celui que tu veux monitorer.</p>
 
     {% if guilds %}
+    <p class="count" id="count">{{ guilds|length }} serveur{{ 's' if guilds|length > 1 else '' }}</p>
     <form method="POST" id="pickerForm">
       <input type="hidden" name="guild_id" id="pickerInput">
-      <div class="guild-grid">
+      <div class="guild-grid" id="grid">
         {% for gd in guilds %}
-        <button type="button" class="guild-card" onclick="pick('{{ gd.guild_id }}')">
-          <div class="gc-head">
-            {% if gd.icon_url %}
-              <img class="gc-icon" src="{{ gd.icon_url }}" alt="">
-            {% else %}
-              <div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>
-            {% endif %}
-            <div class="col" style="gap: 2px; min-width: 0; flex: 1;">
-              <span class="gc-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ gd.name }}</span>
-              <span class="gc-id">{{ gd.guild_id }}</span>
-            </div>
+        <button type="button" class="guild-card" data-name="{{ (gd.name or '')|lower }}" data-id="{{ gd.guild_id }}" onclick="pick('{{ gd.guild_id }}')">
+          {% if gd.icon_url %}
+            <img class="gc-icon" src="{{ gd.icon_url }}" alt="">
+          {% else %}
+            <div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>
+          {% endif %}
+          <div class="gc-info">
+            <span class="gc-name">{{ gd.name or 'Serveur' }}</span>
+            <span class="gc-meta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              {{ gd.member_count }} membres
+            </span>
+            <span class="gc-id">{{ gd.guild_id }}</span>
           </div>
-          <div class="gc-meta">{{ gd.member_count }} membres</div>
+          <svg class="gc-arrow ic"><use href="#i-arrow-right"/></svg>
         </button>
         {% endfor %}
       </div>
     </form>
+    <div id="noresult" hidden>Aucun serveur ne correspond à ta recherche.</div>
     {% else %}
     <div class="guild-empty">
       <h3 style="margin-bottom: 8px;">Aucun serveur détecté</h3>
-      <p class="muted">Le bot n'est pas encore connecté à un serveur Discord, ou il n'a pas encore terminé son démarrage. Démarre <code>bot.py</code> et recharge cette page.</p>
+      <p class="muted">Le bot n'est pas encore connecté à un serveur Discord, ou il n'a pas terminé son démarrage. Démarre <code>bot.py</code> et recharge cette page.</p>
     </div>
     {% endif %}
-
-    <div class="row mt-8" style="justify-content: space-between; gap: 8px;">
-      <a href="/general" class="btn btn-ghost">
-        <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble (tous serveurs)
-      </a>
-      <a href="/logout" class="btn btn-ghost">Déconnexion</a>
-    </div>
   </div>
 
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
       <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>
+      </symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
       </symbol>
     </defs>
   </svg>
@@ -158,6 +157,18 @@
     function pick(guildId) {
       document.getElementById('pickerInput').value = guildId;
       document.getElementById('pickerForm').submit();
+    }
+    function filterGuilds() {
+      const q = (document.getElementById('q').value || '').trim().toLowerCase();
+      let n = 0;
+      document.querySelectorAll('.guild-card').forEach(c => {
+        const show = !q || (c.dataset.name || '').includes(q) || (c.dataset.id || '').includes(q);
+        c.style.display = show ? '' : 'none';
+        if (show) n++;
+      });
+      const cnt = document.getElementById('count');
+      if (cnt) cnt.textContent = n + ' serveur' + (n > 1 ? 's' : '');
+      document.getElementById('noresult').hidden = n > 0;
     }
   </script>
 </body>
