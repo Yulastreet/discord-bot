@@ -93,32 +93,34 @@ def _get_inline_emoji_str(bot, emoji_name: str) -> str:
 _CARD_NAMES_CACHE = {"all": [], "obtainable": [], "universes": [], "ts": 0.0}
 
 
-def _card_cache_refresh():
+def _card_cache_refresh(force=False):
+    """Recharge le cache depuis la DB. Appele par un warmer en ARRIERE-PLAN
+    (jamais depuis un autocomplete -> aucune requete DB sur la boucle/interaction)."""
     import time as _t
     now = _t.time()
-    if now - _CARD_NAMES_CACHE["ts"] > 120 or not _CARD_NAMES_CACHE["all"]:
-        try:
-            from database import get_db
-            conn = get_db(); c = conn.cursor()
-            rows = c.execute("SELECT name, universe, COALESCE(not_obtainable,0) AS no "
-                             "FROM cards WHERE name IS NOT NULL ORDER BY name").fetchall()
-            conn.close()
-            _CARD_NAMES_CACHE["all"] = [r["name"] for r in rows]
-            _CARD_NAMES_CACHE["obtainable"] = [r["name"] for r in rows if not r["no"]]
-            _CARD_NAMES_CACHE["universes"] = sorted(
-                {(r["universe"] or "").strip() for r in rows if (r["universe"] or "").strip()})
-            _CARD_NAMES_CACHE["ts"] = now
-        except Exception:
-            pass
+    if not force and _CARD_NAMES_CACHE["all"] and (now - _CARD_NAMES_CACHE["ts"] < 120):
+        return
+    try:
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute("SELECT name, universe, COALESCE(not_obtainable,0) AS no "
+                         "FROM cards WHERE name IS NOT NULL ORDER BY name").fetchall()
+        conn.close()
+        _CARD_NAMES_CACHE["all"] = [r["name"] for r in rows]
+        _CARD_NAMES_CACHE["obtainable"] = [r["name"] for r in rows if not r["no"]]
+        _CARD_NAMES_CACHE["universes"] = sorted(
+            {(r["universe"] or "").strip() for r in rows if (r["universe"] or "").strip()})
+        _CARD_NAMES_CACHE["ts"] = now
+    except Exception as e:
+        print(f"[cards cache] refresh err: {e}")
 
 
+# Lecture PURE RAM (zero DB, zero await) : utilisable dans un autocomplete sans risque.
 def _card_names_cached(obtainable_only=False):
-    _card_cache_refresh()
     return _CARD_NAMES_CACHE["obtainable"] if obtainable_only else _CARD_NAMES_CACHE["all"]
 
 
 def _card_universes_cached():
-    _card_cache_refresh()
     return _CARD_NAMES_CACHE["universes"]
 
 
@@ -402,6 +404,28 @@ class OwnersView(discord.ui.View):
 
 def setup_cards_commands(bot, deps):
     globals().update(deps)
+
+    # Warmer du cache de noms/univers (arriere-plan, thread) : l'autocomplete ne lit
+    # plus jamais la DB -> jamais de blocage de boucle ni "Echec des options".
+    from discord.ext import tasks as _tasks
+
+    @_tasks.loop(seconds=120)
+    async def _cards_cache_loop():
+        import asyncio as _aio
+        try:
+            await _aio.to_thread(_card_cache_refresh, True)
+        except Exception as e:
+            print(f"[cards cache] loop err: {e}")
+
+    @_cards_cache_loop.before_loop
+    async def _before_cards_cache():
+        await bot.wait_until_ready()
+
+    try:
+        if not _cards_cache_loop.is_running():
+            _cards_cache_loop.start()
+    except Exception as e:
+        print(f"[cards cache] start err: {e}")
 
     cards_grp = app_commands.Group(name="cards", description="Collection de cartes pop culture")
 
