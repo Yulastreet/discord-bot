@@ -191,9 +191,10 @@ def register_cards_owner_routes(app, deps):
         after = request.args.get("after")  # id du dernier vu (pour le poll)
         conn = get_db(); c = conn.cursor()
         params = []
-        where = ""
+        # Exclut les cartes ajoutees via owner cheat (from_cheat=1)
+        where = "WHERE COALESCE(uc.from_cheat,0) = 0"
         if after and str(after).isdigit():
-            where = "WHERE uc.id > ?"
+            where += " AND uc.id > ?"
             params.append(int(after))
         params.append(limit)
         rows = c.execute(
@@ -491,6 +492,52 @@ def register_cards_owner_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         return render_template("owner_cards.html", active_nav="owner_cards")
+
+
+    @app.route("/owner/cards-cheat")
+    def owner_cards_cheat_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute("SELECT DISTINCT universe FROM cards "
+                         "WHERE universe IS NOT NULL AND universe != '' "
+                         "ORDER BY universe").fetchall()
+        conn.close()
+        return render_template("owner_cards_cheat.html", active_nav="cards_cheat",
+                               universes=[r["universe"] for r in rows])
+
+
+    @app.route("/api/owner/cards-cheat/roll", methods=["POST"])
+    def api_owner_cards_cheat_roll():
+        """Owner : roll N cartes (categorie optionnelle) direct dans SON inventaire,
+        sans apparaitre dans le feed Obtention temps reel (flag from_cheat)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from flask import session as _ses
+        from database import card_roll_random, user_card_add_cheat
+        uid = (_ses.get("discord") or {}).get("user_id")
+        if not uid:
+            return jsonify({"error": "session sans user_id"}), 403
+        data = request.json or {}
+        try:
+            count = max(1, min(int(data.get("count") or 1), 1000))
+        except (ValueError, TypeError):
+            return jsonify({"error": "count invalide (1-1000)"}), 400
+        universe = (data.get("universe") or "").strip() or None
+        added = 0
+        by_rarity = {}
+        for _ in range(count):
+            card = card_roll_random(universe)
+            if not card:
+                break
+            user_card_add_cheat(uid, card["id"])
+            added += 1
+            r = card.get("rarity", "common")
+            by_rarity[r] = by_rarity.get(r, 0) + 1
+        if added == 0:
+            return jsonify({"error": "aucune carte (categorie vide ?)"}), 400
+        return jsonify({"ok": True, "added": added, "by_rarity": by_rarity})
 
 
     @app.route("/owner/cards/suggestions")

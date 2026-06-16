@@ -158,6 +158,11 @@ def init_db():
         c.execute("ALTER TABLE user_cards ADD COLUMN not_tradeable INTEGER DEFAULT 0")
     except Exception:
         pass
+    # Migration : from_cheat (owner cheat) -> exclu du feed Obtention temps reel
+    try:
+        c.execute("ALTER TABLE user_cards ADD COLUMN from_cheat INTEGER DEFAULT 0")
+    except Exception:
+        pass
     # Migration : not_obtainable flag sur cards (cache du catalogue + roll)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
@@ -2004,6 +2009,16 @@ def card_roll_random(universe: str | None = None):
 def user_card_add(user_id, card_id):
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_cards (user_id, card_id) VALUES (?, ?)",
+              (str(user_id), int(card_id)))
+    new_id = c.lastrowid
+    conn.commit(); conn.close()
+    return new_id
+
+
+def user_card_add_cheat(user_id, card_id):
+    """Ajout owner-cheat : flag from_cheat=1 -> n'apparait pas dans le feed."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO user_cards (user_id, card_id, from_cheat) VALUES (?, ?, 1)",
               (str(user_id), int(card_id)))
     new_id = c.lastrowid
     conn.commit(); conn.close()

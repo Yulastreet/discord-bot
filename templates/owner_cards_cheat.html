@@ -1,0 +1,68 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_cheat' %}
+
+{% block title %}Cards Cheat · Owner{% endblock %}
+{% block crumb %}Cards Cheat{% endblock %}
+
+{% block content %}
+<style>
+  .cc-section { background: var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:20px; max-width:560px; }
+  .cc-section h3 { margin:0 0 4px; font-size:17px; }
+  .cc-section .sub { color: var(--text-2); font-size:13px; margin:0 0 18px; }
+  .cc-field { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .cc-field > label { font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--text-2); }
+  .cc-field .input { width:100%; }
+  .cc-hint { font-size:11px; color: var(--text-3); font-weight:400; text-transform:none; letter-spacing:0; }
+  #ccResult { margin-top:16px; font-size:13px; }
+  .cc-rar { display:inline-block; padding:2px 9px; border-radius:999px; background:var(--bg-2); margin:3px 4px 0 0; font-size:12px; }
+</style>
+
+<div class="cc-section">
+  <h3>🎲 Cards Cheat</h3>
+  <p class="sub">Roll <b>N cartes</b> dans une catégorie (ou toutes) → directement dans <b>ton</b> inventaire. N'apparaît <b>pas</b> dans Obtention temps réel.</p>
+
+  <div class="cc-field">
+    <label>Nombre de rolls</label>
+    <input id="ccCount" type="number" min="1" max="1000" value="10" class="input">
+  </div>
+
+  <div class="cc-field">
+    <label>Catégorie <span class="cc-hint">— vide = toutes catégories</span></label>
+    <select id="ccUniverse" class="input">
+      <option value="">Toutes catégories (aléatoire global)</option>
+      {% for u in universes %}
+      <option value="{{ u }}">{{ u }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <button class="btn btn-primary" onclick="ccRoll()">🎲 Roll dans mon inventaire</button>
+  <div id="ccResult" class="muted"></div>
+</div>
+
+<script>
+async function ccRoll() {
+  const count = parseInt(document.getElementById('ccCount').value, 10) || 1;
+  const universe = document.getElementById('ccUniverse').value;
+  const res = document.getElementById('ccResult');
+  res.textContent = 'Roll en cours…';
+  try {
+    const r = await fetch('/api/owner/cards-cheat/roll', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({count: count, universe: universe}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const order = ['secret','mythic','legendary','epic','rare','common'];
+      const emo = {secret:'🌈',mythic:'🔴',legendary:'🟠',epic:'🟣',rare:'🔵',common:'⚪'};
+      let chips = order.filter(k => d.by_rarity[k])
+        .map(k => `<span class="cc-rar">${emo[k]||''} ${k} × ${d.by_rarity[k]}</span>`).join('');
+      res.innerHTML = `✅ <b>${d.added}</b> cartes ajoutées à ton inventaire.<br>${chips}`;
+    } else {
+      res.textContent = `❌ ${d.error || 'Erreur'}`;
+    }
+  } catch (e) { res.textContent = `Erreur : ${e.message}`; }
+}
+window.ccRoll = ccRoll;
+</script>
+{% endblock %}
