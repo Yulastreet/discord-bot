@@ -20,7 +20,10 @@
   </script>
   {% include "_styles.html" %}
   <style>
-    body { min-height: 100vh; }
+    /* _styles met un fond opaque sur body -> il masque .page-bg. On rend body
+       transparent et on pose le fond sombre sur html. */
+    html { background: #07090c; }
+    body { min-height: 100vh; background: transparent !important; }
     /* Background complet : mesh de blobs lime/vert + grille de points, assombri. */
     .page-bg {
       position: fixed; inset: 0; z-index: -2; overflow: hidden;
