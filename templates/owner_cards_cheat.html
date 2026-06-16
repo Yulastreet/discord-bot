@@ -41,8 +41,13 @@
 </div>
 
 <div class="cc-section" style="margin-top:16px;">
-  <h3>🎯 Forcer mon prochain /roll</h3>
-  <p class="sub">Choisis une carte : ton <b>prochain</b> <code>/roll</code> sur Discord donnera exactement celle-ci (une fois).</p>
+  <h3>🎯 Forcer le prochain /roll</h3>
+  <p class="sub">Choisis une carte : le <b>prochain</b> <code>/roll</code> de la cible donnera exactement celle-ci (une fois).</p>
+
+  <div class="cc-field">
+    <label>ID utilisateur cible <span class="cc-hint">— vide = toi (owner)</span></label>
+    <input id="fcUserId" class="input" placeholder="ex : 250304844374605835" inputmode="numeric">
+  </div>
 
   <div class="cc-field" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
     <div style="display:flex;flex-direction:column;gap:6px;">
@@ -88,14 +93,19 @@ async function fcForce() {
   if (!_fcCardId) return;
   const res = document.getElementById('fcResult');
   res.textContent = 'En cours…';
+  const userId = (document.getElementById('fcUserId').value || '').trim();
   try {
     const r = await fetch('/api/owner/cards-cheat/force-next', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({card_id: parseInt(_fcCardId, 10)}),
+      body: JSON.stringify({card_id: parseInt(_fcCardId, 10), user_id: userId}),
     });
     const d = await r.json();
-    res.innerHTML = d.ok ? `✅ Ton prochain <code>/roll</code> donnera <b>${escapeHtml(d.name)}</b>.`
-                         : `❌ ${d.error || 'Erreur'}`;
+    if (d.ok) {
+      const who = userId ? `du joueur <code>${escapeHtml(d.user_id)}</code>` : 'ton';
+      res.innerHTML = `✅ Le prochain <code>/roll</code> ${who} donnera <b>${escapeHtml(d.name)}</b>.`;
+    } else {
+      res.innerHTML = `❌ ${d.error || 'Erreur'}`;
+    }
   } catch (e) { res.textContent = 'Erreur : ' + e.message; }
 }
 window.fcForce = fcForce;

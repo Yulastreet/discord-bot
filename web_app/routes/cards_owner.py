@@ -547,10 +547,12 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from flask import session as _ses
         from database import forced_roll_set, card_get
-        uid = (_ses.get("discord") or {}).get("user_id")
-        if not uid:
-            return jsonify({"error": "session sans user_id"}), 403
         data = request.json or {}
+        # user_id cible (sinon : l'owner lui-meme)
+        target = (str(data.get("user_id") or "").strip()
+                  or (_ses.get("discord") or {}).get("user_id"))
+        if not target or not str(target).isdigit():
+            return jsonify({"error": "user_id invalide"}), 400
         try:
             cid = int(data.get("card_id"))
         except (ValueError, TypeError):
@@ -558,8 +560,8 @@ def register_cards_owner_routes(app, deps):
         card = card_get(cid)
         if not card:
             return jsonify({"error": "carte introuvable"}), 404
-        forced_roll_set(uid, cid)
-        return jsonify({"ok": True, "name": card["name"]})
+        forced_roll_set(target, cid)
+        return jsonify({"ok": True, "name": card["name"], "user_id": str(target)})
 
 
     @app.route("/owner/cards/suggestions")
