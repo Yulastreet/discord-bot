@@ -445,11 +445,14 @@ def setup_cards_commands(bot, deps):
     async def _before_cards_cache():
         await bot.wait_until_ready()
 
-    try:
-        if not _cards_cache_loop.is_running():
-            _cards_cache_loop.start()
-    except Exception as e:
-        print(f"[cards cache] start err: {e}")
+    # Demarre le loop quand la boucle async tourne (setup s'execute avant le loop).
+    @bot.listen("on_ready")
+    async def _start_cards_cache():
+        try:
+            if not _cards_cache_loop.is_running():
+                _cards_cache_loop.start()
+        except Exception as e:
+            print(f"[cards cache] start err: {e}")
 
     cards_grp = app_commands.Group(name="cards", description="Collection de cartes pop culture")
 

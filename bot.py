@@ -870,6 +870,12 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
     Assigne sur bot.tree.interaction_check apres creation du bot (plus fiable
     que tree_cls qui n'est pas toujours honore par commands.Bot)."""
     if True:
+        # Les interactions AUTOCOMPLETE ne doivent jamais etre gatees ici : on ne
+        # peut pas y repondre par send_message -> ça les casse ("Echec des options
+        # de chargement"). Le gating se fait sur la vraie commande (au submit).
+        if interaction.type == discord.InteractionType.autocomplete:
+            return True
+
         if not interaction.guild or not interaction.data:
             return True
 
@@ -877,12 +883,12 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
         if not root_name:
             return True
 
-        # === LOCK : salon support cartes = uniquement /cardsuggest ===
+        # === LOCK : salon support cartes = uniquement /cardsuggest et /cardmodify ===
         SUGGEST_CHANNEL_ID = 1513592894265757716
         SUPPORT_GUILD_ID = int((os.getenv("SUPPORT_GUILD_ID") or "0").strip() or 0)
         if (SUPPORT_GUILD_ID and interaction.guild.id == SUPPORT_GUILD_ID
                 and interaction.channel and interaction.channel.id == SUGGEST_CHANNEL_ID
-                and root_name != "cardsuggest"):
+                and root_name not in ("cardsuggest", "cardmodify")):
             try:
                 await interaction.response.send_message(
                     "❌ Ce salon est dédié aux suggestions de cartes. "

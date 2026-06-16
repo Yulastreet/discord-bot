@@ -1557,6 +1557,10 @@ def setup_runtime(bot, deps):
 
     async def _global_rate_limit(interaction: discord.Interaction) -> bool:
         """Rate-limit anti-spam PUIS chaine vers le guard feature/boost/mod-perm."""
+        # Autocomplete : jamais rate-limite/gate (chaque frappe = une interaction ;
+        # on ne peut pas y repondre par message -> "Echec des options de chargement").
+        if interaction.type == discord.InteractionType.autocomplete:
+            return True
         # Bypass rate-limit pour le proprietaire du bot
         is_bot_owner = False
         try:
