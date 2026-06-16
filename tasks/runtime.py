@@ -2655,6 +2655,44 @@ def setup_runtime(bot, deps):
                 raise RuntimeError("spawn echoue (salon introuvable ou pas de cartes)")
             return
 
+        elif name == "suggestion_resolved":
+            # Reaction validé/refusé sous le message de suggestion (salon support)
+            # + DM au demandeur en cas de refus (message transfere + raison).
+            channel_id = payload.get("channel_id")
+            message_id = payload.get("message_id")
+            status = payload.get("status")
+            suggester_id = payload.get("suggester_id")
+            reason = payload.get("reason")
+            msg = None
+            if channel_id and message_id:
+                ch = bot.get_channel(int(channel_id))
+                if ch:
+                    try:
+                        msg = await ch.fetch_message(int(message_id))
+                    except Exception as e:
+                        print(f"[suggestion_resolved] fetch err: {e}")
+            if msg:
+                if status == "approved":
+                    emo = discord.utils.get(bot.emojis, name="valide") or "✅"
+                else:
+                    emo = discord.utils.get(bot.emojis, name="refuse") or "❌"
+                try:
+                    await msg.add_reaction(emo)
+                except Exception as e:
+                    print(f"[suggestion_resolved] react err: {e}")
+            if status == "rejected" and suggester_id:
+                try:
+                    user = bot.get_user(int(suggester_id)) or await bot.fetch_user(int(suggester_id))
+                    if user:
+                        txt = "❌ **Ta suggestion de carte a été refusée.**"
+                        if reason:
+                            txt += f"\n**Raison :** {reason}"
+                        embeds = msg.embeds[:1] if (msg and msg.embeds) else []
+                        await user.send(content=txt, embeds=embeds)
+                except Exception as e:
+                    print(f"[suggestion_resolved] DM err: {e}")
+            return
+
         elif name == "fake_drop":
             # Drop normal (image + code) mais marque fake_troll : au claim, le bot
             # se moque et ne donne RIEN (cf handle_message_claim).

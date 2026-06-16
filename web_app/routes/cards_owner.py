@@ -573,6 +573,25 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"count": card_suggestion_count_pending()})
 
 
+    def _notify_suggestion_resolved(sugg, status, reason=None):
+        """Cote bot : reagit (✅/❌) sous le message de la suggestion dans le salon
+        support, et DM le demandeur en cas de refus (avec la raison)."""
+        try:
+            import os as _os
+            from database import bot_command_enqueue
+            sg = int((_os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
+            if not sg:
+                return
+            bot_command_enqueue(sg, "suggestion_resolved", {
+                "channel_id": "1513592894265757716",
+                "message_id": sugg.get("forward_message_id"),
+                "status": status,
+                "suggester_id": sugg.get("suggester_id"),
+                "reason": reason,
+            })
+        except Exception as e:
+            print(f"[suggestion notify] {e}")
+
     def _approve_apply_image(tcid, new_image_url, original, target, final_rarity, image_changed):
         """Approbation modif image : héberge l'ORIGINAL en local (source_image_url,
         re-crop perenne), bake le render depuis le crop proposé, supprime le crop
@@ -668,6 +687,7 @@ def register_cards_owner_routes(app, deps):
                                                 final_rarity, image_changed)
 
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
+            _notify_suggestion_resolved(sugg, "approved")
             return jsonify({"ok": True, "card_id": tcid, "type": "edit",
                              "rebaked": rebaked,
                              "rarity_changed": rarity_changed,
@@ -708,6 +728,7 @@ def register_cards_owner_routes(app, deps):
             except Exception as e:
                 print(f"[approve bake] err {cid}: {e}")
         card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
+        _notify_suggestion_resolved(sugg, "approved")
         return jsonify({"ok": True, "card_id": cid, "type": "new", "rebaked": rebaked})
 
 
@@ -752,6 +773,7 @@ def register_cards_owner_routes(app, deps):
                 _approve_apply_image(tcid, new_image_url, original, target,
                                      final_rarity, image_changed)
             card_suggestion_review(sid, "approved", reviewer_id, created_card_id=tcid)
+            _notify_suggestion_resolved(sugg, "approved")
             return {"ok": True, "card_id": tcid, "type": "edit"}
 
         # type 'new' : priorite override > proposed_rarity > common
@@ -784,6 +806,7 @@ def register_cards_owner_routes(app, deps):
             except Exception as e:
                 print(f"[bulk approve bake] err {cid}: {e}")
         card_suggestion_review(sid, "approved", reviewer_id, created_card_id=cid)
+        _notify_suggestion_resolved(sugg, "approved")
         return {"ok": True, "card_id": cid, "type": "new"}
 
 
@@ -838,6 +861,7 @@ def register_cards_owner_routes(app, deps):
             if not sugg or sugg["status"] != "pending":
                 skipped += 1; continue
             card_suggestion_review(sid, "rejected", reviewer, reason=reason)
+            _notify_suggestion_resolved(sugg, "rejected", reason)
             rejected += 1
         return jsonify({"ok": True, "rejected": rejected, "skipped": skipped})
 
@@ -916,6 +940,7 @@ def register_cards_owner_routes(app, deps):
         reason = (data.get("reason") or "").strip()[:200] or None
         reviewer_id = _ses.get("user_id") or "owner"
         card_suggestion_review(sid, "rejected", reviewer_id, reason=reason)
+        _notify_suggestion_resolved(sugg, "rejected", reason)
         return jsonify({"ok": True})
 
 

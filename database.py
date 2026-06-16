@@ -251,6 +251,7 @@ def init_db():
         ("target_card_id", "INTEGER"),
         ("proposed_rarity", "TEXT"),
         ("original_image_url", "TEXT"),
+        ("forward_message_id", "TEXT"),
     ):
         try:
             c.execute(f"ALTER TABLE card_suggestions ADD COLUMN {col} {ddl}")
@@ -2088,6 +2089,14 @@ def card_suggestion_add(suggester_id, suggester_name, guild_id, channel_id,
     sid = c.lastrowid
     conn.commit(); conn.close()
     return sid
+
+
+def card_suggestion_set_forward(sid, message_id):
+    """Stocke l'id du message forwarde dans le salon support (pour reagir dessus)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_suggestions SET forward_message_id = ? WHERE id = ?",
+              (str(message_id) if message_id else None, int(sid)))
+    conn.commit(); conn.close()
 
 
 def card_suggestion_list(status=None, limit=200):

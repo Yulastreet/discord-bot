@@ -2300,7 +2300,9 @@ def setup_cards_commands(bot, deps):
         forward_ok = False
         if support_channel:
             try:
-                await support_channel.send(embed=embed)
+                fmsg = await support_channel.send(embed=embed)
+                from database import card_suggestion_set_forward
+                card_suggestion_set_forward(sid, fmsg.id)
                 forward_ok = True
             except Exception as e:
                 print(f"[cardsuggest] forward err: {e}")
@@ -2443,9 +2445,11 @@ def setup_cards_commands(bot, deps):
         if support_channel:
             try:
                 if embed_file:
-                    await support_channel.send(embed=embed, file=embed_file)
+                    fmsg = await support_channel.send(embed=embed, file=embed_file)
                 else:
-                    await support_channel.send(embed=embed)
+                    fmsg = await support_channel.send(embed=embed)
+                from database import card_suggestion_set_forward
+                card_suggestion_set_forward(sid, fmsg.id)
                 forward_ok = True
             except Exception as e:
                 print(f"[cardmodify] forward err: {e}")
