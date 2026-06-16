@@ -124,6 +124,30 @@ def _card_universes_cached():
     return _CARD_NAMES_CACHE["universes"]
 
 
+def _names_to_choices(names, current, limit=25):
+    """Construit des Choices VALIDES (un nom vide/None fait rejeter TOUTE la
+    reponse autocomplete par Discord -> 'Echec des options de chargement')."""
+    q = (current or "").strip().lower()
+    out = []
+    seen = set()
+    for n in names or []:
+        if not n:
+            continue
+        s = str(n).strip()
+        if not s:
+            continue
+        if q and q not in s.lower():
+            continue
+        s = s[:100]
+        if s in seen:
+            continue
+        seen.add(s)
+        out.append(app_commands.Choice(name=s, value=s))
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _get_rarity_title_emoji(bot, rarity: str) -> str:
     """Pour secret : emoji custom 'rainbow' inline. Sinon : unicode par defaut."""
     inline_name = _RARITY_INLINE_EMOJI_NAME.get(rarity)
@@ -642,10 +666,11 @@ def setup_cards_commands(bot, deps):
 
     @roll.autocomplete("univers")
     async def roll_univers_autocomplete(interaction: discord.Interaction, current: str):
-        q = (current or "").strip().lower()
-        unis = _card_universes_cached()
-        out = [u for u in unis if q in u.lower()][:25] if q else unis[:25]
-        return [app_commands.Choice(name=u[:100], value=u[:100]) for u in out]
+        try:
+            return _names_to_choices(_card_universes_cached(), current)
+        except Exception as e:
+            print(f"[roll univers ac] {type(e).__name__}: {e}")
+            return []
 
     # === /collection ===
     @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")
@@ -1657,10 +1682,11 @@ def setup_cards_commands(bot, deps):
 
     @cardwish_cmd.autocomplete("nom")
     async def cardwish_autocomplete(interaction: discord.Interaction, current: str):
-        q = (current or "").strip().lower()
-        names = _card_names_cached(True)
-        out = [n for n in names if q in n.lower()][:25] if q else names[:25]
-        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
+        try:
+            return _names_to_choices(_card_names_cached(True), current)
+        except Exception as e:
+            print(f"[cardwish ac] {type(e).__name__}: {e}")
+            return []
 
     # === /cardwishlist [membre] : voir la wishlist ===
     @bot.tree.command(name="cardwishlist", description="Voir ta wishlist (ou celle d'un membre)")
@@ -2532,12 +2558,11 @@ def setup_cards_commands(bot, deps):
 
     @cardmodify.autocomplete("nom")
     async def cardmodify_autocomplete(interaction: discord.Interaction, current: str):
-        # 100% synchrone sur le cache RAM : reponse instantanee, pas de hop thread
-        # (le pool peut etre sature par le bake -> 40060 'already acknowledged').
-        q = (current or "").strip().lower()
-        names = _card_names_cached()
-        out = [n for n in names if q in n.lower()][:25] if q else names[:25]
-        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
+        try:
+            return _names_to_choices(_card_names_cached(), current)
+        except Exception as e:
+            print(f"[cardmodify ac] {type(e).__name__}: {e}")
+            return []
 
     @bot.tree.command(name="cardtrade", description="Proposer un echange de cartes a un autre joueur")
     @app_commands.describe(joueur="Joueur a qui proposer l'echange")
