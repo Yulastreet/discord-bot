@@ -21,15 +21,24 @@
   {% include "_styles.html" %}
   <style>
     body { min-height: 100vh; }
-    .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px 64px; }
+    /* Fond d'ambiance : artwork TookBot fortement assombri (texture subtile +
+       remplit l'ecran meme avec peu de serveurs). */
+    .page-bg {
+      position: fixed; inset: 0; z-index: -2;
+      background:
+        radial-gradient(60% 50% at 50% 0%, rgba(125,182,221,0.10), transparent 70%),
+        linear-gradient(rgba(8,10,16,0.90), rgba(8,10,16,0.95)),
+        url("/static/login_bg.png") center / cover no-repeat fixed;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 80px; }
 
     /* Barre sticky : titre + recherche + actions toujours accessibles */
     .topbar {
       position: sticky; top: 0; z-index: 20;
       display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-      padding: 18px 0 16px; margin-bottom: 20px;
-      background: var(--bg); border-bottom: 1px solid var(--border);
-      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      padding: 18px 24px 16px; margin: 0 -24px 24px;
+      background: rgba(10,12,18,0.72); border-bottom: 1px solid rgba(255,255,255,0.08);
+      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     }
     .topbar .tb-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
     .topbar .eyebrow { color: var(--accent); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
@@ -52,17 +61,21 @@
 
     .guild-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
+      justify-content: center;
+      gap: 14px;
     }
     .guild-card {
       display: flex; align-items: center; gap: 14px;
-      background: var(--bg-1); border: 1px solid var(--border);
+      background: rgba(20,22,30,0.66);
+      border: 1px solid rgba(255,255,255,0.09);
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       border-radius: 14px; padding: 14px 16px; cursor: pointer;
-      transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-out);
+      transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 120ms var(--ease-out), box-shadow 160ms;
       text-align: left; color: var(--text); font-family: var(--font-sans); width: 100%;
     }
-    .guild-card:hover { border-color: var(--accent); background: var(--bg-2); transform: translateY(-2px); }
+    .guild-card:hover { border-color: var(--accent); background: rgba(30,34,44,0.78);
+                        transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
     .gc-icon {
       width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
       background: var(--bg-2); display: grid; place-items: center;
@@ -79,13 +92,16 @@
     .guild-card:hover .gc-arrow { color: var(--accent); transform: translateX(2px); }
 
     .guild-empty {
-      padding: var(--s-9); text-align: center;
-      background: var(--bg-1); border: 1px dashed var(--border); border-radius: var(--r-3);
+      padding: var(--s-9); text-align: center; max-width: 520px; margin: 0 auto;
+      background: rgba(20,22,30,0.66); border: 1px dashed rgba(255,255,255,0.14);
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      border-radius: var(--r-3);
     }
     #noresult { padding: 40px; text-align: center; color: var(--text-3); }
   </style>
 </head>
 <body>
+  <div class="page-bg"></div>
   <div class="wrap">
     <header class="topbar">
       <div class="tb-title">
