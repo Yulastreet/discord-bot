@@ -26,18 +26,18 @@
     .page-bg {
       position: fixed; inset: 0; z-index: -2;
       background:
-        radial-gradient(60% 50% at 50% 0%, rgba(125,182,221,0.10), transparent 70%),
-        linear-gradient(rgba(8,10,16,0.90), rgba(8,10,16,0.95)),
+        radial-gradient(70% 55% at 50% 0%, rgba(125,182,221,0.14), transparent 70%),
+        linear-gradient(rgba(8,10,16,0.58), rgba(8,10,16,0.78)),
         url("/static/login_bg.png") center / cover no-repeat fixed;
     }
-    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px 80px; }
+    .wrap { max-width: 2000px; margin: 0 auto; padding: 0 clamp(28px, 4vw, 80px) 80px; }
 
     /* Barre sticky : titre + recherche + actions toujours accessibles */
     .topbar {
       position: sticky; top: 0; z-index: 20;
       display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-      padding: 18px 24px 16px; margin: 0 -24px 24px;
-      background: rgba(10,12,18,0.72); border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 18px 0 16px; margin: 0 0 24px;
+      background: rgba(10,12,18,0.78); border-bottom: 1px solid rgba(255,255,255,0.10);
       -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     }
     .topbar .tb-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
@@ -61,7 +61,7 @@
 
     .guild-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
+      grid-template-columns: repeat(auto-fill, minmax(300px, 420px));
       justify-content: center;
       gap: 14px;
     }
