@@ -323,6 +323,29 @@ def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
     return embed, img_file, OwnersView(card["id"], card["name"])
 
 
+async def _persist_attachment(att) -> str | None:
+    """Telecharge une piece jointe image et la sauve en local STABLE (les URLs
+    d'attachment ephemeral Discord EXPIRENT -> inutilisables a l'approbation).
+    Retourne l'URL (domaine + /static/card_suggestions/...) ou None."""
+    try:
+        import time as _t
+        data = await att.read()
+        ext = os.path.splitext(att.filename or "")[1].lower()
+        if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+            ext = ".png"
+        name = f"submit_{int(_t.time()*1000)}{ext}"
+        d = os.path.join(_REPO_ROOT, "static", "card_suggestions")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, name), "wb") as f:
+            f.write(data)
+        rel = f"/static/card_suggestions/{name}"
+        pub = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+        return (pub + rel) if pub else rel
+    except Exception as e:
+        print(f"[persist attachment] {e}")
+        return None
+
+
 def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     """Verifie que la commande est lancee dans le salon configure.
     Retourne (ok, channel_mention_si_ko)."""
@@ -2261,8 +2284,12 @@ def setup_cards_commands(bot, deps):
                 await interaction.response.send_message(
                     "Image trop lourde (max 8 Mo).", ephemeral=True)
                 return
-            final_url = image.url   # Discord CDN, stable
-            source_type = "attachment"
+            final_url = await _persist_attachment(image)  # URL ephemeral expire -> on heberge
+            if not final_url:
+                await interaction.response.send_message(
+                    "Echec de l'upload de l'image. Re-essaie ou fournis une URL.", ephemeral=True)
+                return
+            source_type = "upload"
         elif image_url:
             url = image_url.strip()
             if not (url.startswith("http://") or url.startswith("https://")):
@@ -2386,8 +2413,12 @@ def setup_cards_commands(bot, deps):
                 await interaction.response.send_message(
                     "Image trop lourde (max 8 Mo).", ephemeral=True)
                 return
-            final_url = image.url
-            source_type = "attachment"
+            final_url = await _persist_attachment(image)  # URL ephemeral expire -> on heberge
+            if not final_url:
+                await interaction.response.send_message(
+                    "Echec de l'upload de l'image. Re-essaie ou fournis une URL.", ephemeral=True)
+                return
+            source_type = "upload"
         elif image_url:
             u = image_url.strip()
             if not (u.startswith("http://") or u.startswith("https://")):
