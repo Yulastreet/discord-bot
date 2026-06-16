@@ -136,18 +136,16 @@ def main():
             skipped += 1
             continue
         rarity = args.rarity or _pick_rarity()
-        # flavor : espece + personnalite ; description : citation du villageois
-        flavor = " · ".join(p for p in (v.get("species"), v.get("personality")) if p)
+        # description : citation du villageois (pas de flavor_subtitle -> retire)
         quote = (v.get("quote") or "").strip() or None
         if args.dry_run:
-            print(f"[dry] + {name:22} {rarity:9} {flavor}")
+            print(f"[dry] + {name:22} {rarity:9}")
             added += 1
             continue
         try:
             cid = card_add(name=name, universe=_UNIVERSE, subtitle=_ORIGIN,
-                           rarity=rarity, image_url=img,
-                           description=quote, flavor_subtitle=flavor or None)
-            print(f"+ #{cid} {name:22} {rarity:9} {flavor}")
+                           rarity=rarity, image_url=img, description=quote)
+            print(f"+ #{cid} {name:22} {rarity:9}")
             added += 1
         except Exception as e:
             print(f"! erreur sur {name}: {e!r}")
