@@ -425,7 +425,8 @@
   }
   .ef-check input { width: 16px; height: 16px; }
 </style>
-<div class="card-preview-scrim" id="editScrim" onclick="closeEditModal(event)">
+<div class="card-preview-scrim" id="editScrim" onclick="closeEditModal(event)"
+     onmousedown="window._editDownOnScrim = (event.target === this)">
   <div class="card-preview-modal" onclick="event.stopPropagation()">
     <h3 id="editTitle" style="margin-bottom:2px;">Nouvelle carte</h3>
     <p class="muted" style="font-size:12px;margin:0 0 12px;">Modifie les infos de la carte puis enregistre.</p>
@@ -660,6 +661,9 @@ function openCreateModal() {
 window.openCreateModal = openCreateModal;
 function closeEditModal(e) {
   if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
+  // Ne ferme que si le clic a DEMARRE sur le fond (evite la fermeture quand on
+  // selectionne du texte dans un champ et que la souris glisse hors de la fenetre).
+  if (e && !window._editDownOnScrim) return;
   document.getElementById('editScrim').classList.remove('open');
 }
 window.closeEditModal = closeEditModal;
