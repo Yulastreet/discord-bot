@@ -1586,15 +1586,19 @@ def setup_cards_commands(bot, deps):
 
     @cardwish_cmd.autocomplete("nom")
     async def cardwish_autocomplete(interaction: discord.Interaction, current: str):
-        from database import get_db
-        try:
+        import asyncio as _aio
+        q = (current or "").strip().lower()
+        def _query():
+            from database import get_db
             conn = get_db(); c = conn.cursor()
-            q = (current or "").strip().lower()
             rows = c.execute("SELECT name FROM cards WHERE LOWER(name) LIKE ? "
                              "AND COALESCE(not_obtainable,0)=0 ORDER BY name LIMIT 25",
                              (f"%{q}%",)).fetchall()
             conn.close()
-            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100]) for r in rows]
+            return [r["name"] for r in rows]
+        try:
+            names = await _aio.wait_for(_aio.to_thread(_query), timeout=2.5)
+            return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names]
         except Exception:
             return []
 
@@ -2460,14 +2464,20 @@ def setup_cards_commands(bot, deps):
 
     @cardmodify.autocomplete("nom")
     async def cardmodify_autocomplete(interaction: discord.Interaction, current: str):
-        from database import get_db
-        try:
+        import asyncio as _aio
+        q = (current or "").strip().lower()
+        def _query():
+            from database import get_db
             conn = get_db(); c = conn.cursor()
-            q = (current or "").strip().lower()
             rows = c.execute("SELECT name FROM cards WHERE LOWER(name) LIKE ? "
                              "ORDER BY name LIMIT 25", (f"%{q}%",)).fetchall()
             conn.close()
-            return [app_commands.Choice(name=r["name"][:100], value=r["name"][:100]) for r in rows]
+            return [r["name"] for r in rows]
+        try:
+            # thread + timeout : ne bloque jamais la boucle async (sinon "Echec
+            # des options de chargement" pour tout le monde sous charge)
+            names = await _aio.wait_for(_aio.to_thread(_query), timeout=2.5)
+            return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names]
         except Exception:
             return []
 

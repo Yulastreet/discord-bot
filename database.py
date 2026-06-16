@@ -8,8 +8,16 @@ DB_FILE = os.getenv("DB_PATH") or "bot_database.db"
 
 
 def get_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=10)
     conn.row_factory = sqlite3.Row
+    # WAL : lecteurs ne bloquent plus pendant une ecriture (autocomplete, etc.)
+    # busy_timeout : attend au lieu de lever 'database is locked' immediatement.
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA synchronous=NORMAL")
+    except Exception:
+        pass
     return conn
 
 def _table_columns(c, table):
