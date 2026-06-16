@@ -409,34 +409,74 @@
 </div>
 
 <!-- Create/Edit modal -->
+<style>
+  #editScrim .card-preview-modal { max-width: 460px; }
+  .ef-form { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+  .ef { display: flex; flex-direction: column; gap: 5px; }
+  .ef > label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+                text-transform: uppercase; color: var(--text-2); }
+  .ef .input { width: 100%; }
+  .ef-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ef-req { color: var(--accent); }
+  .ef-hint { font-size: 11px; color: var(--text-3); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .ef-check {
+    display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--bg-1);
+  }
+  .ef-check input { width: 16px; height: 16px; }
+</style>
 <div class="card-preview-scrim" id="editScrim" onclick="closeEditModal(event)">
   <div class="card-preview-modal" onclick="event.stopPropagation()">
-    <h3 id="editTitle">Nouvelle carte</h3>
+    <h3 id="editTitle" style="margin-bottom:2px;">Nouvelle carte</h3>
+    <p class="muted" style="font-size:12px;margin:0 0 12px;">Modifie les infos de la carte puis enregistre.</p>
     <input type="hidden" id="editCardId">
-    <div class="col" style="gap:10px;">
-      <input id="editName" placeholder="Nom (obligatoire)" class="input" style="width:100%;">
-      <input id="editFlavor" placeholder="Sous-titre affiché sous le nom (ex: MASTERED ULTRA INSTINCT)" class="input" style="width:100%;">
-      <input id="editUniverse" placeholder="Univers (Anime, Star Wars, ...)" class="input" style="width:100%;">
-      <input id="editSubtitle" placeholder="Origine (Naruto, The Mandalorian, ...)" class="input" style="width:100%;">
-      <select id="editRarity" class="input">
-        <option value="common">Common</option>
-        <option value="rare">Rare</option>
-        <option value="epic">Epic</option>
-        <option value="legendary">Legendary</option>
-        <option value="mythic">Mythic</option>
-        <option value="secret">🌈 Secret ???</option>
-      </select>
-      <input id="editImage" placeholder="Image URL (vide = auto-fetch via Wikipedia)" class="input" style="width:100%;">
-      <textarea id="editDesc" placeholder="Description" rows="3" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;">
+    <div class="ef-form">
+      <div class="ef">
+        <label>Nom <span class="ef-req">*</span></label>
+        <input id="editName" placeholder="Ex : Goku" class="input">
+      </div>
+      <div class="ef">
+        <label>Sous-titre <span class="ef-hint">— affiché sous le nom</span></label>
+        <input id="editFlavor" placeholder="Ex : MASTERED ULTRA INSTINCT" class="input">
+      </div>
+      <div class="ef-row">
+        <div class="ef">
+          <label>Univers</label>
+          <input id="editUniverse" placeholder="Anime, Comics…" class="input">
+        </div>
+        <div class="ef">
+          <label>Origine</label>
+          <input id="editSubtitle" placeholder="Naruto, Marvel…" class="input">
+        </div>
+      </div>
+      <div class="ef">
+        <label>Rareté</label>
+        <select id="editRarity" class="input">
+          <option value="common">⚪ Common</option>
+          <option value="rare">🔵 Rare</option>
+          <option value="epic">🟣 Epic</option>
+          <option value="legendary">🟠 Legendary</option>
+          <option value="mythic">🔴 Mythic</option>
+          <option value="secret">🌈 Secret ???</option>
+        </select>
+      </div>
+      <div class="ef">
+        <label>Image <span class="ef-hint">— URL (vide = auto-fetch Wikipedia)</span></label>
+        <input id="editImage" placeholder="https://…" class="input">
+      </div>
+      <div class="ef">
+        <label>Description</label>
+        <textarea id="editDesc" placeholder="Texte de flavor / citation…" rows="3" class="input" style="font-family:var(--font-mono);font-size:13px;resize:vertical;"></textarea>
+      </div>
+      <label class="ef-check">
         <input id="editNotObtainable" type="checkbox">
-        <span style="font-size:13px;">🚫 Non obtensible</span>
-        <span class="muted" style="font-size:11px;">(cachée du catalogue public + jamais rollée)</span>
+        <span style="font-size:13px;">🚫 Non obtenible</span>
+        <span class="muted" style="font-size:11px;">— cachée du catalogue + jamais rollée</span>
       </label>
     </div>
-    <div class="actions" style="margin-top:14px;">
+    <div class="actions" style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px;">
       <button class="btn btn-secondary" onclick="closeEditModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveCard()">Enregistrer</button>
+      <button class="btn btn-primary" onclick="saveCard()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
