@@ -603,7 +603,9 @@ def register_cards_owner_routes(app, deps):
         # 1. Localise l'original (pour pouvoir re-cropper meme dans 3 ans)
         src_local = None
         if image_changed:
-            orig = original or target.get("source_image_url") or target.get("image_url")
+            # La NOUVELLE image proposee EST le nouvel original a heberger (sauf si un
+            # original distinct a ete fourni). Avant : retombait sur l'ancienne source.
+            orig = original or new_image_url or target.get("source_image_url") or target.get("image_url")
             rel = localize_source(tcid, orig) if orig else None
             if rel:
                 src_local = (public_base + rel) if public_base else rel

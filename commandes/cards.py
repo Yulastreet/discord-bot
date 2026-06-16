@@ -229,8 +229,14 @@ def _resolve_card_image(card: dict):
 
     if local_rel:
         if public_base:
-            # Servi par ton domaine : Discord proxifie, jamais d'hote externe
-            return (public_base + local_rel, None)
+            # Servi par ton domaine : Discord proxifie, jamais d'hote externe.
+            # Cache-bust par mtime : quand le render change (recadrage approuve),
+            # l'URL change -> Discord re-telecharge au lieu de servir l'ancien cache.
+            try:
+                ver = int(os.path.getmtime(local_path))
+                return (f"{public_base}{local_rel}?v={ver}", None)
+            except Exception:
+                return (public_base + local_rel, None)
         # Pas de domaine public (dev) : attachment. Re-encode en PNG pour matcher
         # le 'attachment://card.png' attendu par les callers.
         try:
