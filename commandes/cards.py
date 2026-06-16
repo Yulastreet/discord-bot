@@ -90,25 +90,36 @@ def _get_inline_emoji_str(bot, emoji_name: str) -> str:
 
 # Cache mémoire des noms de cartes pour les autocompletes : evite de taper la DB
 # a chaque frappe (20k+ cartes -> blocage/timeout = "Echec des options de chargement").
-_CARD_NAMES_CACHE = {"all": [], "obtainable": [], "ts": 0.0}
+_CARD_NAMES_CACHE = {"all": [], "obtainable": [], "universes": [], "ts": 0.0}
 
 
-def _card_names_cached(obtainable_only=False):
+def _card_cache_refresh():
     import time as _t
     now = _t.time()
     if now - _CARD_NAMES_CACHE["ts"] > 120 or not _CARD_NAMES_CACHE["all"]:
         try:
             from database import get_db
             conn = get_db(); c = conn.cursor()
-            rows = c.execute("SELECT name, COALESCE(not_obtainable,0) AS no FROM cards "
-                             "WHERE name IS NOT NULL ORDER BY name").fetchall()
+            rows = c.execute("SELECT name, universe, COALESCE(not_obtainable,0) AS no "
+                             "FROM cards WHERE name IS NOT NULL ORDER BY name").fetchall()
             conn.close()
             _CARD_NAMES_CACHE["all"] = [r["name"] for r in rows]
             _CARD_NAMES_CACHE["obtainable"] = [r["name"] for r in rows if not r["no"]]
+            _CARD_NAMES_CACHE["universes"] = sorted(
+                {(r["universe"] or "").strip() for r in rows if (r["universe"] or "").strip()})
             _CARD_NAMES_CACHE["ts"] = now
         except Exception:
             pass
+
+
+def _card_names_cached(obtainable_only=False):
+    _card_cache_refresh()
     return _CARD_NAMES_CACHE["obtainable"] if obtainable_only else _CARD_NAMES_CACHE["all"]
+
+
+def _card_universes_cached():
+    _card_cache_refresh()
+    return _CARD_NAMES_CACHE["universes"]
 
 
 def _get_rarity_title_emoji(bot, rarity: str) -> str:
@@ -584,26 +595,10 @@ def setup_cards_commands(bot, deps):
 
     @roll.autocomplete("univers")
     async def roll_univers_autocomplete(interaction: discord.Interaction, current: str):
-        from database import get_db
-        try:
-            conn = get_db(); c = conn.cursor()
-            q = (current or "").strip().lower()
-            if q:
-                rows = c.execute(
-                    "SELECT DISTINCT universe FROM cards "
-                    "WHERE universe IS NOT NULL AND universe != '' "
-                    "AND LOWER(universe) LIKE ? "
-                    "ORDER BY universe LIMIT 25", (f"%{q}%",)).fetchall()
-            else:
-                rows = c.execute(
-                    "SELECT DISTINCT universe FROM cards "
-                    "WHERE universe IS NOT NULL AND universe != '' "
-                    "ORDER BY universe LIMIT 25").fetchall()
-            conn.close()
-            return [app_commands.Choice(name=r["universe"][:100], value=r["universe"][:100])
-                     for r in rows]
-        except Exception:
-            return []
+        q = (current or "").strip().lower()
+        unis = _card_universes_cached()
+        out = [u for u in unis if q in u.lower()][:25] if q else unis[:25]
+        return [app_commands.Choice(name=u[:100], value=u[:100]) for u in out]
 
     # === /collection ===
     @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")
@@ -1615,12 +1610,8 @@ def setup_cards_commands(bot, deps):
 
     @cardwish_cmd.autocomplete("nom")
     async def cardwish_autocomplete(interaction: discord.Interaction, current: str):
-        import asyncio as _aio
         q = (current or "").strip().lower()
-        try:
-            names = await _aio.wait_for(_aio.to_thread(_card_names_cached, True), timeout=2.5)
-        except Exception:
-            names = _CARD_NAMES_CACHE.get("obtainable") or []
+        names = _card_names_cached(True)
         out = [n for n in names if q in n.lower()][:25] if q else names[:25]
         return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
 
@@ -2486,12 +2477,10 @@ def setup_cards_commands(bot, deps):
 
     @cardmodify.autocomplete("nom")
     async def cardmodify_autocomplete(interaction: discord.Interaction, current: str):
-        import asyncio as _aio
+        # 100% synchrone sur le cache RAM : reponse instantanee, pas de hop thread
+        # (le pool peut etre sature par le bake -> 40060 'already acknowledged').
         q = (current or "").strip().lower()
-        try:
-            names = await _aio.wait_for(_aio.to_thread(_card_names_cached), timeout=2.5)
-        except Exception:
-            names = _CARD_NAMES_CACHE.get("all") or []
+        names = _card_names_cached()
         out = [n for n in names if q in n.lower()][:25] if q else names[:25]
         return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
 
