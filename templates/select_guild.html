@@ -24,6 +24,12 @@
        transparent et on pose le fond sombre sur html. */
     html { background: #07090c; }
     body { min-height: 100vh; background: transparent !important; }
+    /* Liquid glass reutilisable */
+    :root {
+      --glass-bg: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.025));
+      --glass-bd: rgba(255,255,255,0.16);
+      --glass-sh: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 24px rgba(255,255,255,0.04), 0 10px 32px rgba(0,0,0,0.30);
+    }
     /* Background complet : mesh de blobs lime/vert + grille de points, assombri. */
     .page-bg {
       position: fixed; inset: 0; z-index: -2; overflow: hidden;
@@ -52,8 +58,9 @@
       position: sticky; top: 0; z-index: 30;
       display: flex; align-items: center; gap: 16px;
       padding: 14px clamp(20px, 4vw, 64px);
-      background: rgba(10,12,18,0.82); border-bottom: 1px solid rgba(255,255,255,0.10);
-      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      background: var(--glass-bg); border-bottom: 1px solid var(--glass-bd);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 6px 24px rgba(0,0,0,0.28);
+      -webkit-backdrop-filter: blur(22px) saturate(140%); backdrop-filter: blur(22px) saturate(140%);
     }
     .topnav .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
     .topnav .brand img { width: 36px; height: 36px; border-radius: 9px; }
@@ -71,7 +78,9 @@
     .tb-search { position: relative; flex: 1 1 260px; max-width: 420px; }
     .tb-search input {
       width: 100%; padding: 11px 14px 11px 40px; border-radius: 11px;
-      background: rgba(20,22,30,0.7); border: 1px solid rgba(255,255,255,0.10); color: var(--text);
+      background: var(--glass-bg); border: 1px solid var(--glass-bd); color: var(--text);
+      -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
       font-size: var(--t-sm); outline: none;
     }
     .tb-search input:focus { border-color: var(--accent); }
@@ -94,14 +103,19 @@
     }
     .guild-card {
       display: flex; align-items: center; gap: 14px;
-      background: rgba(20,22,30,0.66); border: 1px solid rgba(255,255,255,0.09);
-      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-      border-radius: 14px; padding: 22px 18px; min-height: 92px; cursor: pointer;
+      background: var(--glass-bg); border: 1px solid var(--glass-bd);
+      box-shadow: var(--glass-sh);
+      -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
+      border-radius: 16px; padding: 22px 18px; min-height: 92px; cursor: pointer;
       transition: border-color 160ms, background 160ms, transform 120ms, box-shadow 160ms;
       text-align: left; color: var(--text); font-family: var(--font-sans); width: 100%;
     }
-    .guild-card:hover { border-color: var(--accent); background: rgba(30,34,44,0.78);
-                        transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+    .guild-card:hover {
+      border-color: rgba(185,242,58,0.55);
+      background: linear-gradient(135deg, rgba(185,242,58,0.12), rgba(255,255,255,0.04));
+      transform: translateY(-2px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 14px 38px rgba(0,0,0,0.38), 0 0 0 1px rgba(185,242,58,0.12);
+    }
     .gc-icon { width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
                background: var(--bg-2); display: grid; place-items: center;
                font-weight: 700; color: var(--accent); font-size: 19px; flex-shrink: 0; }
@@ -117,7 +131,7 @@
 
     /* Carte "ajouter" : pas cliquable globalement, bouton dedie */
     .add-card { cursor: default; flex-wrap: wrap; }
-    .add-card:hover { transform: none; border-color: rgba(255,255,255,0.14); background: rgba(20,22,30,0.66); box-shadow: none; }
+    .add-card:hover { transform: none; border-color: var(--glass-bd); background: var(--glass-bg); box-shadow: var(--glass-sh); }
     .add-card .gc-meta { color: var(--text-3); }
     .btn-add {
       flex: 1 0 100%; margin-top: 4px; display: inline-flex; align-items: center; justify-content: center;
