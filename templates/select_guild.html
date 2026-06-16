@@ -21,12 +21,14 @@
   {% include "_styles.html" %}
   <style>
     body { min-height: 100vh; }
+    /* Fond sombre + lueurs d'accent lime (haut-gauche / bas-droite) */
     .page-bg {
       position: fixed; inset: 0; z-index: -2;
       background:
-        radial-gradient(70% 55% at 50% 0%, rgba(125,182,221,0.14), transparent 70%),
-        linear-gradient(rgba(8,10,16,0.60), rgba(8,10,16,0.80)),
-        url("/static/login_bg.png") center / cover no-repeat fixed;
+        radial-gradient(48% 42% at 8% -5%, rgba(185,242,58,0.16), transparent 68%),
+        radial-gradient(42% 45% at 96% 104%, rgba(185,242,58,0.12), transparent 70%),
+        radial-gradient(38% 38% at 78% 8%, rgba(125,210,120,0.07), transparent 72%),
+        #090b0e;
     }
 
     /* Header global sticky */
@@ -78,7 +80,7 @@
       display: flex; align-items: center; gap: 14px;
       background: rgba(20,22,30,0.66); border: 1px solid rgba(255,255,255,0.09);
       -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-      border-radius: 14px; padding: 14px 16px; cursor: pointer;
+      border-radius: 14px; padding: 22px 18px; min-height: 92px; cursor: pointer;
       transition: border-color 160ms, background 160ms, transform 120ms, box-shadow 160ms;
       text-align: left; color: var(--text); font-family: var(--font-sans); width: 100%;
     }
