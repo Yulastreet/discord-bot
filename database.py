@@ -5148,11 +5148,11 @@ DEFAULT_GUILD_CONFIG = {
     # le palier de plus haut niveau <= son niveau. roll_cd_min = minutes en MOINS.
     "rewards": [
         {"level": 1,  "essence_pct": 0,  "xp_pct": 0,  "roll_cd_min": 0,  "charges": 0, "wishlist": 0, "boss_pct": 0,  "bank": False, "raids": False, "shop": False},
-        {"level": 10, "essence_pct": 4,  "xp_pct": 5,  "roll_cd_min": 3,  "charges": 0, "wishlist": 0, "boss_pct": 2,  "bank": True,  "raids": False, "shop": False},
-        {"level": 20, "essence_pct": 7,  "xp_pct": 8,  "roll_cd_min": 5,  "charges": 1, "wishlist": 1, "boss_pct": 4,  "bank": True,  "raids": True,  "shop": False},
-        {"level": 35, "essence_pct": 11, "xp_pct": 12, "roll_cd_min": 8,  "charges": 1, "wishlist": 1, "boss_pct": 6,  "bank": True,  "raids": True,  "shop": True},
-        {"level": 50, "essence_pct": 15, "xp_pct": 16, "roll_cd_min": 12, "charges": 2, "wishlist": 2, "boss_pct": 8,  "bank": True,  "raids": True,  "shop": True},
-        {"level": 60, "essence_pct": 20, "xp_pct": 20, "roll_cd_min": 15, "charges": 2, "wishlist": 3, "boss_pct": 12, "bank": True,  "raids": True,  "shop": True},
+        {"level": 10, "essence_pct": 4,  "xp_pct": 5,  "roll_cd_min": 2,  "charges": 0, "wishlist": 0, "boss_pct": 2,  "bank": True,  "raids": False, "shop": False},
+        {"level": 20, "essence_pct": 7,  "xp_pct": 8,  "roll_cd_min": 4,  "charges": 0, "wishlist": 1, "boss_pct": 4,  "bank": True,  "raids": True,  "shop": False},
+        {"level": 35, "essence_pct": 11, "xp_pct": 12, "roll_cd_min": 6,  "charges": 0, "wishlist": 1, "boss_pct": 6,  "bank": True,  "raids": True,  "shop": True},
+        {"level": 50, "essence_pct": 15, "xp_pct": 16, "roll_cd_min": 8,  "charges": 0, "wishlist": 2, "boss_pct": 9,  "bank": True,  "raids": True,  "shop": True},
+        {"level": 60, "essence_pct": 20, "xp_pct": 20, "roll_cd_min": 10, "charges": 1, "wishlist": 3, "boss_pct": 12, "bank": True,  "raids": True,  "shop": True},
     ],
 }
 
