@@ -5133,25 +5133,26 @@ DEFAULT_GUILD_CONFIG = {
     "create_cost": 10000,      # essences pour creer une guilde
     "max_members": 30,
     "hop_cooldown_h": 24,      # delai avant de re-rejoindre une guilde
-    "daily_xp_cap": 2000,      # XP max apporte par membre / jour
+    "daily_xp_cap": 1000,      # XP max apporte par membre / jour (actions perso)
     "xp": {
-        "roll": 5,
-        "fusion": 20,
-        "wheel": 15,
-        "essence_per_100": 10,  # XP par tranche de 100 essences donnees
-        "boss": {"1": 50, "2": 120, "3": 250, "4": 500, "5": 1000},
+        "roll": 10,
+        "fusion": 25,
+        "wheel": 30,
+        "essence_per_100": 5,   # XP par tranche de 100 essences donnees
+        "boss": {"1": 60, "2": 150, "3": 350, "4": 700, "5": 1400},
     },
-    "level_base": 1000,        # XP requis pour passer au niveau 2
-    "level_growth": 1.35,      # x par niveau (XP niveau n = base * growth^(n-2))
-    "max_level": 30,
+    "level_base": 600,         # XP requis pour passer au niveau 2 (cumul lvl60 ~1.65M)
+    "level_growth": 1.10,      # x par niveau (XP niveau n = base * growth^(n-2))
+    "max_level": 60,
     # Paliers de recompense : a un niveau donne, bonus ABSOLUS. Une guilde applique
-    # le palier de plus haut niveau <= son niveau.
+    # le palier de plus haut niveau <= son niveau. roll_cd_min = minutes en MOINS.
     "rewards": [
-        {"level": 1,  "essence_pct": 0,  "xp_pct": 0,  "roll_cd_pct": 0,  "charges": 0, "wishlist": 0, "boss_pct": 0,  "bank": False, "raids": False, "shop": False},
-        {"level": 5,  "essence_pct": 3,  "xp_pct": 5,  "roll_cd_pct": 5,  "charges": 0, "wishlist": 0, "boss_pct": 2,  "bank": True,  "raids": False, "shop": False},
-        {"level": 10, "essence_pct": 6,  "xp_pct": 10, "roll_cd_pct": 10, "charges": 1, "wishlist": 1, "boss_pct": 4,  "bank": True,  "raids": True,  "shop": False},
-        {"level": 20, "essence_pct": 10, "xp_pct": 15, "roll_cd_pct": 15, "charges": 1, "wishlist": 1, "boss_pct": 6,  "bank": True,  "raids": True,  "shop": True},
-        {"level": 30, "essence_pct": 15, "xp_pct": 20, "roll_cd_pct": 20, "charges": 2, "wishlist": 2, "boss_pct": 10, "bank": True,  "raids": True,  "shop": True},
+        {"level": 1,  "essence_pct": 0,  "xp_pct": 0,  "roll_cd_min": 0,  "charges": 0, "wishlist": 0, "boss_pct": 0,  "bank": False, "raids": False, "shop": False},
+        {"level": 10, "essence_pct": 4,  "xp_pct": 5,  "roll_cd_min": 3,  "charges": 0, "wishlist": 0, "boss_pct": 2,  "bank": True,  "raids": False, "shop": False},
+        {"level": 20, "essence_pct": 7,  "xp_pct": 8,  "roll_cd_min": 5,  "charges": 1, "wishlist": 1, "boss_pct": 4,  "bank": True,  "raids": True,  "shop": False},
+        {"level": 35, "essence_pct": 11, "xp_pct": 12, "roll_cd_min": 8,  "charges": 1, "wishlist": 1, "boss_pct": 6,  "bank": True,  "raids": True,  "shop": True},
+        {"level": 50, "essence_pct": 15, "xp_pct": 16, "roll_cd_min": 12, "charges": 2, "wishlist": 2, "boss_pct": 8,  "bank": True,  "raids": True,  "shop": True},
+        {"level": 60, "essence_pct": 20, "xp_pct": 20, "roll_cd_min": 15, "charges": 2, "wishlist": 3, "boss_pct": 12, "bank": True,  "raids": True,  "shop": True},
     ],
 }
 

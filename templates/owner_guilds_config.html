@@ -68,7 +68,7 @@
   <p class="sub">À un niveau donné, bonus <b>absolus</b>. Une guilde applique le palier de plus haut niveau ≤ son niveau. % = pourcentage.</p>
   <table class="gc-rew">
     <thead><tr>
-      <th>Niveau</th><th>✨ Ess %</th><th>XP %</th><th>CD roll %</th><th>+Charges</th>
+      <th>Niveau</th><th>✨ Ess %</th><th>XP %</th><th>CD roll −min</th><th>+Charges</th>
       <th>+Wishlist</th><th>Loot boss %</th><th>Banque</th><th>Raids</th><th>Boutique</th><th></th>
     </tr></thead>
     <tbody id="rewBody"></tbody>
@@ -94,7 +94,7 @@ function rewRow(p){
     <td><input type="number" class="input r-level" value="${p.level||1}"></td>
     <td><input type="number" class="input r-ess" value="${p.essence_pct||0}"></td>
     <td><input type="number" class="input r-xp" value="${p.xp_pct||0}"></td>
-    <td><input type="number" class="input r-cd" value="${p.roll_cd_pct||0}"></td>
+    <td><input type="number" class="input r-cd" value="${p.roll_cd_min||0}"></td>
     <td><input type="number" class="input r-ch" value="${p.charges||0}"></td>
     <td><input type="number" class="input r-wl" value="${p.wishlist||0}"></td>
     <td><input type="number" class="input r-boss" value="${p.boss_pct||0}"></td>
@@ -123,7 +123,7 @@ async function saveGuildConfig(){
     level: +tr.querySelector('.r-level').value,
     essence_pct: +tr.querySelector('.r-ess').value,
     xp_pct: +tr.querySelector('.r-xp').value,
-    roll_cd_pct: +tr.querySelector('.r-cd').value,
+    roll_cd_min: +tr.querySelector('.r-cd').value,
     charges: +tr.querySelector('.r-ch').value,
     wishlist: +tr.querySelector('.r-wl').value,
     boss_pct: +tr.querySelector('.r-boss').value,

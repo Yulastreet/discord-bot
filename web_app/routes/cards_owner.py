@@ -639,7 +639,7 @@ def register_cards_owner_routes(app, deps):
                 "level": max(1, _i(p.get("level"), 1)),
                 "essence_pct": _i(p.get("essence_pct")),
                 "xp_pct": _i(p.get("xp_pct")),
-                "roll_cd_pct": _i(p.get("roll_cd_pct")),
+                "roll_cd_min": _i(p.get("roll_cd_min")),
                 "charges": _i(p.get("charges")),
                 "wishlist": _i(p.get("wishlist")),
                 "boss_pct": _i(p.get("boss_pct")),
