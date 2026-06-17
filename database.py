@@ -274,6 +274,8 @@ def init_db():
         ("proposed_rarity", "TEXT"),
         ("original_image_url", "TEXT"),
         ("forward_message_id", "TEXT"),
+        ("votes_up", "INTEGER DEFAULT 0"),
+        ("votes_down", "INTEGER DEFAULT 0"),
     ):
         try:
             c.execute(f"ALTER TABLE card_suggestions ADD COLUMN {col} {ddl}")
@@ -2203,6 +2205,21 @@ def card_suggestion_set_forward(sid, message_id):
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_suggestions SET forward_message_id = ? WHERE id = ?",
               (str(message_id) if message_id else None, int(sid)))
+    conn.commit(); conn.close()
+
+
+def card_suggestion_get_by_forward(message_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_suggestions WHERE forward_message_id = ?",
+                  (str(message_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def card_suggestion_set_votes(sid, up, down):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_suggestions SET votes_up = ?, votes_down = ? WHERE id = ?",
+              (int(up), int(down), int(sid)))
     conn.commit(); conn.close()
 
 

@@ -2453,6 +2453,14 @@ def setup_cards_commands(bot, deps):
 
     # === /cardsuggest : suggestion communaute (support guild only) ===
     SUGGEST_CHANNEL_ID = 1513592894265757716
+    VOTE_UP = "🔼"; VOTE_DOWN = "🔽"
+
+    async def _add_vote_reactions(msg):
+        try:
+            await msg.add_reaction(VOTE_UP)
+            await msg.add_reaction(VOTE_DOWN)
+        except Exception as e:
+            print(f"[suggest votes] add react err: {e}")
     SUPPORT_GUILD_ID = int((os.getenv("SUPPORT_GUILD_ID") or "0").strip() or 0)
 
     @bot.tree.command(name="cardsuggest",
@@ -2548,14 +2556,15 @@ def setup_cards_commands(bot, deps):
             return
 
         # Embed pour forward vers salon support
+        _rar_line = f"\nRareté suggérée : **{rarete.value}**" if rarete else ""
         embed = discord.Embed(
             title=f"💠 Suggestion #{sid} reçue",
-            description=f"**{nom_clean}**\n_{univers.value}{' · ' + origine if origine else ''}_",
+            description=f"**{nom_clean}**\n_{univers.value}{' · ' + origine if origine else ''}_{_rar_line}",
             color=0xB9F23A,
         )
         embed.set_image(url=final_url)
         avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
-        embed.set_footer(text=f"Suggérée par {interaction.user.display_name}", icon_url=avatar_url)
+        embed.set_footer(text=f"Suggérée par {interaction.user.display_name} · 🔼 pour, 🔽 contre", icon_url=avatar_url)
 
         # Forward vers le salon support
         support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
@@ -2565,6 +2574,7 @@ def setup_cards_commands(bot, deps):
                 fmsg = await support_channel.send(embed=embed)
                 from database import card_suggestion_set_forward
                 card_suggestion_set_forward(sid, fmsg.id)
+                await _add_vote_reactions(fmsg)
                 forward_ok = True
             except Exception as e:
                 print(f"[cardsuggest] forward err: {e}")
@@ -2705,7 +2715,7 @@ def setup_cards_commands(bot, deps):
         elif embed_file:
             embed.set_image(url="attachment://card.png")
         avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
-        embed.set_footer(text=f"Proposée par {interaction.user.display_name}", icon_url=avatar_url)
+        embed.set_footer(text=f"Proposée par {interaction.user.display_name} · 🔼 pour, 🔽 contre", icon_url=avatar_url)
         support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
         forward_ok = False
         if support_channel:
@@ -2716,6 +2726,7 @@ def setup_cards_commands(bot, deps):
                     fmsg = await support_channel.send(embed=embed)
                 from database import card_suggestion_set_forward
                 card_suggestion_set_forward(sid, fmsg.id)
+                await _add_vote_reactions(fmsg)
                 forward_ok = True
             except Exception as e:
                 print(f"[cardmodify] forward err: {e}")

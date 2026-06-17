@@ -25,6 +25,13 @@
     display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;
     text-transform:uppercase; letter-spacing:0.05em;
   }
+  .sug-votes { display:flex; align-items:center; gap:8px; font-size:12px; margin-top:2px; }
+  .sug-vote { font-weight:700; }
+  .sug-vote.up { color:#4ade80; }
+  .sug-vote.down { color:#ff5f6d; }
+  .sug-ratio-bar { flex:1; height:6px; border-radius:999px; background:#ff5f6d33; overflow:hidden; min-width:40px; }
+  .sug-ratio-bar > span { display:block; height:100%; background:#4ade80; border-radius:999px; }
+  .sug-ratio-pct { font-size:11px; color:var(--text-2); min-width:34px; text-align:right; }
   .badge-pending { background:#fbbf24; color:#2a1a00; }
   .badge-approved { background:#4ade80; color:#053a16; }
   .badge-rejected { background:#ff3d57; color:#fff; }
@@ -308,6 +315,13 @@ async function loadSugs() {
             Par <strong>${escapeHtml(s.suggester_name || s.suggester_id)}</strong>
             <span class="sug-badge badge-${s.status}">${s.status}</span>
           </div>
+          ${(function(u,d){ const tot=u+d; const pct=tot?Math.round(100*u/tot):0;
+            return `<div class="sug-votes" title="${u} pour / ${d} contre">
+              <span class="sug-vote up">🔼 ${u}</span>
+              <span class="sug-vote down">🔽 ${d}</span>
+              <span class="sug-ratio-bar"><span style="width:${pct}%;"></span></span>
+              <span class="sug-ratio-pct">${tot?pct+'%':'—'}</span>
+            </div>`; })(s.votes_up||0, s.votes_down||0)}
           ${s.reject_reason ? `<div class="sug-meta" style="color:#ff7a8a;">Refusée : ${escapeHtml(s.reject_reason)}</div>` : ''}
         </div>
         ${s.status === 'pending' ? `

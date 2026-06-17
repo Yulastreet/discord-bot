@@ -975,10 +975,39 @@ def setup_runtime(bot, deps):
         return e.name
 
 
+    _SUGGEST_CHANNEL_ID = 1513592894265757716
+    _VOTE_EMOJIS = ("🔼", "🔽")
+
+    async def _recount_suggestion_votes(payload):
+        """Recompte 🔼/🔽 sous un message de suggestion et stocke le ratio en DB."""
+        try:
+            if payload.channel_id != _SUGGEST_CHANNEL_ID:
+                return
+            if str(payload.emoji) not in _VOTE_EMOJIS:
+                return
+            from database import card_suggestion_get_by_forward, card_suggestion_set_votes
+            sugg = card_suggestion_get_by_forward(payload.message_id)
+            if not sugg:
+                return
+            channel = bot.get_channel(payload.channel_id)
+            if not channel:
+                return
+            msg = await channel.fetch_message(payload.message_id)
+            up = down = 0
+            for r in msg.reactions:
+                if str(r.emoji) == "🔼":
+                    up = max(0, r.count - 1)   # retire la reaction du bot
+                elif str(r.emoji) == "🔽":
+                    down = max(0, r.count - 1)
+            card_suggestion_set_votes(sugg["id"], up, down)
+        except Exception as e:
+            print(f"[suggest votes] recount err: {e}")
+
     @bot.event
     async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         if payload.guild_id is None or payload.user_id == bot.user.id:
             return
+        await _recount_suggestion_votes(payload)
         emoji_key = _format_emoji_key(payload.emoji)
         mapping = db_rr_get(payload.guild_id, payload.message_id, emoji_key)
         if not mapping:
@@ -1021,6 +1050,7 @@ def setup_runtime(bot, deps):
     async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         if payload.guild_id is None or payload.user_id == bot.user.id:
             return
+        await _recount_suggestion_votes(payload)
         emoji_key = _format_emoji_key(payload.emoji)
         mapping = db_rr_get(payload.guild_id, payload.message_id, emoji_key)
         if not mapping:
