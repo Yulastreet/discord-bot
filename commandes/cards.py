@@ -2042,11 +2042,13 @@ def setup_cards_commands(bot, deps):
             inline=False,
         )
         embed.add_field(
-            name="⭐ Fusion (prestige)",
+            name="⭐ Fusion & montée (prestige)",
             value=("**/cardfuse `<carte>`** — consomme des exemplaires d'une même carte pour "
                    "lui ajouter une **étoile** (jusqu'à 5). Coût croissant : 2 → 3 → 4 → 5 → 6 "
                    "exemplaires. Une carte fusionnée devient **non-échangeable** "
-                   "(recyclage uniquement)."),
+                   "(recyclage uniquement).\n"
+                   "**/cardup `<rareté>`** — sacrifie des doublons de cartes **5⭐** pour 1 carte "
+                   "aléatoire de la **rareté au-dessus**."),
             inline=False,
         )
         embed.add_field(
@@ -2058,15 +2060,36 @@ def setup_cards_commands(bot, deps):
         )
         embed.add_field(
             name="🪪 Profil & classements",
-            value=("**/cardprofile `[membre]`** — stats + image de tes 3 cartes vedettes "
-                   "(`setup_*` pour les choisir). **/cardtop `<catégorie>`** — classements globaux."),
+            value=("**/cardprofile `[membre]`** — stats, **puissance de combat** et image de tes "
+                   "3 cartes vedettes. **/cardprofile `custom:true`** — éditeur : choisis tes 3 "
+                   "cartes vedettes + ta couleur de profil. **/cardtop `<catégorie>`** — classements."),
             inline=False,
         )
         embed.add_field(
-            name="💖 Wishlist & échange",
+            name="⚔️ Combat & boss de raid",
+            value=("Tes cartes ont une **puissance de combat** (PV + ATK ×2, bonus de fusion). "
+                   "Des **boss** apparaissent dans le salon cartes : tout le monde tape pour "
+                   "infliger des dégâts, le **loot** (essences + rolls) est partagé entre les "
+                   "participants à la victoire."),
+            inline=False,
+        )
+        embed.add_field(
+            name="💖 Wishlist, échange & suggestions",
             value=("**/cardwish `<carte>`** — wishlist (3 max, **6 sur le support**) : tu es ping "
                    "quand quelqu'un la tire. **/cardwishlist** — voir/retirer. "
-                   "**/cardtrade `<joueur>`** — échange multi-cartes."),
+                   "**/cardtrade `<joueur>`** — échange multi-cartes.\n"
+                   "**/cardsuggest** — propose un perso (vote 🔼/🔽 de la commu). "
+                   "**/cardmodify `<carte>`** — propose une modif d'une carte existante."),
+            inline=False,
+        )
+        embed.add_field(
+            name="🛡️ Guildes (clubs cross-serveur)",
+            value=("**/guild create `<nom>`** — fonde un club (jusqu'à 30 membres, max niv 60). "
+                   "La guilde gagne de l'XP via les rolls / boss / roue / fusions / dons et "
+                   "débloque des **bonus passifs** : % essences, % XP, cooldown roll réduit, "
+                   "+roll/h, wishlist, loot boss, banque & boutique de guilde.\n"
+                   "**/guildprofile `[nom]`** — fiche complète. **/guild top** — classement. "
+                   "**/guild info / invite / accept / leave / donate ...**"),
             inline=False,
         )
         embed.set_footer(text="Astuce : rejoins le serveur support pour 2 rolls/h et 6 wishes !")

@@ -279,6 +279,8 @@ def _build_command_pages() -> list:
         value=(
             "**/cardfuse `<carte>`** — fusionne des doublons pour ajouter une étoile (max 5). "
             "La carte fusionnée devient non-échangeable\n"
+            "**/cardup `<rareté>`** — sacrifie des doublons de cartes 5⭐ pour 1 carte aléatoire "
+            "de la rareté au-dessus\n"
             "**/cardcustom `<carte>` `<bordure>`** — applique une bordure (consommée)\n"
             "**/cardinventory `[membre]`** — tes cosmétiques en stock"
         ),
@@ -294,8 +296,8 @@ def _build_command_pages() -> list:
     p5.add_field(
         name="🪪 Profil & classements",
         value=(
-            "**/cardprofile `[membre]`** — profil de cartes (stats + image de tes 3 cartes vedettes)\n"
-            "**/cardprofile** `setup_gauche/milieu/droite` — définis tes 3 cartes vedettes\n"
+            "**/cardprofile `[membre]`** — profil de cartes (stats, puissance de combat, image de tes 3 cartes vedettes)\n"
+            "**/cardprofile `custom:true`** — éditeur : choisis tes 3 cartes vedettes + ta couleur de profil\n"
             "**/cardtop `<catégorie>`** — classements globaux (valeur, mythiques, essences, fusions, chance)"
         ),
         inline=False,
@@ -310,23 +312,79 @@ def _build_command_pages() -> list:
         inline=False,
     )
     p5.add_field(
-        name="🔄 Échange & suggestion",
+        name="🔄 Échange & suggestions",
         value=(
             "**/cardtrade `<joueur>`** — échange multi-cartes (Accepter / Refuser / Contre-offre)\n"
-            "**/cardsuggest** — propose un perso à ajouter (serveur support uniquement)"
+            "**/cardsuggest** — propose un perso à ajouter (vote 🔼/🔽 de la commu)\n"
+            "**/cardmodify `<carte>`** — propose une modif d'une carte existante (rareté, univers, image...)"
+        ),
+        inline=False,
+    )
+    p5.add_field(
+        name="⚔️ Combat & boss",
+        value=(
+            "Tes cartes ont une **puissance de combat** (PV + ATK ×2, bonus par fusion), "
+            "visible sur **/cardprofile**.\n"
+            "**Boss de raid** — apparaissent dans le salon cartes : tout le monde tape pour "
+            "infliger des dégâts, loot partagé entre les participants à la victoire. "
+            "Difficulté selon la rareté des avatars du groupe."
         ),
         inline=False,
     )
     p5.add_field(
         name="⚙️ Setup serveur (admin)",
         value=(
-            "**/cardsetup `<salon>`** — restreint les commandes cartes à ce salon\n"
+            "**/cardsetup `<salon>` `[role]`** — salon des cartes + rôle ping sur drop/boss\n"
             "**/cardsetup_disable** — retire la restriction\n"
             "**/cardhelp** — guide complet du système de cartes"
         ),
         inline=False,
     )
     pages.append(p5)
+
+    # Page 6 : Guildes (clubs cross-serveur)
+    p6 = discord.Embed(
+        title="📋 Commandes · 🛡️ Guildes (clubs)",
+        color=_PAGE_COLOR,
+    )
+    p6.add_field(
+        name="🛡️ Guilde — base",
+        value=(
+            "Les guildes sont des **clubs cross-serveur** (jusqu'à 30 membres) qui montent en "
+            "niveau (max 60) et débloquent des **bonus passifs** pour tous leurs membres.\n"
+            "**/guild create `<nom>` `[tag]`** — crée une guilde (coûte des essences ✨)\n"
+            "**/guild info `[nom]`** — fiche d'une guilde (la tienne par défaut)\n"
+            "**/guildprofile `[nom]`** — profil riche : niveau, puissance totale, membres, banque, boutique\n"
+            "**/guild top** — classement des guildes"
+        ),
+        inline=False,
+    )
+    p6.add_field(
+        name="👥 Membres",
+        value=(
+            "**/guild invite `<membre>`** — inviter (Maître / Officier)\n"
+            "**/guild accept `<nom>`** — rejoindre une guilde qui t'a invité\n"
+            "**/guild leave** — quitter ta guilde\n"
+            "**/guild kick `<membre>`** — exclure (Maître / Officier)\n"
+            "**/guild promote / demote `<membre>`** — gérer les officiers (Maître)\n"
+            "**/guild transfer `<membre>`** — transférer la maîtrise (Maître)\n"
+            "**/guild disband** — dissoudre la guilde (Maître)"
+        ),
+        inline=False,
+    )
+    p6.add_field(
+        name="✨ XP, banque & bonus",
+        value=(
+            "La guilde gagne de l'**XP** quand ses membres roll, gagnent un boss, tournent la "
+            "roue, fusionnent ou donnent à la banque.\n"
+            "**/guild donate `<montant>`** — alimente la banque (débloquée à un palier)\n"
+            "Bonus par paliers : **% essences**, **% XP**, **cooldown roll réduit** (jusqu'à "
+            "−10 min), **+1 roll/h au niv 60**, **+ slots wishlist**, **% loot boss**, "
+            "banque, boutique de guilde et couleurs de profil (déblocage tous les 5 niveaux)."
+        ),
+        inline=False,
+    )
+    pages.append(p6)
 
     for i, e in enumerate(pages, start=1):
         e.set_footer(text=f"Page {i}/{len(pages)} · Tip : tape / pour voir l'autocomplete Discord.")
