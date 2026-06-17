@@ -525,10 +525,29 @@ def register_cards_owner_routes(app, deps):
         except (ValueError, TypeError):
             return jsonify({"error": "count invalide (1-1000)"}), 400
         universe = (data.get("universe") or "").strip() or None
+        rarity = (data.get("rarity") or "").strip().lower() or None
+        if rarity and rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
+            return jsonify({"error": "rareté invalide"}), 400
+
+        def _pick():
+            # rareté forcee : carte random de cette rareté (+ univers si fourni)
+            if rarity:
+                from database import get_db as _gdb
+                conn = _gdb(); cc = conn.cursor()
+                where = "rarity = ? AND COALESCE(not_obtainable,0)=0"
+                params = [rarity]
+                if universe:
+                    where += " AND universe = ?"; params.append(universe)
+                row = cc.execute(f"SELECT * FROM cards WHERE {where} ORDER BY RANDOM() LIMIT 1",
+                                 params).fetchone()
+                conn.close()
+                return dict(row) if row else None
+            return card_roll_random(universe)
+
         added = 0
         by_rarity = {}
         for _ in range(count):
-            card = card_roll_random(universe)
+            card = _pick()
             if not card:
                 break
             user_card_add_cheat(uid, card["id"])

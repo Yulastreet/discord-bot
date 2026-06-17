@@ -36,6 +36,19 @@
     </select>
   </div>
 
+  <div class="cc-field">
+    <label>Rareté <span class="cc-hint">— aléatoire = poids normaux du roll</span></label>
+    <select id="ccRarity" class="input">
+      <option value="">🎲 Aléatoire (poids de roll)</option>
+      <option value="common">⚪ Common</option>
+      <option value="rare">🔵 Rare</option>
+      <option value="epic">🟣 Epic</option>
+      <option value="legendary">🟠 Legendary</option>
+      <option value="mythic">🔴 Mythic</option>
+      <option value="secret">🌈 Secret</option>
+    </select>
+  </div>
+
   <button class="btn btn-primary" onclick="ccRoll()">🎲 Roll dans mon inventaire</button>
   <div id="ccResult" class="muted"></div>
 </div>
@@ -116,12 +129,13 @@ function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;',
 async function ccRoll() {
   const count = parseInt(document.getElementById('ccCount').value, 10) || 1;
   const universe = document.getElementById('ccUniverse').value;
+  const rarity = document.getElementById('ccRarity').value;
   const res = document.getElementById('ccResult');
   res.textContent = 'Roll en cours…';
   try {
     const r = await fetch('/api/owner/cards-cheat/roll', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({count: count, universe: universe}),
+      body: JSON.stringify({count: count, universe: universe, rarity: rarity}),
     });
     const d = await r.json();
     if (d.ok) {
