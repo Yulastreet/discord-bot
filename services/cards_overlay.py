@@ -140,6 +140,54 @@ def _download_image(url: str, timeout: int = 15) -> Image.Image | None:
         return None
 
 
+def _download_image_raw(url: str, timeout: int = 15):
+    """Comme _download_image mais retourne l'objet PIL BRUT (sans convert),
+    pour pouvoir detecter/iterer les frames d'un GIF/WEBP/APNG animé."""
+    if not url:
+        return None
+    local_rel = None
+    if url.startswith("/static/"):
+        local_rel = url
+    elif "/static/" in url and url.startswith("http"):
+        local_rel = "/static/" + url.split("/static/", 1)[1]
+    if local_rel:
+        p = os.path.join(_PROJ_ROOT, local_rel.lstrip("/").split("?")[0].replace("/", os.sep))
+        if os.path.exists(p):
+            try:
+                return Image.open(p)
+            except Exception as e:
+                print(f"[overlay] raw local open err {p}: {e}")
+                return None
+    if ".svg" in url.lower().split("?")[0]:
+        return None  # SVG jamais animé -> laisse le path normal gerer
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+        return Image.open(io.BytesIO(data))
+    except Exception as e:
+        print(f"[overlay] raw download err {url}: {e}")
+        return None
+
+
+def _cover_to_card(src: Image.Image) -> Image.Image:
+    """Resize+crop cover d'une frame RGBA au format carte 450x675."""
+    sw, sh = src.size
+    target_ratio = _CARD_W / _CARD_H
+    src_ratio = sw / sh if sh else target_ratio
+    if src_ratio > target_ratio:
+        new_h = _CARD_H
+        new_w = max(1, int(sw * new_h / sh))
+        src = src.resize((new_w, new_h), Image.LANCZOS)
+        x0 = (new_w - _CARD_W) // 2
+        return src.crop((x0, 0, x0 + _CARD_W, _CARD_H))
+    new_w = _CARD_W
+    new_h = max(1, int(sh * new_w / sw))
+    src = src.resize((new_w, new_h), Image.LANCZOS)
+    y0 = (new_h - _CARD_H) // 2
+    return src.crop((0, y0, _CARD_W, y0 + _CARD_H))
+
+
 def _get_overlay(rarity: str) -> Image.Image | None:
     if rarity in _overlay_cache:
         return _overlay_cache[rarity]
@@ -154,44 +202,53 @@ def _get_overlay(rarity: str) -> Image.Image | None:
     return img
 
 
+def _compose_one_frame(src_rgba: Image.Image, overlay: Image.Image | None) -> Image.Image:
+    """Fond sombre opaque + source (cover, alpha) + overlay rarete au-dessus."""
+    frame = _cover_to_card(src_rgba)
+    canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+    canvas.paste(frame, (0, 0), frame)  # 3eme arg = mask alpha
+    if overlay is not None:
+        canvas = Image.alpha_composite(canvas, overlay)
+    return canvas
+
+
 def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
-    """Genere carte compositee. Retourne URL relative ou None si echec."""
+    """Genere carte compositee. Retourne URL relative ou None si echec.
+    Si la source est animée (GIF/WEBP/APNG), genere un WEBP animé (chaque frame
+    compositee avec l'overlay) -> les cartes secretes restent animées."""
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
-    src = _download_image(source_url)
-    if src is None:
-        return None
-    # Resize source en cover 450x675 (preserve aspect, crop center si needed)
-    sw, sh = src.size
-    target_ratio = _CARD_W / _CARD_H
-    src_ratio = sw / sh
-    if src_ratio > target_ratio:
-        # Source plus large : resize par hauteur, crop largeur
-        new_h = _CARD_H
-        new_w = int(sw * new_h / sh)
-        src = src.resize((new_w, new_h), Image.LANCZOS)
-        x0 = (new_w - _CARD_W) // 2
-        src = src.crop((x0, 0, x0 + _CARD_W, _CARD_H))
-    else:
-        # Source plus haute ou egale : resize par largeur, crop hauteur
-        new_w = _CARD_W
-        new_h = int(sh * new_w / sw)
-        src = src.resize((new_w, new_h), Image.LANCZOS)
-        y0 = (new_h - _CARD_H) // 2
-        src = src.crop((0, y0, _CARD_W, y0 + _CARD_H))
+    raw = _download_image_raw(source_url)
+    if raw is None:
+        # Fallback ancien chemin (SVG, etc.)
+        src = _download_image(source_url)
+        if src is None:
+            return None
+        overlay = _get_overlay(rarity)
+        return _save_render(_compose_one_frame(src, overlay), card_id)
 
     overlay = _get_overlay(rarity)
-    if overlay is None:
-        # Pas d'overlay : flatten sur fond sombre (gere transparence sources)
-        bg = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
-        bg.paste(src, (0, 0), src)
-        return _save_render(bg, card_id)
+    try:
+        n_frames = int(getattr(raw, "n_frames", 1) or 1)
+    except Exception:
+        n_frames = 1
+    animated = bool(getattr(raw, "is_animated", False)) and n_frames > 1
 
-    # Composite : fond sombre opaque + src (avec alpha) + overlay au-dessus
-    # Fix images avec fond transparent qui devenaient noires/buggy sans bg.
-    canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
-    canvas.paste(src, (0, 0), src)  # 3eme arg = mask alpha de src
-    canvas = Image.alpha_composite(canvas, overlay)
-    return _save_render(canvas, card_id)
+    if not animated:
+        return _save_render(_compose_one_frame(raw.convert("RGBA"), overlay), card_id)
+
+    frames = []; durations = []
+    for i in range(n_frames):
+        try:
+            raw.seek(i)
+        except Exception:
+            break
+        frames.append(_compose_one_frame(raw.convert("RGBA"), overlay))
+        durations.append(max(20, int(raw.info.get("duration", 80) or 80)))
+    if not frames:
+        return None
+    if len(frames) == 1:
+        return _save_render(frames[0], card_id)
+    return _save_render_animated(frames, durations, card_id)
 
 
 def _save_render(img: "Image.Image", card_id: int) -> str:
@@ -201,6 +258,22 @@ def _save_render(img: "Image.Image", card_id: int) -> str:
     out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
     # lossless (pas de banding sur l'overlay) + method=0 = encodage rapide
     img.convert("RGB").save(out_path, "WEBP", lossless=True, method=0)
+    old_png = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
+    if os.path.exists(old_png):
+        try:
+            os.remove(old_png)
+        except Exception:
+            pass
+    return f"/static/card_renders/{card_id}.webp"
+
+
+def _save_render_animated(frames: list, durations: list, card_id: int) -> str:
+    """Sauve un WEBP ANIMÉ (cartes secretes). Lossy q90 (lossless animé = trop
+    lourd). loop=0 = infini. Discord anime le webp dans les embeds."""
+    out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
+    rgb = [f.convert("RGB") for f in frames]
+    rgb[0].save(out_path, "WEBP", save_all=True, append_images=rgb[1:],
+                duration=durations, loop=0, quality=90, method=4)
     old_png = os.path.join(_OUTPUT_DIR, f"{card_id}.png")
     if os.path.exists(old_png):
         try:
