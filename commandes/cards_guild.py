@@ -345,8 +345,8 @@ def setup_guild_commands(bot, deps):
             pw_str = _power_digits(bot, total_power)
         except Exception:
             pw_str = f"**{_fmt_n(total_power)}**"
-        emb.add_field(name="⚡ Puissance totale de la guilde", value=pw_str, inline=False)
-        emb.add_field(name="💰 Banque", value=f"{_fmt_n(g['bank'])} ✨", inline=True)
+        emb.add_field(name="⚡ Puissance totale de la guilde", value=pw_str + "\n​", inline=False)
+        emb.add_field(name="💰 Banque", value=f"{_fmt_n(g['bank'])} ✨\n​", inline=False)
         # Prochain palier (niveau + ce qu'il apporte de NOUVEAU)
         cur_rew = guild_rewards_for_level(lvl, cfg)
         nxt = next((p for p in sorted(cfg.get("rewards", []), key=lambda x: x.get("level", 0))
@@ -370,8 +370,9 @@ def setup_guild_commands(bot, deps):
         for r in rows[:30]:
             lines.append(f"{_ROLE_ICON.get(r['role'],'▫️')} <@{r['user_id']}> — "
                          f"⚡ {_fmt_n(r['power'])} · {r['cards']} cartes")
-        emb.add_field(name=f"Membres ({len(rows)}) — tri : {sort}",
-                      value="\n".join(lines) or "—", inline=False)
+        emb.add_field(name="───────────────────────",
+                      value=f"**Membres ({len(rows)})** — tri : {sort}\n" + ("\n".join(lines) or "—"),
+                      inline=False)
         return emb
 
     class ShopBuyView(discord.ui.View):
