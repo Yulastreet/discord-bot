@@ -372,34 +372,74 @@ async def _persist_attachment(att) -> str | None:
         return None
 
 
+def _resolve_owned_card(uid, query):
+    """Trouve une carte possedee par le user a partir d'un nom tape (match libre).
+    Priorite : exact > prefixe > contient. Retourne dict {card_id, name} ou None."""
+    from database import get_db
+    q = (query or "").strip()
+    if not q:
+        return None
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT DISTINCT uc.card_id AS card_id, ca.name AS name FROM user_cards uc "
+        "JOIN cards ca ON ca.id = uc.card_id WHERE uc.user_id = ? AND LOWER(ca.name) LIKE ? "
+        "ORDER BY ca.name LIMIT 50",
+        (str(uid), f"%{q.lower()}%")).fetchall()
+    conn.close()
+    if not rows:
+        return None
+    ql = q.lower()
+    exact = [r for r in rows if r["name"].lower() == ql]
+    if exact:
+        return dict(exact[0])
+    pref = [r for r in rows if r["name"].lower().startswith(ql)]
+    if pref:
+        return dict(pref[0])
+    return dict(rows[0])
+
+
+class _CardsModal(discord.ui.Modal, title="Tes 3 cartes vedettes"):
+    """Saisie libre des 3 cartes par nom (recherche floue dans l'inventaire)."""
+    def __init__(self, uid, cur_names):
+        super().__init__()
+        self.uid = uid
+        self.left_in = discord.ui.TextInput(label="Carte gauche", required=True, max_length=100,
+                                            default=cur_names.get("left") or "")
+        self.mid_in = discord.ui.TextInput(label="Carte milieu", required=True, max_length=100,
+                                           default=cur_names.get("mid") or "")
+        self.right_in = discord.ui.TextInput(label="Carte droite", required=True, max_length=100,
+                                             default=cur_names.get("right") or "")
+        self.add_item(self.left_in); self.add_item(self.mid_in); self.add_item(self.right_in)
+
+    async def on_submit(self, interaction):
+        from database import card_profile_set
+        slots = [("gauche", self.left_in.value), ("milieu", self.mid_in.value), ("droite", self.right_in.value)]
+        resolved = []; missing = []
+        for lbl, raw in slots:
+            cd = _resolve_owned_card(self.uid, raw)
+            if cd:
+                resolved.append(cd)
+            else:
+                missing.append(f"**{lbl}** (`{(raw or '').strip()}`)")
+        if missing:
+            await interaction.response.send_message(
+                "❌ Cartes introuvables dans ton inventaire : " + ", ".join(missing)
+                + "\nTape le nom (ou un bout) d'une carte que tu possèdes.", ephemeral=True)
+            return
+        card_profile_set(self.uid, resolved[0]["card_id"], resolved[1]["card_id"], resolved[2]["card_id"])
+        await interaction.response.send_message(
+            "✅ Cartes vedettes : "
+            + " · ".join(f"**{r['name']}**" for r in resolved)
+            + "\n`/cardprofile` pour voir.", ephemeral=True)
+
+
 class _ProfileCustomView(discord.ui.View):
-    """Editeur de profil : 3 dropdowns cartes + 1 dropdown couleur (palier guilde) + save."""
-    def __init__(self, uid, cards, prof, guild_level):
+    """Editeur de profil : bouton modal cartes (choix libre) + dropdown couleur (palier guilde)."""
+    def __init__(self, uid, prof, guild_level, cur_names):
         super().__init__(timeout=300)
-        self.uid = uid; self.cards = cards; self.guild_level = guild_level
-        self.slot = {"left": (prof or {}).get("left_id"),
-                     "mid": (prof or {}).get("mid_id"),
-                     "right": (prof or {}).get("right_id")}
+        self.uid = uid; self.guild_level = guild_level; self.cur_names = cur_names
         self.color = (prof or {}).get("color")
-        for lbl, key in (("gauche", "left"), ("milieu", "mid"), ("droite", "right")):
-            self.add_item(self._CardSelect(self, lbl, key))
         self.add_item(self._ColorSelect(self))
-
-    class _CardSelect(discord.ui.Select):
-        def __init__(self, parent, label, key):
-            self.pv = parent; self.key = key
-            cur = parent.slot.get(key)
-            opts = [discord.SelectOption(label=cd["name"][:100], value=str(cd["card_id"]),
-                                         emoji=RARITY_EMOJIS.get(cd["rarity"], "⚪"),
-                                         default=(cd["card_id"] == cur))
-                    for cd in parent.cards[:25]]
-            super().__init__(placeholder=f"Carte {label}", options=opts, min_values=1, max_values=1)
-
-        async def callback(self, interaction):
-            if interaction.user.id != self.pv.uid:
-                await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
-            self.pv.slot[self.key] = int(self.values[0])
-            await interaction.response.defer()
 
     class _ColorSelect(discord.ui.Select):
         def __init__(self, parent):
@@ -427,42 +467,40 @@ class _ProfileCustomView(discord.ui.View):
             self.pv.color = key
             await interaction.response.send_message(f"🎨 Couleur **{col['name']}** appliquée.", ephemeral=True)
 
-    @discord.ui.button(label="Sauvegarder les cartes", emoji="💾",
-                       style=discord.ButtonStyle.success, row=4)
-    async def save_cards(self, interaction, btn):
-        from database import card_profile_set
+    @discord.ui.button(label="Choisir mes 3 cartes", emoji="🎴",
+                       style=discord.ButtonStyle.success, row=1)
+    async def pick_cards(self, interaction, btn):
         if interaction.user.id != self.uid:
             await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
-        s = self.slot
-        if not (s["left"] and s["mid"] and s["right"]):
-            await interaction.response.send_message("Choisis les **3** cartes d'abord.", ephemeral=True); return
-        card_profile_set(self.uid, s["left"], s["mid"], s["right"])
-        await interaction.response.send_message(
-            "✅ Cartes vedettes sauvegardées ! `/cardprofile` pour voir.", ephemeral=True)
+        await interaction.response.send_modal(_CardsModal(self.uid, self.cur_names))
 
 
 async def _open_profile_customizer(bot, interaction):
     uid = interaction.user.id
     from database import get_db, card_profile_get, guild_of_user
     conn = get_db(); c = conn.cursor()
-    rows = c.execute(
-        "SELECT DISTINCT uc.card_id, ca.name, ca.rarity FROM user_cards uc "
-        "JOIN cards ca ON ca.id = uc.card_id WHERE uc.user_id = ? "
-        "ORDER BY CASE ca.rarity WHEN 'secret' THEN 0 WHEN 'mythic' THEN 1 WHEN 'legendary' THEN 2 "
-        "WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 ELSE 5 END, ca.name LIMIT 25",
-        (str(uid),)).fetchall()
-    conn.close()
-    if not rows:
+    n = c.execute("SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ?", (str(uid),)).fetchone()["n"]
+    if not n:
+        conn.close()
         await interaction.response.send_message(
             "Tu n'as aucune carte à mettre en avant. Fais des `/roll` d'abord.", ephemeral=True)
         return
-    cards = [dict(r) for r in rows]
-    prof = card_profile_get(uid)
+    prof = card_profile_get(uid) or {}
+    # Noms actuels (pour pre-remplir le modal)
+    cur_names = {}
+    for key, col in (("left", "left_id"), ("mid", "mid_id"), ("right", "right_id")):
+        cid = prof.get(col)
+        if cid:
+            r = c.execute("SELECT name FROM cards WHERE id = ?", (cid,)).fetchone()
+            if r:
+                cur_names[key] = r["name"]
+    conn.close()
     glvl = (guild_of_user(uid) or {}).get("level", 0)
-    view = _ProfileCustomView(uid, cards, prof, glvl)
+    view = _ProfileCustomView(uid, prof, glvl, cur_names)
     await interaction.response.send_message(
-        "🎨 **Personnalise ton profil** — choisis tes 3 cartes vedettes (max 25 proposées) "
-        "et ta couleur, puis **Sauvegarder les cartes**. La couleur s'applique direct.",
+        "🎨 **Personnalise ton profil**\n"
+        "• **Choisir mes 3 cartes** : tape le nom de n'importe quelle carte que tu possèdes (choix libre).\n"
+        "• **Couleur** : s'applique direct (déblocage par niveau de guilde).",
         view=view, ephemeral=True)
 
 
