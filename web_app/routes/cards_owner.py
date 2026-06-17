@@ -230,10 +230,43 @@ def register_cards_owner_routes(app, deps):
         out = []
         for g in guild_top(50):
             out.append({
-                "name": g["name"], "tag": g.get("tag"),
+                "id": g["id"], "name": g["name"], "tag": g.get("tag"),
                 "level": g["level"], "xp": g["xp"], "max_level": maxlv,
                 "members": g.get("members", 0), "bank": g.get("bank", 0),
             })
+        return jsonify({"items": out})
+
+    @app.route("/api/public/guilds/<int:gid>/members", methods=["GET"])
+    def api_public_guild_members(gid):
+        from database import (guild_get, guild_members, get_db,
+                              compute_player_combat_stats, combat_power, user_card_count)
+        g = guild_get(gid)
+        if not g:
+            return jsonify({"error": "guilde introuvable"}), 404
+        conn = get_db(); c = conn.cursor()
+        out = []
+        for m in guild_members(gid):
+            uid = m["user_id"]
+            mm = c.execute("SELECT username, avatar_url FROM guild_members "
+                           "WHERE user_id = ? LIMIT 1", (str(uid),)).fetchone()
+            try:
+                st = compute_player_combat_stats(uid)
+                pw = combat_power(st["hp"], st["atk"])
+            except Exception:
+                pw = 0
+            try:
+                cards = user_card_count(uid)
+            except Exception:
+                cards = 0
+            out.append({
+                "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
+                "avatar": (mm["avatar_url"] if mm else None),
+                "role": m.get("role", "member"),
+                "power": pw, "cards": cards,
+                "xp": m.get("xp_contributed", 0),
+            })
+        conn.close()
+        out.sort(key=lambda x: -x["power"])
         return jsonify({"items": out})
 
     # ===== ROUE DE LA CHANCE QUOTIDIENNE =====
