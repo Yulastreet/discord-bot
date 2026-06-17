@@ -13,8 +13,20 @@ from database import (
     guild_left_at, guild_invite_add, guild_invite_has, guild_add_xp, guild_top,
     guild_bank_add, guild_member_action_xp, guild_rewards_for_level,
     guild_level_for_xp, currency_get, currency_add,
+    compute_player_combat_stats, combat_power, user_card_count,
 )
 import datetime as _dt
+
+
+def _guild_xp_bar(bot, into, span, segments=14):
+    filled = min(segments, int(round(segments * into / span))) if span > 0 else segments
+    full = str(discord.utils.get(bot.emojis, name="playerlifebarfull") or "🟩")
+    empty = str(discord.utils.get(bot.emojis, name="lifebarempty") or "⬛")
+    return full * filled + empty * (segments - filled)
+
+
+def _fmt_n(n):
+    return f"{int(n):,}".replace(",", " ")
 
 
 def _xp_needed_cumul(level, cfg):
@@ -284,3 +296,114 @@ def setup_guild_commands(bot, deps):
             return []
 
     bot.tree.add_command(grp)
+
+    # ===== /guildprofile : carte de visite riche d'une guilde =====
+    _ROLE_ICON = {"master": "👑", "officer": "🔧", "member": "▫️"}
+    _ROLE_RANK = {"master": 0, "officer": 1, "member": 2}
+
+    def _build_member_rows(g):
+        """[{user_id, role, power, cards}] pour tous les membres (calcul stats)."""
+        rows = []
+        for m in guild_members(g["id"]):
+            try:
+                st = compute_player_combat_stats(m["user_id"])
+                pw = combat_power(st["hp"], st["atk"])
+            except Exception:
+                pw = 0
+            try:
+                cards = user_card_count(m["user_id"])
+            except Exception:
+                cards = 0
+            rows.append({"user_id": m["user_id"], "role": m["role"], "power": pw, "cards": cards})
+        return rows
+
+    def _guildprofile_embed(g, rows, sort):
+        cfg = get_guild_config()
+        if sort == "role":
+            rows = sorted(rows, key=lambda r: (_ROLE_RANK.get(r["role"], 9), -r["power"]))
+        elif sort == "cards":
+            rows = sorted(rows, key=lambda r: -r["cards"])
+        else:
+            sort = "power"; rows = sorted(rows, key=lambda r: -r["power"])
+        total_power = sum(r["power"] for r in rows)
+        # barre d'XP dans le niveau
+        lvl = g["level"]; maxlv = int(cfg.get("max_level", 60))
+        cur = _xp_needed_cumul(lvl, cfg); nxt = _xp_needed_cumul(lvl + 1, cfg)
+        into = g["xp"] - cur; span = max(1, nxt - cur)
+        bar = _guild_xp_bar(bot, into, span)
+        pct = 100 if lvl >= maxlv else int(100 * into / span)
+        tag = f" [{g['tag']}]" if g.get("tag") else ""
+        emb = discord.Embed(title=f"🛡️ {g['name']}{tag}", color=0x8e44ad)
+        emb.add_field(
+            name=f"Niveau {lvl}" + (" (MAX)" if lvl >= maxlv else ""),
+            value=(f"{bar}  **{pct}%**\n" + (f"_{_fmt_n(into)} / {_fmt_n(span)} XP_" if lvl < maxlv else f"_{_fmt_n(g['xp'])} XP_")),
+            inline=False)
+        emb.add_field(name="⚡ Puissance totale", value=f"**{_fmt_n(total_power)}**", inline=True)
+        emb.add_field(name="💰 Banque", value=f"{_fmt_n(g['bank'])} ✨", inline=True)
+        lines = []
+        for r in rows[:30]:
+            lines.append(f"{_ROLE_ICON.get(r['role'],'▫️')} <@{r['user_id']}> — "
+                         f"⚡ {_fmt_n(r['power'])} · {r['cards']} cartes")
+        emb.add_field(name=f"Membres ({len(rows)}) — tri : {sort}",
+                      value="\n".join(lines) or "—", inline=False)
+        return emb
+
+    class GuildProfileView(discord.ui.View):
+        def __init__(self, gid, rows):
+            super().__init__(timeout=180)
+            self.gid = gid; self.rows = rows; self.sort = "power"
+
+        async def _refresh(self, interaction):
+            g = guild_get(self.gid)
+            if not g:
+                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+            await interaction.response.edit_message(embed=_guildprofile_embed(g, self.rows, self.sort), view=self)
+
+        @discord.ui.button(label="Tri puissance", emoji="⚡", style=discord.ButtonStyle.secondary)
+        async def s_power(self, interaction, btn):
+            self.sort = "power"; await self._refresh(interaction)
+
+        @discord.ui.button(label="Tri rôle", emoji="👑", style=discord.ButtonStyle.secondary)
+        async def s_role(self, interaction, btn):
+            self.sort = "role"; await self._refresh(interaction)
+
+        @discord.ui.button(label="Tri cartes", emoji="🎴", style=discord.ButtonStyle.secondary)
+        async def s_cards(self, interaction, btn):
+            self.sort = "cards"; await self._refresh(interaction)
+
+        @discord.ui.button(label="Banque", emoji="💰", style=discord.ButtonStyle.success, row=1)
+        async def b_bank(self, interaction, btn):
+            g = guild_get(self.gid)
+            await interaction.response.send_message(
+                f"💰 **Banque de {g['name']}** : {_fmt_n(g['bank'])} ✨\n"
+                f"Alimente-la avec `/guild donate montant:…`.", ephemeral=True)
+
+        @discord.ui.button(label="Boutique", emoji="🛒", style=discord.ButtonStyle.primary, row=1)
+        async def b_shop(self, interaction, btn):
+            await interaction.response.send_message(
+                "🛒 **Boutique de guilde** — bientôt disponible (en cours de mise en place).",
+                ephemeral=True)
+
+    @bot.tree.command(name="guildprofile",
+                       description="Profil d'une guilde (la tienne par défaut)")
+    @app_commands.describe(nom="Nom d'une guilde (sinon la tienne)")
+    async def guildprofile(interaction: discord.Interaction, nom: str = None):
+        g = guild_get_by_name(nom) if nom else guild_of_user(interaction.user.id)
+        if not g:
+            await interaction.response.send_message(
+                "Guilde introuvable." if nom else "Tu n'es dans aucune guilde.", ephemeral=True)
+            return
+        await interaction.response.defer()
+        rows = _build_member_rows(g)
+        view = GuildProfileView(g["id"], rows)
+        await interaction.followup.send(embed=_guildprofile_embed(g, rows, "power"), view=view)
+
+    @guildprofile.autocomplete("nom")
+    async def _gp_ac(interaction: discord.Interaction, current: str):
+        try:
+            q = (current or "").strip().lower()
+            rows = guild_top(200)
+            out = [g["name"] for g in rows if q in g["name"].lower()][:25] if q else [g["name"] for g in rows[:25]]
+            return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
+        except Exception:
+            return []

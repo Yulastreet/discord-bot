@@ -314,6 +314,14 @@ def register_cards_owner_routes(app, deps):
         else:
             roll_give_user(uid, won["value"])
         wheel_win_log(uid, won["type"], won["value"])  # journal du feed en direct
+        # XP de guilde (spin de la roue)
+        try:
+            from database import get_guild_config, guild_member_action_xp
+            _xpw = int(get_guild_config().get("xp", {}).get("wheel", 0))
+            if _xpw:
+                guild_member_action_xp(uid, _xpw)
+        except Exception as e:
+            print(f"[wheel guild xp] {e}")
         # Sequence de defilement facon caisse CS (index gagnant connu du client)
         win_index = _WHEEL_REWARDS.index(won)
         reel = [_rnd.choices(range(len(_WHEEL_REWARDS)),

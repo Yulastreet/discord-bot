@@ -1220,6 +1220,15 @@ async def _finish(bot, bid, msg, view, log, victory):
         loot_lines = []
         for idx, p in enumerate(winners):
             base_ess = min(cap, tier * 100 + p["damage"] // 1000)
+            # Bonus loot de guilde (+%) selon le palier du niveau de sa guilde
+            _bpct = 0
+            try:
+                from database import guild_perks_for_user as _gpfu
+                _bpct = int((_gpfu(p["user_id"]) or {}).get("boss_pct", 0))
+            except Exception:
+                _bpct = 0
+            if _bpct:
+                base_ess = int(base_ess * (1 + _bpct / 100))
             ess = essence_reward_add(p["user_id"], base_ess)
             parts_loot = [f"+{_fmt(ess)} ✨"]
             # 1. Recompense carte selon la rareté de l'avatar
@@ -1232,8 +1241,10 @@ async def _finish(bot, bid, msg, view, log, victory):
             elif avatar_card:
                 user_card_add(p["user_id"], avatar_card["id"])
                 parts_loot.append(f"🎴 **{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}")
-            # 2. Rolls bonus selon le tier
+            # 2. Rolls bonus selon le tier (+ bonus loot guilde)
             n_rolls = _boss_roll_reward(tier)
+            if _bpct and n_rolls:
+                n_rolls = int(round(n_rolls * (1 + _bpct / 100)))
             if n_rolls:
                 roll_give_user(p["user_id"], n_rolls)
                 parts_loot.append(f"{_cemoji(bot, 'roll', '🎟️')} **+{n_rolls} rolls**")

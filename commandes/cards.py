@@ -1433,6 +1433,14 @@ def setup_cards_commands(bot, deps):
         removed = user_card_remove_copies(uid, card["id"], cost - 1)
         new_level = level + 1
         card_fusion_set(uid, card["id"], new_level)
+        # Hook XP de guilde (fusion d'une etoile)
+        try:
+            from database import get_guild_config, guild_member_action_xp
+            _xpf = int(get_guild_config().get("xp", {}).get("fusion", 0))
+            if _xpf:
+                guild_member_action_xp(uid, _xpf)
+        except Exception as e:
+            print(f"[fusion guild xp] err: {e}")
         # Verrouille UNE copie (celle qui porte les etoiles). Les doublons en trop
         # restent echangeables et recyclables.
         user_card_lock_one(uid, card["id"])
