@@ -372,6 +372,100 @@ async def _persist_attachment(att) -> str | None:
         return None
 
 
+class _ProfileCustomView(discord.ui.View):
+    """Editeur de profil : 3 dropdowns cartes + 1 dropdown couleur (palier guilde) + save."""
+    def __init__(self, uid, cards, prof, guild_level):
+        super().__init__(timeout=300)
+        self.uid = uid; self.cards = cards; self.guild_level = guild_level
+        self.slot = {"left": (prof or {}).get("left_id"),
+                     "mid": (prof or {}).get("mid_id"),
+                     "right": (prof or {}).get("right_id")}
+        self.color = (prof or {}).get("color")
+        for lbl, key in (("gauche", "left"), ("milieu", "mid"), ("droite", "right")):
+            self.add_item(self._CardSelect(self, lbl, key))
+        self.add_item(self._ColorSelect(self))
+
+    class _CardSelect(discord.ui.Select):
+        def __init__(self, parent, label, key):
+            self.pv = parent; self.key = key
+            cur = parent.slot.get(key)
+            opts = [discord.SelectOption(label=cd["name"][:100], value=str(cd["card_id"]),
+                                         emoji=RARITY_EMOJIS.get(cd["rarity"], "⚪"),
+                                         default=(cd["card_id"] == cur))
+                    for cd in parent.cards[:25]]
+            super().__init__(placeholder=f"Carte {label}", options=opts, min_values=1, max_values=1)
+
+        async def callback(self, interaction):
+            if interaction.user.id != self.pv.uid:
+                await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
+            self.pv.slot[self.key] = int(self.values[0])
+            await interaction.response.defer()
+
+    class _ColorSelect(discord.ui.Select):
+        def __init__(self, parent):
+            from database import PROFILE_COLORS
+            self.pv = parent
+            opts = []
+            for col in PROFILE_COLORS:
+                locked = parent.guild_level < col["lvl"]
+                name = col["name"] + (f" (dispo niv {col['lvl']})" if locked else "")
+                opts.append(discord.SelectOption(label=name[:100], value=col["key"],
+                                                 default=(col["key"] == parent.color)))
+            super().__init__(placeholder="🎨 Couleur du profil", options=opts, min_values=1, max_values=1)
+
+        async def callback(self, interaction):
+            from database import PROFILE_COLORS, card_profile_set_color
+            if interaction.user.id != self.pv.uid:
+                await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
+            key = self.values[0]
+            col = next((c for c in PROFILE_COLORS if c["key"] == key), None)
+            if col and self.pv.guild_level < col["lvl"]:
+                await interaction.response.send_message(
+                    f"🔒 Couleur **{col['name']}** dispo au niveau de guilde **{col['lvl']}**.",
+                    ephemeral=True); return
+            card_profile_set_color(self.pv.uid, key)
+            self.pv.color = key
+            await interaction.response.send_message(f"🎨 Couleur **{col['name']}** appliquée.", ephemeral=True)
+
+    @discord.ui.button(label="Sauvegarder les cartes", emoji="💾",
+                       style=discord.ButtonStyle.success, row=4)
+    async def save_cards(self, interaction, btn):
+        from database import card_profile_set
+        if interaction.user.id != self.uid:
+            await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
+        s = self.slot
+        if not (s["left"] and s["mid"] and s["right"]):
+            await interaction.response.send_message("Choisis les **3** cartes d'abord.", ephemeral=True); return
+        card_profile_set(self.uid, s["left"], s["mid"], s["right"])
+        await interaction.response.send_message(
+            "✅ Cartes vedettes sauvegardées ! `/cardprofile` pour voir.", ephemeral=True)
+
+
+async def _open_profile_customizer(bot, interaction):
+    uid = interaction.user.id
+    from database import get_db, card_profile_get, guild_of_user
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT DISTINCT uc.card_id, ca.name, ca.rarity FROM user_cards uc "
+        "JOIN cards ca ON ca.id = uc.card_id WHERE uc.user_id = ? "
+        "ORDER BY CASE ca.rarity WHEN 'secret' THEN 0 WHEN 'mythic' THEN 1 WHEN 'legendary' THEN 2 "
+        "WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 ELSE 5 END, ca.name LIMIT 25",
+        (str(uid),)).fetchall()
+    conn.close()
+    if not rows:
+        await interaction.response.send_message(
+            "Tu n'as aucune carte à mettre en avant. Fais des `/roll` d'abord.", ephemeral=True)
+        return
+    cards = [dict(r) for r in rows]
+    prof = card_profile_get(uid)
+    glvl = (guild_of_user(uid) or {}).get("level", 0)
+    view = _ProfileCustomView(uid, cards, prof, glvl)
+    await interaction.response.send_message(
+        "🎨 **Personnalise ton profil** — choisis tes 3 cartes vedettes (max 25 proposées) "
+        "et ta couleur, puis **Sauvegarder les cartes**. La couleur s'applique direct.",
+        view=view, ephemeral=True)
+
+
 def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
     """Verifie que la commande est lancee dans le salon configure.
     Retourne (ok, channel_mention_si_ko)."""
@@ -1555,48 +1649,22 @@ def setup_cards_commands(bot, deps):
             return []
 
     @bot.tree.command(name="cardprofile",
-                       description="Voir un profil de cartes (ou définir tes 3 cartes vedettes via setup)")
+                       description="Voir ton profil de cartes (ou le personnaliser avec custom)")
     @app_commands.describe(
         membre="Profil à afficher (defaut : toi)",
-        setup_gauche="(setup) carte de gauche",
-        setup_milieu="(setup) carte du milieu (mise en avant)",
-        setup_droite="(setup) carte de droite")
+        custom="Personnaliser : choisir tes 3 cartes vedettes + ta couleur")
     async def cardprofile_cmd(interaction: discord.Interaction,
                                membre: discord.Member = None,
-                               setup_gauche: str = None,
-                               setup_milieu: str = None,
-                               setup_droite: str = None):
-        from database import (card_get_by_name, user_card_count_owned, card_profile_set,
-                               card_profile_get, user_card_count, user_card_rarity_breakdown,
-                               currency_get, user_card_fusion_map, user_borders_list)
+                               custom: bool = False):
+        from database import (card_profile_get, user_card_count, user_card_rarity_breakdown,
+                               currency_get, user_card_fusion_map, user_borders_list,
+                               profile_color_hex)
         from services.card_profile import build_profile_image
         import os as _os
 
-        # --- Mode SETUP : au moins un des 3 champs carte fourni ---
-        if setup_gauche or setup_milieu or setup_droite:
-            if not (setup_gauche and setup_milieu and setup_droite):
-                await interaction.response.send_message(
-                    "Pour configurer ton profil, remplis les **3** cartes "
-                    "(setup_gauche, setup_milieu, setup_droite).", ephemeral=True)
-                return
-            uid = interaction.user.id
-            resolved = []
-            for label, nm in (("gauche", setup_gauche), ("milieu", setup_milieu),
-                               ("droite", setup_droite)):
-                card = card_get_by_name(nm.strip())
-                if not card:
-                    await interaction.response.send_message(
-                        f"Carte introuvable ({label}) : `{nm}`.", ephemeral=True)
-                    return
-                if user_card_count_owned(uid, card["id"]) <= 0 and not _is_owner(uid):
-                    await interaction.response.send_message(
-                        f"Tu ne possèdes pas **{card['name']}** ({label}).", ephemeral=True)
-                    return
-                resolved.append(card["id"])
-            card_profile_set(uid, resolved[0], resolved[1], resolved[2])
-            await interaction.response.send_message(
-                "✅ Profil de cartes mis à jour ! Tape `/cardprofile` pour le voir.",
-                ephemeral=True)
+        # --- Mode PERSONNALISATION : dropdowns cartes + couleur ---
+        if custom:
+            await _open_profile_customizer(bot, interaction)
             return
 
         # --- Mode VOIR ---
@@ -1633,9 +1701,18 @@ def setup_cards_commands(bot, deps):
         power = combat_power(cs['hp'], cs['atk'])
         power_emojis = _power_emoji_str(bot, power)
 
+        # Couleur de profil choisie + emblème de guilde
+        _emblem = ""
+        try:
+            from database import guild_of_user as _gou2
+            _gg = _gou2(uid)
+            if _gg and _gg.get("emblem"):
+                _emblem = _gg["emblem"] + " "
+        except Exception:
+            pass
         embed = discord.Embed(
-            title=f"🃏 Profil de cartes ｜ {target.display_name}",
-            color=0xB9F23A,
+            title=f"{_emblem}🃏 Profil de cartes ｜ {target.display_name}",
+            color=profile_color_hex((profile or {}).get("color")),
         )
         # Haut : 3 colonnes (champs inline)
         embed.add_field(name="📦 Collection",
@@ -1670,26 +1747,25 @@ def setup_cards_commands(bot, deps):
         embed.set_footer(text=f"Profil de {target.display_name}",
                           icon_url=str(target.display_avatar.url) if target.display_avatar else None)
         file = None
-        if profile:
+        has_cards = bool(profile and profile.get("left_id") and profile.get("mid_id") and profile.get("right_id"))
+        if has_cards:
             rel = build_profile_image(uid, profile)
             if rel:
                 local_path = _os.path.join(_REPO_ROOT, rel.lstrip("/").replace("/", _os.sep))
                 if _os.path.exists(local_path):
                     file = discord.File(local_path, filename="profile.png")
                     embed.set_image(url="attachment://profile.png")
-        if not profile:
+        if not has_cards:
             note = ("Aucune carte vedette définie. " if target == interaction.user
                     else f"{target.display_name} n'a pas défini de cartes vedettes. ")
             if target == interaction.user:
-                note += "Configure-les avec `/cardprofile setup_gauche: … setup_milieu: … setup_droite: …`."
+                note += "Personnalise ton profil avec `/cardprofile custom:true`."
             embed.description = note
         if file:
             await interaction.followup.send(embed=embed, file=file)
         else:
             await interaction.followup.send(embed=embed)
 
-    for _p in ("setup_gauche", "setup_milieu", "setup_droite"):
-        cardprofile_cmd.autocomplete(_p)(_owned_cards_autocomplete)
 
 
     # === /cardwish <carte> : ajoute/retire de la wishlist ===

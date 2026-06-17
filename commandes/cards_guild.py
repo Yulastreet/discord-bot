@@ -15,6 +15,7 @@ from database import (
     guild_level_for_xp, currency_get, currency_add,
     compute_player_combat_stats, combat_power, user_card_count,
     guild_bank_spend, guild_member_ids, roll_give_user,
+    guild_set_color, guild_set_emblem, profile_color_hex, PROFILE_COLORS,
 )
 import datetime as _dt
 
@@ -255,13 +256,17 @@ def setup_guild_commands(bot, deps):
         g = guild_of_user(uid)
         if not g:
             await interaction.response.send_message("Tu n'es dans aucune guilde.", ephemeral=True); return
+        cfg = get_guild_config()
+        if not guild_rewards_for_level(g["level"], cfg).get("bank"):
+            lv = _unlock_level(cfg, "bank") or "?"
+            await interaction.response.send_message(
+                f"🔒 La banque de guilde se débloque au **niveau {lv}**.", ephemeral=True); return
         if montant <= 0:
             await interaction.response.send_message("Montant invalide.", ephemeral=True); return
         if currency_get(uid) < montant:
             await interaction.response.send_message("Pas assez d'essences.", ephemeral=True); return
         currency_add(uid, -montant)
         guild_bank_add(g["id"], montant)
-        cfg = get_guild_config()
         per100 = int(cfg.get("xp", {}).get("essence_per_100", 0))
         xp = (montant // 100) * per100
         if xp > 0:
@@ -334,7 +339,7 @@ def setup_guild_commands(bot, deps):
         bar = _guild_xp_bar(bot, into, span)
         pct = 100 if lvl >= maxlv else int(100 * into / span)
         tag = f" [{g['tag']}]" if g.get("tag") else ""
-        emb = discord.Embed(title=f"🛡️ {g['name']}{tag}", color=0x8e44ad)
+        emb = discord.Embed(title=f"🛡️ {g['name']}{tag}", color=profile_color_hex(g.get("color"), 0x8e44ad))
         emb.add_field(
             name=f"Niveau {lvl}" + (" (MAX)" if lvl >= maxlv else ""),
             value=(f"{bar}  **{pct}%**\n" + (f"_{_fmt_n(into)} / {_fmt_n(span)} XP_" if lvl < maxlv else f"_{_fmt_n(g['xp'])} XP_")),
@@ -421,9 +426,10 @@ def setup_guild_commands(bot, deps):
         return None
 
     class GuildProfileView(discord.ui.View):
-        def __init__(self, gid, rows):
+        def __init__(self, gid, rows, invoker_role=None):
             super().__init__(timeout=180)
             self.gid = gid; self.rows = rows; self.sort = "power"
+            self.invoker_role = invoker_role
             cfg = get_guild_config()
             g = guild_get(gid)
             rew = guild_rewards_for_level(g["level"], cfg) if g else {}
@@ -431,11 +437,17 @@ def setup_guild_commands(bot, deps):
             self._shop_ok = bool(rew.get("shop"))
             self._bank_lv = _unlock_level(cfg, "bank")
             self._shop_lv = _unlock_level(cfg, "shop")
-            # Verrou visuel (gris + 🔒) si pas debloque ; reste cliquable pour le message
+            # Boutique : visible seulement Maitre / Officier
+            if invoker_role not in ("master", "officer"):
+                self.remove_item(self.b_shop)
+            elif not self._shop_ok:
+                self.b_shop.style = discord.ButtonStyle.secondary; self.b_shop.emoji = "🔒"
+            # Customisation : Maitre seulement
+            if invoker_role != "master":
+                self.remove_item(self.b_custom)
+            # Verrou visuel banque (gris + 🔒) si pas debloque ; reste cliquable
             if not self._bank_ok:
                 self.b_bank.style = discord.ButtonStyle.secondary; self.b_bank.emoji = "🔒"
-            if not self._shop_ok:
-                self.b_shop.style = discord.ButtonStyle.secondary; self.b_shop.emoji = "🔒"
 
         async def _refresh(self, interaction):
             g = guild_get(self.gid)
@@ -482,6 +494,80 @@ def setup_guild_commands(bot, deps):
             emb.set_footer(text="Achat réservé au Maître / Officiers · payé par la banque")
             await interaction.response.send_message(embed=emb, view=ShopBuyView(self.gid), ephemeral=True)
 
+        @discord.ui.button(label="Guilde customisation", emoji="🎨", style=discord.ButtonStyle.secondary, row=1)
+        async def b_custom(self, interaction, btn):
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            g = guild_get(self.gid)
+            await interaction.response.send_message(
+                "🎨 **Customisation de guilde** — choisis la couleur d'embed et l'emblème "
+                "(emoji standard) appliqué sur le `/cardprofile` de tes membres.",
+                view=GuildCustomizeView(self.gid), ephemeral=True)
+
+    class GuildCustomizeView(discord.ui.View):
+        def __init__(self, gid):
+            super().__init__(timeout=300)
+            self.gid = gid
+            self.add_item(self._ColorSelect(gid))
+
+        class _ColorSelect(discord.ui.Select):
+            def __init__(self, gid):
+                self.gid = gid
+                g = guild_get(gid)
+                cur = (g or {}).get("color")
+                opts = [discord.SelectOption(label=c["name"], value=c["key"],
+                                             default=(c["key"] == cur)) for c in PROFILE_COLORS]
+                super().__init__(placeholder="🎨 Couleur d'embed de la guilde",
+                                 options=opts, min_values=1, max_values=1)
+
+            async def callback(self, interaction):
+                if guild_member_role(self.gid, interaction.user.id) != "master":
+                    await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                key = self.values[0]
+                guild_set_color(self.gid, key)
+                col = next((c for c in PROFILE_COLORS if c["key"] == key), None)
+                await interaction.response.send_message(
+                    f"🎨 Couleur d'embed **{col['name'] if col else key}** appliquée.", ephemeral=True)
+
+        @discord.ui.button(label="Définir l'emblème", emoji="🏅", style=discord.ButtonStyle.primary)
+        async def set_emblem(self, interaction, btn):
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            await interaction.response.send_modal(EmblemModal(self.gid))
+
+        @discord.ui.button(label="Retirer l'emblème", emoji="🗑️", style=discord.ButtonStyle.secondary)
+        async def clear_emblem(self, interaction, btn):
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            guild_set_emblem(self.gid, None)
+            await interaction.response.send_message("🗑️ Emblème retiré.", ephemeral=True)
+
+    class EmblemModal(discord.ui.Modal, title="Emblème de guilde"):
+        def __init__(self, gid):
+            super().__init__()
+            self.gid = gid
+            self.emoji_in = discord.ui.TextInput(
+                label="Emoji (standard uniquement)",
+                placeholder="Ex: 🔥 ⚔️ 🐉 — pas d'emoji personnalisé",
+                max_length=8, required=True)
+            self.add_item(self.emoji_in)
+
+        async def on_submit(self, interaction):
+            val = str(self.emoji_in.value).strip()
+            if not val:
+                await interaction.response.send_message("Emoji vide.", ephemeral=True); return
+            if "<" in val or ":" in val:
+                await interaction.response.send_message(
+                    "❌ Emoji personnalisé refusé. Utilise un emoji standard (🔥 ⚔️ 🐉).",
+                    ephemeral=True); return
+            if any(ch.isalnum() for ch in val):
+                await interaction.response.send_message(
+                    "❌ Ça doit être un emoji, pas du texte.", ephemeral=True); return
+            guild_set_emblem(self.gid, val)
+            await interaction.response.send_message(
+                f"🏅 Emblème **{val}** appliqué. Il apparaît sur le `/cardprofile` de tes membres.",
+                ephemeral=True)
+
     @bot.tree.command(name="guildprofile",
                        description="Profil d'une guilde (la tienne par défaut)")
     @app_commands.describe(nom="Nom d'une guilde (sinon la tienne)")
@@ -493,7 +579,8 @@ def setup_guild_commands(bot, deps):
             return
         await interaction.response.defer()
         rows = _build_member_rows(g)
-        view = GuildProfileView(g["id"], rows)
+        inv_role = guild_member_role(g["id"], interaction.user.id)
+        view = GuildProfileView(g["id"], rows, invoker_role=inv_role)
         await interaction.followup.send(embed=_guildprofile_embed(g, rows, "power"), view=view)
 
     @guildprofile.autocomplete("nom")

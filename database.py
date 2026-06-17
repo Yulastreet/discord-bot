@@ -163,6 +163,15 @@ def init_db():
         c.execute("ALTER TABLE user_cards ADD COLUMN from_cheat INTEGER DEFAULT 0")
     except Exception:
         pass
+    # Migration : couleur de profil (cardprofile) + emblem de guilde
+    try:
+        c.execute("ALTER TABLE card_profile ADD COLUMN color TEXT")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE card_guild ADD COLUMN emblem TEXT")
+    except Exception:
+        pass
     # Migration : not_obtainable flag sur cards (cache du catalogue + roll)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
@@ -2769,12 +2778,54 @@ def user_card_remove_copies(user_id, card_id, n) -> int:
     return len(id_list)
 
 
+# Palette de couleurs de profil. lvl = niveau de GUILDE requis (debloque tous les 5).
+PROFILE_COLORS = [
+    {"key": "lime",   "name": "Lime",   "hex": 0xB9F23A, "lvl": 0},
+    {"key": "rouge",  "name": "Rouge",  "hex": 0xFF4D4D, "lvl": 5},
+    {"key": "bleu",   "name": "Bleu",   "hex": 0x4C8DFF, "lvl": 10},
+    {"key": "vert",   "name": "Vert",   "hex": 0x4ADE80, "lvl": 15},
+    {"key": "jaune",  "name": "Jaune",  "hex": 0xF2D23A, "lvl": 20},
+    {"key": "violet", "name": "Violet", "hex": 0xA86DFF, "lvl": 25},
+    {"key": "rose",   "name": "Rose",   "hex": 0xFF5FA2, "lvl": 30},
+    {"key": "orange", "name": "Orange", "hex": 0xFFA726, "lvl": 35},
+    {"key": "cyan",   "name": "Cyan",   "hex": 0x4DD0E1, "lvl": 40},
+    {"key": "blanc",  "name": "Blanc",  "hex": 0xECEFF4, "lvl": 45},
+]
+
+
+def profile_color_hex(key, default=0xB9F23A):
+    for c in PROFILE_COLORS:
+        if c["key"] == key:
+            return c["hex"]
+    return default
+
+
 def card_profile_get(user_id):
     conn = get_db(); c = conn.cursor()
-    r = c.execute("SELECT left_id, mid_id, right_id FROM card_profile WHERE user_id = ?",
+    r = c.execute("SELECT left_id, mid_id, right_id, color FROM card_profile WHERE user_id = ?",
                   (str(user_id),)).fetchone()
     conn.close()
     return dict(r) if r else None
+
+
+def card_profile_set_color(user_id, color):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_profile (user_id, color, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) "
+              "ON CONFLICT(user_id) DO UPDATE SET color = excluded.color, updated_at = CURRENT_TIMESTAMP",
+              (str(user_id), color))
+    conn.commit(); conn.close()
+
+
+def guild_set_color(gid, color):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_guild SET color = ? WHERE id = ?", (color, int(gid)))
+    conn.commit(); conn.close()
+
+
+def guild_set_emblem(gid, emblem):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_guild SET emblem = ? WHERE id = ?", (emblem, int(gid)))
+    conn.commit(); conn.close()
 
 
 def card_profile_set(user_id, left_id, mid_id, right_id):
