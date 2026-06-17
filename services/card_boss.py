@@ -31,6 +31,7 @@ import time as _t
 _RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
 _JOIN_EXPIRE = 900         # si personne ne rejoint, le boss disparaît (15 min)
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
+_MAX_PLAYERS = 5           # equipe limitee a 5 joueurs max
 _QUICK_SECONDS = 60        # delai du demarrage rapide
 _TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
@@ -491,6 +492,10 @@ class JoinView(discord.ui.View):
         uid = interaction.user.id
         if boss_participant_get(self.boss_id, uid):
             await interaction.response.send_message("Tu es déjà dans l'équipe.", ephemeral=True)
+            return
+        if len(boss_participants_list(self.boss_id)) >= _MAX_PLAYERS:
+            await interaction.response.send_message(
+                f"⚔️ L'équipe est complète (**{_MAX_PLAYERS} joueurs** max).", ephemeral=True)
             return
         dcard = _default_card(uid)
         delem = (dcard.get("element") if dcard else None) or "eclat"
