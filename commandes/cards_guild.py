@@ -16,6 +16,7 @@ from database import (
     compute_player_combat_stats, combat_power, user_card_count,
     guild_bank_spend, guild_member_ids, roll_give_user,
     guild_set_color, guild_set_emblem, profile_color_hex, PROFILE_COLORS,
+    guild_set_name,
 )
 import datetime as _dt
 import os as _os
@@ -536,6 +537,26 @@ def setup_guild_commands(bot, deps):
                 await interaction.response.send_message(
                     f"🎨 Couleur d'embed **{col['name'] if col else key}** appliquée.", ephemeral=True)
 
+        @discord.ui.button(label="Renommer la guilde", emoji="✏️", style=discord.ButtonStyle.secondary)
+        async def rename(self, interaction, btn):
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            g = guild_get(self.gid)
+            # Cooldown 1/mois (30 jours)
+            ra = (g or {}).get("renamed_at")
+            if ra:
+                try:
+                    last = _dt.datetime.fromisoformat(ra.replace("Z", ""))
+                    days = (_dt.datetime.utcnow() - last).total_seconds() / 86400
+                    if days < 30:
+                        await interaction.response.send_message(
+                            f"🔒 Tu as déjà renommé la guilde récemment. Attends encore "
+                            f"**{int(30 - days) + 1} jour(s)** (1 renommage / mois).", ephemeral=True)
+                        return
+                except Exception:
+                    pass
+            await interaction.response.send_modal(GuildRenameModal(self.gid))
+
         @discord.ui.button(label="Définir l'emblème", emoji="🏅", style=discord.ButtonStyle.primary)
         async def set_emblem(self, interaction, btn):
             if guild_member_role(self.gid, interaction.user.id) != "master":
@@ -574,6 +595,46 @@ def setup_guild_commands(bot, deps):
             await interaction.response.send_message(
                 f"🏅 Emblème **{val}** appliqué. Il apparaît sur le `/cardprofile` de tes membres.",
                 ephemeral=True)
+
+    class GuildRenameModal(discord.ui.Modal, title="Renommer la guilde"):
+        def __init__(self, gid):
+            super().__init__()
+            self.gid = gid
+            self.name_in = discord.ui.TextInput(
+                label="Nouveau nom de guilde",
+                placeholder="3 à 32 caractères",
+                min_length=3, max_length=32, required=True)
+            self.add_item(self.name_in)
+
+        async def on_submit(self, interaction):
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            g = guild_get(self.gid)
+            if not g:
+                await interaction.response.send_message("Guilde dissoute.", ephemeral=True); return
+            # Re-check cooldown a la soumission (anti contournement)
+            ra = g.get("renamed_at")
+            if ra:
+                try:
+                    last = _dt.datetime.fromisoformat(ra.replace("Z", ""))
+                    days = (_dt.datetime.utcnow() - last).total_seconds() / 86400
+                    if days < 30:
+                        await interaction.response.send_message(
+                            f"🔒 Renommage dispo dans **{int(30 - days) + 1} jour(s)** (1 / mois).",
+                            ephemeral=True); return
+                except Exception:
+                    pass
+            new = str(self.name_in.value).strip()
+            if len(new) < 3:
+                await interaction.response.send_message("Nom trop court (3 caractères min).", ephemeral=True); return
+            if new.lower() == (g.get("name") or "").lower():
+                await interaction.response.send_message("C'est déjà le nom actuel.", ephemeral=True); return
+            other = guild_get_by_name(new)
+            if other and other["id"] != self.gid:
+                await interaction.response.send_message("Ce nom est déjà pris par une autre guilde.", ephemeral=True); return
+            guild_set_name(self.gid, new)
+            await interaction.response.send_message(
+                f"✏️ Guilde renommée en **{new}** ! Prochain renommage dans 30 jours.", ephemeral=True)
 
     @bot.tree.command(name="guildprofile",
                        description="Profil d'une guilde (la tienne par défaut)")

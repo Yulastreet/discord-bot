@@ -172,6 +172,10 @@ def init_db():
         c.execute("ALTER TABLE card_guild ADD COLUMN emblem TEXT")
     except Exception:
         pass
+    try:
+        c.execute("ALTER TABLE card_guild ADD COLUMN renamed_at TEXT")
+    except Exception:
+        pass
     # Migration : not_obtainable flag sur cards (cache du catalogue + roll)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
@@ -5314,6 +5318,14 @@ def guild_get_by_name(name):
                   ((name or "").strip(),)).fetchone()
     conn.close()
     return dict(r) if r else None
+
+
+def guild_set_name(gid, name):
+    """Renomme la guilde + stocke la date du renommage (cooldown 1/mois)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_guild SET name = ?, renamed_at = ? WHERE id = ?",
+              (name, _dt.datetime.utcnow().isoformat(), int(gid)))
+    conn.commit(); conn.close()
 
 
 def guild_of_user(user_id):
