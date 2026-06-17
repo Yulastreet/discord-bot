@@ -339,7 +339,8 @@ def setup_guild_commands(bot, deps):
         bar = _guild_xp_bar(bot, into, span)
         pct = 100 if lvl >= maxlv else int(100 * into / span)
         tag = f" [{g['tag']}]" if g.get("tag") else ""
-        emb = discord.Embed(title=f"🛡️ {g['name']}{tag}", color=profile_color_hex(g.get("color"), 0x8e44ad))
+        emblem = g.get("emblem") or "🛡️"
+        emb = discord.Embed(title=f"{emblem} {g['name']}{tag}", color=profile_color_hex(g.get("color"), 0x8e44ad))
         emb.add_field(
             name=f"Niveau {lvl}" + (" (MAX)" if lvl >= maxlv else ""),
             value=(f"{bar}  **{pct}%**\n" + (f"_{_fmt_n(into)} / {_fmt_n(span)} XP_" if lvl < maxlv else f"_{_fmt_n(g['xp'])} XP_")),
