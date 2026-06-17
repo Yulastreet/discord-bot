@@ -387,10 +387,29 @@ def setup_guild_commands(bot, deps):
                     allowed_mentions=discord.AllowedMentions.none())
             return cb
 
+    def _unlock_level(cfg, key):
+        """Niveau minimum ou un deblocage (bank/shop/raids) devient actif, ou None."""
+        for p in sorted(cfg.get("rewards", []), key=lambda x: x.get("level", 0)):
+            if p.get(key):
+                return p.get("level")
+        return None
+
     class GuildProfileView(discord.ui.View):
         def __init__(self, gid, rows):
             super().__init__(timeout=180)
             self.gid = gid; self.rows = rows; self.sort = "power"
+            cfg = get_guild_config()
+            g = guild_get(gid)
+            rew = guild_rewards_for_level(g["level"], cfg) if g else {}
+            self._bank_ok = bool(rew.get("bank"))
+            self._shop_ok = bool(rew.get("shop"))
+            self._bank_lv = _unlock_level(cfg, "bank")
+            self._shop_lv = _unlock_level(cfg, "shop")
+            # Verrou visuel (gris + 🔒) si pas debloque ; reste cliquable pour le message
+            if not self._bank_ok:
+                self.b_bank.style = discord.ButtonStyle.secondary; self.b_bank.emoji = "🔒"
+            if not self._shop_ok:
+                self.b_shop.style = discord.ButtonStyle.secondary; self.b_shop.emoji = "🔒"
 
         async def _refresh(self, interaction):
             g = guild_get(self.gid)
@@ -412,6 +431,10 @@ def setup_guild_commands(bot, deps):
 
         @discord.ui.button(label="Banque", emoji="💰", style=discord.ButtonStyle.success, row=1)
         async def b_bank(self, interaction, btn):
+            if not self._bank_ok:
+                lv = self._bank_lv or "?"
+                await interaction.response.send_message(
+                    f"🔒 La **banque** se débloque au **niveau {lv}** de guilde.", ephemeral=True); return
             g = guild_get(self.gid)
             await interaction.response.send_message(
                 f"💰 **Banque de {g['name']}** : {_fmt_n(g['bank'])} ✨\n"
@@ -419,6 +442,10 @@ def setup_guild_commands(bot, deps):
 
         @discord.ui.button(label="Boutique", emoji="🛒", style=discord.ButtonStyle.primary, row=1)
         async def b_shop(self, interaction, btn):
+            if not self._shop_ok:
+                lv = self._shop_lv or "?"
+                await interaction.response.send_message(
+                    f"🔒 La **boutique** se débloque au **niveau {lv}** de guilde.", ephemeral=True); return
             items = get_guild_config().get("shop") or []
             if not items:
                 await interaction.response.send_message(
