@@ -32,6 +32,9 @@ _RECRUIT_SECONDS = 120     # delai de combat apres le 1er joueur
 _JOIN_EXPIRE = 900         # si personne ne rejoint, le boss disparaît (15 min)
 _QUICK_START_AT = 5        # nb de joueurs qui declenche le demarrage rapide
 _MAX_PLAYERS = 5           # equipe limitee a 5 joueurs max
+# Poids du bonus de fusion DANS le scaling du boss (0 = la fusion ne gonfle pas le
+# boss du tout, 1 = compte plein). Le joueur garde son bonus complet pour SES degats.
+_FUSION_BOSS_SCALE_WEIGHT = 0.4
 _QUICK_SECONDS = 60        # delai du demarrage rapide
 _TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
@@ -936,6 +939,14 @@ def _scale_boss_to_team(bid):
             else:
                 st = compute_player_combat_stats(uid)
                 base_atk, base_hp = st["atk"], st["hp"]
+                # Reduit l'impact du bonus de fusion sur le scaling du boss :
+                # on retire le mult fusion plein puis on en re-applique une fraction.
+                bp = float(st.get("bonus_pct", 0) or 0)
+                if bp > 0:
+                    full = 1.0 + bp / 100.0
+                    red = 1.0 + (bp / 100.0) * _FUSION_BOSS_SCALE_WEIGHT
+                    base_atk = base_atk / full * red
+                    base_hp = base_hp / full * red
             sum_atk += base_atk
             sum_hp += base_hp
         n = len(parts)
