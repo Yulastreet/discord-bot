@@ -18,6 +18,12 @@ from database import (
     guild_set_color, guild_set_emblem, profile_color_hex, PROFILE_COLORS,
 )
 import datetime as _dt
+import os as _os
+
+
+def _is_owner(user_id) -> bool:
+    owner = (_os.getenv("DISCORD_OWNER_ID") or "").strip()
+    return bool(owner) and str(user_id) == owner
 
 
 def _guild_xp_bar(bot, into, span, segments=14):
@@ -147,10 +153,10 @@ def setup_guild_commands(bot, deps):
             await interaction.response.send_message("Guilde introuvable.", ephemeral=True); return
         if not guild_invite_has(g["id"], uid):
             await interaction.response.send_message("Tu n'as pas d'invitation de cette guilde.", ephemeral=True); return
-        # cooldown anti guild-hopping
+        # cooldown anti guild-hopping (owner bypass)
         la = guild_left_at(uid)
         cd_h = int(cfg.get("hop_cooldown_h", 24))
-        if la and cd_h > 0:
+        if la and cd_h > 0 and not _is_owner(uid):
             try:
                 left = _dt.datetime.fromisoformat(la.replace("Z", ""))
                 delta_h = (_dt.datetime.utcnow() - left).total_seconds() / 3600
