@@ -217,6 +217,25 @@ def register_cards_owner_routes(app, deps):
         conn.close()
         return jsonify({"items": out})
 
+    # ===== CLASSEMENT DES GUILDES (public) =====
+    @app.route("/cards/guilds")
+    def public_cards_guilds_page():
+        return render_template("cards_guilds.html", active_nav="public_guilds")
+
+    @app.route("/api/public/guilds/top", methods=["GET"])
+    def api_public_guilds_top():
+        from database import guild_top, get_guild_config
+        cfg = get_guild_config()
+        maxlv = int(cfg.get("max_level", 60))
+        out = []
+        for g in guild_top(50):
+            out.append({
+                "name": g["name"], "tag": g.get("tag"),
+                "level": g["level"], "xp": g["xp"], "max_level": maxlv,
+                "members": g.get("members", 0), "bank": g.get("bank", 0),
+            })
+        return jsonify({"items": out})
+
     # ===== ROUE DE LA CHANCE QUOTIDIENNE =====
     @app.route("/cards/wheel")
     def public_cards_wheel_page():

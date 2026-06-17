@@ -1,0 +1,65 @@
+{% extends "_base.html" %}
+{% set active_nav = 'public_guilds' %}
+
+{% block title %}Classement guildes · TookBot{% endblock %}
+{% block crumb %}Classement guildes{% endblock %}
+
+{% block content %}
+<style>
+  .gl-wrap { max-width: 860px; }
+  .gl-head { margin-bottom: 16px; }
+  .gl-head h2 { margin:0 0 4px; }
+  .gl-head p { color: var(--text-2); font-size: 13px; margin:0; }
+  .gl-row { display:flex; align-items:center; gap:14px; background:var(--bg-1);
+            border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .gl-rank { font-size:18px; font-weight:900; width:38px; text-align:center; flex:none; }
+  .gl-main { flex:1; min-width:0; }
+  .gl-name { font-weight:700; font-size:15px; }
+  .gl-tag { color: var(--accent); font-weight:700; font-size:12px; }
+  .gl-sub { color: var(--text-2); font-size:12px; margin-top:2px; }
+  .gl-bar { height:7px; border-radius:6px; background:var(--bg-2); overflow:hidden; margin-top:7px; }
+  .gl-bar > i { display:block; height:100%; background:linear-gradient(90deg,#b9f23a,#7bdc6b); }
+  .gl-lvl { font-size:20px; font-weight:900; color:var(--accent); flex:none; text-align:center; min-width:54px; }
+  .gl-lvl small { display:block; font-size:10px; color:var(--text-3); font-weight:600; text-transform:uppercase; }
+  .gl-empty { color: var(--text-2); padding:30px; text-align:center; }
+</style>
+
+<div class="gl-wrap">
+  <div class="gl-head">
+    <h2>🏆 Classement des guildes</h2>
+    <p>Toutes les guildes, classées par niveau puis XP. Cross-serveur.</p>
+  </div>
+  <div id="glList"><div class="gl-empty">Chargement…</div></div>
+</div>
+
+<script>
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(n){return (n||0).toLocaleString('fr-FR').replace(/ /g,' ');}
+
+async function load(){
+  try{
+    const r = await fetch('/api/public/guilds/top');
+    const d = await r.json();
+    const items = d.items || [];
+    const el = document.getElementById('glList');
+    if(!items.length){ el.innerHTML = '<div class="gl-empty">Aucune guilde pour le moment. Crée la tienne avec <code>/guild create</code> !</div>'; return; }
+    el.innerHTML = items.map((g,i)=>{
+      const rank = i===0?'🥇':i===1?'🥈':i===2?'🥉':('#'+(i+1));
+      const tag = g.tag ? ` <span class="gl-tag">[${esc(g.tag)}]</span>` : '';
+      const maxed = g.level >= g.max_level;
+      return `<div class="gl-row">
+        <div class="gl-rank">${rank}</div>
+        <div class="gl-main">
+          <div class="gl-name">${esc(g.name)}${tag}</div>
+          <div class="gl-sub">${g.members} membre(s) · 💰 ${fmt(g.bank)} ✨ · ${fmt(g.xp)} XP total</div>
+        </div>
+        <div class="gl-lvl">${g.level}<small>${maxed?'MAX':'niveau'}</small></div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('glList').innerHTML = '<div class="gl-empty">Erreur de chargement.</div>';
+  }
+}
+load();
+</script>
+{% endblock %}

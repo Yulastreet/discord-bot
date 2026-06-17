@@ -247,7 +247,8 @@ def _user_can_access_page(endpoint, path):
     # Cartes a collectionner : categorie PERSO a chaque user, accessible meme sans
     # serveur selectionne / bot present / dashboard configure.
     if path == "/cards" or path.startswith("/cards/") \
-            or path.startswith("/api/public/cards") or path.startswith("/api/public/wheel"):
+            or path.startswith("/api/public/cards") or path.startswith("/api/public/wheel") \
+            or path.startswith("/api/public/guilds"):
         return True
 
     # Pages "Mon compte" perso (premium, pass, guild boost) : tout user connecte y accede
@@ -345,7 +346,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/owner", "/api/owner",
     "/search-global", "/api/search-global",
     "/my-pass", "/api/my",
-    "/cards", "/api/public/cards", "/api/public/wheel",
+    "/cards", "/api/public/cards", "/api/public/wheel", "/api/public/guilds",
 }
 
 def needs_guild(path):
