@@ -1201,6 +1201,19 @@ async def _finish(bot, bid, msg, view, log, victory):
         # Tri par degats decroissants -> le 1er = MVP
         winners = sorted([p for p in real_parts if p["damage"] > 0],
                          key=lambda x: -x["damage"])
+        # Hook XP guilde : chaque guilde presente (parmi vainqueurs) gagne l'XP du
+        # tier UNE fois (pas par membre). Boss = levier principal avec le roll.
+        try:
+            from database import get_guild_config as _ggc, guild_of_user as _gou, guild_add_xp as _gax
+            _bxp = int(_ggc().get("xp", {}).get("boss", {}).get(str(tier), 0))
+            if _bxp:
+                _seen_g = set()
+                for p in winners:
+                    gg = _gou(p["user_id"])
+                    if gg and gg["id"] not in _seen_g:
+                        _seen_g.add(gg["id"]); _gax(gg["id"], _bxp)
+        except Exception as e:
+            print(f"[boss guild xp] {e}")
         # Essences : base + part de degats, CAPPÉ par tier (T5 = 5000 max, hors bonus roue)
         _ESS_CAP = {1: 800, 2: 1500, 3: 2500, 4: 3500, 5: 5000}
         cap = _ESS_CAP.get(tier, 1000)

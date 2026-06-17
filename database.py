@@ -485,6 +485,16 @@ def init_db():
         PRIMARY KEY (guild_id, user_id)
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_cguild_member_user ON card_guild_member(user_id)")
+    c.execute('''CREATE TABLE IF NOT EXISTS card_guild_invite (
+        guild_id   INTEGER NOT NULL,
+        user_id    TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, user_id)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS card_guild_left (
+        user_id  TEXT PRIMARY KEY,
+        left_at  TEXT
+    )''')
 
     # Cooldown roll par (user, guild) - 1h par serveur
     c.execute('''CREATE TABLE IF NOT EXISTS user_guild_roll_cooldown (
@@ -5201,6 +5211,194 @@ def guild_rewards_for_level(level, cfg=None):
         if p.get("level", 0) <= level:
             eff = p
     return eff or (paliers[0] if paliers else {})
+
+
+# ===== CRUD guildes =====
+def guild_create(name, owner_id, tag=None, color=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_guild (name, tag, owner_id, color) VALUES (?, ?, ?, ?)",
+              (name, tag, str(owner_id), color))
+    gid = c.lastrowid
+    c.execute("INSERT INTO card_guild_member (guild_id, user_id, role) VALUES (?, ?, 'master')",
+              (gid, str(owner_id)))
+    conn.commit(); conn.close()
+    return gid
+
+
+def guild_get(gid):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_guild WHERE id = ?", (int(gid),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def guild_get_by_name(name):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM card_guild WHERE LOWER(name) = LOWER(?)",
+                  ((name or "").strip(),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def guild_of_user(user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT g.* FROM card_guild g JOIN card_guild_member m ON m.guild_id = g.id "
+                  "WHERE m.user_id = ?", (str(user_id),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def guild_member_role(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT role FROM card_guild_member WHERE guild_id = ? AND user_id = ?",
+                  (int(gid), str(user_id))).fetchone()
+    conn.close()
+    return r["role"] if r else None
+
+
+def guild_members(gid):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT * FROM card_guild_member WHERE guild_id = ? "
+                     "ORDER BY CASE role WHEN 'master' THEN 0 WHEN 'officer' THEN 1 ELSE 2 END, "
+                     "xp_contributed DESC", (int(gid),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def guild_member_count(gid):
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM card_guild_member WHERE guild_id = ?",
+                  (int(gid),)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def guild_add_member(gid, user_id, role="member"):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO card_guild_member (guild_id, user_id, role) VALUES (?, ?, ?)",
+              (int(gid), str(user_id), role))
+    c.execute("DELETE FROM card_guild_invite WHERE user_id = ?", (str(user_id),))
+    conn.commit(); conn.close()
+
+
+def guild_remove_member(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM card_guild_member WHERE guild_id = ? AND user_id = ?",
+              (int(gid), str(user_id)))
+    c.execute("INSERT INTO card_guild_left (user_id, left_at) VALUES (?, CURRENT_TIMESTAMP) "
+              "ON CONFLICT(user_id) DO UPDATE SET left_at = CURRENT_TIMESTAMP", (str(user_id),))
+    conn.commit(); conn.close()
+
+
+def guild_set_role(gid, user_id, role):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_guild_member SET role = ? WHERE guild_id = ? AND user_id = ?",
+              (role, int(gid), str(user_id)))
+    conn.commit(); conn.close()
+
+
+def guild_set_owner(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_guild SET owner_id = ? WHERE id = ?", (str(user_id), int(gid)))
+    c.execute("UPDATE card_guild_member SET role = 'master' WHERE guild_id = ? AND user_id = ?",
+              (int(gid), str(user_id)))
+    conn.commit(); conn.close()
+
+
+def guild_delete(gid):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM card_guild_member WHERE guild_id = ?", (int(gid),))
+    c.execute("DELETE FROM card_guild_invite WHERE guild_id = ?", (int(gid),))
+    c.execute("DELETE FROM card_guild WHERE id = ?", (int(gid),))
+    conn.commit(); conn.close()
+
+
+def guild_left_at(user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT left_at FROM card_guild_left WHERE user_id = ?", (str(user_id),)).fetchone()
+    conn.close()
+    return r["left_at"] if r else None
+
+
+def guild_invite_add(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO card_guild_invite (guild_id, user_id) VALUES (?, ?)",
+              (int(gid), str(user_id)))
+    conn.commit(); conn.close()
+
+
+def guild_invite_has(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM card_guild_invite WHERE guild_id = ? AND user_id = ?",
+                  (int(gid), str(user_id))).fetchone()
+    conn.close()
+    return bool(r)
+
+
+def guild_add_xp(gid, amount):
+    """Ajoute de l'XP a la guilde, recalcule le niveau. Retourne (level, leveled_up)."""
+    if amount <= 0:
+        g = guild_get(gid)
+        return (g["level"] if g else 1, False)
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT xp, level FROM card_guild WHERE id = ?", (int(gid),)).fetchone()
+    if not r:
+        conn.close(); return (1, False)
+    new_xp = int(r["xp"]) + int(amount)
+    new_level = guild_level_for_xp(new_xp)
+    c.execute("UPDATE card_guild SET xp = ?, level = ? WHERE id = ?", (new_xp, new_level, int(gid)))
+    conn.commit(); conn.close()
+    return (new_level, new_level > int(r["level"]))
+
+
+def guild_member_action_xp(user_id, amount):
+    """XP d'action perso (roll/fusion/roue/don) : applique le cap journalier du
+    membre puis credite sa guilde. Retourne (guild, level, leveled_up) ou None."""
+    g = guild_of_user(user_id)
+    if not g:
+        return None
+    cfg = get_guild_config()
+    cap = int(cfg.get("daily_xp_cap", 1000))
+    today = _today_str()
+    conn = get_db(); c = conn.cursor()
+    m = c.execute("SELECT daily_xp, daily_date FROM card_guild_member "
+                  "WHERE guild_id = ? AND user_id = ?", (g["id"], str(user_id))).fetchone()
+    if not m:
+        conn.close(); return None
+    used = int(m["daily_xp"]) if (m["daily_date"] == today) else 0
+    allowed = max(0, cap - used)
+    add = min(int(amount), allowed)
+    c.execute("UPDATE card_guild_member SET daily_xp = ?, daily_date = ?, "
+              "xp_contributed = xp_contributed + ? WHERE guild_id = ? AND user_id = ?",
+              (used + add, today, add, g["id"], str(user_id)))
+    conn.commit(); conn.close()
+    if add <= 0:
+        return (g, g["level"], False)
+    lvl, up = guild_add_xp(g["id"], add)
+    return (g, lvl, up)
+
+
+def guild_bank_add(gid, amount):
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE card_guild SET bank = bank + ? WHERE id = ?", (int(amount), int(gid)))
+    conn.commit(); conn.close()
+
+
+def guild_top(limit=20):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT g.*, (SELECT COUNT(*) FROM card_guild_member m WHERE m.guild_id = g.id) AS members "
+        "FROM card_guild g ORDER BY g.level DESC, g.xp DESC LIMIT ?", (int(limit),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def guild_perks_for_user(user_id):
+    """Palier de recompense de la guilde du user (dict vide si pas de guilde)."""
+    g = guild_of_user(user_id)
+    if not g:
+        return {}
+    return guild_rewards_for_level(g["level"])
 
 
 GUILD_DEFAULT_SETTINGS = {

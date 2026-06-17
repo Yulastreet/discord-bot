@@ -1,0 +1,286 @@
+"""Commandes /guild : guildes de joueurs (clubs cross-serveur).
+Config pilotee par l'owner (get_guild_config). Hooks XP appeles depuis /roll, boss, etc.
+"""
+from __future__ import annotations
+
+import discord
+from discord import app_commands
+
+from database import (
+    get_guild_config, guild_create, guild_get, guild_get_by_name, guild_of_user,
+    guild_member_role, guild_members, guild_member_count, guild_add_member,
+    guild_remove_member, guild_set_role, guild_set_owner, guild_delete,
+    guild_left_at, guild_invite_add, guild_invite_has, guild_add_xp, guild_top,
+    guild_bank_add, guild_member_action_xp, guild_rewards_for_level,
+    guild_level_for_xp, currency_get, currency_add,
+)
+import datetime as _dt
+
+
+def _xp_needed_cumul(level, cfg):
+    base = float(cfg.get("level_base", 600)); g = float(cfg.get("level_growth", 1.1))
+    return sum(base * (g ** (n - 2)) for n in range(2, level + 1)) if level >= 2 else 0
+
+
+def _progress_line(guild, cfg):
+    lvl = guild["level"]; xp = guild["xp"]; maxlv = int(cfg.get("max_level", 60))
+    if lvl >= maxlv:
+        return f"Niveau **{lvl}** (MAX) · {xp:,} XP".replace(",", " ")
+    cur = _xp_needed_cumul(lvl, cfg)
+    nxt = _xp_needed_cumul(lvl + 1, cfg)
+    into = xp - cur; span = max(1, nxt - cur)
+    pct = int(100 * into / span)
+    return f"Niveau **{lvl}** · {int(into):,}/{int(span):,} XP ({pct}%) vers {lvl+1}".replace(",", " ")
+
+
+def setup_guild_commands(bot, deps):
+    globals().update(deps)
+
+    grp = app_commands.Group(name="guild", description="Guildes de joueurs (clubs)")
+
+    def _is_officer(role):
+        return role in ("master", "officer")
+
+    # ---- create ----
+    @grp.command(name="create", description="Créer une guilde (coûte des essences)")
+    @app_commands.describe(nom="Nom de la guilde", tag="Tag court (optionnel, ex: TKBT)")
+    async def g_create(interaction: discord.Interaction, nom: str, tag: str = None):
+        uid = interaction.user.id
+        cfg = get_guild_config()
+        if guild_of_user(uid):
+            await interaction.response.send_message("Tu es déjà dans une guilde.", ephemeral=True); return
+        nom = nom.strip()[:40]
+        if len(nom) < 2:
+            await interaction.response.send_message("Nom trop court.", ephemeral=True); return
+        if guild_get_by_name(nom):
+            await interaction.response.send_message("Ce nom de guilde est déjà pris.", ephemeral=True); return
+        cost = int(cfg.get("create_cost", 10000))
+        if currency_get(uid) < cost:
+            await interaction.response.send_message(
+                f"Il te faut **{cost:,}** ✨ pour créer une guilde.".replace(",", " "), ephemeral=True); return
+        currency_add(uid, -cost)
+        gid = guild_create(nom, uid, tag=(tag or "").strip()[:8] or None)
+        await interaction.response.send_message(
+            f"🎉 Guilde **{nom}** créée ! Tu en es le **Maître**. "
+            f"Invite des membres avec `/guild invite`.", ephemeral=True)
+
+    # ---- info ----
+    @grp.command(name="info", description="Voir une guilde (la tienne par défaut)")
+    @app_commands.describe(nom="Nom d'une guilde (sinon la tienne)")
+    async def g_info(interaction: discord.Interaction, nom: str = None):
+        cfg = get_guild_config()
+        g = guild_get_by_name(nom) if nom else guild_of_user(interaction.user.id)
+        if not g:
+            await interaction.response.send_message(
+                "Guilde introuvable." if nom else "Tu n'es dans aucune guilde. `/guild create` ou demande une invite.",
+                ephemeral=True); return
+        members = guild_members(g["id"])
+        rew = guild_rewards_for_level(g["level"], cfg)
+        perks = []
+        if rew.get("essence_pct"): perks.append(f"+{rew['essence_pct']}% essences")
+        if rew.get("xp_pct"): perks.append(f"+{rew['xp_pct']}% XP guilde")
+        if rew.get("roll_cd_min"): perks.append(f"−{rew['roll_cd_min']} min cooldown roll")
+        if rew.get("charges"): perks.append(f"+{rew['charges']} roll/h")
+        if rew.get("wishlist"): perks.append(f"+{rew['wishlist']} wishlist")
+        if rew.get("boss_pct"): perks.append(f"+{rew['boss_pct']}% loot boss")
+        unlocks = [k for k in ("bank", "raids", "shop") if rew.get(k)]
+        title = f"🛡️ {g['name']}" + (f" [{g['tag']}]" if g.get("tag") else "")
+        emb = discord.Embed(title=title, color=0x8e44ad)
+        emb.add_field(name="Progression", value=_progress_line(g, cfg), inline=False)
+        emb.add_field(name=f"Membres ({len(members)}/{cfg.get('max_members',30)})",
+                      value="\n".join(f"{'👑' if m['role']=='master' else ('🔧' if m['role']=='officer' else '▫️')} "
+                                      f"<@{m['user_id']}> · {m['xp_contributed']:,} XP".replace(",", " ")
+                                      for m in members[:30]) or "—", inline=False)
+        emb.add_field(name="Banque", value=f"{g['bank']:,} ✨".replace(",", " "), inline=True)
+        if perks:
+            emb.add_field(name="Bonus actifs", value=" · ".join(perks), inline=False)
+        if unlocks:
+            emb.add_field(name="Débloqué", value=" · ".join(unlocks), inline=False)
+        await interaction.response.send_message(embed=emb,
+                                                allowed_mentions=discord.AllowedMentions.none())
+
+    # ---- invite ----
+    @grp.command(name="invite", description="Inviter un joueur dans ta guilde (Maître/Officier)")
+    @app_commands.describe(membre="Joueur à inviter")
+    async def g_invite(interaction: discord.Interaction, membre: discord.Member):
+        cfg = get_guild_config()
+        g = guild_of_user(interaction.user.id)
+        if not g:
+            await interaction.response.send_message("Tu n'es dans aucune guilde.", ephemeral=True); return
+        if not _is_officer(guild_member_role(g["id"], interaction.user.id)):
+            await interaction.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
+        if membre.bot:
+            await interaction.response.send_message("Pas un bot.", ephemeral=True); return
+        if guild_of_user(membre.id):
+            await interaction.response.send_message("Ce joueur est déjà dans une guilde.", ephemeral=True); return
+        if guild_member_count(g["id"]) >= int(cfg.get("max_members", 30)):
+            await interaction.response.send_message("Guilde pleine.", ephemeral=True); return
+        guild_invite_add(g["id"], membre.id)
+        await interaction.response.send_message(
+            f"✅ {membre.mention} invité. Il peut rejoindre avec `/guild accept nom:{g['name']}`.",
+            allowed_mentions=discord.AllowedMentions(users=[membre]))
+
+    # ---- accept ----
+    @grp.command(name="accept", description="Rejoindre une guilde qui t'a invité")
+    @app_commands.describe(nom="Nom de la guilde")
+    async def g_accept(interaction: discord.Interaction, nom: str):
+        uid = interaction.user.id
+        cfg = get_guild_config()
+        if guild_of_user(uid):
+            await interaction.response.send_message("Tu es déjà dans une guilde.", ephemeral=True); return
+        g = guild_get_by_name(nom)
+        if not g:
+            await interaction.response.send_message("Guilde introuvable.", ephemeral=True); return
+        if not guild_invite_has(g["id"], uid):
+            await interaction.response.send_message("Tu n'as pas d'invitation de cette guilde.", ephemeral=True); return
+        # cooldown anti guild-hopping
+        la = guild_left_at(uid)
+        cd_h = int(cfg.get("hop_cooldown_h", 24))
+        if la and cd_h > 0:
+            try:
+                left = _dt.datetime.fromisoformat(la.replace("Z", ""))
+                delta_h = (_dt.datetime.utcnow() - left).total_seconds() / 3600
+                if delta_h < cd_h:
+                    await interaction.response.send_message(
+                        f"Tu as quitté une guilde récemment. Attends encore **{int(cd_h - delta_h) + 1}h**.",
+                        ephemeral=True); return
+            except Exception:
+                pass
+        if guild_member_count(g["id"]) >= int(cfg.get("max_members", 30)):
+            await interaction.response.send_message("Guilde pleine.", ephemeral=True); return
+        guild_add_member(g["id"], uid, "member")
+        await interaction.response.send_message(f"🛡️ Tu as rejoint **{g['name']}** !", ephemeral=True)
+
+    # ---- leave ----
+    @grp.command(name="leave", description="Quitter ta guilde")
+    async def g_leave(interaction: discord.Interaction):
+        uid = interaction.user.id
+        g = guild_of_user(uid)
+        if not g:
+            await interaction.response.send_message("Tu n'es dans aucune guilde.", ephemeral=True); return
+        if guild_member_role(g["id"], uid) == "master":
+            if guild_member_count(g["id"]) > 1:
+                await interaction.response.send_message(
+                    "Tu es le Maître. Transfère d'abord (`/guild transfer`) ou dissous (`/guild disband`).",
+                    ephemeral=True); return
+            guild_delete(g["id"])
+            await interaction.response.send_message("Guilde dissoute (tu étais seul).", ephemeral=True); return
+        guild_remove_member(g["id"], uid)
+        await interaction.response.send_message(f"Tu as quitté **{g['name']}**.", ephemeral=True)
+
+    # ---- kick ----
+    @grp.command(name="kick", description="Exclure un membre (Maître/Officier)")
+    @app_commands.describe(membre="Membre à exclure")
+    async def g_kick(interaction: discord.Interaction, membre: discord.Member):
+        g = guild_of_user(interaction.user.id)
+        if not g:
+            await interaction.response.send_message("Tu n'es dans aucune guilde.", ephemeral=True); return
+        my = guild_member_role(g["id"], interaction.user.id)
+        if not _is_officer(my):
+            await interaction.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
+        tgt = guild_member_role(g["id"], membre.id)
+        if not tgt:
+            await interaction.response.send_message("Ce joueur n'est pas dans ta guilde.", ephemeral=True); return
+        if tgt == "master" or (tgt == "officer" and my != "master"):
+            await interaction.response.send_message("Tu ne peux pas exclure ce membre.", ephemeral=True); return
+        guild_remove_member(g["id"], membre.id)
+        await interaction.response.send_message(f"{membre.mention} exclu de **{g['name']}**.",
+                                                allowed_mentions=discord.AllowedMentions.none())
+
+    # ---- promote / demote / transfer ----
+    @grp.command(name="promote", description="Promouvoir un membre officier (Maître)")
+    @app_commands.describe(membre="Membre")
+    async def g_promote(interaction: discord.Interaction, membre: discord.Member):
+        g = guild_of_user(interaction.user.id)
+        if not g or guild_member_role(g["id"], interaction.user.id) != "master":
+            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+        if guild_member_role(g["id"], membre.id) != "member":
+            await interaction.response.send_message("Membre invalide.", ephemeral=True); return
+        guild_set_role(g["id"], membre.id, "officer")
+        await interaction.response.send_message(f"🔧 {membre.mention} est Officier.",
+                                                allowed_mentions=discord.AllowedMentions.none())
+
+    @grp.command(name="demote", description="Rétrograder un officier (Maître)")
+    @app_commands.describe(membre="Officier")
+    async def g_demote(interaction: discord.Interaction, membre: discord.Member):
+        g = guild_of_user(interaction.user.id)
+        if not g or guild_member_role(g["id"], interaction.user.id) != "master":
+            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+        if guild_member_role(g["id"], membre.id) != "officer":
+            await interaction.response.send_message("Ce joueur n'est pas Officier.", ephemeral=True); return
+        guild_set_role(g["id"], membre.id, "member")
+        await interaction.response.send_message(f"▫️ {membre.mention} redevient membre.",
+                                                allowed_mentions=discord.AllowedMentions.none())
+
+    @grp.command(name="transfer", description="Transférer la maîtrise (Maître)")
+    @app_commands.describe(membre="Nouveau Maître")
+    async def g_transfer(interaction: discord.Interaction, membre: discord.Member):
+        g = guild_of_user(interaction.user.id)
+        if not g or guild_member_role(g["id"], interaction.user.id) != "master":
+            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+        if not guild_member_role(g["id"], membre.id):
+            await interaction.response.send_message("Ce joueur n'est pas dans ta guilde.", ephemeral=True); return
+        guild_set_role(g["id"], interaction.user.id, "officer")
+        guild_set_owner(g["id"], membre.id)
+        await interaction.response.send_message(f"👑 {membre.mention} est le nouveau Maître.",
+                                                allowed_mentions=discord.AllowedMentions.none())
+
+    # ---- disband ----
+    @grp.command(name="disband", description="Dissoudre ta guilde (Maître)")
+    async def g_disband(interaction: discord.Interaction):
+        g = guild_of_user(interaction.user.id)
+        if not g or guild_member_role(g["id"], interaction.user.id) != "master":
+            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+        guild_delete(g["id"])
+        await interaction.response.send_message(f"💥 Guilde **{g['name']}** dissoute.", ephemeral=True)
+
+    # ---- donate ----
+    @grp.command(name="donate", description="Donner des essences à la banque de ta guilde")
+    @app_commands.describe(montant="Essences à donner")
+    async def g_donate(interaction: discord.Interaction, montant: int):
+        uid = interaction.user.id
+        g = guild_of_user(uid)
+        if not g:
+            await interaction.response.send_message("Tu n'es dans aucune guilde.", ephemeral=True); return
+        if montant <= 0:
+            await interaction.response.send_message("Montant invalide.", ephemeral=True); return
+        if currency_get(uid) < montant:
+            await interaction.response.send_message("Pas assez d'essences.", ephemeral=True); return
+        currency_add(uid, -montant)
+        guild_bank_add(g["id"], montant)
+        cfg = get_guild_config()
+        per100 = int(cfg.get("xp", {}).get("essence_per_100", 0))
+        xp = (montant // 100) * per100
+        if xp > 0:
+            guild_member_action_xp(uid, xp)
+        await interaction.response.send_message(
+            f"💰 +{montant:,} ✨ à la banque de **{g['name']}**".replace(",", " ")
+            + (f" (+{xp} XP guilde)" if xp else "") + ".", ephemeral=True)
+
+    # ---- top ----
+    @grp.command(name="top", description="Classement des guildes")
+    async def g_top(interaction: discord.Interaction):
+        rows = guild_top(15)
+        if not rows:
+            await interaction.response.send_message("Aucune guilde pour l'instant.", ephemeral=True); return
+        lines = []
+        for i, g in enumerate(rows, 1):
+            medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, f"`{i}.`")
+            tag = f" [{g['tag']}]" if g.get("tag") else ""
+            lines.append(f"{medal} **{g['name']}**{tag} — niv **{g['level']}** · {g['members']} membres")
+        emb = discord.Embed(title="🏆 Classement des guildes", description="\n".join(lines),
+                            color=0xF2B33A)
+        await interaction.response.send_message(embed=emb)
+
+    @g_accept.autocomplete("nom")
+    @g_info.autocomplete("nom")
+    async def _guild_name_ac(interaction: discord.Interaction, current: str):
+        try:
+            q = (current or "").strip().lower()
+            rows = guild_top(200)
+            out = [g["name"] for g in rows if q in g["name"].lower()][:25] if q else [g["name"] for g in rows[:25]]
+            return [app_commands.Choice(name=n[:100], value=n[:100]) for n in out]
+        except Exception:
+            return []
+
+    bot.tree.add_command(grp)

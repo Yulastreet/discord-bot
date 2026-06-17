@@ -542,17 +542,21 @@ def setup_cards_commands(bot, deps):
         uid = interaction.user.id
         gid = interaction.guild.id if interaction.guild else None
         is_support = _is_support_member(bot, uid)
-        max_charges = 2 if is_support else 1
+        # Passifs de guilde (palier du niveau) : +charges/h, -cooldown roll
+        from database import guild_perks_for_user
+        _gperk = guild_perks_for_user(uid) or {}
+        max_charges = (2 if is_support else 1) + int(_gperk.get("charges", 0))
+        _cd_window = max(60, 3600 - int(_gperk.get("roll_cd_min", 0)) * 60)
         use_bonus = False
         if not _is_owner(uid) and gid:
             if roll_bonus_available(uid) > 0:
                 use_bonus = True
             else:
-                recent = roll_events_count(uid, gid, 3600)
+                recent = roll_events_count(uid, gid, _cd_window)
                 if recent >= max_charges:
                     now_ts = _time.time()
-                    oldest = roll_events_oldest_ts(uid, gid, 3600)
-                    remain = (3600 - (now_ts - oldest)) if oldest else 3600
+                    oldest = roll_events_oldest_ts(uid, gid, _cd_window)
+                    remain = (_cd_window - (now_ts - oldest)) if oldest else _cd_window
                     if remain < 0:
                         remain = 0
                     ready_at = int(now_ts + remain)
@@ -612,11 +616,23 @@ def setup_cards_commands(bot, deps):
         rarity_for_reward = card.get("rarity", "common")
         essence_base = ESSENCE_REWARDS.get(rarity_for_reward, 12)
         essence_gain = essence_base * 2 if already_owned else essence_base
+        # Bonus passif de guilde sur les essences
+        _ess_pct = int(_gperk.get("essence_pct", 0))
+        if _ess_pct:
+            essence_gain = int(essence_gain * (1 + _ess_pct / 100))
         try:
             from database import essence_reward_add
             essence_gain = essence_reward_add(uid, essence_gain)  # applique bonus roue du jour
         except Exception as e:
             print(f"[roll essence] err: {e}")
+        # Hook XP de guilde (roll = levier principal), capé par jour/membre
+        try:
+            from database import get_guild_config, guild_member_action_xp
+            _xpr = int(get_guild_config().get("xp", {}).get("roll", 0))
+            if _xpr:
+                guild_member_action_xp(uid, _xpr)
+        except Exception as e:
+            print(f"[roll guild xp] err: {e}")
 
         # Embed minimaliste
         rarity = card.get("rarity", "common")
@@ -1630,6 +1646,15 @@ def setup_cards_commands(bot, deps):
             f"🎴 **Raretés**\n"
             f"{rar_line or '—'}"
         )
+        # Guilde (si membre)
+        try:
+            from database import guild_of_user
+            _g = guild_of_user(uid)
+            if _g:
+                _tag = f" [{_g['tag']}]" if _g.get("tag") else ""
+                block = (f"🛡️ **Guilde** : {_g['name']}{_tag} _(niv {_g['level']})_\n{DIV}\n") + block
+        except Exception:
+            pass
         embed.add_field(name=DIV, value=block, inline=False)
 
         if target.display_avatar:
@@ -1662,7 +1687,13 @@ def setup_cards_commands(bot, deps):
     # === /cardwish <carte> : ajoute/retire de la wishlist ===
     # Cap : 3 par defaut, 6 pour les membres du serveur support.
     def _wishlist_max(user_id):
-        return 6 if _is_support_member(bot, user_id) else 3
+        base = 6 if _is_support_member(bot, user_id) else 3
+        try:
+            from database import guild_perks_for_user
+            base += int((guild_perks_for_user(user_id) or {}).get("wishlist", 0))
+        except Exception:
+            pass
+        return base
     @bot.tree.command(name="cardwish", description="Ajoute ou retire une carte de ta wishlist")
     @app_commands.describe(nom="Carte à ajouter/retirer de ta wishlist")
     async def cardwish_cmd(interaction: discord.Interaction, nom: str):
