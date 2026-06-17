@@ -5217,7 +5217,8 @@ def guild_rewards_for_level(level, cfg=None):
     for p in paliers:
         if p.get("level", 0) <= level:
             eff = p
-    return eff or (paliers[0] if paliers else {})
+    # Aucun palier <= niveau -> aucun bonus (PAS le palier le plus bas).
+    return eff
 
 
 # ===== CRUD guildes =====
