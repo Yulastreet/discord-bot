@@ -339,8 +339,33 @@ def setup_guild_commands(bot, deps):
             name=f"Niveau {lvl}" + (" (MAX)" if lvl >= maxlv else ""),
             value=(f"{bar}  **{pct}%**\n" + (f"_{_fmt_n(into)} / {_fmt_n(span)} XP_" if lvl < maxlv else f"_{_fmt_n(g['xp'])} XP_")),
             inline=False)
-        emb.add_field(name="⚡ Puissance totale", value=f"**{_fmt_n(total_power)}**", inline=True)
+        # Puissance totale en emojis chiffres (les membres restent en texte)
+        try:
+            from services.card_boss import _power_digits
+            pw_str = _power_digits(bot, total_power)
+        except Exception:
+            pw_str = f"**{_fmt_n(total_power)}**"
+        emb.add_field(name="⚡ Puissance totale de la guilde", value=pw_str, inline=False)
         emb.add_field(name="💰 Banque", value=f"{_fmt_n(g['bank'])} ✨", inline=True)
+        # Prochain palier (niveau + ce qu'il apporte de NOUVEAU)
+        cur_rew = guild_rewards_for_level(lvl, cfg)
+        nxt = next((p for p in sorted(cfg.get("rewards", []), key=lambda x: x.get("level", 0))
+                    if p.get("level", 0) > lvl), None)
+        if lvl >= maxlv or not nxt:
+            up_txt = "🏅 Palier maximum atteint."
+        else:
+            bits = []
+            if nxt.get("essence_pct"): bits.append(f"+{nxt['essence_pct']}% essences")
+            if nxt.get("xp_pct"): bits.append(f"+{nxt['xp_pct']}% XP")
+            if nxt.get("roll_cd_min"): bits.append(f"−{nxt['roll_cd_min']} min CD roll")
+            if nxt.get("charges"): bits.append(f"+{nxt['charges']} roll/h")
+            if nxt.get("wishlist"): bits.append(f"+{nxt['wishlist']} wishlist")
+            if nxt.get("boss_pct"): bits.append(f"+{nxt['boss_pct']}% loot boss")
+            for k, lbl in (("bank", "🏦 banque"), ("raids", "⚔️ raids"), ("shop", "🛒 boutique")):
+                if nxt.get(k) and not cur_rew.get(k):
+                    bits.append(f"débloque {lbl}")
+            up_txt = f"**Niveau {nxt['level']}** → " + (" · ".join(bits) or "—")
+        emb.add_field(name="⬆️ Prochain palier", value=up_txt, inline=False)
         lines = []
         for r in rows[:30]:
             lines.append(f"{_ROLE_ICON.get(r['role'],'▫️')} <@{r['user_id']}> — "
