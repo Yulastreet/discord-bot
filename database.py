@@ -462,6 +462,30 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_trade_items_trade ON card_trade_items(trade_id)")
 
+    # ===== GUILDES de joueurs (clubs cross-serveur) =====
+    c.execute('''CREATE TABLE IF NOT EXISTS card_guild (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        name         TEXT NOT NULL,
+        tag          TEXT,
+        owner_id     TEXT NOT NULL,
+        level        INTEGER DEFAULT 1,
+        xp           INTEGER DEFAULT 0,
+        bank         INTEGER DEFAULT 0,
+        color        TEXT,
+        created_at   TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS card_guild_member (
+        guild_id        INTEGER NOT NULL,
+        user_id         TEXT NOT NULL,
+        role            TEXT DEFAULT 'member',
+        joined_at       TEXT DEFAULT CURRENT_TIMESTAMP,
+        xp_contributed  INTEGER DEFAULT 0,
+        daily_xp        INTEGER DEFAULT 0,
+        daily_date      TEXT,
+        PRIMARY KEY (guild_id, user_id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cguild_member_user ON card_guild_member(user_id)")
+
     # Cooldown roll par (user, guild) - 1h par serveur
     c.execute('''CREATE TABLE IF NOT EXISTS user_guild_roll_cooldown (
         user_id        TEXT NOT NULL,
@@ -5102,6 +5126,80 @@ def get_all_settings():
     out = dict(DEFAULT_SETTINGS)
     out.update(db)
     return out
+
+
+# ===== Config GUILDES (tout reglable par l'owner) =====
+DEFAULT_GUILD_CONFIG = {
+    "create_cost": 10000,      # essences pour creer une guilde
+    "max_members": 30,
+    "hop_cooldown_h": 24,      # delai avant de re-rejoindre une guilde
+    "daily_xp_cap": 2000,      # XP max apporte par membre / jour
+    "xp": {
+        "roll": 5,
+        "fusion": 20,
+        "wheel": 15,
+        "essence_per_100": 10,  # XP par tranche de 100 essences donnees
+        "boss": {"1": 50, "2": 120, "3": 250, "4": 500, "5": 1000},
+    },
+    "level_base": 1000,        # XP requis pour passer au niveau 2
+    "level_growth": 1.35,      # x par niveau (XP niveau n = base * growth^(n-2))
+    "max_level": 30,
+    # Paliers de recompense : a un niveau donne, bonus ABSOLUS. Une guilde applique
+    # le palier de plus haut niveau <= son niveau.
+    "rewards": [
+        {"level": 1,  "essence_pct": 0,  "xp_pct": 0,  "roll_cd_pct": 0,  "charges": 0, "wishlist": 0, "boss_pct": 0,  "bank": False, "raids": False, "shop": False},
+        {"level": 5,  "essence_pct": 3,  "xp_pct": 5,  "roll_cd_pct": 5,  "charges": 0, "wishlist": 0, "boss_pct": 2,  "bank": True,  "raids": False, "shop": False},
+        {"level": 10, "essence_pct": 6,  "xp_pct": 10, "roll_cd_pct": 10, "charges": 1, "wishlist": 1, "boss_pct": 4,  "bank": True,  "raids": True,  "shop": False},
+        {"level": 20, "essence_pct": 10, "xp_pct": 15, "roll_cd_pct": 15, "charges": 1, "wishlist": 1, "boss_pct": 6,  "bank": True,  "raids": True,  "shop": True},
+        {"level": 30, "essence_pct": 15, "xp_pct": 20, "roll_cd_pct": 20, "charges": 2, "wishlist": 2, "boss_pct": 10, "bank": True,  "raids": True,  "shop": True},
+    ],
+}
+
+
+def get_guild_config():
+    """Config guildes (defaults fusionnes avec l'override owner stocke en JSON)."""
+    import json as _j
+    raw = get_setting("guild_config", None)
+    cfg = dict(DEFAULT_GUILD_CONFIG)
+    if raw:
+        try:
+            cfg.update(_j.loads(raw))
+        except Exception:
+            pass
+    return cfg
+
+
+def set_guild_config(cfg: dict):
+    import json as _j
+    set_setting("guild_config", _j.dumps(cfg))
+
+
+def guild_level_for_xp(xp, cfg=None):
+    """Niveau atteint pour un total d'XP, selon la courbe (base * growth^(n-2))."""
+    cfg = cfg or get_guild_config()
+    base = float(cfg.get("level_base", 1000))
+    growth = float(cfg.get("level_growth", 1.35))
+    maxlv = int(cfg.get("max_level", 30))
+    lvl = 1
+    need_cum = 0.0
+    for n in range(2, maxlv + 1):
+        need_cum += base * (growth ** (n - 2))
+        if xp >= need_cum:
+            lvl = n
+        else:
+            break
+    return lvl
+
+
+def guild_rewards_for_level(level, cfg=None):
+    """Palier de recompense effectif (plus haut level <= niveau de la guilde)."""
+    cfg = cfg or get_guild_config()
+    paliers = sorted(cfg.get("rewards", []), key=lambda p: p.get("level", 0))
+    eff = {}
+    for p in paliers:
+        if p.get("level", 0) <= level:
+            eff = p
+    return eff or (paliers[0] if paliers else {})
 
 
 GUILD_DEFAULT_SETTINGS = {

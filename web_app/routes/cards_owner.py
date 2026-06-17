@@ -583,6 +583,77 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"ok": True, "name": card["name"], "user_id": str(target)})
 
 
+    # ===== GUILDES : config owner =====
+    @app.route("/owner/guilds")
+    def owner_guilds_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_guild_config
+        return render_template("owner_guilds_config.html", active_nav="owner_guilds",
+                               config=get_guild_config())
+
+    @app.route("/api/owner/guilds-config", methods=["GET", "POST"])
+    def api_owner_guilds_config():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_guild_config, set_guild_config
+        if request.method == "GET":
+            return jsonify(get_guild_config())
+        data = request.json or {}
+
+        def _i(v, d=0):
+            try:
+                return max(0, int(v))
+            except (ValueError, TypeError):
+                return d
+
+        def _f(v, d=1.0):
+            try:
+                return max(0.0, float(v))
+            except (ValueError, TypeError):
+                return d
+
+        cur = get_guild_config()
+        xp_in = data.get("xp") or {}
+        boss_in = xp_in.get("boss") or {}
+        cfg = {
+            "create_cost": _i(data.get("create_cost"), cur["create_cost"]),
+            "max_members": max(1, _i(data.get("max_members"), cur["max_members"])),
+            "hop_cooldown_h": _i(data.get("hop_cooldown_h"), cur["hop_cooldown_h"]),
+            "daily_xp_cap": _i(data.get("daily_xp_cap"), cur["daily_xp_cap"]),
+            "xp": {
+                "roll": _i(xp_in.get("roll"), cur["xp"]["roll"]),
+                "fusion": _i(xp_in.get("fusion"), cur["xp"]["fusion"]),
+                "wheel": _i(xp_in.get("wheel"), cur["xp"]["wheel"]),
+                "essence_per_100": _i(xp_in.get("essence_per_100"), cur["xp"]["essence_per_100"]),
+                "boss": {str(t): _i(boss_in.get(str(t)), cur["xp"]["boss"].get(str(t), 0))
+                         for t in range(1, 6)},
+            },
+            "level_base": max(1, _i(data.get("level_base"), cur["level_base"])),
+            "level_growth": _f(data.get("level_growth"), cur["level_growth"]),
+            "max_level": max(2, _i(data.get("max_level"), cur["max_level"])),
+            "rewards": [],
+        }
+        for p in (data.get("rewards") or []):
+            cfg["rewards"].append({
+                "level": max(1, _i(p.get("level"), 1)),
+                "essence_pct": _i(p.get("essence_pct")),
+                "xp_pct": _i(p.get("xp_pct")),
+                "roll_cd_pct": _i(p.get("roll_cd_pct")),
+                "charges": _i(p.get("charges")),
+                "wishlist": _i(p.get("wishlist")),
+                "boss_pct": _i(p.get("boss_pct")),
+                "bank": bool(p.get("bank")),
+                "raids": bool(p.get("raids")),
+                "shop": bool(p.get("shop")),
+            })
+        cfg["rewards"].sort(key=lambda x: x["level"])
+        if not cfg["rewards"]:
+            cfg["rewards"] = cur["rewards"]
+        set_guild_config(cfg)
+        return jsonify({"ok": True})
+
+
     @app.route("/owner/cards/suggestions")
     def owner_cards_suggestions_page():
         if not _is_owner_session():
