@@ -76,6 +76,18 @@
   <button class="btn btn-secondary" style="margin-top:10px;" onclick="addRewRow()">+ Ajouter un palier</button>
 </div>
 
+<div class="gc-sec">
+  <h3>🛒 Boutique de guilde</h3>
+  <p class="sub">Items achetés avec la <b>banque</b> de guilde (par Maître/Officier). Type : <code>guild_xp</code> (XP à la guilde), <code>rolls_all</code> / <code>essence_all</code> (à chaque membre). Value = montant.</p>
+  <table class="gc-rew">
+    <thead><tr>
+      <th>Nom</th><th>Coût ✨</th><th>Type</th><th>Value</th><th>Description</th><th></th>
+    </tr></thead>
+    <tbody id="shopBody"></tbody>
+  </table>
+  <button class="btn btn-secondary" style="margin-top:10px;" onclick="addShopRow()">+ Ajouter un item</button>
+</div>
+
 <div class="gc-save">
   <button class="btn btn-primary" onclick="saveGuildConfig()">💾 Enregistrer la config</button>
   <span id="gcHint" class="muted"></span>
@@ -107,6 +119,22 @@ function rewRow(p){
 function addRewRow(){ rewRow(); }
 window.addRewRow = addRewRow;
 
+function shopRow(it){
+  it = it || {name:'',cost:0,type:'guild_xp',value:0,desc:'',key:''};
+  const tr = document.createElement('tr');
+  const opt = (v)=>`<option value="${v}" ${it.type===v?'selected':''}>${v}</option>`;
+  tr.innerHTML = `
+    <td><input class="input s-name" value="${(it.name||'').replace(/"/g,'&quot;')}" data-key="${it.key||''}" style="width:120px;text-align:left;"></td>
+    <td><input type="number" class="input s-cost" value="${it.cost||0}"></td>
+    <td><select class="input s-type">${opt('guild_xp')}${opt('rolls_all')}${opt('essence_all')}</select></td>
+    <td><input type="number" class="input s-val" value="${it.value||0}"></td>
+    <td><input class="input s-desc" value="${(it.desc||'').replace(/"/g,'&quot;')}" style="width:160px;text-align:left;"></td>
+    <td><button class="btn btn-ghost" onclick="this.closest('tr').remove()">✕</button></td>`;
+  document.getElementById('shopBody').appendChild(tr);
+}
+function addShopRow(){ shopRow(); }
+window.addShopRow = addShopRow;
+
 function loadCfg(){
   num('createCost', CFG.create_cost); num('maxMembers', CFG.max_members);
   num('hopCd', CFG.hop_cooldown_h); num('dailyCap', CFG.daily_xp_cap);
@@ -116,6 +144,8 @@ function loadCfg(){
   num('lvlBase', CFG.level_base); num('lvlGrowth', CFG.level_growth); num('lvlMax', CFG.max_level);
   document.getElementById('rewBody').innerHTML = '';
   (CFG.rewards||[]).forEach(rewRow);
+  document.getElementById('shopBody').innerHTML = '';
+  (CFG.shop||[]).forEach(shopRow);
 }
 
 async function saveGuildConfig(){
@@ -139,6 +169,14 @@ async function saveGuildConfig(){
          boss:{1:+val('xpBoss1'),2:+val('xpBoss2'),3:+val('xpBoss3'),4:+val('xpBoss4'),5:+val('xpBoss5')} },
     level_base:+val('lvlBase'), level_growth:+val('lvlGrowth'), max_level:+val('lvlMax'),
     rewards: rewards,
+    shop: [...document.querySelectorAll('#shopBody tr')].map(tr => ({
+      key: tr.querySelector('.s-name').dataset.key || '',
+      name: tr.querySelector('.s-name').value,
+      cost: +tr.querySelector('.s-cost').value,
+      type: tr.querySelector('.s-type').value,
+      value: +tr.querySelector('.s-val').value,
+      desc: tr.querySelector('.s-desc').value,
+    })),
   };
   const hint = document.getElementById('gcHint');
   hint.textContent = 'Sauvegarde…';

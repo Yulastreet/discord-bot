@@ -14,6 +14,7 @@ from database import (
     guild_bank_add, guild_member_action_xp, guild_rewards_for_level,
     guild_level_for_xp, currency_get, currency_add,
     compute_player_combat_stats, combat_power, user_card_count,
+    guild_bank_spend, guild_member_ids, roll_give_user,
 )
 import datetime as _dt
 
@@ -348,6 +349,44 @@ def setup_guild_commands(bot, deps):
                       value="\n".join(lines) or "—", inline=False)
         return emb
 
+    class ShopBuyView(discord.ui.View):
+        def __init__(self, gid):
+            super().__init__(timeout=120)
+            self.gid = gid
+            for it in (get_guild_config().get("shop") or [])[:20]:
+                b = discord.ui.Button(label=f"{it['name']} — {it['cost']} ✨",
+                                      style=discord.ButtonStyle.primary)
+                b.callback = self._mk(it)
+                self.add_item(b)
+
+        def _mk(self, it):
+            async def cb(inter: discord.Interaction):
+                if not guild_get(self.gid):
+                    await inter.response.send_message("Guilde dissoute.", ephemeral=True); return
+                if guild_member_role(self.gid, inter.user.id) not in ("master", "officer"):
+                    await inter.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
+                if not guild_bank_spend(self.gid, int(it["cost"])):
+                    await inter.response.send_message("Banque de guilde insuffisante.", ephemeral=True); return
+                t = it["type"]; v = int(it["value"])
+                if t == "guild_xp":
+                    guild_add_xp(self.gid, v); eff = f"+{v} XP guilde"
+                elif t == "rolls_all":
+                    for mid in guild_member_ids(self.gid):
+                        roll_give_user(mid, v)
+                    eff = f"+{v} rolls à chaque membre"
+                elif t == "essence_all":
+                    for mid in guild_member_ids(self.gid):
+                        currency_add(mid, v)
+                    eff = f"+{v} ✨ à chaque membre"
+                else:
+                    eff = "effet appliqué"
+                g = guild_get(self.gid)
+                await inter.response.send_message(
+                    f"🛒 **{it['name']}** acheté par {inter.user.mention} → {eff}. "
+                    f"Banque restante : {_fmt_n(g['bank'])} ✨.",
+                    allowed_mentions=discord.AllowedMentions.none())
+            return cb
+
     class GuildProfileView(discord.ui.View):
         def __init__(self, gid, rows):
             super().__init__(timeout=180)
@@ -380,9 +419,15 @@ def setup_guild_commands(bot, deps):
 
         @discord.ui.button(label="Boutique", emoji="🛒", style=discord.ButtonStyle.primary, row=1)
         async def b_shop(self, interaction, btn):
-            await interaction.response.send_message(
-                "🛒 **Boutique de guilde** — bientôt disponible (en cours de mise en place).",
-                ephemeral=True)
+            items = get_guild_config().get("shop") or []
+            if not items:
+                await interaction.response.send_message(
+                    "🛒 Boutique vide (à configurer par l'owner).", ephemeral=True); return
+            desc = "\n".join(f"**{it['name']}** — {_fmt_n(it['cost'])} ✨\n_{it.get('desc','')}_"
+                             for it in items)
+            emb = discord.Embed(title="🛒 Boutique de guilde", description=desc, color=0x4ade80)
+            emb.set_footer(text="Achat réservé au Maître / Officiers · payé par la banque")
+            await interaction.response.send_message(embed=emb, view=ShopBuyView(self.gid), ephemeral=True)
 
     @bot.tree.command(name="guildprofile",
                        description="Profil d'une guilde (la tienne par défaut)")

@@ -5164,6 +5164,13 @@ DEFAULT_GUILD_CONFIG = {
         {"level": 50, "essence_pct": 15, "xp_pct": 16, "roll_cd_min": 8,  "charges": 0, "wishlist": 2, "boss_pct": 9,  "bank": True,  "raids": True,  "shop": True},
         {"level": 60, "essence_pct": 20, "xp_pct": 20, "roll_cd_min": 10, "charges": 1, "wishlist": 3, "boss_pct": 12, "bank": True,  "raids": True,  "shop": True},
     ],
+    # Boutique de guilde : items payes avec la BANQUE. type : guild_xp | rolls_all |
+    # essence_all. value = XP guilde, ou rolls/essences donnes a CHAQUE membre.
+    "shop": [
+        {"key": "xpboost", "name": "Coup de boost XP", "cost": 5000, "type": "guild_xp",    "value": 3000, "desc": "+3000 XP à la guilde"},
+        {"key": "rollall", "name": "Rolls pour tous",  "cost": 8000, "type": "rolls_all",   "value": 3,    "desc": "+3 rolls à chaque membre"},
+        {"key": "essall",  "name": "Essences pour tous", "cost": 6000, "type": "essence_all", "value": 500, "desc": "+500 ✨ à chaque membre"},
+    ],
 }
 
 
@@ -5382,6 +5389,24 @@ def guild_bank_add(gid, amount):
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_guild SET bank = bank + ? WHERE id = ?", (int(amount), int(gid)))
     conn.commit(); conn.close()
+
+
+def guild_bank_spend(gid, amount):
+    """Debite la banque si solde suffisant. Retourne True si ok."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT bank FROM card_guild WHERE id = ?", (int(gid),)).fetchone()
+    if not r or int(r["bank"]) < int(amount):
+        conn.close(); return False
+    c.execute("UPDATE card_guild SET bank = bank - ? WHERE id = ?", (int(amount), int(gid)))
+    conn.commit(); conn.close()
+    return True
+
+
+def guild_member_ids(gid):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT user_id FROM card_guild_member WHERE guild_id = ?", (int(gid),)).fetchall()
+    conn.close()
+    return [r["user_id"] for r in rows]
 
 
 def guild_top(limit=20):

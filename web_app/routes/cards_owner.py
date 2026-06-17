@@ -677,6 +677,24 @@ def register_cards_owner_routes(app, deps):
         cfg["rewards"].sort(key=lambda x: x["level"])
         if not cfg["rewards"]:
             cfg["rewards"] = cur["rewards"]
+        # Boutique
+        shop = []
+        for it in (data.get("shop") or []):
+            typ = (it.get("type") or "guild_xp").strip()
+            if typ not in ("guild_xp", "rolls_all", "essence_all"):
+                typ = "guild_xp"
+            name = (it.get("name") or "").strip()[:40]
+            if not name:
+                continue
+            shop.append({
+                "key": (it.get("key") or name.lower().replace(" ", "_"))[:24],
+                "name": name,
+                "cost": _i(it.get("cost"), 0),
+                "type": typ,
+                "value": _i(it.get("value"), 0),
+                "desc": (it.get("desc") or "").strip()[:80],
+            })
+        cfg["shop"] = shop if shop else cur.get("shop", [])
         set_guild_config(cfg)
         return jsonify({"ok": True})
 
