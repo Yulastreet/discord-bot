@@ -302,7 +302,8 @@ async function loadSugs() {
         `}
         <div class="sug-body">
           ${!isEdit ? `<div class="sug-name">${escapeHtml(s.name)}</div>
-                       <div class="sug-meta">${escapeHtml(s.universe || '?')}${s.subtitle ? ' · ' + escapeHtml(s.subtitle) : ''}</div>` : ''}
+                       <div class="sug-meta">${escapeHtml(s.universe || '?')}${s.subtitle ? ' · ' + escapeHtml(s.subtitle) : ''}</div>
+                       ${s.proposed_rarity ? `<div class="sug-meta">Rareté suggérée : <span class="sug-badge badge-pending">${escapeHtml(s.proposed_rarity.toUpperCase())}</span></div>` : ''}` : ''}
           <div class="sug-meta">
             Par <strong>${escapeHtml(s.suggester_name || s.suggester_id)}</strong>
             <span class="sug-badge badge-${s.status}">${s.status}</span>
@@ -311,13 +312,13 @@ async function loadSugs() {
         </div>
         ${s.status === 'pending' ? `
           <div class="sug-foot">
-            ${!isEdit ? `<select id="rar-${s.id}" class="input" style="min-width:90px;">
-              <option value="common">Common</option>
-              <option value="rare">Rare</option>
-              <option value="epic">Epic</option>
-              <option value="legendary">Legendary</option>
-              <option value="mythic">Mythic</option>
-            </select>` : ''}
+            ${!isEdit ? (function(pr){ return `<select id="rar-${s.id}" class="input" style="min-width:90px;">
+              <option value="common" ${pr==='common'?'selected':''}>Common</option>
+              <option value="rare" ${pr==='rare'?'selected':''}>Rare</option>
+              <option value="epic" ${pr==='epic'?'selected':''}>Epic</option>
+              <option value="legendary" ${pr==='legendary'?'selected':''}>Legendary</option>
+              <option value="mythic" ${pr==='mythic'?'selected':''}>Mythic</option>
+            </select>`; })(s.proposed_rarity || 'common') : ''}
             <button class="btn btn-primary" onclick="approveSug(${s.id})">✅ Approuver</button>
             ${!isEdit ? `<button class="btn btn-secondary" onclick="openCropper(${s.id}, '${(s.image_url || '').replace(/'/g,"\\'")}')">✂ Recadrer</button>` : ''}
             <button class="btn btn-danger" onclick="rejectSug(${s.id})">❌ Refuser</button>
