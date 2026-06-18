@@ -1716,8 +1716,8 @@ def list_guilds(active_only=True):
     conn = get_db()
     c = conn.cursor()
     base = (
-        "SELECT g.*, gm.username AS owner_name FROM guilds g "
-        "LEFT JOIN guild_members gm ON gm.user_id = g.owner_id "
+        "SELECT g.*, (SELECT gm.username FROM guild_members gm "
+        " WHERE gm.user_id = g.owner_id LIMIT 1) AS owner_name FROM guilds g "
     )
     if active_only:
         c.execute(base + "WHERE g.active = 1 ORDER BY g.name COLLATE NOCASE")
