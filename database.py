@@ -3030,7 +3030,7 @@ def compute_player_combat_stats(user_id):
 # Ancre : epic = 1.0. common contre-element (0.8 x1.25 = 1.0) ~ epic neutre.
 CARD_RARITY_COMBAT_MULT = {
     "common": 0.80, "rare": 0.92, "epic": 1.05,
-    "legendary": 1.25, "mythic": 1.55, "secret": 1.90,
+    "legendary": 1.25, "mythic": 1.55, "secret": 2.50,
 }
 
 # Puissance de combat (affichage flashy) = PV + ATK x poids. Cappee a 999999999999999.
