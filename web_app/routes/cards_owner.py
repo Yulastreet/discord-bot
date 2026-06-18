@@ -1122,9 +1122,9 @@ def register_cards_owner_routes(app, deps):
         return jsonify({"count": card_suggestion_count_pending()})
 
 
-    def _notify_suggestion_resolved(sugg, status, reason=None):
+    def _notify_suggestion_resolved(sugg, status, reason=None, dm=True):
         """Cote bot : reagit (✅/❌) sous le message de la suggestion dans le salon
-        support, et DM le demandeur en cas de refus (avec la raison)."""
+        support, et DM le demandeur en cas de refus (sauf si dm=False -> ex bulk)."""
         try:
             import os as _os
             from database import bot_command_enqueue
@@ -1137,9 +1137,24 @@ def register_cards_owner_routes(app, deps):
                 "status": status,
                 "suggester_id": sugg.get("suggester_id"),
                 "reason": reason,
+                "dm": dm,
             })
         except Exception as e:
             print(f"[suggestion notify] {e}")
+
+    def _notify_bulk_reject_dm(suggester_id, count, reason=None):
+        """Un seul DM groupe quand plusieurs cartes d'un meme demandeur sont refusees."""
+        try:
+            import os as _os
+            from database import bot_command_enqueue
+            sg = int((_os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
+            if not sg:
+                return
+            bot_command_enqueue(sg, "suggestion_bulk_dm", {
+                "suggester_id": suggester_id, "count": count, "reason": reason,
+            })
+        except Exception as e:
+            print(f"[suggestion bulk dm] {e}")
 
     def _approve_apply_image(tcid, new_image_url, original, target, final_rarity, image_changed):
         """Approbation modif image : héberge l'ORIGINAL en local (source_image_url,
@@ -1407,13 +1422,21 @@ def register_cards_owner_routes(app, deps):
         reason = (data.get("reason") or "").strip()[:200] or None
         reviewer = _ses.get("user_id") or "owner"
         rejected = 0; skipped = 0
+        by_suggester = {}   # suggester_id -> nb refusees (pour DM groupe)
         for sid in sids_int:
             sugg = card_suggestion_get(sid)
             if not sugg or sugg["status"] != "pending":
                 skipped += 1; continue
             card_suggestion_review(sid, "rejected", reviewer, reason=reason)
-            _notify_suggestion_resolved(sugg, "rejected", reason)
+            # reaction ❌ sous chaque message, mais PAS de DM par carte (anti-spam)
+            _notify_suggestion_resolved(sugg, "rejected", reason, dm=False)
+            sgid = sugg.get("suggester_id")
+            if sgid:
+                by_suggester[sgid] = by_suggester.get(sgid, 0) + 1
             rejected += 1
+        # un seul DM par demandeur (groupe si plusieurs cartes)
+        for sgid, n in by_suggester.items():
+            _notify_bulk_reject_dm(sgid, n, reason)
         return jsonify({"ok": True, "rejected": rejected, "skipped": skipped})
 
 

@@ -2724,7 +2724,7 @@ def setup_runtime(bot, deps):
                     await msg.add_reaction(emo)
                 except Exception as e:
                     print(f"[suggestion_resolved] react err: {e}")
-            if status == "rejected" and suggester_id:
+            if status == "rejected" and suggester_id and payload.get("dm", True):
                 try:
                     user = bot.get_user(int(suggester_id)) or await bot.fetch_user(int(suggester_id))
                     if user:
@@ -2735,6 +2735,27 @@ def setup_runtime(bot, deps):
                         await user.send(content=txt, embeds=embeds)
                 except Exception as e:
                     print(f"[suggestion_resolved] DM err: {e}")
+            return
+
+        elif name == "suggestion_bulk_dm":
+            # Un seul DM quand plusieurs suggestions d'un meme demandeur sont refusees.
+            suggester_id = payload.get("suggester_id")
+            count = int(payload.get("count") or 0)
+            reason = payload.get("reason")
+            if not suggester_id or count <= 0:
+                return
+            try:
+                user = bot.get_user(int(suggester_id)) or await bot.fetch_user(int(suggester_id))
+                if user:
+                    if count == 1:
+                        txt = "❌ **Ta suggestion de carte a été refusée.**"
+                    else:
+                        txt = f"❌ **{count} de tes suggestions de cartes ont été refusées.**"
+                    if reason:
+                        txt += f"\n**Raison :** {reason}"
+                    await user.send(content=txt)
+            except Exception as e:
+                print(f"[suggestion_bulk_dm] DM err: {e}")
             return
 
         elif name == "fake_drop":
