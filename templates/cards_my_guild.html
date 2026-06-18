@@ -50,6 +50,15 @@
   .mg-chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--text-2);
              background:var(--bg-2); border:1px solid var(--border); border-radius:999px; padding:3px 10px; }
   .mg-chip b { color:var(--text); }
+  .mg-log { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--border); font-size:13px; }
+  .mg-log:first-of-type { border-top:none; }
+  .mg-log-ico { width:26px; height:26px; border-radius:8px; flex:none; display:grid; place-items:center;
+                background:var(--bg-2); font-size:14px; }
+  .mg-log-mid { flex:1; min-width:0; }
+  .mg-log-who { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mg-log-src { font-size:11px; color:var(--text-3); }
+  .mg-log-amt { flex:none; font-weight:800; color:#b9f23a; font-size:13px; }
+  .mg-log-date { flex:none; font-size:11px; color:var(--text-3); margin-left:8px; min-width:64px; text-align:right; }
 </style>
 
 <div class="mg-wrap" id="mgRoot">
@@ -163,8 +172,44 @@ function render(d){
     ${isMaster?'<div class="mg-m-sub" style="margin-top:8px;">Modifiable via <code>/guildprofile</code> → Guilde customisation → Prérequis &amp; accès.</div>':''}
   </div>`;
 
+  // historique XP gagnée (qui / comment / combien)
+  const log = d.xp_log || [];
+  html += `<div class="mg-card"><h3>📈 Historique d'XP gagnée</h3>`;
+  if(!log.length){ html += `<div class="mg-m-sub">Aucune XP enregistrée pour le moment.</div>`; }
+  else {
+    html += log.map(e=>{
+      const s = xpSource(e.source);
+      return `<div class="mg-log">
+        <div class="mg-log-ico">${s.ico}</div>
+        <div class="mg-log-mid">
+          <div class="mg-log-who">${esc(e.user)}</div>
+          <div class="mg-log-src">${esc(s.lbl)}</div>
+        </div>
+        <div class="mg-log-amt">+${fmt(e.amount)} XP</div>
+        <div class="mg-log-date">${fmtDateTime(e.created_at)}</div>
+      </div>`;
+    }).join('');
+  }
+  html += `</div>`;
+
   document.getElementById('mgRoot').innerHTML = html;
 }
+
+function xpSource(src){
+  src = String(src||'action');
+  if(src.startsWith('quete hebdo')) return {ico:'📅', lbl:'Quête hebdo : '+esc(src.split(':').slice(1).join(':')||'')};
+  if(src.startsWith('quete')) return {ico:'📜', lbl:'Quête : '+esc(src.split(':').slice(1).join(':')||'')};
+  const map = {
+    'roll':{ico:'🎲',lbl:'Roll'},
+    'fusion':{ico:'✨',lbl:'Fusion'},
+    'fusion (all)':{ico:'✨',lbl:'Fusion en masse'},
+    'roue':{ico:'🎡',lbl:'Roue'},
+    "don d'essences":{ico:'💰',lbl:"Don d'essences"},
+  };
+  return map[src] || {ico:'⭐', lbl:esc(src)};
+}
+function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s.replace(' ','T')+(s.includes('Z')?'':'Z'));
+  return isNaN(d)?esc(s):d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 
 async function appAct(uid, accept){
   if(!accept && !confirm('Refuser cette candidature ?')) return;

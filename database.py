@@ -555,6 +555,16 @@ def init_db():
         contrib   INTEGER DEFAULT 0,
         PRIMARY KEY (guild_id, week, quest_key, user_id)
     )''')
+    # Historique XP de guilde : qui a gagne combien, par quelle action.
+    c.execute('''CREATE TABLE IF NOT EXISTS card_guild_xp_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id   INTEGER NOT NULL,
+        user_id    TEXT NOT NULL,
+        amount     INTEGER NOT NULL,
+        source     TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_cguild_xplog ON card_guild_xp_log(guild_id, id DESC)")
 
     # Cooldown roll par (user, guild) - 1h par serveur
     c.execute('''CREATE TABLE IF NOT EXISTS user_guild_roll_cooldown (
@@ -5529,6 +5539,9 @@ def guild_quest_progress(user_id, metric, amount=1):
                           (newp, 1 if done else 0, str(user_id), day, q["key"]))
                 if done and q.get("xp"):
                     c.execute("UPDATE card_guild SET xp = xp + ? WHERE id = ?", (int(q["xp"]), gid))
+                    c.execute("INSERT INTO card_guild_xp_log (guild_id, user_id, amount, source) "
+                              "VALUES (?, ?, ?, ?)", (gid, str(user_id), int(q["xp"]),
+                              f"quete:{q['label']}"))
         # --- WEEKLY (collectif guilde) ---
         for q in GUILD_WEEKLY_QUESTS:
             if q["metric"] != metric:
@@ -5552,6 +5565,9 @@ def guild_quest_progress(user_id, metric, amount=1):
                 if done:
                     if q.get("xp"):
                         c.execute("UPDATE card_guild SET xp = xp + ? WHERE id = ?", (int(q["xp"]), gid))
+                        c.execute("INSERT INTO card_guild_xp_log (guild_id, user_id, amount, source) "
+                                  "VALUES (?, ?, ?, ?)", (gid, str(user_id), int(q["xp"]),
+                                  f"quete hebdo:{q['label']}"))
                     if q.get("bank"):
                         c.execute("UPDATE card_guild SET bank = bank + ? WHERE id = ?", (int(q["bank"]), gid))
         conn.commit(); conn.close()
@@ -5750,9 +5766,10 @@ def guild_add_xp(gid, amount):
     return (new_level, new_level > int(r["level"]))
 
 
-def guild_member_action_xp(user_id, amount):
+def guild_member_action_xp(user_id, amount, source="action"):
     """XP d'action perso (roll/fusion/roue/don) : applique le cap journalier du
-    membre puis credite sa guilde. Retourne (guild, level, leveled_up) ou None."""
+    membre puis credite sa guilde. Logue l'XP credite (qui/source/montant).
+    Retourne (guild, level, leveled_up) ou None."""
     g = guild_of_user(user_id)
     if not g:
         return None
@@ -5770,11 +5787,35 @@ def guild_member_action_xp(user_id, amount):
     c.execute("UPDATE card_guild_member SET daily_xp = ?, daily_date = ?, "
               "xp_contributed = xp_contributed + ? WHERE guild_id = ? AND user_id = ?",
               (used + add, today, add, g["id"], str(user_id)))
+    if add > 0:
+        c.execute("INSERT INTO card_guild_xp_log (guild_id, user_id, amount, source) "
+                  "VALUES (?, ?, ?, ?)", (g["id"], str(user_id), add, source))
     conn.commit(); conn.close()
     if add <= 0:
         return (g, g["level"], False)
     lvl, up = guild_add_xp(g["id"], add)
     return (g, lvl, up)
+
+
+def guild_xp_log_add(gid, user_id, amount, source):
+    """Logue une entree d'XP de guilde (utilise pour les recompenses de quete qui
+    creditent la guilde directement, hors cap membre)."""
+    if int(amount) <= 0:
+        return
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_guild_xp_log (guild_id, user_id, amount, source) "
+              "VALUES (?, ?, ?, ?)", (int(gid), str(user_id), int(amount), source))
+    conn.commit(); conn.close()
+
+
+def guild_xp_log_list(gid, limit=30):
+    """Dernieres entrees d'XP de la guilde (recentes d'abord)."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT user_id, amount, source, created_at FROM card_guild_xp_log "
+        "WHERE guild_id = ? ORDER BY id DESC LIMIT ?", (int(gid), int(limit))).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def guild_bank_add(gid, amount):

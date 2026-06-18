@@ -310,7 +310,7 @@ def register_cards_owner_routes(app, deps):
         from database import (guild_of_user, guild_member_role, guild_members, get_db,
                               compute_player_combat_stats, combat_power, user_card_count,
                               guild_quests_weekly_get, guild_quests_daily_get,
-                              guild_application_list, get_guild_config)
+                              guild_application_list, get_guild_config, guild_xp_log_list)
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         if not uid:
@@ -376,6 +376,17 @@ def register_cards_owner_routes(app, deps):
                     "avatar": (am["avatar_url"] if am else None),
                     "created_at": a.get("created_at"),
                 })
+
+        # historique XP : qui / source / montant (pseudos resolus)
+        xp_log = []
+        for e in guild_xp_log_list(gid, limit=40):
+            lm = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
+                           (str(e["user_id"]),)).fetchone()
+            xp_log.append({
+                "user": (lm["username"] if lm and lm["username"] else "Inconnu"),
+                "amount": e["amount"], "source": e.get("source") or "action",
+                "created_at": e.get("created_at"),
+            })
         conn.close()
 
         maxlv = int(cfg.get("max_level", 60))
@@ -402,6 +413,7 @@ def register_cards_owner_routes(app, deps):
             "weekly": weekly,
             "daily": daily,
             "applications": apps,
+            "xp_log": xp_log,
         }
         return jsonify(out)
 
@@ -540,7 +552,7 @@ def register_cards_owner_routes(app, deps):
             from database import get_guild_config, guild_member_action_xp
             _xpw = int(get_guild_config().get("xp", {}).get("wheel", 0))
             if _xpw:
-                guild_member_action_xp(uid, _xpw)
+                guild_member_action_xp(uid, _xpw, source="roue")
         except Exception as e:
             print(f"[wheel guild xp] {e}")
         # Sequence de defilement facon caisse CS (index gagnant connu du client)

@@ -397,7 +397,7 @@ def setup_guild_commands(bot, deps):
         per100 = int(cfg.get("xp", {}).get("essence_per_100", 0))
         xp = (montant // 100) * per100
         if xp > 0:
-            guild_member_action_xp(uid, xp)
+            guild_member_action_xp(uid, xp, source="don d'essences")
         try:
             from database import guild_quest_progress
             guild_quest_progress(uid, "donate", montant)

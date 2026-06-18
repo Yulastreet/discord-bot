@@ -762,7 +762,7 @@ def setup_cards_commands(bot, deps):
             from database import get_guild_config, guild_member_action_xp, guild_quest_progress
             _xpr = int(get_guild_config().get("xp", {}).get("roll", 0))
             if _xpr:
-                guild_member_action_xp(uid, _xpr)
+                guild_member_action_xp(uid, _xpr, source="roll")
             guild_quest_progress(uid, "roll", 1)
         except Exception as e:
             print(f"[roll guild xp] err: {e}")
@@ -1647,7 +1647,7 @@ def setup_cards_commands(bot, deps):
                 from database import get_guild_config, guild_member_action_xp, guild_quest_progress
                 _xpf = int(get_guild_config().get("xp", {}).get("fusion", 0))
                 if _xpf:
-                    guild_member_action_xp(uid, _xpf * stars_gained)
+                    guild_member_action_xp(uid, _xpf * stars_gained, source="fusion (all)")
                 guild_quest_progress(uid, "fusion", stars_gained)
             except Exception as e:
                 print(f"[fusion all guild xp] err: {e}")
@@ -1688,7 +1688,7 @@ def setup_cards_commands(bot, deps):
             from database import get_guild_config, guild_member_action_xp, guild_quest_progress
             _xpf = int(get_guild_config().get("xp", {}).get("fusion", 0))
             if _xpf:
-                guild_member_action_xp(uid, _xpf)
+                guild_member_action_xp(uid, _xpf, source="fusion")
             guild_quest_progress(uid, "fusion", 1)
         except Exception as e:
             print(f"[fusion guild xp] err: {e}")
