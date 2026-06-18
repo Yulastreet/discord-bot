@@ -1598,11 +1598,71 @@ def setup_cards_commands(bot, deps):
                                 FUSION_STAR_COSTS, FUSION_MAX_STARS)
         from services.card_render import render_user_card
         await interaction.response.defer(ephemeral=True)
+        uid = interaction.user.id
+
+        # === /cardfuse all : fusionne au max TOUTES les cartes a doublons ===
+        if nom.strip().lower() == "all":
+            from database import get_db
+            conn = get_db(); c = conn.cursor()
+            rows = c.execute(
+                "SELECT uc.card_id, c.name, c.image_url, COUNT(*) AS n, "
+                "  COALESCE(cc.fusion_level, 0) AS lvl "
+                "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+                "LEFT JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
+                "WHERE uc.user_id = ? "
+                "GROUP BY uc.card_id HAVING n > 1 AND lvl < ?",
+                (str(uid), FUSION_MAX_STARS)).fetchall()
+            conn.close()
+            cards_fused = 0
+            stars_gained = 0
+            consumed_total = 0
+            for r in rows:
+                cid = r["card_id"]
+                owned = int(r["n"])
+                lvl = int(r["lvl"])
+                gained_here = 0
+                while lvl < FUSION_MAX_STARS and owned >= FUSION_STAR_COSTS[lvl]:
+                    cost = FUSION_STAR_COSTS[lvl]
+                    user_card_remove_copies(uid, cid, cost - 1)
+                    lvl += 1
+                    card_fusion_set(uid, cid, lvl)
+                    user_card_lock_one(uid, cid)
+                    owned -= (cost - 1)
+                    consumed_total += (cost - 1)
+                    gained_here += 1
+                if gained_here:
+                    cards_fused += 1
+                    stars_gained += gained_here
+                    border_key = card_customization_get(uid, cid)
+                    border = border_get(border_key) if border_key else None
+                    render_user_card(uid, cid, border, fusion_level=lvl,
+                                     fallback_url=r["image_url"])
+            if stars_gained == 0:
+                await interaction.followup.send(
+                    "Aucune carte à fusionner (pas assez de doublons sur tes cartes non maxées).",
+                    ephemeral=True)
+                return
+            # Hook XP/quete de guilde : 1 fusion = 1 etoile gagnee
+            try:
+                from database import get_guild_config, guild_member_action_xp, guild_quest_progress
+                _xpf = int(get_guild_config().get("xp", {}).get("fusion", 0))
+                if _xpf:
+                    guild_member_action_xp(uid, _xpf * stars_gained)
+                guild_quest_progress(uid, "fusion", stars_gained)
+            except Exception as e:
+                print(f"[fusion all guild xp] err: {e}")
+            await interaction.followup.send(
+                f"✨ **Fusion en masse terminée !**\n"
+                f"🃏 **{cards_fused}** cartes fusionnées · ⭐ **{stars_gained}** étoiles gagnées · "
+                f"**{consumed_total}** exemplaires consommés.\n"
+                f"🔒 Une copie étoilée par carte devient non échangeable.",
+                ephemeral=True)
+            return
+
         card = card_get_by_name(nom.strip())
         if not card:
             await interaction.followup.send(f"Carte introuvable : `{nom}`.", ephemeral=True)
             return
-        uid = interaction.user.id
         level = card_fusion_get(uid, card["id"])
         if level >= FUSION_MAX_STARS:
             await interaction.followup.send(
@@ -1661,11 +1721,18 @@ def setup_cards_commands(bot, deps):
                 "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
                 "LEFT JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
                 "WHERE uc.user_id = ? AND LOWER(c.name) LIKE ? "
-                "GROUP BY uc.card_id HAVING n > 1 AND lvl < 5 ORDER BY c.name LIMIT 25",
+                "GROUP BY uc.card_id HAVING n > 1 AND lvl < 5 ORDER BY c.name LIMIT 24",
                 (uid, f"%{q}%")).fetchall()
             conn.close()
-            return [app_commands.Choice(name=f"{r['name']} (x{r['n']}{' ' + '⭐'*r['lvl'] if r['lvl'] else ''})"[:100],
-                                          value=r["name"][:100]) for r in rows]
+            out = []
+            # Option "all" en tete (fusionne tous les doublons d'un coup)
+            if not q or "all" in q or "tout" in q:
+                out.append(app_commands.Choice(
+                    name="✨ all — fusionner TOUS les doublons disponibles", value="all"))
+            out += [app_commands.Choice(
+                name=f"{r['name']} (x{r['n']}{' ' + '⭐'*r['lvl'] if r['lvl'] else ''})"[:100],
+                value=r["name"][:100]) for r in rows]
+            return out[:25]
         except Exception:
             return []
 
