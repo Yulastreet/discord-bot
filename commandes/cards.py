@@ -1603,10 +1603,6 @@ def setup_cards_commands(bot, deps):
             await interaction.followup.send(f"Carte introuvable : `{nom}`.", ephemeral=True)
             return
         uid = interaction.user.id
-        if card.get("rarity") == "secret":
-            await interaction.followup.send(
-                "Les cartes **secrètes** ne peuvent pas être fusionnées.", ephemeral=True)
-            return
         level = card_fusion_get(uid, card["id"])
         if level >= FUSION_MAX_STARS:
             await interaction.followup.send(
@@ -1653,7 +1649,7 @@ def setup_cards_commands(bot, deps):
 
     @cardfuse_cmd.autocomplete("nom")
     async def cardfuse_autocomplete(interaction: discord.Interaction, current: str):
-        # Comme _dup_cards mais EXCLUT les cartes deja maxées (5⭐) et les secret
+        # Comme _dup_cards mais EXCLUT les cartes deja maxées (5⭐)
         from database import get_db
         try:
             conn = get_db(); c = conn.cursor()
@@ -1664,7 +1660,7 @@ def setup_cards_commands(bot, deps):
                 "  COALESCE(cc.fusion_level, 0) AS lvl "
                 "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
                 "LEFT JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
-                "WHERE uc.user_id = ? AND c.rarity != 'secret' AND LOWER(c.name) LIKE ? "
+                "WHERE uc.user_id = ? AND LOWER(c.name) LIKE ? "
                 "GROUP BY uc.card_id HAVING n > 1 AND lvl < 5 ORDER BY c.name LIMIT 25",
                 (uid, f"%{q}%")).fetchall()
             conn.close()
