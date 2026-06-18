@@ -910,7 +910,8 @@ def register_cards_owner_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import (guild_get, guild_members, get_db,
-                              compute_player_combat_stats, combat_power, user_card_count)
+                              compute_player_combat_stats, combat_power, user_card_count,
+                              guild_quests_weekly_get, guild_application_list)
         g = guild_get(gid)
         if not g:
             return jsonify({"error": "guilde introuvable"}), 404
@@ -935,10 +936,29 @@ def register_cards_owner_routes(app, deps):
                 "avatar": (mm["avatar_url"] if mm else None),
                 "role": m.get("role", "member"),
                 "xp_contributed": m.get("xp_contributed", 0),
+                "joined_at": m.get("joined_at"),
                 "power": pw, "cards": cards,
             })
+        # quetes hebdo + contributions (pseudos resolus)
+        weekly = guild_quests_weekly_get(gid)
+        for q in weekly:
+            for cc in q.get("contrib", []):
+                cm = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
+                               (str(cc["user_id"]),)).fetchone()
+                cc["user"] = (cm["username"] if cm and cm["username"] else str(cc["user_id"]))
+        # candidatures
+        apps = []
+        for a in guild_application_list(gid):
+            am = c.execute("SELECT username, avatar_url FROM guild_members WHERE user_id = ? LIMIT 1",
+                           (str(a["user_id"]),)).fetchone()
+            apps.append({
+                "user_id": str(a["user_id"]),
+                "user": (am["username"] if am and am["username"] else str(a["user_id"])),
+                "avatar": (am["avatar_url"] if am else None),
+                "created_at": a.get("created_at"),
+            })
         conn.close()
-        return jsonify({"guild": g, "members": members})
+        return jsonify({"guild": g, "members": members, "weekly": weekly, "applications": apps})
 
     @app.route("/api/owner/guilds/<int:gid>", methods=["POST"])
     def api_owner_guild_update(gid):
@@ -968,10 +988,39 @@ def register_cards_owner_routes(app, deps):
             fields["emblem"] = (data.get("emblem") or "").strip() or None
         if "owner_id" in data:
             fields["owner_id"] = (data.get("owner_id") or "").strip()
+        for k in ("min_power", "min_level"):
+            if k in data:
+                try:
+                    fields[k] = max(0, int(data.get(k)))
+                except (ValueError, TypeError):
+                    pass
+        if "open_join" in data:
+            fields["open_join"] = 1 if data.get("open_join") else 0
         if data.get("reset_rename"):
             fields["renamed_at"] = None
         guild_admin_update(gid, fields)
         return jsonify({"ok": True, "guild": guild_get(gid)})
+
+    @app.route("/api/owner/guilds/<int:gid>/application/<auid>", methods=["POST", "DELETE"])
+    def api_owner_guild_application(gid, auid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (guild_get, guild_application_remove, guild_add_member,
+                              guild_of_user, guild_member_count, get_guild_config)
+        if not guild_get(gid):
+            return jsonify({"error": "guilde introuvable"}), 404
+        if request.method == "DELETE":
+            guild_application_remove(gid, auid)
+            return jsonify({"ok": True})
+        # accept (owner force, ignore prerequis)
+        if guild_of_user(auid):
+            guild_application_remove(gid, auid)
+            return jsonify({"error": "déjà dans une guilde"}), 400
+        if guild_member_count(gid) >= int(get_guild_config().get("max_members", 30)):
+            return jsonify({"error": "guilde pleine"}), 400
+        guild_add_member(gid, auid, "member")
+        guild_application_remove(gid, auid)
+        return jsonify({"ok": True})
 
     @app.route("/api/owner/guilds/<int:gid>/member/<user_id>", methods=["POST", "DELETE"])
     def api_owner_guild_member(gid, user_id):
