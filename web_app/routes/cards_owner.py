@@ -242,6 +242,7 @@ def register_cards_owner_routes(app, deps):
                 "level": g["level"], "xp": g["xp"], "max_level": maxlv,
                 "members": g.get("members", 0), "bank": g.get("bank", 0),
                 "power": total_power,
+                "emblem": g.get("emblem"), "color": g.get("color"),
             })
         return jsonify({"items": out})
 

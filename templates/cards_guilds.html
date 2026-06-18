@@ -6,42 +6,76 @@
 
 {% block content %}
 <style>
-  .gl-wrap { max-width: 860px; }
-  .gl-head { margin-bottom: 16px; }
+  .gl-wrap { max-width: 1180px; margin: 0 auto; }
+  .gl-head { margin-bottom: 18px; }
   .gl-head h2 { margin:0 0 4px; }
   .gl-head p { color: var(--text-2); font-size: 13px; margin:0; }
-  .gl-row { display:flex; align-items:center; gap:14px; background:var(--bg-1);
-            border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
-  .gl-rank { font-size:18px; font-weight:900; width:38px; text-align:center; flex:none; }
-  .gl-main { flex:1; min-width:0; }
-  .gl-name { font-weight:700; font-size:15px; }
-  .gl-tag { color: var(--accent); font-weight:700; font-size:12px; }
-  .gl-sub { color: var(--text-2); font-size:12px; margin-top:2px; }
-  .gl-bar { height:7px; border-radius:6px; background:var(--bg-2); overflow:hidden; margin-top:7px; }
-  .gl-bar > i { display:block; height:100%; background:linear-gradient(90deg,#b9f23a,#7bdc6b); }
-  .gl-lvl { font-size:20px; font-weight:900; color:var(--accent); flex:none; text-align:center; min-width:54px; }
-  .gl-lvl small { display:block; font-size:10px; color:var(--text-3); font-weight:600; text-transform:uppercase; }
+
+  .gl-row { display:flex; align-items:center; gap:18px; position:relative; overflow:hidden;
+            background:var(--bg-1); border:1px solid var(--border); border-radius:16px;
+            padding:16px 22px; margin-bottom:0; }
+  /* halo couleur de guilde a gauche */
+  .gl-row::before { content:""; position:absolute; inset:0 auto 0 0; width:5px;
+                    background:var(--gcol, #b9f23a); }
+
+  /* --- partie gauche : crest + identite --- */
+  .gl-left { display:flex; align-items:center; gap:16px; flex:none; min-width:300px; }
+  .gl-rank { font-size:24px; font-weight:900; width:30px; text-align:center; flex:none;
+             filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  .gl-crest { width:58px; height:58px; border-radius:16px; flex:none; display:grid;
+              place-items:center; font-size:30px; position:relative;
+              background:linear-gradient(135deg, color-mix(in srgb, var(--gcol,#b9f23a) 34%, transparent),
+                         color-mix(in srgb, var(--gcol,#b9f23a) 8%, var(--bg-2)));
+              border:1px solid color-mix(in srgb, var(--gcol,#b9f23a) 45%, var(--border));
+              box-shadow: inset 0 0 18px color-mix(in srgb, var(--gcol,#b9f23a) 18%, transparent); }
+  .gl-crest .gl-crest-letter { font-weight:900; font-size:26px; color:var(--gcol,#b9f23a); }
+  .gl-id { min-width:0; }
+  .gl-name { font-weight:800; font-size:19px; line-height:1.1; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .gl-tag { color: var(--gcol,#b9f23a); font-weight:800; font-size:12px; letter-spacing:.04em;
+            border:1px solid color-mix(in srgb, var(--gcol,#b9f23a) 50%, transparent);
+            border-radius:6px; padding:1px 7px; background:color-mix(in srgb, var(--gcol,#b9f23a) 12%, transparent); }
+  .gl-chips { display:flex; gap:7px; margin-top:8px; flex-wrap:wrap; }
+  .gl-chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600;
+             color:var(--text-2); background:var(--bg-2); border:1px solid var(--border);
+             border-radius:999px; padding:3px 10px; }
+  .gl-chip b { color:var(--text); font-weight:800; }
+
+  .gl-power { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:0; }
+  .gl-power .gl-pw-lbl { font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; }
+  .gl-power .gl-pw-digits { display:flex; align-items:center; gap:1px; }
+  .gl-power img { height:50px; width:auto; display:block; }
+
+  .gl-lvl { flex:none; text-align:center; min-width:64px;
+            display:flex; flex-direction:column; align-items:center; }
+  .gl-lvl .gl-lvl-n { font-size:30px; font-weight:900; color:var(--gcol,#b9f23a); line-height:1; }
+  .gl-lvl small { font-size:10px; color:var(--text-3); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+  .gl-caret { flex:none; color:var(--text-3); font-size:14px; transition:transform .18s; width:14px; }
+
   .gl-empty { color: var(--text-2); padding:30px; text-align:center; }
-  .gl-item { margin-bottom:10px; }
-  .gl-item .gl-row { margin-bottom:0; cursor:pointer; transition:border-color .15s, background .15s; }
-  .gl-item .gl-row:hover { border-color:var(--accent); }
-  .gl-caret { flex:none; color:var(--text-3); font-size:13px; transition:transform .18s; }
+  .gl-item { margin-bottom:12px; }
+  .gl-item .gl-row { cursor:pointer; transition:border-color .15s, transform .12s, box-shadow .15s; }
+  .gl-item .gl-row:hover { border-color:var(--gcol,#b9f23a);
+                           box-shadow:0 6px 22px color-mix(in srgb, var(--gcol,#b9f23a) 14%, transparent); }
   .gl-item.open .gl-caret { transform:rotate(90deg); }
   .gl-members { display:none; border:1px solid var(--border); border-top:none;
-                border-radius:0 0 12px 12px; background:var(--bg-2); padding:6px 10px; }
+                border-radius:0 0 16px 16px; background:var(--bg-2); padding:6px 14px; }
   .gl-item.open .gl-members { display:block; }
-  .gl-item.open .gl-row { border-radius:12px 12px 0 0; border-bottom-color:transparent; }
-  .gl-m { display:flex; align-items:center; gap:10px; padding:8px 6px; font-size:13px; }
+  .gl-item.open .gl-row { border-radius:16px 16px 0 0; border-bottom-color:transparent; }
+  .gl-m { display:flex; align-items:center; gap:10px; padding:9px 6px; font-size:13px; }
   .gl-m + .gl-m { border-top:1px solid var(--border); }
-  .gl-m-av { width:28px; height:28px; border-radius:50%; flex:none; background:var(--bg-1); object-fit:cover; }
+  .gl-m-av { width:30px; height:30px; border-radius:50%; flex:none; background:var(--bg-1); object-fit:cover; }
   .gl-m-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .gl-m-role { font-size:11px; color:var(--text-3); }
   .gl-m-stat { color:var(--text-2); font-size:12px; flex:none; }
-  .gl-power { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:0; }
-  .gl-power .gl-pw-lbl { font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; }
-  .gl-power .gl-pw-digits { display:flex; align-items:center; gap:1px; }
-  .gl-power img { height:46px; width:auto; display:block; }
-  @media (max-width:680px){ .gl-power img { height:30px; } }
+
+  @media (max-width:760px){
+    .gl-row { flex-wrap:wrap; gap:12px; padding:14px 16px; }
+    .gl-left { min-width:0; flex:1; }
+    .gl-power { order:3; flex-basis:100%; flex-direction:row; gap:8px; justify-content:flex-start; }
+    .gl-power img { height:32px; }
+    .gl-crest { width:48px; height:48px; font-size:24px; }
+    .gl-name { font-size:16px; }
+  }
 </style>
 
 <div class="gl-wrap">
@@ -60,6 +94,9 @@ function powerDigits(n){
 }
 function fmt(n){return (n||0).toLocaleString('fr-FR').replace(/ /g,' ');}
 
+const GCOLORS = { lime:'#b9f23a', rouge:'#ff4d4d', bleu:'#4c8dff', vert:'#4ade80',
+  jaune:'#f2d23a', violet:'#a86dff', rose:'#ff5fa2', orange:'#ffa726', cyan:'#22d3ee', blanc:'#e8e8e8' };
+
 async function load(){
   try{
     const r = await fetch('/api/public/guilds/top');
@@ -69,20 +106,31 @@ async function load(){
     if(!items.length){ el.innerHTML = '<div class="gl-empty">Aucune guilde pour le moment. Crée la tienne avec <code>/guild create</code> !</div>'; return; }
     el.innerHTML = items.map((g,i)=>{
       const rank = i===0?'🥇':i===1?'🥈':i===2?'🥉':('#'+(i+1));
-      const tag = g.tag ? ` <span class="gl-tag">[${esc(g.tag)}]</span>` : '';
+      const tag = g.tag ? `<span class="gl-tag">${esc(g.tag)}</span>` : '';
       const maxed = g.level >= g.max_level;
-      return `<div class="gl-item" data-gid="${g.id}">
+      const gcol = GCOLORS[g.color] || '#b9f23a';
+      const crest = g.emblem
+        ? esc(g.emblem)
+        : `<span class="gl-crest-letter">${esc((g.name||'?').slice(0,1).toUpperCase())}</span>`;
+      return `<div class="gl-item" data-gid="${g.id}" style="--gcol:${gcol}">
         <div class="gl-row" onclick="toggleGuild(this.parentNode, ${g.id})">
-          <div class="gl-rank">${rank}</div>
-          <div class="gl-main">
-            <div class="gl-name">${esc(g.name)}${tag}</div>
-            <div class="gl-sub">${g.members} membre(s) · 💰 ${fmt(g.bank)} ✨ · ${fmt(g.xp)} XP total</div>
+          <div class="gl-left">
+            <div class="gl-rank">${rank}</div>
+            <div class="gl-crest">${crest}</div>
+            <div class="gl-id">
+              <div class="gl-name">${esc(g.name)}${tag}</div>
+              <div class="gl-chips">
+                <span class="gl-chip">👥 <b>${g.members}</b> membre(s)</span>
+                <span class="gl-chip">💰 <b>${fmt(g.bank)}</b> ✨</span>
+                <span class="gl-chip">📈 <b>${fmt(g.xp)}</b> XP</span>
+              </div>
+            </div>
           </div>
           <div class="gl-power">
-            <span class="gl-pw-lbl">⚡ Puissance</span>
+            <span class="gl-pw-lbl">⚡ Puissance totale</span>
             <span class="gl-pw-digits">${powerDigits(g.power || 0)}</span>
           </div>
-          <div class="gl-lvl">${g.level}<small>${maxed?'MAX':'niveau'}</small></div>
+          <div class="gl-lvl"><span class="gl-lvl-n">${g.level}</span><small>${maxed?'MAX':'niveau'}</small></div>
           <div class="gl-caret">▶</div>
         </div>
         <div class="gl-members"><div class="gl-empty" style="padding:14px;">…</div></div>
