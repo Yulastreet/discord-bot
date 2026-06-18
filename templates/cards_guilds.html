@@ -120,6 +120,7 @@ async function load(){
             <div class="gl-id">
               <div class="gl-name">${esc(g.name)}${tag}</div>
               <div class="gl-chips">
+                <span class="gl-chip">👑 <b>${esc(g.owner||'?')}</b></span>
                 <span class="gl-chip">👥 <b>${g.members}</b> membre(s)</span>
                 <span class="gl-chip">💰 <b>${fmt(g.bank)}</b> ✨</span>
                 <span class="gl-chip">📈 <b>${fmt(g.xp)}</b> XP</span>

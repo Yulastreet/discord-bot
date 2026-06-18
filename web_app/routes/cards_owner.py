@@ -225,9 +225,10 @@ def register_cards_owner_routes(app, deps):
     @app.route("/api/public/guilds/top", methods=["GET"])
     def api_public_guilds_top():
         from database import (guild_top, get_guild_config, guild_member_ids,
-                              compute_player_combat_stats, combat_power)
+                              compute_player_combat_stats, combat_power, get_db)
         cfg = get_guild_config()
         maxlv = int(cfg.get("max_level", 60))
+        conn = get_db(); c = conn.cursor()
         out = []
         for g in guild_top(50):
             total_power = 0
@@ -237,13 +238,22 @@ def register_cards_owner_routes(app, deps):
                     total_power += combat_power(st["hp"], st["atk"])
                 except Exception:
                     pass
+            owner_name = "Inconnu"
+            owner_id = g.get("owner_id")
+            if owner_id:
+                om = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
+                               (str(owner_id),)).fetchone()
+                if om and om["username"]:
+                    owner_name = om["username"]
             out.append({
                 "id": g["id"], "name": g["name"], "tag": g.get("tag"),
                 "level": g["level"], "xp": g["xp"], "max_level": maxlv,
                 "members": g.get("members", 0), "bank": g.get("bank", 0),
                 "power": total_power,
                 "emblem": g.get("emblem"), "color": g.get("color"),
+                "owner": owner_name,
             })
+        conn.close()
         return jsonify({"items": out})
 
     @app.route("/assets/power-digit/<digit>")
