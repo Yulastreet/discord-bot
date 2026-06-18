@@ -2331,6 +2331,69 @@ def setup_cards_commands(bot, deps):
         return embed
 
 
+    def _build_trade_image(trade_id: int, sender_id: int, receiver_id: int):
+        """Compose une image des cartes du trade : rangee du haut = cartes offertes
+        (rendues avec bordure/etoiles du proposeur), rangee du bas = cartes demandees
+        (rendues avec celles du destinataire). Retourne un chemin local ou None."""
+        import os
+        from PIL import Image, ImageDraw
+        from services.card_render import _ROOT
+        from services.card_profile import _card_image_for
+        try:
+            offer = card_trade_items(trade_id, side="offer")
+            request = card_trade_items(trade_id, side="request")
+
+            def _imgs(items, owner_id):
+                out = []
+                for it in items:
+                    im = _card_image_for(owner_id, it["card_id"])
+                    if im is not None:
+                        out.append((im, int(it.get("qty", 1) or 1)))
+                return out
+
+            offer_imgs = _imgs(offer, sender_id)
+            req_imgs = _imgs(request, receiver_id)
+            if not offer_imgs and not req_imgs:
+                return None
+
+            cw, ch = 200, 300
+            gap, pad, sep = 18, 24, 36
+
+            def _row_w(imgs):
+                k = max(1, len(imgs))
+                return pad * 2 + k * cw + (k - 1) * gap
+
+            W = max(_row_w(offer_imgs), _row_w(req_imgs), 480)
+            H = pad * 2 + ch * 2 + sep
+            canvas = Image.new("RGBA", (W, H), (20, 22, 28, 255))
+            d = ImageDraw.Draw(canvas)
+
+            def _place_row(imgs, y):
+                total = len(imgs) * cw + max(0, len(imgs) - 1) * gap
+                x0 = (W - total) // 2
+                for i, (im, qty) in enumerate(imgs):
+                    r = im.convert("RGBA").resize((cw, ch), Image.LANCZOS)
+                    x = x0 + i * (cw + gap)
+                    canvas.paste(r, (x, y), r)
+                    if qty > 1:
+                        d.text((x + 8, y + 6), f"x{qty}", fill=(255, 255, 255, 255))
+
+            _place_row(offer_imgs, pad)
+            _place_row(req_imgs, pad + ch + sep)
+            # ligne de separation lime entre les 2 rangees
+            ly = pad + ch + sep // 2
+            d.line([(pad, ly), (W - pad, ly)], fill=(200, 240, 80, 200), width=3)
+
+            out_dir = os.path.join(_ROOT, "static", "card_trades")
+            os.makedirs(out_dir, exist_ok=True)
+            out = os.path.join(out_dir, f"{trade_id}.png")
+            canvas.convert("RGB").save(out, "PNG", optimize=True)
+            return out
+        except Exception as e:
+            print(f"[trade] image err: {e}")
+            return None
+
+
     class TradeView(discord.ui.View):
         def __init__(self, trade_id: int, sender_id: int, receiver_id: int):
             super().__init__(timeout=24 * 3600)
@@ -2421,6 +2484,16 @@ def setup_cards_commands(bot, deps):
                                  is_counter=True, original_trade_id=self.trade_id,
                                  view_to_disable=self)
             await interaction.response.send_modal(modal)
+
+        @discord.ui.button(label="Voir cartes", style=discord.ButtonStyle.secondary, emoji="🃏", row=1)
+        async def view_cards_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            path = _build_trade_image(self.trade_id, self.sender_id, self.receiver_id)
+            if not path:
+                await interaction.followup.send("Aucune carte à afficher pour ce trade.", ephemeral=True)
+                return
+            await interaction.followup.send(
+                file=discord.File(path, filename=f"trade_{self.trade_id}.png"), ephemeral=True)
 
 
     class TradeModal(discord.ui.Modal, title="Proposer un trade"):
