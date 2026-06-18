@@ -289,6 +289,145 @@ def register_cards_owner_routes(app, deps):
         out.sort(key=lambda x: -x["power"])
         return jsonify({"items": out})
 
+    # ===== MA GUILDE (page membre, visibilite par role) =====
+    @app.route("/cards/my-guild")
+    def public_my_guild_page():
+        return render_template("cards_my_guild.html", active_nav="my_guild")
+
+    @app.route("/api/public/guilds/mine", methods=["GET"])
+    def api_public_my_guild():
+        from flask import session as _ses
+        from database import (guild_of_user, guild_member_role, guild_members, get_db,
+                              compute_player_combat_stats, combat_power, user_card_count,
+                              guild_quests_weekly_get, guild_quests_daily_get,
+                              guild_application_list, get_guild_config)
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        if not uid:
+            return jsonify({"in_guild": False, "auth": False})
+        g = guild_of_user(uid)
+        if not g:
+            return jsonify({"in_guild": False, "auth": True})
+        gid = g["id"]
+        role = guild_member_role(gid, uid)
+        can_manage = role in ("master", "officer")
+        is_master = role == "master"
+        cfg = get_guild_config()
+        conn = get_db(); c = conn.cursor()
+        members = []; total_power = 0
+        for m in guild_members(gid):
+            muid = m["user_id"]
+            mm = c.execute("SELECT username, avatar_url FROM guild_members "
+                           "WHERE user_id = ? LIMIT 1", (str(muid),)).fetchone()
+            try:
+                st = compute_player_combat_stats(muid)
+                pw = combat_power(st["hp"], st["atk"])
+            except Exception:
+                pw = 0
+            try:
+                cards = user_card_count(muid)
+            except Exception:
+                cards = 0
+            total_power += pw
+            row = {
+                "user_id": str(muid),
+                "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
+                "avatar": (mm["avatar_url"] if mm else None),
+                "role": m.get("role", "member"),
+                "power": pw, "cards": cards,
+                "xp_contributed": m.get("xp_contributed", 0),
+            }
+            if can_manage:
+                row["joined_at"] = m.get("joined_at")
+            members.append(row)
+        members.sort(key=lambda x: -x["power"])
+
+        # quetes hebdo : contributions visibles uniquement aux gestionnaires (pseudos resolus)
+        weekly = guild_quests_weekly_get(gid)
+        if not can_manage:
+            for q in weekly:
+                q.pop("contrib", None)
+        else:
+            for q in weekly:
+                for cc in q.get("contrib", []):
+                    cm = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
+                                   (str(cc["user_id"]),)).fetchone()
+                    cc["user"] = (cm["username"] if cm and cm["username"] else str(cc["user_id"]))
+        daily = guild_quests_daily_get(uid, gid)
+
+        apps = []
+        if can_manage:
+            for a in guild_application_list(gid):
+                am = c.execute("SELECT username, avatar_url FROM guild_members "
+                               "WHERE user_id = ? LIMIT 1", (str(a["user_id"]),)).fetchone()
+                apps.append({
+                    "user_id": str(a["user_id"]),
+                    "user": (am["username"] if am and am["username"] else str(a["user_id"])),
+                    "avatar": (am["avatar_url"] if am else None),
+                    "created_at": a.get("created_at"),
+                })
+        conn.close()
+
+        maxlv = int(cfg.get("max_level", 60))
+        # progression dans le niveau (cumul base*growth^(n-2))
+        base = float(cfg.get("level_base", 600)); growth = float(cfg.get("level_growth", 1.1))
+        def _cumul(lv):
+            return sum(base * (growth ** (n - 2)) for n in range(2, lv + 1)) if lv >= 2 else 0
+        cur_c = _cumul(g["level"]); nxt_c = _cumul(g["level"] + 1)
+        xp_into = max(0, g["xp"] - cur_c); xp_span = max(1, nxt_c - cur_c)
+        out = {
+            "in_guild": True, "auth": True, "role": role,
+            "can_manage": can_manage, "is_master": is_master,
+            "guild": {
+                "id": gid, "name": g["name"], "tag": g.get("tag"),
+                "level": g["level"], "xp": g["xp"], "max_level": maxlv,
+                "xp_into": int(xp_into), "xp_span": int(xp_span),
+                "bank": g.get("bank", 0), "color": g.get("color"), "emblem": g.get("emblem"),
+                "power": total_power,
+                "min_power": g.get("min_power") or 0,
+                "min_cards": g.get("min_level") or 0,
+                "open_join": bool(g.get("open_join")),
+            },
+            "members": members,
+            "weekly": weekly,
+            "daily": daily,
+            "applications": apps,
+        }
+        return jsonify(out)
+
+    @app.route("/api/public/guilds/mine/application/<auid>", methods=["POST", "DELETE"])
+    def api_my_guild_application(auid):
+        from flask import session as _ses
+        from database import (guild_of_user, guild_member_role, guild_application_remove,
+                              guild_add_member, guild_member_count, guild_of_user as _gou,
+                              guild_meets_requirements, get_guild_config)
+        dsc = _ses.get("discord") or {}
+        uid = dsc.get("user_id")
+        if not uid:
+            return jsonify({"error": "non connecté"}), 401
+        g = guild_of_user(uid)
+        if not g:
+            return jsonify({"error": "pas de guilde"}), 400
+        gid = g["id"]
+        if guild_member_role(gid, uid) not in ("master", "officer"):
+            return jsonify({"error": "réservé Maître/Officier"}), 403
+        if request.method == "DELETE":
+            guild_application_remove(gid, auid)
+            return jsonify({"ok": True})
+        # accept
+        cfg = get_guild_config()
+        if _gou(auid):
+            guild_application_remove(gid, auid)
+            return jsonify({"error": "déjà dans une guilde"}), 400
+        if guild_member_count(gid) >= int(cfg.get("max_members", 30)):
+            return jsonify({"error": "guilde pleine"}), 400
+        ok, reason = guild_meets_requirements(gid, auid)
+        if not ok:
+            return jsonify({"error": f"prérequis non remplis : {reason}"}), 400
+        guild_add_member(gid, auid, "member")
+        guild_application_remove(gid, auid)
+        return jsonify({"ok": True})
+
     # ===== ROUE DE LA CHANCE QUOTIDIENNE =====
     @app.route("/cards/wheel")
     def public_cards_wheel_page():

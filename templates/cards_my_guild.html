@@ -1,0 +1,179 @@
+{% extends "_base.html" %}
+{% set active_nav = 'my_guild' %}
+
+{% block title %}Ma Guilde · TookBot{% endblock %}
+{% block crumb %}Ma Guilde{% endblock %}
+
+{% block content %}
+<style>
+  .mg-wrap { max-width: 1100px; margin:0 auto; }
+  .mg-empty { color:var(--text-2); padding:46px; text-align:center; background:var(--bg-1);
+              border:1px solid var(--border); border-radius:16px; }
+  .mg-hero { display:flex; align-items:center; gap:18px; position:relative; overflow:hidden;
+             background:var(--bg-1); border:1px solid var(--border); border-radius:18px; padding:20px 24px; margin-bottom:16px; }
+  .mg-hero::before { content:""; position:absolute; inset:0 auto 0 0; width:6px; background:var(--gcol,#b9f23a); }
+  .mg-crest { width:72px; height:72px; border-radius:18px; flex:none; display:grid; place-items:center; font-size:38px;
+              background:linear-gradient(135deg, color-mix(in srgb, var(--gcol,#b9f23a) 34%, transparent), color-mix(in srgb, var(--gcol,#b9f23a) 8%, var(--bg-2)));
+              border:1px solid color-mix(in srgb, var(--gcol,#b9f23a) 45%, var(--border)); }
+  .mg-crest .l { font-weight:900; font-size:32px; color:var(--gcol,#b9f23a); }
+  .mg-hid { flex:1; min-width:0; }
+  .mg-name { font-size:24px; font-weight:900; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .mg-tag { color:var(--gcol,#b9f23a); font-weight:800; font-size:13px; border:1px solid color-mix(in srgb, var(--gcol,#b9f23a) 50%, transparent);
+            border-radius:7px; padding:2px 8px; background:color-mix(in srgb, var(--gcol,#b9f23a) 12%, transparent); }
+  .mg-role-badge { font-size:12px; font-weight:700; color:var(--text-2); }
+  .mg-bar { height:9px; border-radius:6px; background:var(--bg-2); overflow:hidden; margin-top:10px; max-width:480px; }
+  .mg-bar > i { display:block; height:100%; background:linear-gradient(90deg,var(--gcol,#b9f23a),#7bdc6b); }
+  .mg-meta { color:var(--text-2); font-size:12px; margin-top:6px; }
+  .mg-power { flex:none; text-align:center; }
+  .mg-power .lbl { font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; }
+  .mg-power .digits { display:flex; gap:1px; justify-content:center; margin-top:3px; }
+  .mg-power img { height:42px; }
+  .mg-grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:820px){ .mg-grid { grid-template-columns:1fr; } }
+  .mg-card { background:var(--bg-1); border:1px solid var(--border); border-radius:16px; padding:18px; margin-bottom:16px; }
+  .mg-card h3 { margin:0 0 12px; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .mg-q { padding:10px 0; border-top:1px solid var(--border); }
+  .mg-q:first-of-type { border-top:none; }
+  .mg-q-top { display:flex; justify-content:space-between; gap:10px; font-size:13px; font-weight:600; }
+  .mg-q-bar { height:7px; border-radius:6px; background:var(--bg-2); overflow:hidden; margin-top:6px; }
+  .mg-q-bar > i { display:block; height:100%; background:linear-gradient(90deg,#b9f23a,#7bdc6b); }
+  .mg-q-bar.done > i { background:linear-gradient(90deg,#4ade80,#22c55e); }
+  .mg-q-contrib { font-size:11px; color:var(--text-3); margin-top:5px; }
+  .mg-m { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--border); font-size:13px; }
+  .mg-m:first-of-type { border-top:none; }
+  .mg-m-av { width:30px; height:30px; border-radius:50%; flex:none; object-fit:cover; background:var(--bg-2); }
+  .mg-m-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mg-m-sub { font-size:11px; color:var(--text-3); }
+  .mg-m-stat { color:var(--text-2); font-size:12px; flex:none; text-align:right; }
+  .mg-app { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--border); }
+  .mg-app:first-of-type { border-top:none; }
+  .mg-chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:var(--text-2);
+             background:var(--bg-2); border:1px solid var(--border); border-radius:999px; padding:3px 10px; }
+  .mg-chip b { color:var(--text); }
+</style>
+
+<div class="mg-wrap" id="mgRoot">
+  <div class="mg-empty">Chargement…</div>
+</div>
+
+<script>
+const GCOLORS = { lime:'#b9f23a', rouge:'#ff4d4d', bleu:'#4c8dff', vert:'#4ade80', jaune:'#f2d23a',
+  violet:'#a86dff', rose:'#ff5fa2', orange:'#ffa726', cyan:'#22d3ee', blanc:'#e8e8e8' };
+const ROLE = { master:'👑 Maître', officer:'🔧 Officier', member:'▫️ Membre' };
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(n){return (n||0).toLocaleString('fr-FR');}
+function powerDigits(n){ return String(Math.max(0,Math.round(n))).split('').map(d=>`<img src="/static/power_digits/${d}.png" alt="${d}">`).join(''); }
+function fmtDate(s){ if(!s) return '—'; const d=new Date(s.replace(' ','T')); return isNaN(d)?esc(s):d.toLocaleDateString('fr-FR'); }
+
+let DATA = null;
+
+async function load(){
+  const r = await fetch('/api/public/guilds/mine');
+  let d; try { d = await r.json(); } catch(e){ d = {in_guild:false}; }
+  DATA = d;
+  const root = document.getElementById('mgRoot');
+  if(d.auth === false){ root.innerHTML = '<div class="mg-empty">Connecte-toi pour voir ta guilde.</div>'; return; }
+  if(!d.in_guild){ root.innerHTML = '<div class="mg-empty">Tu n\'es dans aucune guilde.<br>Rejoins-en une avec <code>/guild apply</code> ou crée la tienne avec <code>/guild create</code>.</div>'; return; }
+  render(d);
+}
+
+function questBlock(q, showContrib){
+  const prog = Math.min(q.progress, q.target);
+  const pct = Math.min(100, Math.round(100*prog/q.target));
+  const reward = `+${fmt(q.xp)} XP` + (q.bank ? ` · +${fmt(q.bank)} ✨` : '');
+  let contrib = '';
+  if(showContrib && q.contrib && q.contrib.length){
+    contrib = `<div class="mg-q-contrib">Top : ` + q.contrib.slice(0,3).map(c=>`${esc(c.user||c.user_id)} (${fmt(c.contrib)})`).join(' · ') + `</div>`;
+  }
+  return `<div class="mg-q">
+    <div class="mg-q-top"><span>${q.done?'✅':'⬜'} ${esc(q.label)}</span><span>${fmt(prog)}/${fmt(q.target)}</span></div>
+    <div class="mg-q-bar ${q.done?'done':''}"><i style="width:${pct}%"></i></div>
+    <div class="mg-q-contrib">${reward}</div>${contrib}
+  </div>`;
+}
+
+function render(d){
+  const g = d.guild, gcol = GCOLORS[g.color] || '#b9f23a';
+  const crest = g.emblem ? esc(g.emblem) : `<span class="l">${esc((g.name||'?').slice(0,1).toUpperCase())}</span>`;
+  const maxed = g.level >= g.max_level;
+  const canManage = d.can_manage, isMaster = d.is_master;
+
+  // hero
+  let html = `<div class="mg-hero" style="--gcol:${gcol}">
+    <div class="mg-crest">${crest}</div>
+    <div class="mg-hid">
+      <div class="mg-name">${esc(g.name)} ${g.tag?`<span class="mg-tag">${esc(g.tag)}</span>`:''}
+        <span class="mg-role-badge">· ${ROLE[d.role]||d.role}</span></div>
+      <div class="mg-bar"><i style="width:${maxed?100:Math.min(100,Math.round(100*(g.xp_into||0)/(g.xp_span||1)))}%"></i></div>
+      <div class="mg-meta">Niveau <b>${g.level}</b>${maxed?' (MAX)':''} · ${fmt(g.xp)} XP · 💰 ${fmt(g.bank)} ✨ · 👥 ${d.members.length} membres</div>
+    </div>
+    <div class="mg-power">
+      <div class="lbl">⚡ Puissance totale</div>
+      <div class="digits">${powerDigits(g.power)}</div>
+    </div>
+  </div>`;
+
+  html += `<div class="mg-grid">`;
+
+  // daily quests (own)
+  html += `<div class="mg-card"><h3>📜 Mes quêtes du jour</h3>` +
+    (d.daily||[]).map(q=>questBlock(q,false)).join('') + `</div>`;
+
+  // weekly quests (collective)
+  html += `<div class="mg-card"><h3>📅 Quêtes hebdomadaires de guilde</h3>` +
+    (d.weekly||[]).map(q=>questBlock(q, canManage)).join('') + `</div>`;
+
+  html += `</div>`; // end grid
+
+  // members
+  html += `<div class="mg-card"><h3>👥 Membres (${d.members.length})</h3>` +
+    d.members.map(m=>{
+      const av = m.avatar ? `<img class="mg-m-av" src="${esc(m.avatar)}">` : `<div class="mg-m-av"></div>`;
+      const joined = (canManage && m.joined_at) ? ` · inscrit le ${fmtDate(m.joined_at)}` : '';
+      return `<div class="mg-m">${av}
+        <div class="mg-m-name">${esc(m.user)}<div class="mg-m-sub">${ROLE[m.role]||m.role}${joined}</div></div>
+        <div class="mg-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)}${canManage?`<div class="mg-m-sub">${fmt(m.xp_contributed)} XP donnés</div>`:''}</div>
+      </div>`;
+    }).join('') + `</div>`;
+
+  // applications (managers)
+  if(canManage){
+    html += `<div class="mg-card"><h3>📨 Candidatures (${d.applications.length})</h3>`;
+    if(!d.applications.length){ html += `<div class="mg-m-sub">Aucune candidature en attente.</div>`; }
+    else {
+      html += d.applications.map(a=>{
+        const av = a.avatar ? `<img class="mg-m-av" src="${esc(a.avatar)}">` : `<div class="mg-m-av"></div>`;
+        return `<div class="mg-app" data-uid="${a.user_id}">${av}
+          <div class="mg-m-name">${esc(a.user)}<div class="mg-m-sub">candidaté le ${fmtDate(a.created_at)}</div></div>
+          <button class="btn btn-primary" onclick="appAct('${a.user_id}',true)">✅ Accepter</button>
+          <button class="btn btn-danger" onclick="appAct('${a.user_id}',false)">❌</button>
+        </div>`;
+      }).join('');
+    }
+    html += `</div>`;
+  }
+
+  // config / prereqs (master only display)
+  html += `<div class="mg-card"><h3>🚪 Accès & prérequis</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <span class="mg-chip">Entrée : <b>${g.open_join?'libre':'sur candidature'}</b></span>
+      <span class="mg-chip">⚡ Puissance min : <b>${fmt(g.min_power)}</b></span>
+      <span class="mg-chip">🎴 Cartes min : <b>${fmt(g.min_cards)}</b></span>
+    </div>
+    ${isMaster?'<div class="mg-m-sub" style="margin-top:8px;">Modifiable via <code>/guildprofile</code> → Guilde customisation → Prérequis &amp; accès.</div>':''}
+  </div>`;
+
+  document.getElementById('mgRoot').innerHTML = html;
+}
+
+async function appAct(uid, accept){
+  if(!accept && !confirm('Refuser cette candidature ?')) return;
+  const r = await fetch(`/api/public/guilds/mine/application/${uid}`, { method: accept?'POST':'DELETE' });
+  const d = await r.json();
+  if(d.ok){ load(); }
+  else alert(d.error || 'Erreur');
+}
+window.appAct = appAct;
+load();
+</script>
+{% endblock %}
