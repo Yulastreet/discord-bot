@@ -37,9 +37,11 @@
   .gl-m-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .gl-m-role { font-size:11px; color:var(--text-3); }
   .gl-m-stat { color:var(--text-2); font-size:12px; flex:none; }
-  .gl-power { display:flex; align-items:center; gap:0; margin-top:5px; }
-  .gl-power img { height:22px; width:auto; display:block; }
-  .gl-power .gl-pw-lbl { font-size:11px; color:var(--text-3); margin-right:6px; text-transform:uppercase; letter-spacing:.04em; }
+  .gl-power { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:0; }
+  .gl-power .gl-pw-lbl { font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; }
+  .gl-power .gl-pw-digits { display:flex; align-items:center; gap:1px; }
+  .gl-power img { height:46px; width:auto; display:block; }
+  @media (max-width:680px){ .gl-power img { height:30px; } }
 </style>
 
 <div class="gl-wrap">
@@ -74,8 +76,11 @@ async function load(){
           <div class="gl-rank">${rank}</div>
           <div class="gl-main">
             <div class="gl-name">${esc(g.name)}${tag}</div>
-            <div class="gl-power"><span class="gl-pw-lbl">⚡ Puissance</span>${powerDigits(g.power || 0)}</div>
             <div class="gl-sub">${g.members} membre(s) · 💰 ${fmt(g.bank)} ✨ · ${fmt(g.xp)} XP total</div>
+          </div>
+          <div class="gl-power">
+            <span class="gl-pw-lbl">⚡ Puissance</span>
+            <span class="gl-pw-digits">${powerDigits(g.power || 0)}</span>
           </div>
           <div class="gl-lvl">${g.level}<small>${maxed?'MAX':'niveau'}</small></div>
           <div class="gl-caret">▶</div>
