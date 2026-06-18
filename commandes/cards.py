@@ -766,6 +766,11 @@ def setup_cards_commands(bot, deps):
             guild_quest_progress(uid, "roll", 1)
         except Exception as e:
             print(f"[roll guild xp] err: {e}")
+        try:
+            from database import roll_total_inc
+            roll_total_inc(uid, 1)
+        except Exception as e:
+            print(f"[roll total] err: {e}")
 
         # Embed minimaliste
         rarity = card.get("rarity", "common")
@@ -1788,7 +1793,12 @@ def setup_cards_commands(bot, deps):
 
         if target.display_avatar:
             embed.set_thumbnail(url=str(target.display_avatar.url))
-        embed.set_footer(text=f"Profil de {target.display_name}",
+        try:
+            from database import roll_total_get
+            _rt = roll_total_get(uid)
+        except Exception:
+            _rt = 0
+        embed.set_footer(text=f"Profil de {target.display_name} ｜ 🎲 {_fmt(_rt)} rolls effectués",
                           icon_url=str(target.display_avatar.url) if target.display_avatar else None)
         file = None
         has_cards = bool(profile and profile.get("left_id") and profile.get("mid_id") and profile.get("right_id"))

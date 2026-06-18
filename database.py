@@ -408,6 +408,11 @@ def init_db():
         rolled_at REAL NOT NULL
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_roll_events_uig ON roll_events(user_id, guild_id, rolled_at)")
+    # Compteur a vie du nombre de rolls effectues (roll_events est purge a 2h)
+    c.execute('''CREATE TABLE IF NOT EXISTS card_roll_total (
+        user_id TEXT PRIMARY KEY,
+        total   INTEGER DEFAULT 0
+    )''')
     c.execute('''CREATE TABLE IF NOT EXISTS roll_grant_state (
         user_id   TEXT PRIMARY KEY,
         consumed  INTEGER DEFAULT 0
@@ -3093,6 +3098,22 @@ def roll_events_add(user_id, guild_id):
     # purge vieux events (> 2h) pour ne pas gonfler la table
     c.execute("DELETE FROM roll_events WHERE rolled_at < ?", (_roll_time.time() - 7200,))
     conn.commit(); conn.close()
+
+
+def roll_total_inc(user_id, n=1):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_roll_total (user_id, total) VALUES (?, ?) "
+              "ON CONFLICT(user_id) DO UPDATE SET total = total + ?",
+              (str(user_id), int(n), int(n)))
+    conn.commit(); conn.close()
+
+
+def roll_total_get(user_id) -> int:
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT total FROM card_roll_total WHERE user_id = ?",
+                  (str(user_id),)).fetchone()
+    conn.close()
+    return int(r["total"]) if r else 0
 
 
 def roll_events_reset_all() -> int:
