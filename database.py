@@ -5428,12 +5428,21 @@ _DAILY_BY_KEY = {q["key"]: q for q in GUILD_DAILY_QUESTS}
 _WEEKLY_BY_KEY = {q["key"]: q for q in GUILD_WEEKLY_QUESTS}
 
 
+def _quest_paris_date():
+    """Date du jour en heure FRANCAISE (reset quetes a minuit Europe/Paris)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return _dt.datetime.now(ZoneInfo("Europe/Paris")).date()
+    except Exception:
+        return _dt.date.today()
+
+
 def _quest_day():
-    return _dt.date.today().isoformat()
+    return _quest_paris_date().isoformat()
 
 
 def _quest_week():
-    iso = _dt.date.today().isocalendar()
+    iso = _quest_paris_date().isocalendar()
     return f"{iso[0]}-W{iso[1]:02d}"
 
 
