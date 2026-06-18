@@ -1889,7 +1889,7 @@ def setup_cards_commands(bot, deps):
         class _WishlistView(discord.ui.View):
             def __init__(self, wl_items):
                 super().__init__(timeout=120)
-                for it in wl_items[:5]:
+                for it in wl_items[:25]:
                     btn = discord.ui.Button(
                         label=f"🗑 {it['name'][:70]}",
                         style=discord.ButtonStyle.danger)
