@@ -17,6 +17,9 @@ from database import (
     guild_bank_spend, guild_member_ids, roll_give_user,
     guild_set_color, guild_set_emblem, profile_color_hex, PROFILE_COLORS,
     guild_set_name, guild_quests_daily_get, guild_quests_weekly_get,
+    guild_admin_update, guild_application_add, guild_application_remove,
+    guild_application_list, guild_application_has, guild_application_count,
+    guild_meets_requirements,
 )
 import datetime as _dt
 import os as _os
@@ -172,6 +175,113 @@ def setup_guild_commands(bot, deps):
         guild_add_member(g["id"], uid, "member")
         await interaction.response.send_message(f"🛡️ Tu as rejoint **{g['name']}** !", ephemeral=True)
 
+    def _hop_remaining_h(uid, cfg):
+        """Heures restantes du cooldown anti guild-hopping, ou 0. Owner bypass."""
+        if _is_owner(uid):
+            return 0
+        la = guild_left_at(uid)
+        cd_h = int(cfg.get("hop_cooldown_h", 24))
+        if not la or cd_h <= 0:
+            return 0
+        try:
+            left = _dt.datetime.fromisoformat(la.replace("Z", ""))
+            delta_h = (_dt.datetime.utcnow() - left).total_seconds() / 3600
+            if delta_h < cd_h:
+                return int(cd_h - delta_h) + 1
+        except Exception:
+            pass
+        return 0
+
+    # ---- apply (candidature / entree libre) ----
+    @grp.command(name="apply", description="Candidater pour rejoindre une guilde")
+    @app_commands.describe(nom="Nom de la guilde")
+    async def g_apply(interaction: discord.Interaction, nom: str):
+        uid = interaction.user.id
+        cfg = get_guild_config()
+        if guild_of_user(uid):
+            await interaction.response.send_message("Tu es déjà dans une guilde.", ephemeral=True); return
+        g = guild_get_by_name(nom)
+        if not g:
+            await interaction.response.send_message("Guilde introuvable.", ephemeral=True); return
+        rem = _hop_remaining_h(uid, cfg)
+        if rem:
+            await interaction.response.send_message(
+                f"Tu as quitté une guilde récemment. Attends encore **{rem}h**.", ephemeral=True); return
+        if guild_member_count(g["id"]) >= int(cfg.get("max_members", 30)):
+            await interaction.response.send_message("Guilde pleine.", ephemeral=True); return
+        ok, reason = guild_meets_requirements(g["id"], uid)
+        if not ok:
+            await interaction.response.send_message(f"🚪 Prérequis non remplis : {reason}", ephemeral=True); return
+        if g.get("open_join"):
+            guild_add_member(g["id"], uid, "member")
+            guild_application_remove(g["id"], uid)
+            await interaction.response.send_message(
+                f"🛡️ Entrée libre : tu as rejoint **{g['name']}** !", ephemeral=True); return
+        if guild_application_has(g["id"], uid):
+            await interaction.response.send_message("Tu as déjà une candidature en attente ici.", ephemeral=True); return
+        guild_application_add(g["id"], uid)
+        await interaction.response.send_message(
+            f"📨 Candidature envoyée à **{g['name']}**. Un Maître/Officier doit l'accepter.", ephemeral=True)
+
+    # ---- applications (Maitre/Officier) ----
+    @grp.command(name="applications", description="Voir les candidatures à ta guilde (Maître/Officier)")
+    async def g_apps(interaction: discord.Interaction):
+        uid = interaction.user.id
+        g = guild_of_user(uid)
+        if not g:
+            await interaction.response.send_message("Tu n'es dans aucune guilde.", ephemeral=True); return
+        if not _is_officer(guild_member_role(g["id"], uid)):
+            await interaction.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
+        apps = guild_application_list(g["id"])
+        if not apps:
+            await interaction.response.send_message("Aucune candidature en attente.", ephemeral=True); return
+        await interaction.response.send_message(
+            f"📨 **{len(apps)}** candidature(s) pour **{g['name']}** :",
+            view=ApplicationsView(bot, g["id"]), ephemeral=True)
+
+    class ApplicationsView(discord.ui.View):
+        def __init__(self, bot, gid):
+            super().__init__(timeout=180)
+            self.gid = gid
+            for app in guild_application_list(gid)[:5]:
+                auid = app["user_id"]
+                u = bot.get_user(int(auid)) if str(auid).isdigit() else None
+                name = (u.display_name if u else str(auid))[:40]
+                acc = discord.ui.Button(label=f"✅ {name}", style=discord.ButtonStyle.success)
+                rej = discord.ui.Button(label="❌", style=discord.ButtonStyle.danger)
+                acc.callback = self._mk(auid, True)
+                rej.callback = self._mk(auid, False)
+                self.add_item(acc); self.add_item(rej)
+
+        def _mk(self, auid, accept):
+            async def cb(inter: discord.Interaction):
+                if not _is_officer(guild_member_role(self.gid, inter.user.id)):
+                    await inter.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
+                g = guild_get(self.gid)
+                if not g:
+                    await inter.response.send_message("Guilde dissoute.", ephemeral=True); return
+                if not accept:
+                    guild_application_remove(self.gid, auid)
+                    await inter.response.send_message(f"❌ Candidature de <@{auid}> refusée.",
+                                                      ephemeral=True,
+                                                      allowed_mentions=discord.AllowedMentions.none()); return
+                cfg = get_guild_config()
+                if guild_of_user(auid):
+                    guild_application_remove(self.gid, auid)
+                    await inter.response.send_message("Ce joueur est déjà dans une guilde.", ephemeral=True); return
+                if guild_member_count(self.gid) >= int(cfg.get("max_members", 30)):
+                    await inter.response.send_message("Guilde pleine.", ephemeral=True); return
+                ok, reason = guild_meets_requirements(self.gid, auid)
+                if not ok:
+                    await inter.response.send_message(f"Le joueur ne remplit plus les prérequis : {reason}",
+                                                      ephemeral=True); return
+                guild_add_member(self.gid, auid, "member")
+                guild_application_remove(self.gid, auid)
+                await inter.response.send_message(f"✅ <@{auid}> a rejoint la guilde !",
+                                                  ephemeral=True,
+                                                  allowed_mentions=discord.AllowedMentions.none())
+            return cb
+
     # ---- leave ----
     @grp.command(name="leave", description="Quitter ta guilde")
     async def g_leave(interaction: discord.Interaction):
@@ -304,6 +414,7 @@ def setup_guild_commands(bot, deps):
 
     @g_accept.autocomplete("nom")
     @g_info.autocomplete("nom")
+    @g_apply.autocomplete("nom")
     async def _guild_name_ac(interaction: discord.Interaction, current: str):
         try:
             q = (current or "").strip().lower()
@@ -581,6 +692,49 @@ def setup_guild_commands(bot, deps):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             guild_set_emblem(self.gid, None)
             await interaction.response.send_message("🗑️ Emblème retiré.", ephemeral=True)
+
+        @discord.ui.button(label="Prérequis & accès", emoji="🚪", style=discord.ButtonStyle.secondary)
+        async def reqs(self, interaction, btn):
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            await interaction.response.send_modal(GuildReqModal(self.gid))
+
+    class GuildReqModal(discord.ui.Modal, title="Prérequis d'entrée"):
+        def __init__(self, gid):
+            super().__init__()
+            self.gid = gid
+            g = guild_get(gid) or {}
+            self.pw_in = discord.ui.TextInput(
+                label="Puissance de combat minimum",
+                placeholder="0 = aucun prérequis", required=False,
+                default=str(g.get("min_power") or 0), max_length=12)
+            self.cards_in = discord.ui.TextInput(
+                label="Nombre de cartes minimum",
+                placeholder="0 = aucun prérequis", required=False,
+                default=str(g.get("min_level") or 0), max_length=8)
+            self.open_in = discord.ui.TextInput(
+                label="Entrée libre ? (oui / non)",
+                placeholder="oui = rejoint direct si prérequis OK ; non = candidature",
+                required=False, default=("oui" if g.get("open_join") else "non"), max_length=4)
+            self.add_item(self.pw_in); self.add_item(self.cards_in); self.add_item(self.open_in)
+
+        async def on_submit(self, interaction):
+            from database import guild_admin_update
+            if guild_member_role(self.gid, interaction.user.id) != "master":
+                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            def _n(v):
+                try: return max(0, int(str(v).strip() or 0))
+                except Exception: return 0
+            open_join = 1 if str(self.open_in.value).strip().lower() in ("oui", "yes", "o", "y", "1") else 0
+            guild_admin_update(self.gid, {
+                "min_power": _n(self.pw_in.value),
+                "min_level": _n(self.cards_in.value),
+                "open_join": open_join,
+            })
+            await interaction.response.send_message(
+                f"🚪 Prérequis mis à jour : puissance ≥ **{_n(self.pw_in.value)}**, "
+                f"cartes ≥ **{_n(self.cards_in.value)}**, "
+                f"entrée **{'libre' if open_join else 'sur candidature'}**.", ephemeral=True)
 
     class EmblemModal(discord.ui.Modal, title="Emblème de guilde"):
         def __init__(self, gid):
