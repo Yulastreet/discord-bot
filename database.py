@@ -5328,6 +5328,40 @@ def guild_set_name(gid, name):
     conn.commit(); conn.close()
 
 
+def guild_list_all(search=None):
+    """Toutes les guildes (admin) avec nb de membres. Filtre optionnel sur nom/tag."""
+    conn = get_db(); c = conn.cursor()
+    where = ""; params = []
+    if search:
+        where = "WHERE LOWER(g.name) LIKE ? OR LOWER(COALESCE(g.tag,'')) LIKE ?"
+        like = f"%{search.lower()}%"; params = [like, like]
+    rows = c.execute(
+        "SELECT g.*, (SELECT COUNT(*) FROM card_guild_member m WHERE m.guild_id = g.id) AS members "
+        f"FROM card_guild g {where} ORDER BY g.level DESC, g.xp DESC", params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+_GUILD_ADMIN_COLS = {"name", "tag", "level", "xp", "bank", "color", "emblem",
+                     "owner_id", "renamed_at"}
+
+
+def guild_admin_update(gid, fields):
+    """Update admin (owner dashboard) de colonnes whitelistees de card_guild."""
+    sets = []; params = []
+    for k, v in (fields or {}).items():
+        if k in _GUILD_ADMIN_COLS:
+            sets.append(f"{k} = ?")
+            params.append(v)
+    if not sets:
+        return False
+    params.append(int(gid))
+    conn = get_db(); c = conn.cursor()
+    c.execute(f"UPDATE card_guild SET {', '.join(sets)} WHERE id = ?", params)
+    conn.commit(); conn.close()
+    return True
+
+
 def guild_of_user(user_id):
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT g.* FROM card_guild g JOIN card_guild_member m ON m.guild_id = g.id "

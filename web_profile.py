@@ -173,6 +173,20 @@ def build_user_profile_payload(db, user_id, guild_id=None, is_owner=False):
     duel = db.execute("SELECT * FROM duel_profil WHERE user_id = ?", (user_id,)).fetchone()
 
     activity_guild = source_guild_id if scope == "guild" else None
+    # Guilde de cartes (club) du joueur - owner only
+    card_guild = None
+    if is_owner:
+        try:
+            cg = db.execute(
+                """SELECT g.id, g.name, g.tag, g.level, m.role
+                     FROM card_guild_member m JOIN card_guild g ON g.id = m.guild_id
+                    WHERE m.user_id = ?""",
+                (user_id,),
+            ).fetchone()
+            if cg:
+                card_guild = dict(cg)
+        except Exception:
+            card_guild = None
     return {
         "user": user,
         "scope": scope,
@@ -182,4 +196,5 @@ def build_user_profile_payload(db, user_id, guild_id=None, is_owner=False):
         "fav_channels": _fav_channels(db, user_id, activity_guild),
         "type_counts": _type_counts(db, user_id, activity_guild),
         "duel": _dict(duel),
+        "card_guild": card_guild,
     }

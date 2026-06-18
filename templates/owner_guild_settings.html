@@ -1,0 +1,155 @@
+{% extends "_base.html" %}
+{% set active_nav = 'owner_guild_settings' %}
+
+{% block title %}Guild Settings · Owner{% endblock %}
+{% block crumb %}Guild Settings{% endblock %}
+
+{% block content %}
+<style>
+  .gs-wrap { display:grid; grid-template-columns: 320px 1fr; gap:16px; align-items:start; }
+  @media (max-width: 860px){ .gs-wrap { grid-template-columns: 1fr; } }
+  .gs-list { background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:12px; }
+  .gs-search { width:100%; margin-bottom:10px; }
+  .gs-g { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; cursor:pointer; }
+  .gs-g:hover { background:var(--bg-2); }
+  .gs-g.active { background:var(--bg-2); outline:1px solid var(--accent); }
+  .gs-g-main { flex:1; min-width:0; }
+  .gs-g-name { font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gs-g-sub { color:var(--text-2); font-size:11px; }
+  .gs-g-lvl { font-weight:900; color:var(--accent); font-size:16px; flex:none; }
+  .gs-editor { background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .gs-empty { color:var(--text-2); padding:40px; text-align:center; }
+  .gs-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap:12px; margin-bottom:14px; }
+  .gs-f { display:flex; flex-direction:column; gap:5px; }
+  .gs-f label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-2); }
+  .gs-mem { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--border); font-size:13px; }
+  .gs-mem-av { width:30px; height:30px; border-radius:50%; background:var(--bg-2); object-fit:cover; flex:none; }
+  .gs-mem-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gs-mem select { font-size:12px; padding:3px 6px; }
+  #gsHint { font-size:13px; margin-left:10px; }
+</style>
+
+<div class="gs-wrap">
+  <div class="gs-list">
+    <input id="gsSearch" class="input gs-search" placeholder="🔍 Rechercher (nom / tag)…" oninput="gsLoadList()">
+    <div id="gsGuilds"><div class="gs-empty" style="padding:20px;">Chargement…</div></div>
+  </div>
+
+  <div class="gs-editor" id="gsEditor">
+    <div class="gs-empty">← Sélectionne une guilde à éditer.</div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['','lime','rouge','bleu','vert','jaune','violet','rose','orange','cyan','blanc'];
+let _gsList = [], _gsCur = null;
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function gsLoadList(){
+  const q = document.getElementById('gsSearch').value.trim();
+  const r = await fetch('/api/owner/guilds/list' + (q ? '?q='+encodeURIComponent(q) : ''));
+  const d = await r.json();
+  _gsList = d.items || [];
+  const el = document.getElementById('gsGuilds');
+  if(!_gsList.length){ el.innerHTML = '<div class="gs-empty" style="padding:20px;">Aucune guilde.</div>'; return; }
+  el.innerHTML = _gsList.map(g => `
+    <div class="gs-g ${_gsCur===g.id?'active':''}" data-id="${g.id}" onclick="gsOpen(${g.id})">
+      <div class="gs-g-main">
+        <div class="gs-g-name">${esc(g.name)}${g.tag?` [${esc(g.tag)}]`:''}</div>
+        <div class="gs-g-sub">${g.members} membre(s) · 💰 ${(g.bank||0).toLocaleString('fr')} ✨</div>
+      </div>
+      <div class="gs-g-lvl">${g.level}</div>
+    </div>`).join('');
+}
+
+async function gsOpen(gid){
+  _gsCur = gid;
+  document.querySelectorAll('.gs-g').forEach(e=>e.classList.toggle('active', +e.dataset.id===gid));
+  const ed = document.getElementById('gsEditor');
+  ed.innerHTML = '<div class="gs-empty">Chargement…</div>';
+  const r = await fetch('/api/owner/guilds/'+gid);
+  const d = await r.json();
+  if(d.error){ ed.innerHTML = '<div class="gs-empty">'+esc(d.error)+'</div>'; return; }
+  const g = d.guild, ms = d.members || [];
+  const colOpts = COLORS.map(c=>`<option value="${c}" ${(g.color||'')===c?'selected':''}>${c||'(défaut)'}</option>`).join('');
+  ed.innerHTML = `
+    <div class="row between" style="align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">🛡️ ${esc(g.name)} <span class="muted" style="font-size:13px;">#${g.id}</span></h2>
+      <span id="gsHint" class="muted"></span>
+    </div>
+    <div class="gs-grid">
+      <div class="gs-f"><label>Nom</label><input id="f_name" class="input" value="${esc(g.name)}"></div>
+      <div class="gs-f"><label>Tag</label><input id="f_tag" class="input" value="${esc(g.tag||'')}" maxlength="8"></div>
+      <div class="gs-f"><label>Niveau</label><input id="f_level" type="number" min="0" class="input" value="${g.level||0}"></div>
+      <div class="gs-f"><label>XP</label><input id="f_xp" type="number" min="0" class="input" value="${g.xp||0}"></div>
+      <div class="gs-f"><label>Banque ✨</label><input id="f_bank" type="number" min="0" class="input" value="${g.bank||0}"></div>
+      <div class="gs-f"><label>Couleur embed</label><select id="f_color" class="input">${colOpts}</select></div>
+      <div class="gs-f"><label>Emblème (emoji)</label><input id="f_emblem" class="input" value="${esc(g.emblem||'')}" maxlength="8"></div>
+      <div class="gs-f"><label>Owner ID</label><input id="f_owner" class="input" value="${esc(g.owner_id||'')}"></div>
+    </div>
+    <div class="row gap-2" style="flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="gsSave(${g.id})">💾 Enregistrer</button>
+      <button class="btn btn-secondary" onclick="gsResetRename(${g.id})">⟳ Reset cooldown renommage</button>
+    </div>
+    <h3 style="margin:18px 0 6px;font-size:15px;">👥 Membres (${ms.length})</h3>
+    <div>${ms.map(m=>gsMemberRow(g.id, m)).join('') || '<div class="muted">Aucun membre.</div>'}</div>
+  `;
+}
+
+function gsMemberRow(gid, m){
+  const av = m.avatar ? `<img class="gs-mem-av" src="${esc(m.avatar)}">` : '<div class="gs-mem-av"></div>';
+  const roles = ['master','officer','member'].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${r}</option>`).join('');
+  return `<div class="gs-mem">
+    ${av}
+    <div class="gs-mem-name">${esc(m.user)} <span class="muted" style="font-size:11px;">${m.user_id}</span><br>
+      <span class="muted" style="font-size:11px;">⚡ ${(m.power||0).toLocaleString('fr')} · 🎴 ${m.cards||0} · ${(m.xp_contributed||0).toLocaleString('fr')} XP</span></div>
+    <select class="input" onchange="gsSetRole(${gid},'${m.user_id}',this.value)">${roles}</select>
+    <button class="btn btn-danger" style="padding:4px 8px;" onclick="gsKick(${gid},'${m.user_id}')">Exclure</button>
+  </div>`;
+}
+
+async function gsSave(gid){
+  const body = {
+    name: document.getElementById('f_name').value,
+    tag: document.getElementById('f_tag').value,
+    level: +document.getElementById('f_level').value,
+    xp: +document.getElementById('f_xp').value,
+    bank: +document.getElementById('f_bank').value,
+    color: document.getElementById('f_color').value,
+    emblem: document.getElementById('f_emblem').value,
+    owner_id: document.getElementById('f_owner').value,
+  };
+  const h = document.getElementById('gsHint'); h.textContent = 'Sauvegarde…';
+  const r = await fetch('/api/owner/guilds/'+gid, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const d = await r.json();
+  h.textContent = d.ok ? '✅ Enregistré.' : ('❌ '+(d.error||'Erreur'));
+  if(d.ok) gsLoadList();
+}
+
+async function gsResetRename(gid){
+  const r = await fetch('/api/owner/guilds/'+gid, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({reset_rename:true})});
+  const d = await r.json();
+  document.getElementById('gsHint').textContent = d.ok ? '✅ Cooldown renommage reset.' : '❌ Erreur';
+}
+
+async function gsSetRole(gid, uid, role){
+  const r = await fetch(`/api/owner/guilds/${gid}/member/${uid}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role})});
+  const d = await r.json();
+  document.getElementById('gsHint').textContent = d.ok ? '✅ Rôle mis à jour.' : ('❌ '+(d.error||'Erreur'));
+}
+
+async function gsKick(gid, uid){
+  if(!confirm('Exclure ce membre de la guilde ?')) return;
+  const r = await fetch(`/api/owner/guilds/${gid}/member/${uid}`, {method:'DELETE'});
+  const d = await r.json();
+  if(d.ok){ gsOpen(gid); gsLoadList(); }
+}
+
+window.gsLoadList=gsLoadList; window.gsOpen=gsOpen; window.gsSave=gsSave;
+window.gsResetRename=gsResetRename; window.gsSetRole=gsSetRole; window.gsKick=gsKick;
+gsLoadList();
+// pre-selection via ?gid=
+const _pg = new URLSearchParams(location.search).get('gid');
+if(_pg) gsOpen(+_pg);
+</script>
+{% endblock %}

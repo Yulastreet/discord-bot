@@ -731,6 +731,108 @@ def register_cards_owner_routes(app, deps):
         set_guild_config(cfg)
         return jsonify({"ok": True})
 
+    # ===== GUILD SETTINGS (edition manuelle de n'importe quelle guilde) =====
+    @app.route("/owner/guild-settings")
+    def owner_guild_settings_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        return render_template("owner_guild_settings.html", active_nav="owner_guild_settings")
+
+    @app.route("/api/owner/guilds/list", methods=["GET"])
+    def api_owner_guilds_list():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import guild_list_all
+        q = (request.args.get("q") or "").strip() or None
+        return jsonify({"items": guild_list_all(q)})
+
+    @app.route("/api/owner/guilds/<int:gid>", methods=["GET"])
+    def api_owner_guild_get(gid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (guild_get, guild_members, get_db,
+                              compute_player_combat_stats, combat_power, user_card_count)
+        g = guild_get(gid)
+        if not g:
+            return jsonify({"error": "guilde introuvable"}), 404
+        conn = get_db(); c = conn.cursor()
+        members = []
+        for m in guild_members(gid):
+            uid = m["user_id"]
+            mm = c.execute("SELECT username, avatar_url FROM guild_members "
+                           "WHERE user_id = ? LIMIT 1", (str(uid),)).fetchone()
+            try:
+                st = compute_player_combat_stats(uid)
+                pw = combat_power(st["hp"], st["atk"])
+            except Exception:
+                pw = 0
+            try:
+                cards = user_card_count(uid)
+            except Exception:
+                cards = 0
+            members.append({
+                "user_id": str(uid),
+                "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
+                "avatar": (mm["avatar_url"] if mm else None),
+                "role": m.get("role", "member"),
+                "xp_contributed": m.get("xp_contributed", 0),
+                "power": pw, "cards": cards,
+            })
+        conn.close()
+        return jsonify({"guild": g, "members": members})
+
+    @app.route("/api/owner/guilds/<int:gid>", methods=["POST"])
+    def api_owner_guild_update(gid):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import guild_get, guild_admin_update
+        if not guild_get(gid):
+            return jsonify({"error": "guilde introuvable"}), 404
+        data = request.json or {}
+        fields = {}
+        if "name" in data:
+            nm = (data.get("name") or "").strip()
+            if len(nm) < 3:
+                return jsonify({"error": "nom trop court (3 min)"}), 400
+            fields["name"] = nm[:32]
+        if "tag" in data:
+            fields["tag"] = ((data.get("tag") or "").strip()[:8]) or None
+        for k in ("level", "xp", "bank"):
+            if k in data:
+                try:
+                    fields[k] = max(0, int(data.get(k)))
+                except (ValueError, TypeError):
+                    pass
+        if "color" in data:
+            fields["color"] = (data.get("color") or "").strip() or None
+        if "emblem" in data:
+            fields["emblem"] = (data.get("emblem") or "").strip() or None
+        if "owner_id" in data:
+            fields["owner_id"] = (data.get("owner_id") or "").strip()
+        if data.get("reset_rename"):
+            fields["renamed_at"] = None
+        guild_admin_update(gid, fields)
+        return jsonify({"ok": True, "guild": guild_get(gid)})
+
+    @app.route("/api/owner/guilds/<int:gid>/member/<user_id>", methods=["POST", "DELETE"])
+    def api_owner_guild_member(gid, user_id):
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import guild_get, guild_set_role, guild_remove_member, guild_member_role
+        if not guild_get(gid):
+            return jsonify({"error": "guilde introuvable"}), 404
+        if request.method == "DELETE":
+            guild_remove_member(gid, user_id)
+            return jsonify({"ok": True})
+        data = request.json or {}
+        role = (data.get("role") or "").strip()
+        if role not in ("master", "officer", "member"):
+            return jsonify({"error": "role invalide"}), 400
+        if not guild_member_role(gid, user_id):
+            return jsonify({"error": "pas membre de cette guilde"}), 400
+        guild_set_role(gid, user_id, role)
+        return jsonify({"ok": True})
+
 
     @app.route("/owner/cards/suggestions")
     def owner_cards_suggestions_page():

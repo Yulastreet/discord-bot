@@ -149,6 +149,7 @@
       <div>
         <div class="eyebrow">Cartes — admin</div>
         <div id="cardsAdminLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+        <div id="cardGuildInfo" style="font-size:var(--t-sm);margin-top:6px;"></div>
       </div>
     </div>
     <div class="row gap-3" style="flex-wrap:wrap;margin-top:8px;">
@@ -1099,6 +1100,19 @@ function display(data) {
   document.getElementById('xpToNext').textContent = fmtNum(remaining);
   document.getElementById('progressFill').style.width = progress + '%';
   document.getElementById('progressText').textContent = `${Math.round(progress)}% vers niv. ${u.level + 1}`;
+
+  // Guilde de cartes (club) - owner only
+  const cgEl = document.getElementById('cardGuildInfo');
+  if (cgEl) {
+    const cg = data.card_guild;
+    if (cg) {
+      const role = {master:'👑 Maître', officer:'🔧 Officier', member:'▫️ Membre'}[cg.role] || cg.role;
+      const tag = cg.tag ? ` [${profileEscapeHtml(cg.tag)}]` : '';
+      cgEl.innerHTML = `🛡️ Guilde : <a href="/owner/guild-settings?gid=${cg.id}" style="color:var(--accent);font-weight:700;">${profileEscapeHtml(cg.name)}${tag}</a> · niv ${cg.level} · ${role}`;
+    } else {
+      cgEl.innerHTML = `<span class="muted">🛡️ Aucune guilde de cartes.</span>`;
+    }
+  }
 
   // Activité sparkline
   renderSparkline(data.activity || []);
