@@ -217,26 +217,13 @@ def _build_battlefield(bid):
                 if img is not None:
                     _place_card(img, x0 + i * (cw + gap), top_y)
 
-        # Boss (bas centre, meme taille)
+        # Boss (bas centre, meme taille). PRIORITE AU RENDER LOCAL de la carte
+        # avatar (anti-liens-morts) : _load_base cherche card_renders/<card_id>
+        # puis tombe sur image_url http seulement si pas de render local.
         by = H - ch - 25
         bx = (W - cw) // 2
-        bimg = None
-        if boss.get("image_url") and str(boss["image_url"]).startswith("http"):
-            try:
-                import io, urllib.request
-                req = urllib.request.Request(boss["image_url"], headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=12) as r:
-                    _im = Image.open(io.BytesIO(r.read()))
-                    try:
-                        _im.seek(0)  # GIF/WEBP animé : 1ere frame
-                    except Exception:
-                        pass
-                    bimg = _im.convert("RGBA")
-            except Exception:
-                bimg = None
-        if bimg is None and boss.get("image_url"):
-            # fallback : carte locale si l'avatar du boss est une carte connue
-            bimg = _load_base(0, boss.get("image_url"))
+        bcid = boss.get("card_id")
+        bimg = _load_base(int(bcid) if bcid else 0, boss.get("image_url"))
         if bimg is not None:
             _place_card(bimg, bx, by)
 
