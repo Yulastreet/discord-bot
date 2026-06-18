@@ -41,17 +41,24 @@ _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
 
 _RARITY_RANK = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4, "secret": 5}
-_SORT_CYCLE = [None, "nom", "rareté", "étoiles"]
-_SORT_BTN_LBL = {None: "🔃 Trier", "nom": "🔤 Nom ↑", "rareté": "🎯 Rareté ↓", "étoiles": "⭐ Étoiles ↓"}
+_SORT_CYCLE = [None, "nom", "rareté", "étoiles", "optimisation"]
+_SORT_BTN_LBL = {None: "🔃 Trier", "nom": "🔤 Nom ↑", "rareté": "🎯 Rareté ↓",
+                 "étoiles": "⭐ Étoiles ↓", "optimisation": "⚡ Optimal"}
 
 
-def _sort_cards(rows, mode):
+def _sort_cards(rows, mode, boss_element=None):
     if mode == "nom":
         return sorted(rows, key=lambda c: c["name"].lower())
     if mode == "rareté":
         return sorted(rows, key=lambda c: -_RARITY_RANK.get(c.get("rarity", ""), 0))
     if mode == "étoiles":
         return sorted(rows, key=lambda c: -int(c.get("stars", 0)))
+    if mode == "optimisation":
+        return sorted(rows, key=lambda c: (
+            -element_matchup(c.get("element") or "", boss_element or ""),
+            -_RARITY_RANK.get(c.get("rarity", ""), 0),
+            -int(c.get("stars", 0)),
+        ))
     return rows
 
 # Fourchette de rareté de la carte "avatar" du boss selon le tier
@@ -694,7 +701,10 @@ class _CardPickerView(discord.ui.View):
             if cid not in grouped:
                 grouped[cid] = {**c, "count": 0, "stars": int(fmap.get(cid, 0))}
             grouped[cid]["count"] += 1
-        self.rows = _sort_cards(list(grouped.values()), self.sort_mode)
+        boss = card_boss_get(self.boss_id)
+        boss_elem = boss["element"] if boss else None
+        self.boss_element = boss_elem
+        self.rows = _sort_cards(list(grouped.values()), self.sort_mode, boss_element=boss_elem)
         self.total_pages = max(1, (len(self.rows) + 24) // 25)
         if self.page > self.total_pages:
             self.page = self.total_pages
@@ -718,6 +728,7 @@ class _CardPickerView(discord.ui.View):
     def build_embed(self):
         from commandes.cards import RARITY_EMOJIS
         page_rows = self.rows[(self.page - 1) * 25: self.page * 25]
+        opt_mode = self.sort_mode == "optimisation" and self.boss_element
         lines = []
         for c in page_rows:
             emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
@@ -726,15 +737,22 @@ class _CardPickerView(discord.ui.View):
             cnt = f" x{c['count']}" if c["count"] > 1 else ""
             stars = "⭐" * int(c.get("stars", 0))
             uni = c.get("universe") or "?"
-            lines.append(f"{pre} **{c['name']}**{stars}{cnt} · _{uni}_")
+            if opt_mode:
+                m = element_matchup(c.get("element") or "", self.boss_element)
+                match_tag = " 🔥" if m > 1 else (" 🟦" if m < 1 else "")
+            else:
+                match_tag = ""
+            lines.append(f"{pre} **{c['name']}**{stars}{cnt}{match_tag} · _{uni}_")
         elem_lbl = CARD_ELEMENT_LABELS.get(self.element, "tous") if self.element else "tous"
-        sort_lbl = f" · trié: {self.sort_mode}" if self.sort_mode else ""
+        sort_lbl = f" · ⚡ optimisation" if self.sort_mode == "optimisation" else (
+                   f" · trié: {self.sort_mode}" if self.sort_mode else "")
         embed = discord.Embed(
             title="🎴 Choisis ta carte de combat", color=0x8e44ad,
             description=f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**{sort_lbl}\n\n"
                         + ("\n".join(lines) if lines else "_(aucune carte)_"))
+        footer_extra = " · 🔥 avantage 🟦 désavantage" if opt_mode else ""
         embed.set_footer(text=f"Page {self.page}/{self.total_pages} · "
-                              "choisis dans la liste déroulante ou par nom 🎴")
+                              f"choisis dans la liste déroulante ou par nom 🎴{footer_extra}")
         return embed
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, row=2)
