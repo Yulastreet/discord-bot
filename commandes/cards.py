@@ -759,10 +759,11 @@ def setup_cards_commands(bot, deps):
             print(f"[roll essence] err: {e}")
         # Hook XP de guilde (roll = levier principal), capé par jour/membre
         try:
-            from database import get_guild_config, guild_member_action_xp
+            from database import get_guild_config, guild_member_action_xp, guild_quest_progress
             _xpr = int(get_guild_config().get("xp", {}).get("roll", 0))
             if _xpr:
                 guild_member_action_xp(uid, _xpr)
+            guild_quest_progress(uid, "roll", 1)
         except Exception as e:
             print(f"[roll guild xp] err: {e}")
 
@@ -1567,10 +1568,11 @@ def setup_cards_commands(bot, deps):
         card_fusion_set(uid, card["id"], new_level)
         # Hook XP de guilde (fusion d'une etoile)
         try:
-            from database import get_guild_config, guild_member_action_xp
+            from database import get_guild_config, guild_member_action_xp, guild_quest_progress
             _xpf = int(get_guild_config().get("xp", {}).get("fusion", 0))
             if _xpf:
                 guild_member_action_xp(uid, _xpf)
+            guild_quest_progress(uid, "fusion", 1)
         except Exception as e:
             print(f"[fusion guild xp] err: {e}")
         # Verrouille UNE copie (celle qui porte les etoiles). Les doublons en trop

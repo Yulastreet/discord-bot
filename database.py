@@ -176,6 +176,13 @@ def init_db():
         c.execute("ALTER TABLE card_guild ADD COLUMN renamed_at TEXT")
     except Exception:
         pass
+    for _gcol, _gddl in (("min_level", "INTEGER DEFAULT 0"),
+                         ("min_power", "INTEGER DEFAULT 0"),
+                         ("open_join", "INTEGER DEFAULT 0")):
+        try:
+            c.execute(f"ALTER TABLE card_guild ADD COLUMN {_gcol} {_gddl}")
+        except Exception:
+            pass
     # Migration : not_obtainable flag sur cards (cache du catalogue + roll)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
@@ -509,6 +516,39 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS card_guild_left (
         user_id  TEXT PRIMARY KEY,
         left_at  TEXT
+    )''')
+    # Candidatures a une guilde
+    c.execute('''CREATE TABLE IF NOT EXISTS card_guild_application (
+        guild_id   INTEGER NOT NULL,
+        user_id    TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, user_id)
+    )''')
+    # Quetes quotidiennes (perso, par membre) et hebdomadaires (collectives, par guilde)
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_quest_daily (
+        user_id   TEXT NOT NULL,
+        guild_id  INTEGER NOT NULL,
+        day       TEXT NOT NULL,
+        quest_key TEXT NOT NULL,
+        progress  INTEGER DEFAULT 0,
+        done      INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, day, quest_key)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_quest_weekly (
+        guild_id  INTEGER NOT NULL,
+        week      TEXT NOT NULL,
+        quest_key TEXT NOT NULL,
+        progress  INTEGER DEFAULT 0,
+        done      INTEGER DEFAULT 0,
+        PRIMARY KEY (guild_id, week, quest_key)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS guild_quest_weekly_contrib (
+        guild_id  INTEGER NOT NULL,
+        week      TEXT NOT NULL,
+        quest_key TEXT NOT NULL,
+        user_id   TEXT NOT NULL,
+        contrib   INTEGER DEFAULT 0,
+        PRIMARY KEY (guild_id, week, quest_key, user_id)
     )''')
 
     # Cooldown roll par (user, guild) - 1h par serveur
@@ -5343,7 +5383,204 @@ def guild_list_all(search=None):
 
 
 _GUILD_ADMIN_COLS = {"name", "tag", "level", "xp", "bank", "color", "emblem",
-                     "owner_id", "renamed_at"}
+                     "owner_id", "renamed_at", "min_level", "min_power", "open_join"}
+
+
+# ============ QUETES DE GUILDE ============
+# Quetes quotidiennes (perso, par membre) + hebdomadaires (collectives par guilde).
+# metric = action incrementee : roll / fusion / boss / wheel / donate.
+GUILD_DAILY_QUESTS = [
+    {"key": "d_roll",   "metric": "roll",   "target": 10, "label": "Faire 10 rolls",            "xp": 60},
+    {"key": "d_fusion", "metric": "fusion", "target": 1,  "label": "Fusionner 1 carte",         "xp": 50},
+    {"key": "d_boss",   "metric": "boss",   "target": 1,  "label": "Participer a un boss vaincu","xp": 80},
+]
+GUILD_WEEKLY_QUESTS = [
+    {"key": "w_roll",   "metric": "roll",   "target": 500,   "label": "La guilde fait 500 rolls",        "xp": 2500, "bank": 5000},
+    {"key": "w_boss",   "metric": "boss",   "target": 15,    "label": "Vaincre 15 boss en groupe",        "xp": 3000, "bank": 8000},
+    {"key": "w_donate", "metric": "donate", "target": 50000, "label": "Donner 50 000 essences a la banque","xp": 2000, "bank": 0},
+]
+_DAILY_BY_KEY = {q["key"]: q for q in GUILD_DAILY_QUESTS}
+_WEEKLY_BY_KEY = {q["key"]: q for q in GUILD_WEEKLY_QUESTS}
+
+
+def _quest_day():
+    return _dt.date.today().isoformat()
+
+
+def _quest_week():
+    iso = _dt.date.today().isocalendar()
+    return f"{iso[0]}-W{iso[1]:02d}"
+
+
+def guild_quests_daily_get(user_id, guild_id):
+    """Quetes du jour du membre (cree les lignes manquantes). Retourne liste dict."""
+    day = _quest_day()
+    conn = get_db(); c = conn.cursor()
+    for q in GUILD_DAILY_QUESTS:
+        c.execute("INSERT OR IGNORE INTO guild_quest_daily (user_id, guild_id, day, quest_key) "
+                  "VALUES (?, ?, ?, ?)", (str(user_id), int(guild_id), day, q["key"]))
+    conn.commit()
+    rows = c.execute("SELECT quest_key, progress, done FROM guild_quest_daily "
+                     "WHERE user_id = ? AND day = ?", (str(user_id), day)).fetchall()
+    conn.close()
+    pr = {r["quest_key"]: r for r in rows}
+    out = []
+    for q in GUILD_DAILY_QUESTS:
+        r = pr.get(q["key"])
+        out.append({**q, "progress": (r["progress"] if r else 0),
+                    "done": bool(r["done"]) if r else False})
+    return out
+
+
+def guild_quests_weekly_get(guild_id):
+    """Quetes hebdo de la guilde + contributions par membre. Cree les lignes manquantes."""
+    week = _quest_week()
+    conn = get_db(); c = conn.cursor()
+    for q in GUILD_WEEKLY_QUESTS:
+        c.execute("INSERT OR IGNORE INTO guild_quest_weekly (guild_id, week, quest_key) "
+                  "VALUES (?, ?, ?)", (int(guild_id), week, q["key"]))
+    conn.commit()
+    rows = c.execute("SELECT quest_key, progress, done FROM guild_quest_weekly "
+                     "WHERE guild_id = ? AND week = ?", (int(guild_id), week)).fetchall()
+    contribs = c.execute("SELECT quest_key, user_id, contrib FROM guild_quest_weekly_contrib "
+                         "WHERE guild_id = ? AND week = ? AND contrib > 0 "
+                         "ORDER BY contrib DESC", (int(guild_id), week)).fetchall()
+    conn.close()
+    pr = {r["quest_key"]: r for r in rows}
+    cby = {}
+    for cr in contribs:
+        cby.setdefault(cr["quest_key"], []).append({"user_id": cr["user_id"], "contrib": cr["contrib"]})
+    out = []
+    for q in GUILD_WEEKLY_QUESTS:
+        r = pr.get(q["key"])
+        out.append({**q, "progress": (r["progress"] if r else 0),
+                    "done": bool(r["done"]) if r else False,
+                    "contrib": cby.get(q["key"], [])})
+    return out
+
+
+def guild_quest_progress(user_id, metric, amount=1):
+    """Incremente les quetes daily (du membre) + weekly (de sa guilde) pour `metric`.
+    Auto-recompense a la completion (XP guilde + bank pour les hebdo). Best-effort."""
+    try:
+        g = guild_of_user(user_id)
+        if not g:
+            return
+        gid = g["id"]
+        amount = max(0, int(amount))
+        if amount <= 0:
+            return
+        day = _quest_day(); week = _quest_week()
+        conn = get_db(); c = conn.cursor()
+        # --- DAILY (perso) ---
+        for q in GUILD_DAILY_QUESTS:
+            if q["metric"] != metric:
+                continue
+            c.execute("INSERT OR IGNORE INTO guild_quest_daily (user_id, guild_id, day, quest_key) "
+                      "VALUES (?, ?, ?, ?)", (str(user_id), gid, day, q["key"]))
+            row = c.execute("SELECT progress, done FROM guild_quest_daily "
+                            "WHERE user_id = ? AND day = ? AND quest_key = ?",
+                            (str(user_id), day, q["key"])).fetchone()
+            if row and not row["done"]:
+                newp = row["progress"] + amount
+                done = newp >= q["target"]
+                c.execute("UPDATE guild_quest_daily SET progress = ?, done = ? "
+                          "WHERE user_id = ? AND day = ? AND quest_key = ?",
+                          (newp, 1 if done else 0, str(user_id), day, q["key"]))
+                if done and q.get("xp"):
+                    c.execute("UPDATE card_guild SET xp = xp + ? WHERE id = ?", (int(q["xp"]), gid))
+        # --- WEEKLY (collectif guilde) ---
+        for q in GUILD_WEEKLY_QUESTS:
+            if q["metric"] != metric:
+                continue
+            c.execute("INSERT OR IGNORE INTO guild_quest_weekly (guild_id, week, quest_key) "
+                      "VALUES (?, ?, ?)", (gid, week, q["key"]))
+            c.execute("INSERT OR IGNORE INTO guild_quest_weekly_contrib (guild_id, week, quest_key, user_id) "
+                      "VALUES (?, ?, ?, ?)", (gid, week, q["key"], str(user_id)))
+            c.execute("UPDATE guild_quest_weekly_contrib SET contrib = contrib + ? "
+                      "WHERE guild_id = ? AND week = ? AND quest_key = ? AND user_id = ?",
+                      (amount, gid, week, q["key"], str(user_id)))
+            row = c.execute("SELECT progress, done FROM guild_quest_weekly "
+                            "WHERE guild_id = ? AND week = ? AND quest_key = ?",
+                            (gid, week, q["key"])).fetchone()
+            if row and not row["done"]:
+                newp = row["progress"] + amount
+                done = newp >= q["target"]
+                c.execute("UPDATE guild_quest_weekly SET progress = ?, done = ? "
+                          "WHERE guild_id = ? AND week = ? AND quest_key = ?",
+                          (newp, 1 if done else 0, gid, week, q["key"]))
+                if done:
+                    if q.get("xp"):
+                        c.execute("UPDATE card_guild SET xp = xp + ? WHERE id = ?", (int(q["xp"]), gid))
+                    if q.get("bank"):
+                        c.execute("UPDATE card_guild SET bank = bank + ? WHERE id = ?", (int(q["bank"]), gid))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print(f"[guild quest] {e}")
+
+
+# ============ CANDIDATURES & PREREQUIS ============
+def guild_application_add(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO card_guild_application (guild_id, user_id) VALUES (?, ?)",
+              (int(gid), str(user_id)))
+    conn.commit(); conn.close()
+
+
+def guild_application_remove(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM card_guild_application WHERE guild_id = ? AND user_id = ?",
+              (int(gid), str(user_id)))
+    conn.commit(); conn.close()
+
+
+def guild_application_list(gid):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT user_id, created_at FROM card_guild_application "
+                     "WHERE guild_id = ? ORDER BY created_at", (int(gid),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def guild_application_has(gid, user_id):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM card_guild_application WHERE guild_id = ? AND user_id = ?",
+                  (int(gid), str(user_id))).fetchone()
+    conn.close()
+    return bool(r)
+
+
+def guild_application_count(gid):
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM card_guild_application WHERE guild_id = ?",
+                  (int(gid),)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def guild_meets_requirements(gid, user_id):
+    """(ok, raison). Verifie min_level (niveau de collection ~ puissance) et min_power."""
+    g = guild_get(gid)
+    if not g:
+        return (False, "Guilde introuvable.")
+    min_pw = int(g.get("min_power") or 0)
+    if min_pw > 0:
+        try:
+            st = compute_player_combat_stats(user_id)
+            pw = combat_power(st["hp"], st["atk"])
+        except Exception:
+            pw = 0
+        if pw < min_pw:
+            return (False, f"Puissance de combat insuffisante ({pw:,}/{min_pw:,}).".replace(",", " "))
+    min_cards = int(g.get("min_level") or 0)
+    if min_cards > 0:
+        try:
+            nc = user_card_count(user_id)
+        except Exception:
+            nc = 0
+        if nc < min_cards:
+            return (False, f"Trop peu de cartes ({nc}/{min_cards}).")
+    return (True, None)
 
 
 def guild_admin_update(gid, fields):

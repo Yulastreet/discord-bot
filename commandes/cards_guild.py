@@ -16,7 +16,7 @@ from database import (
     compute_player_combat_stats, combat_power, user_card_count,
     guild_bank_spend, guild_member_ids, roll_give_user,
     guild_set_color, guild_set_emblem, profile_color_hex, PROFILE_COLORS,
-    guild_set_name,
+    guild_set_name, guild_quests_daily_get, guild_quests_weekly_get,
 )
 import datetime as _dt
 import os as _os
@@ -278,6 +278,11 @@ def setup_guild_commands(bot, deps):
         xp = (montant // 100) * per100
         if xp > 0:
             guild_member_action_xp(uid, xp)
+        try:
+            from database import guild_quest_progress
+            guild_quest_progress(uid, "donate", montant)
+        except Exception:
+            pass
         await interaction.response.send_message(
             f"💰 +{montant:,} ✨ à la banque de **{g['name']}**".replace(",", " ")
             + (f" (+{xp} XP guilde)" if xp else "") + ".", ephemeral=True)
@@ -463,17 +468,24 @@ def setup_guild_commands(bot, deps):
                 await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
             await interaction.response.edit_message(embed=_guildprofile_embed(g, self.rows, self.sort), view=self)
 
-        @discord.ui.button(label="Tri puissance", emoji="⚡", style=discord.ButtonStyle.secondary)
-        async def s_power(self, interaction, btn):
-            self.sort = "power"; await self._refresh(interaction)
+        _SORT_ROT = {"power": "role", "role": "cards", "cards": "power"}
+        _SORT_LBL = {"power": "Tri : puissance", "role": "Tri : rôle", "cards": "Tri : cartes"}
+        _SORT_EMO = {"power": "⚡", "role": "👑", "cards": "🎴"}
 
-        @discord.ui.button(label="Tri rôle", emoji="👑", style=discord.ButtonStyle.secondary)
-        async def s_role(self, interaction, btn):
-            self.sort = "role"; await self._refresh(interaction)
+        @discord.ui.button(label="Tri : puissance", emoji="⚡", style=discord.ButtonStyle.secondary)
+        async def s_rotate(self, interaction, btn):
+            self.sort = self._SORT_ROT.get(self.sort, "power")
+            btn.label = self._SORT_LBL[self.sort]; btn.emoji = self._SORT_EMO[self.sort]
+            await self._refresh(interaction)
 
-        @discord.ui.button(label="Tri cartes", emoji="🎴", style=discord.ButtonStyle.secondary)
-        async def s_cards(self, interaction, btn):
-            self.sort = "cards"; await self._refresh(interaction)
+        @discord.ui.button(label="Quêtes", emoji="📜", style=discord.ButtonStyle.primary)
+        async def b_quests(self, interaction, btn):
+            g = guild_get(self.gid)
+            if not g:
+                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+            qv = QuestView(self.gid, self.rows, self.invoker_role, interaction.user.id)
+            await interaction.response.edit_message(
+                embed=_quests_daily_embed(interaction.client, g, interaction.user.id), view=qv)
 
         @discord.ui.button(label="Banque", emoji="💰", style=discord.ButtonStyle.success, row=1)
         async def b_bank(self, interaction, btn):
@@ -635,6 +647,75 @@ def setup_guild_commands(bot, deps):
             guild_set_name(self.gid, new)
             await interaction.response.send_message(
                 f"✏️ Guilde renommée en **{new}** ! Prochain renommage dans 30 jours.", ephemeral=True)
+
+    def _quest_bar(into, span, seg=10):
+        span = max(1, span)
+        filled = min(seg, int(round(seg * into / span)))
+        full = str(discord.utils.get(bot.emojis, name="playerlifebarfull") or "🟩")
+        empty = str(discord.utils.get(bot.emojis, name="lifebarempty") or "⬛")
+        return full * filled + empty * (seg - filled)
+
+    def _quests_daily_embed(bot, g, user_id):
+        col = profile_color_hex(g.get("color"), 0x8e44ad)
+        emb = discord.Embed(title=f"📜 Quêtes quotidiennes ｜ {g['name']}",
+                            description="Tes quêtes perso du jour. Reset chaque jour. "
+                                        "Compléter = XP pour ta guilde.", color=col)
+        for q in guild_quests_daily_get(user_id, g["id"]):
+            prog = min(q["progress"], q["target"])
+            check = "✅" if q["done"] else "⬜"
+            emb.add_field(
+                name=f"{check} {q['label']}",
+                value=f"{_quest_bar(prog, q['target'])}  **{prog}/{q['target']}**  ·  +{q['xp']} XP",
+                inline=False)
+        emb.set_footer(text="🔁 Bascule vers les quêtes hebdomadaires de guilde")
+        return emb
+
+    def _quests_weekly_embed(bot, g):
+        col = profile_color_hex(g.get("color"), 0x8e44ad)
+        emb = discord.Embed(title=f"📅 Quêtes hebdomadaires ｜ {g['name']}",
+                            description="Objectifs collectifs de la guilde. Tous les membres "
+                                        "contribuent. Reset chaque semaine.", color=col)
+        for q in guild_quests_weekly_get(g["id"]):
+            prog = min(q["progress"], q["target"])
+            check = "✅" if q["done"] else "⬜"
+            reward = f"+{q['xp']} XP" + (f" · +{_fmt_n(q['bank'])} ✨ banque" if q.get("bank") else "")
+            top = q.get("contrib", [])[:3]
+            contrib_txt = ""
+            if top:
+                contrib_txt = "\n" + " · ".join(f"<@{c['user_id']}> ({_fmt_n(c['contrib'])})" for c in top)
+            emb.add_field(
+                name=f"{check} {q['label']}",
+                value=f"{_quest_bar(prog, q['target'])}  **{_fmt_n(prog)}/{_fmt_n(q['target'])}**  ·  {reward}"
+                      + contrib_txt,
+                inline=False)
+        emb.set_footer(text="🔁 Bascule vers tes quêtes quotidiennes")
+        return emb
+
+    class QuestView(discord.ui.View):
+        def __init__(self, gid, rows, invoker_role, invoker_id):
+            super().__init__(timeout=180)
+            self.gid = gid; self.rows = rows
+            self.invoker_role = invoker_role; self.invoker_id = invoker_id
+            self.page = "daily"
+
+        @discord.ui.button(label="Quotidiennes / Hebdo", emoji="🔁", style=discord.ButtonStyle.primary)
+        async def toggle(self, interaction, btn):
+            g = guild_get(self.gid)
+            if not g:
+                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+            self.page = "weekly" if self.page == "daily" else "daily"
+            emb = (_quests_weekly_embed(interaction.client, g) if self.page == "weekly"
+                   else _quests_daily_embed(interaction.client, g, self.invoker_id))
+            await interaction.response.edit_message(embed=emb, view=self)
+
+        @discord.ui.button(label="Retour", emoji="◀️", style=discord.ButtonStyle.secondary)
+        async def back(self, interaction, btn):
+            g = guild_get(self.gid)
+            if not g:
+                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+            view = GuildProfileView(self.gid, self.rows, invoker_role=self.invoker_role)
+            await interaction.response.edit_message(
+                embed=_guildprofile_embed(g, self.rows, "power"), view=view)
 
     @bot.tree.command(name="guildprofile",
                        description="Profil d'une guilde (la tienne par défaut)")

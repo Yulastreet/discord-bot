@@ -1230,6 +1230,13 @@ async def _finish(bot, bid, msg, view, log, victory):
                         _seen_g.add(gg["id"]); _gax(gg["id"], _bxp)
         except Exception as e:
             print(f"[boss guild xp] {e}")
+        # Quetes de guilde (boss) : 1 par participant vainqueur
+        try:
+            from database import guild_quest_progress as _gqp
+            for p in winners:
+                _gqp(p["user_id"], "boss", 1)
+        except Exception as e:
+            print(f"[boss guild quest] {e}")
         # Essences : base + part de degats, CAPPÉ par tier (T5 = 5000 max, hors bonus roue)
         _ESS_CAP = {1: 800, 2: 1500, 3: 2500, 4: 3500, 5: 5000}
         cap = _ESS_CAP.get(tier, 1000)
