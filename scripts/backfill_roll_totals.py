@@ -58,14 +58,18 @@ def main():
         est = counts.get(uid, 0) + consumed.get(uid, 0)
         if est <= 0:
             continue
-        if not args.force and existing.get(uid, 0) > 0:
+        cur = existing.get(uid, 0)
+        # max : ne perd jamais les rolls deja comptes, garantit au moins l'estimation.
+        # --force ecrase a l'estimation meme si le total actuel est plus haut.
+        new = est if args.force else max(cur, est)
+        if new == cur:
             skipped += 1
             continue
-        preview.append((uid, counts.get(uid, 0), consumed.get(uid, 0), est))
+        preview.append((uid, counts.get(uid, 0), consumed.get(uid, 0), new))
         if not args.dry_run:
             c.execute("INSERT INTO card_roll_total (user_id, total) VALUES (?, ?) "
                       "ON CONFLICT(user_id) DO UPDATE SET total = excluded.total",
-                      (str(uid), est))
+                      (str(uid), new))
         updated += 1
 
     if not args.dry_run:
