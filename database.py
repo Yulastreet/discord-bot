@@ -1715,10 +1715,14 @@ def mark_guild_left(guild_id):
 def list_guilds(active_only=True):
     conn = get_db()
     c = conn.cursor()
+    base = (
+        "SELECT g.*, gm.username AS owner_name FROM guilds g "
+        "LEFT JOIN guild_members gm ON gm.user_id = g.owner_id "
+    )
     if active_only:
-        c.execute("SELECT * FROM guilds WHERE active = 1 ORDER BY name COLLATE NOCASE")
+        c.execute(base + "WHERE g.active = 1 ORDER BY g.name COLLATE NOCASE")
     else:
-        c.execute("SELECT * FROM guilds ORDER BY active DESC, name COLLATE NOCASE")
+        c.execute(base + "ORDER BY g.active DESC, g.name COLLATE NOCASE")
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
     return rows

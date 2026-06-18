@@ -197,6 +197,7 @@
             <span class="gc-meta">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
               {{ gd.member_count }} membres
+              {% if gd.owner_name %} · 👑 {{ gd.owner_name }}{% endif %}
             </span>
             <span class="gc-id">{{ gd.guild_id }}</span>
           </div>
