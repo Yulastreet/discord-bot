@@ -40,6 +40,20 @@ _TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
 
+_RARITY_RANK = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4, "secret": 5}
+_SORT_CYCLE = [None, "nom", "rareté", "étoiles"]
+_SORT_BTN_LBL = {None: "🔃 Trier", "nom": "🔤 Nom ↑", "rareté": "🎯 Rareté ↓", "étoiles": "⭐ Étoiles ↓"}
+
+
+def _sort_cards(rows, mode):
+    if mode == "nom":
+        return sorted(rows, key=lambda c: c["name"].lower())
+    if mode == "rareté":
+        return sorted(rows, key=lambda c: -_RARITY_RANK.get(c.get("rarity", ""), 0))
+    if mode == "étoiles":
+        return sorted(rows, key=lambda c: -int(c.get("stars", 0)))
+    return rows
+
 # Fourchette de rareté de la carte "avatar" du boss selon le tier
 _TIER_RANGE = {
     1: ["common", "rare"],
@@ -657,12 +671,13 @@ class _PageCardSelect(discord.ui.Select):
 
 
 class _CardPickerView(discord.ui.View):
-    def __init__(self, boss_id, user_id, bot, element=None):
+    def __init__(self, boss_id, user_id, bot, element=None, sort_mode=None):
         super().__init__(timeout=300)
         self.boss_id = boss_id
         self.user_id = user_id
         self.bot = bot
         self.element = element
+        self.sort_mode = sort_mode
         self.page = 1
         self._load()
         self._sync_dynamic()
@@ -679,7 +694,7 @@ class _CardPickerView(discord.ui.View):
             if cid not in grouped:
                 grouped[cid] = {**c, "count": 0, "stars": int(fmap.get(cid, 0))}
             grouped[cid]["count"] += 1
-        self.rows = list(grouped.values())
+        self.rows = _sort_cards(list(grouped.values()), self.sort_mode)
         self.total_pages = max(1, (len(self.rows) + 24) // 25)
         if self.page > self.total_pages:
             self.page = self.total_pages
@@ -698,6 +713,7 @@ class _CardPickerView(discord.ui.View):
         self.prev_btn.disabled = self.page <= 1
         self.next_btn.disabled = self.page >= self.total_pages
         self.counter.label = f"{self.page} / {self.total_pages}"
+        self.sort_btn.label = _SORT_BTN_LBL[self.sort_mode]
 
     def build_embed(self):
         from commandes.cards import RARITY_EMOJIS
@@ -712,9 +728,10 @@ class _CardPickerView(discord.ui.View):
             uni = c.get("universe") or "?"
             lines.append(f"{pre} **{c['name']}**{stars}{cnt} · _{uni}_")
         elem_lbl = CARD_ELEMENT_LABELS.get(self.element, "tous") if self.element else "tous"
+        sort_lbl = f" · trié: {self.sort_mode}" if self.sort_mode else ""
         embed = discord.Embed(
             title="🎴 Choisis ta carte de combat", color=0x8e44ad,
-            description=f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**\n\n"
+            description=f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**{sort_lbl}\n\n"
                         + ("\n".join(lines) if lines else "_(aucune carte)_"))
         embed.set_footer(text=f"Page {self.page}/{self.total_pages} · "
                               "choisis dans la liste déroulante ou par nom 🎴")
@@ -739,6 +756,15 @@ class _CardPickerView(discord.ui.View):
             await interaction.response.edit_message(embed=self.build_embed(), view=self)
         else:
             await interaction.response.defer()
+
+    @discord.ui.button(label="🔃 Trier", style=discord.ButtonStyle.secondary, row=2)
+    async def sort_btn(self, interaction, btn):
+        idx = _SORT_CYCLE.index(self.sort_mode)
+        self.sort_mode = _SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)]
+        self._load()
+        self.page = 1
+        self._sync_dynamic()
+        await interaction.response.edit_message(embed=self.build_embed(), view=self)
 
     @discord.ui.button(label="Choisir par nom", style=discord.ButtonStyle.success, emoji="🎴", row=3)
     async def confirm(self, interaction, btn):
