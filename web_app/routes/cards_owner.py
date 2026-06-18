@@ -745,10 +745,12 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from flask import session as _ses
         from database import card_roll_random, user_card_add_cheat
-        uid = (_ses.get("discord") or {}).get("user_id")
-        if not uid:
-            return jsonify({"error": "session sans user_id"}), 403
         data = request.json or {}
+        # user_id cible (sinon : l'owner lui-meme)
+        uid = (str(data.get("user_id") or "").strip()
+               or (_ses.get("discord") or {}).get("user_id"))
+        if not uid or not str(uid).isdigit():
+            return jsonify({"error": "user_id invalide"}), 400
         try:
             count = max(1, min(int(data.get("count") or 1), 1000))
         except (ValueError, TypeError):
