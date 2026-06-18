@@ -2358,8 +2358,8 @@ def setup_cards_commands(bot, deps):
             self._refresh()
 
         def _refresh(self):
-            self.prev_btn.disabled = self.idx <= 0
-            self.next_btn.disabled = self.idx >= len(self.entries) - 1
+            # navigation cyclique : les fleches restent toujours actives, on boucle
+            # aux extremites (permet de revenir aux premieres cartes facilement).
             self.counter.label = f"{self.idx + 1} / {len(self.entries)}"
 
         def embed(self):
@@ -2378,8 +2378,7 @@ def setup_cards_commands(bot, deps):
 
         @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
         async def prev_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            if self.idx > 0:
-                self.idx -= 1; self._refresh()
+            self.idx = (self.idx - 1) % len(self.entries); self._refresh()
             await interaction.response.edit_message(embed=self.embed(), view=self)
 
         @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
@@ -2388,8 +2387,7 @@ def setup_cards_commands(bot, deps):
 
         @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
         async def next_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            if self.idx < len(self.entries) - 1:
-                self.idx += 1; self._refresh()
+            self.idx = (self.idx + 1) % len(self.entries); self._refresh()
             await interaction.response.edit_message(embed=self.embed(), view=self)
 
 
