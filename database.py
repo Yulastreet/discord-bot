@@ -3058,7 +3058,13 @@ def engaged_combat_stats(user_id, card_id):
     stars = int(card_fusion_get(user_id, int(card_id))) if card_id else 0
     star_mult = 1.0 + min(5, stars) * CARD_STAR_COMBAT_BONUS
     mult = rar_mult * star_mult
+    # Carte secret 5 etoiles : multiplicateur ultime (recompense la fusion max
+    # d'une secret, la rarete la plus dure a obtenir).
+    secret_max = (rar == "secret" and stars >= 5)
+    if secret_max:
+        mult = 999.0
     return {
+        "secret_max": secret_max,
         "hp": max(1, int(base["hp"])),
         "atk": max(1, int(base["atk"] * mult)),
         "mult": mult,
