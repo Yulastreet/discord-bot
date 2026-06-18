@@ -43,7 +43,44 @@ _JUNK_TITLE = re.compile(
     r"|\b(House|Houses|Family|Lineage|Characters?)\b$",
     re.I)
 
-_RARITY_SPREAD = {"common": 50, "rare": 30, "epic": 15, "legendary": 4, "mythic": 1}
+# Spread pour les persos NON references (mineurs) : garde un ratio correct
+# (majorite commune). Pas de mythic/legendary aleatoire -> reserves a l'importance.
+_RARITY_SPREAD = {"common": 58, "rare": 30, "epic": 12}
+
+# Rarete par IMPORTANCE dans la serie. Cle = mots distinctifs (minuscule) :
+# match si TOUS les mots de la cle sont dans le nom de la carte (gere "Gendry Baratheon").
+# On teste les cles les plus longues d'abord (plus specifiques).
+_IMPORTANCE = {
+    # --- mythic : les icones absolues ---
+    "jon snow": "mythic", "daenerys": "mythic", "tyrion": "mythic",
+    "cersei": "mythic", "arya": "mythic", "eddard": "mythic",
+    # --- legendary : premiers roles / personnages majeurs ---
+    "jaime": "legendary", "sansa": "legendary", "bran stark": "legendary",
+    "robb": "legendary", "joffrey": "legendary", "drogo": "legendary",
+    "tywin": "legendary", "petyr baelish": "legendary", "varys": "legendary",
+    "brienne": "legendary", "sandor clegane": "legendary", "theon": "legendary",
+    "margaery": "legendary", "stannis": "legendary", "melisandre": "legendary",
+    "samwell": "legendary", "bronn": "legendary", "davos": "legendary",
+    "jorah": "legendary", "ramsay": "legendary", "night king": "legendary",
+    "catelyn": "legendary", "robert baratheon": "legendary", "gregor clegane": "legendary",
+    "drogon": "legendary",
+    # --- epic : personnages recurrents notables ---
+    "tormund": "epic", "gendry": "epic", "missandei": "epic",
+    "grey worm": "epic", "ygritte": "epic", "podrick": "epic", "jaqen": "epic",
+    "daario": "epic", "olenna": "epic", "roose bolton": "epic",
+    "ellaria": "epic", "oberyn": "epic", "gilly": "epic", "shae": "epic",
+    "hodor": "epic", "yara": "epic", "euron": "epic", "tommen": "epic",
+    "myrcella": "epic", "viserys": "epic", "walder frey": "epic",
+    "beric": "epic", "qyburn": "epic", "high sparrow": "epic", "rickon": "epic",
+    "lyanna mormont": "epic", "meera": "epic", "jojen": "epic",
+    "shireen": "epic", "loras": "epic", "renly": "epic",
+    "barristan": "epic", "pycelle": "epic", "maester aemon": "epic", "aemon": "epic",
+    "osha": "epic", "talisa": "epic", "alliser": "epic",
+    "mance rayder": "epic", "rhaegal": "epic", "viserion": "epic",
+    "lancel": "epic", "kevan": "epic", "selyse": "epic",
+}
+# pre-trie : cles a plusieurs mots d'abord (plus specifiques)
+_IMPORTANCE_KEYS = sorted(_IMPORTANCE.keys(), key=lambda k: -len(k.split()))
 
 
 def _api(params):
@@ -86,6 +123,18 @@ def _pick_rarity():
                           weights=list(_RARITY_SPREAD.values()), k=1)[0]
 
 
+def _rarity_for(name, forced=None):
+    """Rarete d'un perso : forcee > importance (serie) > aleatoire ponderee.
+    Match importance = tous les mots de la cle presents dans le nom."""
+    if forced:
+        return forced
+    words = set(re.findall(r"[a-z']+", (name or "").lower()))
+    for k in _IMPORTANCE_KEYS:
+        if set(k.split()) <= words:
+            return _IMPORTANCE[k]
+    return _pick_rarity()
+
+
 def _house(cats):
     """Maison du personnage depuis les categories ('Members of House Stark' -> 'House Stark')."""
     names = [c.replace("Category:", "") for c in cats]
@@ -102,13 +151,44 @@ def _clean_name(title):
     return re.sub(r"\s*\([^)]*\)\s*$", "", title).strip()
 
 
+def _reassign(args):
+    """Re-affecte la rarete de toutes les cartes d'origine Game of Thrones :
+    importance (serie) pour les persos connus, spread aleatoire faible pour le reste."""
+    from database import get_db
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT id, name, rarity FROM cards WHERE subtitle = ?",
+                     (_ORIGIN,)).fetchall()
+    print(f"{len(rows)} cartes d'origine {_ORIGIN}.\n")
+    counts = {}
+    for r in rows:
+        new_r = _rarity_for(r["name"], args.rarity)
+        counts[new_r] = counts.get(new_r, 0) + 1
+        tag = "IMPORTANCE" if (r["name"] or "").strip().lower() in _IMPORTANCE else ""
+        if args.dry_run:
+            print(f"[dry] {r['name']:28} {r['rarity']:9} -> {new_r:9} {tag}")
+        else:
+            c.execute("UPDATE cards SET rarity = ? WHERE id = ?", (new_r, r["id"]))
+    if not args.dry_run:
+        conn.commit()
+    conn.close()
+    print("\nRepartition :", ", ".join(f"{k}={v}" for k, v in
+          sorted(counts.items(), key=lambda x: -x[1])))
+    print("Termine." if not args.dry_run else "Dry-run : rien ecrit.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rarity", choices=list(_RARITY_SPREAD.keys()),
                     help="Force une rarete (sinon ponderee)")
     ap.add_argument("--limit", type=int, default=0, help="Limite (test)")
     ap.add_argument("--dry-run", action="store_true", help="N'ecrit rien")
+    ap.add_argument("--reassign", action="store_true",
+                    help="Ne pas importer : re-affecte la rarete des cartes GoT existantes selon l'importance")
     args = ap.parse_args()
+
+    if args.reassign:
+        _reassign(args)
+        return
 
     print(f"Recuperation de la liste {_CATEGORY}...")
     titles = _all_member_titles()
@@ -141,7 +221,7 @@ def main():
             if args.limit and added >= args.limit:
                 continue
             house = _house(cats)
-            rarity = args.rarity or _pick_rarity()
+            rarity = _rarity_for(name, args.rarity)
             if args.dry_run:
                 print(f"[dry] + {name:28} {rarity:9} {(house or '-'):16} {img[:55]}")
                 added += 1
