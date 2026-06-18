@@ -2331,67 +2331,66 @@ def setup_cards_commands(bot, deps):
         return embed
 
 
-    def _build_trade_image(trade_id: int, sender_id: int, receiver_id: int):
-        """Compose une image des cartes du trade : rangee du haut = cartes offertes
-        (rendues avec bordure/etoiles du proposeur), rangee du bas = cartes demandees
-        (rendues avec celles du destinataire). Retourne un chemin local ou None."""
-        import os
-        from PIL import Image, ImageDraw
-        from services.card_render import _ROOT
-        from services.card_profile import _card_image_for
-        try:
-            offer = card_trade_items(trade_id, side="offer")
-            request = card_trade_items(trade_id, side="request")
+    def _trade_card_entries(trade_id: int, sender_name: str, receiver_name: str):
+        """Liste plate des cartes du trade pour navigation : offres puis demandes."""
+        entries = []
+        for side, items in (("offer", card_trade_items(trade_id, side="offer")),
+                            ("request", card_trade_items(trade_id, side="request"))):
+            for it in items:
+                if side == "offer":
+                    side_lbl = f"📤 Proposé par {sender_name}"
+                else:
+                    side_lbl = f"📥 Demandé à {receiver_name}"
+                url, _f = _resolve_card_image({"id": it["card_id"], "image_url": it.get("image_url")})
+                entries.append({
+                    "name": it["name"], "rarity": it.get("rarity"),
+                    "universe": it.get("universe") or it.get("subtitle") or "?",
+                    "qty": int(it.get("qty", 1) or 1), "side": side_lbl, "url": url,
+                })
+        return entries
 
-            def _imgs(items, owner_id):
-                out = []
-                for it in items:
-                    im = _card_image_for(owner_id, it["card_id"])
-                    if im is not None:
-                        out.append((im, int(it.get("qty", 1) or 1)))
-                return out
+    class _TradeCardsView(discord.ui.View):
+        def __init__(self, trade_id, entries):
+            super().__init__(timeout=300)
+            self.trade_id = trade_id
+            self.entries = entries
+            self.idx = 0
+            self._refresh()
 
-            offer_imgs = _imgs(offer, sender_id)
-            req_imgs = _imgs(request, receiver_id)
-            if not offer_imgs and not req_imgs:
-                return None
+        def _refresh(self):
+            self.prev_btn.disabled = self.idx <= 0
+            self.next_btn.disabled = self.idx >= len(self.entries) - 1
+            self.counter.label = f"{self.idx + 1} / {len(self.entries)}"
 
-            cw, ch = 200, 300
-            gap, pad, sep = 18, 24, 36
+        def embed(self):
+            e = self.entries[self.idx]
+            emoji = RARITY_EMOJIS.get(e["rarity"], "⚪")
+            qty = f" ×{e['qty']}" if e["qty"] > 1 else ""
+            embed = discord.Embed(
+                title=f"{emoji} {e['name']}{qty}"[:256],
+                description=f"{e['side']}\n**Rareté :** {(e['rarity'] or '?').upper()}\n"
+                            f"**Origine :** {e['universe']}",
+                color=RARITY_COLORS.get(e["rarity"], 0xC8F050))
+            if e["url"]:
+                embed.set_image(url=e["url"])
+            embed.set_footer(text=f"Trade #{self.trade_id} · carte {self.idx + 1}/{len(self.entries)}")
+            return embed
 
-            def _row_w(imgs):
-                k = max(1, len(imgs))
-                return pad * 2 + k * cw + (k - 1) * gap
+        @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+        async def prev_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            if self.idx > 0:
+                self.idx -= 1; self._refresh()
+            await interaction.response.edit_message(embed=self.embed(), view=self)
 
-            W = max(_row_w(offer_imgs), _row_w(req_imgs), 480)
-            H = pad * 2 + ch * 2 + sep
-            canvas = Image.new("RGBA", (W, H), (20, 22, 28, 255))
-            d = ImageDraw.Draw(canvas)
+        @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
+        async def counter(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            pass
 
-            def _place_row(imgs, y):
-                total = len(imgs) * cw + max(0, len(imgs) - 1) * gap
-                x0 = (W - total) // 2
-                for i, (im, qty) in enumerate(imgs):
-                    r = im.convert("RGBA").resize((cw, ch), Image.LANCZOS)
-                    x = x0 + i * (cw + gap)
-                    canvas.paste(r, (x, y), r)
-                    if qty > 1:
-                        d.text((x + 8, y + 6), f"x{qty}", fill=(255, 255, 255, 255))
-
-            _place_row(offer_imgs, pad)
-            _place_row(req_imgs, pad + ch + sep)
-            # ligne de separation lime entre les 2 rangees
-            ly = pad + ch + sep // 2
-            d.line([(pad, ly), (W - pad, ly)], fill=(200, 240, 80, 200), width=3)
-
-            out_dir = os.path.join(_ROOT, "static", "card_trades")
-            os.makedirs(out_dir, exist_ok=True)
-            out = os.path.join(out_dir, f"{trade_id}.png")
-            canvas.convert("RGB").save(out, "PNG", optimize=True)
-            return out
-        except Exception as e:
-            print(f"[trade] image err: {e}")
-            return None
+        @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
+        async def next_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+            if self.idx < len(self.entries) - 1:
+                self.idx += 1; self._refresh()
+            await interaction.response.edit_message(embed=self.embed(), view=self)
 
 
     class TradeView(discord.ui.View):
@@ -2487,13 +2486,17 @@ def setup_cards_commands(bot, deps):
 
         @discord.ui.button(label="Voir cartes", style=discord.ButtonStyle.secondary, emoji="🃏", row=1)
         async def view_cards_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            await interaction.response.defer(ephemeral=True, thinking=True)
-            path = _build_trade_image(self.trade_id, self.sender_id, self.receiver_id)
-            if not path:
-                await interaction.followup.send("Aucune carte à afficher pour ce trade.", ephemeral=True)
+            sender = interaction.guild.get_member(self.sender_id) if interaction.guild else None
+            receiver = interaction.guild.get_member(self.receiver_id) if interaction.guild else None
+            sname = sender.display_name if sender else "le proposeur"
+            rname = receiver.display_name if receiver else "le destinataire"
+            entries = _trade_card_entries(self.trade_id, sname, rname)
+            if not entries:
+                await interaction.response.send_message(
+                    "Aucune carte à afficher pour ce trade.", ephemeral=True)
                 return
-            await interaction.followup.send(
-                file=discord.File(path, filename=f"trade_{self.trade_id}.png"), ephemeral=True)
+            view = _TradeCardsView(self.trade_id, entries)
+            await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
 
 
     class TradeModal(discord.ui.Modal, title="Proposer un trade"):

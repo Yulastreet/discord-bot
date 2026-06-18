@@ -3733,13 +3733,13 @@ def card_trade_items(trade_id, side=None):
     conn = get_db(); c = conn.cursor()
     if side:
         rows = c.execute(
-            "SELECT ti.*, c.name, c.rarity, c.universe, c.subtitle "
+            "SELECT ti.*, c.name, c.rarity, c.universe, c.subtitle, c.image_url "
             "FROM card_trade_items ti JOIN cards c ON c.id = ti.card_id "
             "WHERE ti.trade_id = ? AND ti.side = ?",
             (int(trade_id), side)).fetchall()
     else:
         rows = c.execute(
-            "SELECT ti.*, c.name, c.rarity, c.universe, c.subtitle "
+            "SELECT ti.*, c.name, c.rarity, c.universe, c.subtitle, c.image_url "
             "FROM card_trade_items ti JOIN cards c ON c.id = ti.card_id "
             "WHERE ti.trade_id = ?", (int(trade_id),)).fetchall()
     conn.close()
