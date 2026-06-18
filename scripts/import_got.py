@@ -151,6 +151,44 @@ def _clean_name(title):
     return re.sub(r"\s*\([^)]*\)\s*$", "", title).strip()
 
 
+def _rebake(args):
+    """Re-genere le render (overlay selon la rarete ACTUELLE) de toutes les cartes GoT.
+    Source = source_image_url (sinon image_url si encore distante)."""
+    from database import get_db
+    from services.cards_overlay import composite_card
+    pub = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT id, name, rarity, image_url, source_image_url "
+                     "FROM cards WHERE subtitle = ?", (_ORIGIN,)).fetchall()
+    print(f"{len(rows)} cartes d'origine {_ORIGIN}.\n")
+    ok = skip = fail = 0
+    for r in rows:
+        src = r["source_image_url"] or r["image_url"] or ""
+        if not src or "/card_renders/" in src:
+            skip += 1
+            continue
+        if args.dry_run:
+            print(f"[dry] rebake {r['name']:26} ({r['rarity']}) <- {src[:55]}")
+            ok += 1
+            continue
+        try:
+            url = composite_card(src, r["rarity"], r["id"])
+            if not url:
+                fail += 1
+                continue
+            final = (pub + url) if pub else url
+            c.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, r["id"]))
+            ok += 1
+            if ok % 25 == 0:
+                conn.commit(); print(f"  ... {ok} rebakees")
+        except Exception as e:
+            print(f"! {r['name']}: {e!r}"); fail += 1
+    if not args.dry_run:
+        conn.commit()
+    conn.close()
+    print(f"\nTermine. Rebakees: {ok} | Ignorees (pas de source distante): {skip} | Echecs: {fail}")
+
+
 def _reassign(args):
     """Re-affecte la rarete de toutes les cartes d'origine Game of Thrones :
     importance (serie) pour les persos connus, spread aleatoire faible pour le reste."""
@@ -184,10 +222,15 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="N'ecrit rien")
     ap.add_argument("--reassign", action="store_true",
                     help="Ne pas importer : re-affecte la rarete des cartes GoT existantes selon l'importance")
+    ap.add_argument("--rebake", action="store_true",
+                    help="Ne pas importer : re-genere les renders GoT (overlay selon rarete actuelle)")
     args = ap.parse_args()
 
     if args.reassign:
         _reassign(args)
+        return
+    if args.rebake:
+        _rebake(args)
         return
 
     print(f"Recuperation de la liste {_CATEGORY}...")
