@@ -46,6 +46,8 @@ def main():
         lvl = int(r["fusion_level"])
         consumed[r["user_id"]] = consumed.get(r["user_id"], 0) + lvl * (lvl + 1) // 2
 
+    c.execute('''CREATE TABLE IF NOT EXISTS card_roll_total (
+        user_id TEXT PRIMARY KEY, total INTEGER DEFAULT 0)''')
     existing = {r["user_id"]: int(r["total"]) for r in c.execute(
         "SELECT user_id, total FROM card_roll_total").fetchall()}
 
