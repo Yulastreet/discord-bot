@@ -865,7 +865,11 @@ def setup_cards_commands(bot, deps):
         owner_id = interaction.user.id
         PAGE_SIZE = 25
 
-        def _grouped_rows(cat):
+        _RARITY_RANK = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4, "secret": 5}
+        _SORT_CYCLE = [None, "nom", "rareté", "étoiles"]
+        _SORT_BTN = {None: "🔃 Trier", "nom": "🔤 Nom ↑", "rareté": "🎯 Rareté ↓", "étoiles": "⭐ Étoiles ↓"}
+
+        def _grouped_rows(cat, name_q=None):
             cards = user_card_list(target_user.id, rarity=rar_val, categorie=cat)
             grouped: dict[int, dict] = {}
             for c in cards:
@@ -875,15 +879,32 @@ def setup_cards_commands(bot, deps):
                 grouped[cid]["count"] += 1
                 if c.get("not_tradeable"):
                     grouped[cid]["nt_count"] += 1
-            return list(grouped.values())
+            rows = list(grouped.values())
+            if name_q:
+                ql = name_q.lower()
+                rows = [r for r in rows if ql in r["name"].lower()]
+            return rows
 
-        def _build_embed(rows, cat, page, total_pages):
+        def _sorted_rows(rows, sort_mode):
+            if sort_mode == "nom":
+                return sorted(rows, key=lambda c: c["name"].lower())
+            if sort_mode == "rareté":
+                return sorted(rows, key=lambda c: -_RARITY_RANK.get(c.get("rarity", ""), 0))
+            if sort_mode == "étoiles":
+                return sorted(rows, key=lambda c: -fusion_map.get(c["card_id"], 0))
+            return rows
+
+        def _build_embed(rows, cat, page, total_pages, name_q=None, sort_mode=None):
             page_rows = rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
             desc = f"**{total}** cartes ({len(rows)} uniques)"
             if rar_val:
                 desc += f" • rareté **{rar_val}**"
             if cat:
                 desc += f" • **{cat}**"
+            if name_q:
+                desc += f" • 🔍 **{name_q}**"
+            if sort_mode:
+                desc += f" • trié: **{sort_mode}**"
             embed = discord.Embed(
                 title=f"🃏 Collection de {target_user.display_name}",
                 description=desc, color=0xB9F23A,
@@ -915,18 +936,26 @@ def setup_cards_commands(bot, deps):
             return embed
 
         class _CollecView(discord.ui.View):
-            def __init__(self, rows, cat):
+            def __init__(self, rows, cat, name_q=None, sort_mode=None):
                 super().__init__(timeout=300)
-                self.rows = rows
+                self.base_rows = rows
                 self.cat = cat
+                self.name_q = name_q
+                self.sort_mode = sort_mode
+                self.rows = _sorted_rows(rows, sort_mode)
                 self.page = 1
-                self.total_pages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
+                self.total_pages = max(1, (len(self.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
                 self._refresh()
 
             def _refresh(self):
                 self.prev_btn.disabled = (self.page <= 1)
                 self.next_btn.disabled = (self.page >= self.total_pages)
                 self.counter.label = f"{self.page} / {self.total_pages}"
+                self.trier_btn.label = _SORT_BTN[self.sort_mode]
+
+            def _embed(self):
+                return _build_embed(self.rows, self.cat, self.page, self.total_pages,
+                                    name_q=self.name_q, sort_mode=self.sort_mode)
 
             async def _guard(self, interaction):
                 if interaction.user.id != owner_id:
@@ -941,8 +970,7 @@ def setup_cards_commands(bot, deps):
                 if not await self._guard(interaction): return
                 if self.page > 1:
                     self.page -= 1; self._refresh()
-                    await interaction.response.edit_message(
-                        embed=_build_embed(self.rows, self.cat, self.page, self.total_pages), view=self)
+                    await interaction.response.edit_message(embed=self._embed(), view=self)
 
             @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=0)
             async def counter(self, interaction: discord.Interaction, btn: discord.ui.Button):
@@ -953,8 +981,18 @@ def setup_cards_commands(bot, deps):
                 if not await self._guard(interaction): return
                 if self.page < self.total_pages:
                     self.page += 1; self._refresh()
-                    await interaction.response.edit_message(
-                        embed=_build_embed(self.rows, self.cat, self.page, self.total_pages), view=self)
+                    await interaction.response.edit_message(embed=self._embed(), view=self)
+
+            @discord.ui.button(label="🔃 Trier", style=discord.ButtonStyle.secondary, row=0)
+            async def trier_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                if not await self._guard(interaction): return
+                idx = _SORT_CYCLE.index(self.sort_mode)
+                self.sort_mode = _SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)]
+                self.rows = _sorted_rows(self.base_rows, self.sort_mode)
+                self.page = 1
+                self.total_pages = max(1, (len(self.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
+                self._refresh()
+                await interaction.response.edit_message(embed=self._embed(), view=self)
 
             @discord.ui.button(label="📚 Parcourir les origines", style=discord.ButtonStyle.success, row=1)
             async def browse_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
@@ -966,12 +1004,12 @@ def setup_cards_commands(bot, deps):
             @discord.ui.button(label="🔍 Rechercher", style=discord.ButtonStyle.secondary, row=1)
             async def search_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
-                await interaction.response.send_modal(_SearchOriginModal())
+                await interaction.response.send_modal(_SearchCardModal(self.cat, self.sort_mode))
 
-        def _make_collec_view(cat):
-            rows = _grouped_rows(cat)
-            view = _CollecView(rows, cat)
-            return _build_embed(rows, cat, 1, view.total_pages), view
+        def _make_collec_view(cat, name_q=None, sort_mode=None):
+            rows = _grouped_rows(cat, name_q)
+            view = _CollecView(rows, cat, name_q=name_q, sort_mode=sort_mode)
+            return view._embed(), view
 
         # Navigateur d'origines (style "Browse Series")
         class _OriginsView(discord.ui.View):
@@ -1044,6 +1082,21 @@ def setup_cards_commands(bot, deps):
                 prev.callback = _prev; nxt.callback = _nxt; back.callback = _back
                 self.add_item(prev); self.add_item(nxt); self.add_item(back)
 
+        class _SearchCardModal(discord.ui.Modal, title="Rechercher une carte"):
+            q = discord.ui.TextInput(label="Nom de la carte",
+                                      placeholder="ex: Naruto, Luffy, Jon Snow…", required=True, max_length=100)
+            def __init__(self, cat, sort_mode):
+                super().__init__()
+                self._cat = cat
+                self._sort = sort_mode
+            async def on_submit(self, inter: discord.Interaction):
+                emb, v = _make_collec_view(self._cat, name_q=str(self.q.value).strip(), sort_mode=self._sort)
+                if not v.rows:
+                    await inter.response.send_message(
+                        f"Aucune carte trouvée pour **{self.q.value}**.", ephemeral=True)
+                    return
+                await inter.response.edit_message(embed=emb, view=v)
+
         class _SearchOriginModal(discord.ui.Modal, title="Rechercher une origine"):
             q = discord.ui.TextInput(label="Nom de l'origine / série",
                                       placeholder="ex: Genshin, Naruto…", required=True, max_length=100)
@@ -1062,8 +1115,7 @@ def setup_cards_commands(bot, deps):
             await interaction.response.send_message(msg + ".", ephemeral=True)
             return
         view = _CollecView(first_rows, cat_val)
-        await interaction.response.send_message(
-            embed=_build_embed(first_rows, cat_val, 1, view.total_pages), view=view)
+        await interaction.response.send_message(embed=view._embed(), view=view)
 
 
     # === /card <nom> ===
