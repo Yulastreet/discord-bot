@@ -224,17 +224,36 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/public/guilds/top", methods=["GET"])
     def api_public_guilds_top():
-        from database import guild_top, get_guild_config
+        from database import (guild_top, get_guild_config, guild_member_ids,
+                              compute_player_combat_stats, combat_power)
         cfg = get_guild_config()
         maxlv = int(cfg.get("max_level", 60))
         out = []
         for g in guild_top(50):
+            total_power = 0
+            for uid in guild_member_ids(g["id"]):
+                try:
+                    st = compute_player_combat_stats(uid)
+                    total_power += combat_power(st["hp"], st["atk"])
+                except Exception:
+                    pass
             out.append({
                 "id": g["id"], "name": g["name"], "tag": g.get("tag"),
                 "level": g["level"], "xp": g["xp"], "max_level": maxlv,
                 "members": g.get("members", 0), "bank": g.get("bank", 0),
+                "power": total_power,
             })
         return jsonify({"items": out})
+
+    @app.route("/assets/power-digit/<digit>")
+    def assets_power_digit(digit):
+        import os as _os
+        from flask import send_from_directory, abort
+        if digit not in [str(i) for i in range(10)]:
+            abort(404)
+        d = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
+            _os.path.abspath(__file__)))), "assets", "chiffres_puissance")
+        return send_from_directory(d, f"{digit}.png", max_age=86400)
 
     @app.route("/api/public/guilds/<int:gid>/members", methods=["GET"])
     def api_public_guild_members(gid):

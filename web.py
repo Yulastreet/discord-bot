@@ -239,7 +239,7 @@ def _user_can_access_page(endpoint, path):
     # Pages essentielles toujours accessibles (auth + selection guild + statique)
     if path in ("/select-guild", "/logout", "/oauth/logout"):
         return True
-    if path.startswith("/oauth/") or path.startswith("/static"):
+    if path.startswith("/oauth/") or path.startswith("/static") or path.startswith("/assets/"):
         return True
     if path in ("/api/select-guild", "/api/guilds"):
         return True
@@ -350,7 +350,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
 }
 
 def needs_guild(path):
-    if path.startswith("/static"):
+    if path.startswith("/static") or path.startswith("/assets/"):
         return False
     for p in GUILD_FREE_PATHS:
         if path == p or path.startswith(p + "/"):
@@ -366,7 +366,8 @@ PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms",
                         "/api/public-status/history",
                         "/api/stripe/webhook"}
 PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/",
-                           "/api/public-status/", "/uploads/bot_profile/")
+                           "/api/public-status/", "/uploads/bot_profile/",
+                           "/assets/power-digit/")
 
 
 def _current_user_id():
