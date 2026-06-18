@@ -1219,9 +1219,13 @@ def setup_cards_commands(bot, deps):
             print(f"[show] render_user_card a retourne None (card={card['id']} "
                   f"border={border_key} fusion={fusion_level})")
         if file is None:
-            img = card.get("image_url")
-            if img and isinstance(img, str) and img.startswith("http"):
-                embed.set_image(url=img)
+            # Pas de bordure/fusion : render local prioritaire (fiable), distant en dernier recours
+            img_url, img_file = _resolve_card_image(card)
+            if img_url:
+                embed.set_image(url=img_url)
+            elif img_file:
+                file = img_file
+                embed.set_image(url="attachment://card.png")
         if file:
             await interaction.followup.send(embed=embed, file=file)
         else:

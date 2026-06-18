@@ -5395,9 +5395,9 @@ GUILD_DAILY_QUESTS = [
     {"key": "d_boss",   "metric": "boss",   "target": 1,  "label": "Participer a un boss vaincu","xp": 80},
 ]
 GUILD_WEEKLY_QUESTS = [
-    {"key": "w_roll",   "metric": "roll",   "target": 500,   "label": "La guilde fait 500 rolls",        "xp": 2500, "bank": 5000},
-    {"key": "w_boss",   "metric": "boss",   "target": 15,    "label": "Vaincre 15 boss en groupe",        "xp": 3000, "bank": 8000},
-    {"key": "w_donate", "metric": "donate", "target": 50000, "label": "Donner 50 000 essences a la banque","xp": 2000, "bank": 0},
+    {"key": "w_roll",   "metric": "roll",   "target": 500, "label": "La guilde fait 500 rolls",         "xp": 2500, "bank": 5000},
+    {"key": "w_boss",   "metric": "boss",   "target": 15,  "label": "Vaincre 15 boss en groupe",         "xp": 3000, "bank": 8000},
+    {"key": "w_fusion", "metric": "fusion", "target": 30,  "label": "Fusionner 30 cartes (guilde)",       "xp": 2000, "bank": 0},
 ]
 _DAILY_BY_KEY = {q["key"]: q for q in GUILD_DAILY_QUESTS}
 _WEEKLY_BY_KEY = {q["key"]: q for q in GUILD_WEEKLY_QUESTS}
