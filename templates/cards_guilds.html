@@ -54,7 +54,7 @@
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function powerDigits(n){
   return String(Math.max(0, Math.round(n))).split('').map(
-    d => `<img src="/assets/power-digit/${d}" alt="${d}">`).join('');
+    d => `<img src="/static/power_digits/${d}.png" alt="${d}">`).join('');
 }
 function fmt(n){return (n||0).toLocaleString('fr-FR').replace(/ /g,' ');}
 
