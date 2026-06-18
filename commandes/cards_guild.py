@@ -30,6 +30,16 @@ def _is_owner(user_id) -> bool:
     return bool(owner) and str(user_id) == owner
 
 
+def _can_master(gid, user_id) -> bool:
+    """Maitre de la guilde OU owner du bot (acces total)."""
+    return _is_owner(user_id) or guild_member_role(gid, user_id) == "master"
+
+
+def _can_officer(gid, user_id) -> bool:
+    """Maitre/Officier OU owner du bot."""
+    return _is_owner(user_id) or guild_member_role(gid, user_id) in ("master", "officer")
+
+
 def _guild_xp_bar(bot, into, span, segments=14):
     filled = min(segments, int(round(segments * into / span))) if span > 0 else segments
     full = str(discord.utils.get(bot.emojis, name="playerlifebarfull") or "🟩")
@@ -518,7 +528,7 @@ def setup_guild_commands(bot, deps):
             async def cb(inter: discord.Interaction):
                 if not guild_get(self.gid):
                     await inter.response.send_message("Guilde dissoute.", ephemeral=True); return
-                if guild_member_role(self.gid, inter.user.id) not in ("master", "officer"):
+                if not _can_officer(self.gid, inter.user.id):
                     await inter.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
                 if not guild_bank_spend(self.gid, int(it["cost"])):
                     await inter.response.send_message("Banque de guilde insuffisante.", ephemeral=True); return
@@ -627,7 +637,7 @@ def setup_guild_commands(bot, deps):
 
         @discord.ui.button(label="Guilde customisation", emoji="🎨", style=discord.ButtonStyle.secondary, row=1)
         async def b_custom(self, interaction, btn):
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             g = guild_get(self.gid)
             await interaction.response.send_message(
@@ -652,7 +662,7 @@ def setup_guild_commands(bot, deps):
                                  options=opts, min_values=1, max_values=1)
 
             async def callback(self, interaction):
-                if guild_member_role(self.gid, interaction.user.id) != "master":
+                if not _can_master(self.gid, interaction.user.id):
                     await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
                 key = self.values[0]
                 guild_set_color(self.gid, key)
@@ -662,7 +672,7 @@ def setup_guild_commands(bot, deps):
 
         @discord.ui.button(label="Renommer la guilde", emoji="✏️", style=discord.ButtonStyle.secondary)
         async def rename(self, interaction, btn):
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             g = guild_get(self.gid)
             # Cooldown 1/mois (30 jours)
@@ -682,20 +692,20 @@ def setup_guild_commands(bot, deps):
 
         @discord.ui.button(label="Définir l'emblème", emoji="🏅", style=discord.ButtonStyle.primary)
         async def set_emblem(self, interaction, btn):
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             await interaction.response.send_modal(EmblemModal(self.gid))
 
         @discord.ui.button(label="Retirer l'emblème", emoji="🗑️", style=discord.ButtonStyle.secondary)
         async def clear_emblem(self, interaction, btn):
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             guild_set_emblem(self.gid, None)
             await interaction.response.send_message("🗑️ Emblème retiré.", ephemeral=True)
 
         @discord.ui.button(label="Prérequis & accès", emoji="🚪", style=discord.ButtonStyle.secondary)
         async def reqs(self, interaction, btn):
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             await interaction.response.send_modal(GuildReqModal(self.gid))
 
@@ -720,7 +730,7 @@ def setup_guild_commands(bot, deps):
 
         async def on_submit(self, interaction):
             from database import guild_admin_update
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             def _n(v):
                 try: return max(0, int(str(v).strip() or 0))
@@ -773,7 +783,7 @@ def setup_guild_commands(bot, deps):
             self.add_item(self.name_in)
 
         async def on_submit(self, interaction):
-            if guild_member_role(self.gid, interaction.user.id) != "master":
+            if not _can_master(self.gid, interaction.user.id):
                 await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
             g = guild_get(self.gid)
             if not g:
@@ -882,7 +892,7 @@ def setup_guild_commands(bot, deps):
             return
         await interaction.response.defer()
         rows = _build_member_rows(g)
-        inv_role = guild_member_role(g["id"], interaction.user.id)
+        inv_role = "master" if _is_owner(interaction.user.id) else guild_member_role(g["id"], interaction.user.id)
         view = GuildProfileView(g["id"], rows, invoker_role=inv_role)
         await interaction.followup.send(embed=_guildprofile_embed(g, rows, "power"), view=view)
 
