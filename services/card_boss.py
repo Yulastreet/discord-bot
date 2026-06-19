@@ -739,7 +739,7 @@ class _CardPickerView(discord.ui.View):
         page_rows = self.rows[(self.page - 1) * 25: self.page * 25]
         opt_mode = self.sort_mode == "optimisation" and self.boss_element
         lines = []
-        for c in page_rows:
+        for i, c in enumerate(page_rows):
             emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
             el = _elem(self.bot, c.get("element"))
             pre = f"{emoji}｜{el}" if el else emoji
@@ -749,16 +749,28 @@ class _CardPickerView(discord.ui.View):
             if opt_mode:
                 m = element_matchup(c.get("element") or "", self.boss_element)
                 match_tag = " 🔥" if m > 1 else (" 🟦" if m < 1 else "")
+                # score d'efficacite reel = rarete × etoiles × bonus element
+                eff = _card_effectiveness(c, self.boss_element)
+                crown = "👑 " if (self.page == 1 and i == 0) else ""
+                score = f" `×{eff:.2f}`"
+                lines.append(f"{crown}{pre} **{c['name']}**{stars}{cnt}{match_tag}{score} · _{uni}_")
             else:
-                match_tag = ""
-            lines.append(f"{pre} **{c['name']}**{stars}{cnt}{match_tag} · _{uni}_")
+                lines.append(f"{pre} **{c['name']}**{stars}{cnt} · _{uni}_")
         elem_lbl = CARD_ELEMENT_LABELS.get(self.element, "tous") if self.element else "tous"
-        sort_lbl = f" · ⚡ optimisation" if self.sort_mode == "optimisation" else (
-                   f" · trié: {self.sort_mode}" if self.sort_mode else "")
+        if self.sort_mode == "optimisation":
+            boss_lbl = CARD_ELEMENT_LABELS.get(self.boss_element, "?") if self.boss_element else "?"
+            sort_lbl = f" · ⚡ optimal vs boss {boss_lbl}"
+        elif self.sort_mode:
+            sort_lbl = f" · trié: {self.sort_mode}"
+        else:
+            sort_lbl = ""
+        head = f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**{sort_lbl}"
+        if opt_mode:
+            head += ("\n_Classé par dégâts réels (rareté × étoiles × bonus élément). "
+                     "👑 = meilleure carte pour ce boss._")
         embed = discord.Embed(
             title="🎴 Choisis ta carte de combat", color=0x8e44ad,
-            description=f"**{len(self.rows)}** cartes · élément : **{elem_lbl}**{sort_lbl}\n\n"
-                        + ("\n".join(lines) if lines else "_(aucune carte)_"))
+            description=head + "\n\n" + ("\n".join(lines) if lines else "_(aucune carte)_"))
         footer_extra = " · 🔥 avantage 🟦 désavantage" if opt_mode else ""
         embed.set_footer(text=f"Page {self.page}/{self.total_pages} · "
                               f"choisis dans la liste déroulante ou par nom 🎴{footer_extra}")
