@@ -413,6 +413,14 @@ def init_db():
         user_id TEXT PRIMARY KEY,
         total   INTEGER DEFAULT 0
     )''')
+    # Anti-abus : serveurs "solo" (user seul avec le bot) ou un user a deja roll.
+    # Cap le nb de tels serveurs par compte -> coupe le farm par faux serveurs.
+    c.execute('''CREATE TABLE IF NOT EXISTS card_roll_solo_guild (
+        user_id    TEXT NOT NULL,
+        guild_id   TEXT NOT NULL,
+        first_at   TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, guild_id)
+    )''')
     c.execute('''CREATE TABLE IF NOT EXISTS roll_grant_state (
         user_id   TEXT PRIMARY KEY,
         consumed  INTEGER DEFAULT 0
@@ -3136,6 +3144,31 @@ def roll_total_get(user_id) -> int:
     return int(r["total"]) if r else 0
 
 
+def roll_solo_guild_has(user_id, guild_id) -> bool:
+    """True si ce user a deja roll dans ce serveur solo (deja compte)."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM card_roll_solo_guild WHERE user_id = ? AND guild_id = ?",
+                  (str(user_id), str(guild_id))).fetchone()
+    conn.close()
+    return bool(r)
+
+
+def roll_solo_guild_count(user_id) -> int:
+    """Nb de serveurs solo distincts ou ce user a deja roll."""
+    conn = get_db(); c = conn.cursor()
+    n = c.execute("SELECT COUNT(*) AS n FROM card_roll_solo_guild WHERE user_id = ?",
+                  (str(user_id),)).fetchone()["n"]
+    conn.close()
+    return int(n)
+
+
+def roll_solo_guild_add(user_id, guild_id):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO card_roll_solo_guild (user_id, guild_id) VALUES (?, ?)",
+              (str(user_id), str(guild_id)))
+    conn.commit(); conn.close()
+
+
 def roll_events_reset_all() -> int:
     """Owner : reset tous les cooldowns de roll (tout le monde peut re-roll)."""
     conn = get_db(); c = conn.cursor()
@@ -5260,6 +5293,9 @@ DEFAULT_SETTINGS = {
     # Cartes : age minimum (jours) d'un serveur pour autoriser /roll (anti-farm
     # par serveurs jetables). 0 = desactive. Override : env ROLL_MIN_GUILD_AGE_DAYS.
     "roll_min_guild_age_days": "7",
+    # Cartes : nb max de serveurs "solo" (user seul avec le bot) ou un compte peut
+    # roll. Au-dela, /roll bloque sur tout nouveau serveur solo. 0 = desactive.
+    "roll_max_solo_guilds": "2",
 }
 
 def get_setting(key, default=None):

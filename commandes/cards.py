@@ -689,6 +689,31 @@ def setup_cards_commands(bot, deps):
                         ephemeral=True)
                     return
 
+            # Anti-abus #2 : cap des serveurs "solo" (user seul avec le bot, que des
+            # bots a part lui). Un compte ne peut roll que dans N serveurs solo max.
+            if interaction.guild.id != _sg:
+                try:
+                    from database import (get_setting, roll_solo_guild_has,
+                                          roll_solo_guild_count, roll_solo_guild_add)
+                    _max_solo = int(get_setting("roll_max_solo_guilds", "2"))
+                except (ValueError, TypeError):
+                    _max_solo = 2
+                if _max_solo > 0:
+                    humans = sum(1 for m in interaction.guild.members if not m.bot)
+                    if humans <= 1:  # serveur solo : juste le roller (+ des bots)
+                        uid_s = interaction.user.id
+                        gid_s = interaction.guild.id
+                        if not roll_solo_guild_has(uid_s, gid_s):
+                            if roll_solo_guild_count(uid_s) >= _max_solo:
+                                await interaction.response.send_message(
+                                    f"🚫 Tu as atteint la limite de **{_max_solo} serveurs** où tu es "
+                                    f"seul avec le bot pour utiliser `/roll`.\n"
+                                    f"_Cette limite évite les abus et les \"faux serveurs\" qui faussent "
+                                    f"les stats du bot. Roll plutôt depuis un vrai serveur communautaire._",
+                                    ephemeral=True)
+                                return
+                            roll_solo_guild_add(uid_s, gid_s)
+
         # Cooldown PAR SERVEUR (un timer par guild) - skip pour owner.
         # Membres serveur support : 2 charges/h. Autres : 1/h. Chaque charge
         # recharge 1h apres SA propre utilisation. Les rolls bonus (offerts par

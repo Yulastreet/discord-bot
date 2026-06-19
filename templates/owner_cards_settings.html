@@ -29,6 +29,13 @@
     <div id="csEnvWarn" class="cs-warn" style="display:none;"></div>
   </div>
 
+  <div class="cs-field">
+    <label>Nb max de serveurs "solo" par compte pour <code>/roll</code>
+      <span class="cs-hint">— serveur où le joueur est seul avec le bot. 0 = désactivé.</span></label>
+    <input id="csMaxSolo" type="number" min="0" max="1000" value="2" class="input">
+    <div class="cs-hint">Un compte peut roll dans au maximum ce nombre de serveurs où il est seul avec le bot (que des bots à part lui). Au-delà, <code>/roll</code> est bloqué sur tout nouveau serveur solo. Anti faux-serveurs.</div>
+  </div>
+
   <button class="btn btn-primary" onclick="csSave()">💾 Enregistrer</button>
   <div id="csResult" class="muted"></div>
 </div>
@@ -39,6 +46,7 @@ async function csLoad(){
     const r = await fetch('/api/owner/cards-settings');
     const d = await r.json();
     document.getElementById('csRollAge').value = d.roll_min_guild_age_days ?? 7;
+    document.getElementById('csMaxSolo').value = d.roll_max_solo_guilds ?? 2;
     if (d.env_override != null && d.env_override !== '') {
       const w = document.getElementById('csEnvWarn');
       w.style.display = 'block';
@@ -48,15 +56,16 @@ async function csLoad(){
 }
 async function csSave(){
   const days = parseInt(document.getElementById('csRollAge').value, 10);
+  const solo = parseInt(document.getElementById('csMaxSolo').value, 10);
   const res = document.getElementById('csResult');
   res.textContent = 'Enregistrement…';
   try {
     const r = await fetch('/api/owner/cards-settings', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({roll_min_guild_age_days: days}),
+      body: JSON.stringify({roll_min_guild_age_days: days, roll_max_solo_guilds: solo}),
     });
     const d = await r.json();
-    if (d.ok) res.innerHTML = `✅ Enregistré : <b>${d.roll_min_guild_age_days}</b> jour(s).`;
+    if (d.ok) res.innerHTML = `✅ Enregistré : âge min <b>${d.roll_min_guild_age_days}</b> j · max serveurs solo <b>${d.roll_max_solo_guilds}</b>.`;
     else res.textContent = `❌ ${d.error || 'Erreur'}`;
   } catch(e) { res.textContent = 'Erreur : ' + e.message; }
 }

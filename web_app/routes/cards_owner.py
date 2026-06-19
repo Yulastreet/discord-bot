@@ -752,14 +752,19 @@ def register_cards_owner_routes(app, deps):
             data = request.json or {}
             try:
                 days = int(data.get("roll_min_guild_age_days"))
+                solo = int(data.get("roll_max_solo_guilds"))
             except (ValueError, TypeError):
-                return jsonify({"error": "valeur invalide (entier de jours)"}), 400
+                return jsonify({"error": "valeur invalide (entiers attendus)"}), 400
             days = max(0, min(days, 3650))
+            solo = max(0, min(solo, 1000))
             set_setting("roll_min_guild_age_days", days)
-            return jsonify({"ok": True, "roll_min_guild_age_days": days})
+            set_setting("roll_max_solo_guilds", solo)
+            return jsonify({"ok": True, "roll_min_guild_age_days": days,
+                            "roll_max_solo_guilds": solo})
         env_override = _os.getenv("ROLL_MIN_GUILD_AGE_DAYS")
         return jsonify({
             "roll_min_guild_age_days": int(get_setting("roll_min_guild_age_days", "7")),
+            "roll_max_solo_guilds": int(get_setting("roll_max_solo_guilds", "2")),
             "env_override": env_override,
         })
 
