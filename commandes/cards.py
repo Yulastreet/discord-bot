@@ -315,6 +315,94 @@ def _resolve_card_image(card: dict):
     return (None, None)
 
 
+# ===== Visionneuse des cartes d'un trade (navigation paginee, PERSISTANTE) =====
+# View persistante : custom_id fixes + etat (trade_id, index) relu dans le footer
+# de l'embed a chaque clic -> survit aux restarts pm2 et au timeout (plus de
+# "Echec de l'interaction" en revenant en arriere).
+import re as _re_trade
+
+
+def _trade_card_entries(trade_id, sender_name, receiver_name):
+    """Liste plate des cartes du trade : offres puis demandes."""
+    from database import card_trade_items
+    entries = []
+    for side, items in (("offer", card_trade_items(trade_id, side="offer")),
+                        ("request", card_trade_items(trade_id, side="request"))):
+        for it in items:
+            side_lbl = (f"📤 Proposé par {sender_name}" if side == "offer"
+                        else f"📥 Demandé à {receiver_name}")
+            url, _f = _resolve_card_image({"id": it["card_id"], "image_url": it.get("image_url")})
+            entries.append({
+                "name": it["name"], "rarity": it.get("rarity"),
+                "universe": it.get("universe") or it.get("subtitle") or "?",
+                "qty": int(it.get("qty", 1) or 1), "side": side_lbl, "url": url,
+            })
+    return entries
+
+
+def _trade_card_embed(trade_id, idx, entries):
+    if not entries:
+        return None
+    idx = idx % len(entries)
+    e = entries[idx]
+    emoji = RARITY_EMOJIS.get(e["rarity"], "⚪")
+    qty = f" ×{e['qty']}" if e["qty"] > 1 else ""
+    embed = discord.Embed(
+        title=f"{emoji} {e['name']}{qty}"[:256],
+        description=f"{e['side']}\n**Rareté :** {(e['rarity'] or '?').upper()}\n"
+                    f"**Origine :** {e['universe']}",
+        color=RARITY_COLORS.get(e["rarity"], 0xC8F050))
+    if e["url"]:
+        embed.set_image(url=e["url"])
+    # footer = etat persistant (parse au prochain clic)
+    embed.set_footer(text=f"Trade #{trade_id} · carte {idx + 1}/{len(entries)}")
+    return embed
+
+
+def _trade_entries_for(interaction, trade_id):
+    """Reconstruit les entries en resolvant les pseudos depuis le trade record."""
+    from database import card_trade_get
+    trade = card_trade_get(trade_id)
+    if not trade:
+        return []
+    g = interaction.guild
+    sender = g.get_member(int(trade["sender_id"])) if g and trade.get("sender_id") else None
+    receiver = g.get_member(int(trade["receiver_id"])) if g and trade.get("receiver_id") else None
+    sname = sender.display_name if sender else "le proposeur"
+    rname = receiver.display_name if receiver else "le destinataire"
+    return _trade_card_entries(trade_id, sname, rname)
+
+
+class TradeCardsNavView(discord.ui.View):
+    """Persistante (timeout=None, custom_id fixes). Une instance enregistree au
+    boot via bot.add_view gere TOUS les visionneurs de trade."""
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    async def _nav(self, interaction: discord.Interaction, direction: int):
+        emb = interaction.message.embeds[0] if interaction.message.embeds else None
+        ft = (emb.footer.text if emb and emb.footer else "") or ""
+        m = _re_trade.search(r"Trade #(\d+) · carte (\d+)/(\d+)", ft)
+        if not m:
+            await interaction.response.defer(); return
+        tid = int(m.group(1)); cur = int(m.group(2)) - 1
+        entries = _trade_entries_for(interaction, tid)
+        if not entries:
+            await interaction.response.send_message(
+                "Ce trade n'a plus de cartes à afficher.", ephemeral=True); return
+        new_idx = (cur + direction) % len(entries)
+        await interaction.response.edit_message(
+            embed=_trade_card_embed(tid, new_idx, entries), view=self)
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, custom_id="trade_card_prev")
+    async def prev_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+        await self._nav(interaction, -1)
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, custom_id="trade_card_next")
+    async def next_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
+        await self._nav(interaction, +1)
+
+
 def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
                      essence_gain=0, already_owned=False):
     """Construit l'embed d'un roll (meme format que /roll). Reutilise par /roll,
@@ -560,6 +648,12 @@ class OwnersView(discord.ui.View):
 
 def setup_cards_commands(bot, deps):
     globals().update(deps)
+
+    # View persistante du visionneur de cartes de trade : survit aux restarts pm2.
+    try:
+        bot.add_view(TradeCardsNavView())
+    except Exception as _e:
+        print(f"[cards] add_view TradeCardsNavView: {_e}")
 
     # Warmer du cache de noms/univers (arriere-plan, thread) : l'autocomplete ne lit
     # plus jamais la DB -> jamais de blocage de boucle ni "Echec des options".
@@ -2443,65 +2537,6 @@ def setup_cards_commands(bot, deps):
         return embed
 
 
-    def _trade_card_entries(trade_id: int, sender_name: str, receiver_name: str):
-        """Liste plate des cartes du trade pour navigation : offres puis demandes."""
-        entries = []
-        for side, items in (("offer", card_trade_items(trade_id, side="offer")),
-                            ("request", card_trade_items(trade_id, side="request"))):
-            for it in items:
-                if side == "offer":
-                    side_lbl = f"📤 Proposé par {sender_name}"
-                else:
-                    side_lbl = f"📥 Demandé à {receiver_name}"
-                url, _f = _resolve_card_image({"id": it["card_id"], "image_url": it.get("image_url")})
-                entries.append({
-                    "name": it["name"], "rarity": it.get("rarity"),
-                    "universe": it.get("universe") or it.get("subtitle") or "?",
-                    "qty": int(it.get("qty", 1) or 1), "side": side_lbl, "url": url,
-                })
-        return entries
-
-    class _TradeCardsView(discord.ui.View):
-        def __init__(self, trade_id, entries):
-            super().__init__(timeout=300)
-            self.trade_id = trade_id
-            self.entries = entries
-            self.idx = 0
-            self._refresh()
-
-        def _refresh(self):
-            # navigation cyclique : les fleches restent toujours actives, on boucle
-            # aux extremites (permet de revenir aux premieres cartes facilement).
-            self.counter.label = f"{self.idx + 1} / {len(self.entries)}"
-
-        def embed(self):
-            e = self.entries[self.idx]
-            emoji = RARITY_EMOJIS.get(e["rarity"], "⚪")
-            qty = f" ×{e['qty']}" if e["qty"] > 1 else ""
-            embed = discord.Embed(
-                title=f"{emoji} {e['name']}{qty}"[:256],
-                description=f"{e['side']}\n**Rareté :** {(e['rarity'] or '?').upper()}\n"
-                            f"**Origine :** {e['universe']}",
-                color=RARITY_COLORS.get(e["rarity"], 0xC8F050))
-            if e["url"]:
-                embed.set_image(url=e["url"])
-            embed.set_footer(text=f"Trade #{self.trade_id} · carte {self.idx + 1}/{len(self.entries)}")
-            return embed
-
-        @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
-        async def prev_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            self.idx = (self.idx - 1) % len(self.entries); self._refresh()
-            await interaction.response.edit_message(embed=self.embed(), view=self)
-
-        @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
-        async def counter(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            pass
-
-        @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
-        async def next_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            self.idx = (self.idx + 1) % len(self.entries); self._refresh()
-            await interaction.response.edit_message(embed=self.embed(), view=self)
-
 
     class TradeView(discord.ui.View):
         def __init__(self, trade_id: int, sender_id: int, receiver_id: int):
@@ -2605,8 +2640,9 @@ def setup_cards_commands(bot, deps):
                 await interaction.response.send_message(
                     "Aucune carte à afficher pour ce trade.", ephemeral=True)
                 return
-            view = _TradeCardsView(self.trade_id, entries)
-            await interaction.response.send_message(embed=view.embed(), view=view, ephemeral=True)
+            await interaction.response.send_message(
+                embed=_trade_card_embed(self.trade_id, 0, entries),
+                view=TradeCardsNavView(), ephemeral=True)
 
 
     class TradeModal(discord.ui.Modal, title="Proposer un trade"):
