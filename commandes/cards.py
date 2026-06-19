@@ -665,6 +665,28 @@ def setup_cards_commands(bot, deps):
                 )
                 return
 
+        # Anti-abus : /roll bloque dans les serveurs trop RECENTS. L'age du serveur
+        # vient du snowflake Discord (guild.created_at), infalsifiable. Coupe le farm
+        # par creation de serveurs jetables en masse. Owner + serveur support exemptes.
+        if interaction.guild and not _is_owner(interaction.user.id):
+            try:
+                _min_days = int(os.getenv("ROLL_MIN_GUILD_AGE_DAYS", "7"))
+            except (ValueError, TypeError):
+                _min_days = 7
+            _sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
+            if _min_days > 0 and interaction.guild.id != _sg:
+                age = _dt.datetime.now(_dt.timezone.utc) - interaction.guild.created_at
+                if age < _dt.timedelta(days=_min_days):
+                    ready_at = int((interaction.guild.created_at
+                                    + _dt.timedelta(days=_min_days)).timestamp())
+                    await interaction.response.send_message(
+                        f"🚫 Ce serveur est trop récent pour utiliser `/roll`.\n"
+                        f"Les rolls s'y débloquent **{_min_days} jours** après sa création "
+                        f"(<t:{ready_at}:R>).\n"
+                        f"_Mesure anti-abus contre la création de serveurs jetables._",
+                        ephemeral=True)
+                    return
+
         # Cooldown PAR SERVEUR (un timer par guild) - skip pour owner.
         # Membres serveur support : 2 charges/h. Autres : 1/h. Chaque charge
         # recharge 1h apres SA propre utilisation. Les rolls bonus (offerts par
