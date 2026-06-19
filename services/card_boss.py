@@ -510,7 +510,8 @@ class JoinView(discord.ui.View):
         super().__init__(timeout=None)
         self.boss_id = boss_id
 
-    @discord.ui.button(label="Rejoindre", style=discord.ButtonStyle.success, emoji="🛡️")
+    @discord.ui.button(label="Rejoindre", style=discord.ButtonStyle.success, emoji="🛡️",
+                       custom_id="boss_join")
     async def join(self, interaction, btn):
         boss = card_boss_get(self.boss_id)
         if not boss or boss["status"] != "recruiting":
@@ -551,16 +552,21 @@ class JoinView(discord.ui.View):
             return "Rejoins d'abord (🛡️)."
         return None
 
-    @discord.ui.button(label="Carte", style=discord.ButtonStyle.secondary, emoji="🎴")
+    @discord.ui.button(label="Carte", style=discord.ButtonStyle.secondary, emoji="🎴",
+                       custom_id="boss_card")
     async def card_btn(self, interaction, btn):
         err = self._check(interaction)
         if err:
             await interaction.response.send_message(err, ephemeral=True); return
+        # defer : charger toute la collection peut depasser les 3s (sinon "Echec
+        # de l'interaction"). On envoie ensuite l'ephemere en followup.
+        await interaction.response.defer(ephemeral=True, thinking=True)
         view = _CardPickerView(self.boss_id, interaction.user.id, interaction.client)
-        await interaction.response.send_message(content="🎴 **Choisis ta carte de combat**",
-                                                embed=view.build_embed(), view=view, ephemeral=True)
+        await interaction.followup.send(content="🎴 **Choisis ta carte de combat**",
+                                        embed=view.build_embed(), view=view, ephemeral=True)
 
-    @discord.ui.button(label="Aptitude", style=discord.ButtonStyle.secondary, emoji="🩸")
+    @discord.ui.button(label="Aptitude", style=discord.ButtonStyle.secondary, emoji="🩸",
+                       custom_id="boss_apt")
     async def apt_btn(self, interaction, btn):
         err = self._check(interaction)
         if err:
