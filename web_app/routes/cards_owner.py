@@ -735,6 +735,35 @@ def register_cards_owner_routes(app, deps):
         return render_template("owner_cards.html", active_nav="owner_cards")
 
 
+    @app.route("/owner/cards-settings")
+    def owner_cards_settings_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        return render_template("owner_cards_settings.html", active_nav="cards_settings")
+
+
+    @app.route("/api/owner/cards-settings", methods=["GET", "POST"])
+    def api_owner_cards_settings():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_setting, set_setting
+        import os as _os
+        if request.method == "POST":
+            data = request.json or {}
+            try:
+                days = int(data.get("roll_min_guild_age_days"))
+            except (ValueError, TypeError):
+                return jsonify({"error": "valeur invalide (entier de jours)"}), 400
+            days = max(0, min(days, 3650))
+            set_setting("roll_min_guild_age_days", days)
+            return jsonify({"ok": True, "roll_min_guild_age_days": days})
+        env_override = _os.getenv("ROLL_MIN_GUILD_AGE_DAYS")
+        return jsonify({
+            "roll_min_guild_age_days": int(get_setting("roll_min_guild_age_days", "7")),
+            "env_override": env_override,
+        })
+
+
     @app.route("/owner/cards-cheat")
     def owner_cards_cheat_page():
         if not _is_owner_session():

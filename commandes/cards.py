@@ -670,7 +670,9 @@ def setup_cards_commands(bot, deps):
         # par creation de serveurs jetables en masse. Owner + serveur support exemptes.
         if interaction.guild and not _is_owner(interaction.user.id):
             try:
-                _min_days = int(os.getenv("ROLL_MIN_GUILD_AGE_DAYS", "7"))
+                from database import get_setting
+                _min_days = int(os.getenv("ROLL_MIN_GUILD_AGE_DAYS")
+                                or get_setting("roll_min_guild_age_days", "7"))
             except (ValueError, TypeError):
                 _min_days = 7
             _sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)

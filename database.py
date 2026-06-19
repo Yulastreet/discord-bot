@@ -5257,6 +5257,9 @@ DEFAULT_SETTINGS = {
     "soutien_message":      "<user> A décidé de filer un coup de main ! Merci pour ton soutien !",
     "soutien_role_ids":     "",   # CSV d'IDs de roles ; vide = fallback noms par defaut
     "soutien_channel_id":   "",   # vide = fallback env SOUTIEN_CHANNEL_ID
+    # Cartes : age minimum (jours) d'un serveur pour autoriser /roll (anti-farm
+    # par serveurs jetables). 0 = desactive. Override : env ROLL_MIN_GUILD_AGE_DAYS.
+    "roll_min_guild_age_days": "7",
 }
 
 def get_setting(key, default=None):
