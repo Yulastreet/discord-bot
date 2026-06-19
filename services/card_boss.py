@@ -46,6 +46,24 @@ _SORT_BTN_LBL = {None: "🔃 Trier", "nom": "🔤 Nom ↑", "rareté": "🎯 Rar
                  "étoiles": "⭐ Étoiles ↓", "optimisation": "⚡ Optimal"}
 
 
+def _card_atk_mult(c):
+    """Multiplicateur d'ATK REEL de la carte = rareté × etoiles, avec le cas
+    special secret 5★ = 999. Une common 5★ peut depasser une epic 0★."""
+    from database import CARD_RARITY_COMBAT_MULT, CARD_STAR_COMBAT_BONUS
+    rar = c.get("rarity") or ""
+    stars = int(c.get("stars", 0))
+    if rar == "secret" and stars >= 5:
+        return 999.0
+    rar_mult = CARD_RARITY_COMBAT_MULT.get(rar, 1.0)
+    star_mult = 1.0 + min(5, stars) * CARD_STAR_COMBAT_BONUS
+    return rar_mult * star_mult
+
+
+def _card_effectiveness(c, boss_element):
+    """Efficacite totale contre CE boss = multiplicateur ATK × bonus elementaire."""
+    return _card_atk_mult(c) * element_matchup(c.get("element") or "", boss_element or "")
+
+
 def _sort_cards(rows, mode, boss_element=None):
     if mode == "nom":
         return sorted(rows, key=lambda c: c["name"].lower())
@@ -54,11 +72,9 @@ def _sort_cards(rows, mode, boss_element=None):
     if mode == "étoiles":
         return sorted(rows, key=lambda c: -int(c.get("stars", 0)))
     if mode == "optimisation":
-        return sorted(rows, key=lambda c: (
-            -element_matchup(c.get("element") or "", boss_element or ""),
-            -_RARITY_RANK.get(c.get("rarity", ""), 0),
-            -int(c.get("stars", 0)),
-        ))
+        # tri par l'efficacite reelle (mult ATK reel × avantage elementaire) :
+        # une carte moins rare mais plus etoilee passe devant si elle frappe plus fort.
+        return sorted(rows, key=lambda c: -_card_effectiveness(c, boss_element))
     return rows
 
 # Fourchette de rareté de la carte "avatar" du boss selon le tier
