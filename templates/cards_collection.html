@@ -336,7 +336,7 @@ function shareToast(msg){
   t.textContent=msg; t.style.opacity='1';
   clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; }, 1800);
 }
-function shareUrl(){ return `${location.origin}/cards/collection/${TARGET_UID}`; }  // lien specifique au joueur
+function shareUrl(){ return `${location.origin}/c/${TARGET_UID}`; }  // lien partage (previsualisation Discord)
 async function shareCopy(){
   document.getElementById('shareMenu').classList.remove('open');
   const url = shareUrl();

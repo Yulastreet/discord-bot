@@ -246,7 +246,7 @@ def _user_can_access_page(endpoint, path):
 
     # Cartes a collectionner : categorie PERSO a chaque user, accessible meme sans
     # serveur selectionne / bot present / dashboard configure.
-    if path == "/cards" or path.startswith("/cards/") \
+    if path == "/cards" or path.startswith("/cards/") or path.startswith("/c/") \
             or path.startswith("/api/public/cards") or path.startswith("/api/public/wheel") \
             or path.startswith("/api/public/guilds") \
             or path.startswith("/api/public/collection"):
@@ -352,7 +352,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
 }
 
 def needs_guild(path):
-    if path.startswith("/static") or path.startswith("/assets/"):
+    if path.startswith("/static") or path.startswith("/assets/") or path.startswith("/c/"):
         return False
     for p in GUILD_FREE_PATHS:
         if path == p or path.startswith(p + "/"):
@@ -369,7 +369,7 @@ PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms",
                         "/api/stripe/webhook"}
 PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/",
                            "/api/public-status/", "/uploads/bot_profile/",
-                           "/assets/power-digit/")
+                           "/assets/power-digit/", "/c/")
 
 
 def _current_user_id():
