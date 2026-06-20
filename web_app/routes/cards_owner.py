@@ -337,15 +337,16 @@ def register_cards_owner_routes(app, deps):
 
     def _build_collection_preview(user_id, renders_dir):
         """Mosaique 1200x630 des cartes du joueur (pour la previsualisation Discord).
-        Cache : regenere si manquant ou > 1h. Retourne le chemin relatif /static ou None."""
+        Cache : regenere si manquant ou > 1h. Retourne le chemin relatif /static ou None.
+        TOUT est dans le try : si Pillow manque ou erreur -> None (fallback avatar)."""
         import os as _os, time as _t
-        from PIL import Image
-        from database import user_card_list
-        out_dir = _os.path.join(_os.path.dirname(renders_dir), "collection_preview")
-        _os.makedirs(out_dir, exist_ok=True)
-        out_abs = _os.path.join(out_dir, f"{user_id}.png")
         rel = f"/static/collection_preview/{user_id}.png"
         try:
+            from PIL import Image
+            from database import user_card_list
+            out_dir = _os.path.join(_os.path.dirname(renders_dir), "collection_preview")
+            _os.makedirs(out_dir, exist_ok=True)
+            out_abs = _os.path.join(out_dir, f"{user_id}.png")
             if _os.path.exists(out_abs) and (_t.time() - _os.path.getmtime(out_abs) < 3600):
                 return rel
             # cartes uniques, deja triees par rarete (mythic d'abord)
@@ -399,30 +400,33 @@ def register_cards_owner_routes(app, deps):
         """Lien de partage public : sert les balises Open Graph (previsualisation
         Discord) puis redirige les humains vers le classeur dashboard."""
         import os as _os
-        from flask import request as _rq, render_template_string
-        from database import get_db, user_card_count
-        renders_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
-            _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_renders")
-        conn = get_db(); c = conn.cursor()
-        m = c.execute("SELECT username, avatar_url FROM guild_members WHERE user_id = ? LIMIT 1",
-                      (str(user_id),)).fetchone()
-        conn.close()
-        name = (m["username"] if m and m["username"] else "Joueur")
-        avatar = (m["avatar_url"] if m else None)
-        try:
-            total = user_card_count(user_id)
-        except Exception:
-            total = 0
-        preview_rel = _build_collection_preview(user_id, renders_dir)
-        # https force (derriere nginx, Flask peut voir http://). Discord exige https.
-        base = _rq.host_url.rstrip("/").replace("http://", "https://")
-        og_image = f"{base}{preview_rel}" if preview_rel else (avatar or "")
-        card_type = "summary_large_image" if preview_rel else "summary"
+        from flask import request as _rq, render_template_string, redirect as _redir
         target = f"/cards/collection/{user_id}"
-        html = render_template_string(_COLLECTION_OG_HTML, name=name, total=total,
-                                      og_image=og_image, og_url=f"{base}/cards/s/{user_id}",
-                                      target=target, card_type=card_type)
-        return html
+        try:
+            from database import get_db, user_card_count
+            renders_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
+                _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_renders")
+            conn = get_db(); c = conn.cursor()
+            m = c.execute("SELECT username, avatar_url FROM guild_members WHERE user_id = ? LIMIT 1",
+                          (str(user_id),)).fetchone()
+            conn.close()
+            name = (m["username"] if m and m["username"] else "Joueur")
+            avatar = (m["avatar_url"] if m else None)
+            try:
+                total = user_card_count(user_id)
+            except Exception:
+                total = 0
+            preview_rel = _build_collection_preview(user_id, renders_dir)
+            # https force (derriere nginx, Flask peut voir http://). Discord exige https.
+            base = _rq.host_url.rstrip("/").replace("http://", "https://")
+            og_image = f"{base}{preview_rel}" if preview_rel else (avatar or "")
+            card_type = "summary_large_image" if preview_rel else "summary"
+            return render_template_string(_COLLECTION_OG_HTML, name=name, total=total,
+                                          og_image=og_image, og_url=f"{base}/cards/s/{user_id}",
+                                          target=target, card_type=card_type)
+        except Exception as e:
+            print(f"[collection share] {e}")
+            return _redir(target)   # jamais de 500 : on redirige direct vers le classeur
 
     @app.route("/api/public/collection/<user_id>", methods=["GET"])
     def api_public_collection(user_id):
