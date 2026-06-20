@@ -2144,6 +2144,105 @@ def global_event_card_counts() -> dict:
     return {r["event_key"]: int(r["n"]) for r in rows}
 
 
+# ===== MONNAIE & ECONOMIE D'EVENT (jetons, combat, boutique) =====
+EVENT_DAILY_COINS        = 5     # jetons donnes par /daily pendant un event
+EVENT_FIGHT_MAX_PER_DAY  = 3     # combats event par jour
+EVENT_FIGHT_WIN_COINS    = 4     # jetons par combat gagne
+EVENT_FIGHT_ADV_BONUS    = 2     # bonus si avantage elementaire
+# Boutique : ~20 jetons/jour (5 daily + 3x5 combat) -> 6 skins a 50 = 300 = ~15j.
+EVENT_SHOP_SKIN_COST     = 50    # cout d'un skin alt (tous le meme prix)
+EVENT_SHOP_ROLL_COST     = 8     # cout d'1 roll offert
+EVENT_SHOP_ESS10_COST    = 15    # cout de +10% essences pour 1 jour (cumulatif)
+EVENT_SHOP_ESS10_PCT     = 10
+
+
+def _ensure_event_econ_tables():
+    conn = get_db(); c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS event_wallet (
+        user_id   TEXT NOT NULL,
+        event_key TEXT NOT NULL,
+        coins     INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, event_key)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS event_fight_daily (
+        user_id   TEXT NOT NULL,
+        event_key TEXT NOT NULL,
+        day       TEXT NOT NULL,
+        used      INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, event_key, day)
+    )''')
+    conn.commit(); conn.close()
+
+
+def event_coins_get(user_id, event_key) -> int:
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT coins FROM event_wallet WHERE user_id = ? AND event_key = ?",
+                  (str(user_id), event_key)).fetchone()
+    conn.close()
+    return int(r["coins"]) if r else 0
+
+
+def event_coins_add(user_id, event_key, n) -> int:
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO event_wallet (user_id, event_key, coins) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, event_key) DO UPDATE SET coins = coins + ?",
+              (str(user_id), event_key, int(n), int(n)))
+    conn.commit()
+    r = c.execute("SELECT coins FROM event_wallet WHERE user_id = ? AND event_key = ?",
+                  (str(user_id), event_key)).fetchone()
+    conn.close()
+    return int(r["coins"]) if r else 0
+
+
+def event_coins_spend(user_id, event_key, n) -> bool:
+    """Depense n jetons si solde suffisant. Retourne True si ok."""
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE event_wallet SET coins = coins - ? "
+              "WHERE user_id = ? AND event_key = ? AND coins >= ?",
+              (int(n), str(user_id), event_key, int(n)))
+    ok = c.rowcount > 0
+    conn.commit(); conn.close()
+    return ok
+
+
+def event_fight_used(user_id, event_key) -> int:
+    """Combats event deja faits aujourd'hui (heure Paris)."""
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT used FROM event_fight_daily "
+                  "WHERE user_id = ? AND event_key = ? AND day = ?",
+                  (str(user_id), event_key, _today_str())).fetchone()
+    conn.close()
+    return int(r["used"]) if r else 0
+
+
+def event_fight_inc(user_id, event_key):
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO event_fight_daily (user_id, event_key, day, used) "
+              "VALUES (?, ?, ?, 1) "
+              "ON CONFLICT(user_id, event_key, day) DO UPDATE SET used = used + 1",
+              (str(user_id), event_key, _today_str()))
+    conn.commit(); conn.close()
+
+
+def essence_bonus_add(user_id, pct) -> int:
+    """Ajoute (cumulatif) un bonus % d'essences pour la journee. Retourne le total."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO essence_bonus_daily (user_id, day, pct) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, day) DO UPDATE SET pct = pct + ?",
+              (str(user_id), _today_str(), int(pct), int(pct)))
+    conn.commit()
+    r = c.execute("SELECT pct FROM essence_bonus_daily WHERE user_id = ? AND day = ?",
+                  (str(user_id), _today_str())).fetchone()
+    conn.close()
+    return int(r["pct"]) if r else 0
+
+
 def card_roll_random(universe: str | None = None, user_id=None):
     """Pioche une carte selon les poids de rarete.
     Si universe fourni : filtre uniquement cette categorie.

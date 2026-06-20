@@ -1888,6 +1888,137 @@ def setup_cards_commands(bot, deps):
             return []
 
 
+    # === /eventfight : combat event simplifie pour gagner des jetons ===
+    @bot.tree.command(name="eventfight",
+                       description="Combat event simplifié : gagne des jetons d'event (3/jour)")
+    async def eventfight_cmd(interaction: discord.Interaction):
+        from database import (global_event_get, event_fight_used, event_fight_inc,
+                               event_coins_add, EVENT_FIGHT_MAX_PER_DAY,
+                               EVENT_FIGHT_WIN_COINS, EVENT_FIGHT_ADV_BONUS,
+                               CARD_ELEMENTS, CARD_ELEMENT_LABELS, CARD_ELEMENT_EMOJI,
+                               element_matchup)
+        import random as _r
+        ev = global_event_get()
+        if not ev.get("active"):
+            await interaction.response.send_message(
+                "Aucun event en cours actuellement.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        ek = ev["key"]
+        used = event_fight_used(uid, ek)
+        left = EVENT_FIGHT_MAX_PER_DAY - used
+        if left <= 0:
+            await interaction.response.send_message(
+                f"⚔️ Tu as fait tes **{EVENT_FIGHT_MAX_PER_DAY} combats** du jour. "
+                f"Reviens demain (reset minuit FR).", ephemeral=True)
+            return
+        monster_elem = _r.choice(CARD_ELEMENTS)
+        m_lbl = CARD_ELEMENT_LABELS.get(monster_elem, monster_elem)
+        m_emo = CARD_ELEMENT_EMOJI.get(monster_elem, "👾")
+
+        def _embed(extra=""):
+            e = discord.Embed(
+                title=f"{ev['emoji']} Combat d'event — {ev['name']}",
+                description=(f"Un **monstre {m_emo} {m_lbl}** surgit !\n"
+                            f"Envoie une carte : choisis l'**élément** qui le contre.\n"
+                            f"_Combats restants aujourd'hui : **{left}**_\n{extra}"),
+                color=0x8e44ad)
+            return e
+
+        class _FightView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=120)
+                for el in CARD_ELEMENTS:
+                    self.add_item(self._mk(el))
+
+            def _mk(self, el):
+                btn = discord.ui.Button(
+                    label=CARD_ELEMENT_LABELS.get(el, el),
+                    emoji=CARD_ELEMENT_EMOJI.get(el), style=discord.ButtonStyle.secondary)
+                async def _cb(inter: discord.Interaction):
+                    if inter.user.id != uid:
+                        await inter.response.send_message("Pas ton combat.", ephemeral=True); return
+                    # re-check quota (anti double-clic)
+                    if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY:
+                        await inter.response.edit_message(
+                            embed=_embed("⚠️ Plus de combat disponible."), view=None); return
+                    m = element_matchup(el, monster_elem)
+                    adv = m > 1
+                    coins = EVENT_FIGHT_WIN_COINS + (EVENT_FIGHT_ADV_BONUS if adv else 0)
+                    event_fight_inc(uid, ek)
+                    bal = event_coins_add(uid, ek, coins)
+                    tag = ("🔥 **Avantage élémentaire !**" if adv
+                           else ("🟦 Désavantage, mais victoire." if m < 1 else "⚪ Combat neutre."))
+                    res = (f"Tu envoies une carte **{CARD_ELEMENT_EMOJI.get(el,'')} "
+                           f"{CARD_ELEMENT_LABELS.get(el, el)}** → 🏆 **Victoire !**\n{tag}\n\n"
+                           f"**+{coins} jetons** {ev['emoji']} · solde : **{bal}** {ev['emoji']}")
+                    e = discord.Embed(title=f"{ev['emoji']} Combat d'event — {ev['name']}",
+                                      description=res, color=0x4ade80)
+                    await inter.response.edit_message(embed=e, view=None)
+                btn.callback = _cb
+                return btn
+
+        await interaction.response.send_message(embed=_embed(), view=_FightView())
+
+
+    # === /eventshop : boutique d'event (jetons) ===
+    @bot.tree.command(name="eventshop",
+                       description="Boutique d'event : dépense tes jetons (rolls, bonus essences)")
+    async def eventshop_cmd(interaction: discord.Interaction):
+        from database import (global_event_get, event_coins_get, event_coins_spend,
+                               essence_bonus_add, roll_give_user,
+                               EVENT_SHOP_ROLL_COST, EVENT_SHOP_ESS10_COST, EVENT_SHOP_ESS10_PCT)
+        ev = global_event_get()
+        if not ev.get("active"):
+            await interaction.response.send_message(
+                "Aucun event en cours actuellement.", ephemeral=True)
+            return
+        uid = interaction.user.id
+        ek = ev["key"]
+
+        def _embed():
+            bal = event_coins_get(uid, ek)
+            return discord.Embed(
+                title=f"{ev['emoji']} Boutique {ev['name']}",
+                description=(f"Tes jetons : **{bal}** {ev['emoji']}\n\n"
+                            f"🎲 **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['emoji']}\n"
+                            f"✨ **+{EVENT_SHOP_ESS10_PCT}% essences (1 jour, cumulatif)** — "
+                            f"{EVENT_SHOP_ESS10_COST} {ev['emoji']}\n\n"
+                            f"_Les skins alternatifs des cartes arrivent bientôt._"),
+                color=0xF2B33A)
+
+        class _ShopView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=180)
+
+            async def _guard(self, inter):
+                if inter.user.id != uid:
+                    await inter.response.send_message("Pas ta boutique.", ephemeral=True)
+                    return False
+                return True
+
+            @discord.ui.button(label="Acheter 1 roll", emoji="🎲", style=discord.ButtonStyle.success)
+            async def buy_roll(self, inter, _b):
+                if not await self._guard(inter): return
+                if not event_coins_spend(uid, ek, EVENT_SHOP_ROLL_COST):
+                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                roll_give_user(uid, 1)
+                await inter.response.edit_message(embed=_embed(), view=self)
+                await inter.followup.send("🎲 **+1 roll** ajouté ! Utilise `/roll`.", ephemeral=True)
+
+            @discord.ui.button(label="+10% essences (1j)", emoji="✨", style=discord.ButtonStyle.primary)
+            async def buy_ess(self, inter, _b):
+                if not await self._guard(inter): return
+                if not event_coins_spend(uid, ek, EVENT_SHOP_ESS10_COST):
+                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                total = essence_bonus_add(uid, EVENT_SHOP_ESS10_PCT)
+                await inter.response.edit_message(embed=_embed(), view=self)
+                await inter.followup.send(
+                    f"✨ Bonus essences du jour : **+{total}%** (cumulatif).", ephemeral=True)
+
+        await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
+
+
     # === /cardup : tier-up (doublons d'une rareté -> 1 carte rareté au-dessus) ===
     @bot.tree.command(name="cardup",
                        description="Sacrifie les doublons de tes cartes 5⭐ pour 1 carte aléatoire de la rareté au-dessus")

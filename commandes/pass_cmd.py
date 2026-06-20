@@ -226,9 +226,24 @@ def setup_pass_commands(bot, deps):
             except Exception as e:
                 print(f"[daily] add_pass_xp err: {e}")
 
+        # Jetons d'event si un event global est actif
+        event_coins_gain = 0
+        event_emoji = "🎟️"
+        try:
+            from database import (global_event_get, event_coins_add, EVENT_DAILY_COINS)
+            _ev = global_event_get()
+            if _ev.get("active"):
+                event_coins_gain = EVENT_DAILY_COINS
+                event_coins_add(user.id, _ev["key"], event_coins_gain)
+                event_emoji = _ev.get("emoji") or "🎟️"
+        except Exception as e:
+            print(f"[daily] event coins err: {e}")
+
         daily_claim_apply(user.id, today_str, new_streak)
 
         lines = [f"**+{coins} TookCoins** 🪙", f"**+{essences_gain} Essences** ✨"]
+        if event_coins_gain:
+            lines.append(f"**+{event_coins_gain} Jetons d'event** {event_emoji}")
         if pass_xp_gain:
             lines.append(f"**+{pass_xp_gain} XP Pass** 🎟️")
         lines.append("")
