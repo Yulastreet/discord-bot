@@ -159,10 +159,11 @@ async function toggleGuild(item, gid){
     else {
       box.innerHTML = ms.map(m=>{
         const av = m.avatar ? `<img class="gl-m-av" src="${esc(m.avatar)}" alt="">` : `<div class="gl-m-av"></div>`;
-        return `<div class="gl-m">
+        const href = m.user_id ? `onclick="event.stopPropagation();location.href='/cards/collection/${m.user_id}'" style="cursor:pointer"` : '';
+        return `<div class="gl-m" ${href}>
           ${av}
           <div class="gl-m-name">${esc(m.user)} <span class="gl-m-role">${ROLE_ICON[m.role]||'▫️'} ${ROLE_LBL[m.role]||'Membre'}</span></div>
-          <div class="gl-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)}</div>
+          <div class="gl-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)} 📖</div>
         </div>`;
       }).join('');
     }

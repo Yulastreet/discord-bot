@@ -289,6 +289,7 @@ def register_cards_owner_routes(app, deps):
             except Exception:
                 cards = 0
             out.append({
+                "user_id": str(uid),
                 "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
                 "avatar": (mm["avatar_url"] if mm else None),
                 "role": m.get("role", "member"),
@@ -298,6 +299,64 @@ def register_cards_owner_routes(app, deps):
         conn.close()
         out.sort(key=lambda x: -x["power"])
         return jsonify({"items": out})
+
+    # ===== COLLECTION D'UN MEMBRE (classeur public) =====
+    @app.route("/cards/collection")
+    @app.route("/cards/collection/<user_id>")
+    def public_collection_page(user_id=None):
+        from flask import session as _ses
+        if not user_id or user_id in ("me", "moi"):
+            user_id = (_ses.get("discord") or {}).get("user_id")
+        return render_template("cards_collection.html", active_nav="collection",
+                               target_user_id=str(user_id or ""))
+
+    @app.route("/api/public/collection/<user_id>", methods=["GET"])
+    def api_public_collection(user_id):
+        import os as _os
+        from database import (user_card_list, user_card_fusion_map, get_db)
+        renders_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
+            _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_renders")
+
+        def _render_url(cid, image_url):
+            for ext in (".webp", ".png"):
+                if _os.path.exists(_os.path.join(renders_dir, f"{cid}{ext}")):
+                    return f"/static/card_renders/{cid}{ext}"
+            return image_url or None
+
+        cards = user_card_list(user_id)
+        fmap = user_card_fusion_map(user_id)
+        grouped = {}
+        for c in cards:
+            cid = c["card_id"]
+            if cid not in grouped:
+                grouped[cid] = {
+                    "id": cid, "name": c["name"],
+                    "rarity": c.get("rarity"),
+                    "origine": c.get("subtitle") or "",
+                    "univers": c.get("universe") or "",
+                    "element": c.get("element") or "",
+                    "stars": int(fmap.get(cid, 0)),
+                    "count": 0,
+                    "img": _render_url(cid, c.get("image_url")),
+                }
+            grouped[cid]["count"] += 1
+        items = list(grouped.values())
+
+        # infos du membre (pseudo + avatar) depuis guild_members
+        conn = get_db(); cc = conn.cursor()
+        m = cc.execute("SELECT username, avatar_url FROM guild_members "
+                       "WHERE user_id = ? LIMIT 1", (str(user_id),)).fetchone()
+        conn.close()
+        total = sum(it["count"] for it in items)
+        return jsonify({
+            "user": {
+                "id": str(user_id),
+                "name": (m["username"] if m and m["username"] else "Joueur"),
+                "avatar": (m["avatar_url"] if m else None),
+            },
+            "total": total, "unique": len(items),
+            "cards": items,
+        })
 
     # ===== MA GUILDE (page membre, visibilite par role) =====
     @app.route("/cards/my-guild")

@@ -248,7 +248,8 @@ def _user_can_access_page(endpoint, path):
     # serveur selectionne / bot present / dashboard configure.
     if path == "/cards" or path.startswith("/cards/") \
             or path.startswith("/api/public/cards") or path.startswith("/api/public/wheel") \
-            or path.startswith("/api/public/guilds"):
+            or path.startswith("/api/public/guilds") \
+            or path.startswith("/api/public/collection"):
         return True
 
     # Pages "Mon compte" perso (premium, pass, guild boost) : tout user connecte y accede
@@ -347,6 +348,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/search-global", "/api/search-global",
     "/my-pass", "/api/my",
     "/cards", "/api/public/cards", "/api/public/wheel", "/api/public/guilds",
+    "/api/public/collection",
 }
 
 def needs_guild(path):

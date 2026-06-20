@@ -1,0 +1,246 @@
+{% extends "_base.html" %}
+{% set active_nav = 'collection' %}
+
+{% block title %}Collection · TookBot{% endblock %}
+{% block crumb %}Collection{% endblock %}
+
+{% block content %}
+<style>
+  .col-wrap { max-width: 1180px; margin: 0 auto; }
+  .col-head { display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+  .col-head img.av { width:56px; height:56px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
+  .col-head .who { font-size:22px; font-weight:900; }
+  .col-head .sub { color:var(--text-2); font-size:13px; }
+
+  /* barre d'outils */
+  .col-tools { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+  .col-tools .input, .col-tools select { padding:9px 12px; border-radius:10px; background:var(--bg-1);
+       border:1px solid var(--border); color:var(--text); font-size:13px; outline:none; }
+  .col-tools .input:focus { border-color:var(--accent); }
+  .col-seg { display:flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .col-seg button { padding:9px 14px; background:var(--bg-1); color:var(--text-2); border:none;
+       cursor:pointer; font-size:13px; font-weight:700; }
+  .col-seg button.active { background:var(--accent); color:#10240a; }
+  .col-spacer { flex:1; }
+
+  /* CARTE (cellule) partagee binder + simple */
+  .cc { position:relative; border-radius:10px; overflow:hidden; background:var(--bg-2);
+        border:2px solid var(--rcol,#3a3a3a); aspect-ratio: 2/3; }
+  .cc img { width:100%; height:100%; object-fit:cover; display:block; }
+  .cc .noimg { width:100%; height:100%; display:grid; place-items:center; color:var(--text-3); font-size:24px; }
+  .cc .nm { position:absolute; left:0; right:0; bottom:0; padding:4px 6px; font-size:10px; font-weight:700;
+            background:linear-gradient(transparent, rgba(0,0,0,.85)); color:#fff;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cc .cnt { position:absolute; top:4px; right:4px; font-size:10px; font-weight:800; color:#fff;
+             background:rgba(0,0,0,.65); border-radius:6px; padding:1px 5px; }
+  .cc .st { position:absolute; top:4px; left:4px; font-size:10px; }
+
+  /* ===== CLASSEUR (binder) ===== */
+  .binder-perspective { perspective: 2200px; margin-bottom:14px; }
+  .binder { background:linear-gradient(135deg,#3a2a1c,#241812); border:1px solid #50301c;
+            border-radius:16px; padding:20px; box-shadow: inset 0 0 40px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.4);
+            transform-style: preserve-3d; }
+  .binder-page { display:grid; grid-template-columns: repeat(5, 1fr); gap:10px;
+                 transform-origin:center; will-change: transform, opacity; }
+  .binder-empty { color:#c8b89a; text-align:center; padding:60px; grid-column:1/-1; }
+  .binder-nav { display:flex; align-items:center; justify-content:center; gap:18px; margin-top:8px; }
+  .binder-nav button { padding:9px 18px; border-radius:10px; border:1px solid var(--border);
+       background:var(--bg-1); color:var(--text); cursor:pointer; font-size:15px; font-weight:800; }
+  .binder-nav button:disabled { opacity:.4; cursor:not-allowed; }
+  .binder-pageno { font-weight:800; min-width:90px; text-align:center; }
+
+  /* ===== VUE SIMPLIFIEE ===== */
+  .simple-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:14px; }
+  .simple-foot { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:30px; flex-wrap:wrap; }
+  .col-empty { color:var(--text-2); text-align:center; padding:50px; }
+
+  @media (max-width:680px){
+    .binder-page { grid-template-columns: repeat(3, 1fr); }
+    .simple-grid { grid-template-columns: repeat(auto-fill, minmax(90px,1fr)); }
+  }
+</style>
+
+<div class="col-wrap">
+  <div class="col-head" id="colHead"><div class="sub">Chargement…</div></div>
+
+  <div class="col-tools" id="colTools" style="display:none;">
+    <div class="col-seg">
+      <button id="modeBinder" class="active" onclick="setMode('binder')">📖 Classeur</button>
+      <button id="modeSimple" onclick="setMode('simple')">▦ Vue simplifiée</button>
+    </div>
+    <input id="colSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="applyFilters()">
+    <select id="colSort" onchange="applyFilters()">
+      <option value="rarity">Tri : Rareté</option>
+      <option value="name">Tri : Nom</option>
+      <option value="stars">Tri : Étoiles</option>
+      <option value="origine">Tri : Origine</option>
+      <option value="univers">Tri : Univers</option>
+    </select>
+    <span class="col-spacer"></span>
+    <select id="colPerPage" onchange="onPerPageChange()" style="display:none;">
+      <option value="25">25 / page</option>
+      <option value="50">50 / page</option>
+      <option value="100">100 / page</option>
+      <option value="250">250 / page</option>
+      <option value="500">500 / page</option>
+    </select>
+  </div>
+
+  <!-- CLASSEUR -->
+  <div id="binderView">
+    <div class="binder-perspective">
+      <div class="binder"><div class="binder-page" id="binderPage"></div></div>
+    </div>
+    <div class="binder-nav">
+      <button id="bPrev" onclick="binderTurn(-1)">◀</button>
+      <span class="binder-pageno" id="bPageNo">— / —</span>
+      <button id="bNext" onclick="binderTurn(1)">▶</button>
+    </div>
+  </div>
+
+  <!-- VUE SIMPLIFIEE -->
+  <div id="simpleView" style="display:none;">
+    <div class="simple-grid" id="simpleGrid"></div>
+    <div class="simple-foot">
+      <button class="binder-nav" onclick="simpleTurn(-1)" id="sPrev" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">◀ Préc.</button>
+      <span class="binder-pageno" id="sPageNo">— / —</span>
+      <button class="binder-nav" onclick="simpleTurn(1)" id="sNext" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">Suiv. ▶</button>
+    </div>
+  </div>
+
+  <div id="colEmpty" class="col-empty" style="display:none;"></div>
+</div>
+
+<script>
+const TARGET_UID = "{{ target_user_id }}";
+const RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
+const RRANK = { secret:6, mythic:5, legendary:4, epic:3, rare:2, common:1 };
+const BINDER_PER = 25;
+
+let ALL = [];        // toutes les cartes (brut)
+let VIEW = [];       // apres filtre+tri
+let mode = 'binder';
+let bPage = 0;       // page classeur (0-index)
+let sPage = 0;       // page simplifiee
+let simplePer = 50;
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(n){return (n||0).toLocaleString('fr-FR');}
+
+function cardCell(c){
+  const rcol = RCOL[c.rarity] || '#3a3a3a';
+  const img = c.img ? `<img src="${esc(c.img)}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'noimg\\'>🃏</div>'">` : `<div class="noimg">🃏</div>`;
+  const cnt = c.count > 1 ? `<span class="cnt">×${c.count}</span>` : '';
+  const st = c.stars > 0 ? `<span class="st">${'⭐'.repeat(Math.min(5,c.stars))}</span>` : '';
+  return `<div class="cc" style="--rcol:${rcol}" title="${esc(c.name)} · ${esc((c.rarity||'').toUpperCase())}${c.origine?' · '+esc(c.origine):''}">
+    ${img}${cnt}${st}<div class="nm">${esc(c.name)}</div></div>`;
+}
+
+function applyFilters(){
+  const q = (document.getElementById('colSearch').value||'').trim().toLowerCase();
+  const sort = document.getElementById('colSort').value;
+  VIEW = ALL.filter(c => !q || (c.name||'').toLowerCase().includes(q) || (c.origine||'').toLowerCase().includes(q));
+  VIEW.sort((a,b)=>{
+    if(sort==='name')    return a.name.localeCompare(b.name,'fr');
+    if(sort==='stars')   return (b.stars-a.stars) || a.name.localeCompare(b.name,'fr');
+    if(sort==='origine') return (a.origine||'').localeCompare(b.origine||'','fr') || a.name.localeCompare(b.name,'fr');
+    if(sort==='univers') return (a.univers||'').localeCompare(b.univers||'','fr') || a.name.localeCompare(b.name,'fr');
+    // rarity (defaut)
+    return (RRANK[b.rarity]||0)-(RRANK[a.rarity]||0) || a.name.localeCompare(b.name,'fr');
+  });
+  bPage = 0; sPage = 0;
+  if(mode==='binder') renderBinder(); else renderSimple();
+}
+
+/* ===== CLASSEUR ===== */
+function renderBinderPage(){
+  const start = bPage*BINDER_PER;
+  const slice = VIEW.slice(start, start+BINDER_PER);
+  const page = document.getElementById('binderPage');
+  page.innerHTML = slice.length ? slice.map(cardCell).join('') : '<div class="binder-empty">Aucune carte ici.</div>';
+  const total = Math.max(1, Math.ceil(VIEW.length/BINDER_PER));
+  document.getElementById('bPageNo').textContent = `${VIEW.length?bPage+1:0} / ${total}`;
+  document.getElementById('bPrev').disabled = bPage<=0;
+  document.getElementById('bNext').disabled = bPage>=total-1;
+}
+function renderBinder(){ renderBinderPage(); }
+function binderTurn(dir){
+  const total = Math.max(1, Math.ceil(VIEW.length/BINDER_PER));
+  const next = bPage + dir;
+  if(next<0 || next>total-1) return;
+  const page = document.getElementById('binderPage');
+  page.style.transition = 'transform .26s ease, opacity .26s ease';
+  page.style.transformOrigin = dir>0 ? 'left center' : 'right center';
+  page.style.transform = `rotateY(${dir>0?-92:92}deg)`;
+  page.style.opacity = '0.15';
+  setTimeout(()=>{
+    bPage = next; renderBinderPage();
+    page.style.transition = 'none';
+    page.style.transformOrigin = dir>0 ? 'right center' : 'left center';
+    page.style.transform = `rotateY(${dir>0?92:-92}deg)`;
+    void page.offsetWidth;            // reflow
+    page.style.transition = 'transform .26s ease, opacity .26s ease';
+    page.style.transform = 'rotateY(0deg)';
+    page.style.opacity = '1';
+  }, 260);
+}
+
+/* ===== VUE SIMPLIFIEE ===== */
+function renderSimple(){
+  const start = sPage*simplePer;
+  const slice = VIEW.slice(start, start+simplePer);
+  document.getElementById('simpleGrid').innerHTML = slice.length ? slice.map(cardCell).join('') : '<div class="col-empty">Aucune carte.</div>';
+  const total = Math.max(1, Math.ceil(VIEW.length/simplePer));
+  document.getElementById('sPageNo').textContent = `${VIEW.length?sPage+1:0} / ${total}`;
+  document.getElementById('sPrev').disabled = sPage<=0;
+  document.getElementById('sNext').disabled = sPage>=total-1;
+}
+function simpleTurn(dir){
+  const total = Math.max(1, Math.ceil(VIEW.length/simplePer));
+  const next = sPage + dir;
+  if(next<0 || next>total-1) return;
+  sPage = next; renderSimple();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function onPerPageChange(){
+  simplePer = parseInt(document.getElementById('colPerPage').value,10)||50;
+  sPage = 0; renderSimple();
+}
+
+function setMode(m){
+  mode = m;
+  document.getElementById('modeBinder').classList.toggle('active', m==='binder');
+  document.getElementById('modeSimple').classList.toggle('active', m==='simple');
+  document.getElementById('binderView').style.display = m==='binder' ? 'block':'none';
+  document.getElementById('simpleView').style.display = m==='simple' ? 'block':'none';
+  document.getElementById('colPerPage').style.display = m==='simple' ? 'inline-block':'none';
+  if(m==='binder') renderBinder(); else renderSimple();
+}
+
+async function load(){
+  if(!TARGET_UID){ document.getElementById('colHead').innerHTML='<div class="sub">Aucun utilisateur ciblé.</div>'; return; }
+  try{
+    const r = await fetch(`/api/public/collection/${TARGET_UID}`);
+    const d = await r.json();
+    const u = d.user || {};
+    const av = u.avatar ? `<img class="av" src="${esc(u.avatar)}" alt="">` : `<div class="av"></div>`;
+    document.getElementById('colHead').innerHTML =
+      `${av}<div><div class="who">🃏 Collection de ${esc(u.name)}</div>
+        <div class="sub">${fmt(d.total)} cartes · ${fmt(d.unique)} uniques</div></div>`;
+    ALL = d.cards || [];
+    if(!ALL.length){
+      document.getElementById('colTools').style.display='none';
+      document.getElementById('binderView').style.display='none';
+      document.getElementById('colEmpty').style.display='block';
+      document.getElementById('colEmpty').textContent='Ce joueur ne possède aucune carte.';
+      return;
+    }
+    document.getElementById('colTools').style.display='flex';
+    applyFilters();
+  }catch(e){
+    document.getElementById('colHead').innerHTML='<div class="sub">Erreur de chargement.</div>';
+  }
+}
+load();
+</script>
+{% endblock %}

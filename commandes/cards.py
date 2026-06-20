@@ -1089,6 +1089,11 @@ def setup_cards_commands(bot, deps):
                 self.page = 1
                 self.total_pages = max(1, (len(self.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
                 self._refresh()
+                # Bouton lien vers le classeur dashboard de la personne ciblee
+                _dash = os.getenv("DASHBOARD_URL", "https://dashboard.tookbot.click").rstrip("/")
+                self.add_item(discord.ui.Button(
+                    label="📖 Voir le classeur", style=discord.ButtonStyle.link,
+                    url=f"{_dash}/cards/collection/{target_user.id}", row=2))
 
             def _refresh(self):
                 self.prev_btn.disabled = (self.page <= 1)

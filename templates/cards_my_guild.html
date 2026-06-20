@@ -139,9 +139,10 @@ function render(d){
     d.members.map(m=>{
       const av = m.avatar ? `<img class="mg-m-av" src="${esc(m.avatar)}">` : `<div class="mg-m-av"></div>`;
       const joined = (canManage && m.joined_at) ? ` · inscrit le ${fmtDate(m.joined_at)}` : '';
-      return `<div class="mg-m">${av}
+      const click = m.user_id ? `onclick="location.href='/cards/collection/${m.user_id}'" style="cursor:pointer"` : '';
+      return `<div class="mg-m" ${click}>${av}
         <div class="mg-m-name">${esc(m.user)}<div class="mg-m-sub">${ROLE[m.role]||m.role}${joined}</div></div>
-        <div class="mg-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)}${canManage?`<div class="mg-m-sub">${fmt(m.xp_contributed)} XP donnés</div>`:''}</div>
+        <div class="mg-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)} 📖${canManage?`<div class="mg-m-sub">${fmt(m.xp_contributed)} XP donnés</div>`:''}</div>
       </div>`;
     }).join('') + `</div>`;
 
