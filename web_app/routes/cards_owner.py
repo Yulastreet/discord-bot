@@ -1000,10 +1000,60 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"items": []})
         conn = get_db(); c = conn.cursor()
         rows = c.execute(
-            "SELECT id, name, rarity, universe, image_url FROM cards "
+            "SELECT id, name, rarity, universe, image_url, "
+            "  COALESCE(not_obtainable,0) AS not_obtainable FROM cards "
             "WHERE event_key = ? ORDER BY name COLLATE NOCASE", (event_key,)).fetchall()
         conn.close()
+        # not_obtainable=1 -> brouillon (pas encore deploye) ; 0 -> deployee.
         return jsonify({"items": [dict(r) for r in rows]})
+
+    @app.route("/api/owner/global-event/card", methods=["POST"])
+    def api_owner_global_event_create_card():
+        """Cree une carte d'event en BROUILLON (event_key + not_obtainable=1).
+        Elle n'est ni au catalogue ni rollable tant qu'elle n'est pas deployee."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_add, get_db, GLOBAL_EVENTS
+        data = request.json or {}
+        ek = (data.get("event_key") or "").strip()
+        if ek not in GLOBAL_EVENTS:
+            return jsonify({"error": "event inconnu"}), 400
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "nom requis"}), 400
+        rarity = (data.get("rarity") or "common").strip()
+        if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
+            return jsonify({"error": "rareté invalide"}), 400
+        cid = card_add(
+            name=name,
+            universe=(data.get("universe") or "").strip() or None,
+            subtitle=(data.get("subtitle") or "").strip() or None,
+            rarity=rarity,
+            image_url=(data.get("image_url") or "").strip() or None,
+            description=(data.get("description") or "").strip() or None,
+        )
+        conn = get_db(); c = conn.cursor()
+        c.execute("UPDATE cards SET event_key = ?, not_obtainable = 1 WHERE id = ?", (ek, cid))
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "id": cid})
+
+    @app.route("/api/owner/global-event/deploy", methods=["POST"])
+    def api_owner_global_event_deploy():
+        """Deploie les cartes en brouillon d'un event : not_obtainable 1 -> 0.
+        Elles deviennent rollables (et boostees si l'event est actif)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db, GLOBAL_EVENTS
+        data = request.json or {}
+        ek = (data.get("event_key") or "").strip()
+        if ek not in GLOBAL_EVENTS:
+            return jsonify({"error": "event inconnu"}), 400
+        conn = get_db(); c = conn.cursor()
+        c.execute("UPDATE cards SET not_obtainable = 0 "
+                  "WHERE event_key = ? AND COALESCE(not_obtainable,0) = 1", (ek,))
+        n = c.rowcount
+        conn.commit(); conn.close()
+        return jsonify({"ok": True, "deployed": int(n)})
 
     @app.route("/api/owner/global-event/tag", methods=["POST"])
     def api_owner_global_event_tag():

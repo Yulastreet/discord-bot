@@ -53,13 +53,39 @@
   </div>
 
   <div class="cs-field">
-    <label>Ajouter une carte <span class="cs-hint">— recherche par nom / univers</span></label>
+    <label>Ajouter une carte existante <span class="cs-hint">— recherche par nom / univers</span></label>
     <input id="emSearch" class="input" placeholder="🔍 Tape un nom puis Entrée…"
            onkeydown="if(event.key==='Enter'){event.preventDefault();emSearch();}">
     <div id="emResults" style="display:none;margin-top:6px;border:1px solid var(--border);border-radius:10px;max-height:200px;overflow:auto;"></div>
   </div>
 
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);margin:6px 0;">Cartes de l'event</div>
+  <!-- Créer une NOUVELLE carte event (brouillon) -->
+  <details style="margin:6px 0 14px; border:1px solid var(--border); border-radius:10px; padding:0 12px;">
+    <summary style="cursor:pointer; padding:10px 0; font-weight:700; font-size:13px;">➕ Créer une nouvelle carte event (brouillon)</summary>
+    <div style="padding:0 0 12px;">
+      <div class="cs-field"><label>Nom</label><input id="ecName" class="input" placeholder="Nom du personnage"></div>
+      <div class="cs-field"><label>Rareté</label>
+        <select id="ecRarity" class="input">
+          <option value="common">⚪ Common</option>
+          <option value="rare">🔵 Rare</option>
+          <option value="epic">🟣 Epic</option>
+          <option value="legendary">🟠 Legendary</option>
+          <option value="mythic">🔴 Mythic</option>
+          <option value="secret">🌈 Secret</option>
+        </select>
+      </div>
+      <div class="cs-field"><label>Univers <span class="cs-hint">— ex: Anime, Film/Série…</span></label><input id="ecUniverse" class="input"></div>
+      <div class="cs-field"><label>Origine <span class="cs-hint">— ex: One Piece</span></label><input id="ecSubtitle" class="input"></div>
+      <div class="cs-field"><label>Image (URL)</label><input id="ecImage" class="input" placeholder="https://…"></div>
+      <button class="btn btn-secondary" onclick="ecCreate()">➕ Créer en brouillon</button>
+      <div id="ecResult" class="muted" style="margin-top:8px;"></div>
+    </div>
+  </details>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:6px 0;">
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);">Cartes de l'event</span>
+    <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="emDeploy()">🚀 Déployer les brouillons</button>
+  </div>
   <div id="emList" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
   <div id="emResult" class="muted" style="margin-top:10px;"></div>
 </div>
@@ -125,12 +151,62 @@ async function emLoad(){
   }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
 }
 function emRow(c, tagged){
+  // tagged (carte deja de l'event) -> affiche statut brouillon/deployee
+  let status = '';
+  if(tagged){
+    status = c.not_obtainable
+      ? '<span class="rar" style="color:#f2b33a">🟡 brouillon</span>'
+      : '<span class="rar" style="color:#4ade80">🟢 déployée</span>';
+  }
   return `<div class="em-row">
     <span>${RAR_EMO[c.rarity]||'⚪'}</span>
-    <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span></div>
+    <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span> ${status}</div>
     <button onclick="emTag(${c.id}, ${tagged?'false':'true'})">${tagged?'➖ Retirer':'➕ Ajouter'}</button>
   </div>`;
 }
+async function ecCreate(){
+  const ek = document.getElementById('emEvent').value;
+  const res = document.getElementById('ecResult');
+  const name = document.getElementById('ecName').value.trim();
+  if(!ek){ res.textContent = 'Sélectionne un event d\'abord.'; return; }
+  if(!name){ res.textContent = 'Nom requis.'; return; }
+  res.textContent = 'Création…';
+  try{
+    const r = await fetch('/api/owner/global-event/card', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        event_key: ek, name,
+        rarity: document.getElementById('ecRarity').value,
+        universe: document.getElementById('ecUniverse').value.trim(),
+        subtitle: document.getElementById('ecSubtitle').value.trim(),
+        image_url: document.getElementById('ecImage').value.trim(),
+      }),
+    });
+    const d = await r.json();
+    if(d.ok){
+      res.textContent = '✅ Carte créée en brouillon.';
+      ['ecName','ecUniverse','ecSubtitle','ecImage'].forEach(id=>document.getElementById(id).value='');
+      emLoad(); evLoad();
+    } else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+async function emDeploy(){
+  const ek = document.getElementById('emEvent').value;
+  const res = document.getElementById('emResult');
+  if(!ek){ res.textContent = 'Sélectionne un event.'; return; }
+  if(!confirm('Déployer toutes les cartes en brouillon de cet event ? Elles deviendront rollables.')) return;
+  res.textContent = 'Déploiement…';
+  try{
+    const r = await fetch('/api/owner/global-event/deploy', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({event_key: ek}),
+    });
+    const d = await r.json();
+    if(d.ok){ res.innerHTML = `🚀 <b>${d.deployed}</b> carte(s) déployée(s).`; emLoad(); }
+    else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.ecCreate = ecCreate; window.emDeploy = emDeploy;
 async function emSearch(){
   const q = (document.getElementById('emSearch').value||'').trim();
   const box = document.getElementById('emResults');
