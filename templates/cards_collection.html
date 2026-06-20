@@ -195,18 +195,31 @@ function binderTurn(dir){
   const next = bPage + dir;
   if(next<0 || next>total-1) return;
   const page = document.getElementById('binderPage');
-  // SEULE l'ancienne page s'anime : elle se rabat sur la charniere GAUCHE.
-  // La nouvelle page (deja "derriere") apparait instantanement, sans animation.
-  page.style.transformOrigin = 'left center';
-  page.style.transition = 'transform .26s ease-in, opacity .26s ease-in';
-  page.style.transform = 'rotateY(-110deg)';
-  page.style.opacity = '0.1';
-  setTimeout(()=>{
+  page.style.transformOrigin = 'left center';   // charniere gauche dans tous les cas
+  if(dir > 0){
+    // SUIVANT : l'ancienne page se rabat vers la gauche (sort), la nouvelle apparait
+    // instantanement derriere.
+    page.style.transition = 'transform .26s ease-in, opacity .26s ease-in';
+    page.style.transform = 'rotateY(-110deg)';
+    page.style.opacity = '0.1';
+    setTimeout(()=>{
+      bPage = next; renderBinderPage();
+      page.style.transition = 'none';
+      page.style.transform = 'rotateY(0deg)';
+      page.style.opacity = '1';
+    }, 260);
+  } else {
+    // PRECEDENT : l'ancienne disparait instant, la nouvelle se DEPLIE depuis la gauche
+    // (animation inverse, logique du retour en arriere).
     bPage = next; renderBinderPage();
-    page.style.transition = 'none';          // pas d'anim pour la nouvelle
-    page.style.transform = 'rotateY(0deg)';  // simplement posee a plat
+    page.style.transition = 'none';
+    page.style.transform = 'rotateY(-110deg)';
+    page.style.opacity = '0.1';
+    void page.offsetWidth;   // reflow
+    page.style.transition = 'transform .26s ease-out, opacity .26s ease-out';
+    page.style.transform = 'rotateY(0deg)';
     page.style.opacity = '1';
-  }, 260);
+  }
 }
 
 /* ===== VUE SIMPLIFIEE ===== */
