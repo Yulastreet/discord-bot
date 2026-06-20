@@ -395,6 +395,18 @@ def register_cards_owner_routes(app, deps):
             print(f"[collection preview] {e}")
             return None
 
+    @app.route("/cards/og-image.png")
+    def collection_og_image():
+        """Image FIXE de previsualisation (identique pour tous). Servie par Flask
+        sous /cards/ (deja proxy nginx) car /assets/ n'est pas servi publiquement."""
+        import os as _os
+        from flask import send_file, abort
+        p = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
+            _os.path.abspath(__file__)))), "assets", "cardrelated", "imageintegration.png")
+        if not _os.path.exists(p):
+            abort(404)
+        return send_file(p, mimetype="image/png", max_age=86400)
+
     @app.route("/cards/s/<user_id>")
     def collection_share_preview(user_id):
         """Lien de partage public : sert les balises Open Graph (previsualisation
@@ -416,31 +428,13 @@ def register_cards_owner_routes(app, deps):
                 total = user_card_count(user_id)
             except Exception:
                 total = 0
-            preview_rel = _build_collection_preview(user_id, renders_dir)
             # https force (derriere nginx, Flask peut voir http://). Discord exige https.
             base = _rq.host_url.rstrip("/").replace("http://", "https://")
-            # Cascade d'image : mosaique -> render meilleure carte (statique, sans
-            # Pillow) -> avatar -> defaut. Garantit toujours une image.
-            if preview_rel:
-                og_image = f"{base}{preview_rel}"; card_type = "summary_large_image"
-            else:
-                card_type = "summary"
-                og_image = ""
-                try:
-                    from database import user_card_list as _ucl
-                    cards = _ucl(user_id)
-                    if cards:
-                        tcid = cards[0]["card_id"]  # trie mythic d'abord
-                        for ext in (".webp", ".png"):
-                            if _os.path.exists(_os.path.join(renders_dir, f"{tcid}{ext}")):
-                                og_image = f"{base}/static/card_renders/{tcid}{ext}"; break
-                except Exception:
-                    pass
-                if not og_image:
-                    og_image = avatar or f"{base}/static/favicon-512.png"
+            # Image FIXE identique pour tous (servie par la route /cards/og-image.png).
+            og_image = f"{base}/cards/og-image.png"
             return render_template_string(_COLLECTION_OG_HTML, name=name, total=total,
                                           og_image=og_image, og_url=f"{base}/cards/s/{user_id}",
-                                          target=target, card_type=card_type)
+                                          target=target, card_type="summary_large_image")
         except Exception as e:
             print(f"[collection share] {e}")
             return _redir(target)   # jamais de 500 : on redirige direct vers le classeur
