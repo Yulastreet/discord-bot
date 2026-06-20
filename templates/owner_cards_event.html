@@ -1,0 +1,168 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_event' %}
+
+{% block title %}Cards Theme Event · Owner{% endblock %}
+{% block crumb %}Cards Theme Event{% endblock %}
+
+{% block content %}
+<style>
+  .cs-section { background: var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:20px; max-width:560px; }
+  .cs-section h3 { margin:0 0 4px; font-size:17px; }
+  .cs-section .sub { color: var(--text-2); font-size:13px; margin:0 0 18px; }
+  .cs-field { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .cs-field > label { font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--text-2); }
+  .cs-field .input { width:100%; }
+  .cs-hint { font-size:11px; color: var(--text-3); font-weight:400; text-transform:none; letter-spacing:0; }
+  .em-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border-top:1px solid var(--border); font-size:13px; }
+  .em-row:first-child { border-top:none; }
+  .em-row .nm { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .em-row .rar { font-size:10px; text-transform:uppercase; color:var(--text-3); }
+  .em-row button { padding:5px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-2); color:var(--text); cursor:pointer; font-size:12px; font-weight:700; }
+  .em-empty { padding:14px; color:var(--text-3); font-size:13px; }
+</style>
+
+<div class="cs-section">
+  <h3>🎉 Event global</h3>
+  <p class="sub">Active un event saisonnier ou ponctuel pour <b>tous les serveurs</b> : les cartes taguées à l'event ont un <b>drop boosté</b> pendant l'event. Elles restent toujours obtenables (pas d'exclusivité, anti-désavantage pour les nouveaux).</p>
+
+  <div class="cs-field">
+    <label>Event actif</label>
+    <select id="evKey" class="input"></select>
+    <div class="cs-hint">« Aucun » désactive le boost. Les cartes event restent rollables normalement hors event.</div>
+  </div>
+
+  <div class="cs-field">
+    <label>Boost du drop des cartes event <span class="cs-hint">— multiplicateur de chance des cartes taguées à l'event. 1 = aucun boost.</span></label>
+    <input id="evBoost" type="number" min="1" max="20" step="0.5" value="2" class="input">
+    <div class="cs-hint">Ex : 2 = les cartes de l'event sortent 2× plus souvent. Exception : pour un joueur qui possède déjà la carte en 5⭐, son taux revient à la normale (plus de boost sur cette carte pour lui).</div>
+  </div>
+
+  <div id="evCounts" class="cs-hint" style="margin-bottom:12px;"></div>
+
+  <button class="btn btn-primary" onclick="evSave()">💾 Appliquer l'event</button>
+  <div id="evResult" class="muted" style="margin-top:14px;"></div>
+</div>
+
+<div class="cs-section" style="margin-top:18px;">
+  <h3>🎴 Cartes boostées de l'event</h3>
+  <p class="sub">Choisis les cartes concernées par le boost de drop pour un event donné.</p>
+
+  <div class="cs-field">
+    <label>Event à gérer</label>
+    <select id="emEvent" class="input" onchange="emLoad()"></select>
+  </div>
+
+  <div class="cs-field">
+    <label>Ajouter une carte <span class="cs-hint">— recherche par nom / univers</span></label>
+    <input id="emSearch" class="input" placeholder="🔍 Tape un nom puis Entrée…"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();emSearch();}">
+    <div id="emResults" style="display:none;margin-top:6px;border:1px solid var(--border);border-radius:10px;max-height:200px;overflow:auto;"></div>
+  </div>
+
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);margin:6px 0;">Cartes de l'event</div>
+  <div id="emList" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
+  <div id="emResult" class="muted" style="margin-top:10px;"></div>
+</div>
+
+<script>
+function emEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const RAR_EMO = {common:'⚪',rare:'🔵',epic:'🟣',legendary:'🟠',mythic:'🔴',secret:'🌈'};
+let EV_CATALOG = [];
+
+async function evLoad(){
+  try {
+    const r = await fetch('/api/owner/global-event');
+    const d = await r.json();
+    EV_CATALOG = d.catalog || [];
+    const sel = document.getElementById('evKey');
+    sel.innerHTML = '<option value="">— Aucun (désactivé) —</option>' +
+      EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name} (${e.cards} carte${e.cards>1?'s':''})</option>`).join('');
+    sel.value = (d.current && d.current.key) || '';
+    document.getElementById('evBoost').value = (d.current && d.current.drop_boost) || 2;
+    evRefreshCounts();
+  } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
+}
+function evRefreshCounts(){
+  const total = EV_CATALOG.reduce((s,e)=>s+e.cards,0);
+  document.getElementById('evCounts').textContent =
+    total ? `${total} carte(s) taguée(s) event au total.` : 'Aucune carte taguée à un event pour le moment.';
+}
+async function evSave(){
+  const key = document.getElementById('evKey').value;
+  const boost = parseFloat(document.getElementById('evBoost').value) || 1;
+  const res = document.getElementById('evResult');
+  res.textContent = 'Application…';
+  try {
+    const r = await fetch('/api/owner/global-event', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({key, drop_boost: boost}),
+    });
+    const d = await r.json();
+    if (d.ok) res.innerHTML = d.active
+        ? `✅ Event <b>${d.emoji} ${d.name}</b> activé · drop cartes event ×<b>${d.drop_boost}</b>.`
+        : '✅ Event désactivé.';
+    else res.textContent = `❌ ${d.error || 'Erreur'}`;
+  } catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.evSave = evSave;
+
+/* ===== Gestionnaire des cartes de l'event ===== */
+function emFillSelect(){
+  const sel = document.getElementById('emEvent');
+  sel.innerHTML = EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name}</option>`).join('');
+}
+async function emLoad(){
+  const ek = document.getElementById('emEvent').value;
+  const box = document.getElementById('emList');
+  if(!ek){ box.innerHTML = '<div class="em-empty">Sélectionne un event.</div>'; return; }
+  box.innerHTML = '<div class="em-empty">Chargement…</div>';
+  try{
+    const r = await fetch(`/api/owner/global-event/cards/${ek}`);
+    const d = await r.json();
+    const items = d.items || [];
+    box.innerHTML = items.length ? items.map(c => emRow(c, true)).join('')
+      : '<div class="em-empty">Aucune carte taguée à cet event.</div>';
+  }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
+}
+function emRow(c, tagged){
+  return `<div class="em-row">
+    <span>${RAR_EMO[c.rarity]||'⚪'}</span>
+    <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span></div>
+    <button onclick="emTag(${c.id}, ${tagged?'false':'true'})">${tagged?'➖ Retirer':'➕ Ajouter'}</button>
+  </div>`;
+}
+async function emSearch(){
+  const q = (document.getElementById('emSearch').value||'').trim();
+  const box = document.getElementById('emResults');
+  if(!q){ box.style.display='none'; return; }
+  box.style.display='block'; box.innerHTML = '<div class="em-empty">Recherche…</div>';
+  try{
+    const r = await fetch(`/api/owner/cards?q=${encodeURIComponent(q)}&per_page=20`);
+    const d = await r.json();
+    const items = d.items || [];
+    box.innerHTML = items.length ? items.map(c => emRow(c, false)).join('')
+      : '<div class="em-empty">Aucun résultat.</div>';
+  }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
+}
+async function emTag(cardId, add){
+  const ek = document.getElementById('emEvent').value;
+  const res = document.getElementById('emResult');
+  try{
+    const r = await fetch('/api/owner/global-event/tag', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({card_id: cardId, event_key: add ? ek : ''}),
+    });
+    const d = await r.json();
+    if(d.ok){
+      res.textContent = add ? '✅ Carte ajoutée à l\'event.' : '✅ Carte retirée.';
+      emLoad(); evLoad();
+      document.getElementById('emResults').style.display='none';
+      document.getElementById('emSearch').value='';
+    } else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.emLoad = emLoad; window.emSearch = emSearch; window.emTag = emTag;
+
+evLoad().then(()=>{ emFillSelect(); emLoad(); });
+</script>
+{% endblock %}

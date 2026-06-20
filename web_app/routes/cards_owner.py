@@ -931,6 +931,13 @@ def register_cards_owner_routes(app, deps):
         return render_template("owner_cards_settings.html", active_nav="cards_settings")
 
 
+    @app.route("/owner/cards-event")
+    def owner_cards_event_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        return render_template("owner_cards_event.html", active_nav="cards_event")
+
+
     @app.route("/api/owner/cards-settings", methods=["GET", "POST"])
     def api_owner_cards_settings():
         if not _is_owner_session():
