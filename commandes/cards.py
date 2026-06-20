@@ -870,7 +870,7 @@ def setup_cards_commands(bot, deps):
                 card = fc
                 forced_roll_clear(uid)   # consomme seulement si elle matche
         if not card:
-            card = card_roll_random(universe=univers_filter)
+            card = card_roll_random(universe=univers_filter, user_id=uid)
         if not card:
             label = f" dans l'univers `{univers_filter}`" if univers_filter else ""
             await interaction.response.send_message(

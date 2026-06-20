@@ -188,8 +188,8 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
     except Exception:
         pass
-    # Migration : event_key -> carte exclusive a un event global (NULL = toujours
-    # obtenable ; 'summer' = obtenable seulement quand l'event summer est actif).
+    # Migration : event_key -> carte rattachee a un event global. La carte reste
+    # TOUJOURS obtenable ; pendant l'event correspondant son drop est juste boste.
     try:
         c.execute("ALTER TABLE cards ADD COLUMN event_key TEXT")
     except Exception:
@@ -2097,9 +2097,9 @@ _ROLL_WEIGHTS = {k: v for k, v in CARD_RARITY_WEIGHTS.items() if v > 0}
 
 
 # ===== EVENTS GLOBAUX (saisonniers ou ponctuels, owner-controles) =====
-# cle -> {name, emoji}. Une carte avec cards.event_key = <cle> n'est rollable
-# QUE quand cet event est actif. Quand aucun event actif, ces cartes sortent du
-# pool de roll. Le boost augmente le poids des rares+ pendant l'event.
+# cle -> {name, emoji}. Une carte avec cards.event_key = <cle> reste TOUJOURS
+# obtenable ; pendant l'event correspondant son taux de drop est boste (sauf
+# pour un user qui possede deja la carte en 5 etoiles -> taux normal pour lui).
 GLOBAL_EVENTS = {
     "summer":    {"name": "Summer",    "emoji": "☀️"},
     "halloween": {"name": "Halloween", "emoji": "🎃"},
@@ -2144,45 +2144,54 @@ def global_event_card_counts() -> dict:
     return {r["event_key"]: int(r["n"]) for r in rows}
 
 
-def card_roll_random(universe: str | None = None):
+def card_roll_random(universe: str | None = None, user_id=None):
     """Pioche une carte selon les poids de rarete.
     Si universe fourni : filtre uniquement cette categorie.
-    Applique l'event global actif : boost des rares+ + cartes exclusives.
+    Event global actif : les cartes taguees a l'event (toujours obtenables, pas
+    exclusives) ont un drop BOOSTE -- sauf pour un user qui possede deja cette
+    carte en 5 etoiles (alors taux normal pour LUI).
     Retourne None si la table cards (ou la categorie) est vide."""
+    rarity = _rd_cards.choices(
+        list(_ROLL_WEIGHTS.keys()), weights=list(_ROLL_WEIGHTS.values()), k=1)[0]
+    conn = get_db(); c = conn.cursor()
+    if universe:
+        rows = c.execute("SELECT * FROM cards WHERE rarity = ? AND universe = ? "
+                          "AND COALESCE(not_obtainable, 0) = 0",
+                          (rarity, universe)).fetchall()
+        if not rows:
+            rows = c.execute("SELECT * FROM cards WHERE universe = ? "
+                              "AND COALESCE(not_obtainable, 0) = 0 "
+                              "ORDER BY RANDOM() LIMIT 1", (universe,)).fetchall()
+    else:
+        rows = c.execute("SELECT * FROM cards WHERE rarity = ? "
+                          "AND COALESCE(not_obtainable, 0) = 0",
+                          (rarity,)).fetchall()
+        if not rows:
+            rows = c.execute("SELECT * FROM cards WHERE COALESCE(not_obtainable, 0) = 0 "
+                              "ORDER BY RANDOM() LIMIT 1").fetchall()
+    if not rows:
+        conn.close()
+        return None
+    # Boost event : pondere les cartes de l'event actif (sauf celles que CE user
+    # a deja maxees a 5 etoiles -> taux normal pour lui).
     ev = (get_setting("global_event_key", "") or "").strip()
-    weights = dict(_ROLL_WEIGHTS)
     if ev:
         try:
             boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
         except (ValueError, TypeError):
             boost = 1.0
-        if boost > 1:
-            for r in ("rare", "epic", "legendary", "mythic"):
-                if r in weights:
-                    weights[r] = weights[r] * boost
-    rarity = _rd_cards.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
-    # Exclusivite event : carte event_key NULL/'' = toujours ; sinon == event actif.
-    evc = "AND (event_key IS NULL OR event_key = '' OR event_key = ?)"
-    conn = get_db(); c = conn.cursor()
-    if universe:
-        rows = c.execute(f"SELECT * FROM cards WHERE rarity = ? AND universe = ? "
-                          f"AND COALESCE(not_obtainable, 0) = 0 {evc}",
-                          (rarity, universe, ev)).fetchall()
-        if not rows:
-            rows = c.execute(f"SELECT * FROM cards WHERE universe = ? "
-                              f"AND COALESCE(not_obtainable, 0) = 0 {evc} "
-                              f"ORDER BY RANDOM() LIMIT 1",
-                              (universe, ev)).fetchall()
-    else:
-        rows = c.execute(f"SELECT * FROM cards WHERE rarity = ? "
-                          f"AND COALESCE(not_obtainable, 0) = 0 {evc}",
-                          (rarity, ev)).fetchall()
-        if not rows:
-            rows = c.execute(f"SELECT * FROM cards WHERE COALESCE(not_obtainable, 0) = 0 {evc} "
-                              f"ORDER BY RANDOM() LIMIT 1", (ev,)).fetchall()
+        if boost > 1 and any((r["event_key"] or "") == ev for r in rows):
+            maxed = set()
+            if user_id:
+                mrows = c.execute(
+                    "SELECT card_id FROM card_customizations "
+                    "WHERE user_id = ? AND fusion_level >= 5", (str(user_id),)).fetchall()
+                maxed = {int(m["card_id"]) for m in mrows}
+            weights = [boost if ((r["event_key"] or "") == ev and r["id"] not in maxed)
+                       else 1.0 for r in rows]
+            conn.close()
+            return dict(_rd_cards.choices(rows, weights=weights, k=1)[0])
     conn.close()
-    if not rows:
-        return None
     return dict(_rd_cards.choice(rows))
 
 

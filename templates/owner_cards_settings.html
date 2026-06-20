@@ -42,18 +42,18 @@
 
 <div class="cs-section" style="margin-top:18px;">
   <h3>🎉 Event global</h3>
-  <p class="sub">Active un event saisonnier ou ponctuel pour <b>tous les serveurs</b> : boost des cartes rares au roll + cartes exclusives à l'event.</p>
+  <p class="sub">Active un event saisonnier ou ponctuel pour <b>tous les serveurs</b> : les cartes taguées à l'event ont un <b>drop boosté</b> pendant l'event. Elles restent toujours obtenables (pas d'exclusivité, anti-désavantage pour les nouveaux).</p>
 
   <div class="cs-field">
     <label>Event actif</label>
     <select id="evKey" class="input"></select>
-    <div class="cs-hint">« Aucun » désactive l'event. Les cartes taguées à un event ne sont rollables que lorsque cet event est actif.</div>
+    <div class="cs-hint">« Aucun » désactive le boost. Les cartes event restent rollables normalement hors event.</div>
   </div>
 
   <div class="cs-field">
-    <label>Boost des rares+ <span class="cs-hint">— multiplicateur du poids rare/epic/legendary/mythic. 1 = aucun boost.</span></label>
+    <label>Boost du drop des cartes event <span class="cs-hint">— multiplicateur de chance des cartes taguées à l'event. 1 = aucun boost.</span></label>
     <input id="evBoost" type="number" min="1" max="20" step="0.5" value="2" class="input">
-    <div class="cs-hint">Ex : 2 = deux fois plus de chances de tirer une carte rare ou mieux pendant l'event.</div>
+    <div class="cs-hint">Ex : 2 = les cartes de l'event sortent 2× plus souvent. Exception : pour un joueur qui possède déjà la carte en 5⭐, son taux revient à la normale (plus de boost sur cette carte pour lui).</div>
   </div>
 
   <div id="evCounts" class="cs-hint" style="margin-bottom:12px;"></div>
@@ -128,7 +128,7 @@ async function evSave(){
     });
     const d = await r.json();
     if (d.ok) res.innerHTML = d.active
-        ? `✅ Event <b>${d.emoji} ${d.name}</b> activé · boost rares ×<b>${d.drop_boost}</b>.`
+        ? `✅ Event <b>${d.emoji} ${d.name}</b> activé · drop cartes event ×<b>${d.drop_boost}</b>.`
         : '✅ Event désactivé.';
     else res.textContent = `❌ ${d.error || 'Erreur'}`;
   } catch(e){ res.textContent = 'Erreur : ' + e.message; }
