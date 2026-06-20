@@ -9,14 +9,15 @@
   .col-wrap { max-width: 1180px; margin: 0 auto; }
   /* barre unique : identite (avatar+nom) + outils sur la MEME ligne -> gagne de
      la hauteur pour que le classeur + fleches tiennent sans scroll. */
-  .col-tools { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
-  .col-id { display:flex; align-items:center; gap:10px; margin-right:6px; }
-  .col-id img.av { width:40px; height:40px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
-  .col-id .who { font-size:16px; font-weight:900; line-height:1.1; }
-  .col-id .sub { color:var(--text-2); font-size:11px; }
-  .col-tools .input, .col-tools select { padding:8px 11px; border-radius:10px; background:var(--bg-1);
+  .col-tools { display:flex; gap:9px; flex-wrap:nowrap; align-items:center; margin-bottom:10px; }
+  .col-id { display:flex; align-items:center; gap:9px; margin-right:4px; flex:none; }
+  .col-id img.av { width:38px; height:38px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
+  .col-id .who { font-size:15px; font-weight:900; line-height:1.1; white-space:nowrap; }
+  .col-id .sub { color:var(--text-2); font-size:11px; white-space:nowrap; }
+  .col-tools .input, .col-tools select { padding:8px 10px; border-radius:10px; background:var(--bg-1);
        border:1px solid var(--border); color:var(--text); font-size:13px; outline:none; }
-  .col-tools .input { max-width:220px; }
+  .col-tools .input { flex:0 1 200px; min-width:120px; }
+  .col-tools select { flex:none; }
   .col-tools .input:focus { border-color:var(--accent); }
   .col-seg { display:flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
   .col-seg button { padding:8px 13px; background:var(--bg-1); color:var(--text-2); border:none;
@@ -77,8 +78,9 @@
   .simple-foot { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:30px; flex-wrap:wrap; }
   .col-empty { color:var(--text-2); text-align:center; padding:50px; }
 
-  @media (max-width:680px){
-    .binder-page { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width:760px){
+    .col-tools { flex-wrap:wrap; }
+    .binder-page { grid-template-columns: repeat(3, auto); }
     .simple-grid { grid-template-columns: repeat(auto-fill, minmax(90px,1fr)); }
   }
 </style>
@@ -193,21 +195,18 @@ function binderTurn(dir){
   const next = bPage + dir;
   if(next<0 || next>total-1) return;
   const page = document.getElementById('binderPage');
-  // La page tourne TOUJOURS sur la charniere GAUCHE (origin left), dans les 2 sens :
-  // l'ancienne se rabat vers la gauche, la nouvelle se deplie depuis la gauche.
+  // SEULE l'ancienne page s'anime : elle se rabat sur la charniere GAUCHE.
+  // La nouvelle page (deja "derriere") apparait instantanement, sans animation.
   page.style.transformOrigin = 'left center';
-  page.style.transition = 'transform .24s ease-in, opacity .24s ease-in';
-  page.style.transform = 'rotateY(-105deg)';
+  page.style.transition = 'transform .26s ease-in, opacity .26s ease-in';
+  page.style.transform = 'rotateY(-110deg)';
   page.style.opacity = '0.1';
   setTimeout(()=>{
     bPage = next; renderBinderPage();
-    page.style.transition = 'none';
-    page.style.transform = 'rotateY(-105deg)';   // nouvelle page repliee a gauche
-    void page.offsetWidth;                        // reflow
-    page.style.transition = 'transform .26s ease-out, opacity .26s ease-out';
-    page.style.transform = 'rotateY(0deg)';       // se deplie depuis la charniere gauche
+    page.style.transition = 'none';          // pas d'anim pour la nouvelle
+    page.style.transform = 'rotateY(0deg)';  // simplement posee a plat
     page.style.opacity = '1';
-  }, 240);
+  }, 260);
 }
 
 /* ===== VUE SIMPLIFIEE ===== */
