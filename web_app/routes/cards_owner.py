@@ -419,8 +419,25 @@ def register_cards_owner_routes(app, deps):
             preview_rel = _build_collection_preview(user_id, renders_dir)
             # https force (derriere nginx, Flask peut voir http://). Discord exige https.
             base = _rq.host_url.rstrip("/").replace("http://", "https://")
-            og_image = f"{base}{preview_rel}" if preview_rel else (avatar or "")
-            card_type = "summary_large_image" if preview_rel else "summary"
+            # Cascade d'image : mosaique -> render meilleure carte (statique, sans
+            # Pillow) -> avatar -> defaut. Garantit toujours une image.
+            if preview_rel:
+                og_image = f"{base}{preview_rel}"; card_type = "summary_large_image"
+            else:
+                card_type = "summary"
+                og_image = ""
+                try:
+                    from database import user_card_list as _ucl
+                    cards = _ucl(user_id)
+                    if cards:
+                        tcid = cards[0]["card_id"]  # trie mythic d'abord
+                        for ext in (".webp", ".png"):
+                            if _os.path.exists(_os.path.join(renders_dir, f"{tcid}{ext}")):
+                                og_image = f"{base}/static/card_renders/{tcid}{ext}"; break
+                except Exception:
+                    pass
+                if not og_image:
+                    og_image = avatar or f"{base}/static/favicon-512.png"
             return render_template_string(_COLLECTION_OG_HTML, name=name, total=total,
                                           og_image=og_image, og_url=f"{base}/cards/s/{user_id}",
                                           target=target, card_type=card_type)
