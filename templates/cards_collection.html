@@ -9,14 +9,14 @@
   .col-wrap { max-width: 1180px; margin: 0 auto; }
   /* barre unique : identite (avatar+nom) + outils sur la MEME ligne -> gagne de
      la hauteur pour que le classeur + fleches tiennent sans scroll. */
-  .col-tools { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .col-tools { display:flex; gap:9px; flex-wrap:nowrap; align-items:center; margin-bottom:10px; }
   .col-id { display:flex; align-items:center; gap:9px; margin-right:4px; flex:none; }
   .col-id img.av { width:38px; height:38px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
   .col-id .who { font-size:15px; font-weight:900; line-height:1.1; white-space:nowrap; }
   .col-id .sub { color:var(--text-2); font-size:11px; white-space:nowrap; }
   .col-tools .input, .col-tools select { padding:8px 10px; border-radius:10px; background:var(--bg-1);
        border:1px solid var(--border); color:var(--text); font-size:13px; outline:none; }
-  .col-tools .input { flex:0 1 200px; min-width:120px; }
+  .col-tools .input { flex:1 1 100px; min-width:80px; }
   .col-tools select { flex:none; }
   .col-tools .input:focus { border-color:var(--accent); }
   .col-seg { display:flex; flex:none; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
