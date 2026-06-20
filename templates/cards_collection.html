@@ -336,16 +336,19 @@ function shareToast(msg){
   t.textContent=msg; t.style.opacity='1';
   clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; }, 1800);
 }
+function shareUrl(){ return `${location.origin}/cards/collection/${TARGET_UID}`; }  // lien specifique au joueur
 async function shareCopy(){
   document.getElementById('shareMenu').classList.remove('open');
-  try{ await navigator.clipboard.writeText(location.href); shareToast('Lien copié ✓'); }
-  catch(e){ window.prompt('Copie ce lien :', location.href); }
+  const url = shareUrl();
+  try{ await navigator.clipboard.writeText(url); shareToast('Lien copié ✓'); }
+  catch(e){ window.prompt('Copie ce lien :', url); }
 }
 async function shareSend(){
   document.getElementById('shareMenu').classList.remove('open');
-  const data = { title:'Collection TookBot', text:'Regarde cette collection de cartes TookBot !', url:location.href };
+  const url = shareUrl();
+  const data = { title:'Collection TookBot', text:'Regarde cette collection de cartes TookBot !', url };
   if(navigator.share){ try{ await navigator.share(data); }catch(_){ } }
-  else { try{ await navigator.clipboard.writeText(location.href); }catch(_){ } shareToast('Partage non dispo ici — lien copié ✓'); }
+  else { try{ await navigator.clipboard.writeText(url); }catch(_){ } shareToast('Partage non dispo ici — lien copié ✓'); }
 }
 window.toggleShare=toggleShare; window.shareCopy=shareCopy; window.shareSend=shareSend;
 </script>
