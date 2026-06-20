@@ -67,11 +67,17 @@
                  will-change: transform, opacity; }
   .binder-page .cc { height:100%; width:auto; aspect-ratio:2/3; }
   .binder-empty { color:#c8b89a; text-align:center; padding:60px; grid-column:1/-1; align-self:center; }
-  .binder-nav { display:flex; align-items:center; justify-content:center; gap:18px; margin-top:6px; }
-  .binder-nav button { padding:9px 18px; border-radius:10px; border:1px solid var(--border);
-       background:var(--bg-1); color:var(--text); cursor:pointer; font-size:15px; font-weight:800; }
-  .binder-nav button:disabled { opacity:.4; cursor:not-allowed; }
-  .binder-pageno { font-weight:800; min-width:90px; text-align:center; }
+  /* fleches sur les cotes du classeur, centrees verticalement */
+  .binder-row { display:flex; align-items:center; justify-content:center; gap:14px; }
+  .binder-side { flex:none; width:50px; height:84px; border-radius:14px; cursor:pointer;
+       border:1px solid var(--border); background:var(--bg-1); color:var(--text);
+       font-size:22px; font-weight:900; transition:background .12s, border-color .12s; }
+  .binder-side:hover:not(:disabled) { background:var(--bg-2); border-color:var(--accent); }
+  .binder-side:disabled { opacity:.3; cursor:not-allowed; }
+  /* chip "page courante" dans la barre d'outils */
+  .col-pageno { flex:none; font-weight:800; font-size:13px; color:var(--text);
+       background:var(--bg-1); border:1px solid var(--border); border-radius:10px;
+       padding:8px 12px; min-width:72px; text-align:center; }
 
   /* ===== VUE SIMPLIFIEE ===== */
   .simple-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:14px; }
@@ -95,6 +101,8 @@
       <button id="modeSimple" onclick="setMode('simple')">▦ Vue simplifiée</button>
     </div>
     <input id="colSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="applyFilters()">
+    <span class="col-pageno" id="bPageNo">— / —</span>
+    <span class="col-spacer"></span>
     <select id="colSort" onchange="applyFilters()">
       <option value="rarity">Tri : Rareté</option>
       <option value="name">Tri : Nom</option>
@@ -102,7 +110,6 @@
       <option value="origine">Tri : Origine</option>
       <option value="univers">Tri : Univers</option>
     </select>
-    <span class="col-spacer"></span>
     <select id="colPerPage" onchange="onPerPageChange()" style="display:none;">
       <option value="25">25 / page</option>
       <option value="50">50 / page</option>
@@ -112,15 +119,14 @@
     </select>
   </div>
 
-  <!-- CLASSEUR -->
+  <!-- CLASSEUR : fleches sur les cotes, classeur au centre -->
   <div id="binderView">
-    <div class="binder-perspective">
-      <div class="binder"><div class="binder-page" id="binderPage"></div></div>
-    </div>
-    <div class="binder-nav">
-      <button id="bPrev" onclick="binderTurn(-1)">◀</button>
-      <span class="binder-pageno" id="bPageNo">— / —</span>
-      <button id="bNext" onclick="binderTurn(1)">▶</button>
+    <div class="binder-row">
+      <button class="binder-side" id="bPrev" onclick="binderTurn(-1)">◀</button>
+      <div class="binder-perspective">
+        <div class="binder"><div class="binder-page" id="binderPage"></div></div>
+      </div>
+      <button class="binder-side" id="bNext" onclick="binderTurn(1)">▶</button>
     </div>
   </div>
 
@@ -128,9 +134,9 @@
   <div id="simpleView" style="display:none;">
     <div class="simple-grid" id="simpleGrid"></div>
     <div class="simple-foot">
-      <button class="binder-nav" onclick="simpleTurn(-1)" id="sPrev" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">◀ Préc.</button>
-      <span class="binder-pageno" id="sPageNo">— / —</span>
-      <button class="binder-nav" onclick="simpleTurn(1)" id="sNext" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">Suiv. ▶</button>
+      <button onclick="simpleTurn(-1)" id="sPrev" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">◀ Préc.</button>
+      <span class="col-pageno" id="sPageNo">— / —</span>
+      <button onclick="simpleTurn(1)" id="sNext" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">Suiv. ▶</button>
     </div>
   </div>
 
@@ -251,6 +257,7 @@ function setMode(m){
   document.getElementById('binderView').style.display = m==='binder' ? 'block':'none';
   document.getElementById('simpleView').style.display = m==='simple' ? 'block':'none';
   document.getElementById('colPerPage').style.display = m==='simple' ? 'inline-block':'none';
+  document.getElementById('bPageNo').style.display = m==='binder' ? 'inline-block':'none';
   if(m==='binder') renderBinder(); else renderSimple();
 }
 
