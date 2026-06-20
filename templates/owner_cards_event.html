@@ -76,7 +76,9 @@
       </div>
       <div class="cs-field"><label>Univers <span class="cs-hint">— ex: Anime, Film/Série…</span></label><input id="ecUniverse" class="input"></div>
       <div class="cs-field"><label>Origine <span class="cs-hint">— ex: One Piece</span></label><input id="ecSubtitle" class="input"></div>
-      <div class="cs-field"><label>Image (URL)</label><input id="ecImage" class="input" placeholder="https://…"></div>
+      <div class="cs-field"><label>Image par URL</label><input id="ecImage" class="input" placeholder="https://… (ou utilise l'upload ci-dessous)"></div>
+      <div class="cs-field"><label>… ou upload un fichier <span class="cs-hint">— recadré 2:3 + cadre rareté auto</span></label>
+        <input id="ecFile" type="file" accept="image/*" class="input"></div>
       <button class="btn btn-secondary" onclick="ecCreate()">➕ Créer en brouillon</button>
       <div id="ecResult" class="muted" style="margin-top:8px;"></div>
     </div>
@@ -171,21 +173,36 @@ async function ecCreate(){
   if(!ek){ res.textContent = 'Sélectionne un event d\'abord.'; return; }
   if(!name){ res.textContent = 'Nom requis.'; return; }
   res.textContent = 'Création…';
+  const file = document.getElementById('ecFile').files[0];
   try{
-    const r = await fetch('/api/owner/global-event/card', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        event_key: ek, name,
-        rarity: document.getElementById('ecRarity').value,
-        universe: document.getElementById('ecUniverse').value.trim(),
-        subtitle: document.getElementById('ecSubtitle').value.trim(),
-        image_url: document.getElementById('ecImage').value.trim(),
-      }),
-    });
+    let r;
+    if(file){
+      // upload fichier -> multipart
+      const fd = new FormData();
+      fd.append('event_key', ek);
+      fd.append('name', name);
+      fd.append('rarity', document.getElementById('ecRarity').value);
+      fd.append('universe', document.getElementById('ecUniverse').value.trim());
+      fd.append('subtitle', document.getElementById('ecSubtitle').value.trim());
+      fd.append('image', file);
+      r = await fetch('/api/owner/global-event/card', { method:'POST', body: fd });
+    } else {
+      r = await fetch('/api/owner/global-event/card', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          event_key: ek, name,
+          rarity: document.getElementById('ecRarity').value,
+          universe: document.getElementById('ecUniverse').value.trim(),
+          subtitle: document.getElementById('ecSubtitle').value.trim(),
+          image_url: document.getElementById('ecImage').value.trim(),
+        }),
+      });
+    }
     const d = await r.json();
     if(d.ok){
       res.textContent = '✅ Carte créée en brouillon.';
       ['ecName','ecUniverse','ecSubtitle','ecImage'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('ecFile').value='';
       emLoad(); evLoad();
     } else res.textContent = `❌ ${d.error||'Erreur'}`;
   }catch(e){ res.textContent = 'Erreur : ' + e.message; }

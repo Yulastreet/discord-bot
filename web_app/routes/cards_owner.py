@@ -1010,28 +1010,60 @@ def register_cards_owner_routes(app, deps):
     @app.route("/api/owner/global-event/card", methods=["POST"])
     def api_owner_global_event_create_card():
         """Cree une carte d'event en BROUILLON (event_key + not_obtainable=1).
+        Image : soit par URL (JSON), soit par UPLOAD (multipart champ 'image').
         Elle n'est ni au catalogue ni rollable tant qu'elle n'est pas deployee."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import card_add, get_db, GLOBAL_EVENTS
-        data = request.json or {}
-        ek = (data.get("event_key") or "").strip()
+        import os as _os
+        # JSON (url) OU multipart (fichier) : source de champs unifiee.
+        is_multipart = bool(request.files)
+        src = request.form if is_multipart else (request.json or {})
+        ek = (src.get("event_key") or "").strip()
         if ek not in GLOBAL_EVENTS:
             return jsonify({"error": "event inconnu"}), 400
-        name = (data.get("name") or "").strip()
+        name = (src.get("name") or "").strip()
         if not name:
             return jsonify({"error": "nom requis"}), 400
-        rarity = (data.get("rarity") or "common").strip()
+        rarity = (src.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             return jsonify({"error": "rareté invalide"}), 400
         cid = card_add(
             name=name,
-            universe=(data.get("universe") or "").strip() or None,
-            subtitle=(data.get("subtitle") or "").strip() or None,
+            universe=(src.get("universe") or "").strip() or None,
+            subtitle=(src.get("subtitle") or "").strip() or None,
             rarity=rarity,
-            image_url=(data.get("image_url") or "").strip() or None,
-            description=(data.get("description") or "").strip() or None,
+            image_url=(src.get("image_url") or "").strip() or None,
+            description=(src.get("description") or "").strip() or None,
         )
+        # Upload : compose le render (cover-crop 2:3 + overlay rarete) -> static.
+        f = request.files.get("image") if is_multipart else None
+        if f and f.filename:
+            try:
+                from PIL import Image as _Img
+                from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H, _get_overlay
+                img = _Img.open(f.stream).convert("RGBA")
+                sr, dr = img.width / img.height, _CARD_W / _CARD_H
+                if sr > dr:
+                    nw = int(img.height * dr); img = img.crop(((img.width - nw) // 2, 0, (img.width + nw) // 2, img.height))
+                else:
+                    nh = int(img.width / dr); img = img.crop((0, (img.height - nh) // 2, img.width, (img.height + nh) // 2))
+                resized = img.resize((_CARD_W, _CARD_H), _Img.LANCZOS)
+                canvas = _Img.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+                canvas.paste(resized, (0, 0), resized)
+                overlay = _get_overlay(rarity)
+                if overlay is not None:
+                    canvas = _Img.alpha_composite(canvas, overlay)
+                _os.makedirs(_OUTPUT_DIR, exist_ok=True)
+                canvas.convert("RGB").save(_os.path.join(_OUTPUT_DIR, f"{cid}.png"), "PNG", optimize=True)
+                rel = f"/static/card_renders/{cid}.png"
+                public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+                final = (public_base + rel) if public_base else rel
+                conn0 = get_db(); c0 = conn0.cursor()
+                c0.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, cid))
+                conn0.commit(); conn0.close()
+            except Exception as e:
+                return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
         conn = get_db(); c = conn.cursor()
         c.execute("UPDATE cards SET event_key = ?, not_obtainable = 1 WHERE id = ?", (ek, cid))
         conn.commit(); conn.close()
