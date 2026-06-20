@@ -394,7 +394,7 @@ def register_cards_owner_routes(app, deps):
             print(f"[collection preview] {e}")
             return None
 
-    @app.route("/c/<user_id>")
+    @app.route("/cards/s/<user_id>")
     def collection_share_preview(user_id):
         """Lien de partage public : sert les balises Open Graph (previsualisation
         Discord) puis redirige les humains vers le classeur dashboard."""
@@ -420,7 +420,7 @@ def register_cards_owner_routes(app, deps):
         card_type = "summary_large_image" if preview_rel else "summary"
         target = f"/cards/collection/{user_id}"
         html = render_template_string(_COLLECTION_OG_HTML, name=name, total=total,
-                                      og_image=og_image, og_url=f"{base}/c/{user_id}",
+                                      og_image=og_image, og_url=f"{base}/cards/s/{user_id}",
                                       target=target, card_type=card_type)
         return html
 
