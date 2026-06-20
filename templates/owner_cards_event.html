@@ -153,19 +153,45 @@ async function emLoad(){
   }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
 }
 function emRow(c, tagged){
-  // tagged (carte deja de l'event) -> affiche statut brouillon/deployee
-  let status = '';
-  if(tagged){
-    status = c.not_obtainable
-      ? '<span class="rar" style="color:#f2b33a">🟡 brouillon</span>'
-      : '<span class="rar" style="color:#4ade80">🟢 déployée</span>';
+  // tagged (carte deja de l'event) -> affiche statut + gestion skin alt
+  if(!tagged){
+    return `<div class="em-row">
+      <span>${RAR_EMO[c.rarity]||'⚪'}</span>
+      <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span></div>
+      <button onclick="emTag(${c.id}, true)">➕ Ajouter</button>
+    </div>`;
   }
+  const status = c.not_obtainable
+    ? '<span class="rar" style="color:#f2b33a">🟡 brouillon</span>'
+    : '<span class="rar" style="color:#4ade80">🟢 déployée</span>';
+  const alt = c.alt_image_url
+    ? '<span class="rar" style="color:#a86dff">🎨 alt ✓</span>'
+    : '<span class="rar" style="color:#777">🎨 sans alt</span>';
   return `<div class="em-row">
     <span>${RAR_EMO[c.rarity]||'⚪'}</span>
-    <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span> ${status}</div>
-    <button onclick="emTag(${c.id}, ${tagged?'false':'true'})">${tagged?'➖ Retirer':'➕ Ajouter'}</button>
+    <div class="nm">${emEsc(c.name)} ${status} ${alt}</div>
+    <button onclick="emUploadAlt(${c.id})" title="Uploader le skin alternatif">🎨 Alt</button>
+    <button onclick="emTag(${c.id}, false)">➖ Retirer</button>
   </div>`;
 }
+function emUploadAlt(cardId){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if(!f) return;
+    const res = document.getElementById('emResult');
+    res.textContent = 'Upload du skin alt…';
+    const fd = new FormData(); fd.append('image', f);
+    try{
+      const r = await fetch(`/api/owner/global-event/card/${cardId}/alt`, { method:'POST', body: fd });
+      const d = await r.json();
+      if(d.ok){ res.textContent = '✅ Skin alt enregistré.'; emLoad(); }
+      else res.textContent = `❌ ${d.error||'Erreur'}`;
+    }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+  };
+  inp.click();
+}
+window.emUploadAlt = emUploadAlt;
 async function ecCreate(){
   const ek = document.getElementById('emEvent').value;
   const res = document.getElementById('ecResult');

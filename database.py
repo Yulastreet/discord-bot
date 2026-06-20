@@ -194,6 +194,11 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN event_key TEXT")
     except Exception:
         pass
+    # Migration : alt_image_url -> skin alternatif premium (achetable en boutique event).
+    try:
+        c.execute("ALTER TABLE cards ADD COLUMN alt_image_url TEXT")
+    except Exception:
+        pass
     # Migration : flavor_subtitle (sous-titre affiche sous le nom)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
@@ -2171,7 +2176,70 @@ def _ensure_event_econ_tables():
         used      INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, event_key, day)
     )''')
+    # Skins alt debloques par user (achat boutique event).
+    c.execute('''CREATE TABLE IF NOT EXISTS event_skin (
+        user_id    TEXT NOT NULL,
+        card_id    INTEGER NOT NULL,
+        bought_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, card_id)
+    )''')
     conn.commit(); conn.close()
+
+
+def card_alt_set(card_id, alt_url):
+    """Owner : definit l'URL du skin alt d'une carte (ou None pour retirer)."""
+    conn = get_db(); c = conn.cursor()
+    c.execute("UPDATE cards SET alt_image_url = ? WHERE id = ?",
+              (alt_url or None, int(card_id)))
+    conn.commit(); conn.close()
+
+
+def event_skin_has(user_id, card_id) -> bool:
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM event_skin WHERE user_id = ? AND card_id = ?",
+                  (str(user_id), int(card_id))).fetchone()
+    conn.close()
+    return bool(r)
+
+
+def event_skin_owned_set(user_id) -> set:
+    """Set des card_id dont ce user a debloque le skin alt."""
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT card_id FROM event_skin WHERE user_id = ?",
+                     (str(user_id),)).fetchall()
+    conn.close()
+    return {int(r["card_id"]) for r in rows}
+
+
+def event_skin_grant(user_id, card_id):
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO event_skin (user_id, card_id) VALUES (?, ?)",
+              (str(user_id), int(card_id)))
+    conn.commit(); conn.close()
+
+
+def event_shop_skins(user_id, event_key) -> list:
+    """Cartes event AVEC un skin alt, que le user POSSEDE, classees achetable/possede."""
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute(
+        "SELECT cards.id, cards.name, cards.rarity, cards.alt_image_url, "
+        "  (SELECT 1 FROM event_skin es WHERE es.user_id = ? AND es.card_id = cards.id) AS owned_skin, "
+        "  (SELECT COUNT(*) FROM user_cards uc WHERE uc.user_id = ? AND uc.card_id = cards.id) AS owns_card "
+        "FROM cards WHERE event_key = ? AND alt_image_url IS NOT NULL AND alt_image_url != '' "
+        "ORDER BY name COLLATE NOCASE",
+        (str(user_id), str(user_id), event_key)).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        if not r["owns_card"]:
+            continue  # ne propose que les cartes que le joueur possede
+        out.append({"id": r["id"], "name": r["name"], "rarity": r["rarity"],
+                    "owned_skin": bool(r["owned_skin"])})
+    return out
 
 
 def event_coins_get(user_id, event_key) -> int:

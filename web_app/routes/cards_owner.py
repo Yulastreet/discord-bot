@@ -443,11 +443,18 @@ def register_cards_owner_routes(app, deps):
     @app.route("/api/public/collection/<user_id>", methods=["GET"])
     def api_public_collection(user_id):
         import os as _os
-        from database import (user_card_list, user_card_fusion_map, get_db)
+        from database import (user_card_list, user_card_fusion_map, get_db,
+                              event_skin_owned_set)
         renders_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
             _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_renders")
+        # skins alt debloques par CE joueur -> affiche l'alt a la place
+        skin_cards = event_skin_owned_set(user_id)
 
-        def _render_url(cid, image_url):
+        def _render_url(cid, image_url, alt=False):
+            if alt:
+                for ext in (".webp", ".png"):
+                    if _os.path.exists(_os.path.join(renders_dir, f"{cid}_alt{ext}")):
+                        return f"/static/card_renders/{cid}_alt{ext}"
             for ext in (".webp", ".png"):
                 if _os.path.exists(_os.path.join(renders_dir, f"{cid}{ext}")):
                     return f"/static/card_renders/{cid}{ext}"
@@ -459,6 +466,7 @@ def register_cards_owner_routes(app, deps):
         for c in cards:
             cid = c["card_id"]
             if cid not in grouped:
+                has_alt = cid in skin_cards
                 grouped[cid] = {
                     "id": cid, "name": c["name"],
                     "rarity": c.get("rarity"),
@@ -467,7 +475,8 @@ def register_cards_owner_routes(app, deps):
                     "element": c.get("element") or "",
                     "stars": int(fmap.get(cid, 0)),
                     "count": 0,
-                    "img": _render_url(cid, c.get("image_url")),
+                    "alt": has_alt,
+                    "img": _render_url(cid, c.get("image_url"), alt=has_alt),
                 }
             grouped[cid]["count"] += 1
         items = list(grouped.values())
@@ -1000,12 +1009,53 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"items": []})
         conn = get_db(); c = conn.cursor()
         rows = c.execute(
-            "SELECT id, name, rarity, universe, image_url, "
+            "SELECT id, name, rarity, universe, image_url, alt_image_url, "
             "  COALESCE(not_obtainable,0) AS not_obtainable FROM cards "
             "WHERE event_key = ? ORDER BY name COLLATE NOCASE", (event_key,)).fetchall()
         conn.close()
         # not_obtainable=1 -> brouillon (pas encore deploye) ; 0 -> deployee.
         return jsonify({"items": [dict(r) for r in rows]})
+
+    @app.route("/api/owner/global-event/card/<int:cid>/alt", methods=["POST"])
+    def api_owner_global_event_alt(cid):
+        """Upload le skin ALT d'une carte event (multipart 'image')."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        import os as _os
+        from database import card_get, card_alt_set
+        if not card_get(cid):
+            return jsonify({"error": "carte introuvable"}), 404
+        f = request.files.get("image")
+        if not f or not f.filename:
+            return jsonify({"error": "fichier image requis"}), 400
+        try:
+            from PIL import Image as _Img
+            from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H, _get_overlay
+            from database import get_db
+            conn = get_db(); c = conn.cursor()
+            row = c.execute("SELECT rarity FROM cards WHERE id = ?", (cid,)).fetchone()
+            conn.close()
+            rarity = (row["rarity"] if row else "common") or "common"
+            img = _Img.open(f.stream).convert("RGBA")
+            sr, dr = img.width / img.height, _CARD_W / _CARD_H
+            if sr > dr:
+                nw = int(img.height * dr); img = img.crop(((img.width - nw) // 2, 0, (img.width + nw) // 2, img.height))
+            else:
+                nh = int(img.width / dr); img = img.crop((0, (img.height - nh) // 2, img.width, (img.height + nh) // 2))
+            resized = img.resize((_CARD_W, _CARD_H), _Img.LANCZOS)
+            canvas = _Img.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+            canvas.paste(resized, (0, 0), resized)
+            overlay = _get_overlay(rarity)
+            if overlay is not None:
+                canvas = _Img.alpha_composite(canvas, overlay)
+            _os.makedirs(_OUTPUT_DIR, exist_ok=True)
+            canvas.convert("RGB").save(_os.path.join(_OUTPUT_DIR, f"{cid}_alt.png"), "PNG", optimize=True)
+            rel = f"/static/card_renders/{cid}_alt.png"
+            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+            card_alt_set(cid, (public_base + rel) if public_base else rel)
+            return jsonify({"ok": True, "alt_image_url": rel})
+        except Exception as e:
+            return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
 
     @app.route("/api/owner/global-event/card", methods=["POST"])
     def api_owner_global_event_create_card():
