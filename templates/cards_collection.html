@@ -18,6 +18,19 @@
        border:1px solid var(--border); color:var(--text); font-size:12px; outline:none; }
   .col-tools .input { flex:0 1 190px; min-width:110px; }
   .col-tools select { flex:none; max-width:130px; }
+  /* bouton Partager + menu */
+  .col-share { position:relative; flex:none; }
+  .col-share-btn { padding:8px 12px; border-radius:10px; border:1px solid var(--border);
+       background:var(--accent); color:#10240a; font-weight:800; font-size:12px; cursor:pointer; white-space:nowrap; }
+  .col-share-btn:hover { filter:brightness(1.08); }
+  .col-share-menu { position:absolute; right:0; top:calc(100% + 6px); display:none;
+       flex-direction:column; gap:3px; min-width:190px; padding:6px; z-index:50;
+       background:var(--bg-1); border:1px solid var(--border); border-radius:12px;
+       box-shadow:0 10px 30px rgba(0,0,0,.45); }
+  .col-share-menu.open { display:flex; }
+  .col-share-menu button { text-align:left; padding:9px 11px; border-radius:8px; border:none;
+       background:transparent; color:var(--text); cursor:pointer; font-size:13px; font-weight:600; }
+  .col-share-menu button:hover { background:var(--bg-2); }
   .col-tools .input:focus { border-color:var(--accent); }
   .col-seg { display:flex; flex:none; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
   .col-seg button { padding:8px 13px; background:var(--bg-1); color:var(--text-2); border:none;
@@ -124,6 +137,13 @@
       <option value="origine">Tri : Origine</option>
       <option value="univers">Tri : Univers</option>
     </select>
+    <div class="col-share">
+      <button class="col-share-btn" onclick="toggleShare(event)">🔗 Partager</button>
+      <div class="col-share-menu" id="shareMenu">
+        <button onclick="shareCopy()">📋 Copier le lien</button>
+        <button onclick="shareSend()">📤 Envoyer…</button>
+      </div>
+    </div>
   </div>
 
   <!-- CLASSEUR : fleches sur les cotes, classeur au centre -->
@@ -301,5 +321,32 @@ async function load(){
   }
 }
 load();
+
+/* ===== PARTAGER ===== */
+function toggleShare(e){ e.stopPropagation(); document.getElementById('shareMenu').classList.toggle('open'); }
+document.addEventListener('click', ()=>{ const m=document.getElementById('shareMenu'); if(m) m.classList.remove('open'); });
+
+function shareToast(msg){
+  let t = document.getElementById('shareToast');
+  if(!t){ t=document.createElement('div'); t.id='shareToast';
+    t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:200;'
+      +'background:#1b1b1f;color:#fff;border:1px solid #3a3a40;border-radius:10px;padding:10px 16px;'
+      +'font-size:13px;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;';
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; }, 1800);
+}
+async function shareCopy(){
+  document.getElementById('shareMenu').classList.remove('open');
+  try{ await navigator.clipboard.writeText(location.href); shareToast('Lien copié ✓'); }
+  catch(e){ window.prompt('Copie ce lien :', location.href); }
+}
+async function shareSend(){
+  document.getElementById('shareMenu').classList.remove('open');
+  const data = { title:'Collection TookBot', text:'Regarde cette collection de cartes TookBot !', url:location.href };
+  if(navigator.share){ try{ await navigator.share(data); }catch(_){ } }
+  else { try{ await navigator.clipboard.writeText(location.href); }catch(_){ } shareToast('Partage non dispo ici — lien copié ✓'); }
+}
+window.toggleShare=toggleShare; window.shareCopy=shareCopy; window.shareSend=shareSend;
 </script>
 {% endblock %}
