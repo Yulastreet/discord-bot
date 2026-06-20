@@ -86,8 +86,10 @@
        padding:8px 12px; min-width:72px; text-align:center; }
 
   /* ===== VUE SIMPLIFIEE ===== */
-  .simple-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:14px; }
-  .simple-foot { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:30px; flex-wrap:wrap; }
+  /* grille qui scrolle a l'interieur -> les fleches laterales restent en place */
+  .simple-scroll { flex:1 1 auto; min-width:0; max-height: calc(100vh - 200px);
+                   overflow-y:auto; padding:2px 6px 2px 2px; }
+  .simple-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:10px; }
   .col-empty { color:var(--text-2); text-align:center; padding:50px; }
 
   @media (max-width:760px){
@@ -108,6 +110,13 @@
     </div>
     <input id="colSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="applyFilters()">
     <span class="col-pageno" id="bPageNo">— / —</span>
+    <select id="colPerPage" onchange="onPerPageChange()" style="display:none;">
+      <option value="25">25 / page</option>
+      <option value="50">50 / page</option>
+      <option value="100">100 / page</option>
+      <option value="250">250 / page</option>
+      <option value="500">500 / page</option>
+    </select>
     <span class="col-spacer"></span>
     <select id="colSort" onchange="applyFilters()">
       <option value="rarity">Tri : Rareté</option>
@@ -115,13 +124,6 @@
       <option value="stars">Tri : Étoiles</option>
       <option value="origine">Tri : Origine</option>
       <option value="univers">Tri : Univers</option>
-    </select>
-    <select id="colPerPage" onchange="onPerPageChange()" style="display:none;">
-      <option value="25">25 / page</option>
-      <option value="50">50 / page</option>
-      <option value="100">100 / page</option>
-      <option value="250">250 / page</option>
-      <option value="500">500 / page</option>
     </select>
   </div>
 
@@ -136,13 +138,12 @@
     </div>
   </div>
 
-  <!-- VUE SIMPLIFIEE -->
+  <!-- VUE SIMPLIFIEE : fleches sur les cotes (comme le classeur), grille qui scrolle -->
   <div id="simpleView" style="display:none;">
-    <div class="simple-grid" id="simpleGrid"></div>
-    <div class="simple-foot">
-      <button onclick="simpleTurn(-1)" id="sPrev" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">◀ Préc.</button>
-      <span class="col-pageno" id="sPageNo">— / —</span>
-      <button onclick="simpleTurn(1)" id="sNext" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-1);color:var(--text);cursor:pointer;font-weight:800;">Suiv. ▶</button>
+    <div class="binder-row">
+      <button class="binder-side" id="sPrev" onclick="simpleTurn(-1)">◀</button>
+      <div class="simple-scroll" id="simpleScroll"><div class="simple-grid" id="simpleGrid"></div></div>
+      <button class="binder-side" id="sNext" onclick="simpleTurn(1)">▶</button>
     </div>
   </div>
 
@@ -247,7 +248,7 @@ function renderSimple(){
   const slice = VIEW.slice(start, start+simplePer);
   document.getElementById('simpleGrid').innerHTML = slice.length ? slice.map(cardCell).join('') : '<div class="col-empty">Aucune carte.</div>';
   const total = Math.max(1, Math.ceil(VIEW.length/simplePer));
-  document.getElementById('sPageNo').textContent = `${VIEW.length?sPage+1:0} / ${total}`;
+  document.getElementById('bPageNo').textContent = `${VIEW.length?sPage+1:0} / ${total}`;  // chip partage en haut
   document.getElementById('sPrev').disabled = sPage<=0;
   document.getElementById('sNext').disabled = sPage>=total-1;
 }
@@ -256,7 +257,7 @@ function simpleTurn(dir){
   const next = sPage + dir;
   if(next<0 || next>total-1) return;
   sPage = next; renderSimple();
-  window.scrollTo({top:0, behavior:'smooth'});
+  const sc = document.getElementById('simpleScroll'); if(sc) sc.scrollTo({top:0, behavior:'smooth'});
 }
 function onPerPageChange(){
   simplePer = parseInt(document.getElementById('colPerPage').value,10)||50;
@@ -270,7 +271,7 @@ function setMode(m){
   document.getElementById('binderView').style.display = m==='binder' ? 'block':'none';
   document.getElementById('simpleView').style.display = m==='simple' ? 'block':'none';
   document.getElementById('colPerPage').style.display = m==='simple' ? 'inline-block':'none';
-  document.getElementById('bPageNo').style.display = m==='binder' ? 'inline-block':'none';
+  // chip page : toujours visible (les 2 modes), mis a jour par le render actif
   if(m==='binder') renderBinder(); else renderSimple();
 }
 
