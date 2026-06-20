@@ -171,6 +171,11 @@
 
 <script>
 const TARGET_UID = "{{ target_user_id }}";
+// URL perso dans la barre : si on est sur /cards/collection generique, on reecrit
+// avec l'ID (sans recharger) -> lien personnalise copiable directement.
+if (TARGET_UID && /\/cards\/collection\/?$/.test(location.pathname)) {
+  try { history.replaceState(null, '', `/cards/collection/${TARGET_UID}`); } catch(_) {}
+}
 const RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
 const RRANK = { secret:6, mythic:5, legendary:4, epic:3, rare:2, common:1 };
 const BINDER_PER = 25;
