@@ -430,8 +430,9 @@ def register_cards_owner_routes(app, deps):
                 total = 0
             # https force (derriere nginx, Flask peut voir http://). Discord exige https.
             base = _rq.host_url.rstrip("/").replace("http://", "https://")
-            # Image FIXE identique pour tous (servie par la route /cards/og-image.png).
-            og_image = f"{base}/cards/og-image.png"
+            # Image FIXE identique pour tous, servie depuis /static (nginx direct,
+            # fiable - une regle nginx .png peut court-circuiter /cards/*).
+            og_image = f"{base}/static/og_share.png"
             return render_template_string(_COLLECTION_OG_HTML, name=name, total=total,
                                           og_image=og_image, og_url=f"{base}/cards/s/{user_id}",
                                           target=target, card_type="summary_large_image")
