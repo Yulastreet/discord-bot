@@ -414,7 +414,8 @@ def register_cards_owner_routes(app, deps):
         except Exception:
             total = 0
         preview_rel = _build_collection_preview(user_id, renders_dir)
-        base = _rq.host_url.rstrip("/")
+        # https force (derriere nginx, Flask peut voir http://). Discord exige https.
+        base = _rq.host_url.rstrip("/").replace("http://", "https://")
         og_image = f"{base}{preview_rel}" if preview_rel else (avatar or "")
         card_type = "summary_large_image" if preview_rel else "summary"
         target = f"/cards/collection/{user_id}"
