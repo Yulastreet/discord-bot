@@ -983,6 +983,43 @@ def register_cards_owner_routes(app, deps):
                          "cards": counts.get(k, 0)} for k, v in GLOBAL_EVENTS.items()],
         })
 
+    @app.route("/api/owner/global-event/cards/<event_key>", methods=["GET"])
+    def api_owner_global_event_cards(event_key):
+        """Liste les cartes taguees a un event (pour le gestionnaire dashboard)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db, GLOBAL_EVENTS
+        if event_key not in GLOBAL_EVENTS:
+            return jsonify({"items": []})
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT id, name, rarity, universe, image_url FROM cards "
+            "WHERE event_key = ? ORDER BY name COLLATE NOCASE", (event_key,)).fetchall()
+        conn.close()
+        return jsonify({"items": [dict(r) for r in rows]})
+
+    @app.route("/api/owner/global-event/tag", methods=["POST"])
+    def api_owner_global_event_tag():
+        """Ajoute/retire une carte d'un event. {card_id, event_key} (vide=retirer)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db, GLOBAL_EVENTS, card_get
+        data = request.json or {}
+        try:
+            cid = int(data.get("card_id"))
+        except (ValueError, TypeError):
+            return jsonify({"error": "card_id invalide"}), 400
+        ek = (data.get("event_key") or "").strip()
+        if ek and ek not in GLOBAL_EVENTS:
+            return jsonify({"error": "event inconnu"}), 400
+        if not card_get(cid):
+            return jsonify({"error": "carte introuvable"}), 404
+        conn = get_db(); c = conn.cursor()
+        c.execute("UPDATE cards SET event_key = ? WHERE id = ?",
+                  (ek or None, cid))
+        conn.commit(); conn.close()
+        return jsonify({"ok": True})
+
 
     @app.route("/owner/cards-cheat")
     def owner_cards_cheat_page():

@@ -60,10 +60,36 @@
 
   <button class="btn btn-primary" onclick="evSave()">💾 Appliquer l'event</button>
   <div id="evResult" class="muted" style="margin-top:14px;"></div>
+</div>
 
-  <div class="cs-hint" style="margin-top:14px;">
-    Pour rendre une carte <b>exclusive</b> à un event : va dans <b>Cards</b>, édite la carte, choisis l'event dans le champ « Event ».
+<div class="cs-section" style="margin-top:18px;">
+  <h3>🎴 Cartes boostées de l'event</h3>
+  <p class="sub">Choisis les cartes concernées par le boost de drop pour un event donné.</p>
+
+  <div class="cs-field">
+    <label>Event à gérer</label>
+    <select id="emEvent" class="input" onchange="emLoad()"></select>
   </div>
+
+  <div class="cs-field">
+    <label>Ajouter une carte <span class="cs-hint">— recherche par nom / univers</span></label>
+    <input id="emSearch" class="input" placeholder="🔍 Tape un nom puis Entrée…"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();emSearch();}">
+    <div id="emResults" style="display:none;margin-top:6px;border:1px solid var(--border);border-radius:10px;max-height:200px;overflow:auto;"></div>
+  </div>
+
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);margin:6px 0;">Cartes de l'event</div>
+  <div id="emList" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
+  <div id="emResult" class="muted" style="margin-top:10px;"></div>
+
+  <style>
+    .em-row { display:flex; align-items:center; gap:10px; padding:8px 10px; border-top:1px solid var(--border); font-size:13px; }
+    .em-row:first-child { border-top:none; }
+    .em-row .nm { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .em-row .rar { font-size:10px; text-transform:uppercase; color:var(--text-3); }
+    .em-row button { padding:5px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-2); color:var(--text); cursor:pointer; font-size:12px; font-weight:700; }
+    .em-empty { padding:14px; color:var(--text-3); font-size:13px; }
+  </style>
 </div>
 
 <script>
@@ -135,7 +161,67 @@ async function evSave(){
 }
 window.evSave = evSave;
 
+/* ===== Gestionnaire des cartes de l'event ===== */
+function emEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const RAR_EMO = {common:'⚪',rare:'🔵',epic:'🟣',legendary:'🟠',mythic:'🔴',secret:'🌈'};
+
+function emFillSelect(){
+  const sel = document.getElementById('emEvent');
+  sel.innerHTML = EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name}</option>`).join('');
+}
+async function emLoad(){
+  const ek = document.getElementById('emEvent').value;
+  const box = document.getElementById('emList');
+  if(!ek){ box.innerHTML = '<div class="em-empty">Sélectionne un event.</div>'; return; }
+  box.innerHTML = '<div class="em-empty">Chargement…</div>';
+  try{
+    const r = await fetch(`/api/owner/global-event/cards/${ek}`);
+    const d = await r.json();
+    const items = d.items || [];
+    box.innerHTML = items.length ? items.map(c => emRow(c, true)).join('')
+      : '<div class="em-empty">Aucune carte taguée à cet event.</div>';
+  }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
+}
+function emRow(c, tagged){
+  return `<div class="em-row">
+    <span>${RAR_EMO[c.rarity]||'⚪'}</span>
+    <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span></div>
+    <button onclick="emTag(${c.id}, ${tagged?'false':'true'})">${tagged?'➖ Retirer':'➕ Ajouter'}</button>
+  </div>`;
+}
+async function emSearch(){
+  const q = (document.getElementById('emSearch').value||'').trim();
+  const box = document.getElementById('emResults');
+  if(!q){ box.style.display='none'; return; }
+  box.style.display='block'; box.innerHTML = '<div class="em-empty">Recherche…</div>';
+  try{
+    const r = await fetch(`/api/owner/cards?q=${encodeURIComponent(q)}&per_page=20`);
+    const d = await r.json();
+    const items = d.items || [];
+    box.innerHTML = items.length ? items.map(c => emRow(c, false)).join('')
+      : '<div class="em-empty">Aucun résultat.</div>';
+  }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
+}
+async function emTag(cardId, add){
+  const ek = document.getElementById('emEvent').value;
+  const res = document.getElementById('emResult');
+  try{
+    const r = await fetch('/api/owner/global-event/tag', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({card_id: cardId, event_key: add ? ek : ''}),
+    });
+    const d = await r.json();
+    if(d.ok){
+      res.textContent = add ? '✅ Carte ajoutée à l\'event.' : '✅ Carte retirée.';
+      emLoad(); evLoad();                 // refresh liste + compteurs
+      document.getElementById('emResults').style.display='none';
+      document.getElementById('emSearch').value='';
+    } else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.emLoad = emLoad; window.emSearch = emSearch; window.emTag = emTag;
+
 csLoad();
-evLoad();
+evLoad().then(()=>{ emFillSelect(); emLoad(); });
 </script>
 {% endblock %}
