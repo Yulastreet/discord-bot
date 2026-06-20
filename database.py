@@ -188,6 +188,12 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
     except Exception:
         pass
+    # Migration : event_key -> carte exclusive a un event global (NULL = toujours
+    # obtenable ; 'summer' = obtenable seulement quand l'event summer est actif).
+    try:
+        c.execute("ALTER TABLE cards ADD COLUMN event_key TEXT")
+    except Exception:
+        pass
     # Migration : flavor_subtitle (sous-titre affiche sous le nom)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
@@ -2090,32 +2096,90 @@ def card_count_total():
 _ROLL_WEIGHTS = {k: v for k, v in CARD_RARITY_WEIGHTS.items() if v > 0}
 
 
+# ===== EVENTS GLOBAUX (saisonniers ou ponctuels, owner-controles) =====
+# cle -> {name, emoji}. Une carte avec cards.event_key = <cle> n'est rollable
+# QUE quand cet event est actif. Quand aucun event actif, ces cartes sortent du
+# pool de roll. Le boost augmente le poids des rares+ pendant l'event.
+GLOBAL_EVENTS = {
+    "summer":    {"name": "Summer",    "emoji": "☀️"},
+    "halloween": {"name": "Halloween", "emoji": "🎃"},
+    "noel":      {"name": "Noël",      "emoji": "🎄"},
+    "winter":    {"name": "Hiver",     "emoji": "❄️"},
+    "valentine": {"name": "Saint-Valentin", "emoji": "💖"},
+}
+
+
+def global_event_get() -> dict:
+    """Etat de l'event global actif. {key, name, emoji, active, drop_boost}."""
+    key = (get_setting("global_event_key", "") or "").strip()
+    try:
+        boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
+    except (ValueError, TypeError):
+        boost = 1.0
+    meta = GLOBAL_EVENTS.get(key, {})
+    return {"key": key, "active": bool(key), "drop_boost": boost,
+            "name": meta.get("name", ""), "emoji": meta.get("emoji", "")}
+
+
+def global_event_set(key: str, drop_boost=None):
+    """Active/desactive l'event global. key vide ou invalide = aucun event."""
+    key = (key or "").strip()
+    if key and key not in GLOBAL_EVENTS:
+        key = ""
+    set_setting("global_event_key", key)
+    if drop_boost is not None:
+        try:
+            set_setting("global_event_drop_boost", max(1.0, float(drop_boost)))
+        except (ValueError, TypeError):
+            pass
+
+
+def global_event_card_counts() -> dict:
+    """Nb de cartes taguees par event (pour le dashboard)."""
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT event_key, COUNT(*) AS n FROM cards "
+                     "WHERE event_key IS NOT NULL AND event_key != '' "
+                     "GROUP BY event_key").fetchall()
+    conn.close()
+    return {r["event_key"]: int(r["n"]) for r in rows}
+
+
 def card_roll_random(universe: str | None = None):
     """Pioche une carte selon les poids de rarete.
     Si universe fourni : filtre uniquement cette categorie.
+    Applique l'event global actif : boost des rares+ + cartes exclusives.
     Retourne None si la table cards (ou la categorie) est vide."""
-    rarity = _rd_cards.choices(
-        list(_ROLL_WEIGHTS.keys()),
-        weights=list(_ROLL_WEIGHTS.values()),
-        k=1,
-    )[0]
+    ev = (get_setting("global_event_key", "") or "").strip()
+    weights = dict(_ROLL_WEIGHTS)
+    if ev:
+        try:
+            boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
+        except (ValueError, TypeError):
+            boost = 1.0
+        if boost > 1:
+            for r in ("rare", "epic", "legendary", "mythic"):
+                if r in weights:
+                    weights[r] = weights[r] * boost
+    rarity = _rd_cards.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
+    # Exclusivite event : carte event_key NULL/'' = toujours ; sinon == event actif.
+    evc = "AND (event_key IS NULL OR event_key = '' OR event_key = ?)"
     conn = get_db(); c = conn.cursor()
     if universe:
-        rows = c.execute("SELECT * FROM cards WHERE rarity = ? AND universe = ? "
-                          "AND COALESCE(not_obtainable, 0) = 0",
-                          (rarity, universe)).fetchall()
+        rows = c.execute(f"SELECT * FROM cards WHERE rarity = ? AND universe = ? "
+                          f"AND COALESCE(not_obtainable, 0) = 0 {evc}",
+                          (rarity, universe, ev)).fetchall()
         if not rows:
-            rows = c.execute("SELECT * FROM cards WHERE universe = ? "
-                              "AND COALESCE(not_obtainable, 0) = 0 "
-                              "ORDER BY RANDOM() LIMIT 1",
-                              (universe,)).fetchall()
+            rows = c.execute(f"SELECT * FROM cards WHERE universe = ? "
+                              f"AND COALESCE(not_obtainable, 0) = 0 {evc} "
+                              f"ORDER BY RANDOM() LIMIT 1",
+                              (universe, ev)).fetchall()
     else:
-        rows = c.execute("SELECT * FROM cards WHERE rarity = ? "
-                          "AND COALESCE(not_obtainable, 0) = 0",
-                          (rarity,)).fetchall()
+        rows = c.execute(f"SELECT * FROM cards WHERE rarity = ? "
+                          f"AND COALESCE(not_obtainable, 0) = 0 {evc}",
+                          (rarity, ev)).fetchall()
         if not rows:
-            rows = c.execute("SELECT * FROM cards WHERE COALESCE(not_obtainable, 0) = 0 "
-                              "ORDER BY RANDOM() LIMIT 1").fetchall()
+            rows = c.execute(f"SELECT * FROM cards WHERE COALESCE(not_obtainable, 0) = 0 {evc} "
+                              f"ORDER BY RANDOM() LIMIT 1", (ev,)).fetchall()
     conn.close()
     if not rows:
         return None
@@ -5293,6 +5357,10 @@ DEFAULT_SETTINGS = {
     # Cartes : age minimum (jours) d'un serveur pour autoriser /roll (anti-farm
     # par serveurs jetables). 0 = desactive. Override : env ROLL_MIN_GUILD_AGE_DAYS.
     "roll_min_guild_age_days": "7",
+    # Event global actif (cle du catalogue GLOBAL_EVENTS, ou vide = aucun).
+    "global_event_key": "",
+    # Multiplicateur de poids des rares+ pendant l'event (1 = pas de boost).
+    "global_event_drop_boost": "2.0",
     # Cartes : nb max de serveurs "solo" (user seul avec le bot) ou un compte peut
     # roll. Au-dela, /roll bloque sur tout nouveau serveur solo. 0 = desactive.
     "roll_max_solo_guilds": "2",

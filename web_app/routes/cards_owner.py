@@ -958,6 +958,32 @@ def register_cards_owner_routes(app, deps):
         })
 
 
+    @app.route("/api/owner/global-event", methods=["GET", "POST"])
+    def api_owner_global_event():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import (GLOBAL_EVENTS, global_event_get, global_event_set,
+                              global_event_card_counts)
+        if request.method == "POST":
+            data = request.json or {}
+            key = (data.get("key") or "").strip()
+            if key and key not in GLOBAL_EVENTS:
+                return jsonify({"error": "event inconnu"}), 400
+            try:
+                boost = max(1.0, float(data.get("drop_boost", 2.0)))
+            except (ValueError, TypeError):
+                return jsonify({"error": "boost invalide"}), 400
+            global_event_set(key, drop_boost=boost)
+            return jsonify({"ok": True, **global_event_get()})
+        cur = global_event_get()
+        counts = global_event_card_counts()
+        return jsonify({
+            "current": cur,
+            "catalog": [{"key": k, "name": v["name"], "emoji": v["emoji"],
+                         "cards": counts.get(k, 0)} for k, v in GLOBAL_EVENTS.items()],
+        })
+
+
     @app.route("/owner/cards-cheat")
     def owner_cards_cheat_page():
         if not _is_owner_session():
@@ -1864,9 +1890,9 @@ def register_cards_owner_routes(app, deps):
     def api_owner_cards_update(cid):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
-        from database import get_db
+        from database import get_db, GLOBAL_EVENTS
         data = request.json or {}
-        allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description", "flavor_subtitle", "not_obtainable"}
+        allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description", "flavor_subtitle", "not_obtainable", "event_key"}
         fields = {k: v for k, v in data.items() if k in allowed}
         if not fields:
             return jsonify({"error": "rien a update"}), 400
@@ -1874,6 +1900,9 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "rarity invalide"}), 400
         if "not_obtainable" in fields:
             fields["not_obtainable"] = 1 if fields["not_obtainable"] else 0
+        if "event_key" in fields:
+            ek = (fields["event_key"] or "").strip()
+            fields["event_key"] = ek if ek in GLOBAL_EVENTS else None
         conn = get_db(); c = conn.cursor()
         sets = ", ".join(f"{k} = ?" for k in fields.keys())
         c.execute(f"UPDATE cards SET {sets} WHERE id = ?",

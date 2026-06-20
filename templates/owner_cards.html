@@ -469,6 +469,17 @@
         <label>Description</label>
         <textarea id="editDesc" placeholder="Texte de flavor / citation…" rows="3" class="input" style="font-family:var(--font-mono);font-size:13px;resize:vertical;"></textarea>
       </div>
+      <div class="ef">
+        <label>Event <span class="ef-hint">— exclusive à un event (rollable seulement quand l'event est actif)</span></label>
+        <select id="editEvent" class="input">
+          <option value="">— Aucun (toujours obtenable) —</option>
+          <option value="summer">☀️ Summer</option>
+          <option value="halloween">🎃 Halloween</option>
+          <option value="noel">🎄 Noël</option>
+          <option value="winter">❄️ Hiver</option>
+          <option value="valentine">💖 Saint-Valentin</option>
+        </select>
+      </div>
       <label class="ef-check">
         <input id="editNotObtainable" type="checkbox">
         <span style="font-size:13px;">🚫 Non obtenible</span>
@@ -656,6 +667,7 @@ function openCreateModal() {
   document.getElementById('editRarity').value = 'common';
   document.getElementById('editImage').value = '';
   document.getElementById('editDesc').value = '';
+  document.getElementById('editEvent').value = '';
   document.getElementById('editScrim').classList.add('open');
 }
 window.openCreateModal = openCreateModal;
@@ -682,6 +694,7 @@ function editCurrentCard() {
   document.getElementById('editRarity').value = c.rarity || 'common';
   document.getElementById('editImage').value = c.image_url || '';
   document.getElementById('editDesc').value = c.description || '';
+  document.getElementById('editEvent').value = c.event_key || '';
   document.getElementById('editScrim').classList.add('open');
 }
 window.editCurrentCard = editCurrentCard;
@@ -697,6 +710,7 @@ async function saveCard() {
     rarity:      document.getElementById('editRarity').value,
     image_url:   document.getElementById('editImage').value.trim(),
     description: document.getElementById('editDesc').value.trim(),
+    event_key:   document.getElementById('editEvent').value,
   };
   if (!payload.name) { toast('Nom requis.', 'error'); return; }
   try {
