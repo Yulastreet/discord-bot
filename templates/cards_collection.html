@@ -7,18 +7,19 @@
 {% block content %}
 <style>
   .col-wrap { max-width: 1180px; margin: 0 auto; }
-  .col-head { display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
-  .col-head img.av { width:56px; height:56px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
-  .col-head .who { font-size:22px; font-weight:900; }
-  .col-head .sub { color:var(--text-2); font-size:13px; }
-
-  /* barre d'outils */
-  .col-tools { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
-  .col-tools .input, .col-tools select { padding:9px 12px; border-radius:10px; background:var(--bg-1);
+  /* barre unique : identite (avatar+nom) + outils sur la MEME ligne -> gagne de
+     la hauteur pour que le classeur + fleches tiennent sans scroll. */
+  .col-tools { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .col-id { display:flex; align-items:center; gap:10px; margin-right:6px; }
+  .col-id img.av { width:40px; height:40px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
+  .col-id .who { font-size:16px; font-weight:900; line-height:1.1; }
+  .col-id .sub { color:var(--text-2); font-size:11px; }
+  .col-tools .input, .col-tools select { padding:8px 11px; border-radius:10px; background:var(--bg-1);
        border:1px solid var(--border); color:var(--text); font-size:13px; outline:none; }
+  .col-tools .input { max-width:220px; }
   .col-tools .input:focus { border-color:var(--accent); }
   .col-seg { display:flex; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-  .col-seg button { padding:9px 14px; background:var(--bg-1); color:var(--text-2); border:none;
+  .col-seg button { padding:8px 13px; background:var(--bg-1); color:var(--text-2); border:none;
        cursor:pointer; font-size:13px; font-weight:700; }
   .col-seg button.active { background:var(--accent); color:#10240a; }
   .col-spacer { flex:1; }
@@ -38,16 +39,31 @@
   /* ===== CLASSEUR (binder) ===== */
   /* contraint a la hauteur de la fenetre : les cartes sont dimensionnees par la
      HAUTEUR des rangees (pas la largeur) pour que les 5x5 tiennent sans scroll. */
-  .binder-perspective { perspective: 2200px; margin-bottom:10px; }
-  .binder { background:linear-gradient(135deg,#3a2a1c,#241812); border:1px solid #50301c;
-            border-radius:14px; padding:10px; box-shadow: inset 0 0 40px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.4);
-            transform-style: preserve-3d; width: fit-content; margin: 0 auto; max-width:100%; }
+  .binder-perspective { perspective: 2400px; margin-bottom:10px; }
+  /* fond CUIR noir texture + couture doree sur le contour */
+  .binder { position:relative; transform-style: preserve-3d;
+            width: fit-content; margin: 0 auto; max-width:100%;
+            border-radius:16px; padding:18px;
+            background:
+              radial-gradient(circle at 28% 18%, rgba(255,255,255,.04), transparent 45%),
+              repeating-linear-gradient(48deg, rgba(255,255,255,.015) 0 2px, transparent 2px 5px),
+              repeating-linear-gradient(-42deg, rgba(0,0,0,.18) 0 2px, transparent 2px 5px),
+              linear-gradient(160deg, #1c1a17, #070605 70%);
+            border:1px solid #000;
+            box-shadow: inset 0 0 70px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05),
+                        0 18px 50px rgba(0,0,0,.55); }
+  /* couture doree (tirets) inset comme des points de couture */
+  .binder::before { content:''; position:absolute; inset:8px; border-radius:11px;
+            border:2px dashed #c9a24b; opacity:.85;
+            box-shadow: 0 0 8px rgba(201,162,75,.25), inset 0 0 8px rgba(201,162,75,.12);
+            pointer-events:none; }
   /* colonnes a la LARGEUR de la carte (pas 1fr) + gap minimal -> pochettes collees,
      comme un vrai classeur. La hauteur dispo dimensionne les cartes. */
   .binder-page { display:grid; grid-template-columns: repeat(5, auto);
                  grid-auto-rows: 1fr; gap:5px; justify-content:center;
-                 height: calc(100vh - 250px); min-height: 320px;
-                 transform-origin:center; will-change: transform, opacity; }
+                 height: calc(100vh - 205px); min-height: 300px;
+                 transform-origin:left center; backface-visibility:hidden;
+                 will-change: transform, opacity; }
   .binder-page .cc { height:100%; width:auto; aspect-ratio:2/3; }
   .binder-empty { color:#c8b89a; text-align:center; padding:60px; grid-column:1/-1; align-self:center; }
   .binder-nav { display:flex; align-items:center; justify-content:center; gap:18px; margin-top:6px; }
@@ -68,9 +84,10 @@
 </style>
 
 <div class="col-wrap">
-  <div class="col-head" id="colHead"><div class="sub">Chargement…</div></div>
+  <div id="colLoading" class="col-empty">Chargement…</div>
 
   <div class="col-tools" id="colTools" style="display:none;">
+    <div class="col-id" id="colId"></div>
     <div class="col-seg">
       <button id="modeBinder" class="active" onclick="setMode('binder')">📖 Classeur</button>
       <button id="modeSimple" onclick="setMode('simple')">▦ Vue simplifiée</button>
@@ -176,20 +193,21 @@ function binderTurn(dir){
   const next = bPage + dir;
   if(next<0 || next>total-1) return;
   const page = document.getElementById('binderPage');
-  page.style.transition = 'transform .26s ease, opacity .26s ease';
-  page.style.transformOrigin = dir>0 ? 'left center' : 'right center';
-  page.style.transform = `rotateY(${dir>0?-92:92}deg)`;
-  page.style.opacity = '0.15';
+  // La page tourne TOUJOURS sur la charniere GAUCHE (origin left), dans les 2 sens :
+  // l'ancienne se rabat vers la gauche, la nouvelle se deplie depuis la gauche.
+  page.style.transformOrigin = 'left center';
+  page.style.transition = 'transform .24s ease-in, opacity .24s ease-in';
+  page.style.transform = 'rotateY(-105deg)';
+  page.style.opacity = '0.1';
   setTimeout(()=>{
     bPage = next; renderBinderPage();
     page.style.transition = 'none';
-    page.style.transformOrigin = dir>0 ? 'right center' : 'left center';
-    page.style.transform = `rotateY(${dir>0?92:-92}deg)`;
-    void page.offsetWidth;            // reflow
-    page.style.transition = 'transform .26s ease, opacity .26s ease';
-    page.style.transform = 'rotateY(0deg)';
+    page.style.transform = 'rotateY(-105deg)';   // nouvelle page repliee a gauche
+    void page.offsetWidth;                        // reflow
+    page.style.transition = 'transform .26s ease-out, opacity .26s ease-out';
+    page.style.transform = 'rotateY(0deg)';       // se deplie depuis la charniere gauche
     page.style.opacity = '1';
-  }, 260);
+  }, 240);
 }
 
 /* ===== VUE SIMPLIFIEE ===== */
@@ -225,18 +243,20 @@ function setMode(m){
 }
 
 async function load(){
-  if(!TARGET_UID){ document.getElementById('colHead').innerHTML='<div class="sub">Aucun utilisateur ciblé.</div>'; return; }
+  const loading = document.getElementById('colLoading');
+  if(!TARGET_UID){ loading.textContent='Aucun utilisateur ciblé.'; return; }
   try{
     const r = await fetch(`/api/public/collection/${TARGET_UID}`);
     const d = await r.json();
     const u = d.user || {};
     const av = u.avatar ? `<img class="av" src="${esc(u.avatar)}" alt="">` : `<div class="av"></div>`;
-    document.getElementById('colHead').innerHTML =
-      `${av}<div><div class="who">🃏 Collection de ${esc(u.name)}</div>
+    document.getElementById('colId').innerHTML =
+      `${av}<div><div class="who">🃏 ${esc(u.name)}</div>
         <div class="sub">${fmt(d.total)} cartes · ${fmt(d.unique)} uniques</div></div>`;
     ALL = d.cards || [];
+    loading.style.display='none';
     if(!ALL.length){
-      document.getElementById('colTools').style.display='none';
+      document.getElementById('colTools').style.display='flex';
       document.getElementById('binderView').style.display='none';
       document.getElementById('colEmpty').style.display='block';
       document.getElementById('colEmpty').textContent='Ce joueur ne possède aucune carte.';
@@ -245,7 +265,7 @@ async function load(){
     document.getElementById('colTools').style.display='flex';
     applyFilters();
   }catch(e){
-    document.getElementById('colHead').innerHTML='<div class="sub">Erreur de chargement.</div>';
+    loading.textContent='Erreur de chargement.';
   }
 }
 load();
