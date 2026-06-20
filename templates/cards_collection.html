@@ -60,14 +60,16 @@
             pointer-events:none; }
   /* colonnes a la LARGEUR de la carte (pas 1fr) + gap minimal -> pochettes collees,
      comme un vrai classeur. La hauteur dispo dimensionne les cartes. */
-  /* TOUJOURS 5 rangees fixes -> les cartes gardent leur taille meme si la page
-     n'est pas pleine (cases vides = pochettes vides). */
-  .binder-page { display:grid; grid-template-columns: repeat(5, auto);
-                 grid-template-rows: repeat(5, 1fr); gap:5px; justify-content:center;
-                 height: calc(100vh - 205px); min-height: 300px;
+  /* Tailles FIXES calculees depuis la hauteur dispo (pas de colonnes 'auto' qui
+     buggent quand la page n'est pas pleine). 5 rangees + 5 colonnes toujours. */
+  .binder-page { --cardh: calc((100vh - 215px) / 5);
+                 display:grid;
+                 grid-template-columns: repeat(5, calc(var(--cardh) * 0.6667));
+                 grid-template-rows: repeat(5, var(--cardh));
+                 gap:5px; justify-content:center;
                  transform-origin:left center; backface-visibility:hidden;
                  will-change: transform, opacity; }
-  .binder-page .cc, .binder-page .cc-empty { height:100%; width:auto; aspect-ratio:2/3; }
+  .binder-page .cc, .binder-page .cc-empty { width:100%; height:100%; aspect-ratio:auto; }
   .binder-page .cc-empty { border:2px dashed rgba(255,255,255,.07);
                  background:rgba(0,0,0,.22); border-radius:10px; }
   .binder-empty { color:#c8b89a; text-align:center; padding:60px; grid-column:1/-1; align-self:center; }
