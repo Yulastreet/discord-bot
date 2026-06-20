@@ -1025,7 +1025,9 @@ def setup_cards_commands(bot, deps):
             rows = list(grouped.values())
             if name_q:
                 ql = name_q.lower()
-                rows = [r for r in rows if ql in r["name"].lower()]
+                rows = [r for r in rows if ql in r["name"].lower()
+                        or ql in (r.get("subtitle") or "").lower()
+                        or ql in (r.get("universe") or "").lower()]
             return rows
 
         def _sorted_rows(rows, sort_mode):
@@ -1231,8 +1233,9 @@ def setup_cards_commands(bot, deps):
                 self.add_item(prev); self.add_item(nxt); self.add_item(back)
 
         class _SearchCardModal(discord.ui.Modal, title="Rechercher une carte"):
-            q = discord.ui.TextInput(label="Nom de la carte",
-                                      placeholder="ex: Naruto, Luffy, Jon Snow…", required=True, max_length=100)
+            q = discord.ui.TextInput(label="Nom de carte OU origine",
+                                      placeholder="ex: Naruto, One Piece, Game of Thrones…",
+                                      required=True, max_length=100)
             def __init__(self, cat, sort_mode):
                 super().__init__()
                 self._cat = cat
