@@ -1038,26 +1038,18 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "fichier image requis"}), 400
         try:
             from PIL import Image as _Img
-            from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H, _get_overlay
-            from database import get_db
-            conn = get_db(); c = conn.cursor()
-            row = c.execute("SELECT rarity FROM cards WHERE id = ?", (cid,)).fetchone()
-            conn.close()
-            rarity = (row["rarity"] if row else "common") or "common"
-            img = _Img.open(f.stream).convert("RGBA")
+            from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H
+            # Skin alt : ART BRUT, juste recadre 2:3 (PAS de cadre de rarete, PAS de
+            # fond). L'overlay et les etoiles sont gerees a l'affichage.
+            img = _Img.open(f.stream).convert("RGB")
             sr, dr = img.width / img.height, _CARD_W / _CARD_H
             if sr > dr:
                 nw = int(img.height * dr); img = img.crop(((img.width - nw) // 2, 0, (img.width + nw) // 2, img.height))
             else:
                 nh = int(img.width / dr); img = img.crop((0, (img.height - nh) // 2, img.width, (img.height + nh) // 2))
             resized = img.resize((_CARD_W, _CARD_H), _Img.LANCZOS)
-            canvas = _Img.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
-            canvas.paste(resized, (0, 0), resized)
-            overlay = _get_overlay(rarity)
-            if overlay is not None:
-                canvas = _Img.alpha_composite(canvas, overlay)
             _os.makedirs(_OUTPUT_DIR, exist_ok=True)
-            canvas.convert("RGB").save(_os.path.join(_OUTPUT_DIR, f"{cid}_alt.png"), "PNG", optimize=True)
+            resized.save(_os.path.join(_OUTPUT_DIR, f"{cid}_alt.png"), "PNG", optimize=True)
             rel = f"/static/card_renders/{cid}_alt.png"
             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
             card_alt_set(cid, (public_base + rel) if public_base else rel)
