@@ -1016,7 +1016,7 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"items": []})
         conn = get_db(); c = conn.cursor()
         rows = c.execute(
-            "SELECT id, name, rarity, universe, image_url, alt_image_url, "
+            "SELECT id, name, rarity, universe, subtitle, image_url, alt_image_url, "
             "  COALESCE(not_obtainable,0) AS not_obtainable FROM cards "
             "WHERE event_key = ? ORDER BY name COLLATE NOCASE", (event_key,)).fetchall()
         conn.close()
@@ -1061,6 +1061,49 @@ def register_cards_owner_routes(app, deps):
             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
             card_alt_set(cid, (public_base + rel) if public_base else rel)
             return jsonify({"ok": True, "alt_image_url": rel})
+        except Exception as e:
+            return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
+
+    @app.route("/api/owner/global-event/card/<int:cid>/image", methods=["POST"])
+    def api_owner_global_event_main_image(cid):
+        """Remplace l'image PRINCIPALE d'une carte event (multipart 'image')."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        import os as _os
+        from database import card_get, get_db
+        if not card_get(cid):
+            return jsonify({"error": "carte introuvable"}), 404
+        f = request.files.get("image")
+        if not f or not f.filename:
+            return jsonify({"error": "fichier image requis"}), 400
+        try:
+            from PIL import Image as _Img
+            from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H, _get_overlay
+            conn = get_db(); c = conn.cursor()
+            row = c.execute("SELECT rarity FROM cards WHERE id = ?", (cid,)).fetchone()
+            conn.close()
+            rarity = (row["rarity"] if row else "common") or "common"
+            img = _Img.open(f.stream).convert("RGBA")
+            sr, dr = img.width / img.height, _CARD_W / _CARD_H
+            if sr > dr:
+                nw = int(img.height * dr); img = img.crop(((img.width - nw) // 2, 0, (img.width + nw) // 2, img.height))
+            else:
+                nh = int(img.width / dr); img = img.crop((0, (img.height - nh) // 2, img.width, (img.height + nh) // 2))
+            resized = img.resize((_CARD_W, _CARD_H), _Img.LANCZOS)
+            canvas = _Img.new("RGBA", (_CARD_W, _CARD_H), (26, 26, 26, 255))
+            canvas.paste(resized, (0, 0), resized)
+            overlay = _get_overlay(rarity)
+            if overlay is not None:
+                canvas = _Img.alpha_composite(canvas, overlay)
+            _os.makedirs(_OUTPUT_DIR, exist_ok=True)
+            canvas.convert("RGB").save(_os.path.join(_OUTPUT_DIR, f"{cid}.png"), "PNG", optimize=True)
+            rel = f"/static/card_renders/{cid}.png"
+            public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+            conn = get_db(); c = conn.cursor()
+            c.execute("UPDATE cards SET image_url = ? WHERE id = ?",
+                      ((public_base + rel) if public_base else rel, cid))
+            conn.commit(); conn.close()
+            return jsonify({"ok": True, "image_url": rel})
         except Exception as e:
             return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
 

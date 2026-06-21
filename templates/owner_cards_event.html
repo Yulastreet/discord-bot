@@ -98,6 +98,35 @@
   <div id="emResult" class="muted" style="margin-top:10px;"></div>
 </div>
 
+<!-- Modal d'edition d'une carte event -->
+<div id="edmScrim" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center;" onclick="if(event.target===this)emEditClose()">
+  <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:14px;padding:22px;width:min(460px,92vw);max-height:90vh;overflow:auto;">
+    <h3 style="margin:0 0 14px;">✏️ Modifier la carte</h3>
+    <input type="hidden" id="edmId">
+    <div class="cs-field"><label>Nom</label><input id="edmName" class="input"></div>
+    <div class="cs-field"><label>Rareté</label>
+      <select id="edmRarity" class="input">
+        <option value="common">⚪ Common</option><option value="rare">🔵 Rare</option>
+        <option value="epic">🟣 Epic</option><option value="legendary">🟠 Legendary</option>
+        <option value="mythic">🔴 Mythic</option><option value="secret">🌈 Secret</option>
+      </select>
+    </div>
+    <div class="cs-field"><label>Univers</label><input id="edmUniverse" class="input"></div>
+    <div class="cs-field"><label>Origine</label><input id="edmSubtitle" class="input"></div>
+    <div class="cs-field"><label>Image principale par URL</label><input id="edmImage" class="input" placeholder="https://…"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;">
+      <button class="btn btn-secondary" onclick="emUpload(document.getElementById('edmId').value,'main')">🖼️ Upload image principale</button>
+      <button class="btn btn-secondary" onclick="emUpload(document.getElementById('edmId').value,'alt')">🎨 Upload skin alt</button>
+    </div>
+    <div id="edmAltStatus" class="cs-hint" style="margin-bottom:10px;"></div>
+    <div id="edmResult" class="muted" style="margin-bottom:14px;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-secondary" onclick="emEditClose()">Fermer</button>
+      <button class="btn btn-primary" onclick="emEditSave()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function emEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 const RAR_EMO = {common:'⚪',rare:'🔵',epic:'🟣',legendary:'🟠',mythic:'🔴',secret:'🌈'};
@@ -148,6 +177,7 @@ function emFillSelect(){
   const sel = document.getElementById('emEvent');
   sel.innerHTML = EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name}</option>`).join('');
 }
+let EM_ITEMS = {};
 async function emLoad(){
   const ek = document.getElementById('emEvent').value;
   const box = document.getElementById('emList');
@@ -157,6 +187,7 @@ async function emLoad(){
     const r = await fetch(`/api/owner/global-event/cards/${ek}`);
     const d = await r.json();
     const items = d.items || [];
+    EM_ITEMS = {}; items.forEach(c => EM_ITEMS[c.id] = c);
     box.innerHTML = items.length ? items.map(c => emRow(c, true)).join('')
       : '<div class="em-empty">Aucune carte taguée à cet event.</div>';
   }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
@@ -179,28 +210,66 @@ function emRow(c, tagged){
   return `<div class="em-row">
     <span>${RAR_EMO[c.rarity]||'⚪'}</span>
     <div class="nm">${emEsc(c.name)} ${status} ${alt}</div>
-    <button onclick="emUploadAlt(${c.id})" title="Uploader le skin alternatif">🎨 Alt</button>
+    <button onclick="emEdit(${c.id})" title="Modifier la carte">✏️ Modifier</button>
     <button onclick="emTag(${c.id}, false)">➖ Retirer</button>
   </div>`;
 }
-function emUploadAlt(cardId){
+
+/* ===== Edition d'une carte event (modal) ===== */
+function emUpload(cardId, kind){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = async () => {
     const f = inp.files[0]; if(!f) return;
-    const res = document.getElementById('emResult');
-    res.textContent = 'Upload du skin alt…';
+    const res = document.getElementById('edmResult');
+    res.textContent = (kind==='alt'?'Upload skin alt…':'Upload image…');
     const fd = new FormData(); fd.append('image', f);
+    const url = kind==='alt'
+      ? `/api/owner/global-event/card/${cardId}/alt`
+      : `/api/owner/global-event/card/${cardId}/image`;
     try{
-      const r = await fetch(`/api/owner/global-event/card/${cardId}/alt`, { method:'POST', body: fd });
+      const r = await fetch(url, { method:'POST', body: fd });
       const d = await r.json();
-      if(d.ok){ res.textContent = '✅ Skin alt enregistré.'; emLoad(); }
+      if(d.ok){ res.textContent = '✅ Image enregistrée.'; emLoad(); }
       else res.textContent = `❌ ${d.error||'Erreur'}`;
     }catch(e){ res.textContent = 'Erreur : ' + e.message; }
   };
   inp.click();
 }
-window.emUploadAlt = emUploadAlt;
+function emEdit(cardId){
+  const c = EM_ITEMS[cardId]; if(!c) return;
+  document.getElementById('edmId').value = cardId;
+  document.getElementById('edmName').value = c.name || '';
+  document.getElementById('edmRarity').value = c.rarity || 'common';
+  document.getElementById('edmUniverse').value = c.universe || '';
+  document.getElementById('edmSubtitle').value = c.subtitle || '';
+  document.getElementById('edmImage').value = (c.image_url||'').startsWith('http') ? c.image_url : '';
+  document.getElementById('edmAltStatus').textContent = c.alt_image_url ? '🎨 skin alt présent' : '🎨 aucun skin alt';
+  document.getElementById('edmResult').textContent = '';
+  document.getElementById('edmScrim').style.display = 'flex';
+}
+function emEditClose(){ document.getElementById('edmScrim').style.display='none'; }
+async function emEditSave(){
+  const cid = document.getElementById('edmId').value;
+  const res = document.getElementById('edmResult');
+  res.textContent = 'Enregistrement…';
+  const payload = {
+    name: document.getElementById('edmName').value.trim(),
+    rarity: document.getElementById('edmRarity').value,
+    universe: document.getElementById('edmUniverse').value.trim(),
+    subtitle: document.getElementById('edmSubtitle').value.trim(),
+  };
+  const img = document.getElementById('edmImage').value.trim();
+  if(img) payload.image_url = img;
+  try{
+    const r = await fetch(`/api/owner/cards/${cid}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const d = await r.json();
+    if(d.ok){ res.textContent = '✅ Carte modifiée.'; emLoad(); }
+    else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.emEdit = emEdit; window.emEditClose = emEditClose; window.emEditSave = emEditSave; window.emUpload = emUpload;
 async function ecCreate(){
   const ek = document.getElementById('emEvent').value;
   const res = document.getElementById('ecResult');
