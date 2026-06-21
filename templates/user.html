@@ -477,8 +477,11 @@ function setupCardsAdmin() {
       let html = fld('✨ Essences', 'essences', d.essences)
         + fld('🎟️ Rolls bonus', 'rolls', d.rolls)
         + fld('🔴 Fragments Mythic', 'mythic_fragments', d.mythic_fragments)
-        + fld('🌈 Golden Rolls', 'golden_rolls', d.golden_rolls)
-        + `<button id="invSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-end;">💾 Enregistrer items</button>`;
+        + fld('🌈 Golden Rolls', 'golden_rolls', d.golden_rolls);
+      if (d.event_active) {
+        html += fld(`${d.event_emoji} Jetons ${d.event_name}`, 'event_coins', d.event_coins);
+      }
+      html += `<button id="invSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-end;">💾 Enregistrer items</button>`;
       if (d.borders && d.borders.length) {
         html += '<div style="flex-basis:100%;font-size:var(--t-xs);" class="muted">Bordures : '
           + d.borders.map(b => `${b.name} ×${b.qty}`).join(', ') + '</div>';
@@ -490,7 +493,7 @@ function setupCardsAdmin() {
   }
   async function saveInventory() {
     const payload = {};
-    for (const k of ['essences', 'rolls', 'mythic_fragments', 'golden_rolls']) {
+    for (const k of ['essences', 'rolls', 'mythic_fragments', 'golden_rolls', 'event_coins']) {
       const el = document.getElementById('inv_' + k);
       if (el) payload[k] = parseInt(el.value, 10);
     }

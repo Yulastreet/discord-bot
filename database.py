@@ -2278,6 +2278,15 @@ def event_coins_add(user_id, event_key, n) -> int:
     return int(r["coins"]) if r else 0
 
 
+def event_coins_set(user_id, event_key, n):
+    _ensure_event_econ_tables()
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO event_wallet (user_id, event_key, coins) VALUES (?, ?, ?) "
+              "ON CONFLICT(user_id, event_key) DO UPDATE SET coins = excluded.coins",
+              (str(user_id), event_key, max(0, int(n))))
+    conn.commit(); conn.close()
+
+
 def event_coins_spend(user_id, event_key, n) -> bool:
     """Depense n jetons si solde suffisant. Retourne True si ok."""
     _ensure_event_econ_tables()

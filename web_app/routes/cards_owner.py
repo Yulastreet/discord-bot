@@ -2706,21 +2706,29 @@ def register_cards_owner_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import (user_item_get, roll_bonus_available, user_borders_list,
-                              currency_get)
-        return jsonify({
+                              currency_get, global_event_get, event_coins_get)
+        ev = global_event_get()
+        out = {
             "rolls": roll_bonus_available(user_id),
             "mythic_fragments": user_item_get(user_id, "mythic_fragment"),
             "golden_rolls": user_item_get(user_id, "golden_roll"),
             "essences": currency_get(user_id),
             "borders": [{"name": b["name"], "qty": b["qty"]} for b in user_borders_list(user_id)],
-        })
+            "event_active": bool(ev.get("active")),
+            "event_key": ev.get("key") or "",
+            "event_name": ev.get("name") or "",
+            "event_emoji": ev.get("emoji") or "🎟️",
+            "event_coins": event_coins_get(user_id, ev["key"]) if ev.get("active") else 0,
+        }
+        return jsonify(out)
 
     @app.route("/api/owner/user/<user_id>/inventory/set", methods=["POST"])
     def api_owner_user_inventory_set(user_id):
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import (currency_set, roll_set_user, user_item_set,
-                              user_item_get, roll_bonus_available, currency_get)
+                              user_item_get, roll_bonus_available, currency_get,
+                              global_event_get, event_coins_set, event_coins_get)
         data = request.json or {}
 
         def _int(v):
@@ -2736,12 +2744,16 @@ def register_cards_owner_routes(app, deps):
             user_item_set(user_id, "mythic_fragment", _int(data["mythic_fragments"]))
         if "golden_rolls" in data and _int(data["golden_rolls"]) is not None:
             user_item_set(user_id, "golden_roll", _int(data["golden_rolls"]))
+        _ev = global_event_get()
+        if "event_coins" in data and _int(data["event_coins"]) is not None and _ev.get("active"):
+            event_coins_set(user_id, _ev["key"], _int(data["event_coins"]))
         return jsonify({
             "success": True,
             "rolls": roll_bonus_available(user_id),
             "mythic_fragments": user_item_get(user_id, "mythic_fragment"),
             "golden_rolls": user_item_get(user_id, "golden_roll"),
             "essences": currency_get(user_id),
+            "event_coins": event_coins_get(user_id, _ev["key"]) if _ev.get("active") else 0,
         })
 
     @app.route("/api/owner/user/<user_id>/cards/clear", methods=["POST"])
