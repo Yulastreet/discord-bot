@@ -38,6 +38,12 @@
   </div>
 
   <div class="cs-field">
+    <label>Boost général des rares (epic / legendary / mythic) <span class="cs-hint">— booste TOUT le pool rare pendant l'event. 1 = aucun.</span></label>
+    <input id="evRarBoost" type="number" min="1" max="10" step="0.25" value="1" class="input">
+    <div class="cs-hint">Ex : 1.5 = +50% de chances de tirer epic/legendary/mythic (en plus du boost des cartes event). 1 = désactivé.</div>
+  </div>
+
+  <div class="cs-field">
     <label>Serveurs de test <span class="cs-hint">— IDs séparés par virgule. Vide = tout le monde.</span></label>
     <input id="evTestGuilds" class="input" placeholder="ex : 1502322150822908115, 1234…">
     <div class="cs-hint">Si rempli : l'event (boost, /eventfight, /eventshop, jetons /daily) n'est actif QUE sur ces serveurs. Idéal pour tester avant un lancement global.</div>
@@ -142,6 +148,7 @@ async function evLoad(){
       EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name} (${e.cards} carte${e.cards>1?'s':''})</option>`).join('');
     sel.value = (d.current && d.current.key) || '';
     document.getElementById('evBoost').value = (d.current && d.current.drop_boost) || 2;
+    document.getElementById('evRarBoost').value = (d.current && d.current.rarity_boost) || 1;
     document.getElementById('evTestGuilds').value = d.test_guilds || '';
     evRefreshCounts();
   } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
@@ -160,6 +167,7 @@ async function evSave(){
     const r = await fetch('/api/owner/global-event', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({key, drop_boost: boost,
+                            rarity_boost: parseFloat(document.getElementById('evRarBoost').value) || 1,
                             test_guilds: document.getElementById('evTestGuilds').value.trim()}),
     });
     const d = await r.json();

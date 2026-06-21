@@ -2121,13 +2121,18 @@ def global_event_get() -> dict:
         boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
     except (ValueError, TypeError):
         boost = 1.0
+    try:
+        rar_boost = float(get_setting("global_event_rarity_boost", "1.0") or 1.0)
+    except (ValueError, TypeError):
+        rar_boost = 1.0
     meta = GLOBAL_EVENTS.get(key, {})
     return {"key": key, "active": bool(key), "drop_boost": boost,
+            "rarity_boost": rar_boost,
             "name": meta.get("name", ""), "emoji": meta.get("emoji", ""),
             "coin": meta.get("coin", "Jetons"), "coin_emoji": meta.get("coin_emoji", "🎟️")}
 
 
-def global_event_set(key: str, drop_boost=None):
+def global_event_set(key: str, drop_boost=None, rarity_boost=None):
     """Active/desactive l'event global. key vide ou invalide = aucun event."""
     key = (key or "").strip()
     if key and key not in GLOBAL_EVENTS:
@@ -2136,6 +2141,11 @@ def global_event_set(key: str, drop_boost=None):
     if drop_boost is not None:
         try:
             set_setting("global_event_drop_boost", max(1.0, float(drop_boost)))
+        except (ValueError, TypeError):
+            pass
+    if rarity_boost is not None:
+        try:
+            set_setting("global_event_rarity_boost", max(1.0, float(rarity_boost)))
         except (ValueError, TypeError):
             pass
 
@@ -2338,13 +2348,29 @@ def essence_bonus_add(user_id, pct) -> int:
 def card_roll_random(universe: str | None = None, user_id=None, guild_id=None):
     """Pioche une carte selon les poids de rarete.
     Si universe fourni : filtre uniquement cette categorie.
-    Event global actif : les cartes taguees a l'event (toujours obtenables, pas
-    exclusives) ont un drop BOOSTE -- sauf pour un user qui possede deja cette
-    carte en 5 etoiles (alors taux normal pour LUI). Le boost ne s'applique que
-    sur les serveurs de test si l'event est en mode test.
+    Event global actif : (1) BOOST GENERAL des rares (epic/legendary/mythic plus
+    frequents) ET (2) les cartes taguees a l'event ont un drop boste -- sauf pour
+    un user qui possede deja la carte en 5 etoiles. Le boost ne s'applique que sur
+    les serveurs de test si l'event est en mode test.
     Retourne None si la table cards (ou la categorie) est vide."""
-    rarity = _rd_cards.choices(
-        list(_ROLL_WEIGHTS.keys()), weights=list(_ROLL_WEIGHTS.values()), k=1)[0]
+    # Event actif pour ce contexte (mode test gere)
+    ev = (get_setting("global_event_key", "") or "").strip()
+    if ev:
+        _tg = global_event_test_guilds()
+        if _tg and str(guild_id) not in _tg:
+            ev = ""
+    # Poids de rarete (+ boost general des rares pendant l'event)
+    weights = dict(_ROLL_WEIGHTS)
+    if ev:
+        try:
+            rar_boost = float(get_setting("global_event_rarity_boost", "1.0") or 1.0)
+        except (ValueError, TypeError):
+            rar_boost = 1.0
+        if rar_boost > 1:
+            for _r in ("epic", "legendary", "mythic"):
+                if _r in weights:
+                    weights[_r] = weights[_r] * rar_boost
+    rarity = _rd_cards.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
     conn = get_db(); c = conn.cursor()
     if universe:
         rows = c.execute("SELECT * FROM cards WHERE rarity = ? AND universe = ? "
@@ -2364,14 +2390,8 @@ def card_roll_random(universe: str | None = None, user_id=None, guild_id=None):
     if not rows:
         conn.close()
         return None
-    # Boost event : pondere les cartes de l'event actif (sauf celles que CE user
-    # a deja maxees a 5 etoiles -> taux normal pour lui). Mode test : boost
-    # uniquement sur les serveurs de test.
-    ev = (get_setting("global_event_key", "") or "").strip()
-    if ev:
-        _tg = global_event_test_guilds()
-        if _tg and str(guild_id) not in _tg:
-            ev = ""  # event en test, pas ce serveur -> pas de boost
+    # Boost event par CARTE : pondere les cartes taguees a l'event (sauf celles que
+    # CE user a deja maxees a 5 etoiles -> taux normal pour lui). ev deja calcule.
     if ev:
         try:
             boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
@@ -5565,8 +5585,10 @@ DEFAULT_SETTINGS = {
     "roll_min_guild_age_days": "7",
     # Event global actif (cle du catalogue GLOBAL_EVENTS, ou vide = aucun).
     "global_event_key": "",
-    # Multiplicateur de poids des rares+ pendant l'event (1 = pas de boost).
+    # Multiplicateur de drop des CARTES taguees a l'event (1 = pas de boost).
     "global_event_drop_boost": "2.0",
+    # Boost GENERAL des rares (epic/legendary/mythic) pendant l'event (1 = aucun).
+    "global_event_rarity_boost": "1.0",
     # Cartes : nb max de serveurs "solo" (user seul avec le bot) ou un compte peut
     # roll. Au-dela, /roll bloque sur tout nouveau serveur solo. 0 = desactive.
     "roll_max_solo_guilds": "2",

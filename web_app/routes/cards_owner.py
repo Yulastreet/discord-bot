@@ -988,9 +988,10 @@ def register_cards_owner_routes(app, deps):
                 return jsonify({"error": "event inconnu"}), 400
             try:
                 boost = max(1.0, float(data.get("drop_boost", 2.0)))
+                rar_boost = max(1.0, float(data.get("rarity_boost", 1.0)))
             except (ValueError, TypeError):
                 return jsonify({"error": "boost invalide"}), 400
-            global_event_set(key, drop_boost=boost)
+            global_event_set(key, drop_boost=boost, rarity_boost=rar_boost)
             # serveurs de test (CSV d'IDs) : si fourni, l'event n'est actif que la-bas
             if "test_guilds" in data:
                 tg = (data.get("test_guilds") or "").strip()
