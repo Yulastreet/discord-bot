@@ -33,7 +33,7 @@ def main():
 
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
-        "SELECT id, image_url FROM cards "
+        "SELECT id, name, image_url FROM cards "
         "WHERE image_url LIKE '%/card_renders/%.png'").fetchall()
     conn.close()
 
@@ -42,6 +42,7 @@ def main():
     checked = 0
     for r in rows:
         cid = r["id"]
+        cname = r["name"] or "?"
         img = r["image_url"] or ""
         # securite : l'image canonique doit bien etre le .png de CETTE carte
         if not re.search(rf"/card_renders/{cid}\.png(\?|$)", img):
@@ -56,11 +57,11 @@ def main():
             # pas de .png sur le disque -> on NE touche pas (eviter de tout casser)
             continue
         if args.dry_run:
-            print(f"[dry] supprimerait {cid}.webp (canonique = {cid}.png)")
+            print(f"[dry] supprimerait {cid}.webp  ->  {cname}")
         else:
             try:
                 os.remove(webp)
-                print(f"supprime {cid}.webp")
+                print(f"supprime {cid}.webp  ->  {cname}")
             except Exception as e:
                 print(f"echec {cid}.webp : {e}")
                 continue
