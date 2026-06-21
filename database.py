@@ -2175,6 +2175,7 @@ EVENT_FIGHT_ADV_BONUS    = 2     # bonus si avantage elementaire
 # Boutique : ~20 jetons/jour (5 daily + 3x5 combat) -> 6 skins a 50 = 300 = ~15j.
 EVENT_SHOP_SKIN_COST     = 50    # cout d'un skin alt (tous le meme prix)
 EVENT_SHOP_ROLL_COST     = 8     # cout d'1 roll offert
+EVENT_SHOP_GOLDEN_COST   = 20    # cout d'1 golden roll (legendaire garanti)
 EVENT_SHOP_ESS10_COST    = 15    # cout de +10% essences pour 1 jour (cumulatif)
 EVENT_SHOP_ESS10_PCT     = 10
 
@@ -2240,24 +2241,19 @@ def event_skin_grant(user_id, card_id):
 
 
 def event_shop_skins(user_id, event_key) -> list:
-    """Cartes event AVEC un skin alt, que le user POSSEDE, classees achetable/possede."""
+    """Toutes les cartes event AVEC un skin alt. Achetable meme sans posseder la
+    carte (les arts ne sont obtenables que pendant l'event, les cartes restent)."""
     _ensure_event_econ_tables()
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
-        "SELECT cards.id, cards.name, cards.rarity, cards.alt_image_url, "
-        "  (SELECT 1 FROM event_skin es WHERE es.user_id = ? AND es.card_id = cards.id) AS owned_skin, "
-        "  (SELECT COUNT(*) FROM user_cards uc WHERE uc.user_id = ? AND uc.card_id = cards.id) AS owns_card "
+        "SELECT cards.id, cards.name, cards.rarity, "
+        "  (SELECT 1 FROM event_skin es WHERE es.user_id = ? AND es.card_id = cards.id) AS owned_skin "
         "FROM cards WHERE event_key = ? AND alt_image_url IS NOT NULL AND alt_image_url != '' "
         "ORDER BY name COLLATE NOCASE",
-        (str(user_id), str(user_id), event_key)).fetchall()
+        (str(user_id), event_key)).fetchall()
     conn.close()
-    out = []
-    for r in rows:
-        if not r["owns_card"]:
-            continue  # ne propose que les cartes que le joueur possede
-        out.append({"id": r["id"], "name": r["name"], "rarity": r["rarity"],
-                    "owned_skin": bool(r["owned_skin"])})
-    return out
+    return [{"id": r["id"], "name": r["name"], "rarity": r["rarity"],
+             "owned_skin": bool(r["owned_skin"])} for r in rows]
 
 
 def event_coins_get(user_id, event_key) -> int:

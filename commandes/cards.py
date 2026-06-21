@@ -1981,9 +1981,11 @@ def setup_cards_commands(bot, deps):
     async def eventshop_cmd(interaction: discord.Interaction):
         from database import (global_event_for_guild, event_coins_get, event_coins_spend,
                                essence_bonus_add, roll_give_user, event_shop_skins,
-                               event_skin_grant,
-                               EVENT_SHOP_ROLL_COST, EVENT_SHOP_ESS10_COST,
+                               event_skin_grant, user_item_add,
+                               EVENT_SHOP_ROLL_COST, EVENT_SHOP_GOLDEN_COST,
+                               EVENT_SHOP_ESS10_COST,
                                EVENT_SHOP_ESS10_PCT, EVENT_SHOP_SKIN_COST)
+        import os as _os_shop, glob as _glob_shop
         ev = global_event_for_guild(interaction.guild.id if interaction.guild else None)
         if not ev.get("active"):
             await interaction.response.send_message(
@@ -1992,6 +1994,16 @@ def setup_cards_commands(bot, deps):
         uid = interaction.user.id
         ek = ev["key"]
 
+        # Visuel de boutique : assets/cardrelated/global event/<event>_*/shop.png
+        _shop_img = None
+        try:
+            _matches = _glob_shop.glob(_os_shop.path.join(
+                _REPO_ROOT, "assets", "cardrelated", "global event", f"{ek}_*", "shop.png"))
+            if _matches:
+                _shop_img = _matches[0]
+        except Exception:
+            _shop_img = None
+
         def _embed():
             bal = event_coins_get(uid, ek)
             skins = event_shop_skins(uid, ek)
@@ -1999,19 +2011,24 @@ def setup_cards_commands(bot, deps):
             owned = [s for s in skins if s["owned_skin"]]
             desc = (f"Tes jetons : **{bal}** {ev['emoji']}\n\n"
                     f"🎲 **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['emoji']}\n"
+                    f"🌈 **1 Golden Roll** _(légendaire garanti)_ — {EVENT_SHOP_GOLDEN_COST} {ev['emoji']}\n"
                     f"✨ **+{EVENT_SHOP_ESS10_PCT}% essences (1 jour, cumulatif)** — "
                     f"{EVENT_SHOP_ESS10_COST} {ev['emoji']}\n\n"
                     f"🎨 **Skins alternatifs** — {EVENT_SHOP_SKIN_COST} {ev['emoji']} chacun "
-                    f"(carte que tu possèdes) :")
+                    f"_(achetable même sans posséder la carte ; les arts ne sont obtenables "
+                    f"que pendant l'event)_ :")
             if buyable:
                 desc += "\n" + "\n".join(
                     f"• {RARITY_EMOJIS.get(s['rarity'],'⚪')} **{s['name']}**" for s in buyable[:10])
             else:
-                desc += "\n_Aucun skin disponible à l'achat (possède la carte + skin créé par l'owner)._"
+                desc += "\n_Aucun skin disponible (l'owner n'a pas encore créé de skin alt)._"
             if owned:
                 desc += "\n\n✅ _Skins débloqués : " + ", ".join(s["name"] for s in owned[:10]) + "_"
-            return discord.Embed(title=f"{ev['emoji']} Boutique {ev['name']}",
-                                 description=desc, color=0xF2B33A)
+            e = discord.Embed(title=f"{ev['emoji']} Boutique {ev['name']}",
+                              description=desc, color=0xF2B33A)
+            if _shop_img:
+                e.set_image(url="attachment://shop.png")
+            return e
 
         def _skin_select():
             skins = [s for s in event_shop_skins(uid, ek) if not s["owned_skin"]]
@@ -2059,6 +2076,17 @@ def setup_cards_commands(bot, deps):
                 await inter.response.edit_message(embed=_embed(), view=_ShopView())
                 await inter.followup.send("🎲 **+1 roll** ajouté ! Utilise `/roll`.", ephemeral=True)
 
+            @discord.ui.button(label="Golden Roll", emoji="🌈", style=discord.ButtonStyle.success, row=0)
+            async def buy_golden(self, inter, _b):
+                if not await self._guard(inter): return
+                if not event_coins_spend(uid, ek, EVENT_SHOP_GOLDEN_COST):
+                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                user_item_add(uid, "golden_roll", 1)
+                await inter.response.edit_message(embed=_embed(), view=_ShopView())
+                await inter.followup.send(
+                    "🌈 **+1 Golden Roll** ! Utilise-le via `/cardinventory` (légendaire garanti).",
+                    ephemeral=True)
+
             @discord.ui.button(label="+10% essences (1j)", emoji="✨", style=discord.ButtonStyle.primary, row=0)
             async def buy_ess(self, inter, _b):
                 if not await self._guard(inter): return
@@ -2069,7 +2097,12 @@ def setup_cards_commands(bot, deps):
                 await inter.followup.send(
                     f"✨ Bonus essences du jour : **+{total}%** (cumulatif).", ephemeral=True)
 
-        await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
+        if _shop_img:
+            await interaction.response.send_message(
+                embed=_embed(), view=_ShopView(),
+                file=discord.File(_shop_img, filename="shop.png"), ephemeral=True)
+        else:
+            await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
 
 
     # === /cardup : tier-up (doublons d'une rareté -> 1 carte rareté au-dessus) ===
