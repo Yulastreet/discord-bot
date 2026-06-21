@@ -2195,12 +2195,22 @@ def setup_cards_commands(bot, deps):
                 await inter.followup.send(
                     f"✨ Bonus essences du jour : **+{total}%** (cumulatif).", ephemeral=True)
 
-        if _shop_img:
-            await interaction.response.send_message(
-                embed=_embed(), view=_ShopView(),
-                file=discord.File(_shop_img, filename="shop.png"), ephemeral=True)
-        else:
-            await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
+        try:
+            if _shop_img:
+                await interaction.response.send_message(
+                    embed=_embed(), view=_ShopView(),
+                    file=discord.File(_shop_img, filename="shop.png"), ephemeral=True)
+            else:
+                await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
+        except Exception as _e:
+            import traceback as _tb
+            print(f"[eventshop] {type(_e).__name__}: {_e}")
+            _tb.print_exc()
+            try:
+                await interaction.response.send_message(
+                    f"Erreur boutique : {type(_e).__name__}. Préviens l'owner.", ephemeral=True)
+            except Exception:
+                pass
 
 
     # === /cardup : tier-up (doublons d'une rareté -> 1 carte rareté au-dessus) ===
