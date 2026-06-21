@@ -2101,12 +2101,12 @@ def setup_cards_commands(bot, deps):
             buyable = [s for s in skins if not s["owned_skin"]]
             owned = [s for s in skins if s["owned_skin"]]
             desc = (f"Tes {ev['coin']} : **{bal}** {ev['coin_emoji']}\n\n"
-                    f"{_roll_emoji(bot)} **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['coin_emoji']}\n"
-                    f"{_golden_emoji(bot)} **1 Golden Roll** _(légendaire garanti)_ — {EVENT_SHOP_GOLDEN_COST} {ev['coin_emoji']}\n"
-                    f"✨ **+{EVENT_SHOP_ESS10_PCT}% essences (1 jour, cumulatif)** — "
+                    f"{_roll_emoji(bot)} **Roll** : {EVENT_SHOP_ROLL_COST} {ev['coin_emoji']} _(achat illimité)_\n"
+                    f"{_golden_emoji(bot)} **Golden Roll** _(légendaire garanti)_ : {EVENT_SHOP_GOLDEN_COST} {ev['coin_emoji']} _(achat illimité)_\n"
+                    f"✨ **+{EVENT_SHOP_ESS10_PCT}% essences (1 jour, cumulatif)** : "
                     f"{EVENT_SHOP_ESS10_COST} {ev['coin_emoji']}\n\n"
-                    f"🎨 **Skins alternatifs** — {EVENT_SHOP_SKIN_COST} {ev['coin_emoji']} chacun "
-                    f"_(achetable même sans posséder la carte ; les arts ne sont obtenables "
+                    f"🎨 **Skins alternatifs** : {EVENT_SHOP_SKIN_COST} {ev['coin_emoji']} chacun "
+                    f"_(achetable même sans posséder la carte, les arts ne sont obtenables "
                     f"que pendant l'event)_ :")
             if buyable:
                 desc += "\n" + "\n".join(
@@ -2165,7 +2165,7 @@ def setup_cards_commands(bot, deps):
                     return False
                 return True
 
-            @discord.ui.button(label="Acheter 1 roll", emoji="🎲", style=discord.ButtonStyle.success, row=0)
+            @discord.ui.button(label="Acheter un roll", emoji="🎲", style=discord.ButtonStyle.success, row=0)
             async def buy_roll(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_ROLL_COST):
