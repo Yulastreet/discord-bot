@@ -1939,7 +1939,7 @@ def setup_cards_commands(bot, deps):
             return
         uid = interaction.user.id
         ek = ev["key"]
-        if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY:
+        if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY and not _is_owner(uid):
             await interaction.response.send_message(
                 f"⚔️ Tu as fait tes **{EVENT_FIGHT_MAX_PER_DAY} combats** du jour. "
                 f"Reviens demain (reset minuit FR).", ephemeral=True)
@@ -1984,7 +1984,7 @@ def setup_cards_commands(bot, deps):
                 color=0x8e44ad)
 
         async def _resolve(inter, tier_key, monster_elem, el):
-            if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY:
+            if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY and not _is_owner(uid):
                 await inter.response.edit_message(
                     embed=discord.Embed(description="⚠️ Plus de combat disponible aujourd'hui.",
                                         color=0xff3d57), view=None)
