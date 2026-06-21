@@ -2101,8 +2101,8 @@ def setup_cards_commands(bot, deps):
             buyable = [s for s in skins if not s["owned_skin"]]
             owned = [s for s in skins if s["owned_skin"]]
             desc = (f"Tes jetons : **{bal}** {ev['emoji']}\n\n"
-                    f"🎲 **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['emoji']}\n"
-                    f"🌈 **1 Golden Roll** _(légendaire garanti)_ — {EVENT_SHOP_GOLDEN_COST} {ev['emoji']}\n"
+                    f"{_roll_emoji(bot)} **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['emoji']}\n"
+                    f"{_golden_emoji(bot)} **1 Golden Roll** _(légendaire garanti)_ — {EVENT_SHOP_GOLDEN_COST} {ev['emoji']}\n"
                     f"✨ **+{EVENT_SHOP_ESS10_PCT}% essences (1 jour, cumulatif)** — "
                     f"{EVENT_SHOP_ESS10_COST} {ev['emoji']}\n\n"
                     f"🎨 **Skins alternatifs** — {EVENT_SHOP_SKIN_COST} {ev['emoji']} chacun "
@@ -2148,6 +2148,13 @@ def setup_cards_commands(bot, deps):
         class _ShopView(discord.ui.View):
             def __init__(self):
                 super().__init__(timeout=180)
+                # emojis custom du serveur support sur les boutons roll / golden
+                _re = discord.utils.get(bot.emojis, name="roll")
+                _ge = discord.utils.get(bot.emojis, name="goldenroll")
+                if _re:
+                    self.buy_roll.emoji = _re
+                if _ge:
+                    self.buy_golden.emoji = _ge
                 s = _skin_select()
                 if s:
                     self.add_item(s)
