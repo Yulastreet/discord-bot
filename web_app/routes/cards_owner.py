@@ -1039,9 +1039,9 @@ def register_cards_owner_routes(app, deps):
         try:
             from PIL import Image as _Img
             from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H
-            # Skin alt : ART BRUT, juste recadre 2:3 (PAS de cadre de rarete, PAS de
-            # fond). L'overlay et les etoiles sont gerees a l'affichage.
-            img = _Img.open(f.stream).convert("RGB")
+            # Skin alt : ART BRUT, recadre 2:3, FOND TRANSPARENT conserve (RGBA, pas
+            # de fond noir, pas de cadre). Etoiles ajoutees a l'affichage.
+            img = _Img.open(f.stream).convert("RGBA")
             sr, dr = img.width / img.height, _CARD_W / _CARD_H
             if sr > dr:
                 nw = int(img.height * dr); img = img.crop(((img.width - nw) // 2, 0, (img.width + nw) // 2, img.height))
