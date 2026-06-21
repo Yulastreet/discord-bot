@@ -49,6 +49,19 @@
     <div class="cs-hint">Si rempli : l'event (boost, /eventfight, /eventshop, jetons /daily) n'est actif QUE sur ces serveurs. Idéal pour tester avant un lancement global.</div>
   </div>
 
+  <div class="cs-field">
+    <label>📊 Taux de rareté en temps réel <span class="cs-hint">— recalculé selon le boost rares ci-dessus</span></label>
+    <table id="evRateTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="text-align:left;color:var(--text-2);font-size:11px;text-transform:uppercase;">
+        <th style="padding:6px 8px;">Rareté</th>
+        <th style="padding:6px 8px;">Sans event</th>
+        <th style="padding:6px 8px;">Avec boost</th>
+      </tr></thead>
+      <tbody id="evRateBody"></tbody>
+    </table>
+    <div id="evRateNote" class="cs-hint" style="margin-top:8px;"></div>
+  </div>
+
   <div id="evCounts" class="cs-hint" style="margin-bottom:12px;"></div>
 
   <button class="btn btn-primary" onclick="evSave()">💾 Appliquer l'event</button>
@@ -151,8 +164,40 @@ async function evLoad(){
     document.getElementById('evRarBoost').value = (d.current && d.current.rarity_boost) || 1;
     document.getElementById('evTestGuilds').value = d.test_guilds || '';
     evRefreshCounts();
+    evRecalcRates();
   } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
 }
+
+// Poids de base (doit matcher database.CARD_RARITY_WEIGHTS)
+const RATE_BASE = { common:50, rare:30, epic:15, legendary:4, mythic:1 };
+const RATE_EMO  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴' };
+function evRecalcRates(){
+  const rarBoost = parseFloat(document.getElementById('evRarBoost').value) || 1;
+  const dropBoost = parseFloat(document.getElementById('evBoost').value) || 1;
+  const boosted = {...RATE_BASE};
+  ['epic','legendary','mythic'].forEach(r => boosted[r] = RATE_BASE[r] * rarBoost);
+  const sBase = Object.values(RATE_BASE).reduce((a,b)=>a+b,0);
+  const sBoost = Object.values(boosted).reduce((a,b)=>a+b,0);
+  const order = ['common','rare','epic','legendary','mythic'];
+  document.getElementById('evRateBody').innerHTML = order.map(r => {
+    const p0 = (RATE_BASE[r]/sBase*100).toFixed(2);
+    const p1 = (boosted[r]/sBoost*100).toFixed(2);
+    const up = boosted[r]/sBoost > RATE_BASE[r]/sBase;
+    const col = (r==='epic'||r==='legendary'||r==='mythic') ? (up?'#4ade80':'var(--text)') : 'var(--text-2)';
+    return `<tr style="border-top:1px solid var(--border);">
+      <td style="padding:6px 8px;">${RATE_EMO[r]} ${r}</td>
+      <td style="padding:6px 8px;color:var(--text-3);">${p0}%</td>
+      <td style="padding:6px 8px;font-weight:700;color:${col};">${p1}%</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('evRateNote').textContent =
+    `Les cartes taguées event sont ×${dropBoost} plus probables à l'intérieur de leur rareté (le % exact dépend du nombre de cartes taguées vs total de la rareté).`;
+}
+['evRarBoost','evBoost'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', evRecalcRates);
+});
+
 function evRefreshCounts(){
   const total = EV_CATALOG.reduce((s,e)=>s+e.cards,0);
   document.getElementById('evCounts').textContent =
