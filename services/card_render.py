@@ -182,15 +182,30 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
     return Image.alpha_composite(canvas, layer)
 
 
+def _load_alt(card_id: int) -> Image.Image | None:
+    """Charge le render du skin ALT (card_renders/<id>_alt.png|webp) ou None."""
+    for _ext in (".webp", ".png"):
+        p = os.path.join(_RENDERS_DIR, f"{card_id}_alt{_ext}")
+        if os.path.exists(p):
+            try:
+                return Image.open(p).convert("RGBA")
+            except Exception:
+                pass
+    return None
+
+
 def compose_card_image(card_id: int, border: dict | None = None,
                         fusion_level: int = 0,
-                        fallback_url: str | None = None) -> Image.Image | None:
-    """Compose la carte (bordure et/ou etoiles) et retourne l'image PIL RGBA, ou None."""
-    base = _load_base(card_id, fallback_url)
+                        fallback_url: str | None = None,
+                        alt: bool = False) -> Image.Image | None:
+    """Compose la carte (bordure et/ou etoiles) et retourne l'image PIL RGBA, ou None.
+    alt=True : utilise le skin alternatif comme base (les event cards n'ont pas de
+    bordure ; on garde juste les etoiles de fusion sur l'art alt)."""
+    base = (_load_alt(card_id) if alt else None) or _load_base(card_id, fallback_url)
     if base is None:
         print(f"[card_render] base introuvable card={card_id} fallback={fallback_url}")
         return None
-    if border:
+    if border and not alt:
         bimg = _load_border(border["filename"])
         if bimg is None:
             print(f"[card_render] bordure introuvable: {border.get('filename')}")
@@ -219,15 +234,18 @@ def compose_card_image(card_id: int, border: dict | None = None,
 
 def render_user_card(user_id: int, card_id: int, border: dict | None = None,
                       fusion_level: int = 0,
-                      fallback_url: str | None = None) -> str | None:
-    """Genere render carte custom (bordure et/ou etoiles fusion). URL relative ou None."""
+                      fallback_url: str | None = None,
+                      alt: bool = False) -> str | None:
+    """Genere render carte custom (bordure et/ou etoiles fusion). URL relative ou None.
+    alt=True : compose sur le skin alternatif (etoiles seulement)."""
     os.makedirs(_CUSTOMS_DIR, exist_ok=True)
-    out = compose_card_image(card_id, border, fusion_level, fallback_url)
+    out = compose_card_image(card_id, border, fusion_level, fallback_url, alt=alt)
     if out is None:
         return None
-    out_path = os.path.join(_CUSTOMS_DIR, f"{user_id}_{card_id}.png")
+    suffix = "_alt" if alt else ""
+    out_path = os.path.join(_CUSTOMS_DIR, f"{user_id}_{card_id}{suffix}.png")
     out.save(out_path, "PNG", optimize=True)
-    return f"/static/card_customs/{user_id}_{card_id}.png"
+    return f"/static/card_customs/{user_id}_{card_id}{suffix}.png"
 
 
 def render_border_preview_file(border_key: str, filename: str,

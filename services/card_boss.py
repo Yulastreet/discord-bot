@@ -227,7 +227,7 @@ def _build_battlefield(bid):
             for i, p in enumerate(parts[:5]):
                 img = None
                 if p.get("card_id"):
-                    img = _card_image_for(p["user_id"], int(p["card_id"]))
+                    img = _card_image_for(p["user_id"], int(p["card_id"]), allow_alt=True)
                     if img is None:
                         img = _load_base(int(p["card_id"]), None)
                 if img is not None:

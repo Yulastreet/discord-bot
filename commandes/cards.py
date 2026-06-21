@@ -1404,12 +1404,18 @@ def setup_cards_commands(bot, deps):
         # Titre : ✨ devant si cosmetique + nom + espace + etoiles fusion
         title = ("✨ " if border_key else "") + card['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else "")
         # Skin alternatif debloque (event) : prioritaire, remplace le render normal.
+        # Les etoiles de fusion sont composees SUR l'art alt (pas de bordure).
         from database import event_skin_has
         import os as _os_alt
         if event_skin_has(uid, card["id"]):
-            alt_path = _os_alt.path.join(_REPO_ROOT, "static", "card_renders", f"{card['id']}_alt.png")
-            if _os_alt.path.exists(alt_path):
-                alt_embed = discord.Embed(title=("🎨 " + title)[:256], color=color)
+            alt_url = render_user_card(uid, card["id"], None,
+                                       fusion_level=fusion_level, alt=True)
+            alt_path = (_os_alt.path.join(_REPO_ROOT, alt_url.lstrip("/").replace("/", _os_alt.sep))
+                        if alt_url else None)
+            if alt_path and _os_alt.path.exists(alt_path):
+                alt_embed = discord.Embed(
+                    title=("🎨 " + card['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else ""))[:256],
+                    color=color)
                 alt_embed.set_footer(text=f"Skin alternatif · carte de {interaction.user.display_name}",
                                      icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
                 alt_embed.set_image(url="attachment://card.png")
@@ -1493,6 +1499,11 @@ def setup_cards_commands(bot, deps):
         if card.get("rarity") == "secret":
             await interaction.followup.send(
                 "Les cartes **secrètes** ne peuvent pas être customisées.", ephemeral=True)
+            return
+        if card.get("event_key"):
+            await interaction.followup.send(
+                "Les cartes d'**event** ne peuvent pas recevoir de bordure "
+                "(elles ont leur propre skin alternatif).", ephemeral=True)
             return
         bkey = (bordure or "").strip().lower()
         if bkey in ("aucune", "none", "retirer", "remove"):

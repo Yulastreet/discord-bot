@@ -22,18 +22,25 @@ _LAYOUT = [
 ]
 
 
-def _card_image_for(user_id, card_id):
-    """Image PIL de la carte avec bordure + etoiles du user, ou None."""
+def _card_image_for(user_id, card_id, allow_alt=False):
+    """Image PIL de la carte avec bordure + etoiles du user, ou None.
+    allow_alt=True (ex: combat de boss) -> si skin alt event debloque, compose
+    sur l'art alt (etoiles, pas de bordure). Le podium /cardprofile garde la base."""
     if not card_id:
         return None
     from database import (card_get, card_customization_get, card_fusion_get,
-                           border_get)
+                           border_get, event_skin_has)
     card = card_get(int(card_id))
     if not card:
         return None
+    fusion = card_fusion_get(user_id, card_id)
+    if allow_alt and event_skin_has(user_id, card_id):
+        img = compose_card_image(int(card_id), None, fusion,
+                                 fallback_url=card.get("image_url"), alt=True)
+        if img is not None:
+            return img
     border_key = card_customization_get(user_id, card_id)
     border = border_get(border_key) if border_key else None
-    fusion = card_fusion_get(user_id, card_id)
     return compose_card_image(int(card_id), border, fusion,
                                fallback_url=card.get("image_url"))
 
