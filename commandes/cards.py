@@ -2085,14 +2085,28 @@ def setup_cards_commands(bot, deps):
         uid = interaction.user.id
         ek = ev["key"]
 
-        # Visuel de boutique : assets/cardrelated/global event/<event>_*/shop.png
+        # Visuel de boutique : assets/cardrelated/global event/<event>_*/shop.png.
+        # On sert une version OPTIMISEE (redim + compression) car l'image brute peut
+        # depasser la limite de payload d'une reponse d'interaction (413).
         _shop_img = None
         try:
             _matches = _glob_shop.glob(_os_shop.path.join(
                 _REPO_ROOT, "assets", "cardrelated", "global event", f"{ek}_*", "shop.png"))
             if _matches:
-                _shop_img = _matches[0]
-        except Exception:
+                _src = _matches[0]
+                _opt_dir = _os_shop.path.join(_REPO_ROOT, "static", "event_shop")
+                _os_shop.makedirs(_opt_dir, exist_ok=True)
+                _opt = _os_shop.path.join(_opt_dir, f"{ek}.jpg")
+                if (not _os_shop.path.exists(_opt)
+                        or _os_shop.path.getmtime(_opt) < _os_shop.path.getmtime(_src)):
+                    from PIL import Image as _PImg
+                    _im = _PImg.open(_src).convert("RGB")
+                    if _im.width > 1000:
+                        _im = _im.resize((1000, int(_im.height * 1000 / _im.width)), _PImg.LANCZOS)
+                    _im.save(_opt, "JPEG", quality=85, optimize=True)
+                _shop_img = _opt
+        except Exception as _e:
+            print(f"[eventshop] opt image err: {_e}")
             _shop_img = None
 
         def _embed():
@@ -2118,7 +2132,7 @@ def setup_cards_commands(bot, deps):
             e = discord.Embed(title=f"{ev['emoji']} Boutique {ev['name']}",
                               description=desc, color=0xF2B33A)
             if _shop_img:
-                e.set_image(url="attachment://shop.png")
+                e.set_image(url="attachment://shop.jpg")
             return e
 
         def _skin_select():
@@ -2199,7 +2213,7 @@ def setup_cards_commands(bot, deps):
             if _shop_img:
                 await interaction.response.send_message(
                     embed=_embed(), view=_ShopView(),
-                    file=discord.File(_shop_img, filename="shop.png"), ephemeral=True)
+                    file=discord.File(_shop_img, filename="shop.jpg"), ephemeral=True)
             else:
                 await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
         except Exception as _e:
