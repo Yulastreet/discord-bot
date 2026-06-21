@@ -1913,15 +1913,24 @@ def setup_cards_commands(bot, deps):
             return []
 
 
-    # === /eventfight : combat event simplifie pour gagner des jetons ===
+    # === /eventfight : combat event a enjeu (puissance de carte vs PV monstre) ===
+    # Tiers de monstre : (PV en unites de mult, recompense jetons). Avantage elem
+    # multiplie tes degats x1.25 (desavantage x0.8). Tu gagnes SI degats >= PV.
+    _EFIGHT_TIERS = {
+        "faible":  {"label": "Faible",  "emoji": "🟢", "hp": 1.0, "coins": 3},
+        "moyen":   {"label": "Moyen",   "emoji": "🟡", "hp": 1.7, "coins": 5},
+        "costaud": {"label": "Costaud", "emoji": "🔴", "hp": 2.6, "coins": 8},
+    }
+    _EFIGHT_FAIL_COINS = 1
+
     @bot.tree.command(name="eventfight",
-                       description="Combat event simplifié : gagne des jetons d'event (3/jour)")
+                       description="Combat event : envoie ta meilleure carte selon l'élément (3/jour)")
     async def eventfight_cmd(interaction: discord.Interaction):
         from database import (global_event_for_guild, event_fight_used, event_fight_inc,
                                event_coins_add, EVENT_FIGHT_MAX_PER_DAY,
-                               EVENT_FIGHT_WIN_COINS, EVENT_FIGHT_ADV_BONUS,
                                CARD_ELEMENTS, CARD_ELEMENT_LABELS, CARD_ELEMENT_EMOJI,
-                               element_matchup)
+                               element_matchup, CARD_RARITY_COMBAT_MULT,
+                               CARD_STAR_COMBAT_BONUS, get_db)
         import random as _r
         ev = global_event_for_guild(interaction.guild.id if interaction.guild else None)
         if not ev.get("active"):
@@ -1930,60 +1939,131 @@ def setup_cards_commands(bot, deps):
             return
         uid = interaction.user.id
         ek = ev["key"]
-        used = event_fight_used(uid, ek)
-        left = EVENT_FIGHT_MAX_PER_DAY - used
-        if left <= 0:
+        if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY:
             await interaction.response.send_message(
                 f"⚔️ Tu as fait tes **{EVENT_FIGHT_MAX_PER_DAY} combats** du jour. "
                 f"Reviens demain (reset minuit FR).", ephemeral=True)
             return
-        monster_elem = _r.choice(CARD_ELEMENTS)
-        m_lbl = CARD_ELEMENT_LABELS.get(monster_elem, monster_elem)
-        m_emo = CARD_ELEMENT_EMOJI.get(monster_elem, "👾")
 
-        def _embed(extra=""):
-            e = discord.Embed(
+        # Meilleure carte (puissance) par element du joueur
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT c.element, c.name, c.rarity, COALESCE(cc.fusion_level,0) AS lvl "
+            "FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
+            "LEFT JOIN card_customizations cc ON cc.user_id = uc.user_id AND cc.card_id = uc.card_id "
+            "WHERE uc.user_id = ?", (str(uid),)).fetchall()
+        conn.close()
+
+        def _mult(rar, stars):
+            if rar == "secret" and stars >= 5:
+                return 999.0
+            return CARD_RARITY_COMBAT_MULT.get(rar, 1.0) * (1.0 + min(5, stars) * CARD_STAR_COMBAT_BONUS)
+
+        best = {}  # element -> (power, name)
+        for r in rows:
+            el = r["element"] or "eclat"
+            p = _mult(r["rarity"], int(r["lvl"]))
+            if el not in best or p > best[el][0]:
+                best[el] = (p, r["name"])
+        if not best:
+            await interaction.response.send_message(
+                "Tu n'as aucune carte pour combattre. Fais `/roll` !", ephemeral=True)
+            return
+
+        left = EVENT_FIGHT_MAX_PER_DAY - event_fight_used(uid, ek)
+
+        def _tier_embed():
+            lines = [f"{t['emoji']} **{t['label']}** — PV **{t['hp']:.1f}** · récompense **{t['coins']}** {ev['emoji']}"
+                     for t in _EFIGHT_TIERS.values()]
+            return discord.Embed(
                 title=f"{ev['emoji']} Combat d'event — {ev['name']}",
-                description=(f"Un **monstre {m_emo} {m_lbl}** surgit !\n"
-                            f"Envoie une carte : choisis l'**élément** qui le contre.\n"
-                            f"_Combats restants aujourd'hui : **{left}**_\n{extra}"),
+                description=("Choisis la **difficulté** du monstre. Plus c'est dur, plus ça rapporte.\n"
+                            "Ensuite tu enverras ta carte : **dégâts = puissance × bonus d'élément**, "
+                            "victoire si dégâts ≥ PV.\n\n" + "\n".join(lines) +
+                            f"\n\n_Combats restants : **{left}**_"),
                 color=0x8e44ad)
-            return e
 
-        class _FightView(discord.ui.View):
-            def __init__(self):
+        async def _resolve(inter, tier_key, monster_elem, el):
+            if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY:
+                await inter.response.edit_message(
+                    embed=discord.Embed(description="⚠️ Plus de combat disponible aujourd'hui.",
+                                        color=0xff3d57), view=None)
+                return
+            t = _EFIGHT_TIERS[tier_key]
+            power, cname = best[el]
+            m = element_matchup(el, monster_elem)
+            dmg = power * m
+            event_fight_inc(uid, ek)
+            win = dmg >= t["hp"]
+            coins = t["coins"] if win else _EFIGHT_FAIL_COINS
+            bal = event_coins_add(uid, ek, coins)
+            adv_tag = ("🔥 avantage ×1.25" if m > 1 else ("🟦 désavantage ×0.8" if m < 1 else "⚪ neutre"))
+            head = "🏆 **Victoire !**" if win else "💀 **Échec...**"
+            color = 0x4ade80 if win else 0xff3d57
+            res = (f"{head}\n"
+                   f"Carte envoyée : **{CARD_ELEMENT_EMOJI.get(el,'')} {cname}** "
+                   f"(puissance {power:.2f})\n"
+                   f"Monstre {t['emoji']} {t['label']} — PV {t['hp']:.1f} · "
+                   f"{CARD_ELEMENT_EMOJI.get(monster_elem,'')} {CARD_ELEMENT_LABELS.get(monster_elem)}\n"
+                   f"Dégâts : **{dmg:.2f}** ({adv_tag})\n\n"
+                   f"**+{coins} jetons** {ev['emoji']} · solde : **{bal}** {ev['emoji']}")
+            await inter.response.edit_message(
+                embed=discord.Embed(title=f"{ev['emoji']} Combat d'event", description=res, color=color),
+                view=None)
+
+        class _ElemView(discord.ui.View):
+            def __init__(self, tier_key, monster_elem):
                 super().__init__(timeout=120)
+                self.tier_key = tier_key
+                self.monster_elem = monster_elem
                 for el in CARD_ELEMENTS:
                     self.add_item(self._mk(el))
 
             def _mk(self, el):
-                btn = discord.ui.Button(
-                    label=CARD_ELEMENT_LABELS.get(el, el),
-                    emoji=CARD_ELEMENT_EMOJI.get(el), style=discord.ButtonStyle.secondary)
-                async def _cb(inter: discord.Interaction):
+                has = el in best
+                lbl = CARD_ELEMENT_LABELS.get(el, el)
+                if has:
+                    lbl += f" ({best[el][0]:.2f})"
+                btn = discord.ui.Button(label=lbl[:80], emoji=CARD_ELEMENT_EMOJI.get(el),
+                                        style=discord.ButtonStyle.secondary, disabled=not has)
+                async def _cb(inter):
                     if inter.user.id != uid:
                         await inter.response.send_message("Pas ton combat.", ephemeral=True); return
-                    # re-check quota (anti double-clic)
-                    if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY:
-                        await inter.response.edit_message(
-                            embed=_embed("⚠️ Plus de combat disponible."), view=None); return
-                    m = element_matchup(el, monster_elem)
-                    adv = m > 1
-                    coins = EVENT_FIGHT_WIN_COINS + (EVENT_FIGHT_ADV_BONUS if adv else 0)
-                    event_fight_inc(uid, ek)
-                    bal = event_coins_add(uid, ek, coins)
-                    tag = ("🔥 **Avantage élémentaire !**" if adv
-                           else ("🟦 Désavantage, mais victoire." if m < 1 else "⚪ Combat neutre."))
-                    res = (f"Tu envoies une carte **{CARD_ELEMENT_EMOJI.get(el,'')} "
-                           f"{CARD_ELEMENT_LABELS.get(el, el)}** → 🏆 **Victoire !**\n{tag}\n\n"
-                           f"**+{coins} jetons** {ev['emoji']} · solde : **{bal}** {ev['emoji']}")
-                    e = discord.Embed(title=f"{ev['emoji']} Combat d'event — {ev['name']}",
-                                      description=res, color=0x4ade80)
-                    await inter.response.edit_message(embed=e, view=None)
+                    await _resolve(inter, self.tier_key, self.monster_elem, el)
                 btn.callback = _cb
                 return btn
 
-        await interaction.response.send_message(embed=_embed(), view=_FightView())
+        class _TierView(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=120)
+                for k, t in _EFIGHT_TIERS.items():
+                    self.add_item(self._mk(k, t))
+
+            def _mk(self, k, t):
+                btn = discord.ui.Button(label=f"{t['label']} (+{t['coins']})",
+                                        emoji=t["emoji"], style=discord.ButtonStyle.primary)
+                async def _cb(inter):
+                    if inter.user.id != uid:
+                        await inter.response.send_message("Pas ton combat.", ephemeral=True); return
+                    monster_elem = _r.choice(CARD_ELEMENTS)
+                    weak = element_matchup  # local ref
+                    # element qui bat le monstre (pour indice)
+                    counters = [e for e in CARD_ELEMENTS if weak(e, monster_elem) > 1]
+                    counter_txt = " ".join(
+                        f"{CARD_ELEMENT_EMOJI.get(e,'')}{CARD_ELEMENT_LABELS.get(e)}" for e in counters) or "—"
+                    e = discord.Embed(
+                        title=f"{ev['emoji']} Combat d'event — {t['emoji']} {t['label']}",
+                        description=(f"Monstre **{CARD_ELEMENT_EMOJI.get(monster_elem,'')} "
+                                    f"{CARD_ELEMENT_LABELS.get(monster_elem)}** · PV **{t['hp']:.1f}**\n"
+                                    f"_Le bat : {counter_txt}_\n\n"
+                                    f"Envoie ta carte d'un élément (puissance entre parenthèses). "
+                                    f"Il te faut **dégâts ≥ {t['hp']:.1f}**."),
+                        color=0x8e44ad)
+                    await inter.response.edit_message(embed=e, view=_ElemView(k, monster_elem))
+                btn.callback = _cb
+                return btn
+
+        await interaction.response.send_message(embed=_tier_embed(), view=_TierView())
 
 
     # === /eventshop : boutique d'event (jetons) ===
