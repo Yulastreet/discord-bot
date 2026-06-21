@@ -1973,7 +1973,7 @@ def setup_cards_commands(bot, deps):
         left = EVENT_FIGHT_MAX_PER_DAY - event_fight_used(uid, ek)
 
         def _tier_embed():
-            lines = [f"{t['emoji']} **{t['label']}** — PV **{t['hp']:.1f}** · récompense **{t['coins']}** {ev['emoji']}"
+            lines = [f"{t['emoji']} **{t['label']}** — PV **{t['hp']:.1f}** · récompense **{t['coins']}** {ev['coin_emoji']}"
                      for t in _EFIGHT_TIERS.values()]
             return discord.Embed(
                 title=f"{ev['emoji']} Combat d'event — {ev['name']}",
@@ -2006,7 +2006,7 @@ def setup_cards_commands(bot, deps):
                    f"Monstre {t['emoji']} {t['label']} — PV {t['hp']:.1f} · "
                    f"{CARD_ELEMENT_EMOJI.get(monster_elem,'')} {CARD_ELEMENT_LABELS.get(monster_elem)}\n"
                    f"Dégâts : **{dmg:.2f}** ({adv_tag})\n\n"
-                   f"**+{coins} jetons** {ev['emoji']} · solde : **{bal}** {ev['emoji']}")
+                   f"**+{coins} {ev['coin']}** {ev['coin_emoji']} · solde : **{bal}** {ev['coin_emoji']}")
             await inter.response.edit_message(
                 embed=discord.Embed(title=f"{ev['emoji']} Combat d'event", description=res, color=color),
                 view=None)
@@ -2100,12 +2100,12 @@ def setup_cards_commands(bot, deps):
             skins = event_shop_skins(uid, ek)
             buyable = [s for s in skins if not s["owned_skin"]]
             owned = [s for s in skins if s["owned_skin"]]
-            desc = (f"Tes jetons : **{bal}** {ev['emoji']}\n\n"
-                    f"{_roll_emoji(bot)} **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['emoji']}\n"
-                    f"{_golden_emoji(bot)} **1 Golden Roll** _(légendaire garanti)_ — {EVENT_SHOP_GOLDEN_COST} {ev['emoji']}\n"
+            desc = (f"Tes {ev['coin']} : **{bal}** {ev['coin_emoji']}\n\n"
+                    f"{_roll_emoji(bot)} **1 roll** — {EVENT_SHOP_ROLL_COST} {ev['coin_emoji']}\n"
+                    f"{_golden_emoji(bot)} **1 Golden Roll** _(légendaire garanti)_ — {EVENT_SHOP_GOLDEN_COST} {ev['coin_emoji']}\n"
                     f"✨ **+{EVENT_SHOP_ESS10_PCT}% essences (1 jour, cumulatif)** — "
-                    f"{EVENT_SHOP_ESS10_COST} {ev['emoji']}\n\n"
-                    f"🎨 **Skins alternatifs** — {EVENT_SHOP_SKIN_COST} {ev['emoji']} chacun "
+                    f"{EVENT_SHOP_ESS10_COST} {ev['coin_emoji']}\n\n"
+                    f"🎨 **Skins alternatifs** — {EVENT_SHOP_SKIN_COST} {ev['coin_emoji']} chacun "
                     f"_(achetable même sans posséder la carte ; les arts ne sont obtenables "
                     f"que pendant l'event)_ :")
             if buyable:
@@ -2127,7 +2127,7 @@ def setup_cards_commands(bot, deps):
                 return None
             opts = [discord.SelectOption(
                 label=s["name"][:100], value=str(s["id"]),
-                description=f"{s['rarity']} · {EVENT_SHOP_SKIN_COST} jetons",
+                description=f"{s['rarity']} · {EVENT_SHOP_SKIN_COST} {ev['coin']}",
                 emoji=RARITY_EMOJIS.get(s["rarity"], "⚪")) for s in skins[:25]]
             sel = discord.ui.Select(placeholder="🎨 Acheter un skin alternatif…", options=opts, row=1)
             async def _on(inter):
@@ -2135,7 +2135,7 @@ def setup_cards_commands(bot, deps):
                     await inter.response.send_message("Pas ta boutique.", ephemeral=True); return
                 cid = int(sel.values[0])
                 if not event_coins_spend(uid, ek, EVENT_SHOP_SKIN_COST):
-                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                    await inter.response.send_message(f"Pas assez de {ev['coin']}.", ephemeral=True); return
                 event_skin_grant(uid, cid)
                 v = _ShopView()
                 await inter.response.edit_message(embed=_embed(), view=v)
@@ -2169,7 +2169,7 @@ def setup_cards_commands(bot, deps):
             async def buy_roll(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_ROLL_COST):
-                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                    await inter.response.send_message(f"Pas assez de {ev['coin']}.", ephemeral=True); return
                 roll_give_user(uid, 1)
                 await inter.response.edit_message(embed=_embed(), view=_ShopView())
                 await inter.followup.send("🎲 **+1 roll** ajouté ! Utilise `/roll`.", ephemeral=True)
@@ -2178,7 +2178,7 @@ def setup_cards_commands(bot, deps):
             async def buy_golden(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_GOLDEN_COST):
-                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                    await inter.response.send_message(f"Pas assez de {ev['coin']}.", ephemeral=True); return
                 user_item_add(uid, "golden_roll", 1)
                 await inter.response.edit_message(embed=_embed(), view=_ShopView())
                 await inter.followup.send(
@@ -2189,7 +2189,7 @@ def setup_cards_commands(bot, deps):
             async def buy_ess(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_ESS10_COST):
-                    await inter.response.send_message("Pas assez de jetons.", ephemeral=True); return
+                    await inter.response.send_message(f"Pas assez de {ev['coin']}.", ephemeral=True); return
                 total = essence_bonus_add(uid, EVENT_SHOP_ESS10_PCT)
                 await inter.response.edit_message(embed=_embed(), view=_ShopView())
                 await inter.followup.send(

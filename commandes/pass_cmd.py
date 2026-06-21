@@ -226,8 +226,9 @@ def setup_pass_commands(bot, deps):
             except Exception as e:
                 print(f"[daily] add_pass_xp err: {e}")
 
-        # Jetons d'event si un event global est actif
+        # Monnaie d'event si un event global est actif
         event_coins_gain = 0
+        event_coin_name = "Jetons d'event"
         event_emoji = "🎟️"
         try:
             from database import (global_event_for_guild, event_coins_add, EVENT_DAILY_COINS)
@@ -235,7 +236,8 @@ def setup_pass_commands(bot, deps):
             if _ev.get("active"):
                 event_coins_gain = EVENT_DAILY_COINS
                 event_coins_add(user.id, _ev["key"], event_coins_gain)
-                event_emoji = _ev.get("emoji") or "🎟️"
+                event_emoji = _ev.get("coin_emoji") or "🎟️"
+                event_coin_name = _ev.get("coin") or "Jetons d'event"
         except Exception as e:
             print(f"[daily] event coins err: {e}")
 
@@ -243,7 +245,7 @@ def setup_pass_commands(bot, deps):
 
         lines = [f"**+{coins} TookCoins** 🪙", f"**+{essences_gain} Essences** ✨"]
         if event_coins_gain:
-            lines.append(f"**+{event_coins_gain} Jetons d'event** {event_emoji}")
+            lines.append(f"**+{event_coins_gain} {event_coin_name}** {event_emoji}")
         if pass_xp_gain:
             lines.append(f"**+{pass_xp_gain} XP Pass** 🎟️")
         lines.append("")

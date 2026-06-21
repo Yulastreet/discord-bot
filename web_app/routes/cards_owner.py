@@ -2716,8 +2716,8 @@ def register_cards_owner_routes(app, deps):
             "borders": [{"name": b["name"], "qty": b["qty"]} for b in user_borders_list(user_id)],
             "event_active": bool(ev.get("active")),
             "event_key": ev.get("key") or "",
-            "event_name": ev.get("name") or "",
-            "event_emoji": ev.get("emoji") or "🎟️",
+            "event_name": ev.get("coin") or "Jetons",
+            "event_emoji": ev.get("coin_emoji") or "🎟️",
             "event_coins": event_coins_get(user_id, ev["key"]) if ev.get("active") else 0,
         }
         return jsonify(out)

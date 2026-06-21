@@ -2106,11 +2106,11 @@ _ROLL_WEIGHTS = {k: v for k, v in CARD_RARITY_WEIGHTS.items() if v > 0}
 # obtenable ; pendant l'event correspondant son taux de drop est boste (sauf
 # pour un user qui possede deja la carte en 5 etoiles -> taux normal pour lui).
 GLOBAL_EVENTS = {
-    "summer":    {"name": "Summer",    "emoji": "☀️"},
-    "halloween": {"name": "Halloween", "emoji": "🎃"},
-    "noel":      {"name": "Noël",      "emoji": "🎄"},
-    "winter":    {"name": "Hiver",     "emoji": "❄️"},
-    "valentine": {"name": "Saint-Valentin", "emoji": "💖"},
+    "summer":    {"name": "Summer",    "emoji": "☀️", "coin": "Noix de Coco", "coin_emoji": "🥥"},
+    "halloween": {"name": "Halloween", "emoji": "🎃", "coin": "Bonbons",      "coin_emoji": "🍬"},
+    "noel":      {"name": "Noël",      "emoji": "🎄", "coin": "Flocons",      "coin_emoji": "❄️"},
+    "winter":    {"name": "Hiver",     "emoji": "❄️", "coin": "Glaçons",      "coin_emoji": "🧊"},
+    "valentine": {"name": "Saint-Valentin", "emoji": "💖", "coin": "Cœurs",   "coin_emoji": "💝"},
 }
 
 
@@ -2123,7 +2123,8 @@ def global_event_get() -> dict:
         boost = 1.0
     meta = GLOBAL_EVENTS.get(key, {})
     return {"key": key, "active": bool(key), "drop_boost": boost,
-            "name": meta.get("name", ""), "emoji": meta.get("emoji", "")}
+            "name": meta.get("name", ""), "emoji": meta.get("emoji", ""),
+            "coin": meta.get("coin", "Jetons"), "coin_emoji": meta.get("coin_emoji", "🎟️")}
 
 
 def global_event_set(key: str, drop_boost=None):
