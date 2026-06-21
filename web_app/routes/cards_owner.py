@@ -1000,9 +1000,17 @@ def register_cards_owner_routes(app, deps):
                             "test_guilds": get_setting("global_event_test_guilds", "") or ""})
         cur = global_event_get()
         counts = global_event_card_counts()
+        # Totaux de cartes OBTENABLES par rarete (pour calculer le % exact d'une carte)
+        from database import get_db as _gdb
+        conn = _gdb(); cc = conn.cursor()
+        rrows = cc.execute("SELECT rarity, COUNT(*) AS n FROM cards "
+                           "WHERE COALESCE(not_obtainable,0) = 0 GROUP BY rarity").fetchall()
+        conn.close()
+        rarity_totals = {r["rarity"]: int(r["n"]) for r in rrows}
         return jsonify({
             "current": cur,
             "test_guilds": get_setting("global_event_test_guilds", "") or "",
+            "rarity_totals": rarity_totals,
             "catalog": [{"key": k, "name": v["name"], "emoji": v["emoji"],
                          "cards": counts.get(k, 0)} for k, v in GLOBAL_EVENTS.items()],
         })

@@ -115,6 +115,9 @@
   </div>
   <div id="emList" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
   <div id="emResult" class="muted" style="margin-top:10px;"></div>
+
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);margin:14px 0 6px;">📈 Taux de drop par carte event (avec boosts)</div>
+  <div id="evCardRates" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
 </div>
 
 <!-- Modal d'edition d'une carte event -->
@@ -163,6 +166,7 @@ async function evLoad(){
     document.getElementById('evBoost').value = (d.current && d.current.drop_boost) || 2;
     document.getElementById('evRarBoost').value = (d.current && d.current.rarity_boost) || 1;
     document.getElementById('evTestGuilds').value = d.test_guilds || '';
+    RARITY_TOTALS = d.rarity_totals || {};
     evRefreshCounts();
     evRecalcRates();
   } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
@@ -171,6 +175,8 @@ async function evLoad(){
 // Poids de base (doit matcher database.CARD_RARITY_WEIGHTS)
 const RATE_BASE = { common:50, rare:30, epic:15, legendary:4, mythic:1 };
 const RATE_EMO  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴' };
+let RARITY_TOTALS = {};   // cartes obtenables par rarete
+let P_RARITY = {};        // proba de chaque rarete (avec boost)
 function evRecalcRates(){
   const rarBoost = parseFloat(document.getElementById('evRarBoost').value) || 1;
   const dropBoost = parseFloat(document.getElementById('evBoost').value) || 1;
@@ -179,19 +185,47 @@ function evRecalcRates(){
   const sBase = Object.values(RATE_BASE).reduce((a,b)=>a+b,0);
   const sBoost = Object.values(boosted).reduce((a,b)=>a+b,0);
   const order = ['common','rare','epic','legendary','mythic'];
+  P_RARITY = {};
   document.getElementById('evRateBody').innerHTML = order.map(r => {
-    const p0 = (RATE_BASE[r]/sBase*100).toFixed(2);
-    const p1 = (boosted[r]/sBoost*100).toFixed(2);
-    const up = boosted[r]/sBoost > RATE_BASE[r]/sBase;
+    const p0 = (RATE_BASE[r]/sBase*100);
+    const p1 = (boosted[r]/sBoost*100);
+    P_RARITY[r] = boosted[r]/sBoost;
+    const up = p1 > p0;
     const col = (r==='epic'||r==='legendary'||r==='mythic') ? (up?'#4ade80':'var(--text)') : 'var(--text-2)';
     return `<tr style="border-top:1px solid var(--border);">
       <td style="padding:6px 8px;">${RATE_EMO[r]} ${r}</td>
-      <td style="padding:6px 8px;color:var(--text-3);">${p0}%</td>
-      <td style="padding:6px 8px;font-weight:700;color:${col};">${p1}%</td>
+      <td style="padding:6px 8px;color:var(--text-3);">${p0.toFixed(2)}%</td>
+      <td style="padding:6px 8px;font-weight:700;color:${col};">${p1.toFixed(2)}%</td>
     </tr>`;
   }).join('');
   document.getElementById('evRateNote').textContent =
-    `Les cartes taguées event sont ×${dropBoost} plus probables à l'intérieur de leur rareté (le % exact dépend du nombre de cartes taguées vs total de la rareté).`;
+    `Cartes event ×${dropBoost} dans leur rareté. Détail carte par carte ci-dessous (section "Cartes boostées").`;
+  evRecalcEventCards();
+}
+// Taux exact (%) de chaque carte event deployee, vu en bas de la liste.
+function evRecalcEventCards(){
+  const box = document.getElementById('evCardRates');
+  if (!box) return;
+  const dropBoost = parseFloat(document.getElementById('evBoost').value) || 1;
+  const items = Object.values(EM_ITEMS || {});
+  const deployed = items.filter(c => !c.not_obtainable);
+  if (!deployed.length) { box.innerHTML = '<div class="em-empty">Aucune carte event déployée (les brouillons ne droppent pas).</div>'; return; }
+  // E = nb cartes event deployees par rarete
+  const E = {};
+  deployed.forEach(c => { E[c.rarity] = (E[c.rarity]||0) + 1; });
+  box.innerHTML = deployed.map(c => {
+    const r = c.rarity;
+    const T = RARITY_TOTALS[r] || 0;          // total obtenable de la rarete
+    const e = E[r] || 1;
+    const denom = dropBoost*e + Math.max(0, T - e);  // poids total de la rarete
+    const pr = P_RARITY[r] || 0;
+    const pct = denom > 0 ? (pr * dropBoost / denom * 100) : 0;
+    return `<div class="em-row">
+      <span>${RAR_EMO[r]||'⚪'}</span>
+      <div class="nm">${emEsc(c.name)} <span class="rar">${r}</span></div>
+      <span style="font-weight:800;color:#b9f23a;">${pct.toFixed(3)}%</span>
+    </div>`;
+  }).join('');
 }
 ['evRarBoost','evBoost'].forEach(id => {
   const el = document.getElementById(id);
@@ -243,6 +277,7 @@ async function emLoad(){
     EM_ITEMS = {}; items.forEach(c => EM_ITEMS[c.id] = c);
     box.innerHTML = items.length ? items.map(c => emRow(c, true)).join('')
       : '<div class="em-empty">Aucune carte taguée à cet event.</div>';
+    evRecalcEventCards();
   }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
 }
 function emRow(c, tagged){
