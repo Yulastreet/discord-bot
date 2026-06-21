@@ -2187,8 +2187,8 @@ EVENT_FIGHT_ADV_BONUS    = 2     # bonus si avantage elementaire
 EVENT_SHOP_SKIN_COST     = 50    # cout d'un skin alt (tous le meme prix)
 EVENT_SHOP_ROLL_COST     = 8     # cout d'1 roll offert
 EVENT_SHOP_GOLDEN_COST   = 20    # cout d'1 golden roll (legendaire garanti)
-EVENT_SHOP_ESS10_COST    = 15    # cout de +10% essences pour 1 jour (cumulatif)
-EVENT_SHOP_ESS10_PCT     = 10
+EVENT_SHOP_ESS10_COST    = 15    # cout du bonus essences pour 1 jour (cumulatif)
+EVENT_SHOP_ESS10_PCT     = 5     # +5% essences/jour par achat
 
 
 def _ensure_event_econ_tables():
