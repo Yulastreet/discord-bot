@@ -870,7 +870,7 @@ def setup_cards_commands(bot, deps):
                 card = fc
                 forced_roll_clear(uid)   # consomme seulement si elle matche
         if not card:
-            card = card_roll_random(universe=univers_filter, user_id=uid)
+            card = card_roll_random(universe=univers_filter, user_id=uid, guild_id=gid)
         if not card:
             label = f" dans l'univers `{univers_filter}`" if univers_filter else ""
             await interaction.response.send_message(
@@ -1906,13 +1906,13 @@ def setup_cards_commands(bot, deps):
     @bot.tree.command(name="eventfight",
                        description="Combat event simplifié : gagne des jetons d'event (3/jour)")
     async def eventfight_cmd(interaction: discord.Interaction):
-        from database import (global_event_get, event_fight_used, event_fight_inc,
+        from database import (global_event_for_guild, event_fight_used, event_fight_inc,
                                event_coins_add, EVENT_FIGHT_MAX_PER_DAY,
                                EVENT_FIGHT_WIN_COINS, EVENT_FIGHT_ADV_BONUS,
                                CARD_ELEMENTS, CARD_ELEMENT_LABELS, CARD_ELEMENT_EMOJI,
                                element_matchup)
         import random as _r
-        ev = global_event_get()
+        ev = global_event_for_guild(interaction.guild.id if interaction.guild else None)
         if not ev.get("active"):
             await interaction.response.send_message(
                 "Aucun event en cours actuellement.", ephemeral=True)
@@ -1979,12 +1979,12 @@ def setup_cards_commands(bot, deps):
     @bot.tree.command(name="eventshop",
                        description="Boutique d'event : dépense tes jetons (rolls, bonus essences)")
     async def eventshop_cmd(interaction: discord.Interaction):
-        from database import (global_event_get, event_coins_get, event_coins_spend,
+        from database import (global_event_for_guild, event_coins_get, event_coins_spend,
                                essence_bonus_add, roll_give_user, event_shop_skins,
                                event_skin_grant,
                                EVENT_SHOP_ROLL_COST, EVENT_SHOP_ESS10_COST,
                                EVENT_SHOP_ESS10_PCT, EVENT_SHOP_SKIN_COST)
-        ev = global_event_get()
+        ev = global_event_for_guild(interaction.guild.id if interaction.guild else None)
         if not ev.get("active"):
             await interaction.response.send_message(
                 "Aucun event en cours actuellement.", ephemeral=True)

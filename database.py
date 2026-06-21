@@ -2139,6 +2139,24 @@ def global_event_set(key: str, drop_boost=None):
             pass
 
 
+def global_event_test_guilds() -> set:
+    """Serveurs de test : si non vide, l'event n'est actif QUE sur ces serveurs."""
+    raw = get_setting("global_event_test_guilds", "") or ""
+    return {g.strip() for g in raw.replace(",", " ").split() if g.strip()}
+
+
+def global_event_for_guild(guild_id) -> dict:
+    """Event actif POUR ce serveur (gere le mode test). active=False si l'event est
+    en mode test et que ce serveur n'est pas dans la liste."""
+    ev = global_event_get()
+    if not ev.get("active"):
+        return ev
+    tg = global_event_test_guilds()
+    if tg and str(guild_id) not in tg:
+        return {**ev, "active": False}
+    return ev
+
+
 def global_event_card_counts() -> dict:
     """Nb de cartes taguees par event (pour le dashboard)."""
     conn = get_db(); c = conn.cursor()
@@ -2311,12 +2329,13 @@ def essence_bonus_add(user_id, pct) -> int:
     return int(r["pct"]) if r else 0
 
 
-def card_roll_random(universe: str | None = None, user_id=None):
+def card_roll_random(universe: str | None = None, user_id=None, guild_id=None):
     """Pioche une carte selon les poids de rarete.
     Si universe fourni : filtre uniquement cette categorie.
     Event global actif : les cartes taguees a l'event (toujours obtenables, pas
     exclusives) ont un drop BOOSTE -- sauf pour un user qui possede deja cette
-    carte en 5 etoiles (alors taux normal pour LUI).
+    carte en 5 etoiles (alors taux normal pour LUI). Le boost ne s'applique que
+    sur les serveurs de test si l'event est en mode test.
     Retourne None si la table cards (ou la categorie) est vide."""
     rarity = _rd_cards.choices(
         list(_ROLL_WEIGHTS.keys()), weights=list(_ROLL_WEIGHTS.values()), k=1)[0]
@@ -2340,8 +2359,13 @@ def card_roll_random(universe: str | None = None, user_id=None):
         conn.close()
         return None
     # Boost event : pondere les cartes de l'event actif (sauf celles que CE user
-    # a deja maxees a 5 etoiles -> taux normal pour lui).
+    # a deja maxees a 5 etoiles -> taux normal pour lui). Mode test : boost
+    # uniquement sur les serveurs de test.
     ev = (get_setting("global_event_key", "") or "").strip()
+    if ev:
+        _tg = global_event_test_guilds()
+        if _tg and str(guild_id) not in _tg:
+            ev = ""  # event en test, pas ce serveur -> pas de boost
     if ev:
         try:
             boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)

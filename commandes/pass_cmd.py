@@ -230,8 +230,8 @@ def setup_pass_commands(bot, deps):
         event_coins_gain = 0
         event_emoji = "🎟️"
         try:
-            from database import (global_event_get, event_coins_add, EVENT_DAILY_COINS)
-            _ev = global_event_get()
+            from database import (global_event_for_guild, event_coins_add, EVENT_DAILY_COINS)
+            _ev = global_event_for_guild(interaction.guild.id if interaction.guild else None)
             if _ev.get("active"):
                 event_coins_gain = EVENT_DAILY_COINS
                 event_coins_add(user.id, _ev["key"], event_coins_gain)

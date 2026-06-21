@@ -37,6 +37,12 @@
     <div class="cs-hint">Ex : 2 = les cartes de l'event sortent 2× plus souvent. Exception : pour un joueur qui possède déjà la carte en 5⭐, son taux revient à la normale (plus de boost sur cette carte pour lui).</div>
   </div>
 
+  <div class="cs-field">
+    <label>Serveurs de test <span class="cs-hint">— IDs séparés par virgule. Vide = tout le monde.</span></label>
+    <input id="evTestGuilds" class="input" placeholder="ex : 1502322150822908115, 1234…">
+    <div class="cs-hint">Si rempli : l'event (boost, /eventfight, /eventshop, jetons /daily) n'est actif QUE sur ces serveurs. Idéal pour tester avant un lancement global.</div>
+  </div>
+
   <div id="evCounts" class="cs-hint" style="margin-bottom:12px;"></div>
 
   <button class="btn btn-primary" onclick="evSave()">💾 Appliquer l'event</button>
@@ -107,6 +113,7 @@ async function evLoad(){
       EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name} (${e.cards} carte${e.cards>1?'s':''})</option>`).join('');
     sel.value = (d.current && d.current.key) || '';
     document.getElementById('evBoost').value = (d.current && d.current.drop_boost) || 2;
+    document.getElementById('evTestGuilds').value = d.test_guilds || '';
     evRefreshCounts();
   } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
 }
@@ -123,11 +130,13 @@ async function evSave(){
   try {
     const r = await fetch('/api/owner/global-event', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({key, drop_boost: boost}),
+      body: JSON.stringify({key, drop_boost: boost,
+                            test_guilds: document.getElementById('evTestGuilds').value.trim()}),
     });
     const d = await r.json();
+    const scope = (d.test_guilds && d.test_guilds.trim()) ? ' · 🧪 mode test (serveurs listés)' : '';
     if (d.ok) res.innerHTML = d.active
-        ? `✅ Event <b>${d.emoji} ${d.name}</b> activé · drop cartes event ×<b>${d.drop_boost}</b>.`
+        ? `✅ Event <b>${d.emoji} ${d.name}</b> activé · drop cartes event ×<b>${d.drop_boost}</b>${scope}.`
         : '✅ Event désactivé.';
     else res.textContent = `❌ ${d.error || 'Erreur'}`;
   } catch(e){ res.textContent = 'Erreur : ' + e.message; }

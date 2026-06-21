@@ -980,6 +980,7 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from database import (GLOBAL_EVENTS, global_event_get, global_event_set,
                               global_event_card_counts)
+        from database import set_setting, get_setting
         if request.method == "POST":
             data = request.json or {}
             key = (data.get("key") or "").strip()
@@ -990,11 +991,17 @@ def register_cards_owner_routes(app, deps):
             except (ValueError, TypeError):
                 return jsonify({"error": "boost invalide"}), 400
             global_event_set(key, drop_boost=boost)
-            return jsonify({"ok": True, **global_event_get()})
+            # serveurs de test (CSV d'IDs) : si fourni, l'event n'est actif que la-bas
+            if "test_guilds" in data:
+                tg = (data.get("test_guilds") or "").strip()
+                set_setting("global_event_test_guilds", tg)
+            return jsonify({"ok": True, **global_event_get(),
+                            "test_guilds": get_setting("global_event_test_guilds", "") or ""})
         cur = global_event_get()
         counts = global_event_card_counts()
         return jsonify({
             "current": cur,
+            "test_guilds": get_setting("global_event_test_guilds", "") or "",
             "catalog": [{"key": k, "name": v["name"], "emoji": v["emoji"],
                          "cards": counts.get(k, 0)} for k, v in GLOBAL_EVENTS.items()],
         })
