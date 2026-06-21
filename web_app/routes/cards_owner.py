@@ -1090,6 +1090,12 @@ def register_cards_owner_routes(app, deps):
                 canvas = _Img.alpha_composite(canvas, overlay)
             _os.makedirs(_OUTPUT_DIR, exist_ok=True)
             canvas.convert("RGB").save(_os.path.join(_OUTPUT_DIR, f"{cid}.png"), "PNG", optimize=True)
+            try:
+                _wp = _os.path.join(_OUTPUT_DIR, f"{cid}.webp")
+                if _os.path.exists(_wp):
+                    _os.remove(_wp)
+            except Exception:
+                pass
             rel = f"/static/card_renders/{cid}.png"
             public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
             conn = get_db(); c = conn.cursor()
@@ -2560,6 +2566,13 @@ def register_cards_owner_routes(app, deps):
         _os.makedirs(_OUTPUT_DIR, exist_ok=True)
         out_path = _os.path.join(_OUTPUT_DIR, f"{cid}.png")
         canvas.convert("RGB").save(out_path, "PNG", optimize=True)
+        # Purge le cache .webp perime (telechargement distant) qui masquerait ce render
+        try:
+            _wp = _os.path.join(_OUTPUT_DIR, f"{cid}.webp")
+            if _os.path.exists(_wp):
+                _os.remove(_wp)
+        except Exception:
+            pass
 
         rel = f"/static/card_renders/{cid}.png"
         public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
