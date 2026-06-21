@@ -529,8 +529,9 @@ class JoinView(discord.ui.View):
         delem = (dcard.get("element") if dcard else None) or "eclat"
         dcid = dcard["id"] if dcard else None
         stats = engaged_combat_stats(uid, dcid) if dcid else compute_player_combat_stats(uid)
+        d_atk = int(stats["atk"] * (_event_boss_dmg_mult(dcard, boss.get("guild_id")) if dcard else 1.0))
         boss_participant_add(self.boss_id, uid, interaction.user.display_name,
-                             delem, stats["hp"], stats["atk"], card_id=dcid)
+                             delem, stats["hp"], d_atk, card_id=dcid)
         # 1er joueur -> demarre le timer de 2 min
         if not boss.get("start_at"):
             card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
@@ -828,6 +829,25 @@ class _ChooseCardModal(discord.ui.Modal, title="Choisir ma carte de combat"):
         await _apply_card_choice(interaction, self.boss_id, card)
 
 
+# Bonus de degats des cartes d'event sur les boss (UNIQUEMENT pendant l'event).
+_EVENT_BOSS_DMG_MULT = 1.15
+
+
+def _event_boss_dmg_mult(card, guild_id) -> float:
+    """1.15 si la carte appartient a l'event actif (sur ce serveur), sinon 1.0."""
+    try:
+        ek = (card.get("event_key") or "")
+        if not ek:
+            return 1.0
+        from database import global_event_for_guild
+        ev = global_event_for_guild(guild_id)
+        if ev.get("active") and ev.get("key") == ek:
+            return _EVENT_BOSS_DMG_MULT
+    except Exception:
+        pass
+    return 1.0
+
+
 async def _apply_card_choice(interaction, boss_id, card):
     """Engage la carte `card` pour le joueur : recalcule ATK/PV, maj équipe, confirme."""
     uid = interaction.user.id
@@ -838,9 +858,12 @@ async def _apply_card_choice(interaction, boss_id, card):
         await interaction.response.send_message(f"Tu ne possèdes pas **{card['name']}**.", ephemeral=True); return
     elem = card.get("element") or "eclat"
     stats = engaged_combat_stats(uid, card["id"])
+    # Bonus event (degats +15% pendant l'event pour les cartes de l'event)
+    ev_mult = _event_boss_dmg_mult(card, boss.get("guild_id"))
+    atk = int(stats["atk"] * ev_mult)
     # Recalcule PV/ATK selon la carte engagée (PV plein car recrutement)
     boss_participant_update(boss_id, uid, element=elem, card_id=card["id"],
-                            atk=stats["atk"], max_hp=stats["hp"], hp=stats["hp"])
+                            atk=atk, max_hp=stats["hp"], hp=stats["hp"])
     m = element_matchup(elem, boss["element"]) if boss else 1.0
     if m > 1:
         match_txt = "🔥 **Avantage** contre le boss (x1.25 dégâts)"
@@ -857,9 +880,10 @@ async def _apply_card_choice(interaction, boss_id, card):
             calc += (f" · {stats['stars']}⭐ +{int(stats['stars'] * 20)}% "
                      f"(×{stats['star_mult']:.2f})")
         calc += f" = **×{stats['mult']:.2f}**"
+    ev_txt = "  ·  ☀️ **carte d'event +15% dégâts**" if ev_mult > 1 else ""
     await interaction.response.send_message(
         f"🎴 **{card['name']}** ({_elem(interaction.client, elem)} {CARD_ELEMENT_LABELS.get(elem,'?')})\n"
-        f"🗡️ ATK **{_fmt(stats['atk'])}** _({calc})_ "
+        f"🗡️ ATK **{_fmt(atk)}** _({calc})_{ev_txt} "
         f"· ❤️ PV **{_fmt(stats['hp'])}** _(collection)_\n{match_txt}",
         ephemeral=True)
     await _refresh_boss_msg(interaction.client, boss_id)
