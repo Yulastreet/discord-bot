@@ -167,6 +167,7 @@ async function evLoad(){
     document.getElementById('evRarBoost').value = (d.current && d.current.rarity_boost) || 1;
     document.getElementById('evTestGuilds').value = d.test_guilds || '';
     RARITY_TOTALS = d.rarity_totals || {};
+    UNI_RARITY_TOTALS = d.uni_rarity_totals || {};
     evRefreshCounts();
     evRecalcRates();
   } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
@@ -176,6 +177,7 @@ async function evLoad(){
 const RATE_BASE = { common:50, rare:30, epic:15, legendary:4, mythic:1 };
 const RATE_EMO  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴' };
 let RARITY_TOTALS = {};   // cartes obtenables par rarete
+let UNI_RARITY_TOTALS = {}; // {univers: {rarete: nb obtenable}}
 let P_RARITY = {};        // proba de chaque rarete (avec boost)
 function evRecalcRates(){
   const rarBoost = parseFloat(document.getElementById('evRarBoost').value) || 1;
@@ -213,17 +215,28 @@ function evRecalcEventCards(){
   // E = nb cartes event deployees par rarete
   const E = {};
   deployed.forEach(c => { E[c.rarity] = (E[c.rarity]||0) + 1; });
+  // E par (univers, rarete) pour le taux /roll univers
+  const Euni = {};
+  deployed.forEach(c => { const k=(c.universe||'')+'|'+c.rarity; Euni[k]=(Euni[k]||0)+1; });
   box.innerHTML = deployed.map(c => {
-    const r = c.rarity;
-    const T = RARITY_TOTALS[r] || 0;          // total obtenable de la rarete
-    const e = E[r] || 1;
-    const denom = dropBoost*e + Math.max(0, T - e);  // poids total de la rarete
+    const r = c.rarity, uni = c.universe || '';
     const pr = P_RARITY[r] || 0;
-    const pct = denom > 0 ? (pr * dropBoost / denom * 100) : 0;
+    // /roll global : concurrents = toutes les cartes de la rarete
+    const Tg = RARITY_TOTALS[r] || 0, eg = E[r] || 1;
+    const dg = dropBoost*eg + Math.max(0, Tg - eg);
+    const pGlobal = dg > 0 ? (pr * dropBoost / dg * 100) : 0;
+    // /roll <univers> : concurrents = cartes de la rarete DANS cet univers
+    const Tu = (UNI_RARITY_TOTALS[uni] || {})[r] || 0;
+    const eu = Euni[uni+'|'+r] || 1;
+    const du = dropBoost*eu + Math.max(0, Tu - eu);
+    const pUni = du > 0 ? (pr * dropBoost / du * 100) : 0;
     return `<div class="em-row">
       <span>${RAR_EMO[r]||'⚪'}</span>
-      <div class="nm">${emEsc(c.name)} <span class="rar">${r}</span></div>
-      <span style="font-weight:800;color:#b9f23a;">${pct.toFixed(3)}%</span>
+      <div class="nm">${emEsc(c.name)} <span class="rar">${r} · ${emEsc(uni||'?')}</span></div>
+      <span style="text-align:right;font-size:12px;">
+        <b style="color:#b9f23a;">${pGlobal.toFixed(3)}%</b> <span class="rar">/roll</span><br>
+        <b style="color:#4cb5f9;">${pUni.toFixed(2)}%</b> <span class="rar">/roll ${emEsc(uni||'?')}</span>
+      </span>
     </div>`;
   }).join('');
 }

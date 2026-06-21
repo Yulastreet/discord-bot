@@ -1000,17 +1000,28 @@ def register_cards_owner_routes(app, deps):
                             "test_guilds": get_setting("global_event_test_guilds", "") or ""})
         cur = global_event_get()
         counts = global_event_card_counts()
-        # Totaux de cartes OBTENABLES par rarete (pour calculer le % exact d'une carte)
+        # Totaux de cartes OBTENABLES par rarete (pour le % global /roll) + par
+        # (univers, rarete) pour les univers qui ont des cartes event (pour /roll univers).
         from database import get_db as _gdb
         conn = _gdb(); cc = conn.cursor()
         rrows = cc.execute("SELECT rarity, COUNT(*) AS n FROM cards "
                            "WHERE COALESCE(not_obtainable,0) = 0 GROUP BY rarity").fetchall()
-        conn.close()
         rarity_totals = {r["rarity"]: int(r["n"]) for r in rrows}
+        urows = cc.execute(
+            "SELECT universe, rarity, COUNT(*) AS n FROM cards "
+            "WHERE COALESCE(not_obtainable,0) = 0 AND universe IS NOT NULL AND universe != '' "
+            "AND universe IN (SELECT DISTINCT universe FROM cards "
+            "  WHERE event_key IS NOT NULL AND event_key != '' AND universe IS NOT NULL) "
+            "GROUP BY universe, rarity").fetchall()
+        conn.close()
+        uni_rarity_totals = {}
+        for r in urows:
+            uni_rarity_totals.setdefault(r["universe"], {})[r["rarity"]] = int(r["n"])
         return jsonify({
             "current": cur,
             "test_guilds": get_setting("global_event_test_guilds", "") or "",
             "rarity_totals": rarity_totals,
+            "uni_rarity_totals": uni_rarity_totals,
             "catalog": [{"key": k, "name": v["name"], "emoji": v["emoji"],
                          "cards": counts.get(k, 0)} for k, v in GLOBAL_EVENTS.items()],
         })
