@@ -334,10 +334,12 @@ function showEnd(victory){
   const c=document.getElementById('endCard');
   c.className = victory ? 'victory' : 'defeat';
   c.innerHTML = victory
-    ? `<div class="big">🎉 VICTOIRE</div><div class="sub">Le boss est vaincu !</div>`
+    ? `<div class="big">🎉 VICTOIRE</div><div class="sub">Récompenses en cours…</div>`
     : `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
   ov.classList.add('show');
-  startKill();
+  // defaite : pas de recompenses -> on lance le compte a rebours tout de suite.
+  // victoire : le compteur demarre quand les recompenses s'affichent (renderRewards).
+  if(!victory) startKill();
 }
 function renderRewards(data){
   const c=document.getElementById('endCard');
@@ -352,6 +354,7 @@ function renderRewards(data){
     <div class="rw-hdr">${esc(data.header||'')}</div>
     <div class="rw-list">${rows}</div>
     <div class="sub" id="killCount"></div>`;
+  startKill();   // compte a rebours 10s a partir de l'affichage des recompenses
 }
 let killStarted=false;
 function startKill(){
