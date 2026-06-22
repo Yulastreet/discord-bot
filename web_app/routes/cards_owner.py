@@ -679,7 +679,9 @@ def register_cards_owner_routes(app, deps):
             "rewards": _WHEEL_REWARDS,
             "reset_in": reset_in,
             "daily_roll_claimed": daily_roll_claimed_today(uid) if uid else False,
-            "daily_booster_claimed": daily_booster_claimed_today(uid) if uid else False,
+            # owner : booster illimite -> jamais "deja ouvert"
+            "daily_booster_claimed": (False if _is_owner_session()
+                                      else (daily_booster_claimed_today(uid) if uid else False)),
         })
 
     @app.route("/api/public/daily-roll/claim", methods=["POST"])

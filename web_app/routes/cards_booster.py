@@ -122,12 +122,13 @@ def register_cards_booster_routes(app, deps):
         if not uid:
             return jsonify({"error": "Connecte-toi pour ouvrir ton booster."}), 401
         from database import (daily_booster_claimed_today, daily_booster_claim, user_card_add)
-        if daily_booster_claimed_today(uid):
+        is_owner = _is_owner_session()   # owner : ouvertures illimitees (pas de claim quotidien)
+        if not is_owner and daily_booster_claimed_today(uid):
             return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
         cards = _build_pack(None)
         if not cards:
             return jsonify({"error": "Booster indisponible pour le moment."}), 500
-        if not daily_booster_claim(uid):   # garde anti double-ouverture
+        if not is_owner and not daily_booster_claim(uid):   # garde anti double-ouverture
             return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
         for c in cards:
             try:
