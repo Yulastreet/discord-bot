@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>{{ boss_name }} · Combat live · TookBot</title>
 <style>
-  :root{ --gold:#c9a24b; --red:#ff3d57; --green:#4ade80; }
+  :root{ --gold:#c9a24b; --red:#ff3d57; --green:#4ade80;
+    /* tailles pilotees par la HAUTEUR de l'ecran -> jamais coupe (focus PC) */
+    --ph: clamp(160px, 25vh, 320px); --pw: calc(var(--ph) * 0.6667);
+    --bh: clamp(230px, 45vh, 500px); --bw: calc(var(--bh) * 0.6667); }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
   body{ font-family:'Segoe UI',system-ui,sans-serif; color:#f1eadf; overflow:hidden;
@@ -18,15 +21,17 @@
     60%{transform:translate(6px,4px)} 75%{transform:translate(-4px,-2px)} }
 
   /* ===== EQUIPE (haut) ===== */
-  #team{ display:flex; gap:clamp(8px,1.4vw,18px); justify-content:center; flex-wrap:wrap;
-    padding:18px 12px 6px; width:100%; max-width:1400px; }
-  .pc{ width:clamp(130px, 15vw, 210px); position:relative; transition:transform .18s, opacity .3s; }
+  #team{ display:flex; gap:clamp(8px,1.4vw,20px); justify-content:center; flex-wrap:wrap;
+    padding:58px 12px 6px; width:100%; max-width:1500px; }
+  .pc{ width:var(--pw); position:relative; display:flex; flex-direction:column;
+    align-items:center; transition:transform .18s, opacity .3s; }
   .pc.attack{ animation:lunge-up .4s ease; }
   @keyframes lunge-up{ 0%{transform:translateY(0)} 40%{transform:translateY(-26px) scale(1.05)} 100%{transform:translateY(0)} }
   .pc.hurt{ animation:hurt .4s; }
   @keyframes hurt{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
   .pc.ko{ opacity:.4; filter:grayscale(1); }
-  .pc-img-wrap{ position:relative; border-radius:9px; overflow:hidden; aspect-ratio:2/3;
+  .pc-img-wrap{ position:relative; border-radius:9px; overflow:hidden;
+    width:var(--pw); height:var(--ph);
     background:#1a1320; border:2px solid #463353; box-shadow:0 6px 16px rgba(0,0,0,.5); }
   .pc-img-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
   .pc-img-wrap .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:30px; color:#5a4a66; }
@@ -59,8 +64,8 @@
     background:linear-gradient(90deg,#b3123b,#ff3d57); }
   #bossHpTxt{ position:absolute; inset:0; display:grid; place-items:center; font-size:13px;
     font-weight:900; text-shadow:0 1px 3px #000; }
-  #bossCardWrap{ position:relative; margin-top:16px; width:clamp(240px, 28vw, 380px); aspect-ratio:2/3;
-    max-height:52vh; border-radius:14px; overflow:hidden; border:3px solid #5a3a6e;
+  #bossCardWrap{ position:relative; margin-top:16px; width:var(--bw); height:var(--bh);
+    border-radius:14px; overflow:hidden; border:3px solid #5a3a6e;
     box-shadow:0 14px 40px rgba(0,0,0,.7); transition:transform .12s, box-shadow .3s; }
   #bossCardWrap img{ width:100%; height:100%; object-fit:cover; display:block; }
   #bossCardWrap .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:60px; color:#5a4a66; }
@@ -91,6 +96,16 @@
   .pop.heal{ color:#4ade80; font-size:22px; }
   .pop.small{ font-size:18px; }
 
+  /* ===== INDICATEURS DE CIBLAGE (qui tape qui / qui soigne qui) ===== */
+  #fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:36; }
+  #fx .beam{ animation:beamfade .75s ease-out forwards; }
+  @keyframes beamfade{ 0%{opacity:0} 18%{opacity:.95} 100%{opacity:0} }
+  .tmark{ position:fixed; transform:translate(-50%,-130%); font-size:30px; z-index:37;
+    pointer-events:none; text-shadow:0 2px 6px #000; animation:tmark .8s ease-out forwards; }
+  @keyframes tmark{ 0%{opacity:0; transform:translate(-50%,-90%) scale(.5)}
+    25%{opacity:1; transform:translate(-50%,-140%) scale(1.15)}
+    100%{opacity:0; transform:translate(-50%,-160%) scale(1)} }
+
   /* ===== BANNIERES ===== */
   #banner{ position:fixed; top:34%; left:0; right:0; text-align:center; z-index:50;
     pointer-events:none; }
@@ -102,11 +117,11 @@
   .banner-smash{ color:#ffb13d; }
 
   /* ===== LOG + STATUS ===== */
-  #log{ position:fixed; right:12px; bottom:12px; width:min(320px,72vw); max-height:38vh;
-    display:flex; flex-direction:column; overflow:hidden; font-size:12px; line-height:1.45;
-    color:#cdbfe0; background:rgba(10,6,16,.6); border:1px solid #33223f; border-radius:10px; padding:8px 10px; }
-  #log .log-title{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
-    color:#9a86b3; margin-bottom:5px; }
+  #log{ position:fixed; right:14px; bottom:14px; width:min(400px,40vw); max-height:50vh;
+    display:flex; flex-direction:column; overflow:hidden; font-size:14px; line-height:1.55;
+    color:#dccfee; background:rgba(10,6,16,.66); border:1px solid #3a2b48; border-radius:12px; padding:11px 14px; }
+  #log .log-title{ font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+    color:#a594bd; margin-bottom:7px; }
   #log .log-rows{ overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
   #log .log-rows .ln{ padding:1px 0; }
   #log .log-rows .ln.crit{ color:#ffd23f; font-weight:700; }
@@ -151,6 +166,7 @@
     </div>
   </div>
 </div>
+<svg id="fx"></svg>
 <div id="banner"></div>
 <div id="log"><div class="log-title">📜 Historique</div><div class="log-rows" id="logRows"></div></div>
 <div id="endOverlay"><div id="endCard"></div></div>
@@ -247,24 +263,51 @@ function histFor(ev){
 }
 
 const bossWrap = ()=>document.getElementById('bossCardWrap');
+function centerOf(el){ const r=el.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; }
+function beam(fromEl, toEl, color){
+  if(!fromEl || !toEl) return;
+  const svg=document.getElementById('fx');
+  const ns='http://www.w3.org/2000/svg';
+  const [x1,y1]=centerOf(fromEl), [x2,y2]=centerOf(toEl);
+  const ln=document.createElementNS(ns,'line');
+  ln.setAttribute('x1',x1); ln.setAttribute('y1',y1); ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
+  ln.setAttribute('stroke',color); ln.setAttribute('stroke-width','5'); ln.setAttribute('stroke-linecap','round');
+  ln.classList.add('beam'); svg.appendChild(ln);
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',x2); dot.setAttribute('cy',y2); dot.setAttribute('r','11');
+  dot.setAttribute('fill',color); dot.classList.add('beam'); svg.appendChild(dot);
+  setTimeout(()=>{ ln.remove(); dot.remove(); }, 760);
+}
+function targetMark(el, emoji){
+  if(!el) return;
+  const [x,y]=centerOf(el);
+  const m=document.createElement('div'); m.className='tmark'; m.textContent=emoji;
+  m.style.left=x+'px'; m.style.top=(y - el.getBoundingClientRect().height*0.4)+'px';
+  document.body.appendChild(m); setTimeout(()=>m.remove(), 850);
+}
 function playEvent(ev){
   histFor(ev);
   const t = ev.type, d = ev.data||{};
   if(t==='party_hit'){
-    Object.keys(P).forEach(uid=>{ if(!P[uid].el.classList.contains('ko')) anim(P[uid].el,'attack'); });
+    Object.keys(P).forEach(uid=>{ if(!P[uid].el.classList.contains('ko')){ anim(P[uid].el,'attack');
+      beam(P[uid].el, bossWrap(), '#ffd23f'); } });
     anim(document.getElementById('bossSlash'),'go');
     anim(bossWrap(),'hit');
     popOn(bossWrap(), '-'+fmt(d.total), 'dmg'+(d.crit?' crit':''));
   } else if(t==='boss_aoe'){
     anim(bossWrap(),'lunge'); shakeArena();
-    (d.targets||[]).forEach(uid=>{ flashPlayer(uid,'red'); const r=P[uid]; if(r) anim(r.el,'hurt'); });
+    (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return;
+      flashPlayer(uid,'red'); anim(r.el,'hurt');
+      beam(bossWrap(), r.el, '#ff3d57'); targetMark(r.el, '💥'); });
     popOn(bossWrap(), '👹 -'+fmt(d.total), 'dmg small');
     (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.el,'💀','dmg small'); } });
   } else if(t==='boss_smash'){
     banner('💥 COUP DÉVASTATEUR', 'banner-smash');
     anim(bossWrap(),'lunge'); shakeArena();
     const r=P[d.target];
-    if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.el,'-'+fmt(d.dmg),'dmg crit');
+    if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt');
+      beam(bossWrap(), r.el, '#ff8a1f'); targetMark(r.el, '🎯');
+      popOn(r.el,'-'+fmt(d.dmg),'dmg crit');
       if(d.ko) r.el.classList.add('ko'); }
   } else if(t==='enrage'){
     banner('🔥 DÉCHAÎNÉ', 'banner-enrage');
@@ -273,7 +316,10 @@ function playEvent(ev){
   } else if(t==='boss_heal'){
     popOn(bossWrap(), '+'+fmt(d.amount), 'heal');
   } else if(t==='party_heal'){
-    flashPlayer(d.target,'green'); popOn(P[d.target]?P[d.target].el:null, '+'+fmt(d.amount), 'heal');
+    const hr=P[d.healer], tr=P[d.target];
+    if(hr && tr) beam(hr.el, tr.el, '#4ade80');
+    flashPlayer(d.target,'green'); targetMark(tr?tr.el:null, '💚');
+    popOn(tr?tr.el:null, '+'+fmt(d.amount), 'heal');
   } else if(t==='rewards'){
     renderRewards(d);
   } else if(t==='end'){

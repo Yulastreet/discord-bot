@@ -16,6 +16,29 @@ def register_cards_boss_routes(app, deps):
             return image_url
         return None
 
+    _PLAYERS_DIR = _os.path.join(_os.path.dirname(_RENDERS), "card_boss", "players")
+
+    def _player_img(bid, uid, card_id):
+        """Rendu compose du joueur (art + bordure + etoiles + skin alt), en cache.
+        Filename inclut card_id : si le joueur change de carte, on regenere."""
+        if not card_id:
+            return None
+        fname = f"{bid}_{uid}_{card_id}.png"
+        full = _os.path.join(_PLAYERS_DIR, fname)
+        rel = f"/static/card_boss/players/{fname}"
+        if _os.path.exists(full):
+            return rel
+        try:
+            from services.card_profile import _card_image_for
+            img = _card_image_for(uid, int(card_id), allow_alt=True)
+            if img is None:
+                return _render_url(card_id, None)
+            _os.makedirs(_PLAYERS_DIR, exist_ok=True)
+            img.convert("RGBA").save(full, "PNG")
+            return rel
+        except Exception:
+            return _render_url(card_id, None)
+
     # Apres la fin du combat, on garde la page vivante ce temps (pour afficher les
     # recompenses ~10s aux spectateurs en direct), puis le lien devient mort.
     _DEAD_GRACE = 25
@@ -65,7 +88,7 @@ def register_cards_boss_routes(app, deps):
                 "max_hp": int(p.get("max_hp") or p.get("hp") or 1),
                 "atk": int(p.get("atk") or 0),
                 "aptitude": p.get("aptitude") or "",
-                "img": _render_url(p.get("card_id"), None),
+                "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
             })
         weak = element_weaknesses(boss.get("element"))
         return jsonify({
