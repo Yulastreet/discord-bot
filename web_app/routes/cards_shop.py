@@ -183,6 +183,53 @@ def register_cards_shop_routes(app, deps):
         card_shop_set_slot(slot, **fields)
         return jsonify({"ok": True})
 
+    @app.route("/api/owner/card-shop/shuffle", methods=["POST"])
+    def api_owner_card_shop_shuffle():
+        """Remplit aleatoirement les 6 slots. Garantit AU MOINS : 1 bordure +
+        1 carte legendary OU mythic. Le reste = cartes aleatoires obtenables."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import get_db, card_shop_set_slot, borders_list
+        from services.card_shop import suggested_price
+        import random as _r
+        conn = get_db(); c = conn.cursor()
+        # 1 bordure (priorite aux activees)
+        bl = borders_list()
+        enabled_b = [b for b in bl if b.get("enabled", 1)]
+        pool_b = enabled_b or bl
+        bkey = _r.choice(pool_b)["border_key"] if pool_b else None
+        # 1 carte legendary/mythic obtenable
+        lm = c.execute("SELECT id FROM cards WHERE rarity IN ('legendary','mythic') "
+                       "AND COALESCE(not_obtainable,0)=0 ORDER BY RANDOM() LIMIT 1").fetchone()
+        leg_id = lm["id"] if lm else None
+        # cartes de remplissage (distinctes de la legendary/mythic deja prise)
+        need = 6 - (1 if bkey else 0) - (1 if leg_id else 0)
+        fillers = []
+        if need > 0:
+            fillers = c.execute(
+                "SELECT id FROM cards WHERE COALESCE(not_obtainable,0)=0 AND id != ? "
+                "ORDER BY RANDOM() LIMIT ?", (leg_id if leg_id else -1, need)).fetchall()
+        conn.close()
+        items = []
+        if bkey:
+            items.append(("border", str(bkey)))
+        if leg_id:
+            items.append(("card", str(leg_id)))
+        for f in fillers:
+            items.append(("card", str(f["id"])))
+        _r.shuffle(items)  # melange l'ordre des slots
+        for i in range(1, 7):
+            if i - 1 < len(items):
+                it, ref = items[i - 1]
+                price = suggested_price(it, ref)
+                card_shop_set_slot(i, item_type=it, item_ref=ref,
+                                   price=price, label=None, enabled=1)
+            else:
+                card_shop_set_slot(i, item_type=None, item_ref=None,
+                                   price=0, label=None, enabled=0)
+        return jsonify({"ok": True, "count": len(items),
+                        "has_border": bool(bkey), "has_legmyth": bool(leg_id)})
+
     @app.route("/api/owner/card-shop/preview", methods=["POST"])
     def api_owner_card_shop_preview():
         if not _is_owner_session():

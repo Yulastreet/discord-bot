@@ -35,10 +35,14 @@
 
   <!-- Slots -->
   <div class="cs-section">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
       <h3>🎰 Emplacements (6)</h3>
-      <button class="btn btn-primary" onclick="genPreview()" style="padding:6px 12px;font-size:12px;">👁 Prévisualiser l'image</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="shuffleShop()" style="padding:6px 12px;font-size:12px;">🎲 Shuffle auto</button>
+        <button class="btn btn-primary" onclick="genPreview()" style="padding:6px 12px;font-size:12px;">👁 Prévisualiser l'image</button>
+      </div>
     </div>
+    <div id="shuffleResult" class="muted" style="font-size:12px;margin:4px 0;"></div>
     <div id="slotGrid" class="cs-grid"><div class="muted">Chargement…</div></div>
   </div>
 
@@ -106,6 +110,22 @@ async function loadSlots(){
   _slots = d.items || [];
   renderSlots();
 }
+
+async function shuffleShop(){
+  const res = document.getElementById('shuffleResult');
+  if(!confirm('Remplir aléatoirement les 6 slots ? (au moins 1 bordure + 1 legendary/mythic). Le contenu actuel sera remplacé.')) return;
+  res.textContent = 'Shuffle en cours…';
+  try{
+    const r = await fetch('/api/owner/card-shop/shuffle', { method:'POST' });
+    const d = await r.json();
+    if(d.ok){
+      res.innerHTML = `✅ Boutique mélangée : ${d.count} items `
+        + `(${d.has_border?'bordure ✓':'pas de bordure ✗'} · ${d.has_legmyth?'legendary/mythic ✓':'aucune legendary/mythic ✗'}).`;
+      await loadSlots();
+    } else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.shuffleShop = shuffleShop;
 
 function renderSlots(){
   const grid = document.getElementById('slotGrid');
