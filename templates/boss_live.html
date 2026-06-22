@@ -342,29 +342,40 @@ function buildPlayers(players){
   built = true;
 }
 
+// Derniere etat AUTHORITATIF recu du serveur (les barres lisent ici).
+let LATEST = null;
+function setBossBar(){
+  if(!LATEST) return;
+  const b=LATEST.boss, pct=b.max_hp?Math.max(0,100*b.hp/b.max_hp):0;
+  document.getElementById('bossHp').style.width = pct+'%';
+  document.getElementById('bossHpTxt').textContent = `${fmt(b.hp)} / ${fmt(b.max_hp)} (${Math.round(pct)}%)`;
+}
+function setPlayerBar(uid){
+  const ref=P[uid], pp=LATEST&&LATEST.players[uid]; if(!ref||!pp) return;
+  const pct=pp.max_hp?Math.max(0,100*pp.hp/pp.max_hp):0;
+  ref.bar.style.width = pct+'%';
+  ref.bar.classList.toggle('low', pct<=30);
+  if(ref.hpv) ref.hpv.textContent = '❤️ '+fmtShort(pp.hp);
+  ref.el.classList.toggle('ko', pp.hp<=0);
+}
+function setAllBars(){ setBossBar(); if(LATEST) Object.keys(LATEST.players).forEach(setPlayerBar); }
+
 function syncHp(d){
-  // boss
-  const bpct = d.boss.max_hp ? Math.max(0, 100*d.boss.hp/d.boss.max_hp) : 0;
-  document.getElementById('bossHp').style.width = bpct+'%';
-  document.getElementById('bossHpTxt').textContent = `${fmt(d.boss.hp)} / ${fmt(d.boss.max_hp)} (${Math.round(bpct)}%)`;
+  // memorise l'etat authoritatif
+  LATEST = { boss:{hp:d.boss.hp, max_hp:d.boss.max_hp},
+    players:Object.fromEntries(d.players.map(p=>[p.uid,{hp:p.hp, max_hp:p.max_hp}])) };
   document.getElementById('bossSub').innerHTML =
     `${esc(d.boss.tier_label)} · ${eIco(d.boss.element)} ${esc(d.boss.element_label)} · 🗡️ ${fmt(d.boss.atk)}`
     + (d.boss.weak && d.boss.weak.length ? ` · faible: ${esc(d.boss.weak.join(' '))}` : '');
-  // puissances (milieu) : equipe + boss, toujours visibles
   document.getElementById('pwTeam').innerHTML = powerImgs(d.team_power, false);
   document.getElementById('pwBoss').innerHTML = powerImgs(d.boss.power, true);
-  // une fois le combat lance : on masque la puissance par membre (classe sur body)
   document.body.classList.toggle('fighting', d.boss.status !== 'recruiting');
-  // joueurs
-  d.players.forEach(p=>{
-    const ref = P[p.uid]; if(!ref) return;
-    const pct = p.max_hp ? Math.max(0, 100*p.hp/p.max_hp) : 0;
-    ref.bar.style.width = pct+'%';
-    if(ref.bar) ref.bar.classList.toggle('low', pct<=30);
-    if(ref.hpv) ref.hpv.textContent = '❤️ '+fmtShort(p.hp);
-    ref.el.classList.toggle('ko', p.hp<=0);
-  });
+  // En combat : les barres bougent aux IMPACTS (pas au poll), sinon les degats/heal
+  // s'appliquent au mauvais moment. Hors combat : MAJ directe.
+  if(d.boss.status !== 'fighting'){ setAllBars(); fightSynced=false; }
+  else if(!fightSynced){ setAllBars(); fightSynced=true; }  // sync 1x si on arrive en cours
 }
+let fightSynced = false;
 
 /* ===== ANIMATIONS ===== */
 function shakeArena(){ const a=document.getElementById('arena'); a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); }
@@ -454,6 +465,7 @@ function playEvent(ev){
       Object.keys(P).forEach(uid=>{ if(alive(uid)) anim(P[uid].el,'attack'); });
       anim(document.getElementById('bossSlash'),'go'); anim(bossWrap(),'hit');
       popOn(bossWrap(), '-'+fmt(d.total), 'dmg'+(d.crit?' crit':''));
+      setBossBar();   // les PV du boss descendent A L'IMPACT
     }, TG);
     return TG + GAP;
   }
@@ -461,9 +473,9 @@ function playEvent(ev){
     (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; tBeam(bossWrap(), r.card, '#ff3d57'); tMark(r.card,'⚠️'); });
     setTimeout(()=>{
       anim(bossWrap(),'lunge'); shakeArena();
-      (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; flashPlayer(uid,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.total),'dmg small'); });
+      (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; flashPlayer(uid,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.total),'dmg small'); setPlayerBar(uid); });
       popOn(bossWrap(), '👹', 'dmg small');
-      (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.card,'💀','dmg small'); } });
+      (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ popOn(r.card,'💀','dmg small'); setPlayerBar(uid); } });
     }, TG);
     return TG + GAP;
   }
@@ -473,8 +485,7 @@ function playEvent(ev){
     banner('💥 COUP DÉVASTATEUR', 'banner-smash');
     setTimeout(()=>{
       anim(bossWrap(),'lunge'); shakeArena();
-      if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.dmg),'dmg crit');
-        if(d.ko) r.el.classList.add('ko'); }
+      if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.dmg),'dmg crit'); setPlayerBar(d.target); }
     }, TG);
     return TG + GAP;
   }
@@ -482,7 +493,7 @@ function playEvent(ev){
     const hr=P[d.healer], tr=P[d.target];
     if(hr && tr) tBeam(hr.card, tr.card, '#34ff9e');
     if(tr) tMark(tr.card,'💚');
-    setTimeout(()=>{ flashPlayer(d.target,'green'); popOn(tr?tr.card:null, '+'+fmt(d.amount), 'heal'); }, TG);
+    setTimeout(()=>{ flashPlayer(d.target,'green'); popOn(tr?tr.card:null, '+'+fmt(d.amount), 'heal'); setPlayerBar(d.target); }, TG);
     return TG + GAP;
   }
   if(t==='enrage'){
@@ -490,7 +501,7 @@ function playEvent(ev){
     document.getElementById('bossHp').style.background='linear-gradient(90deg,#7a0a1f,#ff1f44)';
     return 850;
   }
-  if(t==='boss_heal'){ popOn(bossWrap(), '+'+fmt(d.amount), 'heal'); return 750; }
+  if(t==='boss_heal'){ popOn(bossWrap(), '+'+fmt(d.amount), 'heal'); setBossBar(); return 750; }
   if(t==='rewards'){ renderRewards(d); return 300; }
   if(t==='end'){ showEnd(d.victory); return 300; }
   return 300;
