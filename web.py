@@ -350,7 +350,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/search-global", "/api/search-global",
     "/my-pass", "/api/my",
     "/cards", "/api/public/cards", "/api/public/wheel", "/api/public/guilds",
-    "/api/public/collection",
+    "/api/public/collection", "/api/public/booster", "/api/public/daily-roll",
 }
 
 def needs_guild(path):
