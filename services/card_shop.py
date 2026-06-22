@@ -21,14 +21,14 @@ _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 # Prix par defaut suggeres (essences). Base E ~40/roll.
 # epic=20 rolls, legendary=70, mythic=200, bordure=200.
 DEFAULT_CARD_PRICES = {
-    "common":    200,
-    "rare":      400,
-    "epic":      800,
-    "legendary": 2800,
-    "mythic":    8000,
-    "secret":    20000,
+    "common":    500,
+    "rare":      900,
+    "epic":      5440,
+    "legendary": 9000,
+    "mythic":    15400,
+    "secret":    28000,
 }
-DEFAULT_BORDER_PRICE = 8000
+DEFAULT_BORDER_PRICE = 16000
 
 
 def suggested_price(item_type: str, item_ref) -> int:
