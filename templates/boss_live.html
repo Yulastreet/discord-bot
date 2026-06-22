@@ -226,7 +226,12 @@
     border-radius:16px; padding:15px 17px; box-shadow:0 14px 46px rgba(0,0,0,.6); }
   #lbPanel::-webkit-scrollbar{ width:8px; } #lbPanel::-webkit-scrollbar-thumb{ background:#4a3a5a; border-radius:4px; }
   body.fighting #lbPanel{ display:block; }
-  .lb-title{ font-size:16px; font-weight:900; color:#f5ecff; margin-bottom:14px; }
+  .lb-title{ font-size:16px; font-weight:900; color:#f5ecff; margin-bottom:9px; }
+  .lb-sort{ display:flex; gap:5px; margin-bottom:13px; }
+  .lb-sort button{ flex:1; padding:6px 4px; border-radius:8px; cursor:pointer; font-size:11.5px;
+    font-weight:700; color:#cdbfe0; background:rgba(255,255,255,.05); border:1px solid #4a3a5a; white-space:nowrap; }
+  .lb-sort button:hover{ background:rgba(255,255,255,.11); }
+  .lb-sort button.active{ background:var(--gold); color:#221700; border-color:var(--gold); }
   .lb-row{ margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.06); }
   .lb-head{ font-size:14.5px; font-weight:800; margin-bottom:6px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
@@ -290,6 +295,11 @@
 
 <div id="lbPanel">
   <div class="lb-title">🏆 Contribution</div>
+  <div class="lb-sort">
+    <button data-k="damage" class="active" onclick="setLbSort('damage')">🗡️ Dégâts</button>
+    <button data-k="taken" onclick="setLbSort('taken')">🛡️ Tanké</button>
+    <button data-k="heal" onclick="setLbSort('heal')">💚 Soin</button>
+  </div>
   <div id="lbRows"></div>
 </div>
 
@@ -405,9 +415,17 @@ function syncHp(d){
 }
 let fightSynced = false;
 
-// Classement contribution : trie par degats, barre proportionnelle, MAJ a chaque poll.
+// Classement contribution : tri selectionnable (degats / tanke / soin), MAJ a chaque poll.
+let lbSort = 'damage', _lastLbD = null;
+function setLbSort(k){
+  lbSort = k;
+  document.querySelectorAll('.lb-sort button').forEach(b=>b.classList.toggle('active', b.dataset.k===k));
+  if(_lastLbD) renderLeaderboard(_lastLbD);
+}
+window.setLbSort = setLbSort;
 function renderLeaderboard(d){
-  const ps=[...d.players].sort((a,b)=>(b.damage||0)-(a.damage||0));
+  _lastLbD = d;
+  const ps=[...d.players].sort((a,b)=>(b[lbSort]||0)-(a[lbSort]||0));
   const maxDmg=Math.max(1, ...ps.map(p=>p.damage||0));
   const maxTaken=Math.max(1, ...ps.map(p=>p.taken||0));
   const maxHeal=Math.max(1, ...ps.map(p=>p.heal||0));
