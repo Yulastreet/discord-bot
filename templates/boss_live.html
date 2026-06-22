@@ -53,12 +53,16 @@
   .tag.rar{ background:rgba(255,255,255,.07); border:1px solid #4a3a5a; color:#eadff7; }
   .tag.apt{ background:rgba(201,162,75,.18); border:1px solid #8a6f2e; color:#ffe3a3; }
   .tag .eico, .eico{ width:15px; height:15px; vertical-align:-3px; object-fit:contain; }
+  .tag .rico, .rico, .card-row .rico{ width:16px; height:16px; vertical-align:-3px; object-fit:contain; }
   #bossSub .eico{ width:18px; height:18px; vertical-align:-4px; }
-  .pc-stats{ font-size:12.5px; font-weight:700; text-align:center; margin-top:5px; color:#e7dcf2; }
-  .pc-stats .hpv{ color:#9ff0bd; }
-  .pc-hp{ height:9px; border-radius:5px; background:#2a1f33; overflow:hidden; margin-top:4px; border:1px solid #000; }
-  .pc-hp > i{ display:block; height:100%; background:linear-gradient(90deg,#34d399,#4ade80);
+  .pc-stats{ font-size:13px; font-weight:800; text-align:center; margin-top:4px; color:#ffd9a8; }
+  .pc-hp{ position:relative; height:19px; border-radius:7px; background:#241a30; overflow:hidden;
+    margin-top:6px; border:1px solid #000; box-shadow:inset 0 0 6px rgba(0,0,0,.6); }
+  .pc-hp > i{ display:block; height:100%; background:linear-gradient(90deg,#1f9e63,#4ade80);
     width:100%; transition:width .6s ease; }
+  .pc-hp > i.low{ background:linear-gradient(90deg,#a01530,#ff3d57); }
+  .pc-hp .hpv{ position:absolute; inset:0; display:grid; place-items:center; font-size:12px;
+    font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.95); }
 
   /* ===== BOSS (centre/bas) ===== */
   #bossWrap{ flex:1; display:flex; flex-direction:column; align-items:center;
@@ -127,13 +131,14 @@
   .banner-smash{ color:#ffb13d; }
 
   /* ===== LOG + STATUS ===== */
-  #log{ position:fixed; right:14px; bottom:14px; width:min(400px,40vw); max-height:50vh;
-    display:flex; flex-direction:column; overflow:hidden; font-size:14px; line-height:1.55;
-    color:#dccfee; background:rgba(10,6,16,.66); border:1px solid #3a2b48; border-radius:12px; padding:11px 14px; }
-  #log .log-title{ font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
-    color:#a594bd; margin-bottom:7px; }
-  #log .log-rows{ overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
-  #log .log-rows .ln{ padding:1px 0; }
+  #log{ position:fixed; right:16px; bottom:16px; width:min(460px,42vw); max-height:58vh;
+    display:flex; flex-direction:column; overflow:hidden; font-size:15.5px; line-height:1.6;
+    color:#eaddff; background:rgba(12,7,19,.82); border:1px solid #4a3a5a; border-radius:13px;
+    padding:13px 16px; box-shadow:0 10px 34px rgba(0,0,0,.55); }
+  #log .log-title{ font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:.6px;
+    color:#c2b0db; margin-bottom:9px; }
+  #log .log-rows{ overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+  #log .log-rows .ln{ padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); }
   #log .log-rows .ln.crit{ color:#ffd23f; font-weight:700; }
   #log .log-rows .ln.boss{ color:#ff8aa0; }
   #log .log-rows .ln.heal{ color:#7ee0a3; }
@@ -245,6 +250,12 @@ const APT_LABEL  = { berserker:'Berserker', gardien:'Gardien', soigneur:'Soigneu
 const RAR_EMOJI  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴', secret:'🌈' };
 const RAR_LABEL  = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
 function eIco(key){ return `<img class="eico" src="/cards/img/element/${encodeURIComponent(key||'')}" onerror="this.remove()">`; }
+function rIco(r){
+  if(!r) return '';
+  if(r==='secret') return RAR_EMOJI.secret;
+  const fb = RAR_EMOJI[r]||'⚪';
+  return `<img class="rico" src="/cards/img/rarity/${encodeURIComponent(r)}" onerror="this.outerHTML='${fb}'">`;
+}
 let lastEvt = 0;
 let built = false;
 let lastSig = '';
@@ -266,7 +277,7 @@ function buildPlayers(players){
     const aptTag = p.aptitude
       ? `<span class="tag apt">${APT_EMOJI[p.aptitude]||''} ${esc(APT_LABEL[p.aptitude]||p.aptitude)}</span>` : '';
     const rarTag = p.rarity
-      ? `<span class="tag rar">${RAR_EMOJI[p.rarity]||'⚪'} ${esc(RAR_LABEL[p.rarity]||p.rarity)}</span>` : '';
+      ? `<span class="tag rar">${rIco(p.rarity)} ${esc(RAR_LABEL[p.rarity]||p.rarity)}</span>` : '';
     el.innerHTML = `<div class="${wrapCls}">${img}
         <div class="pc-flash red"></div><div class="pc-flash green"></div>
         <div class="ko-skull">💀</div></div>
@@ -275,8 +286,8 @@ function buildPlayers(players){
         <span class="tag elem">${eIco(p.element)} ${esc(ELEM_LABEL[p.element]||p.element||'?')}</span>
         ${rarTag}${aptTag}
       </div>
-      <div class="pc-stats">❤️ <b class="hpv">${fmt(p.hp)}</b> · 🗡️ ${fmt(p.atk)}</div>
-      <div class="pc-hp"><i></i></div>`;
+      <div class="pc-hp"><i></i><span class="hpv">❤️ ${fmt(p.hp)}</span></div>
+      <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>`;
     team.appendChild(el);
     P[p.uid] = { el, bar: el.querySelector('.pc-hp > i'),
                  hpv: el.querySelector('.hpv'), name: p.name };
@@ -297,7 +308,8 @@ function syncHp(d){
     const ref = P[p.uid]; if(!ref) return;
     const pct = p.max_hp ? Math.max(0, 100*p.hp/p.max_hp) : 0;
     ref.bar.style.width = pct+'%';
-    if(ref.hpv) ref.hpv.textContent = fmt(p.hp);
+    if(ref.bar) ref.bar.classList.toggle('low', pct<=30);
+    if(ref.hpv) ref.hpv.textContent = '❤️ '+fmt(p.hp);
     ref.el.classList.toggle('ko', p.hp<=0);
   });
 }
@@ -590,7 +602,7 @@ function renderCards(){
     const eff = opt ? `<span class="cr-eff">×${c.eff}</span>` : '';
     const active = (String(c.card_id)===String(MY.card_id)) ? ' active' : '';
     return `<div class="card-row${active}" onclick="setCard(${c.card_id})">
-      <span>${RAR_EMOJI[c.rarity]||'⚪'}</span>${eIco(c.element)}
+      <span>${rIco(c.rarity)}</span>${eIco(c.element)}
       <span class="cr-name">${crown}${esc(c.name)}${stars}${cnt} ${adv}<br><span class="cr-uni">${esc(c.universe||'')}</span></span>
       ${eff}</div>`;
   }).join('') || '<div class="cr-uni" style="padding:8px;">Aucune carte.</div>';

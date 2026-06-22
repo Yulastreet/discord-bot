@@ -11,10 +11,25 @@ def register_cards_boss_routes(app, deps):
     _RENDERS = _os.path.join(_ROOT, "static", "card_renders")
     _ELEM_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "Elements")
 
+    _RAR_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "badgerarete")
+    _RAR_FILE = {"common": "commun", "rare": "rare", "epic": "epic",
+                 "legendary": "legendaire", "mythic": "mythic"}
+
     @app.route("/cards/img/element/<key>", methods=["GET"])
     def cards_img_element(key):
         key = "".join(ch for ch in str(key) if ch.isalnum()).lower()
         f = _os.path.join(_ELEM_DIR, f"elem_{key}.png")
+        if not _os.path.exists(f):
+            return "", 404
+        return send_file(f, mimetype="image/png", max_age=86400)
+
+    @app.route("/cards/img/rarity/<key>", methods=["GET"])
+    def cards_img_rarity(key):
+        key = "".join(ch for ch in str(key) if ch.isalnum()).lower()
+        fname = _RAR_FILE.get(key)
+        if not fname:
+            return "", 404
+        f = _os.path.join(_RAR_DIR, f"{fname}.png")
         if not _os.path.exists(f):
             return "", 404
         return send_file(f, mimetype="image/png", max_age=86400)
