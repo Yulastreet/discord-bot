@@ -2891,14 +2891,6 @@ def setup_cards_commands(bot, deps):
             self.trade_id = trade_id
             self.sender_id = int(sender_id)
             self.receiver_id = int(receiver_id)
-            # Liens vers les classeurs des 2 joueurs (facilite le trade)
-            _dash = os.getenv("DASHBOARD_URL", "https://dashboard.tookbot.click").rstrip("/")
-            self.add_item(discord.ui.Button(
-                label="📖 Classeur du proposeur", style=discord.ButtonStyle.link,
-                url=f"{_dash}/cards/collection/{self.sender_id}", row=2))
-            self.add_item(discord.ui.Button(
-                label="📖 Classeur du destinataire", style=discord.ButtonStyle.link,
-                url=f"{_dash}/cards/collection/{self.receiver_id}", row=2))
 
         async def _disable_all(self, interaction: discord.Interaction):
             for child in self.children:
