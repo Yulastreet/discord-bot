@@ -16,11 +16,22 @@ def register_cards_booster_routes(app, deps):
     _FILLER_WEIGHTS = {"common": 62, "rare": 30, "epic": 8}
     _LAST_WEIGHTS = {"epic": 80, "legendary": 17, "mythic": 3}
 
+    def _renders_roots():
+        roots = [_RENDERS]
+        try:
+            from services.card_render import _ROOT as _CR
+            roots.append(_os.path.join(_CR, "static", "card_renders"))
+        except Exception:
+            pass
+        roots.append(_os.path.join(_os.getcwd(), "static", "card_renders"))
+        return roots
+
     def _render_url(cid, image_url):
         if cid:
-            for ext in (".webp", ".png"):
-                if _os.path.exists(_os.path.join(_RENDERS, f"{cid}{ext}")):
-                    return f"/static/card_renders/{cid}{ext}"
+            for d in _renders_roots():
+                for ext in (".webp", ".png"):
+                    if _os.path.exists(_os.path.join(d, f"{cid}{ext}")):
+                        return f"/static/card_renders/{cid}{ext}"
         if image_url and isinstance(image_url, str) and image_url.startswith("http"):
             return image_url
         return None

@@ -157,7 +157,7 @@ async function openBooster(){
   document.getElementById('boHint').style.display='none';
   document.getElementById('boRays').classList.remove('show');
   const big=document.getElementById('boBigPack');
-  big.style.display='block'; big.className='bo-bigpack';
+  big.style.display='grid'; big.className='bo-bigpack';
   big.querySelector('img').src='/cards/img/booster/close';
   ov.classList.add('show');
 
@@ -244,7 +244,9 @@ function cardHTML(c){
   const rcol=RCOL[c.rarity]||'#888';
   const glow=RGLOW[c.rarity]||rcol;
   const foil = (c.rarity==='legendary'||c.rarity==='mythic'||c.rarity==='secret') ? ' foil' : '';
-  const img = c.img ? `<img src="${esc(c.img)}" alt="">` : `<div class="noimg">🎴</div>`;
+  const img = c.img
+    ? `<img src="${esc(c.img)}" alt="" onerror="this.outerHTML='<div class=\\'noimg\\'>🎴</div>'">`
+    : `<div class="noimg">🎴</div>`;
   const elem = c.element ? `<img src="/cards/img/element/${esc(c.element)}" onerror="this.remove()">` : '';
   const sub = c.subtitle ? ` · ${esc(c.subtitle)}` : '';
   return `<div class="rc${foil}" style="--rcol:${rcol};--rglow:${glow}">
