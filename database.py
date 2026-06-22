@@ -2867,6 +2867,12 @@ def _ensure_wheel_tables():
         claimed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, day)
     )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS daily_booster_claims (
+        user_id    TEXT NOT NULL,
+        day        TEXT NOT NULL,
+        claimed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, day)
+    )''')
     # Journal des gains de la roue (append-only, alimente le feed "en direct")
     c.execute('''CREATE TABLE IF NOT EXISTS wheel_wins (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2929,6 +2935,31 @@ def daily_roll_grant(user_id) -> bool:
     conn.close()
     if ok:
         roll_give_user(user_id, 1)
+    return ok
+
+
+def daily_booster_claimed_today(user_id) -> bool:
+    """True si le user a deja ouvert son booster quotidien gratuit aujourd'hui (FR)."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM daily_booster_claims WHERE user_id = ? AND day = ?",
+                  (str(user_id), _today_str())).fetchone()
+    conn.close()
+    return r is not None
+
+
+def daily_booster_claim(user_id) -> bool:
+    """Marque le booster quotidien comme recupere. False si deja fait aujourd'hui.
+    (L'octroi des cartes est gere par l'appelant.)"""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    try:
+        c.execute("INSERT INTO daily_booster_claims (user_id, day) VALUES (?, ?)",
+                  (str(user_id), _today_str()))
+        conn.commit(); ok = True
+    except Exception:
+        ok = False
+    conn.close()
     return ok
 
 

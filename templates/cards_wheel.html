@@ -105,14 +105,12 @@
     <div id="whClock" class="clk">--:--:--</div>
   </div>
 
-  <div class="wh-daily">
-    <div class="wh-daily-txt">
-      <span class="t">🎟️ Roll quotidien gratuit</span>
-      <span class="s">1 roll offert chaque jour (reset minuit, heure FR).</span>
-    </div>
-    <button id="drBtn" class="btn btn-primary" onclick="claimDailyRoll()" disabled>Chargement…</button>
+  <div class="wh-booster">
+    <div class="wb-title">Booster de Cartes Gratuit</div>
+    <div class="wb-sub">9 cartes par paquet · épique garantie minimum sur la dernière (les 8 avant : épique max).</div>
+    <div class="wb-pack" id="wbPack"><img src="/cards/img/booster/close" alt="Booster" onclick="boosterPresent()"></div>
+    <div id="wbStatus" class="wh-note" style="text-align:center;"></div>
   </div>
-  <div id="drHint" class="wh-note" style="text-align:center;"></div>
 
   <div class="wh-wins">
     <div class="wh-wins-title"><span class="live-dot2"></span> Gains de la roue en direct</div>
@@ -215,27 +213,11 @@
       } else {
         btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
       }
-      // Daily roll gratuit
-      const dr = document.getElementById('drBtn');
-      if (!d.logged_in){ dr.disabled = true; dr.textContent = '🔒 Connecte-toi'; }
-      else if (d.daily_roll_claimed){ dr.disabled = true; dr.textContent = '✅ Récupéré aujourd\'hui'; }
-      else { dr.disabled = false; dr.textContent = '🎟️ Récupérer 1 roll'; }
+      if (window.refreshBoosterStatus) window.refreshBoosterStatus();
     } catch(e){
       document.getElementById('whSpin').textContent = 'Erreur de chargement';
     }
   }
-
-  window.claimDailyRoll = async function(){
-    const dr = document.getElementById('drBtn');
-    const hint = document.getElementById('drHint');
-    dr.disabled = true; hint.textContent = '';
-    try {
-      const r = await fetch('/api/public/daily-roll/claim', {method:'POST'});
-      const d = await r.json();
-      if (d.ok){ dr.textContent = '✅ Récupéré aujourd\'hui'; hint.textContent = '🎟️ +1 roll ajouté à ton compte !'; }
-      else { dr.textContent = '✅ Indisponible'; hint.textContent = '❌ ' + (d.error || 'Erreur'); }
-    } catch(e){ hint.textContent = 'Erreur réseau'; dr.disabled = false; dr.textContent = '🎟️ Récupérer 1 roll'; }
-  };
 
   window.spin = async function(){
     if (busy) return;
@@ -311,5 +293,328 @@
   loadWins();
   setInterval(loadWins, 10000);
 })();
+</script>
+
+<!-- ===================== BOOSTER QUOTIDIEN ===================== -->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap');
+  .wh-booster{ margin-top:30px; text-align:center; }
+  .wb-title{ font-family:'Cinzel', Georgia, 'Times New Roman', serif; font-weight:700;
+    font-size:30px; letter-spacing:1.6px; text-transform:uppercase; margin:0 0 10px; color:var(--text); }
+  .wb-sub{ color:var(--text-2); font-size:13.5px; max-width:580px; margin:0 auto 18px; line-height:1.5; }
+  .wb-pack{ display:grid; place-items:center; }
+  .wb-pack img{ width:210px; max-width:62vw; cursor:pointer; transition:transform .15s;
+    filter:drop-shadow(0 14px 30px rgba(0,0,0,.5)); animation:wbFloat 2.8s ease-in-out infinite; }
+  .wb-pack img:hover{ transform:translateY(-4px) scale(1.03); }
+  @keyframes wbFloat{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+  .wb-pack.claimed img{ filter:grayscale(.7) brightness(.55); cursor:default; animation:none; }
+
+  .bo-open-btn{ padding:11px 24px; border-radius:11px; border:none; cursor:pointer; font-weight:800;
+    font-size:15px; background:linear-gradient(135deg,#ffb13d,#ff7a18); color:#2a1500; }
+  .bo-open-btn:hover{ filter:brightness(1.07); }
+  .bo-overlay{ position:fixed; inset:0; z-index:9999; display:none; place-items:center;
+    background:radial-gradient(circle at 50% 40%, #1a0f28, #070409 70%); overflow:hidden; }
+  .bo-overlay.show{ display:grid; }
+  .bo-overlay .closeX{ position:absolute; top:16px; right:20px; z-index:30; cursor:pointer;
+    color:#b09cc8; font-size:26px; background:none; border:none; }
+  .bo-counter{ position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:25;
+    color:#e7dcf2; font-weight:800; font-size:15px; background:rgba(0,0,0,.45);
+    border:1px solid #3a2b48; border-radius:20px; padding:6px 16px; }
+  .bo-hint{ position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:25;
+    color:#9a86b3; font-size:13px; animation:boHintPulse 1.4s infinite; }
+  @keyframes boHintPulse{ 0%,100%{opacity:.5} 50%{opacity:1} }
+  .bo-bigpack{ position:absolute; inset:0; z-index:20; display:grid; place-items:center; cursor:pointer; }
+  .bo-bigpack img{ height:60vh; width:auto; filter:drop-shadow(0 18px 40px rgba(0,0,0,.7)); }
+  .bo-bigpack.idle img{ animation:boFloat 2.6s ease-in-out infinite; }
+  @keyframes boFloat{ 0%,100%{ transform:translateY(0) rotate(-1deg) } 50%{ transform:translateY(-14px) rotate(1deg) } }
+  .bo-bigpack.shake{ animation:boShake 1.2s ease-in-out; }
+  @keyframes boShake{ 0%,100%{transform:rotate(0)} 10%{transform:rotate(-7deg)} 22%{transform:rotate(7deg)}
+    34%{transform:rotate(-6deg)} 46%{transform:rotate(6deg)} 60%{transform:rotate(-4deg) scale(1.04)}
+    74%{transform:rotate(4deg) scale(1.07)} 88%{transform:rotate(-2deg) scale(1.1)} }
+  .bo-bigpack.opened{ animation:boPackOut .6s ease forwards; }
+  @keyframes boPackOut{ 0%{transform:scale(1.1)} 100%{transform:scale(1.5); opacity:0} }
+  .bo-flash{ position:absolute; z-index:21; top:50%; left:50%; margin:-20px 0 0 -20px;
+    width:40px; height:40px; border-radius:50%; opacity:0;
+    background:radial-gradient(circle, #fff, rgba(255,230,150,.6) 35%, transparent 70%); }
+  .bo-flash.go{ animation:boFlash .7s ease-out forwards; }
+  @keyframes boFlash{ 0%{opacity:0; transform:scale(.3)} 30%{opacity:1} 100%{opacity:0; transform:scale(16)} }
+  .bo-cut{ position:fixed; height:2px; z-index:23; pointer-events:none; transform:scaleX(0);
+    transform-origin:left center; border-radius:1px;
+    background:linear-gradient(90deg, transparent, #fff 20%, #fff 80%, transparent);
+    box-shadow:0 0 6px #fff, 0 0 12px #ffe7a0; }
+  .bo-cut.go{ animation:boCut .28s ease-out forwards; }
+  @keyframes boCut{ 0%{transform:scaleX(0); opacity:1} 80%{transform:scaleX(1); opacity:1} 100%{transform:scaleX(1); opacity:0} }
+  .bo-share-btn{ position:absolute; bottom:74px; left:50%; transform:translateX(-50%); z-index:26;
+    padding:13px 30px; border-radius:13px; border:none; cursor:pointer; font-weight:900; font-size:16px;
+    letter-spacing:.4px; color:#2a1500; overflow:hidden;
+    background:linear-gradient(135deg,#ffe27a,#ffb13d,#ff8a1f);
+    box-shadow:0 8px 26px rgba(255,160,40,.5), 0 0 0 1px rgba(255,255,255,.25) inset;
+    animation:boBtnGlow 2s ease-in-out infinite; }
+  .bo-share-btn::after{ content:''; position:absolute; top:0; left:-60%; width:50%; height:100%;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent);
+    transform:skewX(-20deg); animation:boBtnShine 2.4s ease-in-out infinite; }
+  @keyframes boBtnGlow{ 0%,100%{box-shadow:0 8px 26px rgba(255,160,40,.45)} 50%{box-shadow:0 8px 34px rgba(255,200,80,.85)} }
+  @keyframes boBtnShine{ 0%{left:-60%} 55%,100%{left:140%} }
+  .bo-share-btn:hover{ filter:brightness(1.08); }
+  .spark{ position:absolute; z-index:22; font-size:20px; pointer-events:none; animation:boSpark 1.1s ease-out forwards; }
+  @keyframes boSpark{ 0%{opacity:0; transform:translate(0,0) scale(.3)}
+    25%{opacity:1} 100%{opacity:0; transform:translate(var(--dx),var(--dy)) scale(1.1)} }
+  .bo-cardstage{ position:absolute; inset:0; z-index:24; display:none; place-items:center; }
+  .bo-cardstage.show{ display:grid; }
+  .rc{ position:relative; width:min(330px,72vw); aspect-ratio:2/3; border-radius:16px; overflow:hidden;
+    cursor:pointer; box-shadow:0 20px 60px rgba(0,0,0,.7); border:3px solid var(--rcol,#555);
+    transform:scale(.7); opacity:0; }
+  .rc.enter{ animation:boCardIn .45s cubic-bezier(.2,1.3,.4,1) forwards; }
+  @keyframes boCardIn{ 0%{transform:scale(.6) translateY(20px); opacity:0} 100%{transform:scale(1) translateY(0); opacity:1} }
+  .rc img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .rc .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:60px; color:#5a4a66; background:#1a1320; }
+  .rc .rc-info{ position:absolute; left:0; right:0; bottom:0; padding:14px 14px 12px; background:linear-gradient(transparent, rgba(0,0,0,.9)); }
+  .rc .rc-name{ font-size:19px; font-weight:900; color:#fff; }
+  .rc .rc-meta{ font-size:12.5px; color:#d7cce8; margin-top:3px; display:flex; gap:7px; align-items:center; }
+  .rc .rc-meta img{ width:16px; height:16px; vertical-align:-3px; }
+  .rc-rarbadge{ position:absolute; top:10px; left:10px; padding:3px 10px; border-radius:8px;
+    font-size:12px; font-weight:900; color:#10110f; background:var(--rcol,#888); text-transform:uppercase; }
+  .rc.foil::after{ content:''; position:absolute; inset:0; pointer-events:none; mix-blend-mode:screen;
+    background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 45%, rgba(120,220,255,.3) 50%,
+      rgba(255,120,220,.3) 55%, transparent 70%); background-size:250% 250%; animation:boFoil 2.4s linear infinite; }
+  @keyframes boFoil{ 0%{background-position:0% 0%} 100%{background-position:200% 200%} }
+  .rc.foil{ box-shadow:0 0 50px var(--rglow,#f5a524), 0 20px 60px rgba(0,0,0,.7); }
+  .bo-rays{ position:absolute; z-index:23; top:50%; left:50%; margin:-60vmax 0 0 -60vmax;
+    width:120vmax; height:120vmax; transform-origin:center; display:none;
+    background:repeating-conic-gradient(from 0deg, rgba(255,210,90,.0) 0deg 8deg, rgba(255,210,90,.12) 8deg 16deg);
+    animation:boRays 14s linear infinite; }
+  .bo-rays.show{ display:block; }
+  @keyframes boRays{ to{ transform:rotate(360deg) } }
+  .bo-suspense{ position:absolute; inset:0; z-index:23; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; }
+  .bo-suspense.go{ animation:boSus 1.1s ease forwards; }
+  @keyframes boSus{ 0%{opacity:0} 60%{opacity:.85} 100%{opacity:0} }
+</style>
+
+<div class="bo-overlay" id="boOverlay">
+  <button class="closeX" onclick="closeBooster()">✕</button>
+  <div class="bo-counter" id="boCounter" style="display:none;"></div>
+  <div class="bo-rays" id="boRays"></div>
+  <div class="bo-bigpack" id="boBigPack" onclick="onBigClick()"><img src="/cards/img/booster/close" alt=""></div>
+  <div class="bo-flash" id="boFlash"></div>
+  <div class="bo-suspense" id="boSuspense"></div>
+  <div class="bo-cardstage" id="boCardStage" onclick="nextCard()"></div>
+  <div class="bo-hint" id="boHint" style="display:none;">Clique pour la carte suivante</div>
+</div>
+
+<script>
+const RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
+const RGLOW = { legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
+const RLABEL = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
+let PACK = [], idx = 0, stage='idle', _advLock=false;
+let boosterLogged=false, boosterClaimed=false;
+function bEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+window.refreshBoosterStatus = async function(){
+  try{
+    const r=await fetch('/api/public/booster/status'); const d=await r.json();
+    boosterLogged=!!d.logged_in; boosterClaimed=!!d.claimed;
+    const s=document.getElementById('wbStatus'), pack=document.getElementById('wbPack');
+    if(!boosterLogged){ s.textContent='Connecte-toi pour ouvrir ton booster.'; pack.classList.add('claimed'); }
+    else if(boosterClaimed){ s.textContent='Déjà ouvert aujourd\'hui — reviens demain (reset minuit, heure FR).'; pack.classList.add('claimed'); }
+    else { s.textContent='Clique sur le booster pour l\'ouvrir.'; pack.classList.remove('claimed'); }
+  }catch(e){}
+};
+
+function boosterPresent(){
+  if(!boosterLogged){ boToast('Connecte-toi pour ouvrir ton booster.'); return; }
+  if(boosterClaimed){ boToast('Booster quotidien déjà ouvert aujourd\'hui.'); return; }
+  if(stage==='presented' || stage==='opening') return;
+  stage='presented';
+  document.getElementById('boCardStage').classList.remove('show');
+  document.getElementById('boCardStage').innerHTML='';
+  document.getElementById('boCounter').style.display='none';
+  document.getElementById('boRays').classList.remove('show');
+  const big=document.getElementById('boBigPack');
+  big.style.display='grid'; big.className='bo-bigpack idle';
+  big.querySelector('img').src='/cards/img/booster/close';
+  const hint=document.getElementById('boHint');
+  hint.textContent="Clique sur le paquet pour l'ouvrir"; hint.style.display='block';
+  document.getElementById('boOverlay').classList.add('show');
+}
+function onBigClick(){ if(stage==='presented') openSequence(); }
+
+async function openSequence(){
+  if(stage!=='presented') return; stage='opening';
+  const big=document.getElementById('boBigPack'); big.classList.remove('idle');
+  document.getElementById('boHint').style.display='none';
+  let data;
+  try{
+    const r=await fetch('/api/public/booster/open',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:'{}'});
+    data=await r.json();
+  }catch(e){ stage='idle'; closeBooster(); return; }
+  if(!data || !data.ok){
+    stage='idle'; closeBooster();
+    boToast(data && data.error ? data.error : 'Erreur'); refreshBoosterStatus(); return;
+  }
+  PACK = data.cards || []; idx = 0; boosterClaimed = true;
+  big.classList.add('shake');
+  setTimeout(()=>{
+    playCut();
+    setTimeout(()=>{
+      big.querySelector('img').src='/cards/img/booster/open';
+      flashBurst(); sparkleBurst(18);
+      setTimeout(()=>{
+        big.classList.add('opened');
+        setTimeout(()=>{ big.style.display='none'; startReveal(); }, 600);
+      }, 650);
+    }, 430);
+  }, 1200);
+}
+function playCut(){
+  const img=document.querySelector('#boBigPack img'); if(!img) return;
+  const r=img.getBoundingClientRect();
+  const cut=document.createElement('div'); cut.className='bo-cut';
+  cut.style.left=r.left+'px'; cut.style.top=(r.top + r.height*0.11)+'px'; cut.style.width=r.width+'px';
+  document.getElementById('boOverlay').appendChild(cut);
+  requestAnimationFrame(()=>cut.classList.add('go'));
+  setTimeout(()=>cut.remove(), 420);
+}
+function flashBurst(){ const f=document.getElementById('boFlash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+function sparkleBurst(n){
+  const ov=document.getElementById('boOverlay');
+  const cx=window.innerWidth/2, cy=window.innerHeight/2, ic=['✨','⭐','💫','🌟'];
+  for(let i=0;i<n;i++){
+    const s=document.createElement('div'); s.className='spark'; s.textContent=ic[i%ic.length];
+    const ang=Math.random()*Math.PI*2, dist=120+Math.random()*220;
+    s.style.left=cx+'px'; s.style.top=cy+'px';
+    s.style.setProperty('--dx',(Math.cos(ang)*dist).toFixed(0)+'px');
+    s.style.setProperty('--dy',(Math.sin(ang)*dist).toFixed(0)+'px');
+    ov.appendChild(s); setTimeout(()=>s.remove(),1150);
+  }
+}
+function startReveal(){
+  document.getElementById('boCounter').style.display='block';
+  document.getElementById('boCardStage').classList.add('show');
+  const hint=document.getElementById('boHint');
+  hint.textContent='Clique pour la carte suivante'; hint.style.display='block';
+  idx = 0; showCard();
+}
+function showCard(){
+  const cs=document.getElementById('boCardStage');
+  const sus=document.getElementById('boSuspense');
+  const rays=document.getElementById('boRays');
+  if(idx>=PACK.length){ finishReveal(); return; }
+  const c=PACK[idx];
+  document.getElementById('boCounter').textContent=`Carte ${idx+1} / ${PACK.length}`;
+  const rare = (c.rarity==='legendary'||c.rarity==='mythic'||c.rarity==='secret');
+  const build=()=>{
+    cs.innerHTML = cardHTML(c);
+    const el=cs.querySelector('.rc'); void el.offsetWidth; el.classList.add('enter');
+    rays.classList.toggle('show', rare);
+    if(idx===PACK.length-1) document.getElementById('boHint').style.display='none';
+    if(idx===PACK.length-1 && (c.rarity==='legendary'||c.rarity==='mythic')){
+      const b=document.createElement('button'); b.className='bo-share-btn';
+      b.textContent='Partager mon drop';
+      b.onclick=(e)=>{ e.stopPropagation(); shareDrop(c); };
+      cs.appendChild(b);
+    }
+  };
+  if(rare){
+    _advLock=true;
+    sus.classList.remove('go'); void sus.offsetWidth; sus.classList.add('go');
+    rays.classList.remove('show');
+    setTimeout(()=>{ build(); sparkleBurst(14); _advLock=false; }, 750);
+  } else { build(); }
+}
+function nextCard(){ if(_advLock) return; idx++; showCard(); }
+function cardHTML(c){
+  const rcol=RCOL[c.rarity]||'#888', glow=RGLOW[c.rarity]||rcol;
+  const foil = (c.rarity==='legendary'||c.rarity==='mythic'||c.rarity==='secret') ? ' foil' : '';
+  const img = c.img
+    ? `<img src="${bEsc(c.img)}" alt="" onerror="this.outerHTML='<div class=\\'noimg\\'>🎴</div>'">`
+    : `<div class="noimg">🎴</div>`;
+  const elem = c.element ? `<img src="/cards/img/element/${bEsc(c.element)}" onerror="this.remove()">` : '';
+  const sub = c.subtitle ? ` · ${bEsc(c.subtitle)}` : '';
+  return `<div class="rc${foil}" style="--rcol:${rcol};--rglow:${glow}">
+    ${img}
+    <div class="rc-rarbadge" style="--rcol:${rcol}">${bEsc(RLABEL[c.rarity]||c.rarity)}</div>
+    <div class="rc-info">
+      <div class="rc-name">${bEsc(c.name)}</div>
+      <div class="rc-meta">${elem} ${bEsc(c.universe||'')}${sub}</div>
+    </div></div>`;
+}
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.crossOrigin='anonymous';
+  i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawCover(ctx,img,x,y,w,h){ const ir=img.width/img.height, tr=w/h; let sw,sh,sx,sy;
+  if(ir>tr){ sh=img.height; sw=sh*tr; sx=(img.width-sw)/2; sy=0; }
+  else { sw=img.width; sh=sw/tr; sx=0; sy=(img.height-sh)/2; }
+  ctx.drawImage(img,sx,sy,sw,sh,x,y,w,h); }
+async function makeShareImage(c){
+  const W=640,H=900, cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const g=ctx.createRadialGradient(W/2,H*0.35,80,W/2,H*0.5,H*0.75);
+  g.addColorStop(0,'#241038'); g.addColorStop(1,'#0a0610'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ffd9a8'; ctx.font='bold 30px system-ui,sans-serif'; ctx.textAlign='center';
+  ctx.fillText('TookBot Card Booster', W/2, 64);
+  const rcol=RCOL[c.rarity]||'#888', cardW=380, cardH=cardW*1.5, cx=(W-cardW)/2, cy=120;
+  ctx.save(); ctx.shadowColor=rcol; ctx.shadowBlur=45; roundRect(ctx,cx,cy,cardW,cardH,18);
+  ctx.fillStyle='#1a1320'; ctx.fill(); ctx.restore();
+  if(c.img){ try{ const im=await loadImg(c.img); ctx.save(); roundRect(ctx,cx,cy,cardW,cardH,18); ctx.clip();
+    drawCover(ctx,im,cx,cy,cardW,cardH); ctx.restore(); }catch(e){} }
+  ctx.lineWidth=4; ctx.strokeStyle=rcol; roundRect(ctx,cx,cy,cardW,cardH,18); ctx.stroke();
+  ctx.fillStyle=rcol; ctx.font='bold 19px system-ui'; ctx.textAlign='left';
+  ctx.fillText((RLABEL[c.rarity]||c.rarity).toUpperCase(), cx+12, cy+32);
+  ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='bold 34px system-ui';
+  ctx.fillText(c.name, W/2, cy+cardH+58);
+  ctx.fillStyle='#cdbfe0'; ctx.font='18px system-ui';
+  ctx.fillText('obtenu en ouvrant un TookBot Card Booster', W/2, cy+cardH+90);
+  return await new Promise(res=>cv.toBlob(res,'image/png'));
+}
+function boToast(msg){
+  let t=document.getElementById('boToast');
+  if(!t){ t=document.createElement('div'); t.id='boToast';
+    t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:10001;'
+      +'background:#1b1b1f;color:#fff;border:1px solid #3a3a40;border-radius:10px;padding:11px 18px;'
+      +'font-size:14px;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;';
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; }, 2600);
+}
+const _isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+async function shareDrop(c){
+  const text = `J'ai eu ${c.name} en ouvrant un TookBot Card Booster !`;
+  if(!_isTouch && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try{ await navigator.clipboard.write([ new ClipboardItem({ 'image/png': makeShareImage(c) }) ]);
+      boToast('Image copiée — colle-la (Ctrl+V) dans Discord ✓'); return; }catch(e){}
+  }
+  let blob=null; try{ blob = await makeShareImage(c); }catch(e){ blob=null; }
+  if(blob){
+    const file = new File([blob],'tookbot_drop.png',{type:'image/png'});
+    if(_isTouch && navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({ files:[file], text, title:'TookBot Card Booster' }); return; }
+      catch(e){ if(e&&e.name==='AbortError') return; }
+    }
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='tookbot_drop.png'; a.click(); URL.revokeObjectURL(url);
+    boToast('Image téléchargée ✓'); return;
+  }
+  try{ await navigator.clipboard.writeText(text); boToast('Texte copié ✓'); }catch(e){}
+}
+function finishReveal(){
+  const st=document.getElementById('boCardStage');
+  document.getElementById('boRays').classList.remove('show');
+  document.getElementById('boHint').style.display='none';
+  document.getElementById('boCounter').textContent='Booster ouvert !';
+  st.innerHTML = `<div style="text-align:center;color:#eadff5;">
+    <div style="font-size:30px;font-weight:900;margin-bottom:14px;">🎉 Booster ouvert</div>
+    <button class="bo-open-btn" onclick="event.stopPropagation(); closeBooster();">Fermer</button>
+  </div>`;
+  stage='idle';
+  if(window.refreshBoosterStatus) refreshBoosterStatus();
+}
+function closeBooster(){
+  document.getElementById('boOverlay').classList.remove('show');
+  stage='idle'; _advLock=false;
+}
+window.boosterPresent=boosterPresent; window.onBigClick=onBigClick;
+window.closeBooster=closeBooster; window.nextCard=nextCard; window.shareDrop=shareDrop;
+refreshBoosterStatus();
 </script>
 {% endblock %}

@@ -81,27 +81,58 @@ def register_cards_booster_routes(app, deps):
                 return send_file(f, mimetype="image/png", max_age=86400)
         return "", 404
 
-    @app.route("/api/owner/booster/open", methods=["POST"])
-    def api_owner_booster_open():
-        if not _is_owner_session():
-            return jsonify({"error": "owner only"}), 403
-        force = (request.json or {}).get("force") or ""   # '', 'legendary', 'mythic'
+    def _build_pack(force=None):
+        """Genere un paquet de 9 cartes (8 common/rare/epic, derniere epic+).
+        force in ('legendary','mythic') -> derniere carte forcee (test)."""
         cards = []
-        # 8 premieres : common/rare/epic
         for _ in range(PACK_SIZE - 1):
             rar = _weighted(_FILLER_WEIGHTS)
             c = _pick(rar) or _pick("common") or _pick("rare") or _pick("epic")
             p = _card_payload(c)
             if p:
                 cards.append(p)
-        # derniere : epic garantie (ou forcee legendaire/mythic pour le test)
         if force in ("legendary", "mythic"):
             last_rar = force
         else:
             last_rar = _weighted(_LAST_WEIGHTS)
         last = _pick(last_rar) or _pick("epic") or _pick("legendary") or _pick("mythic")
-        # si force mais aucune carte de cette rarete, on retombe sur epic+
         lp = _card_payload(last)
         if lp:
             cards.append(lp)
+        return cards
+
+    @app.route("/api/owner/booster/open", methods=["POST"])
+    def api_owner_booster_open():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        force = (request.json or {}).get("force") or ""   # '', 'legendary', 'mythic'
+        cards = _build_pack(force or None)
         return jsonify({"ok": True, "cards": cards, "size": len(cards)})
+
+    @app.route("/api/public/booster/open", methods=["POST"])
+    def api_public_booster_open():
+        # Booster quotidien gratuit (1/jour) : octroie REELLEMENT les cartes.
+        uid = _session_uid()
+        if not uid:
+            return jsonify({"error": "Connecte-toi pour ouvrir ton booster."}), 401
+        from database import (daily_booster_claimed_today, daily_booster_claim, user_card_add)
+        if daily_booster_claimed_today(uid):
+            return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
+        cards = _build_pack(None)
+        if not cards:
+            return jsonify({"error": "Booster indisponible pour le moment."}), 500
+        if not daily_booster_claim(uid):   # garde anti double-ouverture
+            return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
+        for c in cards:
+            try:
+                user_card_add(uid, c["id"])
+            except Exception:
+                pass
+        return jsonify({"ok": True, "cards": cards, "size": len(cards)})
+
+    @app.route("/api/public/booster/status", methods=["GET"])
+    def api_public_booster_status():
+        uid = _session_uid()
+        from database import daily_booster_claimed_today
+        return jsonify({"logged_in": bool(uid),
+                        "claimed": daily_booster_claimed_today(uid) if uid else False})
