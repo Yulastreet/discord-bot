@@ -249,7 +249,9 @@ def _user_can_access_page(endpoint, path):
     if path == "/cards" or path.startswith("/cards/") \
             or path.startswith("/api/public/cards") or path.startswith("/api/public/wheel") \
             or path.startswith("/api/public/guilds") \
-            or path.startswith("/api/public/collection"):
+            or path.startswith("/api/public/collection") \
+            or path.startswith("/api/public/booster") \
+            or path.startswith("/api/public/daily-roll"):
         return True
 
     # Pages "Mon compte" perso (premium, pass, guild boost) : tout user connecte y accede
