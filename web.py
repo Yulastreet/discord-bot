@@ -799,6 +799,7 @@ from web_app.routes.cards_owner import register_cards_owner_routes
 from web_app.routes.cards_events import register_cards_events_routes
 from web_app.routes.cards_shop import register_cards_shop_routes
 from web_app.routes.cards_boss import register_cards_boss_routes
+from web_app.routes.cards_booster import register_cards_booster_routes
 
 for _register_routes in (
     register_auth_routes, register_dashboard_routes, register_reaction_routes,
@@ -807,7 +808,7 @@ for _register_routes in (
     register_pass_routes, register_lol_scout_routes, register_bot_profile_routes,
     register_stripe_routes, register_cards_owner_routes,
     register_cards_events_routes, register_cards_shop_routes,
-    register_cards_boss_routes,
+    register_cards_boss_routes, register_cards_booster_routes,
 ):
     _register_routes(app, globals())
 
