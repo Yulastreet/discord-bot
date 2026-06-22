@@ -369,7 +369,9 @@ PUBLIC_NO_AUTH_PATHS = {"/", "/privacy", "/terms",
                         "/api/stripe/webhook"}
 PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/",
                            "/api/public-status/", "/uploads/bot_profile/",
-                           "/assets/power-digit/", "/cards/s/", "/cards/og-image")
+                           "/assets/power-digit/", "/cards/s/", "/cards/og-image",
+                           # combat live : la route gere elle-meme login + check participant
+                           "/cards/boss/", "/cards/img/")
 
 
 def _current_user_id():
