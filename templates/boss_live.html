@@ -158,6 +158,19 @@
   #endCard .sub{ font-size:18px; color:#e0d3f2; margin-top:12px; }
   .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
+  /* coffre (chargement des recompenses) */
+  .chest-wrap{ position:relative; display:grid; place-items:center; height:130px; margin:14px 0 6px; }
+  .chest{ font-size:92px; line-height:1; display:inline-block; filter:drop-shadow(0 6px 14px rgba(0,0,0,.6)); }
+  .chest.shake{ animation:chestShake 1.3s ease-in-out; }
+  @keyframes chestShake{ 0%,100%{transform:rotate(0)} 8%{transform:rotate(-10deg)} 18%{transform:rotate(10deg)}
+    28%{transform:rotate(-8deg)} 38%{transform:rotate(8deg)} 50%{transform:rotate(-6deg) scale(1.05)}
+    62%{transform:rotate(6deg)} 74%{transform:rotate(-4deg) scale(1.1)} 86%{transform:rotate(3deg) scale(1.14)} }
+  .chest.open{ animation:chestOpen .55s cubic-bezier(.3,1.5,.5,1) forwards; }
+  @keyframes chestOpen{ 0%{transform:scale(1.14)} 45%{transform:scale(1.55) translateY(-8px)} 100%{transform:scale(1.25)} }
+  .burst{ position:absolute; width:30px; height:30px; border-radius:50%; opacity:0;
+    background:radial-gradient(circle, rgba(255,225,140,.95), rgba(255,200,80,.4) 40%, transparent 70%); }
+  .burst.go{ animation:burst .6s ease-out forwards; }
+  @keyframes burst{ 0%{opacity:0; transform:scale(.3)} 30%{opacity:1} 100%{opacity:0; transform:scale(11)} }
 
   /* ===== PANNEAU JOUEUR (gauche) ===== */
   #myPanel{ display:none; position:fixed; left:16px; top:64px; width:404px; max-height:88vh;
@@ -450,20 +463,29 @@ function playEvent(ev){
 }
 
 let dead = false;
+let pendingRewards = null, chestDone = false;
 function showEnd(victory){
   if(ended) return; ended = true;
   const ov=document.getElementById('endOverlay');
   const c=document.getElementById('endCard');
   c.className = victory ? 'victory' : 'defeat';
-  c.innerHTML = victory
-    ? `<div class="big">🎉 VICTOIRE</div><div class="sub">Récompenses en cours…</div>`
-    : `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
-  ov.classList.add('show');
-  // defaite : pas de recompenses -> on lance le compte a rebours tout de suite.
-  // victoire : le compteur demarre quand les recompenses s'affichent (renderRewards).
-  if(!victory) startKill();
+  if(victory){
+    c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+      <div class="chest-wrap"><div class="burst" id="burst"></div><div class="chest shake" id="chest">🎁</div></div>
+      <div class="sub" id="chestSub">Ouverture du butin…</div>`;
+    ov.classList.add('show');
+    const chest=document.getElementById('chest');
+    setTimeout(()=>{ chest.classList.remove('shake'); chest.classList.add('open');
+      chest.textContent='🎉'; document.getElementById('burst').classList.add('go'); }, 1300);
+    setTimeout(()=>{ chestDone=true; if(pendingRewards) renderRewards(pendingRewards); }, 1900);
+  } else {
+    c.innerHTML = `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
+    ov.classList.add('show');
+    startKill();
+  }
 }
 function renderRewards(data){
+  if(!chestDone){ pendingRewards = data; return; }   // attend la fin de l'animation du coffre
   const c=document.getElementById('endCard');
   c.className='victory';
   const rows=(data.players||[]).map(p=>`
