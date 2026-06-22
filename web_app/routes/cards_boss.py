@@ -33,6 +33,19 @@ def register_cards_boss_routes(app, deps):
             return "", 404
         return send_file(f, mimetype="image/png", max_age=86400)
 
+    _CR_DIR = _os.path.join(_ROOT, "assets", "cardrelated")
+
+    @app.route("/cards/img/chest/<state>", methods=["GET"])
+    def cards_img_chest(state):
+        state = "".join(ch for ch in str(state) if ch.isalpha()).lower()
+        fname = {"close": "chestclose.png", "open": "chestopen.png"}.get(state)
+        if not fname:
+            return "", 404
+        f = _os.path.join(_CR_DIR, fname)
+        if not _os.path.exists(f):
+            return "", 404
+        return send_file(f, mimetype="image/png", max_age=86400)
+
     @app.route("/cards/img/rarity/<key>", methods=["GET"])
     def cards_img_rarity(key):
         key = "".join(ch for ch in str(key) if ch.isalnum()).lower()

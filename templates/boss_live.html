@@ -168,8 +168,8 @@
   .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
   /* coffre (chargement des recompenses) */
-  .chest-wrap{ position:relative; display:grid; place-items:center; height:130px; margin:14px 0 6px; }
-  .chest{ font-size:92px; line-height:1; display:inline-block; filter:drop-shadow(0 6px 14px rgba(0,0,0,.6)); }
+  .chest-wrap{ position:relative; display:grid; place-items:center; height:150px; margin:16px 0 8px; }
+  .chest{ height:140px; width:auto; display:inline-block; filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
   .chest.shake{ animation:chestShake 1.3s ease-in-out; }
   @keyframes chestShake{ 0%,100%{transform:rotate(0)} 8%{transform:rotate(-10deg)} 18%{transform:rotate(10deg)}
     28%{transform:rotate(-8deg)} 38%{transform:rotate(8deg)} 50%{transform:rotate(-6deg) scale(1.05)}
@@ -516,13 +516,15 @@ function showEnd(victory){
   c.className = victory ? 'victory' : 'defeat';
   if(victory){
     c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
-      <div class="chest-wrap"><div class="burst" id="burst"></div><div class="chest shake" id="chest">🎁</div></div>
+      <div class="chest-wrap"><div class="burst" id="burst"></div>
+        <img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
       <div class="sub" id="chestSub">Ouverture du butin…</div>`;
     ov.classList.add('show');
     const chest=document.getElementById('chest');
+    // 1) secoue (1.3s) -> 2) s'ouvre (swap image + burst) -> 3) ~1.5s plus tard : recompenses
     setTimeout(()=>{ chest.classList.remove('shake'); chest.classList.add('open');
-      chest.textContent='🎉'; document.getElementById('burst').classList.add('go'); }, 1300);
-    setTimeout(()=>{ chestDone=true; if(pendingRewards) renderRewards(pendingRewards); }, 1900);
+      chest.src='/cards/img/chest/open'; document.getElementById('burst').classList.add('go'); }, 1300);
+    setTimeout(()=>{ chestDone=true; if(pendingRewards) renderRewards(pendingRewards); }, 2800);
   } else {
     c.innerHTML = `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
     ov.classList.add('show');
