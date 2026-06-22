@@ -53,20 +53,28 @@
   @keyframes boFlash{ 0%{opacity:0; transform:scale(.3)} 30%{opacity:1} 100%{opacity:0; transform:scale(16)} }
 
   /* trait de decoupe (juste avant l'ouverture) */
-  .bo-cut{ position:fixed; height:3px; z-index:23; pointer-events:none; transform:scaleX(0);
-    transform-origin:left center; border-radius:2px;
+  .bo-cut{ position:fixed; height:6px; z-index:23; pointer-events:none; transform:scaleX(0);
+    transform-origin:left center; border-radius:3px;
     background:linear-gradient(90deg, transparent, #fff, #ffe7a0, #fff, transparent);
-    box-shadow:0 0 10px #fff, 0 0 20px #ffd23f; }
-  .bo-cut.go{ animation:boCut .24s ease-out forwards; }
-  @keyframes boCut{ 0%{transform:scaleX(0); opacity:1} 78%{transform:scaleX(1); opacity:1}
+    box-shadow:0 0 16px #fff, 0 0 34px #ffd23f, 0 0 50px #ffae3d; }
+  .bo-cut.go{ animation:boCut .28s ease-out forwards; }
+  @keyframes boCut{ 0%{transform:scaleX(0); opacity:1} 80%{transform:scaleX(1); opacity:1}
     100%{transform:scaleX(1); opacity:0} }
 
-  /* bouton partager (carte finale rare) */
-  .bo-share-btn{ position:absolute; bottom:22px; left:50%; transform:translateX(-50%); z-index:26;
-    padding:11px 22px; border-radius:12px; border:none; cursor:pointer; font-weight:800; font-size:15px;
-    background:linear-gradient(135deg,#ffd23f,#ff8a1f); color:#2a1500;
-    box-shadow:0 8px 24px rgba(255,160,40,.4); }
-  .bo-share-btn:hover{ filter:brightness(1.07); }
+  /* bouton partager (carte finale rare) : brillant, sans emoji */
+  .bo-share-btn{ position:absolute; bottom:74px; left:50%; transform:translateX(-50%); z-index:26;
+    padding:13px 30px; border-radius:13px; border:none; cursor:pointer; font-weight:900; font-size:16px;
+    letter-spacing:.4px; color:#2a1500; overflow:hidden;
+    background:linear-gradient(135deg,#ffe27a,#ffb13d,#ff8a1f);
+    box-shadow:0 8px 26px rgba(255,160,40,.5), 0 0 0 1px rgba(255,255,255,.25) inset;
+    animation:boBtnGlow 2s ease-in-out infinite; }
+  .bo-share-btn::after{ content:''; position:absolute; top:0; left:-60%; width:50%; height:100%;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent);
+    transform:skewX(-20deg); animation:boBtnShine 2.4s ease-in-out infinite; }
+  @keyframes boBtnGlow{ 0%,100%{box-shadow:0 8px 26px rgba(255,160,40,.45)}
+    50%{box-shadow:0 8px 34px rgba(255,200,80,.85)} }
+  @keyframes boBtnShine{ 0%{left:-60%} 55%,100%{left:140%} }
+  .bo-share-btn:hover{ filter:brightness(1.08); }
 
   /* sparkles */
   .spark{ position:absolute; z-index:22; font-size:20px; pointer-events:none;
@@ -199,7 +207,7 @@ async function openBooster(){
         big.classList.add('opened');
         setTimeout(()=>{ big.style.display='none'; startReveal(); }, 600);
       }, 650);
-    }, 240);
+    }, 430);
   }, 1200);
 }
 
@@ -249,10 +257,12 @@ function showCard(){
     const el=stage.querySelector('.rc');
     void el.offsetWidth; el.classList.add('enter');
     rays.classList.toggle('show', rare);
-    // derniere carte legendaire/mythic -> bouton partager
+    // derniere carte : plus de "carte suivante" -> on cache le hint
+    if(idx===PACK.length-1) document.getElementById('boHint').style.display='none';
+    // derniere carte legendaire/mythic -> bouton partager (brillant, sans emoji)
     if(idx===PACK.length-1 && (c.rarity==='legendary'||c.rarity==='mythic')){
       const b=document.createElement('button'); b.className='bo-share-btn';
-      b.textContent='📤 Partager mon drop';
+      b.textContent='Partager mon drop';
       b.onclick=(e)=>{ e.stopPropagation(); shareDrop(c); };
       stage.appendChild(b);
     }
@@ -325,20 +335,39 @@ async function makeShareImage(c){
   ctx.fillText('obtenu en ouvrant un TookBot Card Booster', W/2, cy+cardH+90);
   return await new Promise(res=>cv.toBlob(res,'image/png'));
 }
+function boToast(msg){
+  let t=document.getElementById('boToast');
+  if(!t){ t=document.createElement('div'); t.id='boToast';
+    t.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:10001;'
+      +'background:#1b1b1f;color:#fff;border:1px solid #3a3a40;border-radius:10px;padding:11px 18px;'
+      +'font-size:14px;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;';
+    document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity='1'; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; }, 2600);
+}
+async function copyImage(blob){
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]); return true; }
+  catch(e){ return false; }
+}
 async function shareDrop(c){
   const text = `J'ai eu ${c.name} en ouvrant un TookBot Card Booster !`;
   let blob=null;
   try{ blob = await makeShareImage(c); }catch(e){ blob=null; }
   if(blob){
     const file = new File([blob],'tookbot_drop.png',{type:'image/png'});
+    // mobile / apps : partage natif de l'image
     if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({ files:[file], text, title:'TookBot Card Booster' }); return; }catch(e){ if(e&&e.name==='AbortError') return; }
+      try{ await navigator.share({ files:[file], text, title:'TookBot Card Booster' }); return; }
+      catch(e){ if(e&&e.name==='AbortError') return; }
     }
+    // desktop : copie l'IMAGE dans le presse-papier (+ telechargement de secours)
+    const copied = await copyImage(blob);
+    if(copied){ boToast('Image copiée dans le presse-papier ✓'); return; }
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download='tookbot_drop.png'; a.click(); URL.revokeObjectURL(url);
+    boToast('Image téléchargée ✓');
+    return;
   }
-  try{ await navigator.clipboard.writeText(text); }catch(e){}
-  alert('Image téléchargée + texte copié :\n' + text);
+  try{ await navigator.clipboard.writeText(text); boToast('Texte copié ✓'); }catch(e){}
 }
 window.shareDrop=shareDrop;
 
