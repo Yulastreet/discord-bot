@@ -127,6 +127,7 @@
   let timerStarted = false;
   const CELL = 150;
 
+  const WICON = { roll:'🎟️', essence:'✨', epic_card:'🟣', golden_roll:'🌈', mythic_fragment:'🔴' };
   function findReward(type, value){ return REWARDS.find(r => r.type===type && r.value==value); }
   function showGain(type, value){
     const rw = findReward(type, value) || {type, value, color:'var(--accent)',
@@ -134,7 +135,7 @@
     const g = document.getElementById('whGain');
     g.style.display = 'flex';
     g.style.borderColor = rw.color;
-    g.querySelector('.gic').textContent = rw.type==='roll' ? '🎟️' : '✨';
+    g.querySelector('.gic').textContent = WICON[rw.type] || '✨';
     g.querySelector('.glb').innerHTML = `<span style="color:${rw.color}">${esc(rw.label)}</span>`
       + (rw.type==='essence' ? ' <span style="font-size:14px;color:var(--text-2);font-weight:600">sur tes gains du jour</span>' : '');
   }
@@ -162,7 +163,7 @@
   }
 
   function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function icon(r){ return r.type === 'roll' ? '🎟️' : '✨'; }
+  function icon(r){ return WICON[r.type] || '✨'; }
 
   function cellHtml(r){
     return `<div class="wh-cell" style="background:linear-gradient(160deg, ${r.color}33, ${r.color}11); border-bottom:3px solid ${r.color};">

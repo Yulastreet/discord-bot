@@ -30,14 +30,14 @@ _COLLECTION_OG_HTML = """<!DOCTYPE html>
 # Recompenses de la roue quotidienne. Plus la valeur est forte, plus le poids est
 # faible (donc rare). Les chances affichees = weight / somme des weights.
 _WHEEL_REWARDS = [
-    {"type": "essence", "value": 2,  "weight": 30, "label": "+2% essences",  "color": "#9aa0a6"},
-    {"type": "essence", "value": 5,  "weight": 20, "label": "+5% essences",  "color": "#4cb5f9"},
-    {"type": "roll",    "value": 2,  "weight": 18, "label": "+2 rolls",      "color": "#7bdc6b"},
-    {"type": "essence", "value": 10, "weight": 12, "label": "+10% essences", "color": "#a86dff"},
-    {"type": "roll",    "value": 3,  "weight": 10, "label": "+3 rolls",      "color": "#2ec16b"},
-    {"type": "essence", "value": 20, "weight": 5,  "label": "+20% essences", "color": "#ffa726"},
-    {"type": "roll",    "value": 5,  "weight": 4,  "label": "+5 rolls",      "color": "#ff9f43"},
-    {"type": "roll",    "value": 10, "weight": 1,  "label": "+10 rolls",     "color": "#ff3d57"},
+    {"type": "essence",         "value": 2,  "weight": 30, "label": "+2% essences",        "color": "#9aa0a6"},
+    {"type": "essence",         "value": 5,  "weight": 20, "label": "+5% essences",        "color": "#4cb5f9"},
+    {"type": "epic_card",       "value": 1,  "weight": 18, "label": "Roll Épique garanti", "color": "#a86dff"},
+    {"type": "essence",         "value": 10, "weight": 12, "label": "+10% essences",       "color": "#a86dff"},
+    {"type": "epic_card",       "value": 3,  "weight": 10, "label": "3 Rolls Épique",      "color": "#b06bf2"},
+    {"type": "essence",         "value": 20, "weight": 5,  "label": "+20% essences",       "color": "#ffa726"},
+    {"type": "golden_roll",     "value": 1,  "weight": 4,  "label": "Golden Roll",         "color": "#ffd23f"},
+    {"type": "mythic_fragment", "value": 1,  "weight": 1,  "label": "Fragment Mythic",     "color": "#ff3d57"},
 ]
 
 
@@ -740,8 +740,19 @@ def register_cards_owner_routes(app, deps):
         # Enregistre (anti double-spin) AVANT d'octroyer
         if not wheel_record(uid, won["type"], won["value"]):
             return jsonify({"error": "Tu as deja tourne la roue aujourd'hui."}), 400
-        if won["type"] == "essence":
+        wtype = won["type"]
+        if wtype == "essence":
             essence_bonus_set(uid, won["value"])
+        elif wtype == "epic_card":
+            # roll(s) epique garanti(s) : cartes epic directes
+            from database import card_pick_random_exact_rarity, user_card_add
+            for _ in range(int(won["value"])):
+                c = card_pick_random_exact_rarity("epic")
+                if c:
+                    user_card_add(uid, c["id"])
+        elif wtype in ("golden_roll", "mythic_fragment"):
+            from database import user_item_add
+            user_item_add(uid, wtype, int(won["value"]))
         else:
             roll_give_user(uid, won["value"])
         wheel_win_log(uid, won["type"], won["value"])  # journal du feed en direct
