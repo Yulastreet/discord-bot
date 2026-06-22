@@ -498,7 +498,7 @@ function showCard(){
   const cs=document.getElementById('boCardStage');
   const sus=document.getElementById('boSuspense');
   const rays=document.getElementById('boRays');
-  if(idx>=PACK.length){ finishReveal(); return; }
+  if(idx>=PACK.length){ closeBooster(); return; }   // apres la derniere carte : on sort
   const c=PACK[idx];
   document.getElementById('boCounter').textContent=`Carte ${idx+1} / ${PACK.length}`;
   const rare = (c.rarity==='legendary'||c.rarity==='mythic'||c.rarity==='secret');
@@ -506,7 +506,11 @@ function showCard(){
     cs.innerHTML = cardHTML(c);
     const el=cs.querySelector('.rc'); void el.offsetWidth; el.classList.add('enter');
     rays.classList.toggle('show', rare);
-    if(idx===PACK.length-1) document.getElementById('boHint').style.display='none';
+    if(idx===PACK.length-1){
+      document.getElementById('boHint').style.display='none';
+      // derniere carte : verrou 4s (clic dehors ne ferme pas), puis clic = sortie
+      _advLock=true; setTimeout(()=>{ _advLock=false; }, 4000);
+    }
     if(idx===PACK.length-1 && (c.rarity==='legendary'||c.rarity==='mythic')){
       const b=document.createElement('button'); b.className='bo-share-btn';
       b.textContent='Partager mon drop';
@@ -518,7 +522,7 @@ function showCard(){
     _advLock=true;
     sus.classList.remove('go'); void sus.offsetWidth; sus.classList.add('go');
     rays.classList.remove('show');
-    setTimeout(()=>{ build(); sparkleBurst(14); _advLock=false; }, 750);
+    setTimeout(()=>{ build(); sparkleBurst(14); if(idx!==PACK.length-1) _advLock=false; }, 750);
   } else { build(); }
 }
 function nextCard(){ if(_advLock) return; idx++; showCard(); }
@@ -611,6 +615,7 @@ function finishReveal(){
 function closeBooster(){
   document.getElementById('boOverlay').classList.remove('show');
   stage='idle'; _advLock=false;
+  updateBoosterUI();   // pack grise + "deja ouvert" apres ouverture
 }
 window.boosterPresent=boosterPresent; window.onBigClick=onBigClick;
 window.closeBooster=closeBooster; window.nextCard=nextCard; window.shareDrop=shareDrop;
