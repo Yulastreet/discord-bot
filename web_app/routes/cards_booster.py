@@ -56,10 +56,19 @@ def register_cards_booster_routes(app, deps):
         fname = {"close": "boosterclose.png", "open": "boosteropen.png"}.get(state)
         if not fname:
             return "", 404
-        f = _os.path.join(_BOOSTER_DIR, fname)
-        if not _os.path.exists(f):
-            return "", 404
-        return send_file(f, mimetype="image/png", max_age=86400)
+        # plusieurs racines candidates (robuste au cwd/__file__ de prod)
+        roots = [_ROOT]
+        try:
+            from services.card_render import _ROOT as _CR_ROOT
+            roots.append(_CR_ROOT)
+        except Exception:
+            pass
+        roots.append(_os.getcwd())
+        for root in roots:
+            f = _os.path.join(root, "assets", "cardrelated", "booster", fname)
+            if _os.path.exists(f):
+                return send_file(f, mimetype="image/png", max_age=86400)
+        return "", 404
 
     @app.route("/api/owner/booster/open", methods=["POST"])
     def api_owner_booster_open():
