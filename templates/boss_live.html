@@ -368,8 +368,10 @@ function tBeam(fromEl, toEl, color){
   const svg=document.getElementById('fx'), ns='http://www.w3.org/2000/svg';
   const [x1,y1]=centerOf(fromEl); let [x2,y2]=centerOf(toEl);
   const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy)||1;
-  const back=(toEl.getBoundingClientRect().height/2)+24;   // marge avant la carte
-  const k=Math.max(0,(len-back))/len; x2=x1+dx*k; y2=y1+dy*k;
+  // marge avant la carte : basee sur la largeur (cartes cote a cote) + cap a 40%
+  // de la distance -> jamais d'effondrement quand les cartes sont proches.
+  const back=Math.min((toEl.getBoundingClientRect().width/2)+16, len*0.4);
+  const k=Math.max(0.05,(len-back))/len; x2=x1+dx*k; y2=y1+dy*k;
   const ln=document.createElementNS(ns,'line');
   ln.setAttribute('x1',x1); ln.setAttribute('y1',y1); ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
   ln.setAttribute('stroke',color); ln.setAttribute('stroke-width','7'); ln.setAttribute('stroke-linecap','round');
@@ -647,6 +649,9 @@ async function tick(){
       return;   // startKill (via showEnd) fermera la page
     }
     firstLoad = false;
+    // ordre STABLE par uid : la liste backend peut changer d'ordre (tri par degats),
+    // on ne veut pas que les cartes s'echangent de place (ex: a la mort d'un membre).
+    d.players.sort((a,b)=>String(a.uid).localeCompare(String(b.uid)));
     // rebuild si la compo change (joueur rejoint, change de carte / element / aptitude)
     const sig = d.players.map(p=>`${p.uid}:${p.img||''}:${p.element}:${p.aptitude}:${p.max_hp}:${p.has_border?1:0}`).join('|');
     if(!built || sig !== lastSig){ buildPlayers(d.players); lastSig = sig; }
