@@ -151,9 +151,11 @@
   #endOverlay{ position:fixed; inset:0; z-index:80; display:none; place-items:center;
     background:rgba(5,3,10,.82); backdrop-filter:blur(3px); }
   #endOverlay.show{ display:grid; }
-  #endCard{ text-align:center; }
-  #endCard .big{ font-size:54px; font-weight:900; }
-  #endCard .sub{ font-size:16px; color:#cdbfe0; margin-top:10px; }
+  #endCard{ text-align:center; background:rgba(20,13,30,.92); border:1px solid #5a4570;
+    border-radius:18px; padding:26px 30px; box-shadow:0 18px 60px rgba(0,0,0,.7);
+    max-width:min(620px,92vw); }
+  #endCard .big{ font-size:64px; font-weight:900; }
+  #endCard .sub{ font-size:18px; color:#e0d3f2; margin-top:12px; }
   .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
 
@@ -194,14 +196,14 @@
   .mp-pager button:disabled{ opacity:.35; cursor:default; }
   .mp-msg{ margin-top:10px; font-size:14px; min-height:18px; font-weight:700; }
   .mp-msg.ok{ color:#7ee0a3; } .mp-msg.err{ color:#ff8aa0; }
-  .rw-hdr{ font-size:15px; color:#ffe3a3; margin:10px 0 14px; font-weight:700; }
-  .rw-list{ display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto;
-    width:min(440px,88vw); margin:0 auto; }
-  .rw-row{ background:rgba(255,255,255,.05); border:1px solid #3a2b48; border-radius:10px;
-    padding:8px 12px; text-align:left; }
-  .rw-head{ font-size:14px; }
-  .rw-head .rw-dmg{ float:right; color:#9a86b3; font-size:12px; font-weight:600; }
-  .rw-items{ font-size:13px; color:#cfe8d6; margin-top:3px; }
+  .rw-hdr{ font-size:18px; color:#ffe3a3; margin:14px 0 18px; font-weight:800; }
+  .rw-list{ display:flex; flex-direction:column; gap:11px; max-height:54vh; overflow-y:auto;
+    width:min(560px,90vw); margin:0 auto; }
+  .rw-row{ background:rgba(255,255,255,.08); border:1px solid #5a4570; border-radius:12px;
+    padding:13px 16px; text-align:left; }
+  .rw-head{ font-size:17px; font-weight:700; }
+  .rw-head .rw-dmg{ float:right; color:#c2b0db; font-size:14px; font-weight:600; }
+  .rw-items{ font-size:15.5px; color:#d7f3df; margin-top:7px; font-weight:600; }
 </style>
 </head>
 <body>
