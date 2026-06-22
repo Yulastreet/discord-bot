@@ -8,7 +8,7 @@
   :root{ --gold:#c9a24b; --red:#ff3d57; --green:#4ade80;
     /* tailles pilotees par la HAUTEUR de l'ecran -> jamais coupe (focus PC) */
     --ph: clamp(160px, 25vh, 320px); --pw: calc(var(--ph) * 0.6667);
-    --bh: clamp(230px, 45vh, 500px); --bw: calc(var(--bh) * 0.6667); }
+    --bh: clamp(200px, 37vh, 420px); --bw: calc(var(--bh) * 0.6667); }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
   body{ font-family:'Segoe UI',system-ui,sans-serif; color:#f1eadf; overflow:hidden;
@@ -57,16 +57,16 @@
   #bossSub .eico{ width:18px; height:18px; vertical-align:-4px; }
   .pc-stats{ font-size:13px; font-weight:800; text-align:center; margin-top:4px; color:#ffd9a8; }
   .pc-power{ text-align:center; margin-top:4px; font-size:13px; }
-  .pc-power .pd{ height:15px; vertical-align:-2px; }
+  .pc-power .pd{ height:16px; vertical-align:-3px; }
   body.fighting .pc-power{ display:none; }   /* combat lance : plus de puissance par membre */
   /* bloc puissance au milieu (equipe + boss), toujours visible */
-  #powerCenter{ position:fixed; top:41%; left:50%; transform:translate(-50%,-50%); z-index:30;
-    pointer-events:none; text-align:center; display:flex; flex-direction:column; gap:7px; }
-  .pwc-row{ display:flex; align-items:center; justify-content:center; gap:9px; }
-  .pwc-tag{ font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#bba6d6; }
-  .pwc-tag.boss{ color:#ff8aa0; }
-  #powerCenter .pw{ display:inline-flex; align-items:center; }
-  #powerCenter .pd{ height:28px; vertical-align:middle; }
+  #powerCenter{ display:flex; flex-direction:column; gap:6px; align-items:center; margin-bottom:14px; }
+  .pwc-row{ display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:5px 16px; border-radius:12px; background:rgba(0,0,0,.4); border:1px solid; }
+  .pwc-row.team{ border-color:rgba(74,222,128,.4); box-shadow:0 0 14px rgba(74,222,128,.15); }
+  .pwc-row.boss{ border-color:rgba(255,61,87,.4); box-shadow:0 0 14px rgba(255,61,87,.15); }
+  .pwc-ico{ font-size:22px; line-height:1; }
+  #powerCenter .pd{ height:34px; vertical-align:middle; }
   .pw{ display:inline-flex; align-items:center; gap:0; }
   .pd{ object-fit:contain; width:auto; }
   .pc-hp{ position:relative; width:100%; height:19px; border-radius:7px; background:#241a30; overflow:hidden;
@@ -237,6 +237,10 @@
 <div id="arena">
   <div id="team"></div>
   <div id="bossWrap">
+    <div id="powerCenter">
+      <div class="pwc-row team"><span class="pwc-ico">🛡️</span><span class="pw" id="pwTeam"></span></div>
+      <div class="pwc-row boss"><span class="pwc-ico">🐲</span><span class="pw" id="pwBoss"></span></div>
+    </div>
     <div id="bossInfo">
       <div id="bossName">{{ boss_name }}</div>
       <div id="bossSub"></div>
@@ -263,11 +267,6 @@
   <div class="mp-pager"><button onclick="cardPage(-1)">◀</button>
     <span id="cardPageNo">1 / 1</span><button onclick="cardPage(1)">▶</button></div>
   <div id="mpMsg" class="mp-msg"></div>
-</div>
-
-<div id="powerCenter">
-  <div class="pwc-row"><span class="pwc-tag">⚡ Puissance équipe</span><span class="pw" id="pwTeam"></span></div>
-  <div class="pwc-row"><span class="pwc-tag boss">⚡ Puissance boss</span><span class="pw" id="pwBoss"></span></div>
 </div>
 
 <svg id="fx"></svg>
@@ -328,19 +327,17 @@ function buildPlayers(players){
     const wrapCls = p.has_border ? 'pc-img-wrap bordered' : 'pc-img-wrap';
     const aptTag = p.aptitude
       ? `<span class="tag apt">${APT_EMOJI[p.aptitude]||''} ${esc(APT_LABEL[p.aptitude]||p.aptitude)}</span>` : '';
-    const rarTag = p.rarity
-      ? `<span class="tag rar">${rIco(p.rarity)} ${esc(RAR_LABEL[p.rarity]||p.rarity)}</span>` : '';
     el.innerHTML = `<div class="${wrapCls}">${img}
         <div class="pc-flash red"></div><div class="pc-flash green"></div>
         <div class="ko-skull">💀</div></div>
       <div class="pc-name">${esc(p.name)}</div>
       <div class="pc-tags">
         <span class="tag elem">${eIco(p.element)} ${esc(ELEM_LABEL[p.element]||p.element||'?')}</span>
-        ${rarTag}${aptTag}
+        ${aptTag}
       </div>
+      <div class="pc-power">⚡ <span class="pw">${powerImgs(p.power,false)}</span></div>
       <div class="pc-hp"><i></i><span class="hpv">❤️ ${fmtShort(p.hp)}</span></div>
-      <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>
-      <div class="pc-power">⚡ <span class="pw">${powerImgs(p.power,false)}</span></div>`;
+      <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>`;
     team.appendChild(el);
     P[p.uid] = { el, card: el.querySelector('.pc-img-wrap'), bar: el.querySelector('.pc-hp > i'),
                  hpv: el.querySelector('.hpv'), name: p.name };
