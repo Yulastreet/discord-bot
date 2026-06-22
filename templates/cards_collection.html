@@ -40,7 +40,25 @@
 
   /* CARTE (cellule) partagee binder + simple */
   .cc { position:relative; border-radius:10px; overflow:hidden; background:var(--bg-2);
-        border:2px solid var(--rcol,#3a3a3a); aspect-ratio: 2/3; }
+        border:2px solid var(--rcol,#3a3a3a); aspect-ratio: 2/3; cursor:pointer; }
+  .cc:hover { filter:brightness(1.08); }
+
+  /* ===== ZOOM CARTE (clic) ===== */
+  .card-zoom { position:fixed; inset:0; z-index:300; display:none; place-items:center;
+       background:rgba(0,0,0,.84); backdrop-filter:blur(4px); }
+  .card-zoom.open { display:grid; }
+  .cz-inner { display:flex; flex-direction:column; align-items:center; gap:14px;
+       max-height:96vh; padding:16px; }
+  .cz-img { max-height:62vh; max-width:88vw; border-radius:14px; cursor:grab; will-change:transform;
+       box-shadow:0 22px 60px rgba(0,0,0,.7); user-select:none; -webkit-user-drag:none; touch-action:none; }
+  .cz-img.grabbing { cursor:grabbing; }
+  .cz-detail { background:var(--bg-1); border:1px solid var(--border); border-radius:12px;
+       padding:13px 20px; min-width:240px; max-width:88vw; text-align:center;
+       box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  .cz-name { font-size:18px; font-weight:900; margin-bottom:8px; }
+  .cz-rows { display:flex; flex-direction:column; gap:4px; font-size:13.5px; }
+  .cz-rows .lbl { color:var(--text-2); margin-right:5px; }
+  .cz-hint { color:var(--text-3); font-size:11px; margin-top:8px; }
   .cc img { width:100%; height:100%; object-fit:cover; display:block; }
   .cc .noimg { width:100%; height:100%; display:grid; place-items:center; color:var(--text-3); font-size:24px; }
   .cc .nm { position:absolute; left:0; right:0; bottom:0; padding:4px 6px; font-size:10px; font-weight:700;
@@ -169,6 +187,18 @@
   <div id="colEmpty" class="col-empty" style="display:none;"></div>
 </div>
 
+<!-- ZOOM : clic sur une carte -> grande carte deplacable + detail -->
+<div class="card-zoom" id="cardZoom" onclick="if(event.target===this)closeCard()">
+  <div class="cz-inner">
+    <img class="cz-img" id="czImg" src="" alt="">
+    <div class="cz-detail">
+      <div class="cz-name" id="czName"></div>
+      <div class="cz-rows" id="czRows"></div>
+      <div class="cz-hint">Glisse la carte · clique en dehors pour fermer</div>
+    </div>
+  </div>
+</div>
+
 <script>
 const TARGET_UID = "{{ target_user_id }}";
 // URL perso dans la barre : si on est sur /cards/collection generique, on reecrit
@@ -195,7 +225,11 @@ function cardCell(c){
   const img = c.img ? `<img src="${esc(c.img)}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\'noimg\\'>🃏</div>'">` : `<div class="noimg">🃏</div>`;
   const cnt = c.count > 1 ? `<span class="cnt">×${c.count}</span>` : '';
   const st = c.stars > 0 ? `<span class="st">${'⭐'.repeat(Math.min(5,c.stars))}</span>` : '';
-  return `<div class="cc" style="--rcol:${rcol}" title="${esc(c.name)} · ${esc((c.rarity||'').toUpperCase())}${c.origine?' · '+esc(c.origine):''}">
+  return `<div class="cc" style="--rcol:${rcol}" onclick="openCard(this)"
+    data-img="${esc(c.img||'')}" data-name="${esc(c.name||'')}" data-rarity="${esc(c.rarity||'')}"
+    data-origine="${esc(c.origine||'')}" data-univers="${esc(c.univers||'')}"
+    data-element="${esc(c.element||'')}" data-stars="${c.stars||0}"
+    title="${esc(c.name)} · ${esc((c.rarity||'').toUpperCase())}${c.origine?' · '+esc(c.origine):''}">
     ${img}${cnt}${st}<div class="nm">${esc(c.name)}</div></div>`;
 }
 
@@ -356,5 +390,46 @@ async function shareSend(){
   else { try{ await navigator.clipboard.writeText(url); }catch(_){ } shareToast('Partage non dispo ici — lien copié ✓'); }
 }
 window.toggleShare=toggleShare; window.shareCopy=shareCopy; window.shareSend=shareSend;
+
+/* ===== ZOOM CARTE ===== */
+const RAR_EMOJI  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴', secret:'🌈' };
+const RAR_LABEL  = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
+const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', neant:'🕳' };
+const ELEM_LABEL = { eclat:'Éclat', abysse:'Abysse', fracture:'Fracture', vif:'Vif', neant:'Néant' };
+
+const _dz = { x:0, y:0, down:false, sx:0, sy:0 };
+function openCard(el){
+  const d = el.dataset;
+  const img = document.getElementById('czImg');
+  _dz.x = 0; _dz.y = 0; img.style.transform = 'translate(0,0)';
+  if(d.img){ img.src = d.img; img.style.display='block';
+    img.onerror = ()=>{ img.style.display='none'; }; }
+  else { img.style.display='none'; }
+  document.getElementById('czName').textContent = d.name || '?';
+  const rar = d.rarity || '';
+  const elem = d.element || '';
+  const stars = parseInt(d.stars,10) || 0;
+  const rows = [];
+  if(d.origine) rows.push(`<div><span class="lbl">Origine :</span> ${esc(d.origine)}</div>`);
+  if(d.univers) rows.push(`<div><span class="lbl">Univers :</span> ${esc(d.univers)}</div>`);
+  if(elem) rows.push(`<div><span class="lbl">Élément :</span> ${ELEM_EMOJI[elem]||''} ${esc(ELEM_LABEL[elem]||elem)}</div>`);
+  if(rar) rows.push(`<div><span class="lbl">Rareté :</span> ${RAR_EMOJI[rar]||'⚪'} ${esc(RAR_LABEL[rar]||rar)}</div>`);
+  if(stars>0) rows.push(`<div><span class="lbl">Étoiles :</span> ${'⭐'.repeat(Math.min(5,stars))}</div>`);
+  document.getElementById('czRows').innerHTML = rows.join('');
+  document.getElementById('cardZoom').classList.add('open');
+}
+function closeCard(){ document.getElementById('cardZoom').classList.remove('open'); }
+(function bindDrag(){
+  const img = document.getElementById('czImg');
+  if(!img) return;
+  img.addEventListener('pointerdown', e=>{ _dz.down=true; _dz.sx=e.clientX-_dz.x; _dz.sy=e.clientY-_dz.y;
+    img.classList.add('grabbing'); img.setPointerCapture(e.pointerId); e.preventDefault(); });
+  img.addEventListener('pointermove', e=>{ if(!_dz.down) return;
+    _dz.x=e.clientX-_dz.sx; _dz.y=e.clientY-_dz.sy; img.style.transform=`translate(${_dz.x}px,${_dz.y}px)`; });
+  const up = e=>{ _dz.down=false; img.classList.remove('grabbing'); };
+  img.addEventListener('pointerup', up); img.addEventListener('pointercancel', up);
+})();
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCard(); });
+window.openCard=openCard; window.closeCard=closeCard;
 </script>
 {% endblock %}
