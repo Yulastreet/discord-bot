@@ -56,6 +56,19 @@
   .tag .rico, .rico, .card-row .rico{ width:16px; height:16px; vertical-align:-3px; object-fit:contain; }
   #bossSub .eico{ width:18px; height:18px; vertical-align:-4px; }
   .pc-stats{ font-size:13px; font-weight:800; text-align:center; margin-top:4px; color:#ffd9a8; }
+  .pc-power{ text-align:center; margin-top:4px; font-size:13px; }
+  .pc-power .pd{ height:15px; vertical-align:-2px; }
+  body.fighting .pc-power{ display:none; }   /* combat lance : plus de puissance par membre */
+  /* bloc puissance au milieu (equipe + boss), toujours visible */
+  #powerCenter{ position:fixed; top:41%; left:50%; transform:translate(-50%,-50%); z-index:30;
+    pointer-events:none; text-align:center; display:flex; flex-direction:column; gap:7px; }
+  .pwc-row{ display:flex; align-items:center; justify-content:center; gap:9px; }
+  .pwc-tag{ font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#bba6d6; }
+  .pwc-tag.boss{ color:#ff8aa0; }
+  #powerCenter .pw{ display:inline-flex; align-items:center; }
+  #powerCenter .pd{ height:28px; vertical-align:middle; }
+  .pw{ display:inline-flex; align-items:center; gap:0; }
+  .pd{ object-fit:contain; width:auto; }
   .pc-hp{ position:relative; width:100%; height:19px; border-radius:7px; background:#241a30; overflow:hidden;
     margin-top:6px; border:1px solid #000; box-shadow:inset 0 0 6px rgba(0,0,0,.6); }
   .pc-hp > i{ display:block; height:100%; background:linear-gradient(90deg,#1f9e63,#4ade80);
@@ -252,6 +265,11 @@
   <div id="mpMsg" class="mp-msg"></div>
 </div>
 
+<div id="powerCenter">
+  <div class="pwc-row"><span class="pwc-tag">⚡ Puissance équipe</span><span class="pw" id="pwTeam"></span></div>
+  <div class="pwc-row"><span class="pwc-tag boss">⚡ Puissance boss</span><span class="pw" id="pwBoss"></span></div>
+</div>
+
 <svg id="fx"></svg>
 <div id="banner"></div>
 <div id="log"><div class="log-title">📜 Historique</div><div class="log-rows" id="logRows"></div></div>
@@ -281,6 +299,22 @@ const P = {};            // uid -> {el, hpBar}
 function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
 function fmtShort(n){ n=n||0; if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+'M';
   if(n>=1e4) return Math.round(n/1e3)+'k'; return fmt(n); }
+// Puissance en chiffres-images. Joueur/total = format compact (1m345), boss = entier.
+function powerStr(n, boss){
+  n=Math.max(0,Math.round(n||0));
+  if(boss) return String(n);
+  if(n>=1e6){ const M=Math.floor(n/1e6), k=Math.floor(n/1000)%1000; return M+'m'+String(k).padStart(3,'0'); }
+  return String(n);
+}
+function powerImgs(n, boss){
+  let h=''; for(const ch of powerStr(n,boss)){
+    let name=null;
+    if(ch>='0'&&ch<='9') name = boss ? ch+'boss' : ch;
+    else if(ch==='m') name='m';
+    if(name) h+=`<img class="pd${boss?' pdb':''}" src="/cards/img/pdigit/${name}">`;
+  }
+  return h;
+}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function buildPlayers(players){
@@ -305,7 +339,8 @@ function buildPlayers(players){
         ${rarTag}${aptTag}
       </div>
       <div class="pc-hp"><i></i><span class="hpv">❤️ ${fmtShort(p.hp)}</span></div>
-      <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>`;
+      <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>
+      <div class="pc-power">⚡ <span class="pw">${powerImgs(p.power,false)}</span></div>`;
     team.appendChild(el);
     P[p.uid] = { el, card: el.querySelector('.pc-img-wrap'), bar: el.querySelector('.pc-hp > i'),
                  hpv: el.querySelector('.hpv'), name: p.name };
@@ -321,6 +356,11 @@ function syncHp(d){
   document.getElementById('bossSub').innerHTML =
     `${esc(d.boss.tier_label)} · ${eIco(d.boss.element)} ${esc(d.boss.element_label)} · 🗡️ ${fmt(d.boss.atk)}`
     + (d.boss.weak && d.boss.weak.length ? ` · faible: ${esc(d.boss.weak.join(' '))}` : '');
+  // puissances (milieu) : equipe + boss, toujours visibles
+  document.getElementById('pwTeam').innerHTML = powerImgs(d.team_power, false);
+  document.getElementById('pwBoss').innerHTML = powerImgs(d.boss.power, true);
+  // une fois le combat lance : on masque la puissance par membre (classe sur body)
+  document.body.classList.toggle('fighting', d.boss.status !== 'recruiting');
   // joueurs
   d.players.forEach(p=>{
     const ref = P[p.uid]; if(!ref) return;

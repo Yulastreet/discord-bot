@@ -23,6 +23,16 @@ def register_cards_boss_routes(app, deps):
             return "", 404
         return send_file(f, mimetype="image/png", max_age=86400)
 
+    _PDIGIT_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "Chiffre puissance")
+
+    @app.route("/cards/img/pdigit/<name>", methods=["GET"])
+    def cards_img_pdigit(name):
+        name = "".join(ch for ch in str(name) if ch.isalnum()).lower()
+        f = _os.path.join(_PDIGIT_DIR, f"{name}.png")
+        if not _os.path.exists(f):
+            return "", 404
+        return send_file(f, mimetype="image/png", max_age=86400)
+
     @app.route("/cards/img/rarity/<key>", methods=["GET"])
     def cards_img_rarity(key):
         key = "".join(ch for ch in str(key) if ch.isalnum()).lower()
@@ -101,11 +111,14 @@ def register_cards_boss_routes(app, deps):
             after = int(after)
         except (ValueError, TypeError):
             after = 0
-        from database import card_customization_get, card_get
+        from database import card_customization_get, card_get, combat_power
         parts = boss_participants_list(bid)
         players = []
+        team_power = 0
         for p in parts:
             _cd = card_get(p.get("card_id")) if p.get("card_id") else None
+            _pw = combat_power(int(p.get("max_hp") or p.get("hp") or 0), int(p.get("atk") or 0))
+            team_power += _pw
             if str(p["user_id"]).startswith("dummy_"):
                 # garde les dummies (tests) mais sans avatar reel
                 pass
@@ -117,6 +130,7 @@ def register_cards_boss_routes(app, deps):
                 "max_hp": int(p.get("max_hp") or p.get("hp") or 1),
                 "atk": int(p.get("atk") or 0),
                 "aptitude": p.get("aptitude") or "",
+                "power": _pw,
                 "rarity": (_cd or {}).get("rarity") or "",
                 "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
                 "has_border": bool(p.get("card_id") and card_customization_get(str(p["user_id"]), p.get("card_id"))),
@@ -136,9 +150,11 @@ def register_cards_boss_routes(app, deps):
                 "atk": int(boss.get("atk") or 0),
                 "status": boss.get("status") or "",
                 "start_at": boss.get("start_at"),
+                "power": combat_power(int(boss.get("max_hp") or 0), int(boss.get("atk") or 0)),
                 "img": _render_url(boss.get("card_id"), boss.get("image_url")),
             },
             "players": players,
+            "team_power": team_power,
             "events": boss_events_since(bid, after),
             "now": _t.time(),
         })
