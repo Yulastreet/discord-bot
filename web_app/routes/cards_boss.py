@@ -168,6 +168,7 @@ font-family:system-ui,sans-serif;text-align:center}
                 "power": _pw,
                 "damage": int(p.get("damage") or 0),
                 "heal": int(p.get("heal") or 0),
+                "taken": int(p.get("taken") or 0),
                 "rarity": (_cd or {}).get("rarity") or "",
                 "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
                 "has_border": bool(p.get("card_id") and card_customization_get(str(p["user_id"]), p.get("card_id"))),

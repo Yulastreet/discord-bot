@@ -1183,7 +1183,7 @@ async def _run_boss(bot, bid, msg, view):
             Retourne (new_hp, ko_bool)."""
             real = max(1, int(dmg * _apt_taken_mult(_apt(p))))
             new_hp = max(0, p["hp"] - real)
-            boss_participant_update(bid, p["user_id"], hp=new_hp)
+            boss_participant_update(bid, p["user_id"], hp=new_hp, add_taken=real)
             return new_hp, (new_hp <= 0), real
 
         def _apply_heals():
