@@ -648,7 +648,9 @@ const APT_LIST = ['berserker','gardien','soigneur','duelliste','executeur','none
 const APT_DESC = { berserker:'Berserker', gardien:'Gardien', soigneur:'Soigneur',
   duelliste:'Duelliste', executeur:'Exécuteur', none:'Aucune' };
 
+let panelReady = false, panelTries = 0;
 async function initPanel(){
+  panelTries++;
   try{
     const r = await fetch(`/cards/boss/${BID}/me`);
     const d = await r.json();
@@ -662,6 +664,7 @@ async function initPanel(){
         + Object.keys(ELEM_LABEL).map(k=>`<option value="${k}">${ELEM_LABEL[k]}</option>`).join('');
       renderApt();
       await loadCards();
+      panelReady = true;   // pret -> on arrete de reessayer
     }
     maybePanel(d.status);
   }catch(e){}
@@ -774,6 +777,8 @@ async function tick(){
       const im=document.createElement('img'); im.src=d.boss.img; bw.prepend(im); }
     syncHp(d);
     setStatus(d);
+    // retry l'init du panneau prep tant qu'on n'a pas reussi (race / echec reseau au load)
+    if(d.boss.status==='recruiting' && !panelReady && panelTries < 8) initPanel();
     if(d.events && d.events.length){
       lastEvt = d.events[d.events.length-1].id;
       enqueue(d.events);

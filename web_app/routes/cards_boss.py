@@ -119,7 +119,8 @@ font-family:system-ui,sans-serif;text-align:center}
         if not uid:
             session["post_login_redirect"] = request.path
             return redirect("/oauth/login")
-        if not boss_participant_get(bid, uid):
+        is_owner = bool((session.get("discord") or {}).get("is_owner"))
+        if not is_owner and not boss_participant_get(bid, uid):
             return _denied_page()
         # Combat termine depuis plus que le delai de grace -> lien mort
         if boss.get("status") in ("defeated", "wiped", "expired"):
