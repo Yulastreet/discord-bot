@@ -8,7 +8,7 @@
   :root{ --gold:#c9a24b; --red:#ff3d57; --green:#4ade80;
     /* tailles pilotees par la HAUTEUR de l'ecran -> jamais coupe (focus PC) */
     --ph: clamp(160px, 25vh, 320px); --pw: calc(var(--ph) * 0.6667);
-    --bh: clamp(200px, 37vh, 420px); --bw: calc(var(--bh) * 0.6667); }
+    --bh: clamp(220px, 43vh, 480px); --bw: calc(var(--bh) * 0.6667); }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
   body{ font-family:'Segoe UI',system-ui,sans-serif; color:#f1eadf; overflow:hidden;
@@ -60,13 +60,9 @@
   .pc-power .pd{ height:16px; vertical-align:-3px; }
   body.fighting .pc-power{ display:none; }   /* combat lance : plus de puissance par membre */
   /* bloc puissance au milieu (equipe + boss), toujours visible */
-  #powerCenter{ display:flex; flex-direction:column; gap:6px; align-items:center; margin-bottom:14px; }
-  .pwc-row{ display:flex; align-items:center; justify-content:center; gap:10px;
-    padding:5px 16px; border-radius:12px; background:rgba(0,0,0,.4); border:1px solid; }
-  .pwc-row.team{ border-color:rgba(74,222,128,.4); box-shadow:0 0 14px rgba(74,222,128,.15); }
-  .pwc-row.boss{ border-color:rgba(255,61,87,.4); box-shadow:0 0 14px rgba(255,61,87,.15); }
-  .pwc-ico{ font-size:22px; line-height:1; }
-  #powerCenter .pd{ height:34px; vertical-align:middle; }
+  #powerCenter{ display:flex; flex-direction:column; gap:2px; align-items:center; margin-top:8px; }
+  .pwc-row{ display:flex; align-items:center; justify-content:center; }
+  #powerCenter .pd{ height:36px; vertical-align:middle; }
   .pw{ display:inline-flex; align-items:center; gap:0; }
   .pd{ object-fit:contain; width:auto; }
   .pc-hp{ position:relative; width:100%; height:19px; border-radius:7px; background:#241a30; overflow:hidden;
@@ -237,11 +233,11 @@
 <div id="status">Connexion…</div>
 <div id="arena">
   <div id="team"></div>
+  <div id="powerCenter">
+    <div class="pwc-row team"><span class="pw" id="pwTeam"></span></div>
+    <div class="pwc-row boss"><span class="pw" id="pwBoss"></span></div>
+  </div>
   <div id="bossWrap">
-    <div id="powerCenter">
-      <div class="pwc-row team"><span class="pwc-ico">🛡️</span><span class="pw" id="pwTeam"></span></div>
-      <div class="pwc-row boss"><span class="pwc-ico">🐲</span><span class="pw" id="pwBoss"></span></div>
-    </div>
     <div id="bossInfo">
       <div id="bossName">{{ boss_name }}</div>
       <div id="bossSub"></div>
