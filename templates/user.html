@@ -476,6 +476,7 @@ function setupCardsAdmin() {
           <input id="inv_${id}" type="number" min="0" value="${val}" class="input" style="width:120px;"></label>`;
       let html = fld('✨ Essences', 'essences', d.essences)
         + fld('🎟️ Rolls bonus', 'rolls', d.rolls)
+        + fld('🟣 Epic Rolls', 'epic_rolls', d.epic_rolls)
         + fld('🔴 Fragments Mythic', 'mythic_fragments', d.mythic_fragments)
         + fld('🌈 Golden Rolls', 'golden_rolls', d.golden_rolls);
       if (d.event_active) {
@@ -493,7 +494,7 @@ function setupCardsAdmin() {
   }
   async function saveInventory() {
     const payload = {};
-    for (const k of ['essences', 'rolls', 'mythic_fragments', 'golden_rolls', 'event_coins']) {
+    for (const k of ['essences', 'rolls', 'epic_rolls', 'mythic_fragments', 'golden_rolls', 'event_coins']) {
       const el = document.getElementById('inv_' + k);
       if (el) payload[k] = parseInt(el.value, 10);
     }

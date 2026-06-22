@@ -15,6 +15,7 @@
              align-items:center; justify-content:center; gap:6px; border-right:1px solid var(--bg-2);
              box-sizing:border-box; }
   .wh-cell .ic { font-size:30px; line-height:1; }
+  .wico { width:1.1em; height:1.1em; vertical-align:-0.18em; object-fit:contain; }
   .wh-cell .lb { font-size:13px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.6); }
   .wh-marker { position:absolute; top:0; bottom:0; left:50%; width:3px; margin-left:-1.5px;
                background:linear-gradient(#ffd24a,#ff7b3d); box-shadow:0 0 12px rgba(255,180,60,.9); z-index:3; }
@@ -127,7 +128,9 @@
   let timerStarted = false;
   const CELL = 150;
 
-  const WICON = { roll:'🎟️', essence:'✨', epic_card:'🟣', golden_roll:'🌈', mythic_fragment:'🔴' };
+  function rIco(n){ return `<img src="/cards/img/roll/${n}" class="wico" alt="">`; }
+  const WICON = { roll:rIco('roll'), epic_roll:rIco('epicroll'), golden_roll:rIco('goldenroll'),
+                  essence:'✨', mythic_fragment:'🔴' };
   function findReward(type, value){ return REWARDS.find(r => r.type===type && r.value==value); }
   function showGain(type, value){
     const rw = findReward(type, value) || {type, value, color:'var(--accent)',
@@ -135,7 +138,7 @@
     const g = document.getElementById('whGain');
     g.style.display = 'flex';
     g.style.borderColor = rw.color;
-    g.querySelector('.gic').textContent = WICON[rw.type] || '✨';
+    g.querySelector('.gic').innerHTML = WICON[rw.type] || '✨';
     g.querySelector('.glb').innerHTML = `<span style="color:${rw.color}">${esc(rw.label)}</span>`
       + (rw.type==='essence' ? ' <span style="font-size:14px;color:var(--text-2);font-weight:600">sur tes gains du jour</span>' : '');
   }

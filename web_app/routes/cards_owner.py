@@ -32,9 +32,9 @@ _COLLECTION_OG_HTML = """<!DOCTYPE html>
 _WHEEL_REWARDS = [
     {"type": "essence",         "value": 2,  "weight": 30, "label": "+2% essences",        "color": "#9aa0a6"},
     {"type": "essence",         "value": 5,  "weight": 20, "label": "+5% essences",        "color": "#4cb5f9"},
-    {"type": "epic_card",       "value": 1,  "weight": 18, "label": "Roll Épique garanti", "color": "#a86dff"},
+    {"type": "epic_roll",       "value": 1,  "weight": 18, "label": "Roll Épique garanti", "color": "#a86dff"},
     {"type": "essence",         "value": 10, "weight": 12, "label": "+10% essences",       "color": "#a86dff"},
-    {"type": "epic_card",       "value": 3,  "weight": 10, "label": "3 Rolls Épique",      "color": "#b06bf2"},
+    {"type": "epic_roll",       "value": 3,  "weight": 10, "label": "3 Rolls Épique",      "color": "#b06bf2"},
     {"type": "essence",         "value": 20, "weight": 5,  "label": "+20% essences",       "color": "#ffa726"},
     {"type": "golden_roll",     "value": 1,  "weight": 4,  "label": "Golden Roll",         "color": "#ffd23f"},
     {"type": "mythic_fragment", "value": 1,  "weight": 1,  "label": "Fragment Mythic",     "color": "#ff3d57"},
@@ -743,14 +743,8 @@ def register_cards_owner_routes(app, deps):
         wtype = won["type"]
         if wtype == "essence":
             essence_bonus_set(uid, won["value"])
-        elif wtype == "epic_card":
-            # roll(s) epique garanti(s) : cartes epic directes
-            from database import card_pick_random_exact_rarity, user_card_add
-            for _ in range(int(won["value"])):
-                c = card_pick_random_exact_rarity("epic")
-                if c:
-                    user_card_add(uid, c["id"])
-        elif wtype in ("golden_roll", "mythic_fragment"):
+        elif wtype in ("epic_roll", "golden_roll", "mythic_fragment"):
+            # items d'inventaire (a utiliser via /cardinventory)
             from database import user_item_add
             user_item_add(uid, wtype, int(won["value"]))
         else:
@@ -771,6 +765,29 @@ def register_cards_owner_routes(app, deps):
                 for _ in range(60)]
         reel[55] = win_index  # case sous le marqueur a l'arret
         return jsonify({"ok": True, "won": won, "reel": reel, "win_pos": 55})
+
+    @app.route("/cards/img/roll/<name>", methods=["GET"])
+    def cards_img_roll(name):
+        import os as _o
+        from flask import send_file as _sf
+        name = "".join(ch for ch in str(name) if ch.isalpha()).lower()
+        fname = {"roll": "roll.png", "epicroll": "epicroll.png",
+                 "goldenroll": "goldenroll.png"}.get(name)
+        if not fname:
+            return "", 404
+        roots = []
+        try:
+            from services.card_render import _ROOT as _CR
+            roots.append(_CR)
+        except Exception:
+            pass
+        roots.append(_o.getcwd())
+        roots.append(_o.path.dirname(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__)))))
+        for root in roots:
+            f = _o.path.join(root, "assets", "cardrelated", "Rolls", fname)
+            if _o.path.exists(f):
+                return _sf(f, mimetype="image/png", max_age=86400)
+        return "", 404
 
     @app.route("/api/public/cards/<int:cid>/suggest-edit", methods=["POST"])
     def api_public_cards_suggest_edit(cid):
@@ -2746,6 +2763,7 @@ def register_cards_owner_routes(app, deps):
         ev = global_event_get()
         out = {
             "rolls": roll_bonus_available(user_id),
+            "epic_rolls": user_item_get(user_id, "epic_roll"),
             "mythic_fragments": user_item_get(user_id, "mythic_fragment"),
             "golden_rolls": user_item_get(user_id, "golden_roll"),
             "essences": currency_get(user_id),
@@ -2776,6 +2794,8 @@ def register_cards_owner_routes(app, deps):
             currency_set(user_id, _int(data["essences"]))
         if "rolls" in data and _int(data["rolls"]) is not None:
             roll_set_user(user_id, _int(data["rolls"]))
+        if "epic_rolls" in data and _int(data["epic_rolls"]) is not None:
+            user_item_set(user_id, "epic_roll", _int(data["epic_rolls"]))
         if "mythic_fragments" in data and _int(data["mythic_fragments"]) is not None:
             user_item_set(user_id, "mythic_fragment", _int(data["mythic_fragments"]))
         if "golden_rolls" in data and _int(data["golden_rolls"]) is not None:
@@ -2786,6 +2806,7 @@ def register_cards_owner_routes(app, deps):
         return jsonify({
             "success": True,
             "rolls": roll_bonus_available(user_id),
+            "epic_rolls": user_item_get(user_id, "epic_roll"),
             "mythic_fragments": user_item_get(user_id, "mythic_fragment"),
             "golden_rolls": user_item_get(user_id, "golden_roll"),
             "essences": currency_get(user_id),

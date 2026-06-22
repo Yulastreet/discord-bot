@@ -183,6 +183,12 @@ def _roll_emoji(bot) -> str:
     return s or "🎟️"
 
 
+def _epic_roll_emoji(bot) -> str:
+    """Emoji custom 'epicroll' (par nom) sinon fallback violet."""
+    s = _get_inline_emoji_str(bot, "epicroll")
+    return s or "🟣"
+
+
 def _power_emoji_str(bot, n) -> str:
     """Nombre -> emojis chiffres custom du SERVEUR SUPPORT (noms '0_'..'9_', 'm').
     Format compact >=1M : 'XmYYY' (ex 1345986 -> 1m345). Recherche limitee au
@@ -1611,6 +1617,7 @@ def setup_cards_commands(bot, deps):
         from database import (user_borders_list, user_item_get, roll_bonus_available)
         frags = user_item_get(target.id, "mythic_fragment")
         golden = user_item_get(target.id, "golden_roll")
+        epic = user_item_get(target.id, "epic_roll")
         rolls = roll_bonus_available(target.id)
         borders = user_borders_list(target.id)
         embed = discord.Embed(title=f"🎒 Inventaire — {target.display_name}", color=0xB9F23A)
@@ -1618,6 +1625,7 @@ def setup_cards_commands(bot, deps):
             embed.set_thumbnail(url=str(target.display_avatar.url))
         lines = [
             f"{_roll_emoji(bot)} **Rolls bonus** : {rolls}  _(utilisables au_ `/roll`_)_",
+            f"{_epic_roll_emoji(bot)} **Epic Rolls** : {epic}  _(→ 1 épique garantie)_",
             f"🔴 **Fragments Mythic** : {frags} / {_FRAGMENTS_PER_MYTHIC}  _(→ 1 mythic)_",
             f"{_golden_emoji(bot)} **Golden Rolls** : {golden}  _(→ 1 légendaire garanti)_",
         ]
@@ -1635,12 +1643,41 @@ def setup_cards_commands(bot, deps):
             ge = discord.utils.get(bot.emojis, name="goldenroll")
             if ge:
                 self.use_golden.emoji = ge
+            ee = discord.utils.get(bot.emojis, name="epicroll")
+            if ee:
+                self.use_epic.emoji = ee
 
         async def _guard(self, interaction):
             if interaction.user.id != self.owner_id:
                 await interaction.response.send_message("Ce n'est pas ton inventaire.", ephemeral=True)
                 return False
             return True
+
+        @discord.ui.button(label="Utiliser Epic Roll", style=discord.ButtonStyle.primary, emoji="🟣")
+        async def use_epic(self, interaction, btn):
+            if not await self._guard(interaction):
+                return
+            from database import (user_item_consume, card_pick_random_exact_rarity, user_card_add,
+                                  user_card_count_owned, essence_reward_add, ESSENCE_REWARDS, user_item_add)
+            uid = interaction.user.id
+            if not user_item_consume(uid, "epic_roll", 1):
+                await interaction.response.send_message("Tu n'as pas d'Epic Roll.", ephemeral=True)
+                return
+            card = card_pick_random_exact_rarity("epic")
+            if not card:
+                user_item_add(uid, "epic_roll", 1)  # remboursé
+                await interaction.response.send_message("Aucune épique dispo, Epic Roll rendu.", ephemeral=True)
+                return
+            already = user_card_count_owned(uid, card["id"]) > 0
+            user_card_add(uid, card["id"])
+            base = ESSENCE_REWARDS.get("epic", 80) * (2 if already else 1)
+            ess = essence_reward_add(uid, base)
+            embed, img_file, view = _card_result_display(card, interaction.user, ess, already)
+            content = f"{_epic_roll_emoji(bot)} **Roll effectué avec un coupon Epic Roll** (épique garantie)"
+            if img_file:
+                await interaction.response.send_message(content=content, embed=embed, file=img_file, view=view)
+            else:
+                await interaction.response.send_message(content=content, embed=embed, view=view)
 
         @discord.ui.button(label="Utiliser Golden Roll", style=discord.ButtonStyle.success, emoji="🌈")
         async def use_golden(self, interaction, btn):
