@@ -74,6 +74,7 @@ def register_cards_boss_routes(app, deps):
             after = int(after)
         except (ValueError, TypeError):
             after = 0
+        from database import card_customization_get
         parts = boss_participants_list(bid)
         players = []
         for p in parts:
@@ -89,6 +90,7 @@ def register_cards_boss_routes(app, deps):
                 "atk": int(p.get("atk") or 0),
                 "aptitude": p.get("aptitude") or "",
                 "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
+                "has_border": bool(p.get("card_id") and card_customization_get(str(p["user_id"]), p.get("card_id"))),
             })
         weak = element_weaknesses(boss.get("element"))
         return jsonify({
