@@ -234,6 +234,21 @@ def register_cards_shop_routes(app, deps):
         return jsonify({"ok": True, "items": items,
                         "has_border": bool(bkey), "has_legmyth": bool(leg_id)})
 
+    @app.route("/api/owner/card-shop/reprice", methods=["POST"])
+    def api_owner_card_shop_reprice():
+        """Recalcule les prix des slots actuels selon le bareme (sans changer les items)."""
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import card_shop_get_slots, card_shop_set_slot
+        from services.card_shop import suggested_price
+        n = 0
+        for s in card_shop_get_slots():
+            if s.get("item_type") and s.get("item_ref"):
+                price = suggested_price(s["item_type"], s["item_ref"])
+                card_shop_set_slot(s["slot"], price=price)
+                n += 1
+        return jsonify({"ok": True, "updated": n})
+
     @app.route("/api/owner/card-shop/deploy-shuffle", methods=["POST"])
     def api_owner_card_shop_deploy_shuffle():
         """Applique une proposition validee a la boutique live (6 slots)."""

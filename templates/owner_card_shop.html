@@ -39,6 +39,7 @@
       <h3>🎰 Emplacements (6)</h3>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-secondary" onclick="shuffleShop()" style="padding:6px 12px;font-size:12px;">🎲 Shuffle auto</button>
+        <button class="btn btn-secondary" onclick="repriceShop()" style="padding:6px 12px;font-size:12px;">🏷️ Recalculer les prix</button>
         <button class="btn btn-primary" onclick="genPreview()" style="padding:6px 12px;font-size:12px;">👁 Prévisualiser l'image</button>
       </div>
     </div>
@@ -169,6 +170,19 @@ async function deployShuffle(){
   }catch(e){ res.textContent = 'Erreur : ' + e.message; }
 }
 window.shuffleShop = shuffleShop; window.deployShuffle = deployShuffle;
+
+async function repriceShop(){
+  const res = document.getElementById('shuffleResult');
+  if(!confirm('Recalculer les prix des 6 slots actuels selon le barème (sans changer les cartes) ?')) return;
+  res.textContent = 'Recalcul des prix…';
+  try{
+    const r = await fetch('/api/owner/card-shop/reprice', { method:'POST' });
+    const d = await r.json();
+    if(d.ok){ res.innerHTML = `✅ Prix recalculés (${d.updated} slots).`; await loadSlots(); }
+    else res.textContent = `❌ ${d.error||'Erreur'}`;
+  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+}
+window.repriceShop = repriceShop;
 
 function renderSlots(){
   const grid = document.getElementById('slotGrid');
