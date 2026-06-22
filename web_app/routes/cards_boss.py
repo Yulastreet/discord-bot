@@ -182,6 +182,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
                 "element": boss.get("element") or "",
                 "element_label": CARD_ELEMENT_LABELS.get(boss.get("element"), "?"),
                 "weak": [CARD_ELEMENT_LABELS.get(w, w) for w in weak],
+                "weak_keys": list(weak),
                 "tier": boss.get("tier") or 1,
                 "tier_label": BOSS_TIERS.get(boss.get("tier"), {}).get("label", ""),
                 "hp": max(0, int(boss.get("hp") or 0)),

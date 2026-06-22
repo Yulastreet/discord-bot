@@ -121,6 +121,38 @@
   .pop.heal{ color:#34ff9e; font-size:28px; text-shadow:0 0 10px rgba(52,255,158,.7), 0 2px 6px #000; }
   .pop.small{ font-size:24px; }
 
+  /* ===== ROUE ELEMENTAIRE (haut droite) ===== */
+  #elemWheel{ position:fixed; top:16px; right:16px; z-index:40; width:200px;
+    background:rgba(12,7,19,.7); border:1px solid #3a2b48; border-radius:14px; padding:12px 12px 10px;
+    text-align:center; }
+  .ew-title{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+    color:#a594bd; margin-bottom:6px; }
+  .ew-ring{ position:relative; width:176px; height:176px; margin:0 auto; }
+  .ew-ring .ew-node{ position:absolute; width:42px; height:42px; transform:translate(-50%,-50%);
+    border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.05);
+    border:2px solid #4a3a5a; }
+  .ew-ring .ew-node img{ width:26px; height:26px; object-fit:contain; }
+  .ew-ring .ew-node.boss{ border-color:var(--red); box-shadow:0 0 14px rgba(255,61,87,.7); }
+  .ew-ring .ew-node.weak{ border-color:var(--green); box-shadow:0 0 12px rgba(74,222,128,.6); }
+  .ew-ring svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .ew-leg{ font-size:10.5px; color:#b09cc8; margin-top:8px; }
+  .ew-leg .dot{ display:inline-block; width:9px; height:9px; border-radius:50%; vertical-align:0; }
+  .ew-leg .dot.boss{ background:var(--red); } .ew-leg .dot.weak{ background:var(--green); }
+
+  /* ===== LEGENDE INDICATEURS (bas gauche) ===== */
+  #legend{ position:fixed; left:16px; bottom:16px; z-index:40; width:236px;
+    background:rgba(12,7,19,.7); border:1px solid #3a2b48; border-radius:13px; padding:11px 14px;
+    font-size:12.5px; color:#d7cce8; }
+  .lg-title{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+    color:#a594bd; margin-bottom:8px; }
+  .lg-row{ display:flex; align-items:center; gap:8px; margin:4px 0; }
+  .lg-row .lg-ico{ width:18px; text-align:center; flex:none; }
+  .lg-bars{ display:flex; gap:12px; margin-top:9px; padding-top:8px; border-top:1px solid rgba(255,255,255,.07);
+    font-size:11.5px; color:#b09cc8; }
+  .lg-bars span{ display:flex; align-items:center; gap:5px; }
+  .lg-bars .b{ width:16px; height:6px; border-radius:3px; display:inline-block; }
+  .lg-bars .b.gold{ background:#ffd23f; } .lg-bars .b.red{ background:#ff3d57; } .lg-bars .b.green{ background:#34ff9e; }
+
   /* ===== INDICATEURS DE CIBLAGE (qui tape qui / qui soigne qui) ===== */
   #fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:36; }
   #fx .tbeam{ animation:tbeamfade .6s ease-in-out infinite alternate; }
@@ -303,6 +335,27 @@
   <div id="lbRows"></div>
 </div>
 
+<!-- roue elementaire (haut droite) -->
+<div id="elemWheel">
+  <div class="ew-title">Cercle élémentaire</div>
+  <div class="ew-ring" id="ewRing"></div>
+  <div class="ew-leg"><span class="dot boss"></span> Boss &nbsp; <span class="dot weak"></span> Le bat</div>
+</div>
+
+<!-- legende des indicateurs (bas gauche) -->
+<div id="legend">
+  <div class="lg-title">📖 Indicateurs</div>
+  <div class="lg-row"><span class="lg-ico">⚔️</span> L'équipe attaque le boss</div>
+  <div class="lg-row"><span class="lg-ico">⚠️</span> Le boss frappe toute l'équipe</div>
+  <div class="lg-row"><span class="lg-ico">🎯</span> Coup dévastateur (1 cible)</div>
+  <div class="lg-row"><span class="lg-ico">💚</span> Soin d'un allié</div>
+  <div class="lg-bars">
+    <span><i class="b gold"></i> Équipe</span>
+    <span><i class="b red"></i> Boss</span>
+    <span><i class="b green"></i> Soin</span>
+  </div>
+</div>
+
 <svg id="fx"></svg>
 <div id="banner"></div>
 <div id="log"><div class="log-title">📜 Historique</div><div class="log-rows" id="logRows"></div></div>
@@ -397,6 +450,27 @@ function setPlayerBar(uid){
 }
 function setAllBars(){ setBossBar(); if(LATEST) Object.keys(LATEST.players).forEach(setPlayerBar); }
 
+// Roue elementaire : pentagone, boss surligne (rouge), elements qui le battent (vert) + traits.
+let wheelKey = '';
+const WHEEL_ELS = ['eclat','abysse','fracture','vif','neant'];
+function buildWheel(d){
+  const ring=document.getElementById('ewRing'); if(!ring) return;
+  const cx=88, cy=88, r=60, bossEl=d.boss.element||'';
+  const weak=new Set(d.boss.weak_keys||[]);
+  const pts=WHEEL_ELS.map((e,i)=>{ const a=(-90+i*72)*Math.PI/180; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; });
+  const bi=WHEEL_ELS.indexOf(bossEl);
+  let svg='<svg viewBox="0 0 176 176">';
+  svg+=`<polygon points="${pts.map(p=>p.map(n=>n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>`;
+  if(bi>=0) WHEEL_ELS.forEach((e,i)=>{ if(weak.has(e)){ const [x1,y1]=pts[i],[x2,y2]=pts[bi];
+    svg+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#34ff9e" stroke-width="2" opacity=".6"/>`; }});
+  svg+='</svg>';
+  ring.innerHTML = svg + WHEEL_ELS.map((e,i)=>{
+    const [x,y]=pts[i];
+    const cls = e===bossEl ? 'boss' : (weak.has(e) ? 'weak' : '');
+    return `<div class="ew-node ${cls}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px"><img src="/cards/img/element/${e}"></div>`;
+  }).join('');
+}
+
 function syncHp(d){
   // memorise l'etat authoritatif
   LATEST = { boss:{hp:d.boss.hp, max_hp:d.boss.max_hp},
@@ -406,6 +480,8 @@ function syncHp(d){
     + (d.boss.weak && d.boss.weak.length ? ` · faible: ${esc(d.boss.weak.join(' '))}` : '');
   document.getElementById('pwTeam').innerHTML = powerImgs(d.team_power, false, true);
   document.getElementById('pwBoss').innerHTML = powerImgs(d.boss.power, true);
+  const wk = (d.boss.element||'')+'|'+(d.boss.weak_keys||[]).join(',');
+  if(wk !== wheelKey){ buildWheel(d); wheelKey = wk; }
   document.body.classList.toggle('fighting', d.boss.status !== 'recruiting');
   // En combat : les barres bougent aux IMPACTS (pas au poll), sinon les degats/heal
   // s'appliquent au mauvais moment. Hors combat : MAJ directe.
