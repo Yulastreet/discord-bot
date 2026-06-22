@@ -53,10 +53,10 @@
   @keyframes boFlash{ 0%{opacity:0; transform:scale(.3)} 30%{opacity:1} 100%{opacity:0; transform:scale(16)} }
 
   /* trait de decoupe (juste avant l'ouverture) */
-  .bo-cut{ position:fixed; height:6px; z-index:23; pointer-events:none; transform:scaleX(0);
-    transform-origin:left center; border-radius:3px;
-    background:linear-gradient(90deg, transparent, #fff, #ffe7a0, #fff, transparent);
-    box-shadow:0 0 16px #fff, 0 0 34px #ffd23f, 0 0 50px #ffae3d; }
+  .bo-cut{ position:fixed; height:2px; z-index:23; pointer-events:none; transform:scaleX(0);
+    transform-origin:left center; border-radius:1px;
+    background:linear-gradient(90deg, transparent, #fff 20%, #fff 80%, transparent);
+    box-shadow:0 0 6px #fff, 0 0 12px #ffe7a0; }
   .bo-cut.go{ animation:boCut .28s ease-out forwards; }
   @keyframes boCut{ 0%{transform:scaleX(0); opacity:1} 80%{transform:scaleX(1); opacity:1}
     100%{transform:scaleX(1); opacity:0} }
@@ -344,24 +344,27 @@ function boToast(msg){
     document.body.appendChild(t); }
   t.textContent=msg; t.style.opacity='1'; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; }, 2600);
 }
-async function copyImage(blob){
-  try{ await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]); return true; }
-  catch(e){ return false; }
-}
+const _isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
 async function shareDrop(c){
   const text = `J'ai eu ${c.name} en ouvrant un TookBot Card Booster !`;
+  // 1. DESKTOP : copie directe de l'image (colle dans Discord). On passe une PROMISE
+  //    a ClipboardItem -> conserve le geste utilisateur malgre la generation async.
+  if(!_isTouch && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try{
+      await navigator.clipboard.write([ new ClipboardItem({ 'image/png': makeShareImage(c) }) ]);
+      boToast('Image copiée — colle-la (Ctrl+V) dans Discord ✓');
+      return;
+    }catch(e){ /* fallback plus bas */ }
+  }
+  // 2. genere le blob pour partage natif (mobile) ou telechargement
   let blob=null;
   try{ blob = await makeShareImage(c); }catch(e){ blob=null; }
   if(blob){
     const file = new File([blob],'tookbot_drop.png',{type:'image/png'});
-    // mobile / apps : partage natif de l'image
-    if(navigator.canShare && navigator.canShare({files:[file]})){
+    if(_isTouch && navigator.canShare && navigator.canShare({files:[file]})){
       try{ await navigator.share({ files:[file], text, title:'TookBot Card Booster' }); return; }
       catch(e){ if(e&&e.name==='AbortError') return; }
     }
-    // desktop : copie l'IMAGE dans le presse-papier (+ telechargement de secours)
-    const copied = await copyImage(blob);
-    if(copied){ boToast('Image copiée dans le presse-papier ✓'); return; }
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download='tookbot_drop.png'; a.click(); URL.revokeObjectURL(url);
     boToast('Image téléchargée ✓');
