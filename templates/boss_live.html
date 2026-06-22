@@ -297,14 +297,14 @@ function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
 function fmtShort(n){ n=n||0; if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+'M';
   if(n>=1e4) return Math.round(n/1e3)+'k'; return fmt(n); }
 // Puissance en chiffres-images. Joueur/total = format compact (1m345), boss = entier.
-function powerStr(n, boss){
+function powerStr(n, boss, full){
   n=Math.max(0,Math.round(n||0));
-  if(boss) return String(n);
+  if(boss || full) return String(n);   // entier complet
   if(n>=1e6){ const M=Math.floor(n/1e6), k=Math.floor(n/1000)%1000; return M+'m'+String(k).padStart(3,'0'); }
   return String(n);
 }
-function powerImgs(n, boss){
-  let h=''; for(const ch of powerStr(n,boss)){
+function powerImgs(n, boss, full){
+  let h=''; for(const ch of powerStr(n,boss,full)){
     let name=null;
     if(ch>='0'&&ch<='9') name = boss ? ch+'boss' : ch;
     else if(ch==='m') name='m';
@@ -368,7 +368,7 @@ function syncHp(d){
   document.getElementById('bossSub').innerHTML =
     `${esc(d.boss.tier_label)} · ${eIco(d.boss.element)} ${esc(d.boss.element_label)} · 🗡️ ${fmt(d.boss.atk)}`
     + (d.boss.weak && d.boss.weak.length ? ` · faible: ${esc(d.boss.weak.join(' '))}` : '');
-  document.getElementById('pwTeam').innerHTML = powerImgs(d.team_power, false);
+  document.getElementById('pwTeam').innerHTML = powerImgs(d.team_power, false, true);
   document.getElementById('pwBoss').innerHTML = powerImgs(d.boss.power, true);
   document.body.classList.toggle('fighting', d.boss.status !== 'recruiting');
   // En combat : les barres bougent aux IMPACTS (pas au poll), sinon les degats/heal
