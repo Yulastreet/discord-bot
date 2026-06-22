@@ -21,12 +21,12 @@ _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 # Prix par defaut suggeres (essences). Base E ~40/roll.
 # epic=20 rolls, legendary=70, mythic=200, bordure=200.
 DEFAULT_CARD_PRICES = {
-    "common":    500,
+    "common":    510,
     "rare":      900,
-    "epic":      5440,
-    "legendary": 9000,
+    "epic":      3900,
+    "legendary": 5440,
     "mythic":    15400,
-    "secret":    28000,
+    # secret : jamais vendu en boutique (exclu du shuffle)
 }
 DEFAULT_BORDER_PRICE = 16000
 

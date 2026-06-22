@@ -204,9 +204,10 @@ def register_cards_shop_routes(app, deps):
         need = 6 - (1 if bkey else 0) - (1 if leg_id else 0)
         fillers = []
         if need > 0:
+            # secret jamais vendu en boutique -> exclu du shuffle
             fillers = c.execute(
-                "SELECT id FROM cards WHERE COALESCE(not_obtainable,0)=0 AND id != ? "
-                "ORDER BY RANDOM() LIMIT ?", (leg_id if leg_id else -1, need)).fetchall()
+                "SELECT id FROM cards WHERE COALESCE(not_obtainable,0)=0 AND rarity != 'secret' "
+                "AND id != ? ORDER BY RANDOM() LIMIT ?", (leg_id if leg_id else -1, need)).fetchall()
         conn.close()
         raw = []
         if bkey:
