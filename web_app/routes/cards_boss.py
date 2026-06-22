@@ -94,18 +94,19 @@ def register_cards_boss_routes(app, deps):
     _DEAD_GRACE = 25
 
     def _denied_page():
-        # Page d'erreur -> redirige vers le dashboard
+        # Connecte mais pas participant : message clair + bouton dashboard (pas d'auto-redirect)
         return ("""<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<meta http-equiv="refresh" content="3;url=/dashboard">
 <title>Accès refusé</title>
 <style>html,body{height:100%;margin:0}body{display:grid;place-items:center;
 background:radial-gradient(circle at 50% 25%,#2a1438,#0a0610);color:#eadff5;
 font-family:system-ui,sans-serif;text-align:center}
-.box{padding:30px}.t{font-size:26px;font-weight:900;margin-bottom:10px}
-.s{color:#b09cc8;font-size:15px}a{color:#ffd23f}</style></head>
+.box{padding:30px}.t{font-size:27px;font-weight:900;margin-bottom:12px}
+.s{color:#b09cc8;font-size:15px;margin-bottom:22px}
+.btn{display:inline-block;padding:11px 22px;border-radius:11px;background:var(--gold,#c9a24b);
+color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head>
 <body><div class="box"><div class="t">⛔ Tu ne fais pas partie de ce combat</div>
-<div class="s">Redirection vers le dashboard…<br><a href="/dashboard">Continuer maintenant</a></div>
-</div></body></html>""", 403)
+<div class="s">Seuls les combattants ayant rejoint peuvent suivre le combat en direct.</div>
+<a class="btn" href="/dashboard">Retour au dashboard</a></div></body></html>""", 403)
 
     @app.route("/cards/boss/<int:bid>", methods=["GET"])
     def cards_boss_live(bid):
