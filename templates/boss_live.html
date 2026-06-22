@@ -228,7 +228,8 @@
   .rw-row{ background:rgba(255,255,255,.08); border:1px solid #5a4570; border-radius:12px;
     padding:13px 16px; text-align:left; }
   .rw-head{ font-size:17px; font-weight:700; }
-  .rw-head .rw-dmg{ float:right; color:#c2b0db; font-size:14px; font-weight:600; }
+  .rw-head .rw-dmg{ float:right; color:#ffd9a8; font-size:14px; font-weight:800;
+    background:rgba(255,140,60,.15); border:1px solid #8a6f2e; border-radius:8px; padding:2px 9px; }
   .rw-items{ font-size:15.5px; color:#d7f3df; margin-top:7px; font-weight:600; }
 </style>
 </head>
@@ -528,7 +529,7 @@ function renderRewards(data){
   const rows=(data.players||[]).map(p=>`
     <div class="rw-row">
       <div class="rw-head">${p.mvp?'👑 ':'▫️ '}<b>${esc(p.name)}</b>
-        <span class="rw-dmg">dégâts ${fmt(p.dmg)}</span></div>
+        <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts</span></div>
       <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
     </div>`).join('') || '<div class="sub">—</div>';
   c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
