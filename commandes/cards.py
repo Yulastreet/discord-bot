@@ -2886,110 +2886,135 @@ def setup_cards_commands(bot, deps):
 
 
     class TradeView(discord.ui.View):
-        def __init__(self, trade_id: int, sender_id: int, receiver_id: int):
-            super().__init__(timeout=24 * 3600)
-            self.trade_id = trade_id
-            self.sender_id = int(sender_id)
-            self.receiver_id = int(receiver_id)
+        """Persistante (timeout=None, custom_id fixes). Une instance enregistree au
+        boot gere TOUS les trades. L'etat (trade_id) est relu dans le titre de
+        l'embed (Trade #N), sender/receiver depuis la DB -> survit aux restarts."""
+        def __init__(self):
+            super().__init__(timeout=None)
 
-        async def _disable_all(self, interaction: discord.Interaction):
-            for child in self.children:
-                child.disabled = True
-            try:
-                await interaction.message.edit(view=self)
-            except Exception:
-                pass
+        def _ctx(self, interaction):
+            """(trade_id, trade, sender_id, receiver_id) ou None si introuvable."""
+            import re as _re_t
+            emb = interaction.message.embeds[0] if interaction.message.embeds else None
+            title = (emb.title if emb else "") or ""
+            m = _re_t.search(r"Trade #(\d+)", title)
+            if not m:
+                return None
+            tid = int(m.group(1))
+            trade = card_trade_get(tid)
+            if not trade:
+                return None
+            return tid, trade, int(trade["sender_id"]), int(trade["receiver_id"])
 
-        @discord.ui.button(label="Accepter", style=discord.ButtonStyle.success, emoji="✅")
+        @discord.ui.button(label="Accepter", style=discord.ButtonStyle.success, emoji="✅",
+                           custom_id="trade_accept")
         async def accept_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            if interaction.user.id != self.receiver_id:
+            ctx = self._ctx(interaction)
+            if not ctx:
+                await interaction.response.send_message("Ce trade n'existe plus.", ephemeral=True); return
+            tid, trade, sender_id, receiver_id = ctx
+            if interaction.user.id != receiver_id:
                 await interaction.response.send_message(
                     "Seul le destinataire peut accepter ce trade.", ephemeral=True)
                 return
-            trade = card_trade_get(self.trade_id)
-            if not trade or trade["status"] != "pending":
+            if trade["status"] != "pending":
                 await interaction.response.send_message(
                     "Ce trade n'est plus actif.", ephemeral=True)
                 return
-            # Re-verify ownership
-            offer = card_trade_items(self.trade_id, side="offer")
-            request = card_trade_items(self.trade_id, side="request")
+            offer = card_trade_items(tid, side="offer")
+            request = card_trade_items(tid, side="request")
             sender_items = [(it["card_id"], it["qty"]) for it in offer]
             recv_items = [(it["card_id"], it["qty"]) for it in request]
-            err_s = _verify_ownership(self.sender_id, sender_items)
-            err_r = _verify_ownership(self.receiver_id, recv_items)
+            err_s = _verify_ownership(sender_id, sender_items)
+            err_r = _verify_ownership(receiver_id, recv_items)
             if err_s or err_r:
                 msg = "Trade impossible : cartes manquantes.\n"
-                if err_s: msg += f"<@{self.sender_id}> : {', '.join(err_s)}\n"
-                if err_r: msg += f"<@{self.receiver_id}> : {', '.join(err_r)}"
-                card_trade_set_status(self.trade_id, "cancelled")
-                await interaction.response.send_message(msg, ephemeral=False,
+                if err_s: msg += f"<@{sender_id}> : {', '.join(err_s)}\n"
+                if err_r: msg += f"<@{receiver_id}> : {', '.join(err_r)}"
+                card_trade_set_status(tid, "cancelled")
+                await interaction.response.edit_message(view=None)
+                await interaction.followup.send(msg,
                     allowed_mentions=discord.AllowedMentions.none())
-                await self._disable_all(interaction)
                 return
-            # Transfer atomically
             for cid, qty in sender_items:
                 for _ in range(qty):
-                    user_card_transfer_one(self.sender_id, self.receiver_id, cid)
+                    user_card_transfer_one(sender_id, receiver_id, cid)
             for cid, qty in recv_items:
                 for _ in range(qty):
-                    user_card_transfer_one(self.receiver_id, self.sender_id, cid)
-            card_trade_set_status(self.trade_id, "accepted")
-            sender = interaction.guild.get_member(self.sender_id) or interaction.user
-            receiver = interaction.guild.get_member(self.receiver_id) or interaction.user
-            new_embed = _build_trade_embed(self.trade_id, sender, receiver, "accepted")
+                    user_card_transfer_one(receiver_id, sender_id, cid)
+            card_trade_set_status(tid, "accepted")
+            sender = (interaction.guild.get_member(sender_id) if interaction.guild else None) or interaction.user
+            receiver = (interaction.guild.get_member(receiver_id) if interaction.guild else None) or interaction.user
+            new_embed = _build_trade_embed(tid, sender, receiver, "accepted")
             await interaction.response.edit_message(embed=new_embed, view=None)
 
-        @discord.ui.button(label="Refuser", style=discord.ButtonStyle.danger, emoji="❌")
+        @discord.ui.button(label="Refuser", style=discord.ButtonStyle.danger, emoji="❌",
+                           custom_id="trade_refuse")
         async def refuse_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            if interaction.user.id not in (self.sender_id, self.receiver_id):
+            ctx = self._ctx(interaction)
+            if not ctx:
+                await interaction.response.send_message("Ce trade n'existe plus.", ephemeral=True); return
+            tid, trade, sender_id, receiver_id = ctx
+            if interaction.user.id not in (sender_id, receiver_id):
                 await interaction.response.send_message(
                     "Tu n'es pas concerne par ce trade.", ephemeral=True)
                 return
-            trade = card_trade_get(self.trade_id)
-            if not trade or trade["status"] != "pending":
+            if trade["status"] != "pending":
                 await interaction.response.send_message(
                     "Ce trade n'est plus actif.", ephemeral=True)
                 return
-            new_status = "cancelled" if interaction.user.id == self.sender_id else "refused"
-            card_trade_set_status(self.trade_id, new_status)
-            sender = interaction.guild.get_member(self.sender_id) or interaction.user
-            receiver = interaction.guild.get_member(self.receiver_id) or interaction.user
-            new_embed = _build_trade_embed(self.trade_id, sender, receiver, new_status)
+            new_status = "cancelled" if interaction.user.id == sender_id else "refused"
+            card_trade_set_status(tid, new_status)
+            sender = (interaction.guild.get_member(sender_id) if interaction.guild else None) or interaction.user
+            receiver = (interaction.guild.get_member(receiver_id) if interaction.guild else None) or interaction.user
+            new_embed = _build_trade_embed(tid, sender, receiver, new_status)
             await interaction.response.edit_message(embed=new_embed, view=None)
 
-        @discord.ui.button(label="Contre-offre", style=discord.ButtonStyle.secondary, emoji="🔄")
+        @discord.ui.button(label="Contre-offre", style=discord.ButtonStyle.secondary, emoji="🔄",
+                           custom_id="trade_counter")
         async def counter_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            if interaction.user.id != self.receiver_id:
+            ctx = self._ctx(interaction)
+            if not ctx:
+                await interaction.response.send_message("Ce trade n'existe plus.", ephemeral=True); return
+            tid, trade, sender_id, receiver_id = ctx
+            if interaction.user.id != receiver_id:
                 await interaction.response.send_message(
                     "Seul le destinataire peut faire une contre-offre.", ephemeral=True)
                 return
-            trade = card_trade_get(self.trade_id)
-            if not trade or trade["status"] != "pending":
+            if trade["status"] != "pending":
                 await interaction.response.send_message(
                     "Ce trade n'est plus actif.", ephemeral=True)
                 return
-            # Open counter modal. La contre-offre inverse roles : receiver
-            # devient sender, sender devient receiver.
-            modal = TradeModal(target_user_id=self.sender_id,
-                                 is_counter=True, original_trade_id=self.trade_id,
-                                 view_to_disable=self)
+            modal = TradeModal(target_user_id=sender_id,
+                                 is_counter=True, original_trade_id=tid,
+                                 view_to_disable=None)
             await interaction.response.send_modal(modal)
 
-        @discord.ui.button(label="Voir cartes", style=discord.ButtonStyle.secondary, emoji="🃏", row=1)
+        @discord.ui.button(label="Voir cartes", style=discord.ButtonStyle.secondary, emoji="🃏",
+                           row=1, custom_id="trade_view_cards")
         async def view_cards_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-            sender = interaction.guild.get_member(self.sender_id) if interaction.guild else None
-            receiver = interaction.guild.get_member(self.receiver_id) if interaction.guild else None
+            ctx = self._ctx(interaction)
+            if not ctx:
+                await interaction.response.send_message("Ce trade n'existe plus.", ephemeral=True); return
+            tid, trade, sender_id, receiver_id = ctx
+            sender = interaction.guild.get_member(sender_id) if interaction.guild else None
+            receiver = interaction.guild.get_member(receiver_id) if interaction.guild else None
             sname = sender.display_name if sender else "le proposeur"
             rname = receiver.display_name if receiver else "le destinataire"
-            entries = _trade_card_entries(self.trade_id, sname, rname)
+            entries = _trade_card_entries(tid, sname, rname)
             if not entries:
                 await interaction.response.send_message(
                     "Aucune carte à afficher pour ce trade.", ephemeral=True)
                 return
             await interaction.response.send_message(
-                embed=_trade_card_embed(self.trade_id, 0, entries),
+                embed=_trade_card_embed(tid, 0, entries),
                 view=TradeCardsNavView(), ephemeral=True)
+
+    # Enregistre la view persistante des trades (survit aux restarts pm2)
+    try:
+        bot.add_view(TradeView())
+    except Exception as _e:
+        print(f"[cards] add_view TradeView: {_e}")
 
 
     class TradeModal(discord.ui.Modal, title="Proposer un trade"):
@@ -3066,17 +3091,14 @@ def setup_cards_commands(bot, deps):
                         ephemeral=True)
                     return
 
-                # Si contre-offre : marque ancien trade
+                # Si contre-offre : marque ancien trade + retire les boutons du message original
                 if self.is_counter and self.original_trade_id:
                     card_trade_set_status(self.original_trade_id, "countered")
-                    if self.view_to_disable:
-                        try:
-                            for child in self.view_to_disable.children:
-                                child.disabled = True
-                            if interaction.message:
-                                await interaction.message.edit(view=self.view_to_disable)
-                        except Exception:
-                            pass
+                    try:
+                        if interaction.message:
+                            await interaction.message.edit(view=None)
+                    except Exception:
+                        pass
 
                 gid = interaction.guild.id if interaction.guild else None
                 cid = interaction.channel.id if interaction.channel else None
@@ -3091,7 +3113,7 @@ def setup_cards_commands(bot, deps):
                     return
 
                 embed = _build_trade_embed(tid, interaction.user, receiver_member, "pending")
-                view = TradeView(tid, sender_id, receiver_id)
+                view = TradeView()
                 await interaction.response.send_message(
                     content=f"{receiver_member.mention}",
                     embed=embed, view=view,
