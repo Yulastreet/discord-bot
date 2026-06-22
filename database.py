@@ -2948,6 +2948,16 @@ def daily_booster_claimed_today(user_id) -> bool:
     return r is not None
 
 
+def daily_booster_ever_claimed(user_id) -> bool:
+    """True si le user a deja ouvert au moins un booster (n'importe quel jour)."""
+    _ensure_wheel_tables()
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM daily_booster_claims WHERE user_id = ? LIMIT 1",
+                  (str(user_id),)).fetchone()
+    conn.close()
+    return r is not None
+
+
 def daily_booster_claim(user_id) -> bool:
     """Marque le booster quotidien comme recupere. False si deja fait aujourd'hui.
     (L'octroi des cartes est gere par l'appelant.)"""

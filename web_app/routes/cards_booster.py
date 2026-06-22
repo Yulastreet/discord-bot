@@ -99,6 +99,9 @@ def register_cards_booster_routes(app, deps):
                 cards.append(p)
         if force in ("legendary", "mythic"):
             last_rar = force
+        elif force == "min_legendary":
+            # premier booster : legendaire minimum (legendaire ou mythic)
+            last_rar = _weighted({"legendary": 85, "mythic": 15})
         else:
             last_rar = _weighted(_LAST_WEIGHTS)
         last = _pick(last_rar) or _pick("epic") or _pick("legendary") or _pick("mythic")
@@ -121,11 +124,14 @@ def register_cards_booster_routes(app, deps):
         uid = _session_uid()
         if not uid:
             return jsonify({"error": "Connecte-toi pour ouvrir ton booster."}), 401
-        from database import (daily_booster_claimed_today, daily_booster_claim, user_card_add)
+        from database import (daily_booster_claimed_today, daily_booster_claim, user_card_add,
+                              daily_booster_ever_claimed)
         is_owner = _is_owner_session()   # owner : ouvertures illimitees (pas de claim quotidien)
         if not is_owner and daily_booster_claimed_today(uid):
             return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
-        cards = _build_pack(None)
+        # premier booster d'un joueur -> legendaire garantie minimum a la 9e carte
+        first = (not is_owner) and (not daily_booster_ever_claimed(uid))
+        cards = _build_pack("min_legendary" if first else None)
         if not cards:
             return jsonify({"error": "Booster indisponible pour le moment."}), 500
         if not is_owner and not daily_booster_claim(uid):   # garde anti double-ouverture
