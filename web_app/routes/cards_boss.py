@@ -144,6 +144,8 @@ def register_cards_boss_routes(app, deps):
                 "atk": int(p.get("atk") or 0),
                 "aptitude": p.get("aptitude") or "",
                 "power": _pw,
+                "damage": int(p.get("damage") or 0),
+                "heal": int(p.get("heal") or 0),
                 "rarity": (_cd or {}).get("rarity") or "",
                 "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
                 "has_border": bool(p.get("card_id") and card_customization_get(str(p["user_id"]), p.get("card_id"))),

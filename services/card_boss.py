@@ -1200,6 +1200,7 @@ async def _run_boss(bot, bid, msg, view):
                 mx = tgt.get("max_hp") or tgt["hp"]
                 heal = int(mx * _SOIGNEUR_HEAL)
                 boss_participant_update(bid, tgt["user_id"], hp=min(mx, tgt["hp"] + heal))
+                boss_participant_update(bid, _h["user_id"], add_heal=heal)
                 log.append(f"Tour {turn} · 💚 **{_h['name']}** soigne **{tgt['name']}** (+{_fmt(heal)} PV)")
                 boss_event_add(bid, "party_heal", {"healer": str(_h["user_id"]),
                                                    "target": str(tgt["user_id"]), "amount": heal})

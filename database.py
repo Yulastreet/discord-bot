@@ -410,6 +410,10 @@ def init_db():
         c.execute("ALTER TABLE card_boss_participant ADD COLUMN aptitude TEXT")
     except Exception:
         pass
+    try:
+        c.execute("ALTER TABLE card_boss_participant ADD COLUMN heal INTEGER DEFAULT 0")
+    except Exception:
+        pass
     # Flux d'evenements de combat (pour le live dashboard : party_hit, boss_aoe,
     # boss_smash, enrage, heal, end...). Le front les rejoue en animations.
     c.execute('''CREATE TABLE IF NOT EXISTS card_boss_event (
@@ -3808,7 +3812,8 @@ def boss_participants_list(boss_id):
 
 
 def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_attack=None,
-                              element=None, card_id=None, aptitude=None, atk=None, max_hp=None):
+                              element=None, card_id=None, aptitude=None, atk=None, max_hp=None,
+                              add_heal=None):
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     if hp is not None:
@@ -3819,6 +3824,8 @@ def boss_participant_update(boss_id, user_id, hp=None, add_damage=None, last_att
         sets.append("atk = ?"); vals.append(max(1, int(atk)))
     if add_damage is not None:
         sets.append("damage = damage + ?"); vals.append(int(add_damage))
+    if add_heal is not None:
+        sets.append("heal = COALESCE(heal,0) + ?"); vals.append(int(add_heal))
     if last_attack is not None:
         sets.append("last_attack = ?"); vals.append(float(last_attack))
     if element is not None:
