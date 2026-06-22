@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>{{ boss_name }} · Combat live · TookBot</title>
+<style>
+  :root{ --gold:#c9a24b; --red:#ff3d57; --green:#4ade80; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ font-family:'Segoe UI',system-ui,sans-serif; color:#f1eadf; overflow:hidden;
+    background:radial-gradient(circle at 50% 18%, #2a1438 0%, #150a1f 45%, #070409 100%); }
+  #arena{ position:relative; width:100%; height:100vh; display:flex; flex-direction:column;
+    align-items:center; transition:transform .08s; }
+  #arena.shake{ animation:shake .42s; }
+  @keyframes shake{ 0%,100%{transform:translate(0,0)} 15%{transform:translate(-9px,4px)}
+    30%{transform:translate(8px,-5px)} 45%{transform:translate(-7px,3px)}
+    60%{transform:translate(6px,4px)} 75%{transform:translate(-4px,-2px)} }
+
+  /* ===== EQUIPE (haut) ===== */
+  #team{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+    padding:14px 10px 4px; width:100%; max-width:1100px; }
+  .pc{ width:118px; position:relative; transition:transform .18s, opacity .3s; }
+  .pc.attack{ animation:lunge-up .4s ease; }
+  @keyframes lunge-up{ 0%{transform:translateY(0)} 40%{transform:translateY(-26px) scale(1.05)} 100%{transform:translateY(0)} }
+  .pc.hurt{ animation:hurt .4s; }
+  @keyframes hurt{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+  .pc.ko{ opacity:.4; filter:grayscale(1); }
+  .pc-img-wrap{ position:relative; border-radius:9px; overflow:hidden; aspect-ratio:2/3;
+    background:#1a1320; border:2px solid #463353; box-shadow:0 6px 16px rgba(0,0,0,.5); }
+  .pc-img-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .pc-img-wrap .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:30px; color:#5a4a66; }
+  .pc-flash{ position:absolute; inset:0; opacity:0; pointer-events:none; }
+  .pc-flash.red{ background:radial-gradient(circle, rgba(255,61,87,.55), transparent 70%); }
+  .pc-flash.green{ background:radial-gradient(circle, rgba(74,222,128,.55), transparent 70%); }
+  .pc-flash.on{ animation:flash .5s; }
+  @keyframes flash{ 0%{opacity:0} 30%{opacity:1} 100%{opacity:0} }
+  .pc .ko-skull{ position:absolute; inset:0; display:none; place-items:center; font-size:40px;
+    text-shadow:0 2px 8px #000; }
+  .pc.ko .ko-skull{ display:grid; }
+  .pc-name{ font-size:11.5px; font-weight:800; text-align:center; margin-top:4px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pc-apt{ font-size:11px; }
+  .pc-hp{ height:7px; border-radius:5px; background:#2a1f33; overflow:hidden; margin-top:3px; border:1px solid #000; }
+  .pc-hp > i{ display:block; height:100%; background:linear-gradient(90deg,#34d399,#4ade80);
+    width:100%; transition:width .6s ease; }
+
+  /* ===== BOSS (centre/bas) ===== */
+  #bossWrap{ flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:flex-end; padding-bottom:22px; width:100%; }
+  #bossInfo{ text-align:center; margin-bottom:8px; }
+  #bossName{ font-size:24px; font-weight:900; letter-spacing:.5px;
+    text-shadow:0 2px 10px rgba(0,0,0,.7); }
+  #bossSub{ font-size:13px; color:#c9b6da; margin-top:2px; }
+  #bossHpOuter{ width:min(640px,86vw); height:26px; border-radius:14px; background:#1c1224;
+    border:2px solid #000; box-shadow:inset 0 0 12px rgba(0,0,0,.7); overflow:hidden;
+    position:relative; margin:0 auto; }
+  #bossHp{ height:100%; width:100%; transition:width .7s ease;
+    background:linear-gradient(90deg,#b3123b,#ff3d57); }
+  #bossHpTxt{ position:absolute; inset:0; display:grid; place-items:center; font-size:13px;
+    font-weight:900; text-shadow:0 1px 3px #000; }
+  #bossCardWrap{ position:relative; margin-top:14px; width:min(250px,52vw); aspect-ratio:2/3;
+    border-radius:14px; overflow:hidden; border:3px solid #5a3a6e;
+    box-shadow:0 14px 40px rgba(0,0,0,.7); transition:transform .12s, box-shadow .3s; }
+  #bossCardWrap img{ width:100%; height:100%; object-fit:cover; display:block; }
+  #bossCardWrap .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:60px; color:#5a4a66; }
+  #bossCardWrap.enraged{ border-color:var(--red);
+    box-shadow:0 0 38px rgba(255,61,87,.75), 0 14px 40px rgba(0,0,0,.7);
+    animation:enrage-pulse 1.1s infinite; }
+  @keyframes enrage-pulse{ 0%,100%{box-shadow:0 0 30px rgba(255,61,87,.6),0 14px 40px rgba(0,0,0,.7)}
+    50%{box-shadow:0 0 52px rgba(255,61,87,.95),0 14px 40px rgba(0,0,0,.7)} }
+  #bossCardWrap.hit{ animation:boss-hit .4s; }
+  @keyframes boss-hit{ 0%,100%{transform:translate(0,0)} 25%{transform:translate(-10px,5px) rotate(-1.5deg)}
+    75%{transform:translate(9px,-4px) rotate(1.5deg)} }
+  #bossCardWrap.lunge{ animation:boss-lunge .5s ease; }
+  @keyframes boss-lunge{ 0%{transform:translateY(0)} 35%{transform:translateY(-30px) scale(1.06)} 100%{transform:translateY(0)} }
+  .slash{ position:absolute; inset:0; pointer-events:none; opacity:0;
+    background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.95) 49%, transparent 56%); }
+  .slash.go{ animation:slash .42s; }
+  @keyframes slash{ 0%{opacity:0; transform:translateX(-30%) scale(1.2)}
+    35%{opacity:1} 100%{opacity:0; transform:translateX(30%) scale(1.2)} }
+
+  /* ===== POPUPS DEGATS / SOIN ===== */
+  .pop{ position:absolute; font-weight:900; pointer-events:none; z-index:30;
+    text-shadow:0 2px 6px #000; animation:pop 1.1s ease-out forwards; white-space:nowrap; }
+  @keyframes pop{ 0%{opacity:0; transform:translate(-50%,0) scale(.6)}
+    20%{opacity:1; transform:translate(-50%,-18px) scale(1.15)}
+    100%{opacity:0; transform:translate(-50%,-62px) scale(1)} }
+  .pop.dmg{ color:#ff5470; font-size:26px; }
+  .pop.dmg.crit{ color:#ffd23f; font-size:34px; }
+  .pop.heal{ color:#4ade80; font-size:22px; }
+  .pop.small{ font-size:18px; }
+
+  /* ===== BANNIERES ===== */
+  #banner{ position:fixed; top:34%; left:0; right:0; text-align:center; z-index:50;
+    pointer-events:none; }
+  .banner-txt{ display:inline-block; font-size:46px; font-weight:900; letter-spacing:2px;
+    padding:6px 26px; text-shadow:0 3px 16px #000; animation:bannerIn 1.5s ease forwards; }
+  @keyframes bannerIn{ 0%{opacity:0; transform:scale(.5)} 20%{opacity:1; transform:scale(1.12)}
+    35%{transform:scale(1)} 80%{opacity:1} 100%{opacity:0; transform:scale(1.05)} }
+  .banner-enrage{ color:var(--red); }
+  .banner-smash{ color:#ffb13d; }
+
+  /* ===== LOG + STATUS ===== */
+  #log{ position:fixed; left:12px; bottom:12px; width:min(330px,70vw); max-height:120px;
+    overflow:hidden; font-size:11.5px; line-height:1.5; color:#cdbfe0;
+    background:rgba(10,6,16,.55); border:1px solid #33223f; border-radius:10px; padding:8px 10px; }
+  #status{ position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:40;
+    font-size:13px; font-weight:700; color:#e8dcf5; background:rgba(10,6,16,.6);
+    border:1px solid #33223f; border-radius:20px; padding:6px 16px; }
+  #endOverlay{ position:fixed; inset:0; z-index:80; display:none; place-items:center;
+    background:rgba(5,3,10,.82); backdrop-filter:blur(3px); }
+  #endOverlay.show{ display:grid; }
+  #endCard{ text-align:center; }
+  #endCard .big{ font-size:54px; font-weight:900; }
+  #endCard .sub{ font-size:16px; color:#cdbfe0; margin-top:10px; }
+  .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
+  .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
+</style>
+</head>
+<body>
+<div id="status">Connexion…</div>
+<div id="arena">
+  <div id="team"></div>
+  <div id="bossWrap">
+    <div id="bossInfo">
+      <div id="bossName">{{ boss_name }}</div>
+      <div id="bossSub"></div>
+    </div>
+    <div id="bossHpOuter"><div id="bossHp"></div><div id="bossHpTxt"></div></div>
+    <div id="bossCardWrap">
+      <div class="noimg">🐲</div>
+      <div class="slash" id="bossSlash"></div>
+    </div>
+  </div>
+</div>
+<div id="banner"></div>
+<div id="log"></div>
+<div id="endOverlay"><div id="endCard"></div></div>
+
+<script>
+const BID = {{ boss_id }};
+const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', neant:'🕳' };
+const APT_EMOJI  = { berserker:'🩸', gardien:'🛡️', soigneur:'💚', duelliste:'⚔️', executeur:'💀' };
+let lastEvt = 0;
+let built = false;
+let ended = false;
+let pollMs = 1500;
+const P = {};            // uid -> {el, hpBar}
+function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function buildPlayers(players){
+  const team = document.getElementById('team');
+  team.innerHTML = '';
+  Object.keys(P).forEach(k=>delete P[k]);
+  players.forEach(p=>{
+    const el = document.createElement('div');
+    el.className = 'pc'; el.id = 'p_'+p.uid;
+    const apt = p.aptitude ? `<span class="pc-apt">${APT_EMOJI[p.aptitude]||''}</span>` : '';
+    const img = p.img ? `<img src="${esc(p.img)}" alt="">` : `<div class="noimg">🎴</div>`;
+    el.innerHTML = `<div class="pc-img-wrap">${img}
+        <div class="pc-flash red"></div><div class="pc-flash green"></div>
+        <div class="ko-skull">💀</div></div>
+      <div class="pc-name">${ELEM_EMOJI[p.element]||''} ${esc(p.name)} ${apt}</div>
+      <div class="pc-hp"><i></i></div>`;
+    team.appendChild(el);
+    P[p.uid] = { el, bar: el.querySelector('.pc-hp > i') };
+  });
+  built = true;
+}
+
+function syncHp(d){
+  // boss
+  const bpct = d.boss.max_hp ? Math.max(0, 100*d.boss.hp/d.boss.max_hp) : 0;
+  document.getElementById('bossHp').style.width = bpct+'%';
+  document.getElementById('bossHpTxt').textContent = `${fmt(d.boss.hp)} / ${fmt(d.boss.max_hp)} (${Math.round(bpct)}%)`;
+  document.getElementById('bossSub').textContent =
+    `${d.boss.tier_label} · ${d.boss.element_label} · 🗡️ ${fmt(d.boss.atk)}`
+    + (d.boss.weak && d.boss.weak.length ? ` · faible: ${d.boss.weak.join(' ')}` : '');
+  // joueurs
+  d.players.forEach(p=>{
+    const ref = P[p.uid]; if(!ref) return;
+    const pct = p.max_hp ? Math.max(0, 100*p.hp/p.max_hp) : 0;
+    ref.bar.style.width = pct+'%';
+    ref.el.classList.toggle('ko', p.hp<=0);
+  });
+}
+
+/* ===== ANIMATIONS ===== */
+function shakeArena(){ const a=document.getElementById('arena'); a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); }
+function anim(el, cls){ if(!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function flashPlayer(uid, color){ const r=P[uid]; if(!r) return;
+  const f=r.el.querySelector('.pc-flash.'+color); anim(f,'on'); }
+function popOn(el, html, cls){
+  if(!el) return;
+  const p = document.createElement('div'); p.className='pop '+cls; p.innerHTML=html;
+  const r = el.getBoundingClientRect();
+  p.style.left = (r.left + r.width/2) + 'px';
+  p.style.top  = (r.top + r.height*0.35) + 'px';
+  p.style.position='fixed';
+  document.body.appendChild(p);
+  setTimeout(()=>p.remove(), 1200);
+}
+function banner(txt, cls){
+  const b=document.getElementById('banner');
+  b.innerHTML = `<div class="banner-txt ${cls}">${txt}</div>`;
+  setTimeout(()=>{ if(b.firstChild) b.innerHTML=''; }, 1600);
+}
+
+const bossWrap = ()=>document.getElementById('bossCardWrap');
+function playEvent(ev){
+  const t = ev.type, d = ev.data||{};
+  if(t==='party_hit'){
+    Object.keys(P).forEach(uid=>{ if(!P[uid].el.classList.contains('ko')) anim(P[uid].el,'attack'); });
+    anim(document.getElementById('bossSlash'),'go');
+    anim(bossWrap(),'hit');
+    popOn(bossWrap(), '-'+fmt(d.total), 'dmg'+(d.crit?' crit':''));
+  } else if(t==='boss_aoe'){
+    anim(bossWrap(),'lunge'); shakeArena();
+    (d.targets||[]).forEach(uid=>{ flashPlayer(uid,'red'); const r=P[uid]; if(r) anim(r.el,'hurt'); });
+    popOn(bossWrap(), '👹 -'+fmt(d.total), 'dmg small');
+    (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.el,'💀','dmg small'); } });
+  } else if(t==='boss_smash'){
+    banner('💥 COUP DÉVASTATEUR', 'banner-smash');
+    anim(bossWrap(),'lunge'); shakeArena();
+    const r=P[d.target];
+    if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.el,'-'+fmt(d.dmg),'dmg crit');
+      if(d.ko) r.el.classList.add('ko'); }
+  } else if(t==='enrage'){
+    banner('🔥 DÉCHAÎNÉ', 'banner-enrage');
+    bossWrap().classList.add('enraged');
+    document.getElementById('bossHp').style.background='linear-gradient(90deg,#7a0a1f,#ff1f44)';
+  } else if(t==='boss_heal'){
+    popOn(bossWrap(), '+'+fmt(d.amount), 'heal');
+  } else if(t==='party_heal'){
+    flashPlayer(d.target,'green'); popOn(P[d.target]?P[d.target].el:null, '+'+fmt(d.amount), 'heal');
+  } else if(t==='end'){
+    showEnd(d.victory);
+  }
+}
+
+function showEnd(victory){
+  if(ended) return; ended = true;
+  const ov=document.getElementById('endOverlay');
+  const c=document.getElementById('endCard');
+  c.className = victory ? 'victory' : 'defeat';
+  c.innerHTML = victory
+    ? `<div class="big">🎉 VICTOIRE</div><div class="sub">Le boss est vaincu !</div>`
+    : `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
+  ov.classList.add('show');
+}
+
+/* ===== FILE D'EVENEMENTS (joue en sequence) ===== */
+let queue = [];
+let playing = false;
+function pump(){
+  if(playing) return;
+  const ev = queue.shift();
+  if(!ev){ playing=false; return; }
+  playing = true;
+  playEvent(ev);
+  setTimeout(()=>{ playing=false; pump(); }, 480);
+}
+function enqueue(events){ events.forEach(e=>queue.push(e)); pump(); }
+
+/* ===== STATUS ===== */
+function setStatus(d){
+  const s=document.getElementById('status');
+  const st=d.boss.status;
+  if(st==='recruiting'){
+    let txt='🐲 Recrutement en cours…';
+    if(d.boss.start_at){ const left=Math.max(0,Math.round(d.boss.start_at-d.now));
+      txt = `🐲 Le combat démarre dans ${left}s`; }
+    s.textContent=txt; s.style.display='block';
+  } else if(st==='fighting'){
+    s.textContent='⚔️ Combat en cours'; s.style.display='block';
+  } else if(st==='defeated'){ showEnd(true); s.style.display='none';
+  } else if(st==='wiped'||st==='expired'){ showEnd(st==='wiped'?false:true); s.style.display='none';
+  } else { s.style.display='none'; }
+}
+
+async function tick(){
+  try{
+    const r = await fetch(`/cards/boss/${BID}/state?after=${lastEvt}`);
+    if(!r.ok){ throw new Error('http'); }
+    const d = await r.json();
+    if(!built || Object.keys(P).length !== d.players.length) buildPlayers(d.players);
+    // image boss (1x)
+    const bw = bossWrap();
+    if(d.boss.img && !bw.dataset.img){ bw.dataset.img=d.boss.img;
+      bw.querySelector('.noimg')?.remove();
+      const im=document.createElement('img'); im.src=d.boss.img; bw.prepend(im); }
+    syncHp(d);
+    setStatus(d);
+    if(d.events && d.events.length){
+      lastEvt = d.events[d.events.length-1].id;
+      enqueue(d.events);
+    }
+    // ralentit le poll quand fini
+    pollMs = (d.boss.status==='fighting'||d.boss.status==='recruiting') ? 1500 : 6000;
+  }catch(e){
+    document.getElementById('status').textContent='Reconnexion…';
+  }
+  setTimeout(tick, pollMs);
+}
+tick();
+</script>
+</body>
+</html>

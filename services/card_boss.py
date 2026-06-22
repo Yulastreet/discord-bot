@@ -23,7 +23,7 @@ from database import (
     element_matchup, BOSS_TIER_SCALE, card_boss_set_stats,
     card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
     user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
-    CARD_ELEMENTS, combat_power,
+    CARD_ELEMENTS, combat_power, boss_event_add,
 )
 import os as _os
 import time as _t
@@ -505,10 +505,20 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False):
     return embed
 
 
+def _boss_live_url(boss_id):
+    base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
+    return f"{base}/cards/boss/{int(boss_id)}" if base else None
+
+
 class JoinView(discord.ui.View):
     def __init__(self, boss_id):
         super().__init__(timeout=None)
         self.boss_id = boss_id
+        # Bouton lien -> combat live sur le dashboard (animations temps reel)
+        url = _boss_live_url(boss_id)
+        if url:
+            self.add_item(discord.ui.Button(label="⚔️ Voir le combat en live",
+                                            style=discord.ButtonStyle.link, url=url))
 
     @discord.ui.button(label="Rejoindre", style=discord.ButtonStyle.success, emoji="🛡️",
                        custom_id="boss_join")
@@ -1121,8 +1131,12 @@ async def _run_boss(bot, bid, msg, view):
         # ── Combat automatique ──
         card_boss_set_status(bid, "fighting")
         for ch in view.children:
+            # garde le bouton lien "voir le combat live" cliquable pendant le combat
+            if getattr(ch, "style", None) == discord.ButtonStyle.link:
+                continue
             ch.disabled = True
         log = ["⚔️ **Le combat commence !**"]
+        boss_event_add(bid, "start", {})
         # Genere le champ de bataille (cartes joueurs vs boss) attaché une fois
         bf_path = _build_battlefield(bid)
         try:
@@ -1176,6 +1190,8 @@ async def _run_boss(bot, bid, msg, view):
                 heal = int(mx * _SOIGNEUR_HEAL)
                 boss_participant_update(bid, tgt["user_id"], hp=min(mx, tgt["hp"] + heal))
                 log.append(f"Tour {turn} · 💚 **{_h['name']}** soigne **{tgt['name']}** (+{_fmt(heal)} PV)")
+                boss_event_add(bid, "party_heal", {"healer": str(_h["user_id"]),
+                                                   "target": str(tgt["user_id"]), "amount": heal})
 
         while turn < _MAX_TURNS:
             turn += 1
@@ -1203,6 +1219,7 @@ async def _run_boss(bot, bid, msg, view):
                 boss_hp = card_boss_apply_damage(bid, total)
                 eff = " 🔥" if best_eff > 1 else ""
                 log.append(f"Tour {turn} · 🗡️ L'équipe inflige **{_fmt(total)}**{eff}")
+                boss_event_add(bid, "party_hit", {"total": total, "crit": best_eff > 1, "turn": turn})
                 _apply_heals()
                 # T4+ : le boss se soigne une fois quand il tombe sous 20% PV
                 if boss_self_heal and not boss_healed and 0 < boss_hp < boss["max_hp"] * 0.20:
@@ -1210,6 +1227,7 @@ async def _run_boss(bot, bid, msg, view):
                     heal = int(boss["max_hp"] * 0.10)
                     boss_hp = card_boss_heal(bid, heal)
                     log.append(f"Tour {turn} · 🩹 **Le boss se régénère (+{_fmt(heal)} PV) !**")
+                    boss_event_add(bid, "boss_heal", {"amount": heal})
                 if boss_hp <= 0:
                     card_boss_set_status(bid, "defeated")
                     break
@@ -1224,6 +1242,8 @@ async def _run_boss(bot, bid, msg, view):
                 ko = " 💀 **KO !**" if dead else ""
                 log.append(f"Tour {turn} · 💥 **COUP DÉVASTATEUR !** Le boss cible "
                            f"**{target['name']}** : -**{_fmt(real)}**{ko}")
+                boss_event_add(bid, "boss_smash", {"target": str(target["user_id"]),
+                                                   "dmg": real, "ko": dead, "turn": turn})
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -1236,7 +1256,9 @@ async def _run_boss(bot, bid, msg, view):
                     enrage_announced = True
                     log.append(f"🔥 **Le boss se déchaîne et inflige {enrage_mult:.2f}x"
                                f" plus de dégâts !**".replace(".", ","))
+                    boss_event_add(bid, "enrage", {"mult": enrage_mult})
                 kos = []
+                ko_ids = []
                 total_dmg = 0
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
@@ -1244,10 +1266,13 @@ async def _run_boss(bot, bid, msg, view):
                     new_hp, dead, real = _boss_hit(p, dmg)
                     total_dmg += real
                     if dead:
-                        kos.append(p["name"])
+                        kos.append(p["name"]); ko_ids.append(str(p["user_id"]))
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
                 log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
                            f"**{_fmt(total_dmg)}**{ko_txt}")
+                boss_event_add(bid, "boss_aoe", {"total": total_dmg, "enraged": enraged,
+                                                 "kos": ko_ids, "targets": [str(p["user_id"]) for p in alive],
+                                                 "turn": turn})
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -1272,6 +1297,7 @@ async def _finish(bot, bid, msg, view, log, victory):
     parts = boss_participants_list(bid)
     ch = bot.get_channel(int(boss["channel_id"]))
 
+    boss_event_add(bid, "end", {"victory": bool(victory)})
     # Affiche d'abord le resultat sur l'embed de combat, puis laisse le temps de lire
     log.append("🎉 **Boss vaincu !**" if victory else "💀 **L'équipe est anéantie.**")
     try:

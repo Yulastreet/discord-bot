@@ -410,6 +410,16 @@ def init_db():
         c.execute("ALTER TABLE card_boss_participant ADD COLUMN aptitude TEXT")
     except Exception:
         pass
+    # Flux d'evenements de combat (pour le live dashboard : party_hit, boss_aoe,
+    # boss_smash, enrage, heal, end...). Le front les rejoue en animations.
+    c.execute('''CREATE TABLE IF NOT EXISTS card_boss_event (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        boss_id   INTEGER NOT NULL,
+        etype     TEXT NOT NULL,
+        data      TEXT,
+        ts        REAL DEFAULT 0
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_event ON card_boss_event(boss_id, id)")
 
     # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
     c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
@@ -3737,6 +3747,33 @@ def card_boss_set_status(boss_id, status):
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_boss SET status = ? WHERE id = ?", (status, int(boss_id)))
     conn.commit(); conn.close()
+
+
+def boss_event_add(boss_id, etype, data=None):
+    """Enregistre un evenement de combat pour le live dashboard."""
+    import json as _json, time as _time
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_boss_event (boss_id, etype, data, ts) VALUES (?, ?, ?, ?)",
+              (int(boss_id), str(etype), _json.dumps(data or {}), _time.time()))
+    conn.commit(); conn.close()
+
+
+def boss_events_since(boss_id, after_id=0, limit=200):
+    """Evenements du boss avec id > after_id, ordre chrono."""
+    import json as _json
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT id, etype, data, ts FROM card_boss_event "
+                     "WHERE boss_id = ? AND id > ? ORDER BY id ASC LIMIT ?",
+                     (int(boss_id), int(after_id), int(limit))).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        try:
+            d = _json.loads(r["data"] or "{}")
+        except Exception:
+            d = {}
+        out.append({"id": r["id"], "type": r["etype"], "data": d, "ts": r["ts"]})
+    return out
 
 
 def boss_participant_add(boss_id, user_id, name, element, hp, atk, card_id=None) -> bool:
