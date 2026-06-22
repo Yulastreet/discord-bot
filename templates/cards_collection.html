@@ -49,9 +49,11 @@
   .card-zoom.open { display:grid; }
   .cz-inner { display:flex; flex-direction:column; align-items:center; gap:14px;
        max-height:96vh; padding:16px; }
+  .cz-img-wrap { perspective:1100px; }
   .cz-img { max-height:62vh; max-width:88vw; border-radius:14px; cursor:grab; will-change:transform;
-       box-shadow:0 22px 60px rgba(0,0,0,.7); user-select:none; -webkit-user-drag:none; touch-action:none; }
-  .cz-img.grabbing { cursor:grabbing; }
+       box-shadow:0 22px 60px rgba(0,0,0,.7); user-select:none; -webkit-user-drag:none; touch-action:none;
+       transform:rotateX(0deg) rotateY(0deg); transition:transform .15s ease-out; }
+  .cz-img.grabbing { cursor:grabbing; transition:none; }
   .cz-detail { background:var(--bg-1); border:1px solid var(--border); border-radius:12px;
        padding:13px 20px; min-width:240px; max-width:88vw; text-align:center;
        box-shadow:0 10px 30px rgba(0,0,0,.5); }
@@ -190,7 +192,7 @@
 <!-- ZOOM : clic sur une carte -> grande carte deplacable + detail -->
 <div class="card-zoom" id="cardZoom" onclick="if(event.target===this)closeCard()">
   <div class="cz-inner">
-    <img class="cz-img" id="czImg" src="" alt="">
+    <div class="cz-img-wrap"><img class="cz-img" id="czImg" src="" alt=""></div>
     <div class="cz-detail">
       <div class="cz-name" id="czName"></div>
       <div class="cz-rows" id="czRows"></div>
@@ -397,11 +399,11 @@ const RAR_LABEL  = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'L
 const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', neant:'🕳' };
 const ELEM_LABEL = { eclat:'Éclat', abysse:'Abysse', fracture:'Fracture', vif:'Vif', neant:'Néant' };
 
-const _dz = { x:0, y:0, down:false, sx:0, sy:0 };
+const _dz = { down:false };
 function openCard(el){
   const d = el.dataset;
   const img = document.getElementById('czImg');
-  _dz.x = 0; _dz.y = 0; img.style.transform = 'translate(0,0)';
+  img.style.transform = 'rotateX(0deg) rotateY(0deg)';
   if(d.img){ img.src = d.img; img.style.display='block';
     img.onerror = ()=>{ img.style.display='none'; }; }
   else { img.style.display='none'; }
@@ -422,11 +424,19 @@ function closeCard(){ document.getElementById('cardZoom').classList.remove('open
 (function bindDrag(){
   const img = document.getElementById('czImg');
   if(!img) return;
-  img.addEventListener('pointerdown', e=>{ _dz.down=true; _dz.sx=e.clientX-_dz.x; _dz.sy=e.clientY-_dz.y;
+  const MAX = 22;  // degres d'inclinaison max
+  img.addEventListener('pointerdown', e=>{ _dz.down=true;
     img.classList.add('grabbing'); img.setPointerCapture(e.pointerId); e.preventDefault(); });
   img.addEventListener('pointermove', e=>{ if(!_dz.down) return;
-    _dz.x=e.clientX-_dz.sx; _dz.y=e.clientY-_dz.sy; img.style.transform=`translate(${_dz.x}px,${_dz.y}px)`; });
-  const up = e=>{ _dz.down=false; img.classList.remove('grabbing'); };
+    const r = img.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width  - 0.5;   // -0.5 .. 0.5
+    const py = (e.clientY - r.top)  / r.height - 0.5;
+    const ry = px * MAX * 2;          // souris a droite -> tourne a droite
+    const rx = -py * MAX * 2;         // souris en haut -> bascule arriere
+    img.style.transform = `rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg)`;
+  });
+  const up = ()=>{ _dz.down=false; img.classList.remove('grabbing');
+    img.style.transform = 'rotateX(0deg) rotateY(0deg)'; };   // retour a plat
   img.addEventListener('pointerup', up); img.addEventListener('pointercancel', up);
 })();
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCard(); });
