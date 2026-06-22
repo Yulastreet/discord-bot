@@ -427,7 +427,8 @@ function buildPlayers(players){
       <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>`;
     team.appendChild(el);
     P[p.uid] = { el, card: el.querySelector('.pc-img-wrap'), bar: el.querySelector('.pc-hp > i'),
-                 hpv: el.querySelector('.hpv'), name: p.name };
+                 hpv: el.querySelector('.hpv'), atkEl: el.querySelector('.pc-stats'),
+                 powerEl: el.querySelector('.pc-power .pw'), name: p.name };
   });
   built = true;
 }
@@ -487,6 +488,11 @@ function syncHp(d){
   // s'appliquent au mauvais moment. Hors combat : MAJ directe.
   if(d.boss.status !== 'fighting'){ setAllBars(); fightSynced=false; }
   else if(!fightSynced){ setAllBars(); fightSynced=true; }  // sync 1x si on arrive en cours
+  // rafraichit ATK + puissance PAR UID (evite tout decalage stats/identite si pas de rebuild)
+  d.players.forEach(p=>{ const ref=P[p.uid]; if(!ref) return;
+    if(ref.atkEl) ref.atkEl.innerHTML = '🗡️ '+fmt(p.atk);
+    if(ref.powerEl) ref.powerEl.innerHTML = powerImgs(p.power, false);
+  });
   renderLeaderboard(d);
 }
 let fightSynced = false;
