@@ -1,11 +1,20 @@
 import os as _os
 
-from flask import render_template, jsonify, request
+from flask import render_template, jsonify, request, send_file
 
 
 def register_cards_boss_routes(app, deps):
-    _RENDERS = _os.path.join(_os.path.dirname(_os.path.dirname(
-        _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_renders")
+    _ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    _RENDERS = _os.path.join(_ROOT, "static", "card_renders")
+    _ELEM_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "Elements")
+
+    @app.route("/cards/img/element/<key>", methods=["GET"])
+    def cards_img_element(key):
+        key = "".join(ch for ch in str(key) if ch.isalnum()).lower()
+        f = _os.path.join(_ELEM_DIR, f"elem_{key}.png")
+        if not _os.path.exists(f):
+            return "", 404
+        return send_file(f, mimetype="image/png", max_age=86400)
 
     def _render_url(cid, image_url):
         if cid:
@@ -74,10 +83,11 @@ def register_cards_boss_routes(app, deps):
             after = int(after)
         except (ValueError, TypeError):
             after = 0
-        from database import card_customization_get
+        from database import card_customization_get, card_get
         parts = boss_participants_list(bid)
         players = []
         for p in parts:
+            _cd = card_get(p.get("card_id")) if p.get("card_id") else None
             if str(p["user_id"]).startswith("dummy_"):
                 # garde les dummies (tests) mais sans avatar reel
                 pass
@@ -89,6 +99,7 @@ def register_cards_boss_routes(app, deps):
                 "max_hp": int(p.get("max_hp") or p.get("hp") or 1),
                 "atk": int(p.get("atk") or 0),
                 "aptitude": p.get("aptitude") or "",
+                "rarity": (_cd or {}).get("rarity") or "",
                 "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
                 "has_border": bool(p.get("card_id") and card_customization_get(str(p["user_id"]), p.get("card_id"))),
             })

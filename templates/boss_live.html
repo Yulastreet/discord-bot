@@ -50,7 +50,12 @@
   .pc-tags{ display:flex; gap:5px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
   .tag{ font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:9px; white-space:nowrap; }
   .tag.elem{ background:rgba(120,90,170,.28); border:1px solid #5d4a82; color:#e3d6f5; }
+  .tag.rar{ background:rgba(255,255,255,.07); border:1px solid #4a3a5a; color:#eadff7; }
   .tag.apt{ background:rgba(201,162,75,.18); border:1px solid #8a6f2e; color:#ffe3a3; }
+  .tag .eico, .eico{ width:15px; height:15px; vertical-align:-3px; object-fit:contain; }
+  #bossSub .eico{ width:18px; height:18px; vertical-align:-4px; }
+  .pc-stats{ font-size:12.5px; font-weight:700; text-align:center; margin-top:5px; color:#e7dcf2; }
+  .pc-stats .hpv{ color:#9ff0bd; }
   .pc-hp{ height:9px; border-radius:5px; background:#2a1f33; overflow:hidden; margin-top:4px; border:1px solid #000; }
   .pc-hp > i{ display:block; height:100%; background:linear-gradient(90deg,#34d399,#4ade80);
     width:100%; transition:width .6s ease; }
@@ -103,13 +108,13 @@
 
   /* ===== INDICATEURS DE CIBLAGE (qui tape qui / qui soigne qui) ===== */
   #fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:36; }
-  #fx .beam{ animation:beamfade .75s ease-out forwards; }
-  @keyframes beamfade{ 0%{opacity:0} 18%{opacity:.95} 100%{opacity:0} }
-  .tmark{ position:fixed; transform:translate(-50%,-130%); font-size:30px; z-index:37;
-    pointer-events:none; text-shadow:0 2px 6px #000; animation:tmark .8s ease-out forwards; }
-  @keyframes tmark{ 0%{opacity:0; transform:translate(-50%,-90%) scale(.5)}
-    25%{opacity:1; transform:translate(-50%,-140%) scale(1.15)}
-    100%{opacity:0; transform:translate(-50%,-160%) scale(1)} }
+  #fx .tbeam{ animation:tbeamfade .6s ease-in-out infinite alternate; }
+  @keyframes tbeamfade{ from{opacity:.35} to{opacity:.95} }
+  .tmark{ position:fixed; transform:translate(-50%,-120%); font-size:30px; z-index:37;
+    pointer-events:none; text-shadow:0 2px 6px #000; }
+  .tmark.teleg{ animation:tpulse .55s ease-in-out infinite alternate; }
+  @keyframes tpulse{ from{ transform:translate(-50%,-115%) scale(.92); opacity:.75 }
+    to{ transform:translate(-50%,-140%) scale(1.12); opacity:1 } }
 
   /* ===== BANNIERES ===== */
   #banner{ position:fixed; top:34%; left:0; right:0; text-align:center; z-index:50;
@@ -182,6 +187,9 @@ const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', ne
 const ELEM_LABEL = { eclat:'Éclat', abysse:'Abysse', fracture:'Fracture', vif:'Vif', neant:'Néant' };
 const APT_EMOJI  = { berserker:'🩸', gardien:'🛡️', soigneur:'💚', duelliste:'⚔️', executeur:'💀' };
 const APT_LABEL  = { berserker:'Berserker', gardien:'Gardien', soigneur:'Soigneur', duelliste:'Duelliste', executeur:'Exécuteur' };
+const RAR_EMOJI  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴', secret:'🌈' };
+const RAR_LABEL  = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
+function eIco(key){ return `<img class="eico" src="/cards/img/element/${encodeURIComponent(key||'')}" onerror="this.remove()">`; }
 let lastEvt = 0;
 let built = false;
 let lastSig = '';
@@ -202,17 +210,21 @@ function buildPlayers(players){
     const wrapCls = p.has_border ? 'pc-img-wrap bordered' : 'pc-img-wrap';
     const aptTag = p.aptitude
       ? `<span class="tag apt">${APT_EMOJI[p.aptitude]||''} ${esc(APT_LABEL[p.aptitude]||p.aptitude)}</span>` : '';
+    const rarTag = p.rarity
+      ? `<span class="tag rar">${RAR_EMOJI[p.rarity]||'⚪'} ${esc(RAR_LABEL[p.rarity]||p.rarity)}</span>` : '';
     el.innerHTML = `<div class="${wrapCls}">${img}
         <div class="pc-flash red"></div><div class="pc-flash green"></div>
         <div class="ko-skull">💀</div></div>
       <div class="pc-name">${esc(p.name)}</div>
       <div class="pc-tags">
-        <span class="tag elem">${ELEM_EMOJI[p.element]||''} ${esc(ELEM_LABEL[p.element]||p.element||'?')}</span>
-        ${aptTag}
+        <span class="tag elem">${eIco(p.element)} ${esc(ELEM_LABEL[p.element]||p.element||'?')}</span>
+        ${rarTag}${aptTag}
       </div>
+      <div class="pc-stats">❤️ <b class="hpv">${fmt(p.hp)}</b> · 🗡️ ${fmt(p.atk)}</div>
       <div class="pc-hp"><i></i></div>`;
     team.appendChild(el);
-    P[p.uid] = { el, bar: el.querySelector('.pc-hp > i'), name: p.name };
+    P[p.uid] = { el, bar: el.querySelector('.pc-hp > i'),
+                 hpv: el.querySelector('.hpv'), name: p.name };
   });
   built = true;
 }
@@ -222,14 +234,15 @@ function syncHp(d){
   const bpct = d.boss.max_hp ? Math.max(0, 100*d.boss.hp/d.boss.max_hp) : 0;
   document.getElementById('bossHp').style.width = bpct+'%';
   document.getElementById('bossHpTxt').textContent = `${fmt(d.boss.hp)} / ${fmt(d.boss.max_hp)} (${Math.round(bpct)}%)`;
-  document.getElementById('bossSub').textContent =
-    `${d.boss.tier_label} · ${d.boss.element_label} · 🗡️ ${fmt(d.boss.atk)}`
-    + (d.boss.weak && d.boss.weak.length ? ` · faible: ${d.boss.weak.join(' ')}` : '');
+  document.getElementById('bossSub').innerHTML =
+    `${esc(d.boss.tier_label)} · ${eIco(d.boss.element)} ${esc(d.boss.element_label)} · 🗡️ ${fmt(d.boss.atk)}`
+    + (d.boss.weak && d.boss.weak.length ? ` · faible: ${esc(d.boss.weak.join(' '))}` : '');
   // joueurs
   d.players.forEach(p=>{
     const ref = P[p.uid]; if(!ref) return;
     const pct = p.max_hp ? Math.max(0, 100*p.hp/p.max_hp) : 0;
     ref.bar.style.width = pct+'%';
+    if(ref.hpv) ref.hpv.textContent = fmt(p.hp);
     ref.el.classList.toggle('ko', p.hp<=0);
   });
 }
@@ -276,68 +289,88 @@ function histFor(ev){
 }
 
 const bossWrap = ()=>document.getElementById('bossCardWrap');
+const TG = 750;   // duree du telegraphe (indicateur AVANT l'action)
+const GAP = 560;  // pause apres l'action avant l'event suivant
 function centerOf(el){ const r=el.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; }
-function beam(fromEl, toEl, color){
+// trait de visee qui s'ARRETE avant la carte cible (ne va pas dessus)
+function tBeam(fromEl, toEl, color){
   if(!fromEl || !toEl) return;
-  const svg=document.getElementById('fx');
-  const ns='http://www.w3.org/2000/svg';
-  const [x1,y1]=centerOf(fromEl), [x2,y2]=centerOf(toEl);
+  const svg=document.getElementById('fx'), ns='http://www.w3.org/2000/svg';
+  const [x1,y1]=centerOf(fromEl); let [x2,y2]=centerOf(toEl);
+  const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy)||1;
+  const back=(toEl.getBoundingClientRect().height/2)+24;   // marge avant la carte
+  const k=Math.max(0,(len-back))/len; x2=x1+dx*k; y2=y1+dy*k;
   const ln=document.createElementNS(ns,'line');
   ln.setAttribute('x1',x1); ln.setAttribute('y1',y1); ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
-  ln.setAttribute('stroke',color); ln.setAttribute('stroke-width','5'); ln.setAttribute('stroke-linecap','round');
-  ln.classList.add('beam'); svg.appendChild(ln);
-  const dot=document.createElementNS(ns,'circle');
-  dot.setAttribute('cx',x2); dot.setAttribute('cy',y2); dot.setAttribute('r','11');
-  dot.setAttribute('fill',color); dot.classList.add('beam'); svg.appendChild(dot);
-  setTimeout(()=>{ ln.remove(); dot.remove(); }, 760);
+  ln.setAttribute('stroke',color); ln.setAttribute('stroke-width','4'); ln.setAttribute('stroke-linecap','round');
+  ln.setAttribute('stroke-dasharray','11 8'); ln.classList.add('tbeam'); svg.appendChild(ln);
+  const head=document.createElementNS(ns,'circle');
+  head.setAttribute('cx',x2); head.setAttribute('cy',y2); head.setAttribute('r','8');
+  head.setAttribute('fill',color); head.classList.add('tbeam'); svg.appendChild(head);
+  setTimeout(()=>{ ln.remove(); head.remove(); }, TG);
 }
-function targetMark(el, emoji){
+// marqueur AU-DESSUS de la carte (pas dessus), visible pendant le telegraphe
+function tMark(el, emoji){
   if(!el) return;
-  const [x,y]=centerOf(el);
-  const m=document.createElement('div'); m.className='tmark'; m.textContent=emoji;
-  m.style.left=x+'px'; m.style.top=(y - el.getBoundingClientRect().height*0.4)+'px';
-  document.body.appendChild(m); setTimeout(()=>m.remove(), 850);
+  const r=el.getBoundingClientRect();
+  const m=document.createElement('div'); m.className='tmark teleg'; m.textContent=emoji;
+  m.style.left=(r.left+r.width/2)+'px'; m.style.top=(r.top - 4)+'px';
+  document.body.appendChild(m); setTimeout(()=>m.remove(), TG);
 }
+function alive(uid){ return P[uid] && !P[uid].el.classList.contains('ko'); }
+
+// Chaque event : TELEGRAPHE (ou ca va taper/soigner) puis IMPACT (sans indicateur).
+// Retourne la duree totale -> la file espace les actions (heal et degats jamais en meme temps).
 function playEvent(ev){
   histFor(ev);
   const t = ev.type, d = ev.data||{};
   if(t==='party_hit'){
-    Object.keys(P).forEach(uid=>{ if(!P[uid].el.classList.contains('ko')){ anim(P[uid].el,'attack');
-      beam(P[uid].el, bossWrap(), '#ffd23f'); } });
-    anim(document.getElementById('bossSlash'),'go');
-    anim(bossWrap(),'hit');
-    popOn(bossWrap(), '-'+fmt(d.total), 'dmg'+(d.crit?' crit':''));
-  } else if(t==='boss_aoe'){
-    anim(bossWrap(),'lunge'); shakeArena();
-    (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return;
-      flashPlayer(uid,'red'); anim(r.el,'hurt');
-      beam(bossWrap(), r.el, '#ff3d57'); targetMark(r.el, '💥'); });
-    popOn(bossWrap(), '👹 -'+fmt(d.total), 'dmg small');
-    (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.el,'💀','dmg small'); } });
-  } else if(t==='boss_smash'){
-    banner('💥 COUP DÉVASTATEUR', 'banner-smash');
-    anim(bossWrap(),'lunge'); shakeArena();
-    const r=P[d.target];
-    if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt');
-      beam(bossWrap(), r.el, '#ff8a1f'); targetMark(r.el, '🎯');
-      popOn(r.el,'-'+fmt(d.dmg),'dmg crit');
-      if(d.ko) r.el.classList.add('ko'); }
-  } else if(t==='enrage'){
-    banner('🔥 DÉCHAÎNÉ', 'banner-enrage');
-    bossWrap().classList.add('enraged');
-    document.getElementById('bossHp').style.background='linear-gradient(90deg,#7a0a1f,#ff1f44)';
-  } else if(t==='boss_heal'){
-    popOn(bossWrap(), '+'+fmt(d.amount), 'heal');
-  } else if(t==='party_heal'){
-    const hr=P[d.healer], tr=P[d.target];
-    if(hr && tr) beam(hr.el, tr.el, '#4ade80');
-    flashPlayer(d.target,'green'); targetMark(tr?tr.el:null, '💚');
-    popOn(tr?tr.el:null, '+'+fmt(d.amount), 'heal');
-  } else if(t==='rewards'){
-    renderRewards(d);
-  } else if(t==='end'){
-    showEnd(d.victory);
+    Object.keys(P).forEach(uid=>{ if(alive(uid)) tBeam(P[uid].el, bossWrap(), '#ffd23f'); });
+    tMark(bossWrap(), '⚔️');
+    setTimeout(()=>{
+      Object.keys(P).forEach(uid=>{ if(alive(uid)) anim(P[uid].el,'attack'); });
+      anim(document.getElementById('bossSlash'),'go'); anim(bossWrap(),'hit');
+      popOn(bossWrap(), '-'+fmt(d.total), 'dmg'+(d.crit?' crit':''));
+    }, TG);
+    return TG + GAP;
   }
+  if(t==='boss_aoe'){
+    (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; tBeam(bossWrap(), r.el, '#ff3d57'); tMark(r.el,'⚠️'); });
+    setTimeout(()=>{
+      anim(bossWrap(),'lunge'); shakeArena();
+      (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; flashPlayer(uid,'red'); anim(r.el,'hurt'); });
+      popOn(bossWrap(), '👹 -'+fmt(d.total), 'dmg small');
+      (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.el,'💀','dmg small'); } });
+    }, TG);
+    return TG + GAP;
+  }
+  if(t==='boss_smash'){
+    const r=P[d.target];
+    if(r){ tBeam(bossWrap(), r.el, '#ff8a1f'); tMark(r.el,'🎯'); }
+    banner('💥 COUP DÉVASTATEUR', 'banner-smash');
+    setTimeout(()=>{
+      anim(bossWrap(),'lunge'); shakeArena();
+      if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.el,'-'+fmt(d.dmg),'dmg crit');
+        if(d.ko) r.el.classList.add('ko'); }
+    }, TG);
+    return TG + GAP;
+  }
+  if(t==='party_heal'){
+    const hr=P[d.healer], tr=P[d.target];
+    if(hr && tr) tBeam(hr.el, tr.el, '#4ade80');
+    if(tr) tMark(tr.el,'💚');
+    setTimeout(()=>{ flashPlayer(d.target,'green'); popOn(tr?tr.el:null, '+'+fmt(d.amount), 'heal'); }, TG);
+    return TG + GAP;
+  }
+  if(t==='enrage'){
+    banner('🔥 DÉCHAÎNÉ', 'banner-enrage'); bossWrap().classList.add('enraged');
+    document.getElementById('bossHp').style.background='linear-gradient(90deg,#7a0a1f,#ff1f44)';
+    return 850;
+  }
+  if(t==='boss_heal'){ popOn(bossWrap(), '+'+fmt(d.amount), 'heal'); return 750; }
+  if(t==='rewards'){ renderRewards(d); return 300; }
+  if(t==='end'){ showEnd(d.victory); return 300; }
+  return 300;
 }
 
 let dead = false;
@@ -396,8 +429,8 @@ function pump(){
   const ev = queue.shift();
   if(!ev){ playing=false; return; }
   playing = true;
-  playEvent(ev);
-  setTimeout(()=>{ playing=false; pump(); }, 480);
+  const ms = playEvent(ev) || 500;
+  setTimeout(()=>{ playing=false; pump(); }, ms);
 }
 function enqueue(events){ events.forEach(e=>queue.push(e)); pump(); }
 
