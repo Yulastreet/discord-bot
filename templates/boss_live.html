@@ -62,7 +62,7 @@
     width:100%; transition:width .6s ease; }
   .pc-hp > i.low{ background:linear-gradient(90deg,#a01530,#ff3d57); }
   .pc-hp .hpv{ position:absolute; inset:0; display:grid; place-items:center; font-size:12px;
-    font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.95); }
+    font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.95); white-space:nowrap; }
 
   /* ===== BOSS (centre/bas) ===== */
   #bossWrap{ flex:1; display:flex; flex-direction:column; align-items:center;
@@ -105,10 +105,11 @@
   @keyframes pop{ 0%{opacity:0; transform:translate(-50%,0) scale(.6)}
     20%{opacity:1; transform:translate(-50%,-18px) scale(1.15)}
     100%{opacity:0; transform:translate(-50%,-62px) scale(1)} }
-  .pop.dmg{ color:#ff5470; font-size:26px; }
-  .pop.dmg.crit{ color:#ffd23f; font-size:34px; }
-  .pop.heal{ color:#4ade80; font-size:22px; }
-  .pop.small{ font-size:18px; }
+  .pop.dmg{ color:#ff5470; font-size:34px; -webkit-text-stroke:1px rgba(0,0,0,.6);
+    text-shadow:0 0 10px rgba(255,61,87,.7), 0 2px 6px #000; }
+  .pop.dmg.crit{ color:#ffd23f; font-size:46px; text-shadow:0 0 14px rgba(255,210,63,.8), 0 2px 6px #000; }
+  .pop.heal{ color:#34ff9e; font-size:28px; text-shadow:0 0 10px rgba(52,255,158,.7), 0 2px 6px #000; }
+  .pop.small{ font-size:24px; }
 
   /* ===== INDICATEURS DE CIBLAGE (qui tape qui / qui soigne qui) ===== */
   #fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:36; }
@@ -157,41 +158,41 @@
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
 
   /* ===== PANNEAU JOUEUR (gauche) ===== */
-  #myPanel{ display:none; position:fixed; left:14px; top:66px; width:340px; max-height:84vh;
-    overflow-y:auto; z-index:45; background:rgba(14,9,21,.92); border:1px solid #3a2b48;
-    border-radius:14px; padding:13px 14px; box-shadow:0 12px 40px rgba(0,0,0,.6); }
-  #myPanel::-webkit-scrollbar{ width:7px; } #myPanel::-webkit-scrollbar-thumb{ background:#43314f; border-radius:4px; }
-  .mp-title{ font-size:15px; font-weight:900; color:#f1e6ff; margin-bottom:10px; }
-  .mp-sec-h{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
-    color:#a594bd; margin:10px 0 6px; }
-  .apt-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .apt-grid button{ text-align:left; padding:6px 9px; border-radius:9px; cursor:pointer; font-size:12px;
-    font-weight:700; color:#e7dcf2; background:rgba(255,255,255,.05); border:1px solid #4a3a5a; }
-  .apt-grid button:hover{ background:rgba(255,255,255,.1); }
+  #myPanel{ display:none; position:fixed; left:16px; top:64px; width:404px; max-height:88vh;
+    overflow-y:auto; z-index:45; background:rgba(15,9,23,.95); border:1px solid #4a3a5a;
+    border-radius:16px; padding:16px 18px; box-shadow:0 14px 46px rgba(0,0,0,.65); }
+  #myPanel::-webkit-scrollbar{ width:8px; } #myPanel::-webkit-scrollbar-thumb{ background:#4a3a5a; border-radius:4px; }
+  .mp-title{ font-size:18px; font-weight:900; color:#f5ecff; margin-bottom:14px; }
+  .mp-sec-h{ font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px;
+    color:#bba6d6; margin:14px 0 8px; }
+  .apt-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .apt-grid button{ text-align:left; padding:9px 12px; border-radius:10px; cursor:pointer; font-size:14px;
+    font-weight:700; color:#ece2f7; background:rgba(255,255,255,.06); border:1px solid #4a3a5a; }
+  .apt-grid button:hover{ background:rgba(255,255,255,.13); }
   .apt-grid button.active{ background:var(--gold); color:#221700; border-color:var(--gold); }
-  .mp-tools{ display:flex; gap:6px; margin-bottom:8px; }
-  .mp-tools input{ flex:1; min-width:0; padding:6px 8px; border-radius:8px; background:#1a1222;
-    border:1px solid #43314f; color:#eee; font-size:12px; outline:none; }
-  .mp-tools select{ padding:6px; border-radius:8px; background:#1a1222; border:1px solid #43314f;
-    color:#eee; font-size:11px; max-width:96px; }
-  .mp-tools #sortBtn{ padding:6px 9px; border-radius:8px; background:#2a1f38; border:1px solid #4a3a5a;
-    color:#e7dcf2; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
-  .mp-opt{ font-size:10.5px; color:#9a86b3; margin-bottom:6px; min-height:0; }
-  .card-list{ display:flex; flex-direction:column; gap:4px; }
-  .card-row{ display:flex; align-items:center; gap:7px; padding:6px 8px; border-radius:8px;
-    background:rgba(255,255,255,.04); border:1px solid #33223f; cursor:pointer; font-size:12.5px; }
-  .card-row:hover{ background:rgba(255,255,255,.1); border-color:#6a4f86; }
-  .card-row.active{ background:rgba(201,162,75,.2); border-color:var(--gold); }
-  .card-row .cr-ico{ width:15px; height:15px; vertical-align:-3px; }
-  .card-row .cr-name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .card-row .cr-uni{ color:#8f7da8; font-size:10.5px; }
-  .card-row .cr-eff{ font-size:10.5px; color:#ffd23f; font-weight:700; }
+  .mp-tools{ display:flex; gap:8px; margin-bottom:10px; }
+  .mp-tools input{ flex:1; min-width:0; padding:9px 11px; border-radius:9px; background:#1c1426;
+    border:1px solid #4a3a5a; color:#eee; font-size:14px; outline:none; }
+  .mp-tools select{ padding:9px; border-radius:9px; background:#1c1426; border:1px solid #4a3a5a;
+    color:#eee; font-size:13px; max-width:120px; }
+  .mp-tools #sortBtn{ padding:9px 12px; border-radius:9px; background:#2e2240; border:1px solid #5a4570;
+    color:#ece2f7; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .mp-opt{ font-size:12px; color:#b09cc8; margin-bottom:8px; min-height:0; }
+  .card-list{ display:flex; flex-direction:column; gap:6px; }
+  .card-row{ display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:10px;
+    background:rgba(255,255,255,.05); border:1px solid #3a2b48; cursor:pointer; font-size:14.5px; }
+  .card-row:hover{ background:rgba(255,255,255,.12); border-color:#7a5aa0; }
+  .card-row.active{ background:rgba(201,162,75,.22); border-color:var(--gold); }
+  .card-row .cr-name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    line-height:1.3; }
+  .card-row .cr-uni{ color:#9a86b3; font-size:11.5px; }
+  .card-row .cr-eff{ font-size:13px; color:#ffd23f; font-weight:800; }
   .card-row .cr-adv-up{ color:#ff8aa0; } .card-row .cr-adv-down{ color:#7fb6ff; }
-  .mp-pager{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:8px; font-size:12px; }
-  .mp-pager button{ padding:4px 12px; border-radius:8px; background:#2a1f38; border:1px solid #4a3a5a;
-    color:#e7dcf2; cursor:pointer; font-size:14px; }
+  .mp-pager{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:11px; font-size:14px; }
+  .mp-pager button{ padding:6px 16px; border-radius:9px; background:#2e2240; border:1px solid #5a4570;
+    color:#ece2f7; cursor:pointer; font-size:15px; }
   .mp-pager button:disabled{ opacity:.35; cursor:default; }
-  .mp-msg{ margin-top:8px; font-size:12px; min-height:16px; }
+  .mp-msg{ margin-top:10px; font-size:14px; min-height:18px; font-weight:700; }
   .mp-msg.ok{ color:#7ee0a3; } .mp-msg.err{ color:#ff8aa0; }
   .rw-hdr{ font-size:15px; color:#ffe3a3; margin:10px 0 14px; font-weight:700; }
   .rw-list{ display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto;
@@ -263,6 +264,8 @@ let ended = false;
 let pollMs = 1500;
 const P = {};            // uid -> {el, hpBar}
 function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
+function fmtShort(n){ n=n||0; if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+'M';
+  if(n>=1e4) return Math.round(n/1e3)+'k'; return fmt(n); }
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function buildPlayers(players){
@@ -286,10 +289,10 @@ function buildPlayers(players){
         <span class="tag elem">${eIco(p.element)} ${esc(ELEM_LABEL[p.element]||p.element||'?')}</span>
         ${rarTag}${aptTag}
       </div>
-      <div class="pc-hp"><i></i><span class="hpv">❤️ ${fmt(p.hp)}</span></div>
+      <div class="pc-hp"><i></i><span class="hpv">❤️ ${fmtShort(p.hp)}</span></div>
       <div class="pc-stats">🗡️ ${fmt(p.atk)}</div>`;
     team.appendChild(el);
-    P[p.uid] = { el, bar: el.querySelector('.pc-hp > i'),
+    P[p.uid] = { el, card: el.querySelector('.pc-img-wrap'), bar: el.querySelector('.pc-hp > i'),
                  hpv: el.querySelector('.hpv'), name: p.name };
   });
   built = true;
@@ -309,7 +312,7 @@ function syncHp(d){
     const pct = p.max_hp ? Math.max(0, 100*p.hp/p.max_hp) : 0;
     ref.bar.style.width = pct+'%';
     if(ref.bar) ref.bar.classList.toggle('low', pct<=30);
-    if(ref.hpv) ref.hpv.textContent = '❤️ '+fmt(p.hp);
+    if(ref.hpv) ref.hpv.textContent = '❤️ '+fmtShort(p.hp);
     ref.el.classList.toggle('ko', p.hp<=0);
   });
 }
@@ -369,11 +372,13 @@ function tBeam(fromEl, toEl, color){
   const k=Math.max(0,(len-back))/len; x2=x1+dx*k; y2=y1+dy*k;
   const ln=document.createElementNS(ns,'line');
   ln.setAttribute('x1',x1); ln.setAttribute('y1',y1); ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
-  ln.setAttribute('stroke',color); ln.setAttribute('stroke-width','4'); ln.setAttribute('stroke-linecap','round');
-  ln.setAttribute('stroke-dasharray','11 8'); ln.classList.add('tbeam'); svg.appendChild(ln);
+  ln.setAttribute('stroke',color); ln.setAttribute('stroke-width','7'); ln.setAttribute('stroke-linecap','round');
+  ln.setAttribute('stroke-dasharray','13 9'); ln.classList.add('tbeam');
+  ln.style.filter=`drop-shadow(0 0 5px ${color})`; svg.appendChild(ln);
   const head=document.createElementNS(ns,'circle');
-  head.setAttribute('cx',x2); head.setAttribute('cy',y2); head.setAttribute('r','8');
-  head.setAttribute('fill',color); head.classList.add('tbeam'); svg.appendChild(head);
+  head.setAttribute('cx',x2); head.setAttribute('cy',y2); head.setAttribute('r','11');
+  head.setAttribute('fill',color); head.classList.add('tbeam');
+  head.style.filter=`drop-shadow(0 0 6px ${color})`; svg.appendChild(head);
   setTimeout(()=>{ ln.remove(); head.remove(); }, TG);
 }
 // marqueur AU-DESSUS de la carte (pas dessus), visible pendant le telegraphe
@@ -392,7 +397,7 @@ function playEvent(ev){
   histFor(ev);
   const t = ev.type, d = ev.data||{};
   if(t==='party_hit'){
-    Object.keys(P).forEach(uid=>{ if(alive(uid)) tBeam(P[uid].el, bossWrap(), '#ffd23f'); });
+    Object.keys(P).forEach(uid=>{ if(alive(uid)) tBeam(P[uid].card, bossWrap(), '#ffd23f'); });
     tMark(bossWrap(), '⚔️');
     setTimeout(()=>{
       Object.keys(P).forEach(uid=>{ if(alive(uid)) anim(P[uid].el,'attack'); });
@@ -402,31 +407,31 @@ function playEvent(ev){
     return TG + GAP;
   }
   if(t==='boss_aoe'){
-    (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; tBeam(bossWrap(), r.el, '#ff3d57'); tMark(r.el,'⚠️'); });
+    (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; tBeam(bossWrap(), r.card, '#ff3d57'); tMark(r.card,'⚠️'); });
     setTimeout(()=>{
       anim(bossWrap(),'lunge'); shakeArena();
-      (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; flashPlayer(uid,'red'); anim(r.el,'hurt'); });
-      popOn(bossWrap(), '👹 -'+fmt(d.total), 'dmg small');
-      (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.el,'💀','dmg small'); } });
+      (d.targets||[]).forEach(uid=>{ const r=P[uid]; if(!r) return; flashPlayer(uid,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.total),'dmg small'); });
+      popOn(bossWrap(), '👹', 'dmg small');
+      (d.kos||[]).forEach(uid=>{ const r=P[uid]; if(r){ r.el.classList.add('ko'); popOn(r.card,'💀','dmg small'); } });
     }, TG);
     return TG + GAP;
   }
   if(t==='boss_smash'){
     const r=P[d.target];
-    if(r){ tBeam(bossWrap(), r.el, '#ff8a1f'); tMark(r.el,'🎯'); }
+    if(r){ tBeam(bossWrap(), r.card, '#ff8a1f'); tMark(r.card,'🎯'); }
     banner('💥 COUP DÉVASTATEUR', 'banner-smash');
     setTimeout(()=>{
       anim(bossWrap(),'lunge'); shakeArena();
-      if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.el,'-'+fmt(d.dmg),'dmg crit');
+      if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.dmg),'dmg crit');
         if(d.ko) r.el.classList.add('ko'); }
     }, TG);
     return TG + GAP;
   }
   if(t==='party_heal'){
     const hr=P[d.healer], tr=P[d.target];
-    if(hr && tr) tBeam(hr.el, tr.el, '#4ade80');
-    if(tr) tMark(tr.el,'💚');
-    setTimeout(()=>{ flashPlayer(d.target,'green'); popOn(tr?tr.el:null, '+'+fmt(d.amount), 'heal'); }, TG);
+    if(hr && tr) tBeam(hr.card, tr.card, '#34ff9e');
+    if(tr) tMark(tr.card,'💚');
+    setTimeout(()=>{ flashPlayer(d.target,'green'); popOn(tr?tr.card:null, '+'+fmt(d.amount), 'heal'); }, TG);
     return TG + GAP;
   }
   if(t==='enrage'){

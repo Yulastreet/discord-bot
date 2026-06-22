@@ -1085,12 +1085,23 @@ async def _run_boss(bot, bid, msg, view):
             # jusqu'a _JOIN_EXPIRE puis le boss disparaît.
             join_deadline = _t.time() + _JOIN_EXPIRE
             quick = False
+            last_sig = None
             while True:
                 await asyncio.sleep(3)
                 boss = card_boss_get(bid)
                 if not boss or boss["status"] != "recruiting":
                     return
                 parts = boss_participants_list(bid)
+                # Re-render l'embed si la compo a change (inclut les modifs faites
+                # depuis le dashboard : carte / aptitude / element).
+                sig = [(p["user_id"], p.get("card_id"), p.get("aptitude"),
+                        p.get("element"), p.get("atk"), p.get("max_hp")) for p in parts]
+                if last_sig is not None and sig != last_sig:
+                    try:
+                        await msg.edit(embed=build_boss_embed(bot, card_boss_get(bid)), view=view)
+                    except Exception:
+                        pass
+                last_sig = sig
                 if len(parts) >= _QUICK_START_AT:
                     quick = True
                     break
