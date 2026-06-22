@@ -1634,7 +1634,7 @@ def setup_cards_commands(bot, deps):
             bl = [f"🖼 **{b['name']}** × {b['qty']}" for b in borders]
             embed.add_field(name="Bordures (non utilisées)",
                             value="\n".join(bl) + "\n_Applique via_ `/cardcustom`.", inline=False)
-        return embed, frags, golden
+        return embed, frags, golden, epic
 
     class _InventoryView(discord.ui.View):
         def __init__(self, owner_id):
@@ -1734,11 +1734,13 @@ def setup_cards_commands(bot, deps):
     async def cardinventory_cmd(interaction: discord.Interaction, membre: discord.Member = None):
         target = membre or interaction.user
         is_self = target.id == interaction.user.id
-        embed, frags, golden = _inv_embed(target)
+        embed, frags, golden, epic = _inv_embed(target)
         view = None
-        if is_self and (golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC):
+        if is_self and (epic > 0 or golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC):
             view = _InventoryView(interaction.user.id)
             for ch in view.children:
+                if "Epic" in ch.label:
+                    ch.disabled = epic <= 0
                 if "Golden" in ch.label:
                     ch.disabled = golden <= 0
                 if "Craft" in ch.label:
