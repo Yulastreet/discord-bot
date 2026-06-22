@@ -60,7 +60,8 @@
   .pc-power .pd{ height:16px; vertical-align:-3px; }
   body.fighting .pc-power{ display:none; }   /* combat lance : plus de puissance par membre */
   /* bloc puissance au milieu (equipe + boss), toujours visible */
-  #powerCenter{ display:flex; flex-direction:column; gap:2px; align-items:center; margin-top:8px; }
+  #powerCenter{ display:flex; flex-direction:column; gap:9px; align-items:center;
+    margin-top:clamp(28px, 5.5vh, 80px); }
   .pwc-row{ display:flex; align-items:center; justify-content:center; }
   #powerCenter .pd{ height:36px; vertical-align:middle; }
   .pw{ display:inline-flex; align-items:center; gap:0; }
