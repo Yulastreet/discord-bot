@@ -1,9 +1,12 @@
 import os as _os
 
-from flask import render_template, jsonify, request, send_file
+from flask import render_template, jsonify, request, send_file, session
 
 
 def register_cards_boss_routes(app, deps):
+    def _session_uid():
+        d = session.get("discord") or {}
+        return str(d.get("user_id")) if d.get("user_id") else None
     _ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
     _RENDERS = _os.path.join(_ROOT, "static", "card_renders")
     _ELEM_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "Elements")
@@ -124,3 +127,109 @@ def register_cards_boss_routes(app, deps):
             "events": boss_events_since(bid, after),
             "now": _t.time(),
         })
+
+    # ── Edition depuis le dashboard (joueur connecte = participant) ──
+    @app.route("/cards/boss/<int:bid>/me", methods=["GET"])
+    def cards_boss_me(bid):
+        from database import card_boss_get, boss_participant_get
+        uid = _session_uid()
+        boss = card_boss_get(bid)
+        if not boss:
+            return jsonify({"error": "not found"}), 404
+        if not uid:
+            return jsonify({"logged_in": False})
+        p = boss_participant_get(bid, uid)
+        return jsonify({
+            "logged_in": True, "uid": uid,
+            "is_participant": bool(p),
+            "status": boss.get("status") or "",
+            "card_id": (p or {}).get("card_id"),
+            "aptitude": (p or {}).get("aptitude") or "",
+        })
+
+    @app.route("/cards/boss/<int:bid>/my-cards", methods=["GET"])
+    def cards_boss_my_cards(bid):
+        from database import (card_boss_get, boss_participant_get, user_card_list,
+                              user_card_fusion_map, CARD_ELEMENT_LABELS, element_matchup)
+        from services.card_boss import _sort_cards, _card_effectiveness
+        uid = _session_uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        boss = card_boss_get(bid)
+        if not boss:
+            return jsonify({"error": "not found"}), 404
+        if not boss_participant_get(bid, uid):
+            return jsonify({"error": "pas dans l'equipe"}), 403
+        element = request.args.get("element") or None
+        if element in (None, "", "all"):
+            element = None
+        sort = request.args.get("sort") or None
+        boss_el = boss.get("element")
+        cards = user_card_list(uid)
+        fmap = user_card_fusion_map(uid)
+        grouped = {}
+        for c in cards:
+            if element and (c.get("element") or "") != element:
+                continue
+            cid = c["card_id"]
+            if cid not in grouped:
+                grouped[cid] = {**c, "count": 0, "stars": int(fmap.get(cid, 0))}
+            grouped[cid]["count"] += 1
+        rows = _sort_cards(list(grouped.values()), sort, boss_element=boss_el)
+        out = []
+        for c in rows:
+            m = element_matchup(c.get("element") or "", boss_el or "")
+            out.append({
+                "card_id": c["card_id"], "name": c.get("name") or "?",
+                "rarity": c.get("rarity") or "", "element": c.get("element") or "",
+                "universe": c.get("universe") or "", "stars": int(c.get("stars", 0)),
+                "count": int(c.get("count", 1)),
+                "eff": round(_card_effectiveness(c, boss_el), 2),
+                "adv": ("up" if m > 1 else ("down" if m < 1 else "")),
+            })
+        return jsonify({"cards": out, "boss_element": boss_el,
+                        "boss_element_label": CARD_ELEMENT_LABELS.get(boss_el, "?")})
+
+    @app.route("/cards/boss/<int:bid>/set-card", methods=["POST"])
+    def cards_boss_set_card(bid):
+        from database import (card_boss_get, boss_participant_get, boss_participant_update,
+                              engaged_combat_stats, user_card_count_owned, card_get)
+        from services.card_boss import _event_boss_dmg_mult
+        uid = _session_uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        boss = card_boss_get(bid)
+        if not boss or boss.get("status") != "recruiting":
+            return jsonify({"error": "recrutement terminé"}), 400
+        if not boss_participant_get(bid, uid):
+            return jsonify({"error": "pas dans l'équipe"}), 403
+        cid = (request.json or {}).get("card_id")
+        card = card_get(int(cid)) if cid else None
+        if not card:
+            return jsonify({"error": "carte introuvable"}), 404
+        if user_card_count_owned(uid, card["id"]) <= 0:
+            return jsonify({"error": "carte non possédée"}), 403
+        elem = card.get("element") or "eclat"
+        stats = engaged_combat_stats(uid, card["id"])
+        atk = int(stats["atk"] * _event_boss_dmg_mult(card, boss.get("guild_id")))
+        boss_participant_update(bid, uid, element=elem, card_id=card["id"],
+                                atk=atk, max_hp=stats["hp"], hp=stats["hp"])
+        return jsonify({"ok": True})
+
+    @app.route("/cards/boss/<int:bid>/set-aptitude", methods=["POST"])
+    def cards_boss_set_aptitude(bid):
+        from database import card_boss_get, boss_participant_get, boss_participant_update
+        uid = _session_uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        boss = card_boss_get(bid)
+        if not boss or boss.get("status") != "recruiting":
+            return jsonify({"error": "recrutement terminé"}), 400
+        if not boss_participant_get(bid, uid):
+            return jsonify({"error": "pas dans l'équipe"}), 403
+        val = (request.json or {}).get("aptitude") or "none"
+        valid = {"berserker", "gardien", "soigneur", "duelliste", "executeur", "none"}
+        if val not in valid:
+            return jsonify({"error": "aptitude invalide"}), 400
+        boss_participant_update(bid, uid, aptitude=("" if val == "none" else val))
+        return jsonify({"ok": True})

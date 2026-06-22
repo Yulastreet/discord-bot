@@ -150,6 +150,44 @@
   #endCard .sub{ font-size:16px; color:#cdbfe0; margin-top:10px; }
   .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
+
+  /* ===== PANNEAU JOUEUR (gauche) ===== */
+  #myPanel{ display:none; position:fixed; left:14px; top:66px; width:340px; max-height:84vh;
+    overflow-y:auto; z-index:45; background:rgba(14,9,21,.92); border:1px solid #3a2b48;
+    border-radius:14px; padding:13px 14px; box-shadow:0 12px 40px rgba(0,0,0,.6); }
+  #myPanel::-webkit-scrollbar{ width:7px; } #myPanel::-webkit-scrollbar-thumb{ background:#43314f; border-radius:4px; }
+  .mp-title{ font-size:15px; font-weight:900; color:#f1e6ff; margin-bottom:10px; }
+  .mp-sec-h{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+    color:#a594bd; margin:10px 0 6px; }
+  .apt-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .apt-grid button{ text-align:left; padding:6px 9px; border-radius:9px; cursor:pointer; font-size:12px;
+    font-weight:700; color:#e7dcf2; background:rgba(255,255,255,.05); border:1px solid #4a3a5a; }
+  .apt-grid button:hover{ background:rgba(255,255,255,.1); }
+  .apt-grid button.active{ background:var(--gold); color:#221700; border-color:var(--gold); }
+  .mp-tools{ display:flex; gap:6px; margin-bottom:8px; }
+  .mp-tools input{ flex:1; min-width:0; padding:6px 8px; border-radius:8px; background:#1a1222;
+    border:1px solid #43314f; color:#eee; font-size:12px; outline:none; }
+  .mp-tools select{ padding:6px; border-radius:8px; background:#1a1222; border:1px solid #43314f;
+    color:#eee; font-size:11px; max-width:96px; }
+  .mp-tools #sortBtn{ padding:6px 9px; border-radius:8px; background:#2a1f38; border:1px solid #4a3a5a;
+    color:#e7dcf2; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .mp-opt{ font-size:10.5px; color:#9a86b3; margin-bottom:6px; min-height:0; }
+  .card-list{ display:flex; flex-direction:column; gap:4px; }
+  .card-row{ display:flex; align-items:center; gap:7px; padding:6px 8px; border-radius:8px;
+    background:rgba(255,255,255,.04); border:1px solid #33223f; cursor:pointer; font-size:12.5px; }
+  .card-row:hover{ background:rgba(255,255,255,.1); border-color:#6a4f86; }
+  .card-row.active{ background:rgba(201,162,75,.2); border-color:var(--gold); }
+  .card-row .cr-ico{ width:15px; height:15px; vertical-align:-3px; }
+  .card-row .cr-name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-row .cr-uni{ color:#8f7da8; font-size:10.5px; }
+  .card-row .cr-eff{ font-size:10.5px; color:#ffd23f; font-weight:700; }
+  .card-row .cr-adv-up{ color:#ff8aa0; } .card-row .cr-adv-down{ color:#7fb6ff; }
+  .mp-pager{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:8px; font-size:12px; }
+  .mp-pager button{ padding:4px 12px; border-radius:8px; background:#2a1f38; border:1px solid #4a3a5a;
+    color:#e7dcf2; cursor:pointer; font-size:14px; }
+  .mp-pager button:disabled{ opacity:.35; cursor:default; }
+  .mp-msg{ margin-top:8px; font-size:12px; min-height:16px; }
+  .mp-msg.ok{ color:#7ee0a3; } .mp-msg.err{ color:#ff8aa0; }
   .rw-hdr{ font-size:15px; color:#ffe3a3; margin:10px 0 14px; font-weight:700; }
   .rw-list{ display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto;
     width:min(440px,88vw); margin:0 auto; }
@@ -176,6 +214,23 @@
     </div>
   </div>
 </div>
+<div id="myPanel">
+  <div class="mp-title">⚙️ Ma préparation</div>
+  <div class="mp-sec-h">🩸 Aptitude</div>
+  <div id="aptBtns" class="apt-grid"></div>
+  <div class="mp-sec-h">🎴 Ma carte de combat</div>
+  <div class="mp-tools">
+    <input id="cardSearch" placeholder="🔍 Nom / univers…" oninput="renderCards()">
+    <select id="elemFilter" onchange="loadCards()"></select>
+    <button id="sortBtn" onclick="cycleSort()">🔃 Trier</button>
+  </div>
+  <div id="cardOpt" class="mp-opt"></div>
+  <div id="cardList" class="card-list"></div>
+  <div class="mp-pager"><button onclick="cardPage(-1)">◀</button>
+    <span id="cardPageNo">1 / 1</span><button onclick="cardPage(1)">▶</button></div>
+  <div id="mpMsg" class="mp-msg"></div>
+</div>
+
 <svg id="fx"></svg>
 <div id="banner"></div>
 <div id="log"><div class="log-title">📜 Historique</div><div class="log-rows" id="logRows"></div></div>
@@ -448,7 +503,114 @@ function setStatus(d){
   } else if(st==='defeated'){ showEnd(true); s.style.display='none';
   } else if(st==='wiped'||st==='expired'){ showEnd(st==='wiped'?false:true); s.style.display='none';
   } else { s.style.display='none'; }
+  maybePanel(st);
 }
+
+/* ===== PANNEAU JOUEUR : choisir aptitude + carte ===== */
+const MY = { participant:false, aptitude:'', card_id:null };
+let ALLCARDS = [], cardP = 1, bossEl = '';
+const PER = 10;
+const SORT_CYCLE = [null,'nom','rareté','étoiles','optimisation'];
+const SORT_LBL = { 'null':'🔃 Trier', 'nom':'🔤 Nom', 'rareté':'🎯 Rareté', 'étoiles':'⭐ Étoiles', 'optimisation':'⚡ Optimal' };
+let curSort = null;
+const APT_LIST = ['berserker','gardien','soigneur','duelliste','executeur','none'];
+const APT_DESC = { berserker:'Berserker', gardien:'Gardien', soigneur:'Soigneur',
+  duelliste:'Duelliste', executeur:'Exécuteur', none:'Aucune' };
+
+async function initPanel(){
+  try{
+    const r = await fetch(`/cards/boss/${BID}/me`);
+    const d = await r.json();
+    MY.participant = !!d.is_participant;
+    MY.aptitude = d.aptitude || '';
+    MY.card_id = d.card_id || null;
+    if(MY.participant){
+      // remplit le filtre element
+      const sel=document.getElementById('elemFilter');
+      sel.innerHTML = '<option value="all">Tous éléments</option>'
+        + Object.keys(ELEM_LABEL).map(k=>`<option value="${k}">${ELEM_LABEL[k]}</option>`).join('');
+      renderApt();
+      await loadCards();
+    }
+    maybePanel(d.status);
+  }catch(e){}
+}
+function maybePanel(status){
+  const show = MY.participant && status==='recruiting';
+  document.getElementById('myPanel').style.display = show ? 'block' : 'none';
+}
+function renderApt(){
+  document.getElementById('aptBtns').innerHTML = APT_LIST.map(a=>{
+    const lbl = a==='none' ? '➖ Aucune' : `${APT_EMOJI[a]||''} ${APT_DESC[a]}`;
+    const on = (MY.aptitude||'none')===a ? ' active' : '';
+    return `<button class="${on.trim()}" onclick="setApt('${a}')">${lbl}</button>`;
+  }).join('');
+}
+async function setApt(v){
+  const msg=document.getElementById('mpMsg');
+  try{
+    const r=await fetch(`/cards/boss/${BID}/set-aptitude`,{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({aptitude:v})});
+    const d=await r.json();
+    if(d.ok){ MY.aptitude=(v==='none'?'':v); renderApt(); msg.className='mp-msg ok'; msg.textContent='Aptitude mise à jour ✓'; }
+    else { msg.className='mp-msg err'; msg.textContent=d.error||'Erreur'; }
+  }catch(e){ msg.className='mp-msg err'; msg.textContent='Erreur réseau'; }
+}
+function cycleSort(){
+  const i=SORT_CYCLE.indexOf(curSort); curSort=SORT_CYCLE[(i+1)%SORT_CYCLE.length];
+  document.getElementById('sortBtn').textContent=SORT_LBL[String(curSort)];
+  loadCards();
+}
+async function loadCards(){
+  const el=document.getElementById('elemFilter').value;
+  const q=new URLSearchParams({element:el||'all', sort:curSort||''});
+  try{
+    const r=await fetch(`/cards/boss/${BID}/my-cards?`+q.toString());
+    const d=await r.json();
+    if(d.error){ return; }
+    ALLCARDS=d.cards||[]; bossEl=d.boss_element_label||'';
+    cardP=1; renderCards();
+    document.getElementById('cardOpt').textContent = (curSort==='optimisation')
+      ? `⚡ Classé par dégâts réels vs boss ${bossEl} (👑 = meilleur)` : '';
+  }catch(e){}
+}
+function renderCards(){
+  const q=(document.getElementById('cardSearch').value||'').trim().toLowerCase();
+  const list = ALLCARDS.filter(c=> !q || (c.name||'').toLowerCase().includes(q) || (c.universe||'').toLowerCase().includes(q));
+  const total=Math.max(1, Math.ceil(list.length/PER));
+  if(cardP>total) cardP=total;
+  const slice=list.slice((cardP-1)*PER, cardP*PER);
+  const opt = curSort==='optimisation';
+  document.getElementById('cardList').innerHTML = slice.map((c,i)=>{
+    const idx=(cardP-1)*PER+i;
+    const crown = (opt && idx===0) ? '👑 ' : '';
+    const stars = c.stars>0 ? ' '+'⭐'.repeat(Math.min(5,c.stars)) : '';
+    const cnt = c.count>1 ? ` ×${c.count}` : '';
+    const adv = c.adv==='up' ? '<span class="cr-adv-up">🔥</span>' : (c.adv==='down'?'<span class="cr-adv-down">🟦</span>':'');
+    const eff = opt ? `<span class="cr-eff">×${c.eff}</span>` : '';
+    const active = (String(c.card_id)===String(MY.card_id)) ? ' active' : '';
+    return `<div class="card-row${active}" onclick="setCard(${c.card_id})">
+      <span>${RAR_EMOJI[c.rarity]||'⚪'}</span>${eIco(c.element)}
+      <span class="cr-name">${crown}${esc(c.name)}${stars}${cnt} ${adv}<br><span class="cr-uni">${esc(c.universe||'')}</span></span>
+      ${eff}</div>`;
+  }).join('') || '<div class="cr-uni" style="padding:8px;">Aucune carte.</div>';
+  document.getElementById('cardPageNo').textContent=`${cardP} / ${total}`;
+  document.querySelector('.mp-pager button:first-child').disabled = cardP<=1;
+  document.querySelector('.mp-pager button:last-child').disabled = cardP>=total;
+}
+function cardPage(dir){ cardP=Math.max(1,cardP+dir); renderCards(); }
+async function setCard(cid){
+  const msg=document.getElementById('mpMsg');
+  try{
+    const r=await fetch(`/cards/boss/${BID}/set-card`,{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:cid})});
+    const d=await r.json();
+    if(d.ok){ MY.card_id=cid; renderCards(); msg.className='mp-msg ok'; msg.textContent='Carte engagée ✓'; }
+    else { msg.className='mp-msg err'; msg.textContent=d.error||'Erreur'; }
+  }catch(e){ msg.className='mp-msg err'; msg.textContent='Erreur réseau'; }
+}
+window.setApt=setApt; window.cycleSort=cycleSort; window.loadCards=loadCards;
+window.renderCards=renderCards; window.cardPage=cardPage; window.setCard=setCard;
 
 let firstLoad = true;
 async function tick(){
@@ -490,6 +652,7 @@ async function tick(){
   setTimeout(tick, pollMs);
 }
 tick();
+initPanel();
 </script>
 </body>
 </html>
