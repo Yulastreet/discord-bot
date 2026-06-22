@@ -3429,4 +3429,25 @@ def setup_cards_commands(bot, deps):
             await interaction.response.send_message(
                 "Impossible de trader avec un bot.", ephemeral=True)
             return
-        await interaction.response.send_modal(TradeModal(target_user_id=joueur.id))
+        # Avant de construire : montre les classeurs des 2 joueurs pour preparer l'offre.
+        _dash = os.getenv("DASHBOARD_URL", "https://dashboard.tookbot.click").rstrip("/")
+        view = discord.ui.View(timeout=300)
+        _build_btn = discord.ui.Button(label="✍️ Construire l'échange",
+                                       style=discord.ButtonStyle.success, row=0)
+        async def _open_builder(inter: discord.Interaction):
+            if inter.user.id != interaction.user.id:
+                await inter.response.send_message("Ce n'est pas ton trade.", ephemeral=True); return
+            await inter.response.send_modal(TradeModal(target_user_id=joueur.id))
+        _build_btn.callback = _open_builder
+        view.add_item(_build_btn)
+        view.add_item(discord.ui.Button(
+            label=f"📖 Classeur de {joueur.display_name}"[:80], style=discord.ButtonStyle.link,
+            url=f"{_dash}/cards/collection/{joueur.id}", row=1))
+        view.add_item(discord.ui.Button(
+            label="📖 Mon classeur", style=discord.ButtonStyle.link,
+            url=f"{_dash}/cards/collection/{interaction.user.id}", row=1))
+        await interaction.response.send_message(
+            f"🔄 Échange avec **{joueur.display_name}**.\n"
+            f"Consulte son classeur pour préparer ton offre, puis clique sur "
+            f"**Construire l'échange**.",
+            view=view, ephemeral=True)
