@@ -213,7 +213,7 @@
       } else {
         btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
       }
-      if (window.refreshBoosterStatus) window.refreshBoosterStatus();
+      if (window.setBoosterState) window.setBoosterState(!!d.logged_in, !!d.daily_booster_claimed);
     } catch(e){
       document.getElementById('whSpin').textContent = 'Erreur de chargement';
     }
@@ -409,16 +409,15 @@ let PACK = [], idx = 0, stage='idle', _advLock=false;
 let boosterLogged=false, boosterClaimed=false;
 function bEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-window.refreshBoosterStatus = async function(){
-  try{
-    const r=await fetch('/api/public/booster/status'); const d=await r.json();
-    boosterLogged=!!d.logged_in; boosterClaimed=!!d.claimed;
-    const s=document.getElementById('wbStatus'), pack=document.getElementById('wbPack');
-    if(!boosterLogged){ s.textContent='Connecte-toi pour ouvrir ton booster.'; pack.classList.add('claimed'); }
-    else if(boosterClaimed){ s.textContent='Déjà ouvert aujourd\'hui — reviens demain (reset minuit, heure FR).'; pack.classList.add('claimed'); }
-    else { s.textContent='Clique sur le booster pour l\'ouvrir.'; pack.classList.remove('claimed'); }
-  }catch(e){}
-};
+function updateBoosterUI(){
+  const s=document.getElementById('wbStatus'), pack=document.getElementById('wbPack');
+  if(!s || !pack) return;
+  if(!boosterLogged){ s.textContent='Connecte-toi pour ouvrir ton booster.'; pack.classList.add('claimed'); }
+  else if(boosterClaimed){ s.textContent='Déjà ouvert aujourd\'hui — reviens demain (reset minuit, heure FR).'; pack.classList.add('claimed'); }
+  else { s.textContent='Clique sur le booster pour l\'ouvrir.'; pack.classList.remove('claimed'); }
+}
+// alimente par le wheel status (lecture session fiable)
+window.setBoosterState=function(logged, claimed){ boosterLogged=!!logged; boosterClaimed=!!claimed; updateBoosterUI(); };
 
 function boosterPresent(){
   if(!boosterLogged){ boToast('Connecte-toi pour ouvrir ton booster.'); return; }
@@ -450,7 +449,7 @@ async function openSequence(){
   }catch(e){ stage='idle'; closeBooster(); return; }
   if(!data || !data.ok){
     stage='idle'; closeBooster();
-    boToast(data && data.error ? data.error : 'Erreur'); refreshBoosterStatus(); return;
+    boToast(data && data.error ? data.error : 'Erreur'); boosterClaimed=true; updateBoosterUI(); return;
   }
   PACK = data.cards || []; idx = 0; boosterClaimed = true;
   big.classList.add('shake');
@@ -607,7 +606,7 @@ function finishReveal(){
     <button class="bo-open-btn" onclick="event.stopPropagation(); closeBooster();">Fermer</button>
   </div>`;
   stage='idle';
-  if(window.refreshBoosterStatus) refreshBoosterStatus();
+  boosterClaimed=true; updateBoosterUI();
 }
 function closeBooster(){
   document.getElementById('boOverlay').classList.remove('show');
@@ -615,6 +614,6 @@ function closeBooster(){
 }
 window.boosterPresent=boosterPresent; window.onBigClick=onBigClick;
 window.closeBooster=closeBooster; window.nextCard=nextCard; window.shareDrop=shareDrop;
-refreshBoosterStatus();
+updateBoosterUI();
 </script>
 {% endblock %}

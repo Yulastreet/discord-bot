@@ -7,6 +7,12 @@ from flask import render_template, jsonify, request, send_file
 
 def register_cards_booster_routes(app, deps):
     globals().update(deps)
+
+    def _session_uid():
+        from flask import session as _s
+        d = _s.get("discord") or {}
+        return str(d.get("user_id")) if d.get("user_id") else None
+
     _ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
     _RENDERS = _os.path.join(_ROOT, "static", "card_renders")
     _BOOSTER_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "booster")

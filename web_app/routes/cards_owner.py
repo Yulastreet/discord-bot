@@ -656,7 +656,8 @@ def register_cards_owner_routes(app, deps):
     @app.route("/api/public/wheel/status", methods=["GET"])
     def api_public_wheel_status():
         from flask import session as _ses
-        from database import wheel_claim_today, essence_bonus_get, daily_roll_claimed_today
+        from database import (wheel_claim_today, essence_bonus_get, daily_roll_claimed_today,
+                              daily_booster_claimed_today)
         import datetime as _dt
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
@@ -678,6 +679,7 @@ def register_cards_owner_routes(app, deps):
             "rewards": _WHEEL_REWARDS,
             "reset_in": reset_in,
             "daily_roll_claimed": daily_roll_claimed_today(uid) if uid else False,
+            "daily_booster_claimed": daily_booster_claimed_today(uid) if uid else False,
         })
 
     @app.route("/api/public/daily-roll/claim", methods=["POST"])
