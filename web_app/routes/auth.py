@@ -194,6 +194,10 @@ def register_auth_routes(app, deps):
         }
         session.pop("oauth_state", None)
         _record_login(_client_ip(), True, username=session["discord"]["username"])
+        # Retour direct vers la page demandee avant le login (ex: combat live)
+        nxt = session.pop("post_login_redirect", None)
+        if nxt and isinstance(nxt, str) and nxt.startswith("/"):
+            return redirect(nxt)
         # Owner / mod -> selection de guild ; user "regular" -> page premium directement.
         if is_owner or accessible:
             return redirect("/select-guild")

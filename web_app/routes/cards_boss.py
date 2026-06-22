@@ -1,6 +1,6 @@
 import os as _os
 
-from flask import render_template, jsonify, request, send_file, session
+from flask import render_template, jsonify, request, send_file, session, redirect
 
 
 def register_cards_boss_routes(app, deps):
@@ -93,13 +93,35 @@ def register_cards_boss_routes(app, deps):
     # recompenses ~10s aux spectateurs en direct), puis le lien devient mort.
     _DEAD_GRACE = 25
 
+    def _denied_page():
+        # Page d'erreur -> redirige vers le dashboard
+        return ("""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta http-equiv="refresh" content="3;url=/dashboard">
+<title>Accès refusé</title>
+<style>html,body{height:100%;margin:0}body{display:grid;place-items:center;
+background:radial-gradient(circle at 50% 25%,#2a1438,#0a0610);color:#eadff5;
+font-family:system-ui,sans-serif;text-align:center}
+.box{padding:30px}.t{font-size:26px;font-weight:900;margin-bottom:10px}
+.s{color:#b09cc8;font-size:15px}a{color:#ffd23f}</style></head>
+<body><div class="box"><div class="t">⛔ Tu ne fais pas partie de ce combat</div>
+<div class="s">Redirection vers le dashboard…<br><a href="/dashboard">Continuer maintenant</a></div>
+</div></body></html>""", 403)
+
     @app.route("/cards/boss/<int:bid>", methods=["GET"])
     def cards_boss_live(bid):
         import time as _t
-        from database import card_boss_get, get_db
+        from database import card_boss_get, get_db, boss_participant_get
         boss = card_boss_get(bid)
         if not boss:
             return render_template("404.html"), 404
+        # Reserve aux participants connectes (sinon login puis retour ici)
+        uid = _session_uid()
+        if not uid:
+            session["post_login_redirect"] = request.path
+            return redirect("/oauth/login")
+        is_owner = bool((session.get("discord") or {}).get("is_owner"))
+        if not is_owner and not boss_participant_get(bid, uid):
+            return _denied_page()
         # Combat termine depuis plus que le delai de grace -> lien mort
         if boss.get("status") in ("defeated", "wiped", "expired"):
             conn = get_db(); c = conn.cursor()
