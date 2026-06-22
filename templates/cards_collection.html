@@ -429,8 +429,9 @@ function closeCard(){ document.getElementById('cardZoom').classList.remove('open
     img.classList.add('grabbing'); img.setPointerCapture(e.pointerId); e.preventDefault(); });
   img.addEventListener('pointermove', e=>{ if(!_dz.down) return;
     const r = img.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width  - 0.5;   // -0.5 .. 0.5
-    const py = (e.clientY - r.top)  / r.height - 0.5;
+    const cl = v => Math.max(-0.5, Math.min(0.5, v));   // borne -0.5 .. 0.5
+    const px = cl((e.clientX - r.left) / r.width  - 0.5);
+    const py = cl((e.clientY - r.top)  / r.height - 0.5);
     const ry = px * MAX * 2;          // souris a droite -> tourne a droite
     const rx = -py * MAX * 2;         // souris en haut -> bascule arriere
     img.style.transform = `rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg)`;
