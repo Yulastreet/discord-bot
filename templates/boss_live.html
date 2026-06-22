@@ -125,6 +125,14 @@
   #endCard .sub{ font-size:16px; color:#cdbfe0; margin-top:10px; }
   .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
+  .rw-hdr{ font-size:15px; color:#ffe3a3; margin:10px 0 14px; font-weight:700; }
+  .rw-list{ display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto;
+    width:min(440px,88vw); margin:0 auto; }
+  .rw-row{ background:rgba(255,255,255,.05); border:1px solid #3a2b48; border-radius:10px;
+    padding:8px 12px; text-align:left; }
+  .rw-head{ font-size:14px; }
+  .rw-head .rw-dmg{ float:right; color:#9a86b3; font-size:12px; font-weight:600; }
+  .rw-items{ font-size:13px; color:#cfe8d6; margin-top:3px; }
 </style>
 </head>
 <body>
@@ -266,11 +274,14 @@ function playEvent(ev){
     popOn(bossWrap(), '+'+fmt(d.amount), 'heal');
   } else if(t==='party_heal'){
     flashPlayer(d.target,'green'); popOn(P[d.target]?P[d.target].el:null, '+'+fmt(d.amount), 'heal');
+  } else if(t==='rewards'){
+    renderRewards(d);
   } else if(t==='end'){
     showEnd(d.victory);
   }
 }
 
+let dead = false;
 function showEnd(victory){
   if(ended) return; ended = true;
   const ov=document.getElementById('endOverlay');
@@ -280,6 +291,39 @@ function showEnd(victory){
     ? `<div class="big">🎉 VICTOIRE</div><div class="sub">Le boss est vaincu !</div>`
     : `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
   ov.classList.add('show');
+  startKill();
+}
+function renderRewards(data){
+  const c=document.getElementById('endCard');
+  c.className='victory';
+  const rows=(data.players||[]).map(p=>`
+    <div class="rw-row">
+      <div class="rw-head">${p.mvp?'👑 ':'▫️ '}<b>${esc(p.name)}</b>
+        <span class="rw-dmg">dégâts ${fmt(p.dmg)}</span></div>
+      <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
+    </div>`).join('') || '<div class="sub">—</div>';
+  c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+    <div class="rw-hdr">${esc(data.header||'')}</div>
+    <div class="rw-list">${rows}</div>
+    <div class="sub" id="killCount"></div>`;
+}
+let killStarted=false;
+function startKill(){
+  if(killStarted) return; killStarted=true;
+  let left=10;
+  const tickCount=()=>{
+    const el=document.getElementById('killCount');
+    if(el) el.textContent = `Cette page se fermera dans ${left}s…`;
+    if(left<=0){ killPage(); return; }
+    left--; setTimeout(tickCount, 1000);
+  };
+  tickCount();
+}
+function killPage(){
+  dead = true;
+  document.body.innerHTML =
+    '<div style="position:fixed;inset:0;display:grid;place-items:center;'
+    + 'color:#7a6a8c;font-family:system-ui;font-size:18px;">Combat terminé.</div>';
 }
 
 /* ===== FILE D'EVENEMENTS (joue en sequence) ===== */
@@ -311,11 +355,24 @@ function setStatus(d){
   } else { s.style.display='none'; }
 }
 
+let firstLoad = true;
 async function tick(){
+  if(dead) return;
   try{
     const r = await fetch(`/cards/boss/${BID}/state?after=${lastEvt}`);
     if(!r.ok){ throw new Error('http'); }
     const d = await r.json();
+    // cold load APRES la fin : pas de replay d'animation, affiche direct le resultat
+    if(firstLoad && ['defeated','wiped','expired'].includes(d.boss.status)){
+      firstLoad = false;
+      buildPlayers(d.players); lastSig='cold'; syncHp(d);
+      const rew = d.events.find(e=>e.type==='rewards');
+      const endE = d.events.find(e=>e.type==='end');
+      showEnd(endE ? endE.data.victory : d.boss.status==='defeated');
+      if(rew) renderRewards(rew.data);
+      return;   // startKill (via showEnd) fermera la page
+    }
+    firstLoad = false;
     // rebuild si la compo change (joueur rejoint, change de carte / element / aptitude)
     const sig = d.players.map(p=>`${p.uid}:${p.img||''}:${p.element}:${p.aptitude}:${p.max_hp}`).join('|');
     if(!built || sig !== lastSig){ buildPlayers(d.players); lastSig = sig; }

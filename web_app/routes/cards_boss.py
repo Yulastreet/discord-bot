@@ -16,12 +16,26 @@ def register_cards_boss_routes(app, deps):
             return image_url
         return None
 
+    # Apres la fin du combat, on garde la page vivante ce temps (pour afficher les
+    # recompenses ~10s aux spectateurs en direct), puis le lien devient mort.
+    _DEAD_GRACE = 25
+
     @app.route("/cards/boss/<int:bid>", methods=["GET"])
     def cards_boss_live(bid):
-        from database import card_boss_get
+        import time as _t
+        from database import card_boss_get, get_db
         boss = card_boss_get(bid)
         if not boss:
             return render_template("404.html"), 404
+        # Combat termine depuis plus que le delai de grace -> lien mort
+        if boss.get("status") in ("defeated", "wiped", "expired"):
+            conn = get_db(); c = conn.cursor()
+            r = c.execute("SELECT MAX(ts) AS t FROM card_boss_event "
+                          "WHERE boss_id = ? AND etype = 'end'", (bid,)).fetchone()
+            conn.close()
+            end_ts = (r["t"] if r else None) or 0
+            if end_ts and _t.time() - end_ts > _DEAD_GRACE:
+                return render_template("404.html"), 404
         return render_template("boss_live.html", boss_id=bid, boss_name=boss.get("name") or "Boss")
 
     @app.route("/cards/boss/<int:bid>/state", methods=["GET"])

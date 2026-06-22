@@ -1359,6 +1359,7 @@ async def _finish(bot, bid, msg, view, log, victory):
         _ESS_CAP = {1: 800, 2: 1500, 3: 2500, 4: 3500, 5: 5000}
         cap = _ESS_CAP.get(tier, 1000)
         loot_lines = []
+        web_rewards = []   # version structuree pour le live dashboard
         for idx, p in enumerate(winners):
             base_ess = min(cap, tier * 100 + p["damage"] // 1000)
             # Bonus loot de guilde (+%) selon le palier du niveau de sa guilde
@@ -1372,16 +1373,20 @@ async def _finish(bot, bid, msg, view, log, victory):
                 base_ess = int(base_ess * (1 + _bpct / 100))
             ess = essence_reward_add(p["user_id"], base_ess)
             parts_loot = [f"+{_fmt(ess)} ✨"]
+            web_items = [f"✨ +{_fmt(ess)} essences"]   # emojis unicode pour le web
             # 1. Recompense carte selon la rareté de l'avatar
             if avatar_rar == "secret":
                 user_item_add(p["user_id"], "golden_roll", 1)
                 parts_loot.append(f"{_cemoji(bot, 'goldenroll', '🌈')} **Golden Roll**")
+                web_items.append("🌈 Golden Roll")
             elif avatar_rar == "mythic":
                 user_item_add(p["user_id"], "mythic_fragment", 1)
                 parts_loot.append("🔴 **Fragment Mythic**")
+                web_items.append("🔴 Fragment Mythic")
             elif avatar_card:
                 user_card_add(p["user_id"], avatar_card["id"])
                 parts_loot.append(f"🎴 **{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}")
+                web_items.append(f"🎴 {avatar_card['name']} {RARITY_HINT.get(avatar_rar,'')}")
             # 2. Rolls bonus selon le tier (+ bonus loot guilde)
             n_rolls = _boss_roll_reward(tier)
             if _bpct and n_rolls:
@@ -1389,13 +1394,23 @@ async def _finish(bot, bid, msg, view, log, victory):
             if n_rolls:
                 roll_give_user(p["user_id"], n_rolls)
                 parts_loot.append(f"{_cemoji(bot, 'roll', '🎟️')} **+{n_rolls} rolls**")
+                web_items.append(f"🎟️ +{n_rolls} rolls")
             crown = "👑 " if idx == 0 else "▫️ "
             loot_lines.append(f"{crown}<@{p['user_id']}> _(dégâts {_fmt(p['damage'])})_\n"
                               f"　→ " + " · ".join(parts_loot))
+            web_rewards.append({"name": p["name"], "dmg": int(p["damage"]),
+                                "mvp": idx == 0, "items": web_items})
         reward_hdr = {
             "secret": f"{_cemoji(bot, 'goldenroll', '🌈')} Avatar secret → **Golden Roll** pour tous",
             "mythic": "🔴 Avatar mythic → **Fragment Mythic** pour tous",
         }.get(avatar_rar, f"🎴 Carte : **{(avatar_card or {}).get('name','?')}** {RARITY_HINT.get(avatar_rar,'')}")
+        # Recompenses pour le live dashboard (header sans markdown/emojis custom)
+        web_hdr = {
+            "secret": "🌈 Avatar secret → Golden Roll pour tous",
+            "mythic": "🔴 Avatar mythic → Fragment Mythic pour tous",
+        }.get(avatar_rar, f"🎴 Carte : {(avatar_card or {}).get('name','?')} {RARITY_HINT.get(avatar_rar,'')}")
+        boss_event_add(bid, "rewards", {"header": web_hdr, "boss": boss["name"],
+                                        "tier": tier, "players": web_rewards})
         embed = discord.Embed(
             title=f"🎉 {boss['name']} vaincu ! (Tier {tier})",
             description=f"Bravo {mentions} !\n{reward_hdr}\n\n**🎁 Butin (par dégâts) :**\n"
