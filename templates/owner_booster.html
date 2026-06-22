@@ -38,8 +38,10 @@
   @keyframes boHintPulse{ 0%,100%{opacity:.5} 50%{opacity:1} }
 
   /* paquet dans l'overlay */
-  .bo-bigpack{ position:absolute; inset:0; z-index:20; display:grid; place-items:center; }
+  .bo-bigpack{ position:absolute; inset:0; z-index:20; display:grid; place-items:center; cursor:pointer; }
   .bo-bigpack img{ height:60vh; width:auto; filter:drop-shadow(0 18px 40px rgba(0,0,0,.7)); }
+  .bo-bigpack.idle img{ animation:boFloat 2.6s ease-in-out infinite; }
+  @keyframes boFloat{ 0%,100%{ transform:translateY(0) rotate(-1deg) } 50%{ transform:translateY(-14px) rotate(1deg) } }
   .bo-bigpack.shake{ animation:boShake 1.2s ease-in-out; }
   @keyframes boShake{ 0%,100%{transform:rotate(0)} 10%{transform:rotate(-7deg)} 22%{transform:rotate(7deg)}
     34%{transform:rotate(-6deg)} 46%{transform:rotate(6deg)} 60%{transform:rotate(-4deg) scale(1.04)}
@@ -130,7 +132,7 @@
       Mode test : aucune carte n'est réellement gagnée.</div>
 
     <div class="bo-pack">
-      <img id="boPackImg" src="/cards/img/booster/close" alt="Booster" onclick="openBooster()">
+      <img id="boPackImg" src="/cards/img/booster/close" alt="Booster" onclick="present()">
     </div>
 
     <div class="bo-controls">
@@ -139,7 +141,7 @@
         <button data-f="legendary">🟠 Forcer Légendaire</button>
         <button data-f="mythic">🔴 Forcer Mythic</button>
       </div>
-      <button class="bo-open-btn" onclick="openBooster()">Ouvrir le booster</button>
+      <button class="bo-open-btn" onclick="present()">Ouvrir le booster</button>
     </div>
     <div class="bo-note">Le forçage agit sur la dernière carte (garantie). Pour tester l'animation de suspense + foil.</div>
   </div>
@@ -150,7 +152,7 @@
   <button class="closeX" onclick="closeBooster()">✕</button>
   <div class="bo-counter" id="boCounter" style="display:none;"></div>
   <div class="bo-rays" id="boRays"></div>
-  <div class="bo-bigpack" id="boBigPack"><img src="/cards/img/booster/close" alt=""></div>
+  <div class="bo-bigpack" id="boBigPack" onclick="onBigClick()"><img src="/cards/img/booster/close" alt=""></div>
   <div class="bo-flash" id="boFlash"></div>
   <div class="bo-suspense" id="boSuspense"></div>
   <div class="bo-cardstage" id="boCardStage" onclick="nextCard()"></div>
@@ -171,34 +173,44 @@ document.getElementById('boForce').addEventListener('click', e=>{
 });
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-async function openBooster(){
-  if(busy) return; busy = true;
+let stage='idle';   // 'idle' | 'presented' | 'opening'
+// 1er clic : presente le booster en grand au centre (idle, attend un clic).
+function present(){
+  if(stage==='presented' || stage==='opening') return;
+  stage='presented';
   const ov=document.getElementById('boOverlay');
-  // reset
   document.getElementById('boCardStage').classList.remove('show');
   document.getElementById('boCardStage').innerHTML='';
   document.getElementById('boCounter').style.display='none';
-  document.getElementById('boHint').style.display='none';
   document.getElementById('boRays').classList.remove('show');
   const big=document.getElementById('boBigPack');
-  big.style.display='grid'; big.className='bo-bigpack';
+  big.style.display='grid'; big.className='bo-bigpack idle';
   big.querySelector('img').src='/cards/img/booster/close';
+  const hint=document.getElementById('boHint');
+  hint.textContent="Clique sur le paquet pour l'ouvrir"; hint.style.display='block';
   ov.classList.add('show');
+}
+function onBigClick(){ if(stage==='presented') openSequence(); }
 
-  // 1. fetch le paquet
+// 2e clic (sur le paquet) : ouverture reelle.
+async function openSequence(){
+  if(stage!=='presented') return; stage='opening';
+  const big=document.getElementById('boBigPack'); big.classList.remove('idle');
+  document.getElementById('boHint').style.display='none';
+
+  // fetch le paquet
   let data;
   try{
     const r=await fetch('/api/owner/booster/open',{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify({force:forceMode})});
     data=await r.json();
-  }catch(e){ busy=false; closeBooster(); return; }
-  if(!data || !data.ok){ busy=false; closeBooster(); return; }
+  }catch(e){ stage='idle'; closeBooster(); return; }
+  if(!data || !data.ok){ stage='idle'; closeBooster(); return; }
   PACK = data.cards || []; idx = 0;
 
-  // 2. secousse
+  // secousse -> coupe -> ouverture -> reveal
   big.classList.add('shake');
   setTimeout(()=>{
-    // 3. trait de decoupe rapide, PUIS ouverture (swap image + flash + sparkles)
     playCut();
     setTimeout(()=>{
       big.querySelector('img').src='/cards/img/booster/open';
@@ -239,7 +251,8 @@ function sparkleBurst(n){
 function startReveal(){
   document.getElementById('boCounter').style.display='block';
   document.getElementById('boCardStage').classList.add('show');
-  document.getElementById('boHint').style.display='block';
+  const hint=document.getElementById('boHint');
+  hint.textContent='Clique pour la carte suivante'; hint.style.display='block';
   idx = 0; showCard();
 }
 
@@ -375,20 +388,20 @@ async function shareDrop(c){
 window.shareDrop=shareDrop;
 
 function finishReveal(){
-  const stage=document.getElementById('boCardStage');
+  const st=document.getElementById('boCardStage');
   document.getElementById('boRays').classList.remove('show');
   document.getElementById('boHint').style.display='none';
   document.getElementById('boCounter').textContent='Booster ouvert !';
-  stage.innerHTML = `<div style="text-align:center;color:#eadff5;">
+  st.innerHTML = `<div style="text-align:center;color:#eadff5;">
     <div style="font-size:30px;font-weight:900;margin-bottom:14px;">🎉 Booster ouvert</div>
     <button class="bo-open-btn" onclick="event.stopPropagation(); closeBooster();">Fermer</button>
   </div>`;
-  busy=false;
+  stage='idle';
 }
 function closeBooster(){
   document.getElementById('boOverlay').classList.remove('show');
-  busy=false; _advLock=false;
+  stage='idle'; _advLock=false;
 }
-window.openBooster=openBooster; window.closeBooster=closeBooster; window.nextCard=nextCard;
+window.present=present; window.onBigClick=onBigClick; window.closeBooster=closeBooster; window.nextCard=nextCard;
 </script>
 {% endblock %}
