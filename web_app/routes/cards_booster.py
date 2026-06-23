@@ -61,12 +61,6 @@ def register_cards_booster_routes(app, deps):
     def _weighted(weights):
         return _r.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
 
-    @app.route("/owner/cards/booster")
-    def owner_cards_booster_page():
-        if not _is_owner_session():
-            return jsonify({"error": "owner only"}), 403
-        return render_template("owner_booster.html", active_nav="owner_booster")
-
     @app.route("/cards/img/booster/<state>", methods=["GET"])
     def cards_img_booster(state):
         state = "".join(ch for ch in str(state) if ch.isalpha()).lower()
@@ -109,14 +103,6 @@ def register_cards_booster_routes(app, deps):
         if lp:
             cards.append(lp)
         return cards
-
-    @app.route("/api/owner/booster/open", methods=["POST"])
-    def api_owner_booster_open():
-        if not _is_owner_session():
-            return jsonify({"error": "owner only"}), 403
-        force = (request.json or {}).get("force") or ""   # '', 'legendary', 'mythic'
-        cards = _build_pack(force or None)
-        return jsonify({"ok": True, "cards": cards, "size": len(cards)})
 
     @app.route("/api/public/booster/open", methods=["POST"])
     def api_public_booster_open():

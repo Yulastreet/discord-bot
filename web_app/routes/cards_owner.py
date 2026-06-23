@@ -1324,6 +1324,12 @@ def register_cards_owner_routes(app, deps):
             by_rarity[r] = by_rarity.get(r, 0) + 1
         if added == 0:
             return jsonify({"error": "aucune carte (categorie vide ?)"}), 400
+        # compte dans le total de rolls effectues (affiche en bas du profil)
+        try:
+            from database import roll_total_inc
+            roll_total_inc(uid, added)
+        except Exception:
+            pass
         return jsonify({"ok": True, "added": added, "by_rarity": by_rarity})
 
 
