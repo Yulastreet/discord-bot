@@ -1,8 +1,9 @@
-"""Owner-only : test d'une feature Booster de cartes (9 cartes, epic+ garantie a la fin)."""
+"""Booster de cartes quotidien (roue de la chance) : 9 cartes par paquet, avec une
+epique garantie au minimum sur la derniere. Sert aussi les images du paquet."""
 import os as _os
 import random as _r
 
-from flask import render_template, jsonify, request, send_file
+from flask import jsonify, send_file
 
 
 def register_cards_booster_routes(app, deps):
@@ -15,10 +16,10 @@ def register_cards_booster_routes(app, deps):
 
     _ROOT = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
     _RENDERS = _os.path.join(_ROOT, "static", "card_renders")
-    _BOOSTER_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "booster")
 
     PACK_SIZE = 9
-    # 8 premieres cartes : common/rare/epic (epic = max). Derniere : epic+ garantie.
+    # Les 8 premieres cartes vont de commune a epique (epique = plafond). La derniere
+    # est garantie epique au minimum (epique/legendaire/mythic).
     _FILLER_WEIGHTS = {"common": 62, "rare": 30, "epic": 8}
     _LAST_WEIGHTS = {"epic": 80, "legendary": 17, "mythic": 3}
 
@@ -82,8 +83,8 @@ def register_cards_booster_routes(app, deps):
         return "", 404
 
     def _build_pack(force=None):
-        """Genere un paquet de 9 cartes (8 common/rare/epic, derniere epic+).
-        force in ('legendary','mythic') -> derniere carte forcee (test)."""
+        """Genere un paquet de 9 cartes (8 commune/rare/epique, derniere epique au moins).
+        force='min_legendary' garantit une legendaire/mythic sur la derniere (1er booster)."""
         cards = []
         for _ in range(PACK_SIZE - 1):
             rar = _weighted(_FILLER_WEIGHTS)
@@ -91,10 +92,8 @@ def register_cards_booster_routes(app, deps):
             p = _card_payload(c)
             if p:
                 cards.append(p)
-        if force in ("legendary", "mythic"):
-            last_rar = force
-        elif force == "min_legendary":
-            # premier booster : legendaire minimum (legendaire ou mythic)
+        if force == "min_legendary":
+            # premier booster d'un joueur : au moins une legendaire (sinon mythic)
             last_rar = _weighted({"legendary": 85, "mythic": 15})
         else:
             last_rar = _weighted(_LAST_WEIGHTS)

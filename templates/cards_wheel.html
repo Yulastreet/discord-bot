@@ -600,22 +600,10 @@ async function shareDrop(c){
   }
   try{ await navigator.clipboard.writeText(text); boToast('Texte copié ✓'); }catch(e){}
 }
-function finishReveal(){
-  const st=document.getElementById('boCardStage');
-  document.getElementById('boRays').classList.remove('show');
-  document.getElementById('boHint').style.display='none';
-  document.getElementById('boCounter').textContent='Booster ouvert !';
-  st.innerHTML = `<div style="text-align:center;color:#eadff5;">
-    <div style="font-size:30px;font-weight:900;margin-bottom:14px;">🎉 Booster ouvert</div>
-    <button class="bo-open-btn" onclick="event.stopPropagation(); closeBooster();">Fermer</button>
-  </div>`;
-  stage='idle';
-  boosterClaimed=true; updateBoosterUI();
-}
 function closeBooster(){
   document.getElementById('boOverlay').classList.remove('show');
   stage='idle'; _advLock=false;
-  updateBoosterUI();   // pack grise + "deja ouvert" apres ouverture
+  updateBoosterUI();   // grise le paquet + "deja ouvert" une fois le booster ouvert
 }
 window.boosterPresent=boosterPresent; window.onBigClick=onBigClick;
 window.closeBooster=closeBooster; window.nextCard=nextCard; window.shareDrop=shareDrop;
