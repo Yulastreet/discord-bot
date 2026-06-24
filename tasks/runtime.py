@@ -108,6 +108,8 @@ def setup_runtime(bot, deps):
             card_event_drop_loop.start()
         if not card_render_bake_loop.is_running():
             card_render_bake_loop.start()
+        if not auto_boss_loop.is_running():
+            auto_boss_loop.start()
         # Reprise des combats de boss orphelins (task asyncio morte au restart)
         try:
             from services.card_boss import resume_active_bosses
@@ -1860,6 +1862,73 @@ def setup_runtime(bot, deps):
 
     @card_event_drop_loop.before_loop
     async def _before_card_event_loop():
+        await bot.wait_until_ready()
+
+    def _auto_boss_tier(level):
+        # Tier calibre sur le niveau de la guilde la plus haute du serveur (loot a la
+        # hauteur des joueurs ; les PV/ATK sont de toute facon rescales sur l'equipe).
+        if level <= 5:    t = 1
+        elif level <= 10: t = 2
+        elif level <= 16: t = 3
+        elif level <= 23: t = 4
+        else:             t = 5
+        import random as _r
+        if _r.random() < 0.08:   # ~8% : un boss un cran au-dessus, meilleur loot
+            t = min(5, t + 1)
+        return t
+
+    @tasks.loop(minutes=20)
+    async def auto_boss_loop():
+        """Apparition automatique de boss : 1 par serveur eligible toutes les ~19-24h.
+        Eligible = salon cartes configure, serveur > N jours, >= N membres humains."""
+        try:
+            import time as _t, random as _r, datetime as _dt
+            from database import (get_setting, guild_card_config_get, card_boss_guild_has_active,
+                                  boss_auto_get_next, boss_auto_set_next, max_guild_level_for_users)
+            from services.card_boss import spawn_boss
+            if get_setting("auto_boss_enabled", "1") != "1":
+                return
+            min_days = int(get_setting("auto_boss_min_guild_age_days", "10") or 10)
+            min_humans = int(get_setting("auto_boss_min_humans", "10") or 10)
+            ih = float(get_setting("auto_boss_interval_min_h", "19") or 19)
+            ax = float(get_setting("auto_boss_interval_max_h", "24") or 24)
+            now = _t.time()
+            for guild in list(bot.guilds):
+                try:
+                    cfg = guild_card_config_get(guild.id) or {}
+                    ch_id = cfg.get("channel_id")
+                    if not ch_id:
+                        continue   # pas de salon cartes -> pas d'opt-in
+                    age = _dt.datetime.now(_dt.timezone.utc) - guild.created_at
+                    if age < _dt.timedelta(days=min_days):
+                        continue
+                    if sum(1 for m in guild.members if not m.bot) < min_humans:
+                        continue
+                    if card_boss_guild_has_active(guild.id):
+                        continue
+                    nxt = boss_auto_get_next(guild.id)
+                    if nxt is None:   # premiere planif : programme dans la fenetre, pas tout de suite
+                        boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
+                        continue
+                    if now < nxt:
+                        continue
+                    ch = guild.get_channel(int(ch_id))
+                    if ch is None:
+                        boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
+                        continue
+                    uids = [str(m.id) for m in guild.members if not m.bot]
+                    tier = _auto_boss_tier(max_guild_level_for_users(uids))
+                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier)
+                    if bid:
+                        print(f"[auto_boss] spawn guild={guild.id} tier={tier}")
+                    boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
+                except Exception as e:
+                    print(f"[auto_boss] guild {getattr(guild, 'id', None)} err: {e!r}")
+        except Exception as e:
+            print(f"[auto_boss] loop err: {e!r}")
+
+    @auto_boss_loop.before_loop
+    async def _before_auto_boss_loop():
         await bot.wait_until_ready()
 
     @tasks.loop(hours=24)

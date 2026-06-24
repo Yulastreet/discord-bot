@@ -428,6 +428,11 @@ def init_db():
         ts        REAL DEFAULT 0
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_event ON card_boss_event(boss_id, id)")
+    # Planning des boss automatiques : prochaine apparition par serveur Discord.
+    c.execute('''CREATE TABLE IF NOT EXISTS boss_auto_schedule (
+        guild_id TEXT PRIMARY KEY,
+        next_at  REAL
+    )''')
 
     # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
     c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
@@ -3758,6 +3763,54 @@ def card_boss_list_active():
                      "ORDER BY id DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def card_boss_guild_has_active(guild_id) -> bool:
+    """True si ce serveur a deja un boss en recrutement ou en combat."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT 1 FROM card_boss WHERE guild_id = ? "
+                  "AND status IN ('recruiting','fighting') LIMIT 1",
+                  (str(guild_id),)).fetchone()
+    conn.close()
+    return r is not None
+
+
+def boss_auto_get_next(guild_id):
+    """Timestamp (epoch) de la prochaine apparition auto pour ce serveur, ou None."""
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT next_at FROM boss_auto_schedule WHERE guild_id = ?",
+                  (str(guild_id),)).fetchone()
+    conn.close()
+    return float(r["next_at"]) if r and r["next_at"] is not None else None
+
+
+def boss_auto_set_next(guild_id, next_at):
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO boss_auto_schedule (guild_id, next_at) VALUES (?, ?) "
+              "ON CONFLICT(guild_id) DO UPDATE SET next_at = excluded.next_at",
+              (str(guild_id), float(next_at)))
+    conn.commit(); conn.close()
+
+
+def max_guild_level_for_users(user_ids) -> int:
+    """Niveau de la guilde de cartes la plus haute parmi ces utilisateurs (0 si aucun
+    n'est en guilde). Sert a calibrer le tier d'un boss automatique sur la force du serveur."""
+    uids = [str(u) for u in user_ids]
+    if not uids:
+        return 0
+    conn = get_db(); c = conn.cursor()
+    best = 0
+    # chunks pour rester sous la limite de variables SQLite
+    for i in range(0, len(uids), 400):
+        chunk = uids[i:i + 400]
+        ph = ",".join("?" * len(chunk))
+        r = c.execute(f"SELECT MAX(g.level) AS lv FROM card_guild g "
+                      f"JOIN card_guild_member m ON m.guild_id = g.id "
+                      f"WHERE m.user_id IN ({ph})", chunk).fetchone()
+        if r and r["lv"]:
+            best = max(best, int(r["lv"]))
+    conn.close()
+    return best
 
 
 def card_boss_get_by_message(message_id):
