@@ -662,7 +662,7 @@ def setup_music_commands(bot, deps):
                 @discord.ui.select(placeholder=f"Choisis une piste {platform}...", options=options)
                 async def pick(self, sel_inter: discord.Interaction, sel: discord.ui.Select):
                     if sel_inter.user.id != outer.owner_id:
-                        await sel_inter.response.send_message("❌ Pas ton menu.", ephemeral=True)
+                        await sel_inter.response.send_message("❌ Ce menu n'est pas le tien.", ephemeral=True)
                         return
                     self.picked = True
                     idx = int(sel.values[0])

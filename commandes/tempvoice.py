@@ -268,7 +268,8 @@ def setup_tempvoice(bot, deps):
         ch = await _require_owner(interaction)
         if not ch: return
         if membre.bot:
-            await interaction.response.send_message("Pas a un bot.", ephemeral=True); return
+            await interaction.response.send_message(
+                "Action impossible sur un bot.", ephemeral=True); return
         if membre.voice is None or membre.voice.channel is None or membre.voice.channel.id != ch.id:
             await interaction.response.send_message("Le nouveau owner doit etre dans le salon.", ephemeral=True)
             return

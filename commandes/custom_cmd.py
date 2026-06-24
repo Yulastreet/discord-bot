@@ -102,7 +102,8 @@ def _build_embed_from_json(raw: str, *, user, guild, channel) -> Optional[discor
 async def _execute_custom(interaction: discord.Interaction, name: str):
     """Logique d'execution partagee : recupere la commande en DB et repond."""
     if not interaction.guild:
-        await interaction.response.send_message("❌ Pas dispo en DM.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True)
         return
     # Gate TookBot+ : les commandes custom sont payantes. Owner du serveur doit avoir TookBot+.
     if not _owner_has_tookbot_plus(interaction.guild):
