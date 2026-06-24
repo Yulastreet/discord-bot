@@ -592,20 +592,6 @@ def setup_runtime(bot, deps):
         except Exception as _e:
             print(f"[soutien] notif err: {_e!r}")
 
-    @bot.tree.command(name="sync", description="sync les slash commands manuellement (owner uniquement)")
-    @commands.is_owner()
-    async def sync_commands(ctx):
-        """Resync les slash commands manuellement (owner uniquement)."""
-        # Purge per-guild orphelines puis sync global
-        for guild in bot.guilds:
-            try:
-                bot.tree.clear_commands(guild=guild)
-                await bot.tree.sync(guild=guild)
-            except Exception:
-                pass
-        await bot.tree.sync()
-        await ctx.send("✅ Slash commands resynchronisées !")
-
     @tasks.loop(seconds=5)
     async def reload_reactions():
         USER_REACTIONS.clear()
