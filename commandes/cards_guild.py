@@ -85,7 +85,8 @@ def setup_guild_commands(bot, deps):
             await interaction.response.send_message("Tu es déjà dans une guilde.", ephemeral=True); return
         nom = nom.strip()[:40]
         if len(nom) < 2:
-            await interaction.response.send_message("Nom trop court.", ephemeral=True); return
+            await interaction.response.send_message(
+                "Le nom de la guilde est trop court.", ephemeral=True); return
         if guild_get_by_name(nom):
             await interaction.response.send_message("Ce nom de guilde est déjà pris.", ephemeral=True); return
         cost = int(cfg.get("create_cost", 10000))
@@ -144,11 +145,12 @@ def setup_guild_commands(bot, deps):
         if not _is_officer(guild_member_role(g["id"], interaction.user.id)):
             await interaction.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
         if membre.bot:
-            await interaction.response.send_message("Pas un bot.", ephemeral=True); return
+            await interaction.response.send_message(
+                "Tu ne peux pas inviter un bot dans la guilde.", ephemeral=True); return
         if guild_of_user(membre.id):
             await interaction.response.send_message("Ce joueur est déjà dans une guilde.", ephemeral=True); return
         if guild_member_count(g["id"]) >= int(cfg.get("max_members", 30)):
-            await interaction.response.send_message("Guilde pleine.", ephemeral=True); return
+            await interaction.response.send_message("La guilde est pleine.", ephemeral=True); return
         guild_invite_add(g["id"], membre.id)
         await interaction.response.send_message(
             f"✅ {membre.mention} invité. Il peut rejoindre avec `/guild accept nom:{g['name']}`.",
@@ -181,7 +183,7 @@ def setup_guild_commands(bot, deps):
             except Exception:
                 pass
         if guild_member_count(g["id"]) >= int(cfg.get("max_members", 30)):
-            await interaction.response.send_message("Guilde pleine.", ephemeral=True); return
+            await interaction.response.send_message("La guilde est pleine.", ephemeral=True); return
         guild_add_member(g["id"], uid, "member")
         await interaction.response.send_message(f"🛡️ Tu as rejoint **{g['name']}** !", ephemeral=True)
 
@@ -218,7 +220,7 @@ def setup_guild_commands(bot, deps):
             await interaction.response.send_message(
                 f"Tu as quitté une guilde récemment. Attends encore **{rem}h**.", ephemeral=True); return
         if guild_member_count(g["id"]) >= int(cfg.get("max_members", 30)):
-            await interaction.response.send_message("Guilde pleine.", ephemeral=True); return
+            await interaction.response.send_message("La guilde est pleine.", ephemeral=True); return
         ok, reason = guild_meets_requirements(g["id"], uid)
         if not ok:
             await interaction.response.send_message(f"🚪 Prérequis non remplis : {reason}", ephemeral=True); return
@@ -269,7 +271,7 @@ def setup_guild_commands(bot, deps):
                     await inter.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
                 g = guild_get(self.gid)
                 if not g:
-                    await inter.response.send_message("Guilde dissoute.", ephemeral=True); return
+                    await inter.response.send_message("Cette guilde a été dissoute.", ephemeral=True); return
                 if not accept:
                     guild_application_remove(self.gid, auid)
                     await inter.response.send_message(f"❌ Candidature de <@{auid}> refusée.",
@@ -280,7 +282,7 @@ def setup_guild_commands(bot, deps):
                     guild_application_remove(self.gid, auid)
                     await inter.response.send_message("Ce joueur est déjà dans une guilde.", ephemeral=True); return
                 if guild_member_count(self.gid) >= int(cfg.get("max_members", 30)):
-                    await inter.response.send_message("Guilde pleine.", ephemeral=True); return
+                    await inter.response.send_message("La guilde est pleine.", ephemeral=True); return
                 ok, reason = guild_meets_requirements(self.gid, auid)
                 if not ok:
                     await inter.response.send_message(f"Le joueur ne remplit plus les prérequis : {reason}",
@@ -334,7 +336,7 @@ def setup_guild_commands(bot, deps):
     async def g_promote(interaction: discord.Interaction, membre: discord.Member):
         g = guild_of_user(interaction.user.id)
         if not g or guild_member_role(g["id"], interaction.user.id) != "master":
-            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
         if guild_member_role(g["id"], membre.id) != "member":
             await interaction.response.send_message("Membre invalide.", ephemeral=True); return
         guild_set_role(g["id"], membre.id, "officer")
@@ -346,7 +348,7 @@ def setup_guild_commands(bot, deps):
     async def g_demote(interaction: discord.Interaction, membre: discord.Member):
         g = guild_of_user(interaction.user.id)
         if not g or guild_member_role(g["id"], interaction.user.id) != "master":
-            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
         if guild_member_role(g["id"], membre.id) != "officer":
             await interaction.response.send_message("Ce joueur n'est pas Officier.", ephemeral=True); return
         guild_set_role(g["id"], membre.id, "member")
@@ -358,7 +360,7 @@ def setup_guild_commands(bot, deps):
     async def g_transfer(interaction: discord.Interaction, membre: discord.Member):
         g = guild_of_user(interaction.user.id)
         if not g or guild_member_role(g["id"], interaction.user.id) != "master":
-            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
         if not guild_member_role(g["id"], membre.id):
             await interaction.response.send_message("Ce joueur n'est pas dans ta guilde.", ephemeral=True); return
         guild_set_role(g["id"], interaction.user.id, "officer")
@@ -371,7 +373,7 @@ def setup_guild_commands(bot, deps):
     async def g_disband(interaction: discord.Interaction):
         g = guild_of_user(interaction.user.id)
         if not g or guild_member_role(g["id"], interaction.user.id) != "master":
-            await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+            await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
         guild_delete(g["id"])
         await interaction.response.send_message(f"💥 Guilde **{g['name']}** dissoute.", ephemeral=True)
 
@@ -527,7 +529,7 @@ def setup_guild_commands(bot, deps):
         def _mk(self, it):
             async def cb(inter: discord.Interaction):
                 if not guild_get(self.gid):
-                    await inter.response.send_message("Guilde dissoute.", ephemeral=True); return
+                    await inter.response.send_message("Cette guilde a été dissoute.", ephemeral=True); return
                 if not _can_officer(self.gid, inter.user.id):
                     await inter.response.send_message("Réservé au Maître / Officiers.", ephemeral=True); return
                 if not guild_bank_spend(self.gid, int(it["cost"])):
@@ -586,7 +588,7 @@ def setup_guild_commands(bot, deps):
         async def _refresh(self, interaction):
             g = guild_get(self.gid)
             if not g:
-                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+                await interaction.response.edit_message(content="Cette guilde a été dissoute.", embed=None, view=None); return
             await interaction.response.edit_message(embed=_guildprofile_embed(g, self.rows, self.sort), view=self)
 
         _SORT_ROT = {"power": "role", "role": "cards", "cards": "power"}
@@ -603,7 +605,7 @@ def setup_guild_commands(bot, deps):
         async def b_quests(self, interaction, btn):
             g = guild_get(self.gid)
             if not g:
-                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+                await interaction.response.edit_message(content="Cette guilde a été dissoute.", embed=None, view=None); return
             qv = QuestView(self.gid, self.rows, self.invoker_role, interaction.user.id)
             await interaction.response.edit_message(
                 embed=_quests_daily_embed(interaction.client, g, interaction.user.id), view=qv)
@@ -638,7 +640,7 @@ def setup_guild_commands(bot, deps):
         @discord.ui.button(label="Guilde customisation", emoji="🎨", style=discord.ButtonStyle.secondary, row=1)
         async def b_custom(self, interaction, btn):
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             g = guild_get(self.gid)
             await interaction.response.send_message(
                 "🎨 **Customisation de guilde** — choisis la couleur d'embed et l'emblème "
@@ -663,7 +665,7 @@ def setup_guild_commands(bot, deps):
 
             async def callback(self, interaction):
                 if not _can_master(self.gid, interaction.user.id):
-                    await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                    await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
                 key = self.values[0]
                 guild_set_color(self.gid, key)
                 col = next((c for c in PROFILE_COLORS if c["key"] == key), None)
@@ -673,7 +675,7 @@ def setup_guild_commands(bot, deps):
         @discord.ui.button(label="Renommer la guilde", emoji="✏️", style=discord.ButtonStyle.secondary)
         async def rename(self, interaction, btn):
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             g = guild_get(self.gid)
             # Cooldown 1/mois (30 jours)
             ra = (g or {}).get("renamed_at")
@@ -693,20 +695,20 @@ def setup_guild_commands(bot, deps):
         @discord.ui.button(label="Définir l'emblème", emoji="🏅", style=discord.ButtonStyle.primary)
         async def set_emblem(self, interaction, btn):
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             await interaction.response.send_modal(EmblemModal(self.gid))
 
         @discord.ui.button(label="Retirer l'emblème", emoji="🗑️", style=discord.ButtonStyle.secondary)
         async def clear_emblem(self, interaction, btn):
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             guild_set_emblem(self.gid, None)
             await interaction.response.send_message("🗑️ Emblème retiré.", ephemeral=True)
 
         @discord.ui.button(label="Prérequis & accès", emoji="🚪", style=discord.ButtonStyle.secondary)
         async def reqs(self, interaction, btn):
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             await interaction.response.send_modal(GuildReqModal(self.gid))
 
     class GuildReqModal(discord.ui.Modal, title="Prérequis d'entrée"):
@@ -731,7 +733,7 @@ def setup_guild_commands(bot, deps):
         async def on_submit(self, interaction):
             from database import guild_admin_update
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             def _n(v):
                 try: return max(0, int(str(v).strip() or 0))
                 except Exception: return 0
@@ -784,10 +786,10 @@ def setup_guild_commands(bot, deps):
 
         async def on_submit(self, interaction):
             if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message("Réservé au Maître.", ephemeral=True); return
+                await interaction.response.send_message("Réservé au Maître de la guilde.", ephemeral=True); return
             g = guild_get(self.gid)
             if not g:
-                await interaction.response.send_message("Guilde dissoute.", ephemeral=True); return
+                await interaction.response.send_message("Cette guilde a été dissoute.", ephemeral=True); return
             # Re-check cooldown a la soumission (anti contournement)
             ra = g.get("renamed_at")
             if ra:
@@ -866,7 +868,7 @@ def setup_guild_commands(bot, deps):
         async def toggle(self, interaction, btn):
             g = guild_get(self.gid)
             if not g:
-                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+                await interaction.response.edit_message(content="Cette guilde a été dissoute.", embed=None, view=None); return
             self.page = "weekly" if self.page == "daily" else "daily"
             emb = (_quests_weekly_embed(interaction.client, g) if self.page == "weekly"
                    else _quests_daily_embed(interaction.client, g, self.invoker_id))
@@ -876,7 +878,7 @@ def setup_guild_commands(bot, deps):
         async def back(self, interaction, btn):
             g = guild_get(self.gid)
             if not g:
-                await interaction.response.edit_message(content="Guilde dissoute.", embed=None, view=None); return
+                await interaction.response.edit_message(content="Cette guilde a été dissoute.", embed=None, view=None); return
             view = GuildProfileView(self.gid, self.rows, invoker_role=self.invoker_role)
             await interaction.response.edit_message(
                 embed=_guildprofile_embed(g, self.rows, "power"), view=view)
