@@ -550,7 +550,7 @@ class _ProfileCustomView(discord.ui.View):
         async def callback(self, interaction):
             from database import PROFILE_COLORS, card_profile_set_color
             if interaction.user.id != self.pv.uid:
-                await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
+                await interaction.response.send_message("Ce profil n'est pas le tien.", ephemeral=True); return
             key = self.values[0]
             col = next((c for c in PROFILE_COLORS if c["key"] == key), None)
             if col and self.pv.guild_level < col["lvl"]:
@@ -565,7 +565,7 @@ class _ProfileCustomView(discord.ui.View):
                        style=discord.ButtonStyle.success, row=1)
     async def pick_cards(self, interaction, btn):
         if interaction.user.id != self.uid:
-            await interaction.response.send_message("Pas ton profil.", ephemeral=True); return
+            await interaction.response.send_message("Ce profil n'est pas le tien.", ephemeral=True); return
         await interaction.response.send_modal(_CardsModal(self.uid, self.cur_names))
 
 
@@ -1207,7 +1207,7 @@ def setup_cards_commands(bot, deps):
                                           options=opts or [discord.SelectOption(label="—")], row=0)
                 async def _on_select(inter: discord.Interaction):
                     if inter.user.id != owner_id:
-                        await inter.response.send_message("Pas ton menu.", ephemeral=True); return
+                        await inter.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
                     chosen = sel.values[0]
                     emb, v = _make_collec_view(chosen)
                     await inter.response.edit_message(embed=emb, view=v)
@@ -1222,17 +1222,17 @@ def setup_cards_commands(bot, deps):
                 back = discord.ui.Button(label="↩ Retour", style=discord.ButtonStyle.danger, row=1)
                 async def _prev(i):
                     if i.user.id != owner_id:
-                        await i.response.send_message("Pas ton menu.", ephemeral=True); return
+                        await i.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
                     self.page -= 1; self._build_select()
                     await i.response.edit_message(embed=self.build_embed(), view=self)
                 async def _nxt(i):
                     if i.user.id != owner_id:
-                        await i.response.send_message("Pas ton menu.", ephemeral=True); return
+                        await i.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
                     self.page += 1; self._build_select()
                     await i.response.edit_message(embed=self.build_embed(), view=self)
                 async def _back(i):
                     if i.user.id != owner_id:
-                        await i.response.send_message("Pas ton menu.", ephemeral=True); return
+                        await i.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
                     emb, v = _make_collec_view(None)
                     await i.response.edit_message(embed=emb, view=v)
                 prev.callback = _prev; nxt.callback = _nxt; back.callback = _back
@@ -2067,7 +2067,7 @@ def setup_cards_commands(bot, deps):
                                         style=discord.ButtonStyle.secondary, disabled=not has)
                 async def _cb(inter):
                     if inter.user.id != uid:
-                        await inter.response.send_message("Pas ton combat.", ephemeral=True); return
+                        await inter.response.send_message("Ce combat n'est pas le tien.", ephemeral=True); return
                     await _resolve(inter, self.tier_key, self.monster_elem, el)
                 btn.callback = _cb
                 return btn
@@ -2083,7 +2083,7 @@ def setup_cards_commands(bot, deps):
                                         emoji=t["emoji"], style=discord.ButtonStyle.primary)
                 async def _cb(inter):
                     if inter.user.id != uid:
-                        await inter.response.send_message("Pas ton combat.", ephemeral=True); return
+                        await inter.response.send_message("Ce combat n'est pas le tien.", ephemeral=True); return
                     monster_elem = _r.choice(CARD_ELEMENTS)
                     weak = element_matchup  # local ref
                     # element qui bat le monstre (pour indice)
@@ -2185,7 +2185,7 @@ def setup_cards_commands(bot, deps):
             sel = discord.ui.Select(placeholder="🎨 Acheter un skin alternatif…", options=opts, row=1)
             async def _on(inter):
                 if inter.user.id != uid:
-                    await inter.response.send_message("Pas ta boutique.", ephemeral=True); return
+                    await inter.response.send_message("Cette boutique n'est pas la tienne.", ephemeral=True); return
                 cid = int(sel.values[0])
                 if not event_coins_spend(uid, ek, EVENT_SHOP_SKIN_COST):
                     await inter.response.send_message(f"Pas assez de {ev['coin']}.", ephemeral=True); return
@@ -2214,7 +2214,7 @@ def setup_cards_commands(bot, deps):
 
             async def _guard(self, inter):
                 if inter.user.id != uid:
-                    await inter.response.send_message("Pas ta boutique.", ephemeral=True)
+                    await inter.response.send_message("Cette boutique n'est pas la tienne.", ephemeral=True)
                     return False
                 return True
 
@@ -2557,7 +2557,7 @@ def setup_cards_commands(bot, deps):
             def _make_cb(self, card_id):
                 async def _cb(inter: discord.Interaction):
                     if inter.user.id != interaction.user.id:
-                        await inter.response.send_message("Pas ta wishlist.", ephemeral=True)
+                        await inter.response.send_message("Cette wishlist n'est pas la tienne.", ephemeral=True)
                         return
                     wishlist_toggle(interaction.user.id, card_id)  # retire
                     new_embed, new_items = _build_wl_embed()
@@ -2655,10 +2655,12 @@ def setup_cards_commands(bot, deps):
                              tier: app_commands.Choice[int] = None,
                              dummies: int = 0):
         if not _is_owner(interaction.user.id):
-            await interaction.response.send_message("Owner uniquement.", ephemeral=True)
+            await interaction.response.send_message(
+                "Commande réservée au propriétaire du bot.", ephemeral=True)
             return
         if not interaction.guild:
-            await interaction.response.send_message("À utiliser dans un serveur.", ephemeral=True)
+            await interaction.response.send_message(
+                "À utiliser dans un serveur, pas en message privé.", ephemeral=True)
             return
         from services.card_boss import spawn_boss, add_dummy_participants
         t = tier.value if tier else 1
