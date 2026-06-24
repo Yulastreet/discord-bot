@@ -307,9 +307,9 @@ def setup_giveaway_commands(bot: commands.Bot):
     @app_commands.default_permissions(manage_guild=True)
     async def gw_list(interaction: discord.Interaction):
         if not interaction.guild:
-            await interaction.response.send_message("❌ Pas dispo en DM.", ephemeral=True); return
+            await interaction.response.send_message("❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True); return
         if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message("❌ Permission manquante.", ephemeral=True); return
+            await interaction.response.send_message("❌ Tu n'as pas la permission requise (Gérer le serveur) pour cette action.", ephemeral=True); return
         rows = giveaways_list(interaction.guild.id, only_active=True, limit=25)
         if not rows:
             await interaction.response.send_message("_Aucun giveaway actif._", ephemeral=True); return
@@ -326,9 +326,9 @@ def setup_giveaway_commands(bot: commands.Bot):
     @app_commands.default_permissions(manage_guild=True)
     async def gw_reroll(interaction: discord.Interaction, giveaway_id: int):
         if not interaction.guild:
-            await interaction.response.send_message("❌ Pas dispo en DM.", ephemeral=True); return
+            await interaction.response.send_message("❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True); return
         if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message("❌ Permission manquante.", ephemeral=True); return
+            await interaction.response.send_message("❌ Tu n'as pas la permission requise (Gérer le serveur) pour cette action.", ephemeral=True); return
         gw = giveaway_get(giveaway_id)
         if not gw or str(gw["guild_id"]) != str(interaction.guild.id):
             await interaction.response.send_message(
@@ -348,9 +348,9 @@ def setup_giveaway_commands(bot: commands.Bot):
     @app_commands.default_permissions(manage_guild=True)
     async def gw_cancel(interaction: discord.Interaction, giveaway_id: int):
         if not interaction.guild:
-            await interaction.response.send_message("❌ Pas dispo en DM.", ephemeral=True); return
+            await interaction.response.send_message("❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True); return
         if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message("❌ Permission manquante.", ephemeral=True); return
+            await interaction.response.send_message("❌ Tu n'as pas la permission requise (Gérer le serveur) pour cette action.", ephemeral=True); return
         gw = giveaway_get(giveaway_id)
         if not gw or str(gw["guild_id"]) != str(interaction.guild.id):
             await interaction.response.send_message(

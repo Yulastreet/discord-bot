@@ -90,7 +90,7 @@ def setup_presentation_commands(bot: commands.Bot):
     @presentation_group.command(name="create", description="Ouvre le formulaire de présentation")
     async def presentation_create(interaction: discord.Interaction):
         if not interaction.guild:
-            await interaction.response.send_message("❌ Indisponible en DM.", ephemeral=True)
+            await interaction.response.send_message("❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True)
             return
         enabled = guild_setting_get(interaction.guild.id, "presentation_enabled", "0") == "1"
         ch_id = guild_setting_get(interaction.guild.id, "presentation_channel_id", "")
@@ -129,7 +129,7 @@ def setup_presentation_commands(bot: commands.Bot):
                                  salon: discord.TextChannel,
                                  etat: app_commands.Choice[str]):
         if not interaction.guild:
-            await interaction.response.send_message("❌ Indisponible en DM.", ephemeral=True)
+            await interaction.response.send_message("❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True)
             return
         guild_setting_set(interaction.guild.id, "presentation_channel_id", str(salon.id))
         guild_setting_set(interaction.guild.id, "presentation_enabled",

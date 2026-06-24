@@ -29,7 +29,8 @@ def setup_ticket_commands(bot, deps):
 
         async def _on_open(self, interaction: discord.Interaction):
             if not interaction.guild or not interaction.message:
-                await interaction.response.send_message("❌ Erreur de contexte.", ephemeral=True)
+                await interaction.response.send_message(
+                    "❌ Action impossible ici (à utiliser dans un serveur).", ephemeral=True)
                 return
             panel = ticket_panel_get_by_message(interaction.guild.id, interaction.message.id)
             if not panel or not panel.get("enabled"):
@@ -321,7 +322,7 @@ def setup_ticket_commands(bot, deps):
 
         async def interaction_check(self, interaction: discord.Interaction) -> bool:
             if interaction.user.id != self.author_id:
-                await interaction.response.send_message("❌ Pas ton menu.", ephemeral=True)
+                await interaction.response.send_message("❌ Ce menu n'est pas le tien.", ephemeral=True)
                 return False
             return True
 

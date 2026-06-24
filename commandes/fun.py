@@ -94,8 +94,9 @@ def setup_fun_commands(bot):
                 image_url=image_url,
             )
         except Exception as e:
+            print(f"[fun/tweet] render err: {e!r}")
             await interaction.followup.send(
-                f"Erreur rendu tweet : {type(e).__name__}: {e}",
+                "Impossible de générer l'image du tweet, réessaie.",
                 ephemeral=True,
             )
             return
@@ -220,7 +221,7 @@ def setup_fun_commands(bot):
             return
         out = " clap ".join(texte.split())
         if not out:
-            await interaction.response.send_message("Texte vide.", ephemeral=True)
+            await interaction.response.send_message("Le texte ne peut pas être vide.", ephemeral=True)
             return
         await interaction.response.send_message(out)
 

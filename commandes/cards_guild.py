@@ -393,7 +393,7 @@ def setup_guild_commands(bot, deps):
         if montant <= 0:
             await interaction.response.send_message("Montant invalide.", ephemeral=True); return
         if currency_get(uid) < montant:
-            await interaction.response.send_message("Pas assez d'essences.", ephemeral=True); return
+            await interaction.response.send_message("Tu n'as pas assez d'essences.", ephemeral=True); return
         currency_add(uid, -montant)
         guild_bank_add(g["id"], montant)
         per100 = int(cfg.get("xp", {}).get("essence_per_100", 0))
@@ -761,7 +761,7 @@ def setup_guild_commands(bot, deps):
         async def on_submit(self, interaction):
             val = str(self.emoji_in.value).strip()
             if not val:
-                await interaction.response.send_message("Emoji vide.", ephemeral=True); return
+                await interaction.response.send_message("Aucun emoji fourni.", ephemeral=True); return
             if "<" in val or ":" in val:
                 await interaction.response.send_message(
                     "❌ Emoji personnalisé refusé. Utilise un emoji standard (🔥 ⚔️ 🐉).",

@@ -634,7 +634,7 @@ def setup_music_commands(bot, deps):
                                      "Colle directement une URL bandcamp.com dans `/play`.")
             except Exception as e:
                 print(f"[music /search {platform}] {type(e).__name__}: {e}")
-                error_msg = f"Erreur recherche {platform} : {type(e).__name__}"
+                error_msg = f"La recherche sur {platform} a échoué, réessaie."
 
             if error_msg:
                 await inter.followup.send(f"⚠️ {error_msg}", ephemeral=True)

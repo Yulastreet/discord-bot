@@ -3255,7 +3255,7 @@ def setup_cards_commands(bot, deps):
 
         nom_clean = nom.strip()[:100]
         if not nom_clean:
-            await interaction.response.send_message("Nom invalide.", ephemeral=True)
+            await interaction.response.send_message("Nom de carte invalide.", ephemeral=True)
             return
 
         try:

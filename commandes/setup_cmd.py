@@ -348,7 +348,7 @@ def setup_setup_commands(bot: commands.Bot):
     @app_commands.default_permissions(manage_guild=True)
     async def setup_cmd(interaction: discord.Interaction):
         if not interaction.guild:
-            await interaction.response.send_message("❌ Indisponible en DM.", ephemeral=True)
+            await interaction.response.send_message("❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True)
             return
 
         current = {}

@@ -72,8 +72,9 @@ def setup_moderation_commands(bot):
                     poll.add_answer(text=o[:55])
                 await interaction.response.send_message(poll=poll)
             except Exception as e:
+                print(f"[moderation/poll] err: {e!r}")
                 await interaction.response.send_message(
-                    f"Erreur creation du sondage : {type(e).__name__}: {e}",
+                    "Impossible de créer le sondage. Vérifie le format des options et réessaie.",
                     ephemeral=True,
                 )
 

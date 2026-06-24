@@ -211,9 +211,11 @@ def setup_tempvoice(bot, deps):
         if not ch: return
         try:
             await ch.edit(name=nom[:90], reason=f"Rename par {interaction.user}")
-            await interaction.response.send_message(f"Salon renomme en **{nom[:90]}**.", ephemeral=True)
+            await interaction.response.send_message(f"Salon renommé en **{nom[:90]}**.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"Erreur : {type(e).__name__}: {e}", ephemeral=True)
+            print(f"[tempvoice] rename err: {e!r}")
+            await interaction.response.send_message(
+                "Impossible de renommer le salon (réessaie dans quelques secondes).", ephemeral=True)
 
     @voc_grp.command(name="limit", description="Limite le nombre de membres (0 = illimite)")
     @app_commands.describe(nombre="Nombre max de membres (0 a 99)")
@@ -223,10 +225,12 @@ def setup_tempvoice(bot, deps):
         nombre = max(0, min(99, nombre))
         try:
             await ch.edit(user_limit=nombre, reason=f"Limit par {interaction.user}")
-            label = "illimite" if nombre == 0 else str(nombre)
-            await interaction.response.send_message(f"Limite : **{label}**.", ephemeral=True)
+            label = "illimité" if nombre == 0 else str(nombre)
+            await interaction.response.send_message(f"Limite de membres : **{label}**.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"Erreur : {type(e).__name__}: {e}", ephemeral=True)
+            print(f"[tempvoice] limit err: {e!r}")
+            await interaction.response.send_message(
+                "Impossible de changer la limite du salon (vérifie les permissions du bot).", ephemeral=True)
 
     @voc_grp.command(name="lock", description="Empeche les nouveaux membres de rejoindre")
     async def voc_lock(interaction: discord.Interaction):
@@ -234,9 +238,11 @@ def setup_tempvoice(bot, deps):
         if not ch: return
         try:
             await ch.set_permissions(interaction.guild.default_role, connect=False)
-            await interaction.response.send_message("Salon verrouille.", ephemeral=True)
+            await interaction.response.send_message("🔒 Salon verrouillé.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"Erreur : {type(e).__name__}: {e}", ephemeral=True)
+            print(f"[tempvoice] lock err: {e!r}")
+            await interaction.response.send_message(
+                "Impossible de verrouiller le salon (vérifie les permissions du bot).", ephemeral=True)
 
     @voc_grp.command(name="unlock", description="Re-ouvre ton salon a tout le monde")
     async def voc_unlock(interaction: discord.Interaction):
@@ -244,9 +250,11 @@ def setup_tempvoice(bot, deps):
         if not ch: return
         try:
             await ch.set_permissions(interaction.guild.default_role, connect=None)
-            await interaction.response.send_message("Salon ouvert.", ephemeral=True)
+            await interaction.response.send_message("🔓 Salon rouvert à tout le monde.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"Erreur : {type(e).__name__}: {e}", ephemeral=True)
+            print(f"[tempvoice] unlock err: {e!r}")
+            await interaction.response.send_message(
+                "Impossible de rouvrir le salon (vérifie les permissions du bot).", ephemeral=True)
 
     @voc_grp.command(name="kick", description="Vire un membre de ton salon")
     @app_commands.describe(membre="Membre a virer")
@@ -258,9 +266,11 @@ def setup_tempvoice(bot, deps):
             return
         try:
             await membre.move_to(None, reason=f"Kick par {interaction.user} (tempvoice)")
-            await interaction.response.send_message(f"{membre.mention} a ete vire.", ephemeral=True)
+            await interaction.response.send_message(f"{membre.mention} a été expulsé du salon.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"Erreur : {type(e).__name__}: {e}", ephemeral=True)
+            print(f"[tempvoice] kick err: {e!r}")
+            await interaction.response.send_message(
+                "Impossible d'expulser ce membre (vérifie les permissions du bot).", ephemeral=True)
 
     @voc_grp.command(name="transfer", description="Donne la propriete du salon a un autre membre")
     @app_commands.describe(membre="Nouveau owner (doit etre dans le salon)")
