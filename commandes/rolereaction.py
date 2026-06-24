@@ -23,9 +23,9 @@ def setup_rolereaction_commands(bot, deps):
         # Normalisation NFC : certains OS (notamment macOS) envoient l'emoji en
         # forme decomposee qui n'est pas reconnue par l'API Discord.
         s = _ud.normalize("NFC", s)
-        # Strip zero-width chars parasites — ATTENTION : on GARDE U+200D (ZWJ)
-        # car il est essentiel aux sequences emoji composees comme 🧗‍♂️ ou 👨‍👩‍👧‍👦.
-        # ZWSP / ZWNJ / WJ / BOM seulement sont retires.
+        # Retire les caracteres invisibles parasites, mais on GARDE le U+200D (ZWJ)
+        # car il est indispensable aux emojis composes (familles, metiers, emojis avec
+        # modificateur de genre). On ne retire que ZWSP / ZWNJ / WJ / BOM.
         for zw in ("​", "‌", "⁠", "﻿"):
             s = s.replace(zw, "")
         s = s.strip()

@@ -392,7 +392,7 @@ def resoudre_tour(attaquant, att_stats, att_sabre, defenseur, def_stats, def_sab
         if def_stats["parade_active"]:
             rapport = calculer_degats(att_stats, def_stats)
             # rapport["degats"] inclut deja tous les bonus (mini-jeu +30%, rage, overcharge, crit, etc.)
-            # → on renvoie 100% des degats bonus inclus a l'attaquant
+            # on renvoie donc 100% des degats (bonus inclus) a l'attaquant
             for m in rapport["messages"]:
                 desc += f"{m}\n"
             att_stats["hp"] = max(0, att_stats["hp"] - rapport["degats"])

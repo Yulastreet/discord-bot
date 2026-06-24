@@ -194,7 +194,7 @@ def setup_pass_commands(bot, deps):
         # (vs 100 TC pour gagner un duel : daily reste un modeste appoint)
         streak_bonus = min(7, new_streak) * 2
         coins = 10 + streak_bonus
-        # Essences (monnaie cartes) : 40 base + 8/jour streak cap 7 -> max 96 ✨
+        # Essences (monnaie cartes) : 40 de base + 8 par jour de streak (cap 7), soit 96 max
         essences_gain = 40 + min(7, new_streak) * 8
 
         # XP Pass si user a un Pass actif (10 XP/jour -> ~25 jours pour 1 tier)

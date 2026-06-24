@@ -1407,7 +1407,7 @@ def setup_cards_commands(bot, deps):
         color = BORDER_COLORS.get(border_key) if border_key else None
         if color is None:
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-        # Titre : ✨ devant si cosmetique + nom + espace + etoiles fusion
+        # Titre : marqueur cosmetique devant le nom, suivi des etoiles de fusion
         title = ("✨ " if border_key else "") + card['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else "")
         # Skin alternatif debloque (event) : prioritaire, remplace le render normal.
         # Les etoiles de fusion sont composees SUR l'art alt (pas de bordure).

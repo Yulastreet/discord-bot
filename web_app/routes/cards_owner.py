@@ -1983,7 +1983,7 @@ def register_cards_owner_routes(app, deps):
             if not sugg or sugg["status"] != "pending":
                 skipped += 1; continue
             card_suggestion_review(sid, "rejected", reviewer, reason=reason)
-            # reaction ❌ sous chaque message, mais PAS de DM par carte (anti-spam)
+            # reaction de refus sous chaque message, mais pas de DM par carte (anti-spam)
             _notify_suggestion_resolved(sugg, "rejected", reason, dm=False)
             sgid = sugg.get("suggester_id")
             if sgid:

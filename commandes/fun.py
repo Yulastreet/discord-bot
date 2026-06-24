@@ -56,7 +56,7 @@ def setup_fun_commands(bot):
         text = msg.content or "*[message vide ou contient uniquement des pieces jointes]*"
 
         # Counts inspires des reactions Discord :
-        # like = total reactions, retweet = count emoji 🔁 si present
+        # like = total des reactions ; retweet = nombre de reactions repost, si present
         total_reactions = sum(r.count for r in (msg.reactions or []))
         retweet_count = 0
         for r in (msg.reactions or []):

@@ -581,7 +581,7 @@ def setup_guild_commands(bot, deps):
             # Customisation : Maitre seulement
             if invoker_role != "master":
                 self.remove_item(self.b_custom)
-            # Verrou visuel banque (gris + 🔒) si pas debloque ; reste cliquable
+            # Verrou visuel de la banque (grise, cadenas) si pas debloquee, reste cliquable
             if not self._bank_ok:
                 self.b_bank.style = discord.ButtonStyle.secondary; self.b_bank.emoji = "🔒"
 
