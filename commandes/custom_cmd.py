@@ -150,7 +150,7 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
         print(f"[custom_cmd] exec err {name}: {type(e).__name__}: {e}")
         try:
             await interaction.response.send_message(
-                f"❌ Erreur d'exécution : `{type(e).__name__}`.",
+                "❌ Cette commande n'a pas pu s'exécuter. Réessaie plus tard.",
                 ephemeral=True)
         except Exception:
             pass

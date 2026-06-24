@@ -1334,9 +1334,9 @@ def setup_cards_commands(bot, deps):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            err_msg = (f"❌ Erreur sur `/card` : `{type(e).__name__}`. "
-                        f"Vérifie le nom (autocomplete recommandé). "
-                        f"Si le bug persiste, signale-le au support TookBot.")
+            err_msg = ("❌ Impossible d'afficher cette carte. "
+                        "Vérifie le nom (utilise l'autocomplétion). "
+                        "Si le souci persiste, signale-le au support TookBot.")
             try:
                 if interaction.response.is_done():
                     await interaction.followup.send(err_msg[:1900], ephemeral=True)
@@ -3166,9 +3166,9 @@ def setup_cards_commands(bot, deps):
                 import traceback; traceback.print_exc()
                 try:
                     await interaction.response.send_message(
-                        f"❌ Erreur création trade : `{type(e).__name__}`. "
-                        f"Vérifie que les noms de cartes existent (format : "
-                        f"`Nom1, Nom2 x3, Nom3`). Re-essaie ou contacte le support.",
+                        "❌ Impossible de créer le trade. "
+                        "Vérifie que les noms de cartes existent (format : "
+                        "`Nom1, Nom2 x3, Nom3`). Réessaie ou contacte le support.",
                         ephemeral=True)
                 except Exception:
                     pass
@@ -3272,9 +3272,10 @@ def setup_cards_commands(bot, deps):
                 proposed_rarity=rarete.value if rarete else None,
             )
         except Exception as e:
+            print(f"[cardsuggest] save err: {e!r}")
             await interaction.response.send_message(
-                f"❌ Erreur enregistrement suggestion : `{type(e).__name__}`. "
-                f"Re-essaie. Si le bug persiste, contacte le support TookBot.",
+                "❌ Impossible d'enregistrer ta suggestion. "
+                "Réessaie. Si le souci persiste, contacte le support TookBot.",
                 ephemeral=True)
             return
 
@@ -3403,8 +3404,9 @@ def setup_cards_commands(bot, deps):
                 proposed_rarity=new_rar,
             )
         except Exception as e:
+            print(f"[cardmodify] save err: {e!r}")
             await interaction.response.send_message(
-                f"❌ Erreur enregistrement : `{type(e).__name__}`. Re-essaie.",
+                "❌ Impossible d'enregistrer ta proposition de modification. Réessaie.",
                 ephemeral=True)
             return
         # Resume des changements proposes
