@@ -125,7 +125,9 @@
 
   /* ===== ROUE ELEMENTAIRE (haut droite) ===== */
   #cornerBL{ position:fixed; left:14px; bottom:14px; z-index:40; display:flex;
-    flex-direction:column; gap:10px; align-items:flex-start; }
+    flex-direction:column; gap:10px; align-items:flex-start; transition:left .15s; }
+  /* panneau de prep ouvert (404px de large a left:16) -> on pousse a sa droite */
+  body.panel-open #cornerBL{ left:434px; }
   #elemWheel{ width:200px; background:rgba(12,7,19,.7); border:1px solid #3a2b48;
     border-radius:14px; padding:12px 12px 10px; text-align:center; }
   .ew-title{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
@@ -813,9 +815,9 @@ async function initPanel(){
 function maybePanel(status){
   const show = MY.participant && status==='recruiting';
   document.getElementById('myPanel').style.display = show ? 'block' : 'none';
-  // le panneau de prep occupe le bas-gauche -> on masque la roue/legende quand il est ouvert
-  const bl = document.getElementById('cornerBL');
-  if(bl) bl.style.display = show ? 'none' : 'flex';
+  // le panneau de prep occupe le bas-gauche -> quand il est ouvert on DECALE la
+  // roue/legende a droite du panneau (elles restent visibles, juste pas dessous)
+  document.body.classList.toggle('panel-open', show);
 }
 function renderApt(){
   document.getElementById('aptBtns').innerHTML = APT_LIST.map(a=>{
