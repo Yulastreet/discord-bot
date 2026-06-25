@@ -154,6 +154,7 @@ _GARDIEN_AURA = 0.90   # multiplicateur de degats AoE pour TOUTE l'equipe si un 
 # Soigneur : soigne le plus blesse / -ATK
 _SOIGNEUR_ATK = 0.85
 _SOIGNEUR_HEAL = 0.08     # % PV max rendu au plus blesse, par tour d'equipe
+_SOIGNEUR_CRIT = 0.05     # ~5% de chance que le soin soit double
 # Duelliste : avantage elementaire amplifie
 _DUELLISTE_ADV = 1.50     # remplace le x1.25 quand on a l'avantage
 # Executeur : +ATK quand le boss est dechaine (<50% PV)
@@ -1171,7 +1172,12 @@ async def _run_boss(bot, bid, msg, view):
         tier = boss["tier"]
         # T4+ : dechainement plus fort. T5 : coup devastateur 2 fois.
         enrage_mult = 1.65 if tier >= 4 else 1.50
-        max_smashes = 2 if tier >= 5 else 1
+        # T1-4 : 1 coup devastateur. T5 : 2. T5 avec avatar mythic (ou secret) : 3.
+        _avatar_rar = (card_get(boss["card_id"]) or {}).get("rarity") if boss.get("card_id") else None
+        if tier >= 5:
+            max_smashes = 3 if _avatar_rar in ("mythic", "secret") else 2
+        else:
+            max_smashes = 1
         boss_self_heal = (tier >= 4)   # T4+ : le boss se soigne 1x sous 20% PV
         turn = 0
         actor = "party"
@@ -1202,11 +1208,15 @@ async def _run_boss(bot, bid, msg, view):
                 tgt = min(cand, key=lambda p: p["hp"] / (p.get("max_hp") or p["hp"]))
                 mx = tgt.get("max_hp") or tgt["hp"]
                 heal = int(mx * _SOIGNEUR_HEAL)
+                crit = random.random() < _SOIGNEUR_CRIT   # ~5% : soin double
+                if crit:
+                    heal *= 2
                 boss_participant_update(bid, tgt["user_id"], hp=min(mx, tgt["hp"] + heal))
                 boss_participant_update(bid, _h["user_id"], add_heal=heal)
-                log.append(f"Tour {turn} · 💚 **{_h['name']}** soigne **{tgt['name']}** (+{_fmt(heal)} PV)")
+                crit_txt = " ✨ **SOIN DOUBLE !**" if crit else ""
+                log.append(f"Tour {turn} · 💚 **{_h['name']}** soigne **{tgt['name']}** (+{_fmt(heal)} PV){crit_txt}")
                 boss_event_add(bid, "party_heal", {"healer": str(_h["user_id"]),
-                                                   "target": str(tgt["user_id"]), "amount": heal})
+                                                   "target": str(tgt["user_id"]), "amount": heal, "crit": crit})
 
         while turn < _MAX_TURNS:
             turn += 1
