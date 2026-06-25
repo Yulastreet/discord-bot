@@ -261,7 +261,11 @@
   };
 
   function winLabel(it){
-    return it.type === 'roll' ? `+${it.value} roll${it.value>1?'s':''}` : `+${it.value}% essences`;
+    const rw = findReward(it.type, it.value);
+    if (rw) return rw.label;                 // label exact du segment (essences, epic roll, golden, fragment...)
+    if (it.type === 'roll') return `+${it.value} roll${it.value>1?'s':''}`;
+    if (it.type === 'essence') return `+${it.value}% essences`;
+    return String(it.value);                 // ancien log d'un type disparu
   }
   function winColor(it){
     const rw = findReward(it.type, it.value);
