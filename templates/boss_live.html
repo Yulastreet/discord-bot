@@ -813,6 +813,9 @@ async function initPanel(){
 function maybePanel(status){
   const show = MY.participant && status==='recruiting';
   document.getElementById('myPanel').style.display = show ? 'block' : 'none';
+  // le panneau de prep occupe le bas-gauche -> on masque la roue/legende quand il est ouvert
+  const bl = document.getElementById('cornerBL');
+  if(bl) bl.style.display = show ? 'none' : 'flex';
 }
 function renderApt(){
   document.getElementById('aptBtns').innerHTML = APT_LIST.map(a=>{
