@@ -293,8 +293,8 @@
     } catch(e){}
   }
 
-  load();
-  loadWins();
+  // loadWins APRES load : winLabel a besoin de REWARDS (sinon libelles fallback au 1er rendu)
+  load().then(loadWins).catch(loadWins);
   setInterval(loadWins, 10000);
 })();
 </script>
