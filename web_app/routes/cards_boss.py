@@ -240,6 +240,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             element = None
         sort = request.args.get("sort") or None
         boss_el = boss.get("element")
+        boss_gid = boss.get("guild_id")
         cards = user_card_list(uid)
         fmap = user_card_fusion_map(uid)
         grouped = {}
@@ -250,7 +251,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             if cid not in grouped:
                 grouped[cid] = {**c, "count": 0, "stars": int(fmap.get(cid, 0))}
             grouped[cid]["count"] += 1
-        rows = _sort_cards(list(grouped.values()), sort, boss_element=boss_el)
+        rows = _sort_cards(list(grouped.values()), sort, boss_element=boss_el, guild_id=boss_gid)
         out = []
         for c in rows:
             m = element_matchup(c.get("element") or "", boss_el or "")
@@ -259,7 +260,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
                 "rarity": c.get("rarity") or "", "element": c.get("element") or "",
                 "universe": c.get("universe") or "", "stars": int(c.get("stars", 0)),
                 "count": int(c.get("count", 1)),
-                "eff": round(_card_effectiveness(c, boss_el), 2),
+                "eff": round(_card_effectiveness(c, boss_el, boss_gid), 2),
                 "adv": ("up" if m > 1 else ("down" if m < 1 else "")),
             })
         return jsonify({"cards": out, "boss_element": boss_el,

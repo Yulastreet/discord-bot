@@ -59,12 +59,16 @@ def _card_atk_mult(c):
     return rar_mult * star_mult
 
 
-def _card_effectiveness(c, boss_element):
-    """Efficacite totale contre CE boss = multiplicateur ATK × bonus elementaire."""
-    return _card_atk_mult(c) * element_matchup(c.get("element") or "", boss_element or "")
+def _card_effectiveness(c, boss_element, guild_id=None):
+    """Efficacite totale contre CE boss = mult ATK (rarete x etoiles) × bonus
+    elementaire × bonus carte d'event (+15% si event actif). Reflete les degats reels."""
+    eff = _card_atk_mult(c) * element_matchup(c.get("element") or "", boss_element or "")
+    if guild_id is not None:
+        eff *= _event_boss_dmg_mult(c, guild_id)
+    return eff
 
 
-def _sort_cards(rows, mode, boss_element=None):
+def _sort_cards(rows, mode, boss_element=None, guild_id=None):
     if mode == "nom":
         return sorted(rows, key=lambda c: c["name"].lower())
     if mode == "rareté":
@@ -72,9 +76,9 @@ def _sort_cards(rows, mode, boss_element=None):
     if mode == "étoiles":
         return sorted(rows, key=lambda c: -int(c.get("stars", 0)))
     if mode == "optimisation":
-        # tri par l'efficacite reelle (mult ATK reel × avantage elementaire) :
+        # tri par l'efficacite reelle (mult ATK reel × avantage elementaire × bonus event) :
         # une carte moins rare mais plus etoilee passe devant si elle frappe plus fort.
-        return sorted(rows, key=lambda c: -_card_effectiveness(c, boss_element))
+        return sorted(rows, key=lambda c: -_card_effectiveness(c, boss_element, guild_id))
     return rows
 
 # Fourchette de rareté de la carte "avatar" du boss selon le tier
@@ -728,7 +732,9 @@ class _CardPickerView(discord.ui.View):
         boss = card_boss_get(self.boss_id)
         boss_elem = boss["element"] if boss else None
         self.boss_element = boss_elem
-        self.rows = _sort_cards(list(grouped.values()), self.sort_mode, boss_element=boss_elem)
+        self.boss_guild_id = boss.get("guild_id") if boss else None
+        self.rows = _sort_cards(list(grouped.values()), self.sort_mode,
+                                boss_element=boss_elem, guild_id=self.boss_guild_id)
         self.total_pages = max(1, (len(self.rows) + 24) // 25)
         if self.page > self.total_pages:
             self.page = self.total_pages
@@ -765,7 +771,7 @@ class _CardPickerView(discord.ui.View):
                 m = element_matchup(c.get("element") or "", self.boss_element)
                 match_tag = " 🔥" if m > 1 else (" 🟦" if m < 1 else "")
                 # score d'efficacite reel = rarete × etoiles × bonus element
-                eff = _card_effectiveness(c, self.boss_element)
+                eff = _card_effectiveness(c, self.boss_element, getattr(self, "boss_guild_id", None))
                 crown = "👑 " if (self.page == 1 and i == 0) else ""
                 score = f" `×{eff:.2f}`"
                 lines.append(f"{crown}{pre} **{c['name']}**{stars}{cnt}{match_tag}{score} · _{uni}_")

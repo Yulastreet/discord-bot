@@ -2535,7 +2535,7 @@ def user_card_list(user_id, rarity=None, categorie=None):
                     "WHEN 'rare' THEN 3 "
                     "WHEN 'common' THEN 4 ELSE 5 END")
     rows = c.execute(
-        f"SELECT uc.*, c.name, c.universe, c.subtitle, c.rarity, c.image_url, c.element "
+        f"SELECT uc.*, c.name, c.universe, c.subtitle, c.rarity, c.image_url, c.element, c.event_key "
         f"FROM user_cards uc JOIN cards c ON c.id = uc.card_id "
         f"WHERE {where} ORDER BY {rarity_order} ASC, c.name ASC", params,
     ).fetchall()
