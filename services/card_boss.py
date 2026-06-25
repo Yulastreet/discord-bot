@@ -146,9 +146,11 @@ _APT_EMOJI = {
 # Berserker : +ATK / +degats subis
 _BERSERK_ATK = 1.30
 _BERSERK_TAKEN = 1.25
-# Gardien : -degats subis / -ATK
+# Gardien : -degats subis / -ATK. En plus : intercepte le coup devastateur et
+# couvre l'equipe (aura -12% degats AoE tant qu'un Gardien est en vie).
 _GARDIEN_TAKEN = 0.65
 _GARDIEN_ATK = 0.85
+_GARDIEN_AURA = 0.88   # multiplicateur de degats AoE pour TOUTE l'equipe si un Gardien tient
 # Soigneur : soigne le plus blesse / -ATK
 _SOIGNEUR_ATK = 0.85
 _SOIGNEUR_HEAL = 0.08     # % PV max rendu au plus blesse, par tour d'equipe
@@ -591,7 +593,8 @@ class JoinView(discord.ui.View):
 def _aptitude_text(cur_apt_label):
     base = ("🩸 **Aptitude de combat**\n"
             "**🩸 Berserker** — +30% ATK, mais +25% dégâts subis.\n"
-            "**🛡️ Gardien** — -35% dégâts subis, mais -15% ATK.\n"
+            "**🛡️ Gardien** — -35% dégâts subis, -15% ATK. Intercepte les coups dévastateurs "
+            "à la place des alliés et couvre l'équipe (-12% dégâts de zone).\n"
             "**💚 Soigneur** — soigne le plus blessé de +8% PV/tour, -15% ATK.\n"
             "**⚔️ Duelliste** — avantage élémentaire ×1.5 (au lieu de ×1.25).\n"
             "**💀 Exécuteur** — +40% ATK quand le boss est déchaîné (<50% PV).\n\n"
@@ -626,7 +629,7 @@ class _AptitudeView(discord.ui.View):
                            discord.SelectOption(label="Berserker", value="berserker", emoji="🩸",
                                                 description="+30% ATK, +25% dégâts subis"),
                            discord.SelectOption(label="Gardien", value="gardien", emoji="🛡️",
-                                                description="-35% dégâts subis, -15% ATK"),
+                                                description="-35% subis, intercepte les coups, couvre l'équipe (-12% AoE)"),
                            discord.SelectOption(label="Soigneur", value="soigneur", emoji="💚",
                                                 description="Soigne le plus blessé +8% PV/tour, -15% ATK"),
                            discord.SelectOption(label="Duelliste", value="duelliste", emoji="⚔️",
@@ -1245,17 +1248,24 @@ async def _run_boss(bot, bid, msg, view):
                     break
                 actor = "boss"
             elif smash_count < max_smashes and random.random() < 0.25:
-                # Coup special : cible 1 joueur, degats x3 (T5 : jusqu'a 2x/combat)
+                # Coup special : cible 1 joueur, degats x3 (T5 : jusqu'a 2x/combat).
+                # Si un Gardien est en vie, il INTERCEPTE le coup (protege les fragiles) :
+                # le plus sain encaisse a la place d'une cible aleatoire.
                 smash_count += 1
-                target = random.choice(alive)
+                _guards = [p for p in alive if _apt(p) == "gardien"]
+                if _guards:
+                    target = max(_guards, key=lambda p: p["hp"]); taunted = True
+                else:
+                    target = random.choice(alive); taunted = False
                 cm = element_matchup(boss["element"], target["element"])
                 dmg = max(1, int(boss["atk"] * cm * 3))
                 new_hp, dead, real = _boss_hit(target, dmg)
                 ko = " 💀 **KO !**" if dead else ""
+                taunt_txt = " 🛡️ _(intercepté par le Gardien)_" if taunted else ""
                 log.append(f"Tour {turn} · 💥 **COUP DÉVASTATEUR !** Le boss cible "
-                           f"**{target['name']}** : -**{_fmt(real)}**{ko}")
+                           f"**{target['name']}** : -**{_fmt(real)}**{ko}{taunt_txt}")
                 boss_event_add(bid, "boss_smash", {"target": str(target["user_id"]),
-                                                   "dmg": real, "ko": dead, "turn": turn})
+                                                   "dmg": real, "ko": dead, "taunt": taunted, "turn": turn})
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
@@ -1269,22 +1279,27 @@ async def _run_boss(bot, bid, msg, view):
                     log.append(f"🔥 **Le boss se déchaîne et inflige {enrage_mult:.2f}x"
                                f" plus de dégâts !**".replace(".", ","))
                     boss_event_add(bid, "enrage", {"mult": enrage_mult})
+                # Aura de Gardien : tant qu'un Gardien tient debout, il couvre l'equipe
+                # et reduit les degats d'AoE subis par tout le monde.
+                guard_aura = _GARDIEN_AURA if any(_apt(p) == "gardien" for p in alive) else 1.0
                 kos = []
                 ko_ids = []
                 total_dmg = 0
                 for p in alive:
                     cm = element_matchup(boss["element"], p["element"])
-                    dmg = max(1, int(boss["atk"] * cm * rage))
+                    dmg = max(1, int(boss["atk"] * cm * rage * guard_aura))
                     new_hp, dead, real = _boss_hit(p, dmg)
                     total_dmg += real
                     if dead:
                         kos.append(p["name"]); ko_ids.append(str(p["user_id"]))
                 ko_txt = f" · 💀 KO : {', '.join(kos)}" if kos else ""
+                aura_txt = " · 🛡️ _Gardien couvre l'équipe (-{}%)_".format(
+                    int(round((1 - _GARDIEN_AURA) * 100))) if guard_aura < 1.0 else ""
                 log.append(f"Tour {turn} · 👹 Le boss frappe toute l'équipe : "
-                           f"**{_fmt(total_dmg)}**{ko_txt}")
+                           f"**{_fmt(total_dmg)}**{ko_txt}{aura_txt}")
                 boss_event_add(bid, "boss_aoe", {"total": total_dmg, "enraged": enraged,
                                                  "kos": ko_ids, "targets": [str(p["user_id"]) for p in alive],
-                                                 "turn": turn})
+                                                 "guard_aura": guard_aura < 1.0, "turn": turn})
                 if all(pp["hp"] <= 0 for pp in boss_participants_list(bid)):
                     card_boss_set_status(bid, "wiped")
                     break
