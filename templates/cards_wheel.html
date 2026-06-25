@@ -273,11 +273,16 @@
     return it.type === 'roll' ? '#7bdc6b' : '#a86dff';  // fallback si REWARDS pas encore chargé
   }
 
+  let _winsSig = null;
   async function loadWins(){
     try {
       const r = await fetch('/api/public/wheel/recent-wins?limit=40');
       const d = await r.json();
       const items = d.items || [];
+      // ne re-render que si le contenu a change (sinon ca "clignote" toutes les 10s)
+      const sig = JSON.stringify(items) + '|' + REWARDS.length;
+      if (sig === _winsSig) return;
+      _winsSig = sig;
       const feed = document.getElementById('winsFeed');
       if (!items.length){
         feed.innerHTML = '<div class="wh-win-empty">Aucun gain pour le moment — sois le premier à tourner la roue !</div>';
