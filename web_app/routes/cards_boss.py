@@ -304,3 +304,32 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             return jsonify({"error": "aptitude invalide"}), 400
         boss_participant_update(bid, uid, aptitude=("" if val == "none" else val))
         return jsonify({"ok": True})
+
+    # ── Chat live du combat ──
+    @app.route("/cards/boss/<int:bid>/chat", methods=["GET"])
+    def cards_boss_chat_get(bid):
+        from database import boss_chat_recent
+        try:
+            after = int(request.args.get("after", "0"))
+        except (ValueError, TypeError):
+            after = 0
+        return jsonify({"messages": boss_chat_recent(bid, after)})
+
+    @app.route("/cards/boss/<int:bid>/chat", methods=["POST"])
+    def cards_boss_chat_post(bid):
+        from database import card_boss_get, boss_participant_get, boss_chat_add
+        uid = _session_uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        boss = card_boss_get(bid)
+        if not boss:
+            return jsonify({"error": "not found"}), 404
+        is_owner = bool((session.get("discord") or {}).get("is_owner"))
+        if not is_owner and not boss_participant_get(bid, uid):
+            return jsonify({"error": "pas dans l'équipe"}), 403
+        text = str((request.json or {}).get("text") or "").strip()[:300]
+        if not text:
+            return jsonify({"error": "message vide"}), 400
+        name = (session.get("discord") or {}).get("username") or "Joueur"
+        cid = boss_chat_add(bid, uid, name, text)
+        return jsonify({"ok": True, "id": cid})

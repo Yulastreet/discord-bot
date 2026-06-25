@@ -433,6 +433,16 @@ def init_db():
         guild_id TEXT PRIMARY KEY,
         next_at  REAL
     )''')
+    # Chat live du combat de boss (dashboard).
+    c.execute('''CREATE TABLE IF NOT EXISTS card_boss_chat (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        boss_id  INTEGER NOT NULL,
+        user_id  TEXT,
+        name     TEXT,
+        text     TEXT,
+        ts       REAL DEFAULT 0
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_boss_chat ON card_boss_chat(boss_id, id)")
 
     # ===== Roll charges (multi-roll/h) + bonus rolls offerts =====
     c.execute('''CREATE TABLE IF NOT EXISTS roll_events (
@@ -3773,6 +3783,30 @@ def card_boss_guild_has_active(guild_id) -> bool:
                   (str(guild_id),)).fetchone()
     conn.close()
     return r is not None
+
+
+def boss_chat_add(boss_id, user_id, name, text):
+    import time as _time
+    conn = get_db(); c = conn.cursor()
+    c.execute("INSERT INTO card_boss_chat (boss_id, user_id, name, text, ts) VALUES (?, ?, ?, ?, ?)",
+              (int(boss_id), str(user_id), str(name)[:40], str(text)[:300], _time.time()))
+    conn.commit()
+    cid = c.lastrowid
+    # garde les 200 derniers messages par boss
+    c.execute("DELETE FROM card_boss_chat WHERE boss_id = ? AND id NOT IN "
+              "(SELECT id FROM card_boss_chat WHERE boss_id = ? ORDER BY id DESC LIMIT 200)",
+              (int(boss_id), int(boss_id)))
+    conn.commit(); conn.close()
+    return cid
+
+
+def boss_chat_recent(boss_id, after_id=0, limit=80):
+    conn = get_db(); c = conn.cursor()
+    rows = c.execute("SELECT id, user_id, name, text, ts FROM card_boss_chat "
+                     "WHERE boss_id = ? AND id > ? ORDER BY id ASC LIMIT ?",
+                     (int(boss_id), int(after_id), int(limit))).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def boss_auto_get_next(guild_id):
