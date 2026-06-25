@@ -35,6 +35,8 @@
     background:#1a1320; border:2px solid #463353; box-shadow:0 6px 16px rgba(0,0,0,.5); }
   /* carte qui a deja une bordure in-game : pas de cadre ajoute */
   .pc-img-wrap.bordered{ border:none; background:transparent; border-radius:4px; }
+  /* skin alt (art transparent) : aucun cadre ni fond autour */
+  .pc-img-wrap.alt{ border:none; background:transparent; border-radius:0; overflow:visible; }
   .pc-img-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
   .pc-img-wrap .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:30px; color:#5a4a66; }
   .pc-flash{ position:absolute; inset:0; opacity:0; pointer-events:none; }
@@ -440,7 +442,8 @@ function buildPlayers(players){
     const el = document.createElement('div');
     el.className = 'pc'; el.id = 'p_'+p.uid;
     const img = p.img ? `<img src="${esc(p.img)}" alt="">` : `<div class="noimg">🎴</div>`;
-    const wrapCls = p.has_border ? 'pc-img-wrap bordered' : 'pc-img-wrap';
+    // alt = art transparent (skin event) -> pas de cadre de wrapper autour
+    const wrapCls = p.alt ? 'pc-img-wrap alt' : (p.has_border ? 'pc-img-wrap bordered' : 'pc-img-wrap');
     const aptTag = p.aptitude
       ? `<span class="tag apt">${APT_EMOJI[p.aptitude]||''} ${esc(APT_LABEL[p.aptitude]||p.aptitude)}</span>` : '';
     el.innerHTML = `<div class="${wrapCls}">${img}
@@ -906,7 +909,7 @@ async function tick(){
     // on ne veut pas que les cartes s'echangent de place (ex: a la mort d'un membre).
     d.players.sort((a,b)=>String(a.uid).localeCompare(String(b.uid)));
     // rebuild si la compo change (joueur rejoint, change de carte / element / aptitude)
-    const sig = d.players.map(p=>`${p.uid}:${p.img||''}:${p.element}:${p.aptitude}:${p.max_hp}:${p.has_border?1:0}`).join('|');
+    const sig = d.players.map(p=>`${p.uid}:${p.img||''}:${p.element}:${p.aptitude}:${p.max_hp}:${p.has_border?1:0}:${p.alt?1:0}`).join('|');
     if(!built || sig !== lastSig){ buildPlayers(d.players); lastSig = sig; }
     // image boss (1x)
     const bw = bossWrap();

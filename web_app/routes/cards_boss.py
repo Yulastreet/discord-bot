@@ -71,19 +71,19 @@ def register_cards_boss_routes(app, deps):
     def _player_img(bid, uid, card_id):
         """Rendu compose du joueur (art + bordure + etoiles), en cache.
         Filename inclut card_id : si le joueur change de carte, on regenere.
-        Le suffixe 'b' = version carte bordee (busting du cache des anciens rendus alt)."""
+        Suffixe 'a' = version courante (busting du cache des anciens rendus)."""
         if not card_id:
             return None
-        fname = f"{bid}_{uid}_{card_id}b.png"
+        fname = f"{bid}_{uid}_{card_id}a.png"
         full = _os.path.join(_PLAYERS_DIR, fname)
         rel = f"/static/card_boss/players/{fname}"
         if _os.path.exists(full):
             return rel
         try:
             from services.card_profile import _card_image_for
-            # carte normale AVEC sa bordure (pas l'art alt transparent qui rendait
-            # un "cadre de fond" sombre sur le live, ex: Ashe Summer)
-            img = _card_image_for(uid, int(card_id), allow_alt=False)
+            # skin alt autorise ; cote front, les cartes alt sont affichees sans
+            # cadre de wrapper (l'art alt est deja transparent, ex: Ashe Summer)
+            img = _card_image_for(uid, int(card_id), allow_alt=True)
             if img is None:
                 return _render_url(card_id, None)
             _os.makedirs(_PLAYERS_DIR, exist_ok=True)
@@ -150,7 +150,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             after = int(after)
         except (ValueError, TypeError):
             after = 0
-        from database import card_customization_get, card_get, combat_power
+        from database import card_customization_get, card_get, combat_power, event_skin_has
         parts = boss_participants_list(bid)
         players = []
         team_power = 0
@@ -176,6 +176,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
                 "rarity": (_cd or {}).get("rarity") or "",
                 "img": _player_img(bid, str(p["user_id"]), p.get("card_id")),
                 "has_border": bool(p.get("card_id") and card_customization_get(str(p["user_id"]), p.get("card_id"))),
+                "alt": bool(p.get("card_id") and event_skin_has(str(p["user_id"]), int(p.get("card_id")))),
             })
         weak = element_weaknesses(boss.get("element"))
         return jsonify({
