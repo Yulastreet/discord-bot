@@ -2010,8 +2010,8 @@ CARD_RARITY_WEIGHTS = {
     "secret":    0,   # poids 0 = jamais roll auto, owner-give uniquement
 }
 
-# Elements (combat). Cycle pentagone : chaque element bat les 2 SUIVANTS,
-# perd contre les 2 PRECEDENTS. Ordre = eclat>abysse>fracture>vif>neant>eclat.
+# Elements (combat). Cycle simple : chaque element bat le SUIVANT et perd contre
+# le PRECEDENT (une seule faiblesse). Ordre = eclat>abysse>fracture>vif>neant>eclat.
 CARD_ELEMENTS = ["eclat", "abysse", "fracture", "vif", "neant"]
 CARD_ELEMENT_LABELS = {
     "eclat": "Éclat", "abysse": "Abysse", "fracture": "Fracture",
@@ -2029,8 +2029,8 @@ CARD_ELEMENT_EMOJI_NAME = {
 
 
 def element_matchup(attacker: str, defender: str) -> float:
-    """Pentagone d'elements : chaque element bat les 2 SUIVANTS (+25%) et perd
-    contre les 2 PRECEDENTS (-20%). Neutre seulement contre lui-meme.
+    """Cercle simple : chaque element bat le SUIVANT (+25%) et perd contre le
+    PRECEDENT (-20%). Une seule faiblesse par element. Neutre sinon.
     Cycle : eclat > abysse > fracture > vif > neant > eclat."""
     try:
         ia = CARD_ELEMENTS.index(attacker)
@@ -2038,10 +2038,10 @@ def element_matchup(attacker: str, defender: str) -> float:
     except (ValueError, AttributeError):
         return 1.0
     n = len(CARD_ELEMENTS)
-    diff = (idd - ia) % n   # 1,2 = attacker bat defender ; 3,4 = desavantage
-    if diff in (1, 2):
+    diff = (idd - ia) % n   # 1 = attacker bat defender ; n-1 = desavantage
+    if diff == 1:
         return 1.25
-    if diff in (n - 1, n - 2):
+    if diff == n - 1:
         return 0.8
     return 1.0
 
