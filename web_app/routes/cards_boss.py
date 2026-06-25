@@ -69,18 +69,21 @@ def register_cards_boss_routes(app, deps):
     _PLAYERS_DIR = _os.path.join(_os.path.dirname(_RENDERS), "card_boss", "players")
 
     def _player_img(bid, uid, card_id):
-        """Rendu compose du joueur (art + bordure + etoiles + skin alt), en cache.
-        Filename inclut card_id : si le joueur change de carte, on regenere."""
+        """Rendu compose du joueur (art + bordure + etoiles), en cache.
+        Filename inclut card_id : si le joueur change de carte, on regenere.
+        Le suffixe 'b' = version carte bordee (busting du cache des anciens rendus alt)."""
         if not card_id:
             return None
-        fname = f"{bid}_{uid}_{card_id}.png"
+        fname = f"{bid}_{uid}_{card_id}b.png"
         full = _os.path.join(_PLAYERS_DIR, fname)
         rel = f"/static/card_boss/players/{fname}"
         if _os.path.exists(full):
             return rel
         try:
             from services.card_profile import _card_image_for
-            img = _card_image_for(uid, int(card_id), allow_alt=True)
+            # carte normale AVEC sa bordure (pas l'art alt transparent qui rendait
+            # un "cadre de fond" sombre sur le live, ex: Ashe Summer)
+            img = _card_image_for(uid, int(card_id), allow_alt=False)
             if img is None:
                 return _render_url(card_id, None)
             _os.makedirs(_PLAYERS_DIR, exist_ok=True)

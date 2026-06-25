@@ -147,10 +147,10 @@ _APT_EMOJI = {
 _BERSERK_ATK = 1.30
 _BERSERK_TAKEN = 1.25
 # Gardien : -degats subis / -ATK. En plus : intercepte le coup devastateur et
-# couvre l'equipe (aura -12% degats AoE tant qu'un Gardien est en vie).
-_GARDIEN_TAKEN = 0.65
+# couvre l'equipe (aura -10% degats AoE tant qu'un Gardien est en vie).
+_GARDIEN_TAKEN = 0.70
 _GARDIEN_ATK = 0.85
-_GARDIEN_AURA = 0.88   # multiplicateur de degats AoE pour TOUTE l'equipe si un Gardien tient
+_GARDIEN_AURA = 0.90   # multiplicateur de degats AoE pour TOUTE l'equipe si un Gardien tient
 # Soigneur : soigne le plus blesse / -ATK
 _SOIGNEUR_ATK = 0.85
 _SOIGNEUR_HEAL = 0.08     # % PV max rendu au plus blesse, par tour d'equipe
@@ -593,8 +593,8 @@ class JoinView(discord.ui.View):
 def _aptitude_text(cur_apt_label):
     base = ("🩸 **Aptitude de combat**\n"
             "**🩸 Berserker** — +30% ATK, mais +25% dégâts subis.\n"
-            "**🛡️ Gardien** — -35% dégâts subis, -15% ATK. Intercepte les coups dévastateurs "
-            "à la place des alliés et couvre l'équipe (-12% dégâts de zone).\n"
+            "**🛡️ Gardien** — -30% dégâts subis, -15% ATK. Intercepte les coups dévastateurs "
+            "à la place des alliés et couvre l'équipe (-10% dégâts de zone).\n"
             "**💚 Soigneur** — soigne le plus blessé de +8% PV/tour, -15% ATK.\n"
             "**⚔️ Duelliste** — avantage élémentaire ×1.5 (au lieu de ×1.25).\n"
             "**💀 Exécuteur** — +40% ATK quand le boss est déchaîné (<50% PV).\n\n"
@@ -629,7 +629,7 @@ class _AptitudeView(discord.ui.View):
                            discord.SelectOption(label="Berserker", value="berserker", emoji="🩸",
                                                 description="+30% ATK, +25% dégâts subis"),
                            discord.SelectOption(label="Gardien", value="gardien", emoji="🛡️",
-                                                description="-35% subis, intercepte les coups, couvre l'équipe (-12% AoE)"),
+                                                description="-30% subis, intercepte les coups, couvre l'équipe (-10% AoE)"),
                            discord.SelectOption(label="Soigneur", value="soigneur", emoji="💚",
                                                 description="Soigne le plus blessé +8% PV/tour, -15% ATK"),
                            discord.SelectOption(label="Duelliste", value="duelliste", emoji="⚔️",
