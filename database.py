@@ -2029,19 +2029,19 @@ CARD_ELEMENT_EMOJI_NAME = {
 
 
 def element_matchup(attacker: str, defender: str) -> float:
-    """Cercle de faiblesse : chaque element bat le SUIVANT et perd contre le
-    PRECEDENT. +25% si avantage, -20% si desavantage, neutre sinon.
-    Cycle : eclat>abysse>fracture>vif>neant>eclat."""
+    """Pentagone d'elements : chaque element bat les 2 SUIVANTS (+25%) et perd
+    contre les 2 PRECEDENTS (-20%). Neutre seulement contre lui-meme.
+    Cycle : eclat > abysse > fracture > vif > neant > eclat."""
     try:
         ia = CARD_ELEMENTS.index(attacker)
         idd = CARD_ELEMENTS.index(defender)
     except (ValueError, AttributeError):
         return 1.0
     n = len(CARD_ELEMENTS)
-    diff = (idd - ia) % n   # 1 = attacker bat defender ; n-1 = desavantage
-    if diff == 1:
+    diff = (idd - ia) % n   # 1,2 = attacker bat defender ; 3,4 = desavantage
+    if diff in (1, 2):
         return 1.25
-    if diff == n - 1:
+    if diff in (n - 1, n - 2):
         return 0.8
     return 1.0
 
