@@ -377,6 +377,47 @@ def register_cards_events_routes(app, deps):
         avail = roll_give_user(uid, n)
         return jsonify({"ok": True, "bonus_available": avail})
 
+    # ===== Give golden / epic rolls (item d'inventaire) =====
+    _GIVE_ITEMS = {"golden_roll", "epic_roll"}
+
+    @app.route("/api/owner/card-events/items/give-user", methods=["POST"])
+    def api_owner_items_give_user():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import user_item_add, user_item_get
+        data = request.json or {}
+        uid = str(data.get("user_id") or "").strip()
+        item = str(data.get("item") or "").strip()
+        try:
+            n = int(data.get("n", 0))
+        except (ValueError, TypeError):
+            n = 0
+        if not uid or item not in _GIVE_ITEMS or n <= 0 or n > 1000:
+            return jsonify({"error": "user_id + item (golden_roll/epic_roll) + n (1-1000) requis"}), 400
+        user_item_add(uid, item, n)
+        return jsonify({"ok": True, "total": user_item_get(uid, item)})
+
+    @app.route("/api/owner/card-events/items/give-all", methods=["POST"])
+    def api_owner_items_give_all():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        from database import user_item_add, get_db
+        data = request.json or {}
+        item = str(data.get("item") or "").strip()
+        try:
+            n = int(data.get("n", 0))
+        except (ValueError, TypeError):
+            n = 0
+        if item not in _GIVE_ITEMS or n <= 0 or n > 1000:
+            return jsonify({"error": "item (golden_roll/epic_roll) + n (1-1000) requis"}), 400
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute("SELECT DISTINCT user_id FROM user_cards").fetchall()
+        conn.close()
+        uids = [str(r["user_id"]) for r in rows]
+        for uid in uids:
+            user_item_add(uid, item, n)
+        return jsonify({"ok": True, "users": len(uids)})
+
     @app.route("/api/owner/card-events/rolls/reset-user", methods=["POST"])
     def api_owner_rolls_reset_user():
         if not _is_owner_session():

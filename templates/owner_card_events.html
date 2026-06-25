@@ -260,6 +260,33 @@
     <div id="rollsHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
 
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
+      <h4 style="margin:0 0 8px;font-size:13px;">🌈 Golden / Epic rolls (coupons d'inventaire)</h4>
+      <p class="muted" style="font-size:11px;margin-bottom:8px;">
+        Donne des coupons <b>Golden Roll</b> (légendaire garantie) ou <b>Epic Roll</b> (épique garantie),
+        à un utilisateur précis ou à <b>tous</b> les joueurs (laisse l'ID vide).
+      </p>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+          <span class="muted">Type</span>
+          <select id="itemType" class="input" style="width:160px;">
+            <option value="golden_roll">🌈 Golden Roll</option>
+            <option value="epic_roll">🟣 Epic Roll</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+          <span class="muted">Quantité</span>
+          <input id="itemN" type="number" min="1" max="1000" value="1" class="input" style="width:100px;">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
+          <span class="muted">User ID (vide = tous)</span>
+          <input id="itemUser" type="text" placeholder="vide = tout le monde" class="input" style="width:220px;">
+        </label>
+        <button class="btn btn-primary" onclick="itemsGive()">🎁 Donner</button>
+      </div>
+      <div id="itemsHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
       <h4 style="margin:0 0 8px;font-size:13px;">🧪 Tester sur un utilisateur</h4>
       <p class="muted" style="font-size:11px;margin-bottom:8px;">
         Cible un ID Discord (ex : ton compte test) pour vérifier reset/give avant de l'appliquer à tous.
@@ -748,6 +775,30 @@ async function rollsUserStatus(){
   h.textContent=d.error?('❌ '+d.error):`État ${uid} : ${d.bonus_available} rolls bonus dispo · ${d.rolls_last_hour} roll(s) normaux dans la dernière heure.`;
 }
 window.rollsGiveUser=rollsGiveUser; window.rollsResetUser=rollsResetUser; window.rollsUserStatus=rollsUserStatus;
+
+async function itemsGive(){
+  const item = document.getElementById('itemType').value;
+  const n = parseInt(document.getElementById('itemN').value,10)||0;
+  const uid = (document.getElementById('itemUser').value||'').trim();
+  const hint = document.getElementById('itemsHint');
+  const label = item==='golden_roll' ? 'Golden Roll' : 'Epic Roll';
+  if(n<=0){ hint.textContent='Quantité invalide.'; return; }
+  try{
+    if(uid){
+      const r = await fetch('/api/owner/card-events/items/give-user', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:uid, item, n})});
+      const d = await r.json();
+      hint.textContent = d.ok ? `✅ +${n} ${label} à ${uid} (total : ${d.total}).` : ('❌ '+(d.error||'erreur'));
+    } else {
+      if(!confirm(`Donner ${n} ${label} à TOUS les joueurs ?`)) return;
+      const r = await fetch('/api/owner/card-events/items/give-all', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({item, n})});
+      const d = await r.json();
+      hint.textContent = d.ok ? `✅ +${n} ${label} donné à ${d.users} joueur(s).` : ('❌ '+(d.error||'erreur'));
+    }
+  }catch(e){ hint.textContent='Erreur réseau.'; }
+}
+window.itemsGive = itemsGive;
 
 (async () => {
   await loadGuilds();
