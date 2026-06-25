@@ -30,6 +30,37 @@ def _is_owner(user_id) -> bool:
     return bool(owner) and str(user_id) == owner
 
 
+def _count_emojis(s: str) -> int:
+    """Nombre d'emojis "visuels" (clusters) dans s. Gere les sequences ZWJ (familles),
+    les selecteurs de variation, les modificateurs de teinte et les drapeaux (paire d'indicateurs)."""
+    import unicodedata
+    clusters = 0
+    join = False
+    ri_run = 0
+    for c in s:
+        cp = ord(c)
+        if c == "‍":          # ZWJ : joint l'emoji suivant au cluster courant
+            join = True
+            continue
+        # modificateurs qui font partie du cluster precedent (pas un nouvel emoji)
+        if (0xFE00 <= cp <= 0xFE0F) or (0x1F3FB <= cp <= 0x1F3FF) or unicodedata.combining(c):
+            continue
+        if join:
+            join = False
+            continue
+        if 0x1F1E6 <= cp <= 0x1F1FF:   # indicateur regional : une paire = un drapeau
+            ri_run += 1
+            if ri_run == 2:
+                clusters += 1
+                ri_run = 0
+            continue
+        ri_run = 0
+        clusters += 1
+    if ri_run == 1:
+        clusters += 1
+    return clusters
+
+
 def _can_master(gid, user_id) -> bool:
     """Maitre de la guilde OU owner du bot (acces total)."""
     return _is_owner(user_id) or guild_member_role(gid, user_id) == "master"
@@ -753,8 +784,8 @@ def setup_guild_commands(bot, deps):
             super().__init__()
             self.gid = gid
             self.emoji_in = discord.ui.TextInput(
-                label="Emoji (standard uniquement)",
-                placeholder="Ex: 🔥 ⚔️ 🐉 — pas d'emoji personnalisé",
+                label="Un seul emoji (standard)",
+                placeholder="Ex: 🔥 — un seul, pas d'emoji personnalisé",
                 max_length=8, required=True)
             self.add_item(self.emoji_in)
 
@@ -769,6 +800,9 @@ def setup_guild_commands(bot, deps):
             if any(ch.isalnum() for ch in val):
                 await interaction.response.send_message(
                     "❌ Ça doit être un emoji, pas du texte.", ephemeral=True); return
+            if _count_emojis(val) != 1:
+                await interaction.response.send_message(
+                    "❌ Un seul emoji autorisé pour l'emblème.", ephemeral=True); return
             guild_set_emblem(self.gid, val)
             await interaction.response.send_message(
                 f"🏅 Emblème **{val}** appliqué. Il apparaît sur le `/cardprofile` de tes membres.",
