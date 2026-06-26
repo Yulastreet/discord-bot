@@ -162,6 +162,7 @@ const SIDE = {
   R: { uid: null,  cards: [], page: 1, sel: new Set(), grid:'rightGrid', pageNo:'rightPageNo', search:'rightSearch', sort:'rightSort' },
 };
 let pickGuild = null, lastTrade = null;
+let GMAP = {}, MMAP = {};   // guildes / membres par id (evite l'injection de noms dans onclick)
 
 async function loadCollection(uid){
   const r = await fetch(`/api/public/collection/${uid}`);
@@ -218,15 +219,17 @@ async function openPicker(){
   try{
     const r = await fetch('/api/cards/trade/common-guilds'); const d = await r.json();
     const gs = d.guilds || [];
+    GMAP = {}; gs.forEach(g=>GMAP[g.guild_id]=g);
     document.getElementById('pickerGuilds').innerHTML = gs.length ? gs.map(g=>{
       const ic = g.icon ? `<img src="${esc(g.icon)}">` : `<div class="x">🛡️</div>`;
-      return `<div class="tr-grow" onclick="pickGuildSel('${g.guild_id}','${esc(g.name)}')">${ic}<span>${esc(g.name)}</span></div>`;
+      return `<div class="tr-grow" data-gid="${esc(g.guild_id)}" onclick="pickGuildSel(this.dataset.gid)">${ic}<span>${esc(g.name)}</span></div>`;
     }).join('') : '<div class="muted">Aucun serveur en commun trouvé.</div>';
   }catch(e){ document.getElementById('pickerGuilds').innerHTML='<div class="muted">Erreur.</div>'; }
 }
 function closePicker(){ document.getElementById('pickerModal').classList.remove('open'); }
-function pickGuildSel(gid, name){
+function pickGuildSel(gid){
   pickGuild = gid;
+  const name = (GMAP[gid] || {}).name || '';
   document.getElementById('pickerGuilds').innerHTML = `<div class="muted" style="font-size:12px;">Serveur : <b>${esc(name)}</b></div>`;
   document.getElementById('pickerMembers').style.display='block';
   document.getElementById('memberSearch').value='';
@@ -240,14 +243,16 @@ function loadMembers(){
     const r = await fetch(`/api/cards/trade/members?guild_id=${pickGuild}&q=${encodeURIComponent(q)}`);
     const d = await r.json();
     const ms = d.members || [];
+    MMAP = {}; ms.forEach(m=>MMAP[m.user_id]=m);
     document.getElementById('memberList').innerHTML = ms.length ? ms.map(m=>{
       const av = m.avatar ? `<img src="${esc(m.avatar)}">` : `<div class="x">🃏</div>`;
-      return `<div class="tr-grow" onclick="pickMember('${m.user_id}','${esc(m.name)}','${esc(m.avatar||'')}')">${av}<span>${esc(m.name)}</span></div>`;
+      return `<div class="tr-grow" data-uid="${esc(m.user_id)}" onclick="pickMember(this.dataset.uid)">${av}<span>${esc(m.name)}</span></div>`;
     }).join('') : '<div class="muted">Aucun membre.</div>';
   }, 220);
 }
-async function pickMember(uid, name, avatar){
+async function pickMember(uid){
   if(uid === ME_ID){ alert("Tu ne peux pas t'échanger avec toi-même."); return; }
+  const m = MMAP[uid] || {}; const name = m.name || 'Joueur'; const avatar = m.avatar || '';
   closePicker();
   SIDE.R.uid = uid; SIDE.R.sel = new Set(); SIDE.R.page = 1;
   document.getElementById('addBtn').style.display='none';
