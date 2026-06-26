@@ -5,6 +5,8 @@
 
 {% block content %}
 <style>
+  /* cette page a besoin de toute la largeur (2 classeurs) : annule le cadre centre 1320px */
+  .content{ max-width:none !important; margin:0 !important; }
   .tr-wrap{ max-width:none; margin:0; }
   /* colonnes calees a GAUCHE (auto) pour que les 2 classeurs rentrent en entier */
   .tr-board{ display:grid; grid-template-columns:auto 128px auto; justify-content:start; gap:8px; align-items:start; }
