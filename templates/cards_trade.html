@@ -9,7 +9,7 @@
   .content{ max-width:none !important; margin:0 !important; }
   .tr-wrap{ max-width:none; margin:0; }
   /* colonnes calees a GAUCHE (auto) pour que les 2 classeurs rentrent en entier */
-  .tr-board{ display:grid; grid-template-columns:auto 128px auto; justify-content:start; gap:8px; align-items:start; }
+  .tr-board{ display:grid; grid-template-columns:auto 128px 1fr; justify-content:start; gap:8px; align-items:start; }
   @media (max-width:1100px){ .tr-board{ grid-template-columns:1fr; } }
   .tr-side{ padding:0; }
   /* barre d'outils IDENTIQUE a l'onglet Collection */
@@ -83,7 +83,10 @@
     color:var(--text); cursor:pointer; font-size:15px; }
   .tr-pager button:disabled{ opacity:.35; cursor:default; }
   .tr-empty{ color:var(--text-2); text-align:center; padding:50px 10px; }
-  .tr-add{ width:100%; padding:40px 14px; border:2px dashed var(--border); border-radius:14px; background:transparent;
+  /* zone droite vide : bouton "Ajouter" centre */
+  #rightSide{ display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 240px); }
+  #rightSide.has-person{ display:block; min-height:0; }
+  .tr-add{ min-width:280px; padding:46px 24px; border:2px dashed var(--border); border-radius:16px; background:transparent;
     color:var(--text-2); cursor:pointer; font-size:15px; font-weight:700; }
   .tr-add:hover{ border-color:var(--accent); color:var(--text); }
   /* colonne centrale : Partager (haut) + VALIDER (centre) comme le screen */
@@ -354,6 +357,7 @@ async function pickMember(uid){
   closePicker();
   SIDE.R.uid = uid; SIDE.R.sel = new Set(); SIDE.R.page = 1;
   document.getElementById('addBtn').style.display='none';
+  document.getElementById('rightSide').classList.add('has-person');
   document.getElementById('rightContent').style.display='block';
   document.getElementById('rightName').textContent = name;
   document.getElementById('rightAv').src = avatar || '';
