@@ -1,0 +1,84 @@
+"""Echange de cartes (dashboard) : builder avec 2 classeurs, selecteur de membres,
+selection des cartes et creation du trade. L'envoi serveur / la page de vue / les
+contre-offres arrivent dans les phases suivantes."""
+from flask import render_template, jsonify, request, session
+
+
+def register_cards_trade_routes(app, deps):
+    def _uid():
+        d = session.get("discord") or {}
+        return str(d.get("user_id")) if d.get("user_id") else None
+
+    @app.route("/cards/trade", methods=["GET"])
+    def cards_trade_page():
+        uid = _uid()
+        if not uid:
+            return render_template("404.html"), 404
+        d = session.get("discord") or {}
+        return render_template("cards_trade.html", active_nav="cards_trade",
+                               me_id=uid, me_name=d.get("username") or "Moi")
+
+    @app.route("/api/cards/trade/common-guilds", methods=["GET"])
+    def api_cards_trade_common_guilds():
+        uid = _uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        rows = c.execute(
+            "SELECT g.guild_id, g.name, g.icon_url FROM guilds g "
+            "JOIN guild_members gm ON gm.guild_id = g.guild_id "
+            "WHERE gm.user_id = ? AND COALESCE(g.active,1)=1 "
+            "ORDER BY g.name COLLATE NOCASE", (uid,)).fetchall()
+        conn.close()
+        return jsonify({"guilds": [{"guild_id": r["guild_id"], "name": r["name"],
+                                    "icon": r["icon_url"]} for r in rows]})
+
+    @app.route("/api/cards/trade/members", methods=["GET"])
+    def api_cards_trade_members():
+        uid = _uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        gid = (request.args.get("guild_id") or "").strip()
+        q = (request.args.get("q") or "").strip().lower()
+        if not gid:
+            return jsonify({"error": "guild_id requis"}), 400
+        from database import get_db
+        conn = get_db(); c = conn.cursor()
+        where = "guild_id = ? AND COALESCE(is_bot,0)=0 AND user_id != ?"
+        params = [gid, uid]
+        if q:
+            where += " AND LOWER(username) LIKE ?"
+            params.append(f"%{q}%")
+        rows = c.execute(
+            f"SELECT user_id, username, avatar_url FROM guild_members WHERE {where} "
+            f"ORDER BY username COLLATE NOCASE LIMIT 60", params).fetchall()
+        conn.close()
+        return jsonify({"members": [{"user_id": r["user_id"], "name": r["username"] or "Joueur",
+                                     "avatar": r["avatar_url"]} for r in rows]})
+
+    @app.route("/api/cards/trade/create", methods=["POST"])
+    def api_cards_trade_create():
+        uid = _uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        from database import (card_trade_create, user_card_count_owned)
+        data = request.json or {}
+        receiver = str(data.get("receiver_id") or "").strip()
+        gid = str(data.get("guild_id") or "").strip() or None
+        offer = [int(x) for x in (data.get("offer") or []) if str(x).isdigit()]
+        req = [int(x) for x in (data.get("request") or []) if str(x).isdigit()]
+        if not receiver or receiver == uid:
+            return jsonify({"error": "Choisis un autre joueur."}), 400
+        if not offer and not req:
+            return jsonify({"error": "Sélectionne au moins une carte."}), 400
+        # securite : l'offrant ne propose que des cartes qu'il possede, et ne demande
+        # que des cartes que la cible possede.
+        offer = [cid for cid in offer if user_card_count_owned(uid, cid) > 0]
+        req = [cid for cid in req if user_card_count_owned(receiver, cid) > 0]
+        if not offer and not req:
+            return jsonify({"error": "Cartes invalides (possession)."}), 400
+        tid = card_trade_create(uid, receiver, gid, None,
+                                [(cid, 1) for cid in offer], [(cid, 1) for cid in req])
+        return jsonify({"ok": True, "trade_id": tid,
+                        "link": f"{request.host_url.rstrip('/')}/cards/trade/{tid}"})

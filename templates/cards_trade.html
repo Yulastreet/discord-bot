@@ -1,0 +1,307 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_trade' %}
+{% block title %}Échange de cartes · TookBot{% endblock %}
+{% block crumb %}Échange de cartes{% endblock %}
+
+{% block content %}
+<style>
+  .tr-wrap{ max-width:1500px; margin:0 auto; }
+  .tr-board{ display:grid; grid-template-columns:1fr 150px 1fr; gap:14px; align-items:start; }
+  @media (max-width:1100px){ .tr-board{ grid-template-columns:1fr; } }
+  .tr-side{ background:var(--bg-1); border:1px solid var(--border); border-radius:16px; padding:14px; min-height:420px; }
+  .tr-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .tr-head img.av{ width:34px; height:34px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
+  .tr-head .who{ font-weight:900; font-size:15px; }
+  .tr-tools{ display:flex; gap:7px; margin-left:auto; flex-wrap:wrap; }
+  .tr-tools input, .tr-tools select{ padding:7px 9px; border-radius:9px; background:var(--bg-2);
+    border:1px solid var(--border); color:var(--text); font-size:12px; outline:none; }
+  .tr-tools input{ width:150px; }
+  .tr-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:7px; }
+  @media (max-width:1400px){ .tr-grid{ grid-template-columns:repeat(4,1fr); } }
+  .tr-card{ position:relative; border-radius:9px; overflow:hidden; aspect-ratio:2/3; cursor:pointer;
+    background:var(--bg-2); border:2px solid var(--rcol,#3a3a3a); transition:transform .1s; }
+  .tr-card:hover{ transform:translateY(-2px); }
+  .tr-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tr-card .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:22px; color:var(--text-3); }
+  .tr-card .nm{ position:absolute; left:0; right:0; bottom:0; padding:3px 5px; font-size:9.5px; font-weight:700;
+    background:linear-gradient(transparent, rgba(0,0,0,.85)); color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tr-card .cnt{ position:absolute; top:3px; right:3px; font-size:9px; font-weight:800; color:#fff;
+    background:rgba(0,0,0,.65); border-radius:5px; padding:0 4px; }
+  .tr-card .st{ position:absolute; top:3px; left:3px; font-size:9px; }
+  /* overlay vert petant quand selectionnee */
+  .tr-card.sel{ border-color:#39ff6a; box-shadow:0 0 0 2px #39ff6a, 0 0 16px rgba(57,255,106,.7); }
+  .tr-card.sel::after{ content:'✓'; position:absolute; inset:0; display:grid; place-items:center;
+    background:rgba(40,220,90,.32); color:#fff; font-size:34px; font-weight:900; text-shadow:0 2px 6px #000; }
+  .tr-pager{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:11px; font-size:13px; }
+  .tr-pager button{ padding:5px 13px; border-radius:9px; background:var(--bg-2); border:1px solid var(--border);
+    color:var(--text); cursor:pointer; font-size:15px; }
+  .tr-pager button:disabled{ opacity:.35; cursor:default; }
+  .tr-empty{ color:var(--text-2); text-align:center; padding:50px 10px; }
+  .tr-add{ width:100%; padding:40px 14px; border:2px dashed var(--border); border-radius:14px; background:transparent;
+    color:var(--text-2); cursor:pointer; font-size:15px; font-weight:700; }
+  .tr-add:hover{ border-color:var(--accent); color:var(--text); }
+  /* colonne centrale */
+  .tr-mid{ display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:90px; }
+  .tr-validate{ padding:14px 22px; border-radius:13px; border:none; cursor:pointer; font-weight:900; font-size:16px;
+    background:#ff5470; color:#fff; box-shadow:0 8px 24px rgba(255,84,112,.4); width:100%; }
+  .tr-validate:disabled{ opacity:.4; cursor:default; box-shadow:none; }
+  .tr-selinfo{ font-size:12px; color:var(--text-2); text-align:center; }
+
+  /* modals */
+  .tr-modal{ position:fixed; inset:0; z-index:300; display:none; place-items:center; background:rgba(5,3,10,.82); backdrop-filter:blur(3px); }
+  .tr-modal.open{ display:grid; }
+  .tr-modal-box{ background:var(--bg-1); border:1px solid var(--border); border-radius:18px; padding:22px;
+    width:min(560px,92vw); max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  .tr-modal-box h3{ margin:0 0 6px; }
+  .tr-glist{ display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+  .tr-grow{ display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; cursor:pointer;
+    background:var(--bg-2); border:1px solid var(--border); }
+  .tr-grow:hover{ border-color:var(--accent); }
+  .tr-grow img{ width:30px; height:30px; border-radius:8px; object-fit:cover; background:var(--bg-1); }
+  .tr-grow .x{ width:30px; height:30px; border-radius:8px; background:var(--bg-1); display:grid; place-items:center; font-size:13px; }
+  .tr-mini{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .tr-mini .m{ width:54px; aspect-ratio:2/3; border-radius:6px; overflow:hidden; border:2px solid var(--rcol,#444); }
+  .tr-mini .m img{ width:100%; height:100%; object-fit:cover; }
+  .tr-modal-actions{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .tr-btn{ padding:11px 18px; border-radius:11px; border:none; cursor:pointer; font-weight:800; font-size:14px; }
+  .tr-btn.primary{ background:var(--accent); color:#10240a; }
+  .tr-btn.secondary{ background:var(--bg-2); color:var(--text); border:1px solid var(--border); }
+  .tr-hint{ font-size:13px; margin-top:10px; min-height:18px; }
+</style>
+
+<div class="tr-wrap">
+  <p class="muted" style="margin:0 0 14px;">Choisis une personne, sélectionne tes cartes (à gauche) et les siennes (à droite), puis valide pour proposer l'échange.</p>
+
+  <div class="tr-board">
+    <!-- GAUCHE : moi -->
+    <div class="tr-side" id="leftSide">
+      <div class="tr-head">
+        <img class="av" id="leftAv" src="" alt="">
+        <div><div class="who">{{ me_name }}</div><div class="muted" style="font-size:11px;">Tes cartes</div></div>
+        <div class="tr-tools">
+          <input id="leftSearch" type="search" placeholder="🔍 Nom / origine" oninput="renderSide('L')">
+          <select id="leftSort" onchange="renderSide('L')">
+            <option value="rarity">Rareté</option><option value="name">Nom</option><option value="stars">Étoiles</option>
+          </select>
+        </div>
+      </div>
+      <div id="leftGrid" class="tr-grid"></div>
+      <div class="tr-pager"><button onclick="pageSide('L',-1)">◀</button>
+        <span id="leftPageNo">1 / 1</span><button onclick="pageSide('L',1)">▶</button></div>
+    </div>
+
+    <!-- MILIEU : valider -->
+    <div class="tr-mid">
+      <button class="tr-validate" id="validateBtn" onclick="validateTrade()" disabled>VALIDER</button>
+      <div class="tr-selinfo" id="selInfo">Aucune carte sélectionnée</div>
+    </div>
+
+    <!-- DROITE : autre personne -->
+    <div class="tr-side" id="rightSide">
+      <button class="tr-add" id="addBtn" onclick="openPicker()">➕ Ajouter une personne</button>
+      <div id="rightContent" style="display:none;">
+        <div class="tr-head">
+          <img class="av" id="rightAv" src="" alt="">
+          <div><div class="who" id="rightName">—</div><div class="muted" style="font-size:11px;">Ses cartes</div></div>
+          <div class="tr-tools">
+            <input id="rightSearch" type="search" placeholder="🔍 Nom / origine" oninput="renderSide('R')">
+            <select id="rightSort" onchange="renderSide('R')">
+              <option value="rarity">Rareté</option><option value="name">Nom</option><option value="stars">Étoiles</option>
+            </select>
+            <button class="tr-btn secondary" style="padding:7px 10px;font-size:12px;" onclick="openPicker()">Changer</button>
+          </div>
+        </div>
+        <div id="rightGrid" class="tr-grid"></div>
+        <div class="tr-pager"><button onclick="pageSide('R',-1)">◀</button>
+          <span id="rightPageNo">1 / 1</span><button onclick="pageSide('R',1)">▶</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL sélecteur de membre -->
+<div class="tr-modal" id="pickerModal" onclick="if(event.target===this)closePicker()">
+  <div class="tr-modal-box">
+    <h3>Ajouter une personne</h3>
+    <div class="muted" style="font-size:12px;">Choisis un serveur en commun, puis le joueur.</div>
+    <div id="pickerGuilds" class="tr-glist"></div>
+    <div id="pickerMembers" style="display:none;">
+      <input id="memberSearch" type="search" placeholder="🔍 Rechercher un pseudo…" class="tr-tools" style="width:100%;margin:12px 0 0;" oninput="loadMembers()">
+      <div id="memberList" class="tr-glist"></div>
+    </div>
+    <div class="tr-modal-actions"><button class="tr-btn secondary" onclick="closePicker()">Fermer</button></div>
+  </div>
+</div>
+
+<!-- MODAL validation -->
+<div class="tr-modal" id="validateModal" onclick="if(event.target===this)closeValidate()">
+  <div class="tr-modal-box">
+    <h3>Échange proposé</h3>
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">Tu donnes :</div>
+    <div id="vOffer" class="tr-mini"></div>
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">Tu reçois :</div>
+    <div id="vRequest" class="tr-mini"></div>
+    <div class="tr-modal-actions">
+      <button class="tr-btn primary" id="vShare" onclick="shareTrade()">🔗 Partager le lien</button>
+      <button class="tr-btn secondary" id="vSend" onclick="sendTrade()">📤 Envoyer sur le serveur</button>
+      <button class="tr-btn secondary" onclick="closeValidate()" style="margin-left:auto;">Fermer</button>
+    </div>
+    <div id="vHint" class="tr-hint muted"></div>
+  </div>
+</div>
+
+<script>
+const ME_ID = "{{ me_id }}";
+const RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
+const RRANK = { secret:6, mythic:5, legendary:4, epic:3, rare:2, common:1 };
+const PER = 20;
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+const SIDE = {
+  L: { uid: ME_ID, cards: [], page: 1, sel: new Set(), grid:'leftGrid', pageNo:'leftPageNo', search:'leftSearch', sort:'leftSort' },
+  R: { uid: null,  cards: [], page: 1, sel: new Set(), grid:'rightGrid', pageNo:'rightPageNo', search:'rightSearch', sort:'rightSort' },
+};
+let pickGuild = null, lastTrade = null;
+
+async function loadCollection(uid){
+  const r = await fetch(`/api/public/collection/${uid}`);
+  const d = await r.json();
+  return { user: d.user || {}, cards: d.cards || [] };
+}
+function viewCards(s){
+  const q = (document.getElementById(s.search).value||'').trim().toLowerCase();
+  const sort = document.getElementById(s.sort).value;
+  let v = s.cards.filter(c => !q || (c.name||'').toLowerCase().includes(q) || (c.origine||'').toLowerCase().includes(q));
+  v.sort((a,b)=>{
+    if(sort==='name') return a.name.localeCompare(b.name,'fr');
+    if(sort==='stars') return (b.stars-a.stars) || a.name.localeCompare(b.name,'fr');
+    return (RRANK[b.rarity]||0)-(RRANK[a.rarity]||0) || a.name.localeCompare(b.name,'fr');
+  });
+  return v;
+}
+function renderSide(which){
+  const s = SIDE[which];
+  const v = viewCards(s);
+  const total = Math.max(1, Math.ceil(v.length/PER));
+  if(s.page>total) s.page=total;
+  const slice = v.slice((s.page-1)*PER, s.page*PER);
+  document.getElementById(s.grid).innerHTML = slice.length ? slice.map(c=>{
+    const rcol = RCOL[c.rarity]||'#3a3a3a';
+    const img = c.img ? `<img src="${esc(c.img)}" loading="lazy" onerror="this.outerHTML='<div class=\\'noimg\\'>🃏</div>'">` : `<div class="noimg">🃏</div>`;
+    const st = c.stars>0 ? `<span class="st">${'⭐'.repeat(Math.min(5,c.stars))}</span>` : '';
+    const cnt = c.count>1 ? `<span class="cnt">×${c.count}</span>` : '';
+    const sel = s.sel.has(c.id) ? ' sel' : '';
+    return `<div class="tr-card${sel}" style="--rcol:${rcol}" onclick="toggleCard('${which}',${c.id})">
+      ${img}${cnt}${st}<div class="nm">${esc(c.name)}</div></div>`;
+  }).join('') : '<div class="tr-empty" style="grid-column:1/-1;">Aucune carte.</div>';
+  document.getElementById(s.pageNo).textContent = `${v.length?s.page:0} / ${total}`;
+  updateValidate();
+}
+function pageSide(which, dir){ const s=SIDE[which]; s.page=Math.max(1,s.page+dir); renderSide(which); }
+function toggleCard(which, id){
+  const s=SIDE[which];
+  if(s.sel.has(id)) s.sel.delete(id); else s.sel.add(id);
+  renderSide(which);
+}
+function updateValidate(){
+  const nO = SIDE.L.sel.size, nR = SIDE.R.sel.size;
+  document.getElementById('selInfo').textContent =
+    SIDE.R.uid ? `${nO} donnée(s) · ${nR} demandée(s)` : 'Ajoute une personne pour commencer';
+  document.getElementById('validateBtn').disabled = !(SIDE.R.uid && (nO+nR) > 0);
+}
+
+/* ===== sélecteur de membre ===== */
+async function openPicker(){
+  document.getElementById('pickerMembers').style.display='none';
+  document.getElementById('pickerGuilds').innerHTML='<div class="muted">Chargement…</div>';
+  document.getElementById('pickerModal').classList.add('open');
+  try{
+    const r = await fetch('/api/cards/trade/common-guilds'); const d = await r.json();
+    const gs = d.guilds || [];
+    document.getElementById('pickerGuilds').innerHTML = gs.length ? gs.map(g=>{
+      const ic = g.icon ? `<img src="${esc(g.icon)}">` : `<div class="x">🛡️</div>`;
+      return `<div class="tr-grow" onclick="pickGuildSel('${g.guild_id}','${esc(g.name)}')">${ic}<span>${esc(g.name)}</span></div>`;
+    }).join('') : '<div class="muted">Aucun serveur en commun trouvé.</div>';
+  }catch(e){ document.getElementById('pickerGuilds').innerHTML='<div class="muted">Erreur.</div>'; }
+}
+function closePicker(){ document.getElementById('pickerModal').classList.remove('open'); }
+function pickGuildSel(gid, name){
+  pickGuild = gid;
+  document.getElementById('pickerGuilds').innerHTML = `<div class="muted" style="font-size:12px;">Serveur : <b>${esc(name)}</b></div>`;
+  document.getElementById('pickerMembers').style.display='block';
+  document.getElementById('memberSearch').value='';
+  loadMembers();
+}
+let _memTimer=null;
+function loadMembers(){
+  clearTimeout(_memTimer);
+  _memTimer=setTimeout(async ()=>{
+    const q = document.getElementById('memberSearch').value||'';
+    const r = await fetch(`/api/cards/trade/members?guild_id=${pickGuild}&q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    const ms = d.members || [];
+    document.getElementById('memberList').innerHTML = ms.length ? ms.map(m=>{
+      const av = m.avatar ? `<img src="${esc(m.avatar)}">` : `<div class="x">🃏</div>`;
+      return `<div class="tr-grow" onclick="pickMember('${m.user_id}','${esc(m.name)}','${esc(m.avatar||'')}')">${av}<span>${esc(m.name)}</span></div>`;
+    }).join('') : '<div class="muted">Aucun membre.</div>';
+  }, 220);
+}
+async function pickMember(uid, name, avatar){
+  if(uid === ME_ID){ alert("Tu ne peux pas t'échanger avec toi-même."); return; }
+  closePicker();
+  SIDE.R.uid = uid; SIDE.R.sel = new Set(); SIDE.R.page = 1;
+  document.getElementById('addBtn').style.display='none';
+  document.getElementById('rightContent').style.display='block';
+  document.getElementById('rightName').textContent = name;
+  document.getElementById('rightAv').src = avatar || '';
+  const col = await loadCollection(uid);
+  SIDE.R.cards = col.cards;
+  renderSide('R'); updateValidate();
+}
+
+/* ===== validation ===== */
+function miniHtml(ids, cards){
+  const byId = {}; cards.forEach(c=>byId[c.id]=c);
+  return ids.map(id=>{ const c=byId[id]; if(!c) return '';
+    const rcol=RCOL[c.rarity]||'#444';
+    const img=c.img?`<img src="${esc(c.img)}">`:'';
+    return `<div class="m" style="--rcol:${rcol}" title="${esc(c.name)}">${img}</div>`;
+  }).join('') || '<span class="muted" style="font-size:12px;">(rien)</span>';
+}
+async function validateTrade(){
+  const offer = [...SIDE.L.sel], request = [...SIDE.R.sel];
+  const hint = document.getElementById('vHint');
+  document.getElementById('vOffer').innerHTML = miniHtml(offer, SIDE.L.cards);
+  document.getElementById('vRequest').innerHTML = miniHtml(request, SIDE.R.cards);
+  hint.textContent='Création du trade…';
+  document.getElementById('validateModal').classList.add('open');
+  try{
+    const r = await fetch('/api/cards/trade/create', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ receiver_id:SIDE.R.uid, guild_id:pickGuild, offer, request })});
+    const d = await r.json();
+    if(d.ok){ lastTrade = d; hint.innerHTML = `✅ Trade #${d.trade_id} prêt.`; }
+    else { lastTrade=null; hint.innerHTML = '❌ '+(d.error||'Erreur'); }
+  }catch(e){ lastTrade=null; hint.textContent='Erreur réseau.'; }
+}
+function closeValidate(){ document.getElementById('validateModal').classList.remove('open'); }
+async function shareTrade(){
+  if(!lastTrade){ return; }
+  try{ await navigator.clipboard.writeText(lastTrade.link); document.getElementById('vHint').textContent='Lien copié ✓ (accessible aux 2 joueurs)'; }
+  catch(e){ window.prompt('Copie le lien :', lastTrade.link); }
+}
+function sendTrade(){
+  document.getElementById('vHint').textContent = "Envoi sur le serveur : disponible bientôt (phase 2).";
+}
+window.renderSide=renderSide; window.pageSide=pageSide; window.toggleCard=toggleCard;
+window.openPicker=openPicker; window.closePicker=closePicker; window.pickGuildSel=pickGuildSel;
+window.loadMembers=loadMembers; window.pickMember=pickMember; window.validateTrade=validateTrade;
+window.closeValidate=closeValidate; window.shareTrade=shareTrade; window.sendTrade=sendTrade;
+
+(async ()=>{
+  const col = await loadCollection(ME_ID);
+  document.getElementById('leftAv').src = (col.user && col.user.avatar) || '';
+  SIDE.L.cards = col.cards;
+  renderSide('L');
+})();
+</script>
+{% endblock %}

@@ -251,7 +251,8 @@ def _user_can_access_page(endpoint, path):
             or path.startswith("/api/public/guilds") \
             or path.startswith("/api/public/collection") \
             or path.startswith("/api/public/booster") \
-            or path.startswith("/api/public/daily-roll"):
+            or path.startswith("/api/public/daily-roll") \
+            or path.startswith("/api/cards/trade"):
         return True
 
     # Pages "Mon compte" perso (premium, pass, guild boost) : tout user connecte y accede
@@ -351,6 +352,7 @@ GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild séle
     "/my-pass", "/api/my",
     "/cards", "/api/public/cards", "/api/public/wheel", "/api/public/guilds",
     "/api/public/collection", "/api/public/booster", "/api/public/daily-roll",
+    "/api/cards/trade",
 }
 
 def needs_guild(path):
@@ -802,6 +804,7 @@ from web_app.routes.cards_events import register_cards_events_routes
 from web_app.routes.cards_shop import register_cards_shop_routes
 from web_app.routes.cards_boss import register_cards_boss_routes
 from web_app.routes.cards_booster import register_cards_booster_routes
+from web_app.routes.cards_trade import register_cards_trade_routes
 
 for _register_routes in (
     register_auth_routes, register_dashboard_routes, register_reaction_routes,
@@ -811,6 +814,7 @@ for _register_routes in (
     register_stripe_routes, register_cards_owner_routes,
     register_cards_events_routes, register_cards_shop_routes,
     register_cards_boss_routes, register_cards_booster_routes,
+    register_cards_trade_routes,
 ):
     _register_routes(app, globals())
 
