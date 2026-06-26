@@ -1711,7 +1711,8 @@ def setup_cards_commands(bot, deps):
         async def craft_mythic(self, interaction, btn):
             if not await self._guard(interaction):
                 return
-            from database import user_item_consume, card_pick_random_exact_rarity, user_card_add
+            from database import (user_item_consume, card_pick_random_exact_rarity, user_card_add,
+                                  user_card_count_owned, essence_reward_add, ESSENCE_REWARDS)
             uid = interaction.user.id
             if not user_item_consume(uid, "mythic_fragment", _FRAGMENTS_PER_MYTHIC):
                 await interaction.response.send_message(
@@ -1723,11 +1724,18 @@ def setup_cards_commands(bot, deps):
                 user_item_add(uid, "mythic_fragment", _FRAGMENTS_PER_MYTHIC)  # remboursé
                 await interaction.response.send_message("Aucune mythic dispo, fragments rendus.", ephemeral=True)
                 return
+            already = user_card_count_owned(uid, card["id"]) > 0
             user_card_add(uid, card["id"])
-            embed, *_ = _inv_embed(interaction.user)
-            await interaction.response.edit_message(embed=embed, view=_InventoryView(uid))
-            await interaction.followup.send(
-                f"🔴 **Craft !** Tu obtiens **{card['name']}** 🔴 (mythic) !", ephemeral=True)
+            ess = essence_reward_add(uid, ESSENCE_REWARDS.get("mythic", 650) * (2 if already else 1))
+            # met a jour l'inventaire (fragments consommes) puis poste la carte en embed propre
+            inv_embed, *_ = _inv_embed(interaction.user)
+            await interaction.response.edit_message(embed=inv_embed, view=_InventoryView(uid))
+            embed, img_file, view = _card_result_display(card, interaction.user, ess, already)
+            content = f"🔴 **Craft Mythic !** ({_FRAGMENTS_PER_MYTHIC} Fragments Mythic)"
+            if img_file:
+                await interaction.followup.send(content=content, embed=embed, file=img_file, view=view)
+            else:
+                await interaction.followup.send(content=content, embed=embed, view=view)
 
     @bot.tree.command(name="cardinventory", description="Tes objets : rolls, fragments mythic, golden rolls, bordures")
     @app_commands.describe(membre="Voir l'inventaire de quelqu'un d'autre (defaut : toi)")
