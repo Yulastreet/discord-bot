@@ -18,7 +18,7 @@
   .tr-tools input{ width:140px; }
 
   /* ===== CLASSEUR (cuir noir + couture doree) ===== */
-  .binder{ position:relative; border-radius:16px; padding:18px;
+  .binder{ position:relative; border-radius:16px; padding:18px; width:fit-content; max-width:100%; margin:0 auto;
     background:
       radial-gradient(circle at 28% 18%, rgba(255,255,255,.04), transparent 45%),
       repeating-linear-gradient(48deg, rgba(255,255,255,.015) 0 2px, transparent 2px 5px),
@@ -28,8 +28,14 @@
     box-shadow: inset 0 0 70px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.05), 0 18px 50px rgba(0,0,0,.55); }
   .binder::before{ content:''; position:absolute; inset:8px; border-radius:11px; border:2px dashed #c9a24b;
     opacity:.85; box-shadow:0 0 8px rgba(201,162,75,.25), inset 0 0 8px rgba(201,162,75,.12); pointer-events:none; }
-  .tr-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; position:relative; }
-  @media (max-width:1400px){ .tr-grid{ grid-template-columns:repeat(4,1fr); } }
+  /* cartes dimensionnees par la HAUTEUR dispo (comme le classeur Collection) :
+     5 rangees + 5 colonnes, ratio 2:3. */
+  .tr-grid{ --cardh: calc((100vh - 250px) / 5);
+            display:grid;
+            grid-template-columns: repeat(5, calc(var(--cardh) * 0.6667));
+            grid-template-rows: repeat(5, var(--cardh));
+            gap:5px; justify-content:center; position:relative; }
+  .tr-grid .cc{ width:100%; height:100%; aspect-ratio:auto; }
   /* cellule carte (comme le classeur Collection) */
   .cc{ position:relative; border-radius:10px; overflow:hidden; background:var(--bg-2);
     border:2px solid var(--rcol,#3a3a3a); aspect-ratio:2/3; cursor:pointer; }
@@ -167,7 +173,7 @@
 const ME_ID = "{{ me_id }}";
 const RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
 const RRANK = { secret:6, mythic:5, legendary:4, epic:3, rare:2, common:1 };
-const PER = 15;
+const PER = 25;
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 const SIDE = {
