@@ -5,12 +5,13 @@
 
 {% block content %}
 <style>
-  .tr-wrap{ max-width:1850px; margin:0 auto; }
-  .tr-board{ display:grid; grid-template-columns:1fr 150px 1fr; gap:10px; align-items:start; }
+  .tr-wrap{ max-width:none; margin:0; }
+  /* colonnes calees a GAUCHE (auto) pour que les 2 classeurs rentrent en entier */
+  .tr-board{ display:grid; grid-template-columns:auto 128px auto; justify-content:start; gap:8px; align-items:start; }
   @media (max-width:1100px){ .tr-board{ grid-template-columns:1fr; } }
   .tr-side{ padding:0; }
   /* barre d'outils IDENTIQUE a l'onglet Collection */
-  .tr-head{ display:flex; gap:9px; flex-wrap:nowrap; align-items:center; margin-bottom:10px; }
+  .tr-head{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; max-width:100%; }
   .col-id{ display:flex; align-items:center; gap:9px; margin-right:4px; flex:none; }
   .col-id img.av{ width:38px; height:38px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
   .col-id .who{ font-size:15px; font-weight:900; line-height:1.1; white-space:nowrap; }
@@ -28,15 +29,15 @@
     border:1px solid var(--border); border-radius:10px; padding:8px 12px; min-width:62px; text-align:center; }
   .col-spacer{ flex:1; }
   /* fleches sur les cotes du classeur, centrees verticalement */
-  .binder-row{ display:flex; align-items:center; justify-content:center; gap:12px; }
-  .binder-side{ flex:none; width:46px; height:84px; border-radius:14px; cursor:pointer;
+  .binder-row{ display:flex; align-items:center; justify-content:center; gap:8px; }
+  .binder-side{ flex:none; width:38px; height:80px; border-radius:12px; cursor:pointer;
     border:1px solid var(--border); background:var(--bg-1); color:var(--text); font-size:22px; font-weight:900;
     transition:background .12s, border-color .12s; }
   .binder-side:hover:not(:disabled){ background:var(--bg-2); border-color:var(--accent); }
   .binder-side:disabled{ opacity:.3; cursor:not-allowed; }
 
   /* ===== CLASSEUR (cuir noir + couture doree) ===== */
-  .binder{ position:relative; border-radius:16px; padding:18px; width:fit-content; max-width:100%; margin:0 auto;
+  .binder{ position:relative; border-radius:16px; padding:18px; width:fit-content; max-width:100%; margin:0;
     background:
       radial-gradient(circle at 28% 18%, rgba(255,255,255,.04), transparent 45%),
       repeating-linear-gradient(48deg, rgba(255,255,255,.015) 0 2px, transparent 2px 5px),
@@ -54,12 +55,12 @@
             grid-template-rows: repeat(5, var(--cardh));
             gap:5px; justify-content:center; position:relative; }
   .tr-grid .cc{ width:100%; height:100%; aspect-ratio:auto; }
-  /* vue simplifiee : grille dense qui scrolle, sans cadre cuir */
-  .tr-grid.simple{ grid-template-columns: repeat(auto-fill, minmax(78px,1fr)); grid-template-rows:none;
-    max-height: calc(100vh - 230px); overflow-y:auto; gap:7px; }
-  .tr-grid.simple .cc{ height:auto; aspect-ratio:2/3; }
-  .binder.flat{ background:none; border:none; box-shadow:none; padding:0; }
-  .binder.flat::before{ display:none; }
+  /* vue simplifiee : meme largeur que le classeur (toolbar reste alignee),
+     cartes plus petites (6 colonnes), page qui scrolle. */
+  .tr-grid.simple{ width: calc(var(--cardh) * 0.6667 * 5 + 20px); max-width:100%;
+    grid-template-columns: repeat(6, 1fr); grid-template-rows:none; grid-auto-rows:max-content;
+    max-height: calc(100vh - 235px); overflow-y:auto; gap:6px; padding-right:4px; }
+  .tr-grid.simple .cc{ width:100%; height:auto; aspect-ratio:2/3; }
   /* cellule carte (comme le classeur Collection) */
   .cc{ position:relative; border-radius:10px; overflow:hidden; background:var(--bg-2);
     border:2px solid var(--rcol,#3a3a3a); aspect-ratio:2/3; cursor:pointer; }
@@ -138,6 +139,10 @@
         <select id="leftSort" onchange="renderSide('L')">
           <option value="rarity">Tri : Rareté</option><option value="name">Tri : Nom</option><option value="stars">Tri : Étoiles</option>
         </select>
+        <select id="leftPer" onchange="renderSide('L')" style="display:none;">
+          <option value="30">30 / page</option><option value="60">60 / page</option>
+          <option value="120" selected>120 / page</option><option value="250">250 / page</option><option value="500">500 / page</option>
+        </select>
       </div>
       <div class="binder-row">
         <button class="binder-side" id="leftPrev" onclick="pageSide('L',-1)">◀</button>
@@ -172,6 +177,10 @@
           <input id="rightSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="renderSide('R')">
           <select id="rightSort" onchange="renderSide('R')">
             <option value="rarity">Tri : Rareté</option><option value="name">Tri : Nom</option><option value="stars">Tri : Étoiles</option>
+          </select>
+          <select id="rightPer" onchange="renderSide('R')" style="display:none;">
+            <option value="30">30 / page</option><option value="60">60 / page</option>
+            <option value="120" selected>120 / page</option><option value="250">250 / page</option><option value="500">500 / page</option>
           </select>
           <button class="binder-side" style="width:auto;height:auto;padding:8px 11px;font-size:12px;font-weight:700;" onclick="openPicker()">Changer</button>
         </div>
@@ -224,8 +233,8 @@ const PER = 25;
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 const SIDE = {
-  L: { uid: ME_ID, cards: [], page: 1, mode:'binder', sel: new Set(), grid:'leftGrid', pageNo:'leftPageNo', search:'leftSearch', sort:'leftSort', sub:'leftSub', prev:'leftPrev', next:'leftNext' },
-  R: { uid: null,  cards: [], page: 1, mode:'binder', sel: new Set(), grid:'rightGrid', pageNo:'rightPageNo', search:'rightSearch', sort:'rightSort', sub:'rightSub', prev:'rightPrev', next:'rightNext' },
+  L: { uid: ME_ID, cards: [], page: 1, mode:'binder', sel: new Set(), grid:'leftGrid', pageNo:'leftPageNo', search:'leftSearch', sort:'leftSort', per:'leftPer', sub:'leftSub', prev:'leftPrev', next:'leftNext' },
+  R: { uid: null,  cards: [], page: 1, mode:'binder', sel: new Set(), grid:'rightGrid', pageNo:'rightPageNo', search:'rightSearch', sort:'rightSort', per:'rightPer', sub:'rightSub', prev:'rightPrev', next:'rightNext' },
 };
 let pickGuild = null, lastTrade = null;
 let GMAP = {}, MMAP = {};   // guildes / membres par id (evite l'injection de noms dans onclick)
@@ -256,13 +265,12 @@ function renderSide(which){
   const s = SIDE[which];
   const v = viewCards(s);
   const simple = s.mode==='simple';
-  const per = simple ? Math.max(1, v.length) : PER;
+  const per = simple ? parseInt(document.getElementById(s.per).value||'120',10) : PER;
   const total = Math.max(1, Math.ceil(v.length/per));
   if(s.page>total) s.page=total;
-  const slice = simple ? v : v.slice((s.page-1)*per, s.page*per);
+  const slice = v.slice((s.page-1)*per, s.page*per);
   const grid = document.getElementById(s.grid);
   grid.classList.toggle('simple', simple);
-  grid.closest('.binder').classList.toggle('flat', simple);
   grid.innerHTML = slice.length ? slice.map(c=>{
     const rcol = RCOL[c.rarity]||'#3a3a3a';
     const img = c.img ? `<img src="${esc(c.img)}" loading="lazy" onerror="this.outerHTML='<div class=\\'noimg\\'>🃏</div>'">` : `<div class="noimg">🃏</div>`;
@@ -272,18 +280,19 @@ function renderSide(which){
     return `<div class="cc${sel}" style="--rcol:${rcol}" onclick="toggleCard('${which}',${c.id})">
       ${img}${cnt}${st}<div class="nm">${esc(c.name)}</div></div>`;
   }).join('') : '<div class="tr-empty" style="grid-column:1/-1;">Aucune carte.</div>';
-  document.getElementById(s.pageNo).textContent = simple ? `${v.length}` : `${v.length?s.page:0} / ${total}`;
+  document.getElementById(s.pageNo).textContent = `${v.length?s.page:0} / ${total}`;
   const pv = document.getElementById(s.prev), nx = document.getElementById(s.next);
-  if(pv) pv.disabled = simple || s.page<=1;
-  if(nx) nx.disabled = simple || s.page>=total;
+  if(pv) pv.disabled = s.page<=1;
+  if(nx) nx.disabled = s.page>=total;
   updateValidate();
 }
-function pageSide(which, dir){ const s=SIDE[which]; if(s.mode==='simple') return; s.page=Math.max(1,s.page+dir); renderSide(which); }
+function pageSide(which, dir){ const s=SIDE[which]; s.page=Math.max(1,s.page+dir); renderSide(which); }
 function setView(which, mode){
   const s = SIDE[which]; s.mode = mode; s.page = 1;
   const cap = which==='L'?'left':'right';
   document.getElementById(cap+'SegBinder').classList.toggle('active', mode==='binder');
   document.getElementById(cap+'SegSimple').classList.toggle('active', mode==='simple');
+  document.getElementById(s.per).style.display = mode==='simple' ? '' : 'none';
   renderSide(which);
 }
 function toggleCard(which, id){
