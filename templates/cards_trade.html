@@ -5,17 +5,35 @@
 
 {% block content %}
 <style>
-  .tr-wrap{ max-width:1500px; margin:0 auto; }
-  .tr-board{ display:grid; grid-template-columns:1fr 150px 1fr; gap:14px; align-items:start; }
+  .tr-wrap{ max-width:1850px; margin:0 auto; }
+  .tr-board{ display:grid; grid-template-columns:1fr 150px 1fr; gap:10px; align-items:start; }
   @media (max-width:1100px){ .tr-board{ grid-template-columns:1fr; } }
   .tr-side{ padding:0; }
-  .tr-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-  .tr-head img.av{ width:34px; height:34px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
-  .tr-head .who{ font-weight:900; font-size:15px; }
-  .tr-tools{ display:flex; gap:7px; margin-left:auto; flex-wrap:wrap; }
-  .tr-tools input, .tr-tools select{ padding:7px 9px; border-radius:9px; background:var(--bg-2);
+  /* barre d'outils IDENTIQUE a l'onglet Collection */
+  .tr-head{ display:flex; gap:9px; flex-wrap:nowrap; align-items:center; margin-bottom:10px; }
+  .col-id{ display:flex; align-items:center; gap:9px; margin-right:4px; flex:none; }
+  .col-id img.av{ width:38px; height:38px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
+  .col-id .who{ font-size:15px; font-weight:900; line-height:1.1; white-space:nowrap; }
+  .col-id .sub{ color:var(--text-2); font-size:11px; white-space:nowrap; }
+  .tr-head .input, .tr-head select{ padding:8px 9px; border-radius:10px; background:var(--bg-1);
     border:1px solid var(--border); color:var(--text); font-size:12px; outline:none; }
-  .tr-tools input{ width:140px; }
+  .tr-head .input{ flex:0 1 190px; min-width:90px; }
+  .tr-head select{ flex:none; max-width:130px; }
+  .tr-head .input:focus{ border-color:var(--accent); }
+  .col-seg{ display:flex; flex:none; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .col-seg button{ padding:8px 12px; background:var(--bg-1); color:var(--text-2); border:none;
+    cursor:pointer; font-size:12px; font-weight:700; }
+  .col-seg button.active{ background:var(--accent); color:#10240a; }
+  .col-pageno{ flex:none; font-weight:800; font-size:13px; color:var(--text); background:var(--bg-1);
+    border:1px solid var(--border); border-radius:10px; padding:8px 12px; min-width:62px; text-align:center; }
+  .col-spacer{ flex:1; }
+  /* fleches sur les cotes du classeur, centrees verticalement */
+  .binder-row{ display:flex; align-items:center; justify-content:center; gap:12px; }
+  .binder-side{ flex:none; width:46px; height:84px; border-radius:14px; cursor:pointer;
+    border:1px solid var(--border); background:var(--bg-1); color:var(--text); font-size:22px; font-weight:900;
+    transition:background .12s, border-color .12s; }
+  .binder-side:hover:not(:disabled){ background:var(--bg-2); border-color:var(--accent); }
+  .binder-side:disabled{ opacity:.3; cursor:not-allowed; }
 
   /* ===== CLASSEUR (cuir noir + couture doree) ===== */
   .binder{ position:relative; border-radius:16px; padding:18px; width:fit-content; max-width:100%; margin:0 auto;
@@ -36,6 +54,12 @@
             grid-template-rows: repeat(5, var(--cardh));
             gap:5px; justify-content:center; position:relative; }
   .tr-grid .cc{ width:100%; height:100%; aspect-ratio:auto; }
+  /* vue simplifiee : grille dense qui scrolle, sans cadre cuir */
+  .tr-grid.simple{ grid-template-columns: repeat(auto-fill, minmax(78px,1fr)); grid-template-rows:none;
+    max-height: calc(100vh - 230px); overflow-y:auto; gap:7px; }
+  .tr-grid.simple .cc{ height:auto; aspect-ratio:2/3; }
+  .binder.flat{ background:none; border:none; box-shadow:none; padding:0; }
+  .binder.flat::before{ display:none; }
   /* cellule carte (comme le classeur Collection) */
   .cc{ position:relative; border-radius:10px; overflow:hidden; background:var(--bg-2);
     border:2px solid var(--rcol,#3a3a3a); aspect-ratio:2/3; cursor:pointer; }
@@ -59,12 +83,18 @@
   .tr-add{ width:100%; padding:40px 14px; border:2px dashed var(--border); border-radius:14px; background:transparent;
     color:var(--text-2); cursor:pointer; font-size:15px; font-weight:700; }
   .tr-add:hover{ border-color:var(--accent); color:var(--text); }
-  /* colonne centrale */
-  .tr-mid{ display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:90px; }
+  /* colonne centrale : Partager (haut) + VALIDER (centre) comme le screen */
+  .tr-mid{ display:flex; flex-direction:column; align-items:center; gap:14px; min-height:60vh; }
+  .tr-share{ padding:11px 18px; border-radius:13px; border:1px solid var(--border); cursor:pointer;
+    font-weight:800; font-size:14px; background:var(--accent); color:#10240a; white-space:nowrap;
+    box-shadow:0 6px 18px rgba(60,200,80,.28); }
+  .tr-share:hover{ filter:brightness(1.08); }
+  .tr-midspacer{ flex:1; }
   .tr-validate{ padding:14px 22px; border-radius:13px; border:none; cursor:pointer; font-weight:900; font-size:16px;
     background:#ff5470; color:#fff; box-shadow:0 8px 24px rgba(255,84,112,.4); width:100%; }
   .tr-validate:disabled{ opacity:.4; cursor:default; box-shadow:none; }
   .tr-selinfo{ font-size:12px; color:var(--text-2); text-align:center; }
+  .tr-midspacer.b{ flex:1; }
 
   /* modals */
   .tr-modal{ position:fixed; inset:0; z-index:300; display:none; place-items:center; background:rgba(5,3,10,.82); backdrop-filter:blur(3px); }
@@ -95,24 +125,34 @@
     <!-- GAUCHE : moi -->
     <div class="tr-side" id="leftSide">
       <div class="tr-head">
-        <img class="av" id="leftAv" src="" alt="">
-        <div><div class="who">{{ me_name }}</div><div class="muted" style="font-size:11px;">Tes cartes</div></div>
-        <div class="tr-tools">
-          <input id="leftSearch" type="search" placeholder="🔍 Nom / origine" oninput="renderSide('L')">
-          <select id="leftSort" onchange="renderSide('L')">
-            <option value="rarity">Rareté</option><option value="name">Nom</option><option value="stars">Étoiles</option>
-          </select>
+        <div class="col-id">
+          <img class="av" id="leftAv" src="" alt="">
+          <div><div class="who">{{ me_name }}</div><div class="sub" id="leftSub">Tes cartes</div></div>
         </div>
+        <div class="col-seg">
+          <button class="active" onclick="setView('L','binder')" id="leftSegBinder">📖 Classeur</button>
+          <button onclick="setView('L','simple')" id="leftSegSimple">▦ Vue simplifiée</button>
+        </div>
+        <span class="col-pageno" id="leftPageNo">— / —</span>
+        <input id="leftSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="renderSide('L')">
+        <select id="leftSort" onchange="renderSide('L')">
+          <option value="rarity">Tri : Rareté</option><option value="name">Tri : Nom</option><option value="stars">Tri : Étoiles</option>
+        </select>
       </div>
-      <div class="binder"><div id="leftGrid" class="tr-grid"></div></div>
-      <div class="tr-pager"><button onclick="pageSide('L',-1)">◀</button>
-        <span id="leftPageNo">1 / 1</span><button onclick="pageSide('L',1)">▶</button></div>
+      <div class="binder-row">
+        <button class="binder-side" id="leftPrev" onclick="pageSide('L',-1)">◀</button>
+        <div class="binder"><div id="leftGrid" class="tr-grid"></div></div>
+        <button class="binder-side" id="leftNext" onclick="pageSide('L',1)">▶</button>
+      </div>
     </div>
 
-    <!-- MILIEU : valider -->
+    <!-- MILIEU : partager (haut) + valider (centre) -->
     <div class="tr-mid">
+      <button class="tr-share" id="shareBtn" onclick="shareTrade()">🔗 Partager</button>
+      <div class="tr-midspacer"></div>
       <button class="tr-validate" id="validateBtn" onclick="validateTrade()" disabled>VALIDER</button>
       <div class="tr-selinfo" id="selInfo">Aucune carte sélectionnée</div>
+      <div class="tr-midspacer b"></div>
     </div>
 
     <!-- DROITE : autre personne -->
@@ -120,19 +160,26 @@
       <button class="tr-add" id="addBtn" onclick="openPicker()">➕ Ajouter une personne</button>
       <div id="rightContent" style="display:none;">
         <div class="tr-head">
-          <img class="av" id="rightAv" src="" alt="">
-          <div><div class="who" id="rightName">—</div><div class="muted" style="font-size:11px;">Ses cartes</div></div>
-          <div class="tr-tools">
-            <input id="rightSearch" type="search" placeholder="🔍 Nom / origine" oninput="renderSide('R')">
-            <select id="rightSort" onchange="renderSide('R')">
-              <option value="rarity">Rareté</option><option value="name">Nom</option><option value="stars">Étoiles</option>
-            </select>
-            <button class="tr-btn secondary" style="padding:7px 10px;font-size:12px;" onclick="openPicker()">Changer</button>
+          <div class="col-id">
+            <img class="av" id="rightAv" src="" alt="">
+            <div><div class="who" id="rightName">—</div><div class="sub" id="rightSub">Ses cartes</div></div>
           </div>
+          <div class="col-seg">
+            <button class="active" onclick="setView('R','binder')" id="rightSegBinder">📖 Classeur</button>
+            <button onclick="setView('R','simple')" id="rightSegSimple">▦ Vue simplifiée</button>
+          </div>
+          <span class="col-pageno" id="rightPageNo">— / —</span>
+          <input id="rightSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="renderSide('R')">
+          <select id="rightSort" onchange="renderSide('R')">
+            <option value="rarity">Tri : Rareté</option><option value="name">Tri : Nom</option><option value="stars">Tri : Étoiles</option>
+          </select>
+          <button class="binder-side" style="width:auto;height:auto;padding:8px 11px;font-size:12px;font-weight:700;" onclick="openPicker()">Changer</button>
         </div>
-        <div class="binder"><div id="rightGrid" class="tr-grid"></div></div>
-        <div class="tr-pager"><button onclick="pageSide('R',-1)">◀</button>
-          <span id="rightPageNo">1 / 1</span><button onclick="pageSide('R',1)">▶</button></div>
+        <div class="binder-row">
+          <button class="binder-side" id="rightPrev" onclick="pageSide('R',-1)">◀</button>
+          <div class="binder"><div id="rightGrid" class="tr-grid"></div></div>
+          <button class="binder-side" id="rightNext" onclick="pageSide('R',1)">▶</button>
+        </div>
       </div>
     </div>
   </div>
@@ -177,8 +224,8 @@ const PER = 25;
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 const SIDE = {
-  L: { uid: ME_ID, cards: [], page: 1, sel: new Set(), grid:'leftGrid', pageNo:'leftPageNo', search:'leftSearch', sort:'leftSort' },
-  R: { uid: null,  cards: [], page: 1, sel: new Set(), grid:'rightGrid', pageNo:'rightPageNo', search:'rightSearch', sort:'rightSort' },
+  L: { uid: ME_ID, cards: [], page: 1, mode:'binder', sel: new Set(), grid:'leftGrid', pageNo:'leftPageNo', search:'leftSearch', sort:'leftSort', sub:'leftSub', prev:'leftPrev', next:'leftNext' },
+  R: { uid: null,  cards: [], page: 1, mode:'binder', sel: new Set(), grid:'rightGrid', pageNo:'rightPageNo', search:'rightSearch', sort:'rightSort', sub:'rightSub', prev:'rightPrev', next:'rightNext' },
 };
 let pickGuild = null, lastTrade = null;
 let GMAP = {}, MMAP = {};   // guildes / membres par id (evite l'injection de noms dans onclick)
@@ -199,13 +246,24 @@ function viewCards(s){
   });
   return v;
 }
+function setSub(which){
+  const s = SIDE[which]; const el = document.getElementById(s.sub); if(!el) return;
+  const uniq = s.cards.length;
+  const tot = s.cards.reduce((a,c)=>a+(c.count||1),0);
+  el.textContent = uniq ? `${tot} cartes · ${uniq} uniques` : (which==='L'?'Tes cartes':'Ses cartes');
+}
 function renderSide(which){
   const s = SIDE[which];
   const v = viewCards(s);
-  const total = Math.max(1, Math.ceil(v.length/PER));
+  const simple = s.mode==='simple';
+  const per = simple ? Math.max(1, v.length) : PER;
+  const total = Math.max(1, Math.ceil(v.length/per));
   if(s.page>total) s.page=total;
-  const slice = v.slice((s.page-1)*PER, s.page*PER);
-  document.getElementById(s.grid).innerHTML = slice.length ? slice.map(c=>{
+  const slice = simple ? v : v.slice((s.page-1)*per, s.page*per);
+  const grid = document.getElementById(s.grid);
+  grid.classList.toggle('simple', simple);
+  grid.closest('.binder').classList.toggle('flat', simple);
+  grid.innerHTML = slice.length ? slice.map(c=>{
     const rcol = RCOL[c.rarity]||'#3a3a3a';
     const img = c.img ? `<img src="${esc(c.img)}" loading="lazy" onerror="this.outerHTML='<div class=\\'noimg\\'>🃏</div>'">` : `<div class="noimg">🃏</div>`;
     const st = c.stars>0 ? `<span class="st">${'⭐'.repeat(Math.min(5,c.stars))}</span>` : '';
@@ -214,10 +272,20 @@ function renderSide(which){
     return `<div class="cc${sel}" style="--rcol:${rcol}" onclick="toggleCard('${which}',${c.id})">
       ${img}${cnt}${st}<div class="nm">${esc(c.name)}</div></div>`;
   }).join('') : '<div class="tr-empty" style="grid-column:1/-1;">Aucune carte.</div>';
-  document.getElementById(s.pageNo).textContent = `${v.length?s.page:0} / ${total}`;
+  document.getElementById(s.pageNo).textContent = simple ? `${v.length}` : `${v.length?s.page:0} / ${total}`;
+  const pv = document.getElementById(s.prev), nx = document.getElementById(s.next);
+  if(pv) pv.disabled = simple || s.page<=1;
+  if(nx) nx.disabled = simple || s.page>=total;
   updateValidate();
 }
-function pageSide(which, dir){ const s=SIDE[which]; s.page=Math.max(1,s.page+dir); renderSide(which); }
+function pageSide(which, dir){ const s=SIDE[which]; if(s.mode==='simple') return; s.page=Math.max(1,s.page+dir); renderSide(which); }
+function setView(which, mode){
+  const s = SIDE[which]; s.mode = mode; s.page = 1;
+  const cap = which==='L'?'left':'right';
+  document.getElementById(cap+'SegBinder').classList.toggle('active', mode==='binder');
+  document.getElementById(cap+'SegSimple').classList.toggle('active', mode==='simple');
+  renderSide(which);
+}
 function toggleCard(which, id){
   const s=SIDE[which];
   if(s.sel.has(id)) s.sel.delete(id); else s.sel.add(id);
@@ -280,7 +348,7 @@ async function pickMember(uid){
   document.getElementById('rightAv').src = avatar || '';
   const col = await loadCollection(uid);
   SIDE.R.cards = col.cards;
-  renderSide('R'); updateValidate();
+  setSub('R'); renderSide('R'); updateValidate();
 }
 
 /* ===== validation ===== */
@@ -309,7 +377,7 @@ async function validateTrade(){
 }
 function closeValidate(){ document.getElementById('validateModal').classList.remove('open'); }
 async function shareTrade(){
-  if(!lastTrade){ return; }
+  if(!lastTrade){ alert("Valide d'abord l'échange (bouton VALIDER) pour générer le lien à partager."); return; }
   try{ await navigator.clipboard.writeText(lastTrade.link); document.getElementById('vHint').textContent='Lien copié ✓ (accessible aux 2 joueurs)'; }
   catch(e){ window.prompt('Copie le lien :', lastTrade.link); }
 }
@@ -320,12 +388,13 @@ window.renderSide=renderSide; window.pageSide=pageSide; window.toggleCard=toggle
 window.openPicker=openPicker; window.closePicker=closePicker; window.pickGuildSel=pickGuildSel;
 window.loadMembers=loadMembers; window.pickMember=pickMember; window.validateTrade=validateTrade;
 window.closeValidate=closeValidate; window.shareTrade=shareTrade; window.sendTrade=sendTrade;
+window.setView=setView;
 
 (async ()=>{
   const col = await loadCollection(ME_ID);
   document.getElementById('leftAv').src = (col.user && col.user.avatar) || '';
   SIDE.L.cards = col.cards;
-  renderSide('L');
+  setSub('L'); renderSide('L');
 })();
 </script>
 {% endblock %}
