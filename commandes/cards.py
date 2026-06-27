@@ -3065,6 +3065,36 @@ def setup_cards_commands(bot, deps):
     except Exception as _e:
         print(f"[cards] add_view TradeView: {_e}")
 
+    # Hook web -> bot : le bouton "Envoyer" du dashboard poste l'embed du trade
+    # dans le salon cartes (meme embed + meme TradeView que /cardtrade).
+    async def _hook_post_trade(bot_, gid, payload):
+        tid = int(payload.get("trade_id") or 0)
+        trade = card_trade_get(tid)
+        if not trade:
+            raise RuntimeError(f"trade #{tid} introuvable")
+        guild = bot_.get_guild(int(gid))
+        if not guild:
+            raise RuntimeError(f"guild {gid} introuvable")
+        cfg = guild_card_config_get(gid) or {}
+        ch_id = cfg.get("channel_id")
+        channel = guild.get_channel(int(ch_id)) if ch_id else None
+        if not channel:
+            raise RuntimeError("salon cartes non configure (/cardsetup)")
+        sender = guild.get_member(int(trade["sender_id"])) or await bot_.fetch_user(int(trade["sender_id"]))
+        receiver = guild.get_member(int(trade["receiver_id"])) or await bot_.fetch_user(int(trade["receiver_id"]))
+        embed = _build_trade_embed(tid, sender, receiver, "pending")
+        msg = await channel.send(
+            content=f"<@{trade['receiver_id']}>",
+            embed=embed, view=TradeView(),
+            allowed_mentions=discord.AllowedMentions(users=True))
+        card_trade_set_status(tid, "pending", message_id=msg.id)
+
+    try:
+        from services.bot_command_hooks import register as _reg_hook
+        _reg_hook("post_trade", _hook_post_trade)
+    except Exception as _e:
+        print(f"[cards] register post_trade hook: {_e}")
+
 
     class TradeModal(discord.ui.Modal, title="Proposer un trade"):
         offer_field = discord.ui.TextInput(

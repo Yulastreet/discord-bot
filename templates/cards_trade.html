@@ -400,8 +400,16 @@ async function shareTrade(){
   try{ await navigator.clipboard.writeText(lastTrade.link); document.getElementById('vHint').textContent='Lien copié ✓ (accessible aux 2 joueurs)'; }
   catch(e){ window.prompt('Copie le lien :', lastTrade.link); }
 }
-function sendTrade(){
-  document.getElementById('vHint').textContent = "Envoi sur le serveur : disponible bientôt (phase 2).";
+async function sendTrade(){
+  if(!lastTrade){ document.getElementById('vHint').textContent = "Valide d'abord l'échange."; return; }
+  const hint = document.getElementById('vHint');
+  hint.textContent = 'Envoi sur le serveur…';
+  try{
+    const r = await fetch('/api/cards/trade/send', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ trade_id:lastTrade.trade_id })});
+    const d = await r.json();
+    hint.textContent = d.ok ? '✅ Trade posté dans le salon cartes du serveur.' : '❌ '+(d.error||'Erreur');
+  }catch(e){ hint.textContent='Erreur réseau.'; }
 }
 window.renderSide=renderSide; window.pageSide=pageSide; window.toggleCard=toggleCard;
 window.openPicker=openPicker; window.closePicker=closePicker; window.pickGuildSel=pickGuildSel;

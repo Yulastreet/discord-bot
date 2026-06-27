@@ -82,3 +82,23 @@ def register_cards_trade_routes(app, deps):
                                 [(cid, 1) for cid in offer], [(cid, 1) for cid in req])
         return jsonify({"ok": True, "trade_id": tid,
                         "link": f"{request.host_url.rstrip('/')}/cards/trade/{tid}"})
+
+    @app.route("/api/cards/trade/send", methods=["POST"])
+    def api_cards_trade_send():
+        """Poste l'embed du trade dans le salon cartes du serveur via le bot."""
+        uid = _uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        from database import card_trade_get, bot_command_enqueue
+        data = request.json or {}
+        tid = int(data.get("trade_id") or 0)
+        trade = card_trade_get(tid)
+        if not trade:
+            return jsonify({"error": "Trade introuvable."}), 404
+        if uid not in (str(trade["sender_id"]), str(trade["receiver_id"])):
+            return jsonify({"error": "Tu n'es pas concerné par ce trade."}), 403
+        gid = trade.get("guild_id")
+        if not gid:
+            return jsonify({"error": "Aucun serveur associé à ce trade."}), 400
+        bot_command_enqueue(gid, "post_trade", {"trade_id": tid})
+        return jsonify({"ok": True})

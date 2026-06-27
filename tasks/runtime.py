@@ -2041,6 +2041,13 @@ def setup_runtime(bot, deps):
         # NOTE : la commande "dm_send" (envoi de DM via dashboard) a ete
         # retiree volontairement (raison vie privee).
 
+        # Handlers enregistres par les cogs (ex: cards.py "post_trade")
+        from services.bot_command_hooks import get as _get_hook
+        _hook = _get_hook(name)
+        if _hook:
+            await _hook(bot, gid, payload)
+            return
+
         guild = bot.get_guild(int(gid))
         if not guild:
             raise RuntimeError(f"guild {gid} introuvable (bot pas dans ce serveur ?)")
