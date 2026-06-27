@@ -438,7 +438,24 @@ async function preselectMember(uid){
   // pre-selection via ?with=<uid>&guild=<gid> (depuis /cardtrade ou une contre-offre)
   const p = new URLSearchParams(location.search);
   const withId = p.get('with');
-  if(withId){ if(p.get('guild')) pickGuild = p.get('guild'); await preselectMember(withId); }
+  if(withId){
+    if(p.get('guild')) pickGuild = p.get('guild');
+    await preselectMember(withId);
+    if(p.get('from')) await applyPreset(p.get('from'));
+  }
 })();
+
+async function applyPreset(tid){
+  try{
+    const r = await fetch('/api/cards/trade/preset?trade_id='+encodeURIComponent(tid));
+    const d = await r.json();
+    if(d.error) return;
+    const mine  = (ME_ID===d.sender_id) ? d.offer   : d.request;
+    const other = (ME_ID===d.sender_id) ? d.request : d.offer;
+    SIDE.L.sel = new Set(mine||[]);
+    SIDE.R.sel = new Set(other||[]);
+    renderSide('L'); renderSide('R'); updateValidate();
+  }catch(e){}
+}
 </script>
 {% endblock %}

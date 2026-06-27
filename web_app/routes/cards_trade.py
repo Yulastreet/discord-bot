@@ -125,6 +125,23 @@ def register_cards_trade_routes(app, deps):
         return jsonify({"ok": True, "trade_id": tid,
                         "link": f"{request.host_url.rstrip('/')}/cards/trade/{tid}"})
 
+    @app.route("/api/cards/trade/preset", methods=["GET"])
+    def api_cards_trade_preset():
+        """Cartes d'un trade existant -> pre-selection du builder (contre-offre)."""
+        uid = _uid()
+        if not uid:
+            return jsonify({"error": "login"}), 401
+        from database import card_trade_get, card_trade_items
+        tid = int(request.args.get("trade_id") or 0)
+        trade = card_trade_get(tid)
+        if not trade:
+            return jsonify({"error": "introuvable"}), 404
+        offer = [it["card_id"] for it in card_trade_items(tid, side="offer")]
+        req = [it["card_id"] for it in card_trade_items(tid, side="request")]
+        return jsonify({"offer": offer, "request": req,
+                        "sender_id": str(trade["sender_id"]),
+                        "receiver_id": str(trade["receiver_id"])})
+
     @app.route("/api/cards/trade/send", methods=["POST"])
     def api_cards_trade_send():
         """Poste l'embed du trade dans le salon cartes du serveur via le bot."""
