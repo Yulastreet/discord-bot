@@ -18,6 +18,48 @@ def register_cards_trade_routes(app, deps):
         return render_template("cards_trade.html", active_nav="cards_trade",
                                me_id=uid, me_name=d.get("username") or "Moi")
 
+    @app.route("/cards/trade/<int:tid>", methods=["GET"])
+    def cards_trade_view_page(tid):
+        uid = _uid()
+        from database import card_trade_get, card_trade_items, get_db
+        trade = card_trade_get(tid)
+        if not trade:
+            return render_template("404.html"), 404
+        offer = card_trade_items(tid, side="offer")
+        request_items = card_trade_items(tid, side="request")
+
+        import os as _os
+        renders_dir = _os.path.join(_os.path.dirname(_os.path.dirname(
+            _os.path.dirname(_os.path.abspath(__file__)))), "static", "card_renders")
+
+        def _img(cid, image_url):
+            for ext in (".webp", ".png"):
+                if _os.path.exists(_os.path.join(renders_dir, f"{cid}{ext}")):
+                    return f"/static/card_renders/{cid}{ext}"
+            return image_url or None
+
+        for it in offer + request_items:
+            it["img"] = _img(it["card_id"], it.get("image_url"))
+
+        def _who(user_id):
+            conn = get_db(); c = conn.cursor()
+            r = c.execute(
+                "SELECT username, avatar_url FROM guild_members WHERE user_id = ? "
+                "ORDER BY (guild_id = ?) DESC LIMIT 1",
+                (str(user_id), str(trade.get("guild_id") or ""))).fetchone()
+            conn.close()
+            return {"id": str(user_id),
+                    "name": (r["username"] if r and r["username"] else "Joueur"),
+                    "avatar": (r["avatar_url"] if r else "")}
+
+        sender = _who(trade["sender_id"])
+        receiver = _who(trade["receiver_id"])
+        is_part = bool(uid and uid in (str(trade["sender_id"]), str(trade["receiver_id"])))
+        return render_template("cards_trade_view.html", active_nav="cards_trade",
+                               trade=trade, offer=offer, request_items=request_items,
+                               sender=sender, receiver=receiver,
+                               is_participant=is_part, me_id=uid, tid=tid)
+
     @app.route("/api/cards/trade/common-guilds", methods=["GET"])
     def api_cards_trade_common_guilds():
         uid = _uid()

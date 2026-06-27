@@ -417,11 +417,28 @@ window.loadMembers=loadMembers; window.pickMember=pickMember; window.validateTra
 window.closeValidate=closeValidate; window.shareTrade=shareTrade; window.sendTrade=sendTrade;
 window.setView=setView;
 
+async function preselectMember(uid){
+  if(!uid || uid===ME_ID) return;
+  const col = await loadCollection(uid);
+  SIDE.R.uid = uid; SIDE.R.sel = new Set(); SIDE.R.page = 1; SIDE.R.cards = col.cards;
+  document.getElementById('addBtn').style.display='none';
+  document.getElementById('rightSide').classList.add('has-person');
+  document.getElementById('changeBtn').style.display='';
+  document.getElementById('rightContent').style.display='block';
+  document.getElementById('rightName').textContent = (col.user && col.user.name) || 'Joueur';
+  document.getElementById('rightAv').src = (col.user && col.user.avatar) || '';
+  setSub('R'); renderSide('R'); updateValidate();
+}
+
 (async ()=>{
   const col = await loadCollection(ME_ID);
   document.getElementById('leftAv').src = (col.user && col.user.avatar) || '';
   SIDE.L.cards = col.cards;
   setSub('L'); renderSide('L');
+  // pre-selection via ?with=<uid>&guild=<gid> (depuis /cardtrade ou une contre-offre)
+  const p = new URLSearchParams(location.search);
+  const withId = p.get('with');
+  if(withId){ if(p.get('guild')) pickGuild = p.get('guild'); await preselectMember(withId); }
 })();
 </script>
 {% endblock %}

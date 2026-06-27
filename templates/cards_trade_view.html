@@ -1,0 +1,104 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_trade' %}
+{% block title %}Trade #{{ tid }} · TookBot{% endblock %}
+{% block crumb %}Échange #{{ tid }}{% endblock %}
+
+{% block content %}
+<style>
+  .tv-wrap{ max-width:980px; margin:0 auto; }
+  .tv-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .tv-title{ font-size:22px; font-weight:900; }
+  .tv-badge{ padding:5px 12px; border-radius:999px; font-weight:800; font-size:13px; }
+  .tv-cols{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .tv-cols{ grid-template-columns:1fr; } }
+  .tv-side{ background:var(--bg-1); border:1px solid var(--border); border-radius:16px; padding:16px; }
+  .tv-side h3{ margin:0 0 12px; font-size:15px; display:flex; align-items:center; gap:9px; }
+  .tv-side h3 img{ width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--bg-2); }
+  .tv-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; }
+  .tv-card{ position:relative; border-radius:10px; overflow:hidden; aspect-ratio:2/3;
+    border:2px solid var(--rcol,#3a3a3a); background:var(--bg-2); }
+  .tv-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tv-card .noimg{ width:100%; height:100%; display:grid; place-items:center; font-size:24px; color:var(--text-3); }
+  .tv-card .nm{ position:absolute; left:0; right:0; bottom:0; padding:4px 6px; font-size:10px; font-weight:700;
+    background:linear-gradient(transparent, rgba(0,0,0,.85)); color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tv-card .cnt{ position:absolute; top:4px; right:4px; font-size:10px; font-weight:800; color:#fff;
+    background:rgba(0,0,0,.65); border-radius:6px; padding:1px 5px; }
+  .tv-empty{ color:var(--text-2); text-align:center; padding:40px 10px; font-size:13px; }
+  .tv-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+  .tv-btn{ padding:11px 18px; border-radius:12px; border:1px solid var(--border); cursor:pointer;
+    font-weight:800; font-size:14px; text-decoration:none; display:inline-flex; align-items:center; gap:7px; }
+  .tv-btn.green{ background:var(--accent); color:#10240a; border:none; }
+  .tv-btn.grey{ background:var(--bg-2); color:var(--text); }
+  .tv-hint{ font-size:13px; margin-top:12px; color:var(--text-2); min-height:18px; }
+</style>
+
+{% set rcol = {'common':'#9aa0a6','rare':'#4cb5f9','epic':'#b06bf2','legendary':'#f5a524','mythic':'#ff5470','secret':'#c084fc'} %}
+{% set st_color = {'pending':'#C8F050','accepted':'#4ade80','refused':'#ff3d57','cancelled':'#9aa0a6','countered':'#fbbf24'} %}
+{% set st_label = {'pending':'⏳ En attente','accepted':'✅ Acceptée','refused':'❌ Refusée','cancelled':'⊘ Annulée','countered':'🔄 Contre-offre'} %}
+{% set status = trade.status or 'pending' %}
+
+<div class="tv-wrap">
+  <div class="tv-head">
+    <div class="tv-title">🔄 Trade #{{ tid }}</div>
+    <span class="tv-badge" style="background:{{ st_color.get(status,'#C8F050') }}22; color:{{ st_color.get(status,'#C8F050') }};">
+      {{ st_label.get(status, status) }}</span>
+  </div>
+
+  <div class="tv-cols">
+    <div class="tv-side">
+      <h3><img src="{{ sender.avatar or '' }}" alt=""> 📤 {{ sender.name }} propose</h3>
+      <div class="tv-grid">
+        {% for it in offer %}
+        <div class="tv-card" style="--rcol:{{ rcol.get(it.rarity,'#3a3a3a') }}">
+          {% if it.img %}<img src="{{ it.img }}" loading="lazy">{% else %}<div class="noimg">🃏</div>{% endif %}
+          {% if it.qty > 1 %}<span class="cnt">×{{ it.qty }}</span>{% endif %}
+          <div class="nm">{{ it.name }}</div>
+        </div>
+        {% else %}
+        <div class="tv-empty" style="grid-column:1/-1;">(rien)</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="tv-side">
+      <h3><img src="{{ receiver.avatar or '' }}" alt=""> 📥 {{ receiver.name }} donnerait</h3>
+      <div class="tv-grid">
+        {% for it in request_items %}
+        <div class="tv-card" style="--rcol:{{ rcol.get(it.rarity,'#3a3a3a') }}">
+          {% if it.img %}<img src="{{ it.img }}" loading="lazy">{% else %}<div class="noimg">🃏</div>{% endif %}
+          {% if it.qty > 1 %}<span class="cnt">×{{ it.qty }}</span>{% endif %}
+          <div class="nm">{{ it.name }}</div>
+        </div>
+        {% else %}
+        <div class="tv-empty" style="grid-column:1/-1;">(rien)</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="tv-actions">
+    {% if is_participant and status == 'pending' %}
+      {% set other = receiver.id if me_id == sender.id else sender.id %}
+      <button class="tv-btn green" onclick="sendServer()">📤 Envoyer sur le serveur</button>
+      <a class="tv-btn grey" href="/cards/trade?with={{ other }}&guild={{ trade.guild_id or '' }}&from={{ tid }}">🔁 Contre-offrir / Modifier</a>
+    {% endif %}
+    <a class="tv-btn grey" href="/cards/trade">✍️ Ouvrir le builder</a>
+  </div>
+  <div class="tv-hint" id="tvHint"></div>
+</div>
+
+<script>
+const TRADE_ID = {{ tid }};
+async function sendServer(){
+  const hint = document.getElementById('tvHint');
+  hint.textContent = 'Envoi sur le serveur…';
+  try{
+    const r = await fetch('/api/cards/trade/send', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ trade_id:TRADE_ID })});
+    const d = await r.json();
+    hint.textContent = d.ok ? '✅ Trade posté dans le salon cartes du serveur.' : '❌ '+(d.error||'Erreur');
+  }catch(e){ hint.textContent='Erreur réseau.'; }
+}
+window.sendServer = sendServer;
+</script>
+{% endblock %}

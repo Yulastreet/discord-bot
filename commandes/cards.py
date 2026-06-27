@@ -3065,6 +3065,16 @@ def setup_cards_commands(bot, deps):
     except Exception as _e:
         print(f"[cards] add_view TradeView: {_e}")
 
+    _TRADE_DASHBOARD_URL = "https://dashboard.tookbot.click"
+
+    def _trade_view(tid):
+        """TradeView + bouton lien 'Ouvrir sur le dashboard' (page /cards/trade/<id>)."""
+        v = TradeView()
+        v.add_item(discord.ui.Button(
+            label="Ouvrir sur le dashboard", style=discord.ButtonStyle.link,
+            url=f"{_TRADE_DASHBOARD_URL}/cards/trade/{tid}", emoji="🎛️"))
+        return v
+
     # Hook web -> bot : le bouton "Envoyer" du dashboard poste l'embed du trade
     # dans le salon cartes (meme embed + meme TradeView que /cardtrade).
     async def _hook_post_trade(bot_, gid, payload):
@@ -3085,7 +3095,7 @@ def setup_cards_commands(bot, deps):
         embed = _build_trade_embed(tid, sender, receiver, "pending")
         msg = await channel.send(
             content=f"<@{trade['receiver_id']}>",
-            embed=embed, view=TradeView(),
+            embed=embed, view=_trade_view(tid),
             allowed_mentions=discord.AllowedMentions(users=True))
         card_trade_set_status(tid, "pending", message_id=msg.id)
 
@@ -3192,7 +3202,7 @@ def setup_cards_commands(bot, deps):
                     return
 
                 embed = _build_trade_embed(tid, interaction.user, receiver_member, "pending")
-                view = TradeView()
+                view = _trade_view(tid)
                 await interaction.response.send_message(
                     content=f"{receiver_member.mention}",
                     embed=embed, view=view,
@@ -3535,6 +3545,10 @@ def setup_cards_commands(bot, deps):
             await inter.response.send_modal(TradeModal(target_user_id=joueur.id))
         _build_btn.callback = _open_builder
         view.add_item(_build_btn)
+        _gid = interaction.guild.id if interaction.guild else ""
+        view.add_item(discord.ui.Button(
+            label="🎛️ Ouvrir sur le dashboard", style=discord.ButtonStyle.link,
+            url=f"{_dash}/cards/trade?with={joueur.id}&guild={_gid}", row=0))
         view.add_item(discord.ui.Button(
             label=f"📖 Classeur de {joueur.display_name}"[:80], style=discord.ButtonStyle.link,
             url=f"{_dash}/cards/collection/{joueur.id}", row=1))
