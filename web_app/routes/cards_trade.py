@@ -87,7 +87,8 @@ def register_cards_trade_routes(app, deps):
             return jsonify({"error": "guild_id requis"}), 400
         from database import get_db
         conn = get_db(); c = conn.cursor()
-        where = "guild_id = ? AND COALESCE(is_bot,0)=0 AND user_id != ?"
+        where = ("guild_id = ? AND COALESCE(is_bot,0)=0 AND user_id != ? "
+                 "AND EXISTS (SELECT 1 FROM user_cards uc WHERE uc.user_id = guild_members.user_id)")
         params = [gid, uid]
         if q:
             where += " AND LOWER(username) LIKE ?"
