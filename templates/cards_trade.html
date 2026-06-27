@@ -97,9 +97,12 @@
     font-weight:800; font-size:14px; background:var(--accent); color:#10240a; white-space:nowrap;
     box-shadow:0 6px 18px rgba(60,200,80,.28); }
   .tr-share:hover{ filter:brightness(1.08); }
+  .tr-change{ padding:9px 14px; border-radius:11px; border:1px solid var(--border); cursor:pointer;
+    font-weight:700; font-size:12.5px; background:var(--bg-2); color:var(--text); white-space:nowrap; }
+  .tr-change:hover{ border-color:var(--accent); }
   .tr-midspacer{ flex:1; }
-  .tr-validate{ padding:14px 22px; border-radius:13px; border:none; cursor:pointer; font-weight:900; font-size:16px;
-    background:#ff5470; color:#fff; box-shadow:0 8px 24px rgba(255,84,112,.4); width:100%; }
+  .tr-validate{ padding:13px 30px; border-radius:13px; border:none; cursor:pointer; font-weight:900; font-size:15px;
+    background:#ff5470; color:#fff; box-shadow:0 8px 24px rgba(255,84,112,.4); white-space:nowrap; }
   .tr-validate:disabled{ opacity:.4; cursor:default; box-shadow:none; }
   .tr-selinfo{ font-size:12px; color:var(--text-2); text-align:center; }
   .tr-midspacer.b{ flex:1; }
@@ -161,6 +164,7 @@
     <!-- MILIEU : partager (haut) + valider (centre) -->
     <div class="tr-mid">
       <button class="tr-share" id="shareBtn" onclick="shareTrade()">🔗 Partager</button>
+      <button class="tr-change" id="changeBtn" onclick="openPicker()" style="display:none;">🔁 Changer joueur</button>
       <div class="tr-midspacer"></div>
       <button class="tr-validate" id="validateBtn" onclick="validateTrade()" disabled>VALIDER</button>
       <div class="tr-selinfo" id="selInfo">Aucune carte sélectionnée</div>
@@ -189,7 +193,6 @@
             <option value="30">30 / page</option><option value="60">60 / page</option>
             <option value="120" selected>120 / page</option><option value="250">250 / page</option><option value="500">500 / page</option>
           </select>
-          <button class="binder-side" style="width:auto;height:auto;padding:8px 11px;font-size:12px;font-weight:700;" onclick="openPicker()">Changer</button>
         </div>
         <div class="binder-row">
           <button class="binder-side" id="rightPrev" onclick="pageSide('R',-1)">◀</button>
@@ -360,6 +363,7 @@ async function pickMember(uid){
   SIDE.R.uid = uid; SIDE.R.sel = new Set(); SIDE.R.page = 1;
   document.getElementById('addBtn').style.display='none';
   document.getElementById('rightSide').classList.add('has-person');
+  document.getElementById('changeBtn').style.display='';
   document.getElementById('rightContent').style.display='block';
   document.getElementById('rightName').textContent = name;
   document.getElementById('rightAv').src = avatar || '';
