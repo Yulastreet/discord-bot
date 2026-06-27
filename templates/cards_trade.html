@@ -9,8 +9,9 @@
   .content{ max-width:none !important; margin:0 !important; }
   .tr-wrap{ max-width:none; margin:0; }
   /* colonnes calees a GAUCHE (auto) pour que les 2 classeurs rentrent en entier */
-  .tr-board{ display:grid; grid-template-columns:auto 128px 1fr; justify-content:start; gap:8px; align-items:start; }
-  @media (max-width:1100px){ .tr-board{ grid-template-columns:1fr; } }
+  .tr-board{ display:flex; align-items:stretch; justify-content:flex-start; gap:8px; }
+  .tr-side{ flex:0 0 auto; }
+  @media (max-width:1100px){ .tr-board{ flex-wrap:wrap; } }
   .tr-side{ padding:0; }
   /* barre d'outils IDENTIQUE a l'onglet Collection */
   .tr-head{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; max-width:100%; }
@@ -84,13 +85,14 @@
   .tr-pager button:disabled{ opacity:.35; cursor:default; }
   .tr-empty{ color:var(--text-2); text-align:center; padding:50px 10px; }
   /* zone droite vide : bouton "Ajouter" centre */
-  #rightSide{ display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 240px); }
-  #rightSide.has-person{ display:block; min-height:0; }
+  #rightSide{ flex:1 1 auto; display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 240px); }
+  #rightSide.has-person{ flex:0 0 auto; display:block; min-height:0; }
+  #rightContent .tr-head{ justify-content:center; }
   .tr-add{ min-width:280px; padding:46px 24px; border:2px dashed var(--border); border-radius:16px; background:transparent;
     color:var(--text-2); cursor:pointer; font-size:15px; font-weight:700; }
   .tr-add:hover{ border-color:var(--accent); color:var(--text); }
   /* colonne centrale : Partager (haut) + VALIDER (centre) comme le screen */
-  .tr-mid{ display:flex; flex-direction:column; align-items:center; gap:14px; min-height:60vh; }
+  .tr-mid{ flex:1 1 auto; min-width:150px; display:flex; flex-direction:column; align-items:center; gap:14px; }
   .tr-share{ padding:11px 18px; border-radius:13px; border:1px solid var(--border); cursor:pointer;
     font-weight:800; font-size:14px; background:var(--accent); color:#10240a; white-space:nowrap;
     box-shadow:0 6px 18px rgba(60,200,80,.28); }
