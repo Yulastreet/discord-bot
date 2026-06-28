@@ -1075,8 +1075,11 @@ function renderWishlist(list) {
     const img = c.img
       ? `<img src="${profileEscapeHtml(c.img)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';this.parentNode.innerHTML='🃏';">`
       : '🃏';
-    return `<div title="${profileEscapeHtml(c.name)}" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;border:2px solid ${rcol};background:var(--bg-2);display:grid;place-items:center;font-size:22px;color:var(--text-3);">
-      ${img}
+    const badge = c.owned
+      ? `<div style="position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;background:rgba(40,200,90,.9);color:#fff;border-radius:6px;padding:1px 5px;">✓ possédée</div>`
+      : `<div style="position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;background:rgba(220,60,80,.9);color:#fff;border-radius:6px;padding:1px 5px;">✗ manquante</div>`;
+    return `<div title="${profileEscapeHtml(c.name)}" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;border:2px solid ${rcol};background:var(--bg-2);display:grid;place-items:center;font-size:22px;color:var(--text-3);${c.owned?'':'opacity:.82;'}">
+      ${img}${badge}
       <div style="position:absolute;left:0;right:0;bottom:0;padding:4px 6px;font-size:10px;font-weight:700;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${profileEscapeHtml(c.name)}</div>
     </div>`;
   }).join('');

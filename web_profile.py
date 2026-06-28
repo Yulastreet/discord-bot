@@ -202,9 +202,13 @@ def build_user_profile_payload(db, user_id, guild_id=None, is_owner=False):
                         return f"/static/card_renders/{cid}{ext}"
                 return url or None
 
+            _owned = {r["card_id"] for r in db.execute(
+                "SELECT DISTINCT card_id FROM user_cards WHERE user_id = ?",
+                (user_id,)).fetchall()}
             wishlist = [{
                 "id": w["card_id"], "name": w["name"], "rarity": w.get("rarity"),
                 "univers": w.get("universe") or "",
+                "owned": w["card_id"] in _owned,
                 "img": _wimg(w["card_id"], w.get("image_url")),
             } for w in wishlist_list(user_id)]
         except Exception:
