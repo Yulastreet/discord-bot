@@ -4004,7 +4004,7 @@ def wishlist_toggle(user_id, card_id) -> bool:
 def wishlist_list(user_id):
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
-        "SELECT w.card_id, w.added_at, c.name, c.rarity, c.universe "
+        "SELECT w.card_id, w.added_at, c.name, c.rarity, c.universe, c.image_url "
         "FROM card_wishlist w JOIN cards c ON c.id = w.card_id "
         "WHERE w.user_id = ? ORDER BY c.name", (str(user_id),)).fetchall()
     conn.close()
