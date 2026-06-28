@@ -487,20 +487,6 @@ def register_cards_owner_routes(app, deps):
                        "WHERE user_id = ? LIMIT 1", (str(user_id),)).fetchone()
         conn.close()
         total = sum(it["count"] for it in items)
-
-        # wishlist du joueur (cartes recherchees) -> affichee sur son profil
-        from database import wishlist_list as _wl
-        owned_ids = set(grouped.keys())
-        wishlist = []
-        for w in _wl(user_id):
-            wcid = w["card_id"]
-            wishlist.append({
-                "id": wcid, "name": w["name"], "rarity": w.get("rarity"),
-                "univers": w.get("universe") or "",
-                "owned": wcid in owned_ids,
-                "img": _render_url(wcid, w.get("image_url")),
-            })
-
         return jsonify({
             "user": {
                 "id": str(user_id),
@@ -508,7 +494,7 @@ def register_cards_owner_routes(app, deps):
                 "avatar": (m["avatar_url"] if m else None),
             },
             "total": total, "unique": len(items),
-            "cards": items, "wishlist": wishlist,
+            "cards": items,
         })
 
     # ===== MA GUILDE (page membre, visibilite par role) =====

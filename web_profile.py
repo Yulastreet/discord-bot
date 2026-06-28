@@ -187,6 +187,29 @@ def build_user_profile_payload(db, user_id, guild_id=None, is_owner=False):
                 card_guild = dict(cg)
         except Exception:
             card_guild = None
+    # Wishlist cartes du joueur (owner only) -> affichee sur le profil
+    wishlist = None
+    if is_owner:
+        try:
+            from database import wishlist_list
+            import os
+            from services.card_render import _ROOT as _RR
+            _rdir = os.path.join(_RR, "static", "card_renders")
+
+            def _wimg(cid, url):
+                for ext in (".webp", ".png"):
+                    if os.path.exists(os.path.join(_rdir, f"{cid}{ext}")):
+                        return f"/static/card_renders/{cid}{ext}"
+                return url or None
+
+            wishlist = [{
+                "id": w["card_id"], "name": w["name"], "rarity": w.get("rarity"),
+                "univers": w.get("universe") or "",
+                "img": _wimg(w["card_id"], w.get("image_url")),
+            } for w in wishlist_list(user_id)]
+        except Exception:
+            wishlist = None
+
     return {
         "user": user,
         "scope": scope,
@@ -197,4 +220,5 @@ def build_user_profile_payload(db, user_id, guild_id=None, is_owner=False):
         "type_counts": _type_counts(db, user_id, activity_guild),
         "duel": _dict(duel),
         "card_guild": card_guild,
+        "wishlist": wishlist,
     }

@@ -162,6 +162,12 @@
     <div id="cardsInventory" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;font-size:var(--t-sm);"></div>
   </div>
 
+  <!-- Wishlist du joueur (owner-only) -->
+  <div class="card" id="wishlistPanel" style="display:none;">
+    <div class="eyebrow">⭐ Wishlist <span id="wishlistCount" class="muted" style="font-size:var(--t-sm);"></span></div>
+    <div id="wishlistGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;margin-top:12px;"></div>
+  </div>
+
   <!-- Cards List modal owner-only -->
   <div id="cardsListScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:300;display:none;place-items:center;padding:20px;">
     <div onclick="event.stopPropagation()" style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:900px;width:100%;max-height:85vh;display:flex;flex-direction:column;">
@@ -1058,6 +1064,25 @@ function profileEscapeHtml(s) {
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+const WISH_RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
+function renderWishlist(list) {
+  const panel = document.getElementById('wishlistPanel');
+  if (!panel) return;
+  if (!list || !list.length) { panel.style.display = 'none'; return; }
+  document.getElementById('wishlistCount').textContent = `(${list.length})`;
+  document.getElementById('wishlistGrid').innerHTML = list.map(c => {
+    const rcol = WISH_RCOL[c.rarity] || '#3a3a3a';
+    const img = c.img
+      ? `<img src="${profileEscapeHtml(c.img)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';this.parentNode.innerHTML='🃏';">`
+      : '🃏';
+    return `<div title="${profileEscapeHtml(c.name)}" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;border:2px solid ${rcol};background:var(--bg-2);display:grid;place-items:center;font-size:22px;color:var(--text-3);">
+      ${img}
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:4px 6px;font-size:10px;font-weight:700;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${profileEscapeHtml(c.name)}</div>
+    </div>`;
+  }).join('');
+  panel.style.display = 'block';
+}
+
 function renderDiscordProfile(data) {
   const u = data.user || {};
   const card = document.getElementById('discordProfileCard');
@@ -1117,6 +1142,9 @@ function display(data) {
       cgEl.innerHTML = `<span class="muted">🛡️ Aucune guilde de cartes.</span>`;
     }
   }
+
+  // Wishlist (owner-only : presente seulement si le payload la contient)
+  renderWishlist(data.wishlist);
 
   // Activité sparkline
   renderSparkline(data.activity || []);
