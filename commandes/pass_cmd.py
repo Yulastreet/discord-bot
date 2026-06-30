@@ -132,6 +132,18 @@ def setup_pass_commands(bot, deps):
                                   granted_by=f"promo:{code}",
                                   note=f"{rvalue} jours de Pass via code promo")
                 applied_label = f"**Pass offert** ({rvalue} jour(s)) 🎁"
+            elif rtype == "roll":
+                from database import roll_give_user as _rg
+                _rg(interaction.user.id, rvalue)
+                applied_label = f"**+{rvalue} Roll(s)** 🎟️"
+            elif rtype == "epic_roll":
+                from database import user_item_add as _uia
+                _uia(interaction.user.id, "epic_roll", rvalue)
+                applied_label = f"**+{rvalue} Epic Roll(s)** 🟣"
+            elif rtype == "golden_roll":
+                from database import user_item_add as _uia
+                _uia(interaction.user.id, "golden_roll", rvalue)
+                applied_label = f"**+{rvalue} Golden Roll(s)** 🌈"
         except Exception as e:
             print(f"[redeem] reward apply err type={rtype}: {e}")
             await interaction.response.send_message(

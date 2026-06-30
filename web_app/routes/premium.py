@@ -656,6 +656,14 @@ def register_premium_routes(app, deps):
             return jsonify({"error": "owner_only"}), 403
         return jsonify({"codes": promo_codes_list()})
 
+    _PROMO_TYPES = ("tookcoins", "pass_xp", "premium_grant_days",
+                    "roll", "epic_roll", "golden_roll")
+
+    def _gen_promo_code(length=8):
+        import secrets
+        charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sans 0/O/1/I ambigus
+        return "".join(secrets.choice(charset) for _ in range(length))
+
     @app.route("/api/owner/promo-codes", methods=["POST"])
     def api_owner_promo_codes_create():
         if not _is_owner_session():
@@ -666,26 +674,51 @@ def register_premium_routes(app, deps):
         try:
             rvalue   = int(data.get("reward_value", 0))
             max_uses = int(data.get("max_uses", 1))
+            count    = int(data.get("count", 1))
         except (TypeError, ValueError):
             return jsonify({"error": "valeurs numeriques invalides"}), 400
         expires_at = (data.get("expires_at") or "").strip() or None
         note       = (data.get("note") or "").strip() or None
 
-        if not code or len(code) > 32:
-            return jsonify({"error": "code requis (max 32 chars)"}), 400
-        if rtype not in ("tookcoins", "pass_xp", "premium_grant_days"):
+        if rtype not in _PROMO_TYPES:
             return jsonify({"error": "reward_type invalide"}), 400
         if rvalue <= 0:
             return jsonify({"error": "reward_value doit etre > 0"}), 400
         if max_uses < 1 or max_uses > 100000:
             return jsonify({"error": "max_uses invalide"}), 400
+        if count < 1 or count > 500:
+            return jsonify({"error": "count invalide (1-500)"}), 400
 
-        try:
-            promo_code_create(code, rtype, rvalue, max_uses=max_uses,
-                              expires_at=expires_at, note=note)
-        except Exception as e:
-            return jsonify({"error": f"creation echouee: {e}"}), 400
-        return jsonify({"success": True, "code": code})
+        # 1 seul code : utilise le code fourni (ou auto). Plusieurs : genere des
+        # codes aleatoires, le champ 'code' sert alors de prefixe optionnel.
+        created = []
+        if count == 1:
+            final = code or _gen_promo_code()
+            if len(final) > 32:
+                return jsonify({"error": "code requis (max 32 chars)"}), 400
+            try:
+                promo_code_create(final, rtype, rvalue, max_uses=max_uses,
+                                  expires_at=expires_at, note=note)
+            except Exception as e:
+                return jsonify({"error": f"creation echouee: {e}"}), 400
+            created.append(final)
+        else:
+            prefix = (code + "-") if code else ""
+            for _ in range(count):
+                for _try in range(6):
+                    cand = (prefix + _gen_promo_code())[:32]
+                    if promo_code_get(cand):
+                        continue
+                    try:
+                        promo_code_create(cand, rtype, rvalue, max_uses=max_uses,
+                                          expires_at=expires_at, note=note)
+                        created.append(cand)
+                        break
+                    except Exception:
+                        continue
+        return jsonify({"success": True, "codes": created,
+                        "code": created[0] if created else None,
+                        "count": len(created)})
 
     @app.route("/api/owner/promo-codes/<code>", methods=["DELETE"])
     def api_owner_promo_codes_delete(code):
