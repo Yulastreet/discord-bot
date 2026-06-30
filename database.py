@@ -6482,7 +6482,8 @@ def daily_claim_get(user_id):
         return {"last_claim_date": None, "streak": 0, "total_claims": 0}
     return dict(row)
 
-PROMO_REWARD_TYPES = {"tookcoins", "pass_xp", "premium_grant_days"}
+PROMO_REWARD_TYPES = {"tookcoins", "pass_xp", "premium_grant_days",
+                      "roll", "epic_roll", "golden_roll"}
 
 def promo_code_create(code, reward_type, reward_value, max_uses=1, expires_at=None, note=None):
     if reward_type not in PROMO_REWARD_TYPES:
