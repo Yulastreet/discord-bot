@@ -1,0 +1,191 @@
+{% extends "_base.html" %}
+{% set active_nav = 'cards_boss_sim' %}
+{% block title %}Simuler fin de combat · Owner{% endblock %}
+{% block crumb %}Owner · Simuler fin de combat{% endblock %}
+
+{% block content %}
+<style>
+  .sim-wrap{ max-width:820px; margin:0 auto; }
+  .sim-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .sim-row input[type=text]{ flex:1; min-width:120px; }
+  .sim-row input[type=number]{ width:120px; }
+  .sim-row select{ width:90px; }
+  .sim-players{ margin:14px 0; }
+  .sim-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .btn-sim{ padding:11px 18px; border-radius:12px; border:none; cursor:pointer; font-weight:800; }
+  .btn-win{ background:var(--green,#4ade80); color:#0a1a0c; }
+  .btn-lose{ background:var(--red,#ff3d57); color:#fff; }
+  .btn-rm{ background:var(--bg-2); color:var(--text); border:1px solid var(--border); border-radius:9px; cursor:pointer; padding:6px 10px; }
+
+  /* ===== overlay identique au live boss ===== */
+  #endOverlay{ position:fixed; inset:0; z-index:80; display:none; place-items:center;
+    background:rgba(5,3,10,.82); backdrop-filter:blur(3px); }
+  #endOverlay.show{ display:grid; }
+  #endCard{ text-align:center; background:rgba(20,13,30,.92); border:1px solid #5a4570;
+    border-radius:18px; padding:26px 30px; box-shadow:0 18px 60px rgba(0,0,0,.7); max-width:min(620px,92vw); }
+  #endCard .big{ font-size:60px; font-weight:900; }
+  #endCard .sub{ font-size:16px; color:#e0d3f2; margin-top:12px; }
+  .victory .big{ color:var(--green,#4ade80); text-shadow:0 0 30px rgba(74,222,128,.6); }
+  .defeat .big{ color:var(--red,#ff3d57); text-shadow:0 0 30px rgba(255,61,87,.6); }
+  .chest-wrap{ position:relative; display:grid; place-items:center; height:150px; margin:16px 0 8px; }
+  .chest{ height:140px; width:auto; filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
+  .chest.shake{ animation:chestShake 1.3s ease-in-out; }
+  @keyframes chestShake{ 0%,100%{transform:rotate(0)} 20%{transform:rotate(-9deg)} 40%{transform:rotate(9deg)}
+    60%{transform:rotate(-6deg) scale(1.05)} 80%{transform:rotate(5deg) scale(1.1)} }
+  .rw-hdr{ font-size:14px; color:#c8b8e6; margin:6px 0 10px; }
+  .rw-list{ display:flex; flex-direction:column; gap:8px; max-height:52vh; overflow-y:auto; }
+  .rw-row{ display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:8px 12px; }
+  .rw-anim{ width:58px; height:58px; flex:none; display:grid; place-items:center; }
+  .rw-anim img{ width:100%; height:100%; object-fit:contain; }
+  .rw-note{ width:50px; height:50px; flex:none; object-fit:contain; opacity:0;
+    transition:opacity .25s, transform .25s; transform:scale(.6); }
+  .rw-note.show{ opacity:1; transform:scale(1); }
+  .rw-body{ flex:1; min-width:0; text-align:left; }
+  .rw-head{ font-weight:700; }
+  .rw-dmg{ font-size:12px; color:#b9a7d6; margin-left:6px; }
+  .rw-items{ font-size:12px; color:#d8ccf0; margin-top:2px; }
+  .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center; }
+  .lose-boom img{ width:100%; height:100%; object-fit:contain; }
+  .end-close{ margin-top:16px; }
+</style>
+
+<section class="hero">
+  <div class="parallax-layer">
+    <span class="eyebrow">Owner only</span>
+    <h1>Simuler une fin de combat.</h1>
+    <p class="hero-sub">Prévisualise l'écran de fin, les notes A-F et leurs animations sans lancer un vrai raid.</p>
+  </div>
+</section>
+
+<section class="card sim-wrap">
+  <h2 style="margin-bottom:12px;">Joueurs</h2>
+  <div class="sim-players" id="simPlayers"></div>
+  <button class="btn-rm" id="addPlayer" type="button">＋ Ajouter un joueur</button>
+
+  <div class="sim-actions">
+    <button class="btn-sim btn-win" id="simWin" type="button">🎉 Simuler VICTOIRE</button>
+    <button class="btn-sim btn-lose" id="simLose" type="button">💀 Simuler DÉFAITE</button>
+  </div>
+</section>
+
+<!-- overlay de fin -->
+<div id="endOverlay"><div id="endCard"></div></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
+
+// ----- éditeur de joueurs -----
+let PID = 0;
+function addPlayerRow(name, grade, dmg, died){
+  const id = ++PID;
+  const row = document.createElement('div');
+  row.className = 'sim-row';
+  row.dataset.id = id;
+  row.innerHTML = `
+    <input type="text" class="sp-name" value="${esc(name||('Joueur '+id))}" placeholder="Nom">
+    <select class="sp-grade">
+      ${['A','B','C','D','E','F'].map(g=>`<option value="${g}" ${g===(grade||'A')?'selected':''}>Note ${g}</option>`).join('')}
+    </select>
+    <input type="number" class="sp-dmg" value="${dmg||1000000}" min="0" title="Dégâts">
+    <label style="font-size:12px;display:flex;align-items:center;gap:4px;">
+      <input type="checkbox" class="sp-died" ${died?'checked':''}> mort 💀</label>
+    <button class="btn-rm sp-del" type="button">✕</button>`;
+  row.querySelector('.sp-del').addEventListener('click', ()=> row.remove());
+  document.getElementById('simPlayers').appendChild(row);
+}
+document.getElementById('addPlayer').addEventListener('click', ()=> addPlayerRow());
+
+// items factices selon la note (juste pour l'aperçu visuel)
+function fakeItems(grade){
+  const ESS={A:7500,B:6250,C:5000,D:4250,E:3250,F:2000};
+  const ROLLS={A:12,B:9,C:6,D:4,E:2,F:1};
+  const items=[`✨ +${fmt(ESS[grade]||5000)} essences`];
+  if(ROLLS[grade]) items.push(`🎟️ +${ROLLS[grade]} rolls`);
+  if(grade==='A') items.push('🎴 Carte ×2');
+  else if(grade!=='F') items.push('🎴 Carte');
+  return items;
+}
+function collectPlayers(){
+  return [...document.querySelectorAll('#simPlayers .sim-row')].map((r,i)=>{
+    const grade = r.querySelector('.sp-grade').value;
+    return {
+      name: r.querySelector('.sp-name').value || ('Joueur '+(i+1)),
+      grade, dmg: parseInt(r.querySelector('.sp-dmg').value,10)||0,
+      died: r.querySelector('.sp-died').checked, mvp: i===0,
+      items: fakeItems(grade),
+    };
+  });
+}
+
+// ----- animations (même logique que le live boss) -----
+function playFrames(container, kind, count, fps, onDone){
+  const img=document.createElement('img'); container.appendChild(img);
+  let f=1; const dt=1000/(fps||10);
+  img.src=`/cards/img/bossweb/${kind}/${f}`;
+  const iv=setInterval(()=>{ f++;
+    if(f>count){ clearInterval(iv); if(onDone) onDone(); return; }
+    img.src=`/cards/img/bossweb/${kind}/${f}`; }, dt);
+}
+function playGradeAnim(i, grade){
+  const anim=document.getElementById('rwanim'+i), note=document.getElementById('rwnote'+i);
+  if(!anim||!note) return;
+  note.src=`/cards/img/bossweb/note/${grade}`;
+  const kind=(grade==='A'||grade==='B')?'win':((grade==='C')?null:'winbad');
+  if(!kind){ note.classList.add('show'); return; }
+  playFrames(anim, kind, 6, 11, ()=> note.classList.add('show'));
+}
+function closeBtn(){ return `<div class="end-close"><button class="btn-rm" onclick="document.getElementById('endOverlay').classList.remove('show')">Fermer</button></div>`; }
+
+function renderRewards(players){
+  const c=document.getElementById('endCard'); c.className='victory';
+  const rows=players.map((p,i)=>`
+    <div class="rw-row">
+      <div class="rw-anim" id="rwanim${i}"></div>
+      <div class="rw-body">
+        <div class="rw-head">${p.mvp?'👑 ':''}<b>${esc(p.name)}</b>
+          <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts${p.died?' 💀':''}</span></div>
+        <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
+      </div>
+      <img class="rw-note" id="rwnote${i}" alt="">
+    </div>`).join('') || '<div class="sub">—</div>';
+  c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+    <div class="rw-hdr">Aperçu des récompenses (simulation)</div>
+    <div class="rw-list">${rows}</div>${closeBtn()}`;
+  players.forEach((p,i)=> setTimeout(()=> playGradeAnim(i, p.grade||'C'), 350*i));
+}
+
+function simWin(){
+  const players=collectPlayers();
+  if(!players.length){ window.toast?.('Ajoute au moins un joueur'); return; }
+  const ov=document.getElementById('endOverlay'), c=document.getElementById('endCard');
+  ov.classList.add('show'); c.className='victory';
+  c.innerHTML=`<div class="big">🎉 VICTOIRE</div>
+    <div class="chest-wrap"><img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
+    <div class="sub">Ouverture du butin…</div>`;
+  const chest=document.getElementById('chest');
+  setTimeout(()=>{ chest.classList.remove('shake'); chest.src='/cards/img/chest/open'; }, 1300);
+  setTimeout(()=> renderRewards(players), 2600);
+}
+function simLose(){
+  const ov=document.getElementById('endOverlay'), c=document.getElementById('endCard');
+  ov.classList.add('show'); c.className='defeat';
+  c.innerHTML=`<div class="lose-boom" id="loseBoom"></div>
+    <div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>${closeBtn()}`;
+  playFrames(document.getElementById('loseBoom'), 'lose', 8, 9);
+}
+
+document.getElementById('simWin').addEventListener('click', simWin);
+document.getElementById('simLose').addEventListener('click', simLose);
+document.getElementById('endOverlay').addEventListener('click', e=>{ if(e.target.id==='endOverlay') e.currentTarget.classList.remove('show'); });
+
+// 3 joueurs par défaut
+addPlayerRow('Carry DPS','A',5200000,false);
+addPlayerRow('Healer','B',900000,false);
+addPlayerRow('Tank mort','C',1500000,true);
+</script>
+{% endblock %}

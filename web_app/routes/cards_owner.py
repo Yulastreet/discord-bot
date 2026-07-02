@@ -978,6 +978,12 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         return render_template("owner_cards_event.html", active_nav="cards_event")
 
+    @app.route("/owner/cards-boss-sim")
+    def owner_cards_boss_sim_page():
+        if not _is_owner_session():
+            return jsonify({"error": "owner only"}), 403
+        return render_template("owner_cards_boss_sim.html", active_nav="cards_boss_sim")
+
 
     @app.route("/api/owner/cards-settings", methods=["GET", "POST"])
     def api_owner_cards_settings():
