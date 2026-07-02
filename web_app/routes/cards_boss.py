@@ -46,6 +46,21 @@ def register_cards_boss_routes(app, deps):
             return "", 404
         return send_file(f, mimetype="image/png", max_age=86400)
 
+    _BOSSWEB_DIR = _os.path.join(_ROOT, "assets", "cardrelated", "bossweb")
+    _BOSSWEB_FOLDERS = {"win": "winanimation", "winbad": "winbadanimation",
+                        "lose": "loseanimation", "note": "note"}
+
+    @app.route("/cards/img/bossweb/<kind>/<name>", methods=["GET"])
+    def cards_img_bossweb(kind, name):
+        folder = _BOSSWEB_FOLDERS.get(str(kind).lower())
+        name = "".join(ch for ch in str(name) if ch.isalnum()).upper()  # 1..8 ou A..F
+        if not folder or not name:
+            return "", 404
+        f = _os.path.join(_BOSSWEB_DIR, folder, f"{name}.png")
+        if not _os.path.exists(f):
+            return "", 404
+        return send_file(f, mimetype="image/png", max_age=86400)
+
     @app.route("/cards/img/rarity/<key>", methods=["GET"])
     def cards_img_rarity(key):
         key = "".join(ch for ch in str(key) if ch.isalnum()).lower()

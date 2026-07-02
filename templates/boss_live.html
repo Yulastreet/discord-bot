@@ -223,6 +223,16 @@
   #endCard .sub{ font-size:18px; color:#e0d3f2; margin-top:12px; }
   .victory .big{ color:var(--green); text-shadow:0 0 30px rgba(74,222,128,.6); }
   .defeat .big{ color:var(--red); text-shadow:0 0 30px rgba(255,61,87,.6); }
+  /* animations de note (stickman + lettre) */
+  .rw-anim{ width:58px; height:58px; flex:none; display:grid; place-items:center; }
+  .rw-anim img{ width:100%; height:100%; object-fit:contain; }
+  .rw-note{ width:50px; height:50px; flex:none; object-fit:contain; opacity:0;
+    transition:opacity .25s, transform .25s; transform:scale(.6); }
+  .rw-note.show{ opacity:1; transform:scale(1); }
+  .rw-row{ display:flex; align-items:center; gap:10px; }
+  .rw-body{ flex:1; min-width:0; text-align:left; }
+  .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center; }
+  .lose-boom img{ width:100%; height:100%; object-fit:contain; }
   /* coffre (chargement des recompenses) */
   .chest-wrap{ position:relative; display:grid; place-items:center; height:150px; margin:16px 0 8px; }
   .chest{ height:140px; width:auto; display:inline-block; filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
@@ -708,8 +718,10 @@ function showEnd(victory){
       chest.src='/cards/img/chest/open'; document.getElementById('burst').classList.add('go'); }, 1300);
     setTimeout(()=>{ chestDone=true; if(pendingRewards) renderRewards(pendingRewards); }, 2800);
   } else {
-    c.innerHTML = `<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>`;
+    c.innerHTML = `<div class="lose-boom" id="loseBoom"></div>
+      <div class="big">💀 DÉFAITE</div><div class="sub" id="killCount">L'équipe a été anéantie.</div>`;
     ov.classList.add('show');
+    playFrames(document.getElementById('loseBoom'), 'lose', 8, 9);  // stickman fleche + explosion
     startKill();
   }
 }
@@ -717,18 +729,46 @@ function renderRewards(data){
   if(!chestDone){ pendingRewards = data; return; }   // attend la fin de l'animation du coffre
   const c=document.getElementById('endCard');
   c.className='victory';
-  const rows=(data.players||[]).map(p=>`
+  const rows=(data.players||[]).map((p,i)=>`
     <div class="rw-row">
-      <div class="rw-head">${p.mvp?'👑 ':'▫️ '}<b>${esc(p.name)}</b>
-        <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts</span></div>
-      <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
+      <div class="rw-anim" id="rwanim${i}"></div>
+      <div class="rw-body">
+        <div class="rw-head">${p.mvp?'👑 ':''}<b>${esc(p.name)}</b>
+          <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts${p.died?' 💀':''}</span></div>
+        <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
+      </div>
+      <img class="rw-note" id="rwnote${i}" alt="">
     </div>`).join('') || '<div class="sub">—</div>';
   c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
     <div class="rw-hdr">${esc(data.header||'')}</div>
     <div class="rw-list">${rows}</div>
     <div class="sub" id="killCount"></div>`;
+  // joue l'anim stickman + revele la lettre, en decale par joueur
+  (data.players||[]).forEach((p,i)=> setTimeout(()=>playGradeAnim(i, (p.grade||'C')), 350*i));
   startKill();   // compte a rebours 10s a partir de l'affichage des recompenses
 }
+// joue une sequence de frames PNG (1..count) dans un <img>, puis onDone
+function playFrames(container, kind, count, fps, onDone){
+  const img=document.createElement('img'); container.appendChild(img);
+  let f=1; const dt=1000/(fps||10);
+  img.src=`/cards/img/bossweb/${kind}/${f}`;
+  const iv=setInterval(()=>{
+    f++;
+    if(f>count){ clearInterval(iv); if(onDone) onDone(); return; }
+    img.src=`/cards/img/bossweb/${kind}/${f}`;
+  }, dt);
+}
+function playGradeAnim(i, grade){
+  const anim=document.getElementById('rwanim'+i);
+  const note=document.getElementById('rwnote'+i);
+  if(!anim||!note) return;
+  note.src=`/cards/img/bossweb/note/${grade}`;
+  // A/B = bonne note (slash) · D/E/F = mauvaise note (chute) · C = neutre
+  const kind = (grade==='A'||grade==='B') ? 'win' : ((grade==='C') ? null : 'winbad');
+  if(!kind){ note.classList.add('show'); return; }
+  playFrames(anim, kind, 6, 11, ()=> note.classList.add('show'));
+}
+
 let killStarted=false;
 function startKill(){
   if(killStarted) return; killStarted=true;
