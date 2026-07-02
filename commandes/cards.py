@@ -2814,7 +2814,9 @@ def setup_cards_commands(bot, deps):
 
         class _QtySelect(discord.ui.Select):
             def __init__(self, slot_n):
-                opts = [discord.SelectOption(label=str(i), value=str(i)) for i in range(1, 17)]
+                unit = int((_slot_by_n.get(slot_n) or {}).get("price") or 0)
+                opts = [discord.SelectOption(label=f"{i}  ·  {i * unit} ✨", value=str(i))
+                        for i in range(1, 17)]
                 super().__init__(placeholder="Quantité (1 à 16)", options=opts,
                                  min_values=1, max_values=1, custom_id="shop_qty")
                 self.slot_n = slot_n
