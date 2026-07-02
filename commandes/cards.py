@@ -2787,6 +2787,8 @@ def setup_cards_commands(bot, deps):
             rel = None
         bal = currency_get(interaction.user.id)
         _slot_by_n = {int(s["slot"]): s for s in slots}
+        # un seul panneau ephemere par joueur (evite le spam si on reclique les slots)
+        _panels = {}
 
         def _do_purchase(user_id, slot_n, qty):
             """Achete qty fois le slot. Retourne (bought, last_res, err)."""
@@ -2856,9 +2858,19 @@ def setup_cards_commands(bot, deps):
                     s = _slot_by_n.get(slot_n) or {}
                     name = (s.get("label") or f"Slot {slot_n}")[:60]
                     price = int(s.get("price") or 0)
-                    await inter.response.send_message(
-                        f"🛒 **{name}** — {price} ✨ pièce.\nCombien veux-tu en acheter ?",
-                        view=_QtyView(slot_n), ephemeral=True)
+                    content = f"🛒 **{name}** — {price} ✨ pièce.\nCombien veux-tu en acheter ?"
+                    view = _QtyView(slot_n)
+                    # reutilise le panneau ephemere existant du joueur (pas de spam)
+                    prev = _panels.get(inter.user.id)
+                    if prev is not None:
+                        try:
+                            await prev.edit_original_response(content=content, view=view)
+                            await inter.response.defer()  # ack silencieux, aucun nouveau message
+                            return
+                        except (discord.NotFound, discord.HTTPException):
+                            _panels.pop(inter.user.id, None)
+                    await inter.response.send_message(content, view=view, ephemeral=True)
+                    _panels[inter.user.id] = inter
                 return _cb
 
         embed = discord.Embed(
