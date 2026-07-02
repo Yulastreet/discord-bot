@@ -231,11 +231,13 @@
   .rw-note.show{ opacity:1; transform:scale(1); }
   .rw-row{ display:flex; align-items:center; gap:10px; }
   .rw-body{ flex:1; min-width:0; text-align:left; }
-  .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center; }
+  .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center;
+    background:radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,0) 62%); }
   .lose-boom img{ width:100%; height:100%; object-fit:contain; }
   /* grand reveal de TA note (stickman + grosse lettre au-dessus du tableau) */
   .rw-big{ display:grid; place-items:center; gap:2px; margin:4px 0 12px; min-height:150px; }
-  .rw-big-anim{ width:150px; height:150px; display:grid; place-items:center; }
+  .rw-big-anim{ width:150px; height:150px; display:grid; place-items:center;
+    background:radial-gradient(circle, rgba(255,255,255,.92), rgba(255,255,255,.35) 42%, rgba(255,255,255,0) 68%); border-radius:50%; }
   .rw-big-anim img{ width:100%; height:100%; object-fit:contain; }
   .rw-big-note{ width:130px; height:130px; object-fit:contain; opacity:0; transform:scale(.5);
     transition:opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); filter:drop-shadow(0 0 22px rgba(255,255,255,.45)); }
@@ -731,7 +733,7 @@ function showEnd(victory){
     c.innerHTML = `<div class="lose-boom" id="loseBoom"></div>
       <div class="big">💀 DÉFAITE</div><div class="sub" id="killCount">L'équipe a été anéantie.</div>`;
     ov.classList.add('show');
-    playFrames(document.getElementById('loseBoom'), 'lose', 8, 9);  // stickman fleche + explosion
+    playFrames(document.getElementById('loseBoom'), 'lose', 8, 7);  // stickman fleche + explosion
     startKill();
   }
 }
@@ -764,7 +766,7 @@ function renderRewards(data){
   const reveal=()=>{ bigNote.classList.add('show');
     setTimeout(()=>{ const l=document.getElementById('rwList'); if(l) l.style.opacity='1'; startKill(); }, 550); };
   if(!kind) reveal();
-  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 11, reveal);
+  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, reveal);
 }
 // joue une sequence de frames PNG (1..count) dans un <img>, puis onDone
 function playFrames(container, kind, count, fps, onDone){
