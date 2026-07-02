@@ -1453,8 +1453,8 @@ async def _finish(bot, bid, msg, view, log, victory):
             dead = " 💀" if int(p.get("died") or 0) else ""
             loot_lines.append(f"{gemo} {crown}<@{p['user_id']}> _(note {grade} · dégâts {_fmt(p['damage'])}{dead})_\n"
                               f"　→ " + " · ".join(parts_loot))
-            web_rewards.append({"name": p["name"], "dmg": int(p["damage"]),
-                                "mvp": idx == 0, "grade": grade,
+            web_rewards.append({"uid": str(p["user_id"]), "name": p["name"],
+                                "dmg": int(p["damage"]), "mvp": idx == 0, "grade": grade,
                                 "died": bool(int(p.get("died") or 0)), "items": web_items})
         reward_hdr = {
             "secret": f"{_cemoji(bot, 'goldenroll', '🌈')} Avatar secret → **Golden Roll** pour tous",

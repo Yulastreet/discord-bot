@@ -150,7 +150,8 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             end_ts = (r["t"] if r else None) or 0
             if end_ts and _t.time() - end_ts > _DEAD_GRACE:
                 return render_template("404.html"), 404
-        return render_template("boss_live.html", boss_id=bid, boss_name=boss.get("name") or "Boss")
+        return render_template("boss_live.html", boss_id=bid,
+                               boss_name=boss.get("name") or "Boss", me_uid=uid)
 
     @app.route("/cards/boss/<int:bid>/state", methods=["GET"])
     def cards_boss_state(bid):

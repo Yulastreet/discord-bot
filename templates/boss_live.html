@@ -233,6 +233,15 @@
   .rw-body{ flex:1; min-width:0; text-align:left; }
   .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center; }
   .lose-boom img{ width:100%; height:100%; object-fit:contain; }
+  /* grand reveal de TA note (stickman + grosse lettre au-dessus du tableau) */
+  .rw-big{ display:grid; place-items:center; gap:2px; margin:4px 0 12px; min-height:150px; }
+  .rw-big-anim{ width:150px; height:150px; display:grid; place-items:center; }
+  .rw-big-anim img{ width:100%; height:100%; object-fit:contain; }
+  .rw-big-note{ width:130px; height:130px; object-fit:contain; opacity:0; transform:scale(.5);
+    transition:opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); filter:drop-shadow(0 0 22px rgba(255,255,255,.45)); }
+  .rw-big-note.show{ opacity:1; transform:scale(1); }
+  .rw-note-mini{ width:34px; height:34px; flex:none; object-fit:contain; }
+  .rw-list{ transition:opacity .4s; }
   /* coffre (chargement des recompenses) */
   .chest-wrap{ position:relative; display:grid; place-items:center; height:150px; margin:16px 0 8px; }
   .chest{ height:140px; width:auto; display:inline-block; filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
@@ -406,6 +415,7 @@
 
 <script>
 const BID = {{ boss_id }};
+const MY_UID = "{{ me_uid }}";
 const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', neant:'🕳' };
 const ELEM_LABEL = { eclat:'Éclat', abysse:'Abysse', fracture:'Fracture', vif:'Vif', neant:'Néant' };
 const APT_EMOJI  = { berserker:'🩸', gardien:'🛡️', soigneur:'💚', duelliste:'⚔️', executeur:'💀' };
@@ -729,23 +739,32 @@ function renderRewards(data){
   if(!chestDone){ pendingRewards = data; return; }   // attend la fin de l'animation du coffre
   const c=document.getElementById('endCard');
   c.className='victory';
-  const rows=(data.players||[]).map((p,i)=>`
+  const players=data.players||[];
+  const hero=players.find(p=>String(p.uid)===MY_UID) || players[0] || {};
+  const heroGrade=hero.grade||'C';
+  const rows=players.map((p)=>`
     <div class="rw-row">
-      <div class="rw-anim" id="rwanim${i}"></div>
+      <img class="rw-note-mini" src="/cards/img/bossweb/note/${p.grade||'C'}" alt="">
       <div class="rw-body">
         <div class="rw-head">${p.mvp?'👑 ':''}<b>${esc(p.name)}</b>
           <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts${p.died?' 💀':''}</span></div>
         <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
       </div>
-      <img class="rw-note" id="rwnote${i}" alt="">
     </div>`).join('') || '<div class="sub">—</div>';
   c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+    <div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div>
+      <img class="rw-big-note" id="rwBigNote" alt=""></div>
     <div class="rw-hdr">${esc(data.header||'')}</div>
-    <div class="rw-list">${rows}</div>
+    <div class="rw-list" id="rwList" style="opacity:0">${rows}</div>
     <div class="sub" id="killCount"></div>`;
-  // joue l'anim stickman + revele la lettre, en decale par joueur
-  (data.players||[]).forEach((p,i)=> setTimeout(()=>playGradeAnim(i, (p.grade||'C')), 350*i));
-  startKill();   // compte a rebours 10s a partir de l'affichage des recompenses
+  // 1) grand stickman de TA note -> 2) grosse lettre -> 3) tableau des recompenses
+  const bigNote=document.getElementById('rwBigNote');
+  bigNote.src=`/cards/img/bossweb/note/${heroGrade}`;
+  const kind=(heroGrade==='A'||heroGrade==='B')?'win':((heroGrade==='C')?null:'winbad');
+  const reveal=()=>{ bigNote.classList.add('show');
+    setTimeout(()=>{ const l=document.getElementById('rwList'); if(l) l.style.opacity='1'; startKill(); }, 550); };
+  if(!kind) reveal();
+  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 11, reveal);
 }
 // joue une sequence de frames PNG (1..count) dans un <img>, puis onDone
 function playFrames(container, kind, count, fps, onDone){

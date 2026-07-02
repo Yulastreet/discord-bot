@@ -47,6 +47,14 @@
   .rw-items{ font-size:12px; color:#d8ccf0; margin-top:2px; }
   .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center; }
   .lose-boom img{ width:100%; height:100%; object-fit:contain; }
+  .rw-big{ display:grid; place-items:center; gap:2px; margin:4px 0 12px; min-height:150px; }
+  .rw-big-anim{ width:150px; height:150px; display:grid; place-items:center; }
+  .rw-big-anim img{ width:100%; height:100%; object-fit:contain; }
+  .rw-big-note{ width:130px; height:130px; object-fit:contain; opacity:0; transform:scale(.5);
+    transition:opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); filter:drop-shadow(0 0 22px rgba(255,255,255,.45)); }
+  .rw-big-note.show{ opacity:1; transform:scale(1); }
+  .rw-note-mini{ width:34px; height:34px; flex:none; object-fit:contain; }
+  .rw-list{ transition:opacity .4s; }
   .end-close{ margin-top:16px; }
 </style>
 
@@ -143,20 +151,28 @@ function closeBtn(){ return `<div class="end-close"><button class="btn-rm" oncli
 
 function renderRewards(players){
   const c=document.getElementById('endCard'); c.className='victory';
-  const rows=players.map((p,i)=>`
+  const heroGrade=(players[0]||{}).grade||'C';
+  const rows=players.map((p)=>`
     <div class="rw-row">
-      <div class="rw-anim" id="rwanim${i}"></div>
+      <img class="rw-note-mini" src="/cards/img/bossweb/note/${p.grade||'C'}" alt="">
       <div class="rw-body">
         <div class="rw-head">${p.mvp?'👑 ':''}<b>${esc(p.name)}</b>
           <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts${p.died?' 💀':''}</span></div>
         <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
       </div>
-      <img class="rw-note" id="rwnote${i}" alt="">
     </div>`).join('') || '<div class="sub">—</div>';
   c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+    <div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div>
+      <img class="rw-big-note" id="rwBigNote" alt=""></div>
     <div class="rw-hdr">Aperçu des récompenses (simulation)</div>
-    <div class="rw-list">${rows}</div>${closeBtn()}`;
-  players.forEach((p,i)=> setTimeout(()=> playGradeAnim(i, p.grade||'C'), 350*i));
+    <div class="rw-list" id="rwList" style="opacity:0">${rows}</div>${closeBtn()}`;
+  const bigNote=document.getElementById('rwBigNote');
+  bigNote.src=`/cards/img/bossweb/note/${heroGrade}`;
+  const kind=(heroGrade==='A'||heroGrade==='B')?'win':((heroGrade==='C')?null:'winbad');
+  const reveal=()=>{ bigNote.classList.add('show');
+    setTimeout(()=>{ const l=document.getElementById('rwList'); if(l) l.style.opacity='1'; }, 550); };
+  if(!kind) reveal();
+  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 11, reveal);
 }
 
 function simWin(){
