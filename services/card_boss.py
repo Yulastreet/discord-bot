@@ -1198,7 +1198,10 @@ async def _run_boss(bot, bid, msg, view):
             Retourne (new_hp, ko_bool)."""
             real = max(1, int(dmg * _apt_taken_mult(_apt(p))))
             new_hp = max(0, p["hp"] - real)
-            boss_participant_update(bid, p["user_id"], hp=new_hp, add_taken=real)
+            # taken = reel (post-reduction) ; taken_raw = brut (avant reduction) pour la note tank
+            boss_participant_update(bid, p["user_id"], hp=new_hp, add_taken=real,
+                                    add_taken_raw=max(1, int(dmg)),
+                                    died=(True if new_hp <= 0 else None))
             return new_hp, (new_hp <= 0), real
 
         def _apply_heals():
@@ -1398,13 +1401,13 @@ async def _finish(bot, bid, msg, view, log, victory):
                 _gqp(p["user_id"], "boss", 1)
         except Exception as e:
             print(f"[boss guild quest] {e}")
-        # Essences : base + part de degats, CAPPÉ par tier (T5 = 5000 max, hors bonus roue)
-        _ESS_CAP = {1: 800, 2: 1500, 3: 2500, 4: 3500, 5: 5000}
-        cap = _ESS_CAP.get(tier, 1000)
+        # Note A-F par joueur (degats/tank/heal) -> pilote toutes les recompenses
+        grades = _grade_map(winners)
         loot_lines = []
         web_rewards = []   # version structuree pour le live dashboard
         for idx, p in enumerate(winners):
-            base_ess = min(cap, tier * 100 + p["damage"] // 1000)
+            grade = grades.get(str(p["user_id"]), "C")
+            base_ess = int(_ESS_BASE.get(tier, 1000) * _GRADE_ESS_MULT.get(grade, 1.0))
             # Bonus loot de guilde (+%) selon le palier du niveau de sa guilde
             _bpct = 0
             try:
@@ -1415,34 +1418,44 @@ async def _finish(bot, bid, msg, view, log, victory):
             if _bpct:
                 base_ess = int(base_ess * (1 + _bpct / 100))
             ess = essence_reward_add(p["user_id"], base_ess)
+            gemo = _cemoji(bot, "boss" + grade.lower(), grade)
             parts_loot = [f"+{_fmt(ess)} ✨"]
             web_items = [f"✨ +{_fmt(ess)} essences"]   # emojis unicode pour le web
-            # 1. Recompense carte selon la rareté de l'avatar
+            # 1. Recompense carte selon la rareté de l'avatar (quantite selon la note)
             if avatar_rar == "secret":
-                user_item_add(p["user_id"], "golden_roll", 1)
-                parts_loot.append(f"{_cemoji(bot, 'goldenroll', '🌈')} **Golden Roll**")
-                web_items.append("🌈 Golden Roll")
+                gq = _GOLDEN_BY_GRADE.get(grade, 0)
+                if gq:
+                    user_item_add(p["user_id"], "golden_roll", gq)
+                    sfx = f" ×{gq}" if gq > 1 else ""
+                    parts_loot.append(f"{_cemoji(bot, 'goldenroll', '🌈')} **Golden Roll{sfx}**")
+                    web_items.append(f"🌈 Golden Roll{sfx}")
             elif avatar_rar == "mythic":
-                user_item_add(p["user_id"], "mythic_fragment", 1)
+                user_item_add(p["user_id"], "mythic_fragment", 1)   # toujours 1
                 parts_loot.append("🔴 **Fragment Mythic**")
                 web_items.append("🔴 Fragment Mythic")
             elif avatar_card:
-                user_card_add(p["user_id"], avatar_card["id"])
-                parts_loot.append(f"🎴 **{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}")
-                web_items.append(f"🎴 {avatar_card['name']} {RARITY_HINT.get(avatar_rar,'')}")
-            # 2. Rolls bonus selon le tier (+ bonus loot guilde)
-            n_rolls = _boss_roll_reward(tier)
+                cq = _CARD_COPIES.get(grade, 1)
+                if cq:
+                    for _ in range(cq):
+                        user_card_add(p["user_id"], avatar_card["id"])
+                    sfx = f" ×{cq}" if cq > 1 else ""
+                    parts_loot.append(f"🎴 **{avatar_card['name']}** {RARITY_HINT.get(avatar_rar,'')}{sfx}")
+                    web_items.append(f"🎴 {avatar_card['name']} {RARITY_HINT.get(avatar_rar,'')}{sfx}")
+            # 2. Rolls bonus DETERMINISTES selon tier x note (+ bonus loot guilde)
+            n_rolls = _BOSS_ROLLS_BY_GRADE.get(tier, {}).get(grade, 0)
             if _bpct and n_rolls:
                 n_rolls = int(round(n_rolls * (1 + _bpct / 100)))
             if n_rolls:
                 roll_give_user(p["user_id"], n_rolls)
                 parts_loot.append(f"{_cemoji(bot, 'roll', '🎟️')} **+{n_rolls} rolls**")
                 web_items.append(f"🎟️ +{n_rolls} rolls")
-            crown = "👑 " if idx == 0 else "▫️ "
-            loot_lines.append(f"{crown}<@{p['user_id']}> _(dégâts {_fmt(p['damage'])})_\n"
+            crown = "👑 " if idx == 0 else ""
+            dead = " 💀" if int(p.get("died") or 0) else ""
+            loot_lines.append(f"{gemo} {crown}<@{p['user_id']}> _(note {grade} · dégâts {_fmt(p['damage'])}{dead})_\n"
                               f"　→ " + " · ".join(parts_loot))
             web_rewards.append({"name": p["name"], "dmg": int(p["damage"]),
-                                "mvp": idx == 0, "items": web_items})
+                                "mvp": idx == 0, "grade": grade,
+                                "died": bool(int(p.get("died") or 0)), "items": web_items})
         reward_hdr = {
             "secret": f"{_cemoji(bot, 'goldenroll', '🌈')} Avatar secret → **Golden Roll** pour tous",
             "mythic": "🔴 Avatar mythic → **Fragment Mythic** pour tous",
@@ -1456,13 +1469,14 @@ async def _finish(bot, bid, msg, view, log, victory):
                                         "tier": tier, "players": web_rewards})
         embed = discord.Embed(
             title=f"🎉 {boss['name']} vaincu ! (Tier {tier})",
-            description=f"Bravo {mentions} !\n{reward_hdr}\n\n**🎁 Butin (par dégâts) :**\n"
+            description=f"Bravo {mentions} !\n{reward_hdr}\n\n**🎁 Butin (note A-F : dégâts · tank · soin) :**\n"
                         + ("\n".join(loot_lines) or "—")
                         + "\n\n_Fragments & Golden Rolls : voir_ `/cardinventory`.",
             color=0x4ade80)
         await ch.send(content=mentions, embed=embed,
                        allowed_mentions=discord.AllowedMentions(users=True))
     else:
+        boss_event_add(bid, "defeat", {"boss": boss["name"], "tier": tier})
         embed = discord.Embed(
             title=f"💀 Défaite contre {boss['name']}",
             description=f"L'équipe ({mentions}) a été anéantie. Le boss survit. Pas de butin.",
@@ -1472,3 +1486,55 @@ async def _finish(bot, bid, msg, view, log, victory):
 
 
 RARITY_HINT = {"epic": "🟣", "legendary": "🟠", "mythic": "🔴", "secret": "🌈"}
+
+
+# ===== SYSTEME DE NOTE (A-F) DES RECOMPENSES DE RAID =====
+# Chaque joueur est note sur sa part ABSOLUE d'un pool lie au boss :
+#   DPS   = degats / degats totaux equipe
+#   Tank  = brut encaisse (Gardien) / brut total encaisse par l'equipe
+#   Heal  = soin prodigue / PV reels perdus par l'equipe
+# score = meilleure part + 0.25 * 2e part. A a 35% (~2x la part juste) -> dur.
+_ESS_BASE = {1: 800, 2: 1500, 3: 2500, 4: 3500, 5: 5000}
+_GRADE_ESS_MULT = {"A": 1.5, "B": 1.25, "C": 1.0, "D": 0.85, "E": 0.65, "F": 0.4}
+_BOSS_ROLLS_BY_GRADE = {
+    1: {"A": 1, "B": 0, "C": 0, "D": 0, "E": 0, "F": 0},
+    2: {"A": 1, "B": 1, "C": 0, "D": 0, "E": 0, "F": 0},
+    3: {"A": 2, "B": 1, "C": 1, "D": 0, "E": 0, "F": 0},
+    4: {"A": 5, "B": 4, "C": 3, "D": 2, "E": 1, "F": 0},
+    5: {"A": 12, "B": 9, "C": 6, "D": 4, "E": 2, "F": 1},
+}
+_CARD_COPIES = {"A": 2, "B": 1, "C": 1, "D": 1, "E": 1, "F": 0}
+_GOLDEN_BY_GRADE = {"A": 2, "B": 1, "C": 1, "D": 1, "E": 0, "F": 0}
+_GRADE_LADDER = ["F", "E", "D", "C", "B", "A"]
+
+
+def _grade_band(score):
+    if score >= 0.35: return "A"
+    if score >= 0.25: return "B"
+    if score >= 0.15: return "C"
+    if score >= 0.08: return "D"
+    if score >= 0.03: return "E"
+    return "F"
+
+
+def _grade_map(winners):
+    """{user_id: 'A'..'F'} pour chaque vainqueur. Solo -> A. Mort -> C max."""
+    if not winners:
+        return {}
+    n = len(winners)
+    dmg_pool  = sum(max(0, int(p.get("damage") or 0)) for p in winners) or 1
+    tank_pool = sum(max(0, int(p.get("taken_raw") or 0)) for p in winners) or 1
+    heal_pool = sum(max(0, int(p.get("taken") or 0)) for p in winners) or 1
+    out = {}
+    for p in winners:
+        is_gardien = (p.get("aptitude") or "") == "gardien"
+        dmg_frac  = int(p.get("damage") or 0) / dmg_pool
+        tank_frac = (int(p.get("taken_raw") or 0) / tank_pool) if is_gardien else 0.0
+        heal_frac = min(1.0, int(p.get("heal") or 0) / heal_pool)
+        axes = sorted([dmg_frac, tank_frac, heal_frac], reverse=True)
+        score = axes[0] + 0.25 * axes[1]
+        g = "A" if n == 1 else _grade_band(score)
+        if int(p.get("died") or 0) and _GRADE_LADDER.index(g) > _GRADE_LADDER.index("C"):
+            g = "C"   # mort -> plafond C
+        out[str(p["user_id"])] = g
+    return out
