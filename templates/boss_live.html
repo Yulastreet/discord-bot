@@ -231,15 +231,15 @@
   .rw-note.show{ opacity:1; transform:scale(1); }
   .rw-row{ display:flex; align-items:center; gap:10px; }
   .rw-body{ flex:1; min-width:0; text-align:left; }
-  .lose-boom{ width:240px; height:180px; margin:0 auto 6px; display:grid; place-items:center;
+  .lose-boom{ width:340px; height:300px; margin:0 auto 6px; display:grid; place-items:center;
     background:radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,0) 62%); }
   .lose-boom img{ width:100%; height:100%; object-fit:contain; }
   /* grand reveal de TA note (stickman + grosse lettre au-dessus du tableau) */
-  .rw-big{ display:grid; place-items:center; gap:2px; margin:4px 0 12px; min-height:150px; }
-  .rw-big-anim{ width:150px; height:150px; display:grid; place-items:center;
+  .rw-big{ display:grid; place-items:center; gap:2px; margin:4px 0 12px; min-height:300px; }
+  .rw-big-anim{ width:300px; height:300px; display:grid; place-items:center;
     background:radial-gradient(circle, rgba(255,255,255,.92), rgba(255,255,255,.35) 42%, rgba(255,255,255,0) 68%); border-radius:50%; }
   .rw-big-anim img{ width:100%; height:100%; object-fit:contain; }
-  .rw-big-note{ width:130px; height:130px; object-fit:contain; opacity:0; transform:scale(.5);
+  .rw-big-note{ width:200px; height:200px; object-fit:contain; opacity:0; transform:scale(.5);
     transition:opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); filter:drop-shadow(0 0 22px rgba(255,255,255,.45)); }
   .rw-big-note.show{ opacity:1; transform:scale(1); }
   .rw-big-note{ display:block; margin:2px auto 8px; }
@@ -771,9 +771,9 @@ function runVictory(data){
   };
   c.className='victory bare';
   c.innerHTML=`<div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div></div>`;
-  const kind=(heroGrade==='A'||heroGrade==='B')?'win':((heroGrade==='C')?null:'winbad');
-  if(!kind) chestPhase();
-  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, chestPhase);
+  // A/B = slash (bonne note) · tout le reste (C-F) = chute
+  const kind=(heroGrade==='A'||heroGrade==='B')?'win':'winbad';
+  playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, chestPhase);
 }
 // DEFAITE : 1) grand stickman (fleche + explosion) -> 2) titre
 function runDefeat(){
