@@ -2786,6 +2786,50 @@ def setup_cards_commands(bot, deps):
             print(f"[cardshop] build_shop_image err: {e!r}")
             rel = None
         bal = currency_get(interaction.user.id)
+        _slot_by_n = {int(s["slot"]): s for s in slots}
+
+        def _do_purchase(user_id, slot_n, qty):
+            """Achete qty fois le slot. Retourne (bought, last_res, err)."""
+            bought = 0; last = None; err = None
+            for _ in range(qty):
+                res = purchase_slot(user_id, slot_n)
+                if res.get("ok"):
+                    bought += 1; last = res
+                else:
+                    err = res.get("error"); break
+            return bought, last, err
+
+        def _purchase_msg(bought, last, err):
+            if not bought:
+                return f"❌ {err or 'Achat échoué.'}"
+            total = last["price"] * bought
+            qtxt = f"{bought}× " if bought > 1 else ""
+            msg = (f"✅ **{qtxt}{last['item_name']}** acheté pour {total} ✨ !\n"
+                   f"Nouveau solde : **{last['new_balance']}** ✨")
+            if last["item_type"] == "border":
+                msg += "\nApplique-la avec `/cardcustom`."
+            if err:
+                msg += f"\n⚠️ Arrêt après {bought} : {err}"
+            return msg
+
+        class _QtySelect(discord.ui.Select):
+            def __init__(self, slot_n):
+                opts = [discord.SelectOption(label=str(i), value=str(i)) for i in range(1, 17)]
+                super().__init__(placeholder="Quantité (1 à 16)", options=opts,
+                                 min_values=1, max_values=1, custom_id="shop_qty")
+                self.slot_n = slot_n
+
+            async def callback(self, inter: discord.Interaction):
+                qty = int(self.values[0])
+                bought, last, err = _do_purchase(inter.user.id, self.slot_n, qty)
+                # edite le MEME message ephemere (pas de spam)
+                await inter.response.edit_message(content=_purchase_msg(bought, last, err),
+                                                  view=self.view)
+
+        class _QtyView(discord.ui.View):
+            def __init__(self, slot_n):
+                super().__init__(timeout=300)
+                self.add_item(_QtySelect(slot_n))
 
         class _ShopView(discord.ui.View):
             def __init__(self):
@@ -2807,16 +2851,12 @@ def setup_cards_commands(bot, deps):
 
             def _make_cb(self, slot_n):
                 async def _cb(inter: discord.Interaction):
-                    res = purchase_slot(inter.user.id, slot_n)
-                    if res.get("ok"):
-                        await inter.response.send_message(
-                            f"✅ **{res['item_name']}** acheté pour {res['price']} ✨ !\n"
-                            f"Nouveau solde : **{res['new_balance']}** ✨"
-                            + (f"\nApplique-la avec `/cardcustom`." if res['item_type'] == 'border' else ""),
-                            ephemeral=True)
-                    else:
-                        await inter.response.send_message(
-                            f"❌ {res.get('error', 'Achat échoué.')}", ephemeral=True)
+                    s = _slot_by_n.get(slot_n) or {}
+                    name = (s.get("label") or f"Slot {slot_n}")[:60]
+                    price = int(s.get("price") or 0)
+                    await inter.response.send_message(
+                        f"🛒 **{name}** — {price} ✨ pièce.\nCombien veux-tu en acheter ?",
+                        view=_QtyView(slot_n), ephemeral=True)
                 return _cb
 
         embed = discord.Embed(
