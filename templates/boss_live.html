@@ -242,8 +242,11 @@
   .rw-big-note{ width:130px; height:130px; object-fit:contain; opacity:0; transform:scale(.5);
     transition:opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); filter:drop-shadow(0 0 22px rgba(255,255,255,.45)); }
   .rw-big-note.show{ opacity:1; transform:scale(1); }
+  .rw-big-note{ display:block; margin:2px auto 8px; }
   .rw-note-mini{ width:34px; height:34px; flex:none; object-fit:contain; }
   .rw-list{ transition:opacity .4s; }
+  /* phase animation : boite transparente, juste le stickman + lueur sur fond assombri */
+  #endCard.bare{ background:transparent; border:none; box-shadow:none; padding:0; }
   /* coffre (chargement des recompenses) */
   .chest-wrap{ position:relative; display:grid; place-items:center; height:150px; margin:16px 0 8px; }
   .chest{ height:140px; width:auto; display:inline-block; filter:drop-shadow(0 6px 16px rgba(0,0,0,.6)); }
@@ -712,38 +715,25 @@ function playEvent(ev){
 }
 
 let dead = false;
-let pendingRewards = null, chestDone = false;
-function showEnd(victory){
-  if(ended) return; ended = true;
-  const ov=document.getElementById('endOverlay');
-  const c=document.getElementById('endCard');
-  c.className = victory ? 'victory' : 'defeat';
+let pendingRewards=null, victoryDone=false, COLD=false;
+
+function showEnd(victory, cold){
+  if(ended) return; ended=true; COLD=!!cold;
+  document.getElementById('endOverlay').classList.add('show');
   if(victory){
-    c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
-      <div class="chest-wrap"><div class="burst" id="burst"></div>
-        <img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
-      <div class="sub" id="chestSub">Ouverture du butin…</div>`;
-    ov.classList.add('show');
-    const chest=document.getElementById('chest');
-    // 1) secoue (1.3s) -> 2) s'ouvre (swap image + burst) -> 3) ~1.5s plus tard : recompenses
-    setTimeout(()=>{ chest.classList.remove('shake'); chest.classList.add('open');
-      chest.src='/cards/img/chest/open'; document.getElementById('burst').classList.add('go'); }, 1300);
-    setTimeout(()=>{ chestDone=true; if(pendingRewards) renderRewards(pendingRewards); }, 2800);
+    if(pendingRewards){ runVictory(pendingRewards); }
+    else { const c=document.getElementById('endCard'); c.className='victory';
+           c.innerHTML='<div class="big">🎉 VICTOIRE</div>'; }
   } else {
-    c.innerHTML = `<div class="lose-boom" id="loseBoom"></div>
-      <div class="big">💀 DÉFAITE</div><div class="sub" id="killCount">L'équipe a été anéantie.</div>`;
-    ov.classList.add('show');
-    playFrames(document.getElementById('loseBoom'), 'lose', 8, 7);  // stickman fleche + explosion
-    startKill();
+    runDefeat();
   }
 }
 function renderRewards(data){
-  if(!chestDone){ pendingRewards = data; return; }   // attend la fin de l'animation du coffre
-  const c=document.getElementById('endCard');
-  c.className='victory';
+  pendingRewards=data;
+  if(ended) runVictory(data);
+}
+function victoryTable(c, data, heroGrade){
   const players=data.players||[];
-  const hero=players.find(p=>String(p.uid)===MY_UID) || players[0] || {};
-  const heroGrade=hero.grade||'C';
   const rows=players.map((p)=>`
     <div class="rw-row">
       <img class="rw-note-mini" src="/cards/img/bossweb/note/${p.grade||'C'}" alt="">
@@ -753,20 +743,48 @@ function renderRewards(data){
         <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
       </div>
     </div>`).join('') || '<div class="sub">—</div>';
+  c.className='victory';
   c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
-    <div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div>
-      <img class="rw-big-note" id="rwBigNote" alt=""></div>
+    <img class="rw-big-note show" src="/cards/img/bossweb/note/${heroGrade}" alt="">
     <div class="rw-hdr">${esc(data.header||'')}</div>
-    <div class="rw-list" id="rwList" style="opacity:0">${rows}</div>
+    <div class="rw-list">${rows}</div>
     <div class="sub" id="killCount"></div>`;
-  // 1) grand stickman de TA note -> 2) grosse lettre -> 3) tableau des recompenses
-  const bigNote=document.getElementById('rwBigNote');
-  bigNote.src=`/cards/img/bossweb/note/${heroGrade}`;
+  startKill();
+}
+// VICTOIRE : 1) grand stickman (fond assombri + lueur) -> 2) coffre -> 3) tableau + note
+function runVictory(data){
+  if(victoryDone) return; victoryDone=true;
+  const c=document.getElementById('endCard');
+  const players=data.players||[];
+  const hero=players.find(p=>String(p.uid)===MY_UID)||players[0]||{};
+  const heroGrade=hero.grade||'C';
+  if(COLD){ victoryTable(c, data, heroGrade); return; }   // cold load : pas d'anim
+  const chestPhase=()=>{
+    c.className='victory';
+    c.innerHTML=`<div class="chest-wrap"><div class="burst" id="burst"></div>
+      <img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
+      <div class="sub">Ouverture du butin…</div>`;
+    const chest=document.getElementById('chest');
+    setTimeout(()=>{ chest.classList.remove('shake'); chest.classList.add('open');
+      chest.src='/cards/img/chest/open'; document.getElementById('burst')?.classList.add('go'); }, 1300);
+    setTimeout(()=> victoryTable(c, data, heroGrade), 2600);
+  };
+  c.className='victory bare';
+  c.innerHTML=`<div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div></div>`;
   const kind=(heroGrade==='A'||heroGrade==='B')?'win':((heroGrade==='C')?null:'winbad');
-  const reveal=()=>{ bigNote.classList.add('show');
-    setTimeout(()=>{ const l=document.getElementById('rwList'); if(l) l.style.opacity='1'; startKill(); }, 550); };
-  if(!kind) reveal();
-  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, reveal);
+  if(!kind) chestPhase();
+  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, chestPhase);
+}
+// DEFAITE : 1) grand stickman (fleche + explosion) -> 2) titre
+function runDefeat(){
+  const c=document.getElementById('endCard');
+  const finish=()=>{ c.className='defeat';
+    c.innerHTML=`<div class="big">💀 DÉFAITE</div><div class="sub" id="killCount">L'équipe a été anéantie.</div>`;
+    startKill(); };
+  if(COLD){ finish(); return; }
+  c.className='defeat bare';
+  c.innerHTML=`<div class="lose-boom" id="loseBoom"></div>`;
+  playFrames(document.getElementById('loseBoom'),'lose',8,7, finish);
 }
 // joue une sequence de frames PNG (1..count) dans un <img>, puis onDone
 function playFrames(container, kind, count, fps, onDone){
@@ -966,8 +984,8 @@ async function tick(){
       buildPlayers(d.players); lastSig='cold'; syncHp(d);
       const rew = d.events.find(e=>e.type==='rewards');
       const endE = d.events.find(e=>e.type==='end');
-      showEnd(endE ? endE.data.victory : d.boss.status==='defeated');
-      if(rew) renderRewards(rew.data);
+      if(rew) pendingRewards = rew.data;
+      showEnd(endE ? endE.data.victory : d.boss.status==='defeated', true);
       return;   // startKill (via showEnd) fermera la page
     }
     firstLoad = false;

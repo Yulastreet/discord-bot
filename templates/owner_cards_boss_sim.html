@@ -55,8 +55,10 @@
   .rw-big-note{ width:130px; height:130px; object-fit:contain; opacity:0; transform:scale(.5);
     transition:opacity .3s, transform .35s cubic-bezier(.3,1.6,.5,1); filter:drop-shadow(0 0 22px rgba(255,255,255,.45)); }
   .rw-big-note.show{ opacity:1; transform:scale(1); }
+  .rw-big-note{ display:block; margin:2px auto 8px; }
   .rw-note-mini{ width:34px; height:34px; flex:none; object-fit:contain; }
   .rw-list{ transition:opacity .4s; }
+  #endCard.bare{ background:transparent; border:none; box-shadow:none; padding:0; }
   .end-close{ margin-top:16px; }
 </style>
 
@@ -72,6 +74,17 @@
   <h2 style="margin-bottom:12px;">Joueurs</h2>
   <div class="sim-players" id="simPlayers"></div>
   <button class="btn-rm" id="addPlayer" type="button">＋ Ajouter un joueur</button>
+
+  <h2 style="margin:18px 0 8px;">Vitesse des animations (FPS)</h2>
+  <div class="sim-row"><label style="width:150px;">Bonne note (slash)</label>
+    <input type="range" id="fpsWin" min="3" max="20" value="8" style="flex:1;">
+    <span id="fpsWinV" style="width:40px;text-align:right;">8</span></div>
+  <div class="sim-row"><label style="width:150px;">Mauvaise note (chute)</label>
+    <input type="range" id="fpsWinbad" min="3" max="20" value="8" style="flex:1;">
+    <span id="fpsWinbadV" style="width:40px;text-align:right;">8</span></div>
+  <div class="sim-row"><label style="width:150px;">Défaite (explosion)</label>
+    <input type="range" id="fpsLose" min="3" max="20" value="7" style="flex:1;">
+    <span id="fpsLoseV" style="width:40px;text-align:right;">7</span></div>
 
   <div class="sim-actions">
     <button class="btn-sim btn-win" id="simWin" type="button">🎉 Simuler VICTOIRE</button>
@@ -151,9 +164,9 @@ function playGradeAnim(i, grade){
 }
 function closeBtn(){ return `<div class="end-close"><button class="btn-rm" onclick="document.getElementById('endOverlay').classList.remove('show')">Fermer</button></div>`; }
 
-function renderRewards(players){
-  const c=document.getElementById('endCard'); c.className='victory';
-  const heroGrade=(players[0]||{}).grade||'C';
+function fps(id){ return parseInt(document.getElementById(id).value,10)||8; }
+
+function victoryTable(c, players, heroGrade){
   const rows=players.map((p)=>`
     <div class="rw-row">
       <img class="rw-note-mini" src="/cards/img/bossweb/note/${p.grade||'C'}" alt="">
@@ -163,42 +176,51 @@ function renderRewards(players){
         <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
       </div>
     </div>`).join('') || '<div class="sub">—</div>';
+  c.className='victory';
   c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
-    <div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div>
-      <img class="rw-big-note" id="rwBigNote" alt=""></div>
+    <img class="rw-big-note show" src="/cards/img/bossweb/note/${heroGrade}" alt="">
     <div class="rw-hdr">Aperçu des récompenses (simulation)</div>
-    <div class="rw-list" id="rwList" style="opacity:0">${rows}</div>${closeBtn()}`;
-  const bigNote=document.getElementById('rwBigNote');
-  bigNote.src=`/cards/img/bossweb/note/${heroGrade}`;
-  const kind=(heroGrade==='A'||heroGrade==='B')?'win':((heroGrade==='C')?null:'winbad');
-  const reveal=()=>{ bigNote.classList.add('show');
-    setTimeout(()=>{ const l=document.getElementById('rwList'); if(l) l.style.opacity='1'; }, 550); };
-  if(!kind) reveal();
-  else playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, reveal);
+    <div class="rw-list">${rows}</div>${closeBtn()}`;
 }
 
 function simWin(){
   const players=collectPlayers();
   if(!players.length){ window.toast?.('Ajoute au moins un joueur'); return; }
   const ov=document.getElementById('endOverlay'), c=document.getElementById('endCard');
-  ov.classList.add('show'); c.className='victory';
-  c.innerHTML=`<div class="big">🎉 VICTOIRE</div>
-    <div class="chest-wrap"><img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
-    <div class="sub">Ouverture du butin…</div>`;
-  const chest=document.getElementById('chest');
-  setTimeout(()=>{ chest.classList.remove('shake'); chest.src='/cards/img/chest/open'; }, 1300);
-  setTimeout(()=> renderRewards(players), 2600);
+  ov.classList.add('show');
+  const heroGrade=(players[0]||{}).grade||'C';
+  // 1) grand stickman (fond assombri + lueur) -> 2) coffre -> 3) tableau + note
+  const chestPhase=()=>{
+    c.className='victory';
+    c.innerHTML=`<div class="chest-wrap"><img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
+      <div class="sub">Ouverture du butin…</div>`;
+    const chest=document.getElementById('chest');
+    setTimeout(()=>{ chest.classList.remove('shake'); chest.src='/cards/img/chest/open'; }, 1300);
+    setTimeout(()=> victoryTable(c, players, heroGrade), 2600);
+  };
+  c.className='victory bare';
+  c.innerHTML=`<div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div></div>`;
+  const kind=(heroGrade==='A'||heroGrade==='B')?'win':((heroGrade==='C')?null:'winbad');
+  if(!kind) chestPhase();
+  else playFrames(document.getElementById('rwBigAnim'), kind, 6,
+                  (kind==='win'?fps('fpsWin'):fps('fpsWinbad')), chestPhase);
 }
 function simLose(){
   const ov=document.getElementById('endOverlay'), c=document.getElementById('endCard');
-  ov.classList.add('show'); c.className='defeat';
-  c.innerHTML=`<div class="lose-boom" id="loseBoom"></div>
-    <div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>${closeBtn()}`;
-  playFrames(document.getElementById('loseBoom'), 'lose', 8, 7);
+  ov.classList.add('show');
+  const finish=()=>{ c.className='defeat';
+    c.innerHTML=`<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>${closeBtn()}`; };
+  c.className='defeat bare';
+  c.innerHTML=`<div class="lose-boom" id="loseBoom"></div>`;
+  playFrames(document.getElementById('loseBoom'), 'lose', 8, fps('fpsLose'), finish);
 }
 
 document.getElementById('simWin').addEventListener('click', simWin);
 document.getElementById('simLose').addEventListener('click', simLose);
+['Win','Winbad','Lose'].forEach(k=>{
+  const s=document.getElementById('fps'+k), v=document.getElementById('fps'+k+'V');
+  if(s&&v) s.addEventListener('input', ()=> v.textContent=s.value);
+});
 document.getElementById('endOverlay').addEventListener('click', e=>{ if(e.target.id==='endOverlay') e.currentTarget.classList.remove('show'); });
 
 // 3 joueurs par défaut
