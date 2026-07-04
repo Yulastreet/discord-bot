@@ -1506,6 +1506,9 @@ _BOSS_ROLLS_BY_GRADE = {
 _CARD_COPIES = {"A": 2, "B": 1, "C": 1, "D": 1, "E": 1, "F": 0}
 _GOLDEN_BY_GRADE = {"A": 2, "B": 1, "C": 1, "D": 1, "E": 0, "F": 0}
 _GRADE_LADDER = ["F", "E", "D", "C", "B", "A"]
+# Le soin vaut plus "cher" par point que les degats bruts encaisses : un healer
+# n'offset jamais 35% de TOUS les degats, donc sans ce poids il plafonne a C.
+_HEAL_WEIGHT = 2.5
 
 
 def _grade_band(score):
@@ -1530,7 +1533,7 @@ def _grade_map(winners):
         is_gardien = (p.get("aptitude") or "") == "gardien"
         dmg_frac  = int(p.get("damage") or 0) / dmg_pool
         tank_frac = (int(p.get("taken_raw") or 0) / tank_pool) if is_gardien else 0.0
-        heal_frac = min(1.0, int(p.get("heal") or 0) / heal_pool)
+        heal_frac = min(1.0, _HEAL_WEIGHT * int(p.get("heal") or 0) / heal_pool)
         axes = sorted([dmg_frac, tank_frac, heal_frac], reverse=True)
         score = axes[0] + 0.25 * axes[1]
         g = "A" if n == 1 else _grade_band(score)

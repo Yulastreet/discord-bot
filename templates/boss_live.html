@@ -781,7 +781,7 @@ function runVictory(data){
   c.innerHTML=`<div class="rw-big"><div class="rw-big-anim" id="rwBigAnim"></div></div>`;
   // A/B = slash (bonne note) · tout le reste (C-F) = chute
   const kind=(heroGrade==='A'||heroGrade==='B')?'win':'winbad';
-  playFrames(document.getElementById('rwBigAnim'), kind, 6, 8, chestPhase);
+  playFrames(document.getElementById('rwBigAnim'), kind, 6, 6, chestPhase);
 }
 // DEFAITE : 1) grand stickman (fleche + explosion) -> 2) titre
 function runDefeat(){
@@ -792,7 +792,7 @@ function runDefeat(){
   if(COLD){ finish(); return; }
   c.className='defeat bare';
   c.innerHTML=`<div class="lose-boom" id="loseBoom"></div>`;
-  playFrames(document.getElementById('loseBoom'),'lose',8,7, finish);
+  playFrames(document.getElementById('loseBoom'),'lose',8,6, finish);
 }
 // joue une sequence de frames PNG (1..count) dans un <img>, puis onDone
 function playFrames(container, kind, count, fps, onDone){
