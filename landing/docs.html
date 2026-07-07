@@ -485,6 +485,18 @@
     <a class="sidebar-link" href="#xp-cards">Cartes profil</a>
     <a class="sidebar-link" href="#xp-pass">Pass saisonnier</a>
 
+    <div class="sidebar-section">Cartes à collectionner</div>
+    <a class="sidebar-link" href="#cards-overview">Vue d'ensemble</a>
+    <a class="sidebar-link" href="#cards-roll">Roll & Essences</a>
+    <a class="sidebar-link" href="#cards-progress">Fusion, up & cosmétiques</a>
+    <a class="sidebar-link" href="#cards-boss">Boss de raid & notes</a>
+    <a class="sidebar-link" href="#cards-social">Wishlist, échanges, classements</a>
+    <a class="sidebar-link" href="#cards-commands">Toutes les commandes cartes</a>
+
+    <div class="sidebar-section">Guildes (clubs)</div>
+    <a class="sidebar-link" href="#guilds-overview">Vue d'ensemble</a>
+    <a class="sidebar-link" href="#guilds-commands">Commandes de guilde</a>
+
     <div class="sidebar-section">Engagement</div>
     <a class="sidebar-link" href="#tickets">Tickets</a>
     <a class="sidebar-link" href="#rolereaction">Rôles-réaction</a>
@@ -536,7 +548,7 @@
 
       <h4>Points clés</h4>
       <ul>
-        <li><strong>90+ commandes slash</strong> couvrant musique, modération, automod, salons vocaux temp, XP, mini-jeux, tickets, alertes sociales et plus</li>
+        <li><strong>130+ commandes slash</strong> couvrant cartes à collectionner, guildes, musique, modération, automod, salons vocaux temp, XP, mini-jeux, tickets, alertes sociales et plus</li>
         <li><strong>Gratuit et sans paywall</strong> sur l'essentiel : volume musique, skip, multi-source Spotify, modération, XP</li>
         <li><strong>Hébergé en Europe</strong> (Hetzner Cloud, Falkenstein) avec auto-restart et monitoring 24/7</li>
         <li><strong>Dashboard web complet</strong> via OAuth Discord pour configurer sans taper de commandes</li>
@@ -906,6 +918,101 @@
         <span class="ico">ℹ️</span>
         <p>Les missions du pass se complètent en utilisant les features TookBot : jouer de la musique, faire des duels, rester actif sur le chat, etc.</p>
       </div>
+    </section>
+
+    <!-- ===== CARTES ===== -->
+    <section id="cards-overview">
+      <h2>🃏 Cartes à collectionner : vue d'ensemble</h2>
+      <p>Un système de collection à la Mudae : tire des cartes de personnages (anime, jeux vidéo, films/séries) parmi un catalogue de <strong>19 000+ persos</strong>, gagne la monnaie <strong>Essences ✨</strong>, fais monter tes cartes en étoiles, applique des bordures cosmétiques, affronte des <strong>boss de raid</strong>, échange avec les autres joueurs et grimpe dans les classements.</p>
+      <div class="callout info">
+        <span class="ico">ℹ️</span>
+        <p>Un admin peut restreindre les commandes cartes à un seul salon avec <code>/cardsetup &lt;salon&gt;</code> (et définir un rôle ping sur les drops et boss). <code>/cardsetup_disable</code> retire la restriction.</p>
+      </div>
+    </section>
+
+    <section id="cards-roll">
+      <h2>Roll & Essences</h2>
+      <p><code>/roll</code> tire une carte aléatoire. Le cooldown est de <strong>1h par serveur</strong> (chaque serveur a son propre timer, donc être sur plusieurs serveurs = plus de rolls). Chaque roll rapporte des <strong>Essences ✨</strong> selon la rareté de la carte (un doublon rapporte le double). Les Essences servent à la boutique, au recyclage et à la création de guilde.</p>
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/roll [univers]</td><td>Tire une carte aléatoire (filtre optionnel par univers)</td></tr>
+          <tr><td>/cardcollec [membre] [rareté]</td><td>Voir ta collection ou celle d'un membre, filtrable par rareté</td></tr>
+          <tr><td>/card &lt;nom&gt;</td><td>Détails d'une carte (autocomplete sur 19k+ cartes)</td></tr>
+          <tr><td>/show &lt;carte&gt;</td><td>Montre une de tes cartes avec sa bordure et ses étoiles</td></tr>
+          <tr><td>/essences [membre]</td><td>Ton solde d'Essences ✨</td></tr>
+          <tr><td>/cardshop</td><td>Boutique : achète cartes et bordures avec tes Essences</td></tr>
+          <tr><td>/cardrecycle &lt;carte&gt; [qté]</td><td>Recycle tes doublons en Essences (tu gardes 1 exemplaire)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cards-progress">
+      <h2>Fusion, montée de rareté & cosmétiques</h2>
+      <p>Fais monter tes cartes : la <strong>fusion</strong> ajoute des étoiles (jusqu'à 5⭐), et <code>/cardup</code> transforme des cartes 5⭐ en une carte de la rareté au-dessus. Les <strong>bordures</strong> sont des cosmétiques achetés en boutique.</p>
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/cardfuse &lt;carte&gt;</td><td>Fusionne des doublons pour ajouter une étoile (max 5). La carte fusionnée devient non-échangeable</td></tr>
+          <tr><td>/cardup &lt;rareté&gt;</td><td>Sacrifie des doublons de cartes 5⭐ pour 1 carte de la rareté au-dessus</td></tr>
+          <tr><td>/cardcustom &lt;carte&gt; &lt;bordure&gt;</td><td>Applique une bordure cosmétique (consommée à l'usage)</td></tr>
+          <tr><td>/cardinventory [membre]</td><td>Tes objets : rolls, fragments mythic, golden rolls, bordures</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cards-boss">
+      <h2>Boss de raid & système de note</h2>
+      <p>Des <strong>boss de raid</strong> apparaissent dans le salon cartes : jusqu'à 5 joueurs les affrontent en équipe avec leurs cartes et une aptitude (DPS, Gardien/tank, Soigneur). Un lien mène à une page de combat en direct sur le dashboard. À la fin, chaque joueur reçoit une <strong>note de A à F</strong> selon sa contribution (dégâts, tank encaissé, soin prodigué) qui détermine ses récompenses : Essences, rolls, cartes et fragments.</p>
+      <div class="callout info">
+        <span class="ico">ℹ️</span>
+        <p>Mourir plafonne la note à C. Un joueur qui affronte le boss en solo obtient A. Les <strong>events</strong> saisonniers ajoutent <code>/eventfight</code> (combat par élément, 3/jour) et <code>/eventshop</code> (dépense les jetons gagnés).</p>
+      </div>
+    </section>
+
+    <section id="cards-social">
+      <h2>Wishlist, échanges & classements</h2>
+      <p>Ajoute des cartes à ta <strong>wishlist</strong> pour être notifié quand quelqu'un les tire, <strong>échange</strong> des cartes avec d'autres joueurs (même non-équivalent, ex 4 contre 1), et compare-toi dans les <strong>classements</strong>.</p>
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/cardwish &lt;carte&gt;</td><td>Ajoute/retire une carte de ta wishlist (ping quand elle est tirée)</td></tr>
+          <tr><td>/cardwishlist [membre]</td><td>Voir une wishlist</td></tr>
+          <tr><td>/cardtrade &lt;joueur&gt;</td><td>Propose un échange multi-cartes (Accepter / Refuser / Contre-offre). Aussi disponible sur le dashboard</td></tr>
+          <tr><td>/cardtop &lt;catégorie&gt;</td><td>Classements : valeur de collection, mythiques, essences, fusions, chance</td></tr>
+          <tr><td>/cardprofile [membre]</td><td>Profil de cartes : stats, puissance de combat, 3 cartes vedettes</td></tr>
+          <tr><td>/cardsuggest / /cardmodify</td><td>Propose l'ajout ou la modification d'une carte (vote de la communauté sur le serveur support)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="cards-commands">
+      <h2>Toutes les commandes cartes</h2>
+      <p>Tape <code>/cardhelp</code> dans Discord pour le guide complet en jeu, ou retrouve chaque commande détaillée sur la <a href="/commandes.html">page Commandes</a>.</p>
+    </section>
+
+    <!-- ===== GUILDES ===== -->
+    <section id="guilds-overview">
+      <h2>🛡️ Guildes (clubs) : vue d'ensemble</h2>
+      <p>Les guildes sont des <strong>clubs cross-serveur</strong> (jusqu'à 30 membres, venant de n'importe quel serveur où TookBot est présent) qui montent en niveau (max 60). En montant, la guilde débloque des <strong>bonus passifs pour tous ses membres</strong> : % d'Essences, % d'XP, cooldown de roll réduit, meilleur loot de boss, banque et boutique de guilde. L'XP de guilde vient des rolls, victoires de boss, roue, fusions et dons.</p>
+    </section>
+
+    <section id="guilds-commands">
+      <h2>Commandes de guilde</h2>
+      <table class="cmd-table">
+        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>/guild create &lt;nom&gt; [tag]</td><td>Fonde une guilde (coûte des Essences). Tu en deviens le Maître</td></tr>
+          <tr><td>/guild info [nom]</td><td>Fiche d'une guilde : niveau, membres, banque, bonus actifs</td></tr>
+          <tr><td>/guildprofile [nom]</td><td>Profil riche : barre d'XP, puissance totale, membres, banque, boutique</td></tr>
+          <tr><td>/guild top</td><td>Classement des guildes par niveau</td></tr>
+          <tr><td>/guild invite / accept</td><td>Inviter un joueur (Maître/Officier) / rejoindre une invitation</td></tr>
+          <tr><td>/guild apply / applications</td><td>Postuler à une guilde / gérer les candidatures (Maître/Officier)</td></tr>
+          <tr><td>/guild promote / demote / transfer</td><td>Gérer les rôles et la maîtrise (Maître)</td></tr>
+          <tr><td>/guild kick / leave / disband</td><td>Exclure un membre / quitter / dissoudre</td></tr>
+          <tr><td>/guild donate &lt;montant&gt;</td><td>Donne des Essences à la banque (rapporte de l'XP de guilde)</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <!-- ===== ENGAGEMENT ===== -->
