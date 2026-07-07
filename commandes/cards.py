@@ -686,8 +686,6 @@ def setup_cards_commands(bot, deps):
         except Exception as e:
             print(f"[cards cache] start err: {e}")
 
-    cards_grp = app_commands.Group(name="cards", description="Collection de cartes pop culture")
-
     # === /cardsetup admin (alias top-level pour clarte) ===
     async def _resolve_or_create_role(interaction, role_str):
         """Resout un role depuis un texte : mention <@&id>, id, ou nom exact.
