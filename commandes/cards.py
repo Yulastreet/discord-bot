@@ -14,13 +14,11 @@ from database import (
     card_count_total, card_roll_random, card_get_by_name,
     card_owners_count, card_owners_list,
     user_card_add, user_card_list, user_card_count,
-    user_card_settings_get, user_card_settings_set_last_roll,
-    roll_cooldown_get, roll_cooldown_set,
     guild_card_config_get, guild_card_config_set,
     user_card_count_owned, user_card_transfer_one,
     card_trade_create, card_trade_get, card_trade_items, card_trade_set_status,
     card_suggestion_add,
-    ESSENCE_REWARDS, currency_add,
+    ESSENCE_REWARDS,
     CARD_ELEMENT_LABELS as _ELEM_LABELS,
 )
 
@@ -1486,7 +1484,7 @@ def setup_cards_commands(bot, deps):
     @app_commands.describe(nom="Nom de la carte", bordure="Bordure à appliquer (ou 'aucune' pour retirer)")
     async def cardcustom_cmd(interaction: discord.Interaction, nom: str, bordure: str):
         from database import (card_get_by_name, user_card_count_owned,
-                                user_border_has, user_border_consume, border_get,
+                                user_border_consume, border_get,
                                 card_customization_get, card_customization_set,
                                 card_fusion_get)
         from services.card_render import render_user_card
@@ -1780,7 +1778,7 @@ def setup_cards_commands(bot, deps):
                             quantite="Nombre de doublons à recycler (defaut : tous)")
     async def cardrecycle_cmd(interaction: discord.Interaction, nom: str, quantite: int = None):
         from database import (card_get_by_name, user_card_count_owned,
-                                user_card_remove_copies, currency_add, ESSENCE_RECYCLE)
+                                user_card_remove_copies, ESSENCE_RECYCLE)
         card = card_get_by_name(nom.strip())
         if not card:
             await interaction.response.send_message(f"Carte introuvable : `{nom}`.", ephemeral=True)

@@ -12,13 +12,13 @@ from database import (
     guild_remove_member, guild_set_role, guild_set_owner, guild_delete,
     guild_left_at, guild_invite_add, guild_invite_has, guild_add_xp, guild_top,
     guild_bank_add, guild_member_action_xp, guild_rewards_for_level,
-    guild_level_for_xp, currency_get, currency_add,
+    currency_get, currency_add,
     compute_player_combat_stats, combat_power, user_card_count,
     guild_bank_spend, guild_member_ids, roll_give_user,
     guild_set_color, guild_set_emblem, profile_color_hex, PROFILE_COLORS,
     guild_set_name, guild_quests_daily_get, guild_quests_weekly_get,
     guild_admin_update, guild_application_add, guild_application_remove,
-    guild_application_list, guild_application_has, guild_application_count,
+    guild_application_list, guild_application_has,
     guild_meets_requirements,
 )
 import datetime as _dt

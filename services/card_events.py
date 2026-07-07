@@ -15,7 +15,6 @@ import discord
 from PIL import Image, ImageDraw, ImageFont
 
 from database import (
-    card_event_config_all_enabled,
     card_event_config_set,
     card_event_log_create,
     card_event_log_get_pending_in_channel,

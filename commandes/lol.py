@@ -21,13 +21,12 @@ from typing import Optional
 
 import discord
 from discord import app_commands
-from discord.ext import commands
 
 from services import riot_api as riot
 from database import (
     lol_profile_get, lol_profile_upsert, lol_profile_unlink,
     lol_rank_config_get, lol_rank_config_upsert,
-    lol_scout_session_create, lol_scout_session_get,
+    lol_scout_session_create,
     lol_scout_session_stop, lol_scout_sessions_list,
 )
 
