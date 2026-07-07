@@ -257,7 +257,7 @@ def _build_command_pages() -> list:
         name="🃏 Collection",
         value=(
             "**/roll `[univers]`** — tire 1 carte aléatoire. Cooldown **1h par serveur** "
-            "(30 min = 2/h sur le serveur support). Donne des Essences ✨ selon la rareté\n"
+            "(timer indépendant par serveur). Donne des Essences ✨ selon la rareté\n"
             "**/cardcollec `[membre]` `[rareté]`** — ta collection (✨ = cosmétique, ⭐ = fusion)\n"
             "**/card `<nom>`** — détails d'une carte (autocomplete sur 19k+)\n"
             "**/show `<carte>`** — montre une de tes cartes avec sa bordure + étoiles"
@@ -283,6 +283,15 @@ def _build_command_pages() -> list:
             "de la rareté au-dessus\n"
             "**/cardcustom `<carte>` `<bordure>`** — applique une bordure (consommée)\n"
             "**/cardinventory `[membre]`** — tes cosmétiques en stock"
+        ),
+        inline=False,
+    )
+    p4.add_field(
+        name="🎪 Events",
+        value=(
+            "**/eventfight** — combat d'event : envoie ta meilleure carte selon l'élément du jour "
+            "(3/jour) pour des jetons d'event\n"
+            "**/eventshop** — dépense tes jetons d'event (rolls, bonus essences, skins)"
         ),
         inline=False,
     )

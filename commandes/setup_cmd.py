@@ -44,7 +44,6 @@ MOD_PERMS_REGISTRY = [
     ("reaction",        "/reaction_*",    "Auto-réactions",                         "slash"),
     ("modlogs",         "/modlogs",       "Consulter / config modlog",              "slash"),
     ("setup",           "/setup",         "Refaire le setup salons",                "slash"),
-    ("xp",              "/xp",            "Activer/désactiver l'XP",                "slash"),
     ("note",            "/note",          "Ajouter une note sur un membre",         "slash"),
     ("logs",            "Logs",           "Page Logs du dashboard",                 "dashboard"),
     ("custom_commands", "Commandes custom","Page Commandes custom",                 "dashboard"),

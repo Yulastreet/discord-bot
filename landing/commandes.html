@@ -395,7 +395,7 @@
 
   <main>
     <div class="head">
-      <h1>110+ commandes slash. Pas de prise de tête.</h1>
+      <h1>100+ commandes slash. Pas de prise de tête.</h1>
       <p>Chaque commande TookBot est conçue pour faire UNE chose, et la faire bien. Pas de paywall sur l'essentiel, pas de pub, pas de préfixe à retenir.</p>
       <div class="counter">Total : <strong>90+</strong> commandes</div>
       <div class="search-bar">
@@ -523,7 +523,8 @@
         { name:'/volume', syntax:'/volume <0-200>', desc:'Règle le volume musique du bot (0 = muet, 100 = normal, 200 = boost).', why:'<strong>Gratuit chez TookBot :</strong> sur Jockie/Hydra c\'est payant.', badge:'new' },
         { name:'/queue', syntax:'/queue', desc:'Affiche la file d\'attente complète.' },
         { name:'/nowplaying', syntax:'/nowplaying', desc:'Embed riche : titre, barre de progression, durée, salon vocal, 3 prochaines pistes.' },
-        { name:'/skip', syntax:'/skip [position]', desc:'Passe la piste en cours. Avec position N : saute directement à la Nème piste.' },
+        { name:'/skip', syntax:'/skip', desc:'Passe la piste en cours.' },
+        { name:'/jump', syntax:'/jump <position>', desc:'Saute directement à la Nème piste de la file.', badge:'new' },
         { name:'/remove', syntax:'/remove <position>', desc:'Retire une piste précise de la file sans interrompre la lecture.', badge:'new' },
         { name:'/pause', syntax:'/pause', desc:'Met en pause la lecture en cours.' },
         { name:'/resume', syntax:'/resume', desc:'Reprend une lecture en pause.' },
@@ -557,7 +558,6 @@
       { id: 'xp', title: 'XP & Niveaux', intro: 'Système d\'XP par message avec cartes profil personnalisables et leaderboard serveur.', cmds: [
         { name:'/niveau', syntax:'/niveau [membre]', desc:'Affiche la carte profil avec niveau, XP, rang.', why:'<strong>Cartes générées :</strong> background, couleur, bordure customisables (Premium).' },
         { name:'/leaderboard', syntax:'/leaderboard', desc:'Top 10 XP du serveur.' },
-        { name:'/xp', syntax:'/xp <action>', desc:'Admin : ajuste l\'XP d\'un membre.' },
         { name:'/pass', syntax:'/pass', desc:'Pass saisonnier : missions, récompenses, cosmétiques.' },
         { name:'/daily', syntax:'/daily', desc:'Récompense quotidienne : TookCoins + Essences ✨ + streak. Message public.' },
         { name:'/redeem', syntax:'/redeem <code>', desc:'Utilise un code promo.' },
@@ -583,15 +583,23 @@
       ]},
       { id: 'lol', title: 'League of Legends', intro: 'Profil Riot, rangs, masteries et scout sessions pour previewer une équipe.', cmds: [
         { name:'/lol link', syntax:'/lol link <riotid>', desc:'Lie ton Riot ID.' },
+        { name:'/lol unlink', syntax:'/lol unlink', desc:'Délie ton compte Riot.' },
+        { name:'/lol stats', syntax:'/lol stats [membre]', desc:'Résumé du profil : rangs, winrate, mains.' },
         { name:'/lol rank', syntax:'/lol rank [membre]', desc:'Rang Solo/Flex actuels.' },
+        { name:'/lol history', syntax:'/lol history [membre]', desc:'Dernières parties (résultat, KDA, champion).' },
         { name:'/lol mastery', syntax:'/lol mastery [membre]', desc:'Top champions par mastery points.' },
         { name:'/lol live', syntax:'/lol live [membre]', desc:'Game en cours détectée.' },
+        { name:'/lol queue', syntax:'/lol queue', desc:'File de vocal temporaire pour se faire une équipe.' },
+        { name:'/lol skin', syntax:'/lol skin <champion>', desc:'Aperçu d\'un skin de champion.' },
+        { name:'/lol build', syntax:'/lol build <champion>', desc:'Build conseillé (objets, runes) pour un champion.' },
+        { name:'/lol rankrole', syntax:'/lol rankrole', desc:'Admin : synchronise des rôles couleur sur le rang des membres.' },
       ]},
       { id: 'social', title: 'Tickets, rôles, alertes', intro: 'Builders visuels pour panneaux de tickets, rôles-réaction et alertes Twitch / YouTube / Reddit.', cmds: [
         { name:'/ticket', syntax:'/ticket', desc:'Builder panneau de tickets avec catégories et transcripts.' },
         { name:'/rolereaction', syntax:'/rolereaction create', desc:'Builder rôles-réaction (réaction emoji ou boutons).' },
         { name:'/socialalert', syntax:'/socialalert add/list/remove', desc:'Alertes auto Twitch live, YouTube upload, Reddit post.' },
         { name:'/giveaway', syntax:'/giveaway create', desc:'Tirage au sort avec entries, reroll et fin auto.' },
+        { name:'/presentation', syntax:'/presentation setup | create', desc:'Salon de présentations à trous : les membres remplissent un formulaire, le bot poste une fiche propre.' },
         { name:'/reaction_add', syntax:'/reaction_add', desc:'Réaction auto sur les messages d\'un membre.' },
         { name:'/reaction_list', syntax:'/reaction_list', desc:'Liste des auto-réactions actives.' },
         { name:'/reaction_remove', syntax:'/reaction_remove', desc:'Retire une auto-réaction.' },
@@ -612,7 +620,7 @@
         { name:'/zgeg', syntax:'/zgeg [membre]', desc:'Mesure la taille de... bon.' },
       ]},
       { id: 'cards', title: 'Cartes (Mudae-like)', intro: 'Collection de cartes anime, jeux vidéo, films/séries. Roll, monnaie Essences, fusion à étoiles, bordures cosmétiques, puissance de combat, boss de raid, wishlist, classements et échanges. Catalogue de 19 000+ persos.', cmds: [
-        { name:'/roll', syntax:'/roll [univers]', desc:'Tire une carte aléatoire. Cooldown 1h par serveur (30 min = 2/h sur le serveur support). Chaque roll donne des Essences ✨ selon la rareté (doublon = ×2).', why:'<strong>Cooldown par serveur :</strong> un timer indépendant par serveur. Membre du serveur support = cooldown réduit à 30 min.', badge:'new' },
+        { name:'/roll', syntax:'/roll [univers]', desc:'Tire une carte aléatoire. Cooldown 1h par serveur (recharge indépendante par serveur). Chaque roll donne des Essences ✨ selon la rareté (doublon = ×2).', why:'<strong>Cooldown par serveur :</strong> un timer indépendant par serveur, donc plusieurs serveurs = plus de rolls.', badge:'new' },
         { name:'/cardcollec', syntax:'/cardcollec [membre] [rareté]', desc:'Ta collection (ou celle de quelqu\'un), filtrable par rareté. ✨ = cosmétique équipé, ⭐ = niveau de fusion.', badge:'new' },
         { name:'/card', syntax:'/card <nom>', desc:'Détails d\'une carte. Autocomplete fuzzy sur les 19k+ cartes.' },
         { name:'/show', syntax:'/show <carte>', desc:'Montre une de tes cartes avec sa bordure cosmétique et ses étoiles de fusion.', badge:'new' },
@@ -621,6 +629,8 @@
         { name:'/cardrecycle', syntax:'/cardrecycle <carte> [qté]', desc:'Recycle tes doublons en Essences (tu gardes toujours 1 exemplaire).', badge:'new' },
         { name:'/cardfuse', syntax:'/cardfuse <carte>', desc:'Fusionne des exemplaires d\'une même carte pour ajouter une étoile (max 5). Coût croissant 2→6. La carte fusionnée devient non-échangeable.', why:'<strong>Prestige :</strong> les étoiles s\'affichent sur la carte et dans la collection.', badge:'new' },
         { name:'/cardup', syntax:'/cardup <rareté>', desc:'Sacrifie des doublons de cartes 5⭐ pour obtenir 1 carte aléatoire de la rareté au-dessus (Common→Rare→…→Mythic).', badge:'new' },
+        { name:'/eventfight', syntax:'/eventfight', desc:'Combat d\'event : envoie ta meilleure carte selon l\'élément du jour (3/jour) pour gagner des jetons d\'event.', badge:'new' },
+        { name:'/eventshop', syntax:'/eventshop', desc:'Boutique d\'event : dépense tes jetons en rolls, bonus d\'essences et skins saisonniers.', badge:'new' },
         { name:'/cardcustom', syntax:'/cardcustom <carte> <bordure>', desc:'Applique une bordure cosmétique (achetée au shop, consommée à l\'usage) à une carte.', badge:'new' },
         { name:'/cardinventory', syntax:'/cardinventory [membre]', desc:'Tes cosmétiques (bordures) en stock.', badge:'new' },
         { name:'/cardprofile', syntax:'/cardprofile [membre]', desc:'Profil de cartes : stats, puissance de combat et image podium de tes 3 cartes vedettes.', badge:'new' },
@@ -642,6 +652,8 @@
         { name:'/guild top', syntax:'/guild top', desc:'Classement des guildes par niveau.', badge:'new' },
         { name:'/guild invite', syntax:'/guild invite <membre>', desc:'Invite un joueur (Maître / Officier).', badge:'new' },
         { name:'/guild accept', syntax:'/guild accept <nom>', desc:'Rejoint une guilde qui t\'a invité.', badge:'new' },
+        { name:'/guild apply', syntax:'/guild apply <nom>', desc:'Postule à une guilde ouverte aux candidatures.', badge:'new' },
+        { name:'/guild applications', syntax:'/guild applications', desc:'Maître / Officier : voir et accepter/refuser les candidatures.', badge:'new' },
         { name:'/guild leave', syntax:'/guild leave', desc:'Quitte ta guilde.', badge:'new' },
         { name:'/guild kick', syntax:'/guild kick <membre>', desc:'Exclut un membre (Maître / Officier).', badge:'new' },
         { name:'/guild promote', syntax:'/guild promote <membre>', desc:'Promeut un membre officier (Maître).', badge:'new' },
