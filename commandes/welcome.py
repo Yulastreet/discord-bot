@@ -128,7 +128,7 @@ class _WelcomeBuilderView(discord.ui.View):
 def setup_welcome_commands(bot):
     @bot.tree.command(name="setwelcome", description="Ouvrir le builder de bienvenue")
     @app_commands.describe(salon="Preselection optionnelle du salon")
-    @app_commands.default_permissions(administrator=True)
+    @app_commands.default_permissions(manage_guild=True)
     async def setwelcome(interaction: discord.Interaction, salon: discord.TextChannel = None):
         view = _WelcomeBuilderView(interaction.user.id, interaction.guild)
         if salon:

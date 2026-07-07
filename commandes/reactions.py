@@ -7,7 +7,7 @@ from database import remove_reaction, set_reaction
 def setup_reaction_commands(bot, user_reactions):
     @bot.tree.command(name="reaction_add", description="Ajouter une reaction automatique a un membre")
     @app_commands.describe(membre="Le membre cible", emoji="L'emoji a utiliser")
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(manage_guild=True)
     async def reaction_add(interaction: discord.Interaction, membre: discord.Member, emoji: str):
         gid = str(interaction.guild.id)
         user_reactions[(gid, membre.id)] = emoji
@@ -19,11 +19,12 @@ def setup_reaction_commands(bot, user_reactions):
     @reaction_add.error
     async def reaction_add_error(interaction: discord.Interaction, error):
         if isinstance(error, app_commands.errors.MissingPermissions):
-            await interaction.response.send_message("Permission administrateur requise.", ephemeral=True)
+            await interaction.response.send_message(
+                "Il faut la permission **Gérer le serveur** pour utiliser cette commande.", ephemeral=True)
 
     @bot.tree.command(name="reaction_remove", description="Supprimer la reaction automatique d'un membre")
     @app_commands.describe(membre="Le membre dont supprimer la reaction")
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(manage_guild=True)
     async def reaction_remove(interaction: discord.Interaction, membre: discord.Member):
         gid = str(interaction.guild.id)
         key = (gid, membre.id)
@@ -42,7 +43,8 @@ def setup_reaction_commands(bot, user_reactions):
     @reaction_remove.error
     async def reaction_remove_error(interaction: discord.Interaction, error):
         if isinstance(error, app_commands.errors.MissingPermissions):
-            await interaction.response.send_message("Permission administrateur requise.", ephemeral=True)
+            await interaction.response.send_message(
+                "Il faut la permission **Gérer le serveur** pour utiliser cette commande.", ephemeral=True)
 
     @bot.tree.command(name="reaction_list", description="Voir les reactions automatiques actives")
     async def reaction_list(interaction: discord.Interaction):
