@@ -7,7 +7,7 @@ from __future__ import annotations
 import threading
 import time
 import uuid
-from typing import Any, Callable
+from typing import Callable
 
 
 _JOBS: dict[str, dict] = {}

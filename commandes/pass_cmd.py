@@ -1,4 +1,3 @@
-import asyncio
 import datetime as _dt
 import discord
 from discord import app_commands

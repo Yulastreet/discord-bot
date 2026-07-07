@@ -2934,7 +2934,6 @@ def setup_cards_commands(bot, deps):
         for cid, qty in agg.items():
             owned = user_card_count_owned(user_id, cid, only_tradeable=True)
             if owned < qty:
-                card = card_get_by_name("")  # placeholder
                 from database import get_db
                 conn = get_db(); cc = conn.cursor()
                 r = cc.execute("SELECT name FROM cards WHERE id = ?", (cid,)).fetchone()

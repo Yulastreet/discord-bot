@@ -10,7 +10,6 @@ Limitations :
 - About Me (description application) : GLOBAL uniquement, partage entre serveurs
 """
 
-import os
 import base64
 import asyncio
 import aiohttp

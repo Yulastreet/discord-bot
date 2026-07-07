@@ -7,7 +7,6 @@ Listener on_message verifie si message correspond a un code event pending.
 from __future__ import annotations
 
 import datetime as _dt
-import math
 import os
 import random
 from typing import Optional

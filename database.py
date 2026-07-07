@@ -2502,8 +2502,8 @@ def forced_roll_clear(user_id):
     try:
         c.execute("DELETE FROM forced_roll WHERE user_id = ?", (str(user_id),))
         conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[forced_roll_clear] echec suppression user={user_id}: {e!r}")
     conn.close()
 
 

@@ -21,7 +21,7 @@ from database import (
     boss_participant_add, boss_participant_get, boss_participants_list,
     boss_participant_update, compute_player_combat_stats, engaged_combat_stats,
     element_matchup, BOSS_TIER_SCALE, card_boss_set_stats,
-    card_pick_random_exact_rarity, card_get, card_get_by_name, currency_add,
+    card_pick_random_exact_rarity, card_get, card_get_by_name,
     user_card_add, user_card_count_owned, CARD_ELEMENT_LABELS, element_weaknesses,
     CARD_ELEMENTS, combat_power, boss_event_add,
 )
@@ -122,21 +122,6 @@ def _avatar_idx(tier, rarity):
         return len(rng) - 1
     return 0
 
-
-# Rolls offerts en victoire selon le tier (le max a ~5% de chance).
-#   T4 : 2-5 (5=5%) | T5 : 5-15 (15=5%). T1-3 : aucun.
-_BOSS_ROLL_WEIGHTS = {
-    4: {2: 45, 3: 30, 4: 20, 5: 5},
-    5: {5: 26, 6: 18, 7: 14, 8: 11, 9: 8, 10: 6, 11: 5, 12: 3,
-        13: 2, 14: 2, 15: 5},
-}
-
-
-def _boss_roll_reward(tier):
-    w = _BOSS_ROLL_WEIGHTS.get(tier)
-    if not w:
-        return 0
-    return random.choices(list(w.keys()), weights=list(w.values()), k=1)[0]
 
 # Aptitudes de combat (5 roles distincts, chacun avec un cout)
 _APT_LABELS = {

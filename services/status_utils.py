@@ -3,7 +3,6 @@ import os
 import shutil
 import sqlite3
 import time
-import getpass
 import urllib.error
 import urllib.request
 import importlib.metadata

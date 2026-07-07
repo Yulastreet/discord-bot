@@ -483,7 +483,8 @@ def register_premium_routes(app, deps):
             img = _PIL.open(f.stream)
             save_owner_custom_bg(uid, img)
         except Exception as e:
-            return jsonify({"error": "cannot_decode", "detail": str(e)}), 400
+            print(f"[premium bg] decode err: {type(e).__name__}: {e}")
+            return jsonify({"error": "Image illisible. Utilise un PNG ou JPG valide."}), 400
 
         return jsonify({"ok": True, "bg_id": f"owner:{uid}"})
 

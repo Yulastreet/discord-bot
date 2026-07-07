@@ -2,8 +2,6 @@ import asyncio
 import discord
 from discord import app_commands
 
-import yt_dlp
-
 from .music_voice import connect_to_voice
 
 

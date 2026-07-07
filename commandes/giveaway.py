@@ -12,7 +12,6 @@ La view est enregistree avec un custom_id stable pour survivre aux restarts.
 """
 from __future__ import annotations
 
-import asyncio
 import datetime as _dt
 import json as _json
 import random
@@ -21,7 +20,7 @@ from typing import Optional
 
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 from database import (
     giveaway_create, giveaway_set_message_id, giveaway_get, giveaway_get_by_message,

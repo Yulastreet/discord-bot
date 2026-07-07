@@ -123,7 +123,7 @@ def register_stripe_routes(app, deps):
             sess = _stripe.checkout.Session.create(**kwargs)
         except Exception as e:
             print(f"[stripe checkout] err: {type(e).__name__}: {e}")
-            return jsonify({"error": f"Stripe error: {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": "Le paiement est momentanément indisponible. Réessaie dans quelques minutes."}), 500
 
         return jsonify({"url": sess.url, "session_id": sess.id})
 
@@ -149,7 +149,7 @@ def register_stripe_routes(app, deps):
             )
         except Exception as e:
             print(f"[stripe portal] err: {type(e).__name__}: {e}")
-            return jsonify({"error": f"Stripe error: {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": "Le portail d'abonnement est momentanément indisponible. Réessaie plus tard."}), 500
 
         return jsonify({"url": portal.url})
 

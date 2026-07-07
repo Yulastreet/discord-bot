@@ -80,7 +80,7 @@ def register_bot_profile_routes(app, deps):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return jsonify({"error": f"Exception serveur : {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": "Erreur serveur, réessaie plus tard."}), 500
 
     def _api_bot_profile_set_impl():
         uid = (g.discord_user.get("user_id") or g.discord_user.get("id")) if g.discord_user else None
@@ -135,7 +135,8 @@ def register_bot_profile_routes(app, deps):
                 banner_path=banner_path,
             )
         except Exception as e:
-            return jsonify({"error": f"Discord API: {type(e).__name__}: {e}"}), 500
+            print(f"[bot_profile apply] err: {type(e).__name__}: {e}")
+            return jsonify({"error": "Impossible d'appliquer le profil pour le moment. Réessaie plus tard."}), 500
 
         if status_resp in (200, 204):
             guild_bot_profile_mark_applied(g_id, applied_by=uid)
@@ -160,7 +161,8 @@ def register_bot_profile_routes(app, deps):
                 clear_avatar=True, clear_banner=True,
             )
         except Exception as e:
-            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+            print(f"[bot_profile reset] err: {type(e).__name__}: {e}")
+            return jsonify({"error": "Impossible de réinitialiser le profil pour le moment. Réessaie plus tard."}), 500
         guild_bot_profile_clear(g_id)
         return jsonify({"ok": status in (200, 204), "status": status, "body": body})
 
