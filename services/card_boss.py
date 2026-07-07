@@ -1335,13 +1335,23 @@ async def _run_boss(bot, bid, msg, view):
             boss = card_boss_get(bid)
         await _finish(bot, bid, msg, view, log, boss["status"] == "defeated")
     except Exception as e:
+        import traceback
         print(f"[boss] run err: {e!r}")
+        traceback.print_exc()
+        # Filet de securite : ne jamais laisser un boss "fantome" (statut fighting/recruiting
+        # bloque). On marque le combat termine pour que le lien live meure proprement.
+        try:
+            _bx = card_boss_get(bid)
+            if _bx and _bx["status"] in ("fighting", "recruiting"):
+                card_boss_set_status(bid, "wiped")
+                boss_event_add(bid, "end", {"victory": False})
+        except Exception:
+            pass
 
 
 async def _finish(bot, bid, msg, view, log, victory):
     boss = card_boss_get(bid)
     parts = boss_participants_list(bid)
-    ch = bot.get_channel(int(boss["channel_id"]))
 
     boss_event_add(bid, "end", {"victory": bool(victory)})
     # Affiche d'abord le resultat sur l'embed de combat, puis laisse le temps de lire
@@ -1353,7 +1363,25 @@ async def _finish(bot, bid, msg, view, log, victory):
         pass
     await asyncio.sleep(6)
 
-    # Supprime l'embed de combat de base
+    # Resout le salon (cache -> fetch en secours) AVANT de toucher a l'embed de combat.
+    ch = bot.get_channel(int(boss["channel_id"]))
+    if ch is None:
+        try:
+            ch = await bot.fetch_channel(int(boss["channel_id"]))
+        except Exception as e:
+            print(f"[boss] finish: salon {boss['channel_id']} introuvable: {e!r}")
+    if not ch:
+        # Pas de salon pour poster le resultat : on GARDE l'embed de combat (deja edite
+        # avec le resultat) plutot que de le supprimer et laisser un fantome.
+        try:
+            for c in view.children:
+                c.disabled = True
+            await msg.edit(view=view)
+        except Exception:
+            pass
+        return
+
+    # Supprime l'embed de combat de base (on a un salon pour poster le resultat)
     try:
         await msg.delete()
     except Exception:
@@ -1363,9 +1391,6 @@ async def _finish(bot, bid, msg, view, log, victory):
             await msg.edit(view=view)
         except Exception:
             pass
-
-    if not ch:
-        return
 
     def _is_dummy(uid):
         return str(uid).startswith("dummy_")
