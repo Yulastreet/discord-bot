@@ -9,7 +9,7 @@
 <meta property="og:description" content="Roll, fusion, boss de raid, bordures et échanges. Un vrai jeu de collection dans Discord.">
 <meta property="og:url" content="https://tookbot.click/cartes.html">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://dashboard.tookbot.click/static/cards_showcase/summer_toji.png">
+<meta property="og:image" content="https://dashboard.tookbot.click/static/cards_showcase/card1_toji_alt.png">
 <meta name="theme-color" content="#0d0f0a">
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,12 +56,9 @@
   /* carrousel */
   .stage{ margin:34px 0 10px; position:relative; }
   .stage-label{ text-align:center; color:var(--muted); font-size:13px; font-weight:600; margin-bottom:12px; }
-  .track-wrap{ overflow:hidden; -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
-    mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent); padding:30px 0; }
-  .track{ display:flex; gap:26px; width:max-content; animation:scroll 46s linear infinite; }
-  .track:hover{ animation-play-state:paused; }
-  @keyframes scroll{ to{ transform:translateX(-50%); } }
-  .card{ position:relative; width:210px; flex:0 0 auto; border-radius:16px; cursor:pointer;
+  .track-wrap{ padding:26px 12px; }
+  .track{ display:flex; gap:30px; justify-content:center; flex-wrap:wrap; max-width:1100px; margin:0 auto; }
+  .card{ position:relative; width:230px; flex:0 0 auto; border-radius:16px; cursor:pointer;
     transform-style:preserve-3d; transition:transform .15s ease, box-shadow .2s ease;
     box-shadow:0 14px 34px rgba(0,0,0,.55); }
   .card img{ width:100%; display:block; border-radius:16px; }
@@ -72,6 +69,10 @@
   .tag.classic{ background:rgba(255,255,255,.14); color:#fff; }
   .tag.border{ background:rgba(185,242,58,.9); color:#0b1400; }
   .tag.event{ background:#ffc43c; color:#3a2600; }
+  .tag.secret{ background:linear-gradient(90deg,#c084fc,#ff5470); color:#fff; }
+  .card .name{ text-align:center; margin-top:10px; }
+  .card .name b{ font-size:14px; display:block; }
+  .card .name span{ font-size:12px; color:var(--muted); }
   .card:hover{ box-shadow:0 22px 50px rgba(0,0,0,.7), 0 0 22px rgba(185,242,58,.22); }
 
   /* sections */
@@ -161,7 +162,7 @@
 
     <section class="section">
       <h2>🌞 Événements saisonniers</h2>
-      <p class="lead">Pendant les events, certains personnages reçoivent un <b>art alternatif exclusif</b>. Débloque-les avec <b>/eventfight</b> et <b>/eventshop</b>, comme Toji et Ashe en tenue d'été.</p>
+      <p class="lead">Pendant les events, certains personnages reçoivent un <b>art alternatif exclusif</b>. Débloque-les avec <b>/eventfight</b> et <b>/eventshop</b>, comme Toji en tenue d'été.</p>
       <div class="steps">
         <div class="step"><div class="n">1</div><b>Tire</b><p>/roll pour agrandir ta collection</p></div>
         <div class="step"><div class="n">2</div><b>Améliore</b><p>fusion, bordures, montée de rareté</p></div>
@@ -187,23 +188,20 @@
 <script>
   const B = "https://dashboard.tookbot.click/static/cards_showcase/";
   const CARDS = [
-    { img:"classic1.png", name:"", tag:"classic", label:"Sans bordure" },
-    { img:"border1.png",  name:"", tag:"border",  label:"Bordure Gold" },
-    { img:"summer_toji.png", name:"", tag:"event", label:"Event Summer" },
-    { img:"classic2.png", name:"", tag:"classic", label:"Sans bordure" },
-    { img:"border2.png",  name:"", tag:"border",  label:"Bordure Frost" },
-    { img:"summer_ashe.png", name:"", tag:"event", label:"Event Summer" },
-    { img:"classic3.png", name:"", tag:"classic", label:"Sans bordure" },
-    { img:"border3.png",  name:"", tag:"border",  label:"Bordure Void" },
-    { img:"border4.png",  name:"", tag:"border",  label:"Bordure Hell" },
+    { img:"card1_toji_alt.png",      tag:"event",  name:"Toji",             label:"Art alternatif Summer" },
+    { img:"card2_goku_secret.webp",  tag:"secret", name:"Goku",             label:"Carte Secret animée",  alt:"card2_goku_secret.gif" },
+    { img:"card3_augusta_hell.png",  tag:"border", name:"Augusta",          label:"Bordure Enfer" },
+    { img:"card4_byakuya_void.png",  tag:"border", name:"Byakuya Kuchiki",  label:"Bordure Néant" },
   ];
-  const TAGTXT = { classic:"Classique", border:"Bordure", event:"Summer 2026" };
+  const TAGTXT = { classic:"Classique", border:"Bordure", event:"Summer 2026", secret:"Secret" };
 
   function cardEl(c){
     const d = document.createElement('div');
     d.className = 'card';
+    const onerr = c.alt ? ` onerror="this.onerror=null;this.src='${B}${c.alt}'"` : '';
     d.innerHTML = `<span class="tag ${c.tag}">${TAGTXT[c.tag]}</span>
-      <img src="${B}${c.img}" loading="lazy" alt="">`;
+      <img src="${B}${c.img}"${onerr} loading="lazy" alt="${c.name}">
+      <div class="name"><b>${c.name}</b><span>${c.label}</span></div>`;
     // tilt 3D
     d.addEventListener('mousemove', e=>{
       const r = d.getBoundingClientRect();
@@ -216,8 +214,7 @@
     return d;
   }
   const track = document.getElementById('track');
-  // duplique la liste pour un defilement en boucle sans couture
-  [...CARDS, ...CARDS].forEach(c => track.appendChild(cardEl(c)));
+  CARDS.forEach(c => track.appendChild(cardEl(c)));
 
   // lightbox avec tilt
   const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
