@@ -247,6 +247,7 @@
     <img id="previewImg" src="" alt="">
     <h3 id="previewName">—</h3>
     <div class="meta">
+      <span id="previewId" title="Cliquer pour copier l'ID" style="cursor:pointer;font-family:var(--font-mono,monospace);background:var(--bg-1,#161616);border:1px solid var(--border,#333);border-radius:6px;padding:2px 8px;" onclick="copyCardId()">ID —</span>
       <span id="previewUniverse">—</span>
       <span id="previewSubtitle">—</span>
       <span id="previewRarity">—</span>
@@ -643,6 +644,7 @@ function openPreview(id) {
   document.getElementById('previewImg').src = c.image_url || '';
   document.getElementById('previewImg').style.display = c.image_url ? 'block' : 'none';
   document.getElementById('previewName').textContent = c.name;
+  document.getElementById('previewId').textContent = 'ID ' + c.id;
   document.getElementById('previewUniverse').textContent = c.universe || '?';
   document.getElementById('previewSubtitle').textContent = c.subtitle || '?';
   document.getElementById('previewRarity').textContent = c.rarity;
@@ -650,6 +652,12 @@ function openPreview(id) {
   document.getElementById('previewScrim').classList.add('open');
 }
 window.openPreview = openPreview;
+function copyCardId() {
+  if (!_currentPreview) return;
+  const id = String(_currentPreview.id);
+  navigator.clipboard?.writeText(id).then(() => window.toast?.('ID ' + id + ' copié'));
+}
+window.copyCardId = copyCardId;
 function closePreview(e) {
   if (e && e.target.classList && !e.target.classList.contains('card-preview-scrim')) return;
   document.getElementById('previewScrim').classList.remove('open');
