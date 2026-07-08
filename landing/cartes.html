@@ -85,44 +85,36 @@
   .section .lead{ text-align:center; color:var(--muted); max-width:600px; margin:0 auto 40px; }
 
   /* ===== BENTO features ===== */
-  .bento{ display:grid; grid-template-columns:repeat(6,1fr); gap:16px; }
-  @media(max-width:900px){ .bento{ grid-template-columns:repeat(2,1fr); } }
-  @media(max-width:560px){ .bento{ grid-template-columns:1fr; } }
-  .feat{ position:relative; border-radius:22px; padding:26px; overflow:hidden;
-    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
-    border:1px solid var(--border); isolation:isolate;
-    opacity:0; transform:translateY(20px);
-    transition:opacity .5s ease, transform .5s cubic-bezier(.2,.8,.2,1), border-color .25s, box-shadow .25s; }
-  .feat.in{ opacity:1; transform:none; }
-  .feat.w3{ grid-column:span 3; } .feat.w2{ grid-column:span 2; } .feat.w6{ grid-column:1 / -1; }
-  @media(max-width:900px){ .feat.w3,.feat.w2,.feat.w6{ grid-column:1 / -1; } }
-  /* liseré lime en degrade au survol */
-  .feat::after{ content:''; position:absolute; inset:0; border-radius:22px; padding:1px; pointer-events:none;
-    background:linear-gradient(135deg, rgba(185,242,58,.65), rgba(185,242,58,0) 45%);
-    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor; mask-composite:exclude; opacity:0; transition:opacity .3s; z-index:2; }
-  .feat:hover{ transform:translateY(-6px); border-color:rgba(185,242,58,.3);
-    box-shadow:0 26px 60px rgba(0,0,0,.55), 0 0 34px rgba(185,242,58,.1); }
-  .feat:hover::after{ opacity:1; }
-  /* halo qui suit la souris */
-  .feat .glow{ position:absolute; width:280px; height:280px; border-radius:50%; pointer-events:none;
-    background:radial-gradient(circle, rgba(185,242,58,.16), transparent 65%); opacity:0;
-    transition:opacity .3s; transform:translate(-50%,-50%); z-index:0; }
-  .feat:hover .glow{ opacity:1; }
-  .feat .ic{ position:relative; z-index:1; width:50px; height:50px; display:grid; place-items:center; font-size:25px;
-    border-radius:15px; background:rgba(185,242,58,.1); border:1px solid rgba(185,242,58,.28);
-    box-shadow:inset 0 0 18px rgba(185,242,58,.12); margin-bottom:16px; }
-  .feat h3{ position:relative; z-index:1; font-size:19px; margin-bottom:7px; }
-  .feat p{ position:relative; z-index:1; color:var(--muted); font-size:14px; line-height:1.6; }
-  .feat .chip{ position:relative; z-index:1; display:inline-flex; align-items:center; gap:6px; margin-top:16px;
+  /* ===== FLUX EDITORIAL (sans boites) ===== */
+  .features{ max-width:900px; margin:0 auto; }
+  .frow{ position:relative; display:grid; grid-template-columns:84px 1fr; gap:22px; align-items:center;
+    padding:26px 22px; border-radius:16px; text-align:left; color:inherit;
+    opacity:0; transform:translateX(-18px);
+    transition:opacity .55s ease, transform .55s cubic-bezier(.2,.8,.2,1), background .3s; }
+  .frow.in{ opacity:1; transform:none; }
+  .frow + .frow{ border-top:1px solid rgba(255,255,255,.05); }
+  /* barre d'accent lime qui se remplit au survol */
+  .frow::before{ content:''; position:absolute; left:0; top:16px; bottom:16px; width:3px; border-radius:3px;
+    background:linear-gradient(var(--lime), #7bd80f); transform:scaleY(0); transform-origin:top; transition:transform .35s; }
+  .frow:hover{ background:linear-gradient(90deg, rgba(185,242,58,.07), transparent 72%); }
+  .frow:hover::before{ transform:scaleY(1); }
+  .frow .idx{ display:flex; align-items:baseline; gap:8px; }
+  .frow .idx .n{ font-size:52px; font-weight:900; line-height:.8; letter-spacing:-.04em; color:transparent;
+    -webkit-text-stroke:1.6px rgba(185,242,58,.5); transition:.3s; }
+  .frow:hover .idx .n{ -webkit-text-stroke-color:var(--lime); text-shadow:0 0 26px rgba(185,242,58,.45); }
+  .frow .e{ font-size:24px; filter:drop-shadow(0 3px 8px rgba(0,0,0,.5)); }
+  .frow h3{ font-size:22px; font-weight:800; margin-bottom:6px; transition:color .25s; }
+  .frow:hover h3{ color:#eafcc9; }
+  .frow p{ color:var(--muted); font-size:14.5px; line-height:1.6; }
+  .frow .chip{ display:inline-flex; align-items:center; gap:6px; margin-top:12px; white-space:nowrap;
     font-size:12.5px; font-weight:800; color:#0b1400; background:var(--lime); padding:7px 14px; border-radius:999px;
-    box-shadow:0 6px 16px rgba(185,242,58,.28); }
-  /* carte boss pleine largeur */
-  .feat.w6{ display:flex; align-items:center; gap:22px; padding:24px 28px;
-    background:linear-gradient(120deg, rgba(185,242,58,.08), rgba(255,255,255,.02) 40%); }
-  .feat.w6 .ic{ margin:0; width:60px; height:60px; font-size:30px; flex:none; }
-  .feat.w6 .body{ flex:1; min-width:0; }
-  @media(max-width:560px){ .feat.w6{ flex-direction:column; text-align:center; } }
+    box-shadow:0 6px 16px rgba(185,242,58,.28); transition:transform .2s; }
+  .frow.boss:hover .chip{ transform:translateX(4px); }
+  .frow.boss{ background:linear-gradient(90deg, rgba(185,242,58,.05), transparent 80%); }
+  @media(max-width:620px){
+    .frow{ grid-template-columns:64px 1fr; gap:14px; padding:22px 12px; }
+    .frow .idx .n{ font-size:40px; } .frow h3{ font-size:19px; }
+  }
 
   /* ===== TIMELINE etapes ===== */
   .timeline{ position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
@@ -317,13 +309,31 @@
     <section class="section">
       <h2>Comment ça marche</h2>
       <p class="lead">Chaque roll est une surprise. Chaque carte a une valeur, une rareté et un potentiel de combat.</p>
-      <div class="bento" id="bento">
-        <div class="feat w3"><span class="glow"></span><div class="ic">🎴</div><h3>Roll &amp; rareté</h3><p><b>/roll</b> tire une carte aléatoire toutes les heures (timer par serveur). Common, Rare, Epic, Legendary, Mythic, et de rares cartes <b>Secret animées</b>.</p><span class="chip">19 000+ personnages</span></div>
-        <div class="feat w3"><span class="glow"></span><div class="ic">✨</div><h3>Économie Essences</h3><p>Chaque roll rapporte des Essences. Recycle tes doublons, achète en boutique, finance ta guilde et débloque des cosmétiques.</p></div>
-        <div class="feat w2"><span class="glow"></span><div class="ic">⭐</div><h3>Fusion &amp; étoiles</h3><p>Fusionne tes doublons pour ajouter des étoiles (jusqu'à 5) et monte en rareté avec <b>/cardup</b>.</p></div>
-        <div class="feat w2"><span class="glow"></span><div class="ic">🖼️</div><h3>Bordures cosmétiques</h3><p>Habille tes plus belles cartes de bordures gold, frost, void, hell, leaf achetées en boutique.</p></div>
-        <div class="feat w2"><span class="glow"></span><div class="ic">🔄</div><h3>Échanges &amp; wishlist</h3><p>Échange multi-cartes même non équivalent, ajoute des cartes à ta wishlist et sois notifié quand elles tombent.</p></div>
-        <a class="feat w6" href="#" onclick="document.querySelector('.boss-demo').scrollIntoView({behavior:'smooth'});return false;"><span class="glow"></span><div class="ic">⚔️</div><div class="body"><h3>Boss de raid en direct</h3><p>Jusqu'à 5 joueurs affrontent un boss en équipe (DPS, Tank, Soigneur), suivi en temps réel sur le web, avec une note de A à F par joueur qui détermine le butin.</p></div><span class="chip">Voir la démo ↑</span></a>
+      <div class="features" id="features">
+        <div class="frow">
+          <div class="idx"><span class="n">01</span><span class="e">🎴</span></div>
+          <div><h3>Roll &amp; rareté</h3><p><b>/roll</b> tire une carte aléatoire toutes les heures (timer par serveur). Common, Rare, Epic, Legendary, Mythic, et de rares cartes <b>Secret animées</b>.</p><span class="chip">19 000+ personnages</span></div>
+        </div>
+        <div class="frow">
+          <div class="idx"><span class="n">02</span><span class="e">✨</span></div>
+          <div><h3>Économie Essences</h3><p>Chaque roll rapporte des Essences. Recycle tes doublons, achète en boutique, finance ta guilde et débloque des cosmétiques.</p></div>
+        </div>
+        <div class="frow">
+          <div class="idx"><span class="n">03</span><span class="e">⭐</span></div>
+          <div><h3>Fusion &amp; étoiles</h3><p>Fusionne tes doublons pour ajouter des étoiles (jusqu'à 5) et monte en rareté avec <b>/cardup</b>.</p></div>
+        </div>
+        <div class="frow">
+          <div class="idx"><span class="n">04</span><span class="e">🖼️</span></div>
+          <div><h3>Bordures cosmétiques</h3><p>Habille tes plus belles cartes de bordures gold, frost, void, hell, leaf achetées en boutique.</p></div>
+        </div>
+        <div class="frow">
+          <div class="idx"><span class="n">05</span><span class="e">🔄</span></div>
+          <div><h3>Échanges &amp; wishlist</h3><p>Échange multi-cartes même non équivalent, ajoute des cartes à ta wishlist et sois notifié quand elles tombent.</p></div>
+        </div>
+        <a class="frow boss" href="#" onclick="document.querySelector('.boss-demo').scrollIntoView({behavior:'smooth'});return false;">
+          <div class="idx"><span class="n">06</span><span class="e">⚔️</span></div>
+          <div><h3>Boss de raid en direct</h3><p>Jusqu'à 5 joueurs affrontent un boss en équipe (DPS, Tank, Soigneur), suivi en temps réel sur le web, avec une note de A à F par joueur qui détermine le butin.</p><span class="chip">Voir la démo ↑</span></div>
+        </a>
       </div>
     </section>
 
@@ -453,13 +463,8 @@
   (function(){
     const io = new IntersectionObserver((es)=>{ es.forEach(e=>{
       if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); }, {threshold:.16});
-    document.querySelectorAll('#bento .feat').forEach((el,i)=>{ el.style.transitionDelay=(i*70)+'ms'; io.observe(el); });
+    document.querySelectorAll('#features .frow').forEach((el,i)=>{ el.style.transitionDelay=(i*80)+'ms'; io.observe(el); });
     document.querySelectorAll('#timeline .tstep').forEach((el,i)=>{ el.style.transitionDelay=(i*110)+'ms'; io.observe(el); });
-    document.querySelectorAll('#bento .feat').forEach(card=>{
-      const g=card.querySelector('.glow');
-      card.addEventListener('mousemove', e=>{ if(!g) return; const r=card.getBoundingClientRect();
-        g.style.left=(e.clientX-r.left)+'px'; g.style.top=(e.clientY-r.top)+'px'; });
-    });
   })();
 </script>
 </body>
