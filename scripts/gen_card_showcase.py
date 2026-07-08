@@ -1,146 +1,133 @@
 #!/usr/bin/env python3
-"""Genere les cartes vitrine de la page /cartes.html avec le rendu EXACT de /show
-(bordures positionnees via la calibration de la DB prod). A lancer sur le VPS :
+"""Genere les cartes vitrine (page /cartes.html + description top.gg) avec le rendu
+EXACT de /show (bordures positionnees via la calibration de la DB prod).
 
+A lancer sur le VPS :
     cd ~/discord-bot && python scripts/gen_card_showcase.py
 
-Sortie : static/cards_showcase/{card1..card4}.(png|gif)
-Rien a commit : ce sont des fichiers statiques servis directement.
+Sortie -> static/cards_showcase/ (fichiers statiques servis, rien a commit).
 
-Si un nom ne resout pas la bonne carte, mets l'ID en dur dans OVERRIDE ci-dessous
-(tu trouves l'ID via /card <nom> sur Discord ou sur le dashboard)."""
-import os, sys, shutil, sqlite3, urllib.request
+Jeu SITE (carrousel) : classic1..3, border_gold, border_frost, augusta_hell,
+byakuya_void, toji_alt.
+Jeu TOP.GG (4 cartes) : toji_alt, goku_secret.<ext>, augusta_hell, byakuya_void.
+"""
+import os, sys, shutil, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database import get_db, card_get  # noqa
+from services import card_render as R  # noqa
 
-from database import get_db, card_get, card_get_by_name, border_get, event_skin_owned_set  # noqa
-from services import card_render as R
-
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                   "static", "cards_showcase")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RENDERS = os.path.join(ROOT, "static", "card_renders")
+OUT = os.path.join(ROOT, "static", "cards_showcase")
 os.makedirs(OUT, exist_ok=True)
 
-# ---- forcer un ID si la resolution par nom se trompe (0 = auto par nom) ----
-OVERRIDE = {
-    "toji":    0,   # Toji Summer (art alternatif event)
-    "goku":    0,   # Goku secret (carte animee / gif)
-    "augusta": 0,   # Augusta (Wuthering Waves) + bordure enfer
-    "byakuya": 0,   # Byakuya Kuchiki (Bleach) + bordure neant
-}
-
-
-def find_card(key, *names, rarity=None, universe_like=None):
-    if OVERRIDE.get(key):
-        c = card_get(OVERRIDE[key]);
-        if c: return c
-    conn = get_db(); cur = conn.cursor()
-    for nm in names:
-        q = "SELECT * FROM cards WHERE name LIKE ?"
-        p = [f"%{nm}%"]
-        if rarity:
-            q += " AND rarity = ?"; p.append(rarity)
-        if universe_like:
-            q += " AND (subtitle LIKE ? OR universe LIKE ?)"; p += [f"%{universe_like}%", f"%{universe_like}%"]
-        rows = cur.execute(q + " ORDER BY id LIMIT 5", p).fetchall()
-        if rows:
-            conn.close()
-            if len(rows) > 1:
-                print(f"  [!] plusieurs '{nm}' : " + ", ".join(f"{r['id']}={r['name']}({r['rarity']})" for r in rows))
-            return dict(rows[0])
-    conn.close()
-    return None
+# IDs fournis par l'owner
+TOJI_ID = 42682      # Toji Summer -> art alternatif, PAS de bordure
+GOKU_ID = 38651      # Son Goku secret -> gif anime, PAS de bordure
+AUGUSTA_ID = 40078   # Augusta -> bordure ENFER
+BYAKUYA_ID = 22185   # Byakuya Kuchiki -> bordure NEANT
 
 
 def border_by_filename(substr):
-    """Retourne le dict bordure dont le fichier contient substr (void/hell...)."""
     conn = get_db(); cur = conn.cursor()
     try:
         rows = cur.execute("SELECT * FROM borders").fetchall()
-    except Exception:
-        rows = []
+    except Exception as e:
+        print("  [x] table borders:", e); rows = []
     conn.close()
     for r in rows:
-        d = dict(r)
-        if substr in (d.get("filename") or "").lower():
-            return d
+        if substr in (dict(r).get("filename") or "").lower():
+            return dict(r)
     return None
 
 
 def save_png(img, name):
-    p = os.path.join(OUT, name)
-    img.convert("RGBA").save(p, "PNG")
+    img.convert("RGBA").save(os.path.join(OUT, name), "PNG")
     print("  ->", name)
 
 
-def gen_bordered(card, border_dict, out_name):
-    img = R.compose_card_image(card["id"], border=border_dict,
-                               fallback_url=card.get("image_url"))
+def render_plain(cid, name):
+    c = card_get(cid)
+    img = R.compose_card_image(cid, border=None, fallback_url=(c or {}).get("image_url"))
     if img is None:
-        print(f"  [x] rendu echoue pour {card['name']}"); return
-    save_png(img, out_name)
+        print(f"  [x] plain {cid} echoue"); return
+    save_png(img, name)
 
 
-def gen_alt(card, out_name):
-    img = R.compose_card_image(card["id"], border=None, fallback_url=card.get("image_url"), alt=True)
+def render_alt(cid, name):
+    c = card_get(cid)
+    img = R.compose_card_image(cid, border=None, fallback_url=(c or {}).get("image_url"), alt=True)
     if img is None:
-        print(f"  [x] rendu alt echoue pour {card['name']}"); return
-    save_png(img, out_name)
+        print(f"  [x] alt {cid} echoue (pas de skin alt ?)"); return
+    save_png(img, name)
 
 
-def gen_animated(card, out_name_noext):
-    """Carte secrete animee : copie le fichier anime tel quel (webp/gif) pour garder l'anim."""
-    rid = card["id"]
-    root = os.path.dirname(OUT)  # static/
+def render_border(cid, border_dict, name):
+    if not border_dict:
+        print(f"  [x] bordure introuvable pour {name}"); return
+    c = card_get(cid)
+    img = R.compose_card_image(cid, border=border_dict, fallback_url=(c or {}).get("image_url"))
+    if img is None:
+        print(f"  [x] bordure {cid} echoue"); return
+    save_png(img, name)
+
+
+def render_animated(cid, out_noext):
+    c = card_get(cid) or {}
     for ext in (".gif", ".webp"):
-        src = os.path.join(root, "card_renders", f"{rid}{ext}")
+        src = os.path.join(RENDERS, f"{cid}{ext}")
         if os.path.exists(src):
-            dst = os.path.join(OUT, out_name_noext + ext)
-            shutil.copyfile(src, dst)
-            print("  ->", os.path.basename(dst), "(anime, copie)")
-            return out_name_noext + ext
-    # sinon telecharge la source (image_url) si c'est un gif/webp anime
-    url = card.get("image_url") or ""
+            shutil.copyfile(src, os.path.join(OUT, out_noext + ext))
+            print("  ->", out_noext + ext, "(anime, copie)")
+            return out_noext + ext
+    url = c.get("image_url") or ""
     if url.startswith("http"):
         ext = ".gif" if ".gif" in url.lower() else ".webp"
-        dst = os.path.join(OUT, out_name_noext + ext)
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "TookBot/1.0"})
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                open(dst, "wb").write(resp.read())
-            print("  ->", os.path.basename(dst), "(anime, telecharge)")
-            return out_name_noext + ext
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                open(os.path.join(OUT, out_noext + ext), "wb").write(resp.read())
+            print("  ->", out_noext + ext, "(anime, telecharge)")
+            return out_noext + ext
         except Exception as e:
-            print(f"  [x] download anime echoue: {e}")
-    # fallback : rendu statique
-    img = R.compose_card_image(rid, border=None, fallback_url=url)
-    if img:
-        save_png(img, out_name_noext + ".png")
-        return out_name_noext + ".png"
-    return None
+            print("  [x] download anime:", e)
+    render_plain(cid, out_noext + ".png")
+    return out_noext + ".png"
 
 
-print("Resolution des cartes...")
-toji = find_card("toji", "Toji Summer", "Toji", "Touji Fushiguro")
-goku = find_card("goku", "Goku", "Son Goku", "Gokuu", rarity="secret") or find_card("goku", "Goku", "Son Goku")
-augusta = find_card("augusta", "Augusta", universe_like="Wuthering") or find_card("augusta", "Augusta")
-byakuya = find_card("byakuya", "Byakuya Kuchiki", "Byakuya")
-
-for lbl, c in [("Toji", toji), ("Goku", goku), ("Augusta", augusta), ("Byakuya", byakuya)]:
-    print(f"  {lbl}: " + (f"#{c['id']} {c['name']} ({c['rarity']}) [{c.get('subtitle')}]" if c else "INTROUVABLE"))
+# --- ids "classiques/bordures auto" pour remplir le carrousel ---
+auto = []
+for f in sorted(os.listdir(RENDERS)):
+    if f.endswith(".png") and f[:-4].isdigit():
+        auto.append(int(f[:-4]))
+    if len(auto) >= 40:
+        break
+used = {TOJI_ID, GOKU_ID, AUGUSTA_ID, BYAKUYA_ID}
+auto = [i for i in auto if i not in used]
 
 b_hell = border_by_filename("hell")
 b_void = border_by_filename("void")
-print("  bordure enfer:", b_hell["border_key"] if b_hell else "INTROUVABLE",
-      "| bordure neant:", b_void["border_key"] if b_void else "INTROUVABLE")
+b_gold = border_by_filename("gold")
+b_frost = border_by_filename("frost")
+print("bordures:", "hell" if b_hell else "-", "void" if b_void else "-",
+      "gold" if b_gold else "-", "frost" if b_frost else "-")
 
-print("\nGeneration...")
-manifest = {}
-if toji:    gen_alt(toji, "card1_toji_alt.png");                 manifest["card1"] = "card1_toji_alt.png"
-if goku:    manifest["card2"] = gen_animated(goku, "card2_goku_secret")
-if augusta and b_hell: gen_bordered(augusta, b_hell, "card3_augusta_hell.png"); manifest["card3"] = "card3_augusta_hell.png"
-if byakuya and b_void: gen_bordered(byakuya, b_void, "card4_byakuya_void.png"); manifest["card4"] = "card4_byakuya_void.png"
+print("\n== TOP.GG (4 cartes) ==")
+render_alt(TOJI_ID, "toji_alt.png")
+goku_file = render_animated(GOKU_ID, "goku_secret")
+render_border(AUGUSTA_ID, b_hell, "augusta_hell.png")
+render_border(BYAKUYA_ID, b_void, "byakuya_void.png")
 
-print("\nManifest (mets ces noms de fichiers dans cartes.html):")
-for k, v in manifest.items():
-    print(f"  {k}: {v}")
-print("\nTermine. Verifie les images dans static/cards_showcase/")
+print("\n== SITE (carrousel) ==")
+render_plain(auto[0], "classic1.png")
+render_plain(auto[1], "classic2.png")
+render_plain(auto[2], "classic3.png")
+render_border(auto[3], b_gold, "border_gold.png")
+render_border(auto[4], b_frost, "border_frost.png")
+# augusta_hell.png et byakuya_void.png (ci-dessus) servent aussi au carrousel
+# toji_alt.png (ci-dessus) sert aussi au carrousel
+
+print("\nManifest carte animee Goku :", goku_file)
+print("-> si l'extension n'est pas .webp, dis-le moi pour ajuster la page/description.")
+print("Termine. Verifie static/cards_showcase/")
