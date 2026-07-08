@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartes à collectionner - TookBot</title>
+<meta name="description" content="Le système de cartes à collectionner de TookBot : 19 000+ personnages, rolls, fusion, bordures cosmétiques, boss de raid, guildes et échanges. Aperçu interactif des cartes.">
+<meta property="og:title" content="Cartes à collectionner - TookBot">
+<meta property="og:description" content="Roll, fusion, boss de raid, bordures et échanges. Un vrai jeu de collection dans Discord.">
+<meta property="og:url" content="https://tookbot.click/cartes.html">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://dashboard.tookbot.click/static/cards_showcase/summer_toji.png">
+<meta name="theme-color" content="#0d0f0a">
+<link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{ --lime:#b9f23a; --lime-2:#caff37; --bg:#0b0d08; --bg-2:#12150d; --ink:#eef3e4; --muted:#9aa88a; --border:#26301a; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:'Inter',system-ui,sans-serif; background:
+      radial-gradient(circle at 50% -10%, #1a2110 0%, #0d0f0a 45%, #070805 100%);
+      color:var(--ink); min-height:100vh; overflow-x:hidden; }
+  a{ color:inherit; text-decoration:none; }
+
+  /* nav */
+  .nav{ display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:16px 28px; position:sticky; top:0; z-index:40; backdrop-filter:blur(10px);
+    background:rgba(8,10,6,.72); border-bottom:1px solid var(--border); }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:900; font-size:18px; }
+  .brand-mark{ width:22px; height:22px; border-radius:7px; background:linear-gradient(135deg,var(--lime),#7bd80f);
+    box-shadow:0 0 14px rgba(185,242,58,.5); }
+  .nav-links{ display:flex; gap:22px; font-weight:600; font-size:14px; color:var(--muted); }
+  .nav-links a:hover{ color:var(--ink); }
+  .nav-links a.active{ color:var(--lime); }
+  .nav-cta{ padding:9px 16px; border-radius:999px; background:var(--lime); color:#0b1400;
+    font-weight:800; font-size:13px; box-shadow:0 6px 18px rgba(185,242,58,.28); }
+  @media(max-width:720px){ .nav-links{ display:none; } }
+
+  /* hero */
+  .hero{ text-align:center; padding:70px 20px 30px; max-width:900px; margin:0 auto; }
+  .eyebrow{ display:inline-block; font-size:12px; font-weight:800; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--lime); border:1px solid var(--border);
+    padding:6px 14px; border-radius:999px; background:rgba(185,242,58,.06); }
+  .hero h1{ font-size:clamp(38px,7vw,72px); font-weight:900; line-height:1.02; margin:18px 0 14px;
+    letter-spacing:-.02em; }
+  .hero h1 .g{ background:linear-gradient(120deg,var(--lime),#9be814); -webkit-background-clip:text;
+    background-clip:text; color:transparent; }
+  .hero p{ font-size:clamp(15px,2.4vw,19px); color:var(--muted); max-width:640px; margin:0 auto; }
+  .hero-badges{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:24px; }
+  .hb{ font-size:13px; font-weight:700; color:var(--ink); background:var(--bg-2);
+    border:1px solid var(--border); border-radius:999px; padding:8px 16px; }
+  .hb b{ color:var(--lime); }
+
+  /* carrousel */
+  .stage{ margin:34px 0 10px; position:relative; }
+  .stage-label{ text-align:center; color:var(--muted); font-size:13px; font-weight:600; margin-bottom:12px; }
+  .track-wrap{ overflow:hidden; -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent); padding:30px 0; }
+  .track{ display:flex; gap:26px; width:max-content; animation:scroll 46s linear infinite; }
+  .track:hover{ animation-play-state:paused; }
+  @keyframes scroll{ to{ transform:translateX(-50%); } }
+  .card{ position:relative; width:210px; flex:0 0 auto; border-radius:16px; cursor:pointer;
+    transform-style:preserve-3d; transition:transform .15s ease, box-shadow .2s ease;
+    box-shadow:0 14px 34px rgba(0,0,0,.55); }
+  .card img{ width:100%; display:block; border-radius:16px; }
+  .card .cap{ position:absolute; left:0; right:0; bottom:8px; text-align:center; font-size:12px;
+    font-weight:800; color:#fff; text-shadow:0 2px 6px #000; pointer-events:none; }
+  .card .tag{ position:absolute; top:10px; left:10px; font-size:10px; font-weight:800; padding:3px 8px;
+    border-radius:999px; letter-spacing:.05em; }
+  .tag.classic{ background:rgba(255,255,255,.14); color:#fff; }
+  .tag.border{ background:rgba(185,242,58,.9); color:#0b1400; }
+  .tag.event{ background:#ffc43c; color:#3a2600; }
+  .card:hover{ box-shadow:0 22px 50px rgba(0,0,0,.7), 0 0 22px rgba(185,242,58,.22); }
+
+  /* sections */
+  .wrap{ max-width:1040px; margin:0 auto; padding:0 20px; }
+  .section{ padding:56px 0; }
+  .section h2{ text-align:center; font-size:clamp(26px,4vw,38px); font-weight:900; margin-bottom:10px; }
+  .section .lead{ text-align:center; color:var(--muted); max-width:600px; margin:0 auto 34px; }
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:820px){ .grid{ grid-template-columns:1fr; } }
+  .feat{ background:var(--bg-2); border:1px solid var(--border); border-radius:18px; padding:22px; }
+  .feat .ic{ font-size:26px; }
+  .feat h3{ margin:10px 0 6px; font-size:17px; }
+  .feat p{ color:var(--muted); font-size:14px; line-height:1.55; }
+  .feat.hl{ border-color:rgba(185,242,58,.4); box-shadow:0 0 0 1px rgba(185,242,58,.12) inset; }
+
+  .steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  @media(max-width:820px){ .steps{ grid-template-columns:1fr 1fr; } }
+  .step{ text-align:center; background:var(--bg-2); border:1px solid var(--border); border-radius:16px; padding:20px 14px; }
+  .step .n{ width:34px; height:34px; margin:0 auto 10px; border-radius:50%; display:grid; place-items:center;
+    background:var(--lime); color:#0b1400; font-weight:900; }
+  .step b{ font-size:15px; } .step p{ color:var(--muted); font-size:13px; margin-top:4px; }
+
+  .cta{ text-align:center; padding:60px 20px 80px; }
+  .cta h2{ font-size:clamp(26px,4vw,40px); font-weight:900; }
+  .cta p{ color:var(--muted); margin:10px 0 24px; }
+  .btn-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn{ padding:13px 24px; border-radius:999px; font-weight:800; font-size:15px; }
+  .btn.lime{ background:var(--lime); color:#0b1400; box-shadow:0 8px 24px rgba(185,242,58,.3); }
+  .btn.ghost{ border:1px solid var(--border); color:var(--ink); background:var(--bg-2); }
+  footer{ text-align:center; color:var(--muted); font-size:13px; padding:26px; border-top:1px solid var(--border); }
+
+  /* lightbox */
+  .lb{ position:fixed; inset:0; z-index:100; display:none; place-items:center; padding:20px;
+    background:rgba(4,5,3,.9); backdrop-filter:blur(6px); }
+  .lb.open{ display:grid; }
+  .lb img{ max-height:86vh; border-radius:18px; box-shadow:0 30px 80px rgba(0,0,0,.7);
+    transform-style:preserve-3d; }
+</style>
+</head>
+<body>
+
+  <header class="nav">
+    <a class="brand" href="/"><span class="brand-mark"></span><span>TookBot</span></a>
+    <nav class="nav-links">
+      <a href="/commandes.html">Commandes</a>
+      <a href="/cartes.html" class="active">Cartes</a>
+      <a href="/docs.html">Docs</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
+    </nav>
+    <a class="nav-cta" href="https://dashboard.tookbot.click">Ouvrir le dashboard</a>
+  </header>
+
+  <section class="hero">
+    <span class="eyebrow">Système de cartes</span>
+    <h1>Collectionne <span class="g">19 000+ cartes</span><br>sans quitter Discord</h1>
+    <p>Un vrai jeu de collection façon Mudae : tire des personnages d'anime, de jeux vidéo et de films, fais-les monter en étoiles, habille-les de bordures cosmétiques, affronte des boss de raid en équipe et échange avec les autres joueurs.</p>
+    <div class="hero-badges">
+      <span class="hb"><b>19 000+</b> personnages</span>
+      <span class="hb"><b>5</b> raretés + secret</span>
+      <span class="hb"><b>Boss</b> de raid en direct</span>
+      <span class="hb"><b>Guildes</b> cross-serveur</span>
+    </div>
+  </section>
+
+  <!-- CARROUSEL INTERACTIF -->
+  <div class="stage">
+    <div class="stage-label">Survole une carte pour l'incliner en 3D · clique pour l'agrandir</div>
+    <div class="track-wrap">
+      <div class="track" id="track"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <section class="section">
+      <h2>Comment ça marche</h2>
+      <p class="lead">Chaque roll est une surprise. Chaque carte a une valeur, une rareté et un potentiel de combat.</p>
+      <div class="grid">
+        <div class="feat hl"><div class="ic">🎴</div><h3>Roll &amp; rareté</h3><p><b>/roll</b> tire une carte aléatoire toutes les heures (timer par serveur). Common, Rare, Epic, Legendary, Mythic… et de rares cartes Secret animées.</p></div>
+        <div class="feat"><div class="ic">✨</div><h3>Économie Essences</h3><p>Chaque roll rapporte des Essences. Recycle tes doublons, achète en boutique, finance ta guilde.</p></div>
+        <div class="feat"><div class="ic">⭐</div><h3>Fusion &amp; étoiles</h3><p>Fusionne tes doublons pour ajouter des étoiles (jusqu'à 5) et monte en rareté avec <b>/cardup</b>.</p></div>
+        <div class="feat"><div class="ic">🖼️</div><h3>Bordures cosmétiques</h3><p>Habille tes plus belles cartes de bordures (gold, frost, void, hell, leaf…) achetées en boutique.</p></div>
+        <div class="feat"><div class="ic">⚔️</div><h3>Boss de raid</h3><p>Jusqu'à 5 joueurs affrontent un boss en équipe. Combat suivi en direct sur le web, note de A à F et butin à la clé.</p></div>
+        <div class="feat"><div class="ic">🔄</div><h3>Échanges &amp; wishlist</h3><p>Échange multi-cartes même non équivalent, ajoute des cartes à ta wishlist et sois notifié quand elles tombent.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>🌞 Événements saisonniers</h2>
+      <p class="lead">Pendant les events, certains personnages reçoivent un <b>art alternatif exclusif</b>. Débloque-les avec <b>/eventfight</b> et <b>/eventshop</b>, comme Toji et Ashe en tenue d'été.</p>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><b>Tire</b><p>/roll pour agrandir ta collection</p></div>
+        <div class="step"><div class="n">2</div><b>Améliore</b><p>fusion, bordures, montée de rareté</p></div>
+        <div class="step"><div class="n">3</div><b>Combats</b><p>boss de raid en équipe</p></div>
+        <div class="step"><div class="n">4</div><b>Échange</b><p>trade et guildes cross-serveur</p></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="cta">
+    <h2>Commence ta collection</h2>
+    <p>Invite TookBot, tape <b>/roll</b>, et laisse-toi prendre au jeu.</p>
+    <div class="btn-row">
+      <a class="btn lime" href="https://dashboard.tookbot.click">➕ Ajouter TookBot</a>
+      <a class="btn ghost" href="/commandes.html">📖 Voir toutes les commandes</a>
+    </div>
+  </div>
+
+  <footer>Fait avec 💚 pour les communautés francophones · TookBot</footer>
+
+  <div class="lb" id="lb"><img id="lbImg" src="" alt=""></div>
+
+<script>
+  const B = "https://dashboard.tookbot.click/static/cards_showcase/";
+  const CARDS = [
+    { img:"classic1.png", name:"", tag:"classic", label:"Sans bordure" },
+    { img:"border1.png",  name:"", tag:"border",  label:"Bordure Gold" },
+    { img:"summer_toji.png", name:"", tag:"event", label:"Event Summer" },
+    { img:"classic2.png", name:"", tag:"classic", label:"Sans bordure" },
+    { img:"border2.png",  name:"", tag:"border",  label:"Bordure Frost" },
+    { img:"summer_ashe.png", name:"", tag:"event", label:"Event Summer" },
+    { img:"classic3.png", name:"", tag:"classic", label:"Sans bordure" },
+    { img:"border3.png",  name:"", tag:"border",  label:"Bordure Void" },
+    { img:"border4.png",  name:"", tag:"border",  label:"Bordure Hell" },
+  ];
+  const TAGTXT = { classic:"Classique", border:"Bordure", event:"Summer 2026" };
+
+  function cardEl(c){
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = `<span class="tag ${c.tag}">${TAGTXT[c.tag]}</span>
+      <img src="${B}${c.img}" loading="lazy" alt="">`;
+    // tilt 3D
+    d.addEventListener('mousemove', e=>{
+      const r = d.getBoundingClientRect();
+      const px = (e.clientX - r.left)/r.width - .5;
+      const py = (e.clientY - r.top)/r.height - .5;
+      d.style.transform = `perspective(700px) rotateY(${px*18}deg) rotateX(${-py*18}deg) scale(1.06)`;
+    });
+    d.addEventListener('mouseleave', ()=>{ d.style.transform=''; });
+    d.addEventListener('click', ()=> openLB(`${B}${c.img}`));
+    return d;
+  }
+  const track = document.getElementById('track');
+  // duplique la liste pour un defilement en boucle sans couture
+  [...CARDS, ...CARDS].forEach(c => track.appendChild(cardEl(c)));
+
+  // lightbox avec tilt
+  const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
+  function openLB(src){ lbImg.src = src; lb.classList.add('open'); }
+  lb.addEventListener('click', ()=> lb.classList.remove('open'));
+  lbImg.addEventListener('mousemove', e=>{
+    e.stopPropagation();
+    const r = lbImg.getBoundingClientRect();
+    const px=(e.clientX-r.left)/r.width-.5, py=(e.clientY-r.top)/r.height-.5;
+    lbImg.style.transform = `perspective(1000px) rotateY(${px*20}deg) rotateX(${-py*20}deg)`;
+  });
+  lbImg.addEventListener('mouseleave', ()=>{ lbImg.style.transform=''; });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') lb.classList.remove('open'); });
+</script>
+</body>
+</html>
