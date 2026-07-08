@@ -73,25 +73,64 @@ def render_border(cid, border_dict, name):
     save_png(img, name)
 
 
-def render_animated(cid, out_noext):
-    c = card_get(cid) or {}
-    for ext in (".gif", ".webp"):
-        src = os.path.join(RENDERS, f"{cid}{ext}")
-        if os.path.exists(src):
-            shutil.copyfile(src, os.path.join(OUT, out_noext + ext))
-            print("  ->", out_noext + ext, "(anime, copie)")
-            return out_noext + ext
-    url = c.get("image_url") or ""
-    if url.startswith("http"):
-        ext = ".gif" if ".gif" in url.lower() else ".webp"
+def _shrink_animated(src_path, dst_path, max_w=300):
+    """Re-encode une image animee (webp/gif) en webp anime plus leger (top.gg
+    refuse les gros fichiers). Retourne True si ok."""
+    from PIL import Image
+    try:
+        im = Image.open(src_path)
+        w, h = im.size
+        scale = min(1.0, max_w / w)
+        nw, nh = int(w * scale), int(h * scale)
+        frames, durations = [], []
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "TookBot/1.0"})
-            with urllib.request.urlopen(req, timeout=25) as resp:
-                open(os.path.join(OUT, out_noext + ext), "wb").write(resp.read())
-            print("  ->", out_noext + ext, "(anime, telecharge)")
-            return out_noext + ext
-        except Exception as e:
-            print("  [x] download anime:", e)
+            i = 0
+            while True:
+                im.seek(i)
+                durations.append(im.info.get("duration", 80))
+                frames.append(im.convert("RGBA").resize((nw, nh), Image.LANCZOS))
+                i += 1
+        except EOFError:
+            pass
+        if not frames:
+            return False
+        frames[0].save(dst_path, "WEBP", save_all=True, append_images=frames[1:],
+                       duration=durations, loop=0, quality=66, method=6)
+        return True
+    except Exception as e:
+        print("  [x] shrink anime:", e)
+        return False
+
+
+def render_animated(cid, out_noext, max_w=300):
+    c = card_get(cid) or {}
+    dst = os.path.join(OUT, out_noext + ".webp")
+    # source locale (render) puis distante (image_url)
+    src = None
+    for ext in (".webp", ".gif"):
+        p = os.path.join(RENDERS, f"{cid}{ext}")
+        if os.path.exists(p):
+            src = p; break
+    tmp = None
+    if src is None:
+        url = c.get("image_url") or ""
+        if url.startswith("http"):
+            ext = ".gif" if ".gif" in url.lower() else ".webp"
+            tmp = os.path.join(OUT, "_tmp_anim" + ext)
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "TookBot/1.0"})
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    open(tmp, "wb").write(resp.read())
+                src = tmp
+            except Exception as e:
+                print("  [x] download anime:", e)
+    if src and _shrink_animated(src, dst, max_w=max_w):
+        if tmp and os.path.exists(tmp):
+            os.remove(tmp)
+        kb = os.path.getsize(dst) // 1024
+        print(f"  -> {out_noext}.webp (anime compresse, {kb} KB)")
+        return out_noext + ".webp"
+    # fallback : rendu statique
     render_plain(cid, out_noext + ".png")
     return out_noext + ".png"
 
