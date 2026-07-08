@@ -190,24 +190,14 @@
 
 <script>
   const B = "https://dashboard.tookbot.click/static/cards_showcase/";
-  const CARDS = [
-    { img:"classic1.png",     tag:"classic", label:"Sans bordure" },
-    { img:"border_gold.png",  tag:"border",  label:"Bordure Gold" },
-    { img:"toji_alt.png",     tag:"event",   label:"Art alternatif Summer" },
-    { img:"classic2.png",     tag:"classic", label:"Sans bordure" },
-    { img:"augusta_hell.png", tag:"border",  label:"Bordure Enfer" },
-    { img:"border_frost.png", tag:"border",  label:"Bordure Frost" },
-    { img:"classic3.png",     tag:"classic", label:"Sans bordure" },
-    { img:"byakuya_void.png", tag:"border",  label:"Bordure Néant" },
-  ];
-  const TAGTXT = { classic:"Classique", border:"Bordure", event:"Summer 2026", secret:"Secret" };
+  const COUNT = 24;  // show1..show24 generees par scripts/gen_card_showcase.py
+  const CARDS = Array.from({length:COUNT}, (_,i)=> `show${i+1}.png`);
 
-  function cardEl(c){
+  function cardEl(img){
     const d = document.createElement('div');
     d.className = 'card';
-    d.innerHTML = `<span class="tag ${c.tag}">${TAGTXT[c.tag]}</span>
-      <img src="${B}${c.img}" loading="lazy" alt="">
-      <span class="cap">${c.label}</span>`;
+    d.innerHTML = `<img src="${B}${img}" loading="lazy" alt=""
+      onerror="this.closest('.card').remove()">`;
     // tilt 3D
     d.addEventListener('mousemove', e=>{
       const r = d.getBoundingClientRect();
@@ -216,7 +206,7 @@
       d.style.transform = `perspective(700px) rotateY(${px*18}deg) rotateX(${-py*18}deg) scale(1.06)`;
     });
     d.addEventListener('mouseleave', ()=>{ d.style.transform=''; });
-    d.addEventListener('click', ()=> openLB(`${B}${c.img}`));
+    d.addEventListener('click', ()=> openLB(`${B}${img}`));
     return d;
   }
   const track = document.getElementById('track');

@@ -11,7 +11,7 @@ Jeu SITE (carrousel) : classic1..3, border_gold, border_frost, augusta_hell,
 byakuya_void, toji_alt.
 Jeu TOP.GG (4 cartes) : toji_alt, goku_secret.<ext>, augusta_hell, byakuya_void.
 """
-import os, sys, shutil, urllib.request
+import os, sys, shutil, urllib.request, random
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database import get_db, card_get  # noqa
@@ -96,15 +96,12 @@ def render_animated(cid, out_noext):
     return out_noext + ".png"
 
 
-# --- ids "classiques/bordures auto" pour remplir le carrousel ---
-auto = []
-for f in sorted(os.listdir(RENDERS)):
-    if f.endswith(".png") and f[:-4].isdigit():
-        auto.append(int(f[:-4]))
-    if len(auto) >= 40:
-        break
+# --- pool de cartes pour le carrousel (aleatoire) ---
+auto = [int(f[:-4]) for f in os.listdir(RENDERS)
+        if f.endswith(".png") and f[:-4].isdigit()]
 used = {TOJI_ID, GOKU_ID, AUGUSTA_ID, BYAKUYA_ID}
 auto = [i for i in auto if i not in used]
+random.shuffle(auto)
 
 b_hell = border_by_filename("hell")
 b_void = border_by_filename("void")
@@ -119,15 +116,27 @@ goku_file = render_animated(GOKU_ID, "goku_secret")
 render_border(AUGUSTA_ID, b_hell, "augusta_hell.png")
 render_border(BYAKUYA_ID, b_void, "byakuya_void.png")
 
-print("\n== SITE (carrousel) ==")
-render_plain(auto[0], "classic1.png")
-render_plain(auto[1], "classic2.png")
-render_plain(auto[2], "classic3.png")
-render_border(auto[3], b_gold, "border_gold.png")
-render_border(auto[4], b_frost, "border_frost.png")
-# augusta_hell.png et byakuya_void.png (ci-dessus) servent aussi au carrousel
-# toji_alt.png (ci-dessus) sert aussi au carrousel
+# === SITE : carrousel de cartes ALEATOIRES, dont ~40% avec une bordure aleatoire ===
+SHOWCASE_COUNT = 24        # nb de cartes qui defilent (la page reference show1..showN)
+BORDER_CHANCE = 0.4        # proba qu'une carte porte une bordure
+borders_pool = [b for b in (b_gold, b_frost, b_hell, b_void) if b]
+
+print(f"\n== SITE (carrousel {SHOWCASE_COUNT} cartes aleatoires) ==")
+sel = auto[:SHOWCASE_COUNT]
+# nettoie les anciens show*.png / classic*.png / border_*.png
+for old in os.listdir(OUT):
+    if old.startswith(("show", "classic", "border_", "summer_")):
+        try: os.remove(os.path.join(OUT, old))
+        except Exception: pass
+n_border = 0
+for i, cid in enumerate(sel, 1):
+    if borders_pool and random.random() < BORDER_CHANCE:
+        render_border(cid, random.choice(borders_pool), f"show{i}.png"); n_border += 1
+    else:
+        render_plain(cid, f"show{i}.png")
+print(f"  {SHOWCASE_COUNT} cartes, dont {n_border} avec bordure.")
 
 print("\nManifest carte animee Goku :", goku_file)
-print("-> si l'extension n'est pas .webp, dis-le moi pour ajuster la page/description.")
+print("-> si l'extension n'est pas .webp, dis-le moi pour ajuster la description top.gg.")
+print(f"Carrousel site : show1..show{SHOWCASE_COUNT}.png")
 print("Termine. Verifie static/cards_showcase/")
