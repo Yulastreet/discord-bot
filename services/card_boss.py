@@ -1330,6 +1330,16 @@ async def _run_boss(bot, bid, msg, view):
             if _bx and _bx["status"] in ("fighting", "recruiting"):
                 card_boss_set_status(bid, "wiped")
                 boss_event_add(bid, "end", {"victory": False})
+                # Poste quand meme un message Discord pour que les joueurs voient un resultat.
+                try:
+                    _ch = bot.get_channel(int(_bx["channel_id"])) or await bot.fetch_channel(int(_bx["channel_id"]))
+                    if _ch:
+                        await _ch.send(embed=discord.Embed(
+                            title=f"💀 Combat interrompu contre {_bx['name']}",
+                            description="Le combat s'est terminé de façon inattendue. Aucun butin cette fois.",
+                            color=0xff3d57))
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -1486,7 +1496,7 @@ async def _finish(bot, bid, msg, view, log, victory):
         await ch.send(content=mentions, embed=embed,
                        allowed_mentions=discord.AllowedMentions(users=True))
     else:
-        boss_event_add(bid, "defeat", {"boss": boss["name"], "tier": tier})
+        boss_event_add(bid, "defeat", {"boss": boss["name"], "tier": boss["tier"]})
         embed = discord.Embed(
             title=f"💀 Défaite contre {boss['name']}",
             description=f"L'équipe ({mentions}) a été anéantie. Le boss survit. Pas de butin.",
