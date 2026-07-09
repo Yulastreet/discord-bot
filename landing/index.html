@@ -1134,6 +1134,85 @@
     grid-column: span 2;
   }
 
+  /* ===== ANIMATIONS DES FEATURES ===== */
+  .fx{ position:relative; height:150px; border-radius:18px; overflow:hidden; margin-bottom:16px;
+    background:radial-gradient(circle at 50% 120%, rgba(202,255,55,.10), transparent 60%), rgba(0,0,0,.28);
+    border:1px solid rgba(202,255,55,.10); display:grid; place-items:center; }
+  .feature .fxtitle{ font-size:19px; font-weight:800; margin:0 0 4px; }
+  .feature .fxsub{ font-size:13.5px; color:rgba(230,240,215,.66); line-height:1.5; margin:0; }
+  .fx-link{ display:inline-block; margin-top:12px; font-weight:800; font-size:13px; color:#caff37; }
+  .feature.is-primary .fx{ height:100%; min-height:250px; margin:0; }
+  .feature.is-tall .fx{ height:250px; }
+  .feature.is-wide .fx{ height:150px; }
+
+  /* equalizer (musique) */
+  .eq{ display:flex; gap:6px; align-items:flex-end; height:84px; }
+  .eq i{ width:8px; border-radius:4px; background:linear-gradient(#caff37,#7bd80f); box-shadow:0 0 8px rgba(202,255,55,.3); animation:eqb 1s ease-in-out infinite; }
+  @keyframes eqb{ 0%,100%{height:16px} 50%{height:84px} }
+
+  /* barre XP */
+  .xpwrap{ width:78%; text-align:center; }
+  .xplvl{ font-weight:900; font-size:24px; color:#caff37; margin-bottom:12px; letter-spacing:.02em; }
+  .xpbar{ height:13px; border-radius:7px; background:rgba(255,255,255,.08); overflow:hidden; }
+  .xpbar i{ display:block; height:100%; border-radius:7px; background:linear-gradient(90deg,#caff37,#7bd80f); animation:xpf 3s ease-in-out infinite; }
+  @keyframes xpf{ 0%{width:6%} 72%,100%{width:100%} }
+
+  /* bouclier + ban (moderation) */
+  .shieldwrap{ position:relative; width:96px; height:110px; display:grid; place-items:center; }
+  .shieldwrap .ring{ position:absolute; inset:-8px; border-radius:50%; border:2px dashed rgba(202,255,55,.35); animation:spin 9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .shieldwrap svg{ width:60px; height:72px; fill:none; stroke:#caff37; stroke-width:1.6; stroke-linejoin:round; filter:drop-shadow(0 0 10px rgba(202,255,55,.3)); }
+  .banpop{ position:absolute; bottom:2px; font-size:11px; font-weight:900; color:#fff; background:#ff3d57; padding:3px 11px; border-radius:999px; animation:banp 3s ease-in-out infinite; }
+  @keyframes banp{ 0%,55%{opacity:0; transform:translateY(8px)} 65%,88%{opacity:1; transform:none} 100%{opacity:0} }
+
+  /* alerte live (tickets/alertes) */
+  .notif{ width:84%; display:flex; gap:11px; align-items:center; padding:11px 13px; border-radius:14px;
+    background:rgba(255,255,255,.06); border:1px solid rgba(202,255,55,.2); animation:notif 3.2s ease-in-out infinite; }
+  .notif .av{ width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#9146ff,#ff3d57); flex:none; }
+  .notif b{ font-size:13px; } .notif small{ font-size:11px; color:rgba(230,240,215,.6); display:block; }
+  .notif .live{ margin-left:auto; font-size:9px; font-weight:900; color:#fff; background:#ff3d57; padding:3px 7px; border-radius:5px; }
+  @keyframes notif{ 0%{opacity:0; transform:translateY(18px)} 14%,78%{opacity:1; transform:none} 100%{opacity:0; transform:translateY(-12px)} }
+
+  /* sabres (mini-jeux) */
+  .sabres{ position:relative; width:130px; height:110px; }
+  .sabre{ position:absolute; left:50%; bottom:6px; width:6px; height:82px; border-radius:4px; transform-origin:bottom center; }
+  .sabre.a{ background:linear-gradient(#caff37,#7bd80f); box-shadow:0 0 12px #caff37; animation:sw1 1.6s ease-in-out infinite; }
+  .sabre.b{ background:linear-gradient(#4cb5f9,#2b7fd0); box-shadow:0 0 12px #4cb5f9; animation:sw2 1.6s ease-in-out infinite; }
+  @keyframes sw1{ 0%,100%{transform:translateX(-50%) rotate(-40deg)} 50%{transform:translateX(-50%) rotate(-8deg)} }
+  @keyframes sw2{ 0%,100%{transform:translateX(-50%) rotate(40deg)} 50%{transform:translateX(-50%) rotate(8deg)} }
+  .spark{ position:absolute; left:50%; top:18px; width:10px; height:10px; border-radius:50%; background:#fff; transform:translateX(-50%);
+    box-shadow:0 0 16px #fff, 0 0 30px #caff37; opacity:0; animation:spk 1.6s ease-in-out infinite; }
+  @keyframes spk{ 0%,44%,56%,100%{opacity:0} 50%{opacity:1; transform:translateX(-50%) scale(1.7)} }
+
+  /* dashboard : toggles + ligne live */
+  .dash{ display:flex; gap:26px; align-items:center; }
+  .toggles{ display:flex; flex-direction:column; gap:11px; }
+  .tg{ width:46px; height:24px; border-radius:999px; background:rgba(255,255,255,.14); position:relative; transition:background .3s; }
+  .tg::after{ content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .3s; }
+  .tg.on{ background:#caff37; } .tg.on::after{ left:25px; }
+  .tg1{ animation:tgA 3s infinite; } .tg2{ animation:tgB 3s infinite; } .tg3{ animation:tgA 3.6s infinite; }
+  @keyframes tgA{ 0%,45%{background:rgba(255,255,255,.14)} 50%,100%{background:#caff37} }
+  @keyframes tgB{ 0%,60%{background:#caff37} 65%,100%{background:rgba(255,255,255,.14)} }
+  .dchart{ width:160px; height:76px; }
+  .dchart path{ fill:none; stroke:#caff37; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;
+    stroke-dasharray:420; stroke-dashoffset:420; animation:draw 3.4s ease-in-out infinite; filter:drop-shadow(0 0 6px rgba(202,255,55,.4)); }
+  @keyframes draw{ 0%{stroke-dashoffset:420} 60%,100%{stroke-dashoffset:0} }
+
+  /* eventail de cartes */
+  .fan{ position:relative; width:220px; height:100%; min-height:240px; }
+  .fan .c{ position:absolute; bottom:22px; left:50%; }
+  .fan .c1{ transform:translateX(calc(-50% - 66px)) rotate(-15deg); }
+  .fan .c2{ transform:translateX(-50%) rotate(0); z-index:2; }
+  .fan .c3{ transform:translateX(calc(-50% + 66px)) rotate(15deg); }
+  .fan .c img{ display:block; width:96px; border-radius:10px; border:2px solid rgba(255,255,255,.12);
+    box-shadow:0 12px 30px rgba(0,0,0,.55); animation:floaty 4s ease-in-out infinite; }
+  .fan .c2 img{ animation-delay:.3s; } .fan .c3 img{ animation-delay:.6s; }
+  @keyframes floaty{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+
+  @media (prefers-reduced-motion: reduce){
+    .eq i,.xpbar i,.shieldwrap .ring,.banpop,.notif,.sabre,.spark,.tg1,.tg2,.tg3,.dchart path,.fan .c img{ animation:none !important; }
+  }
+
   /* Chips dans les feature cards (multi-source, perms, etc.) */
   .chip-row {
     display: flex; flex-wrap: wrap; gap: 8px;
@@ -2601,67 +2680,75 @@
         <div class="feature-grid">
 
           <article class="feature is-primary reveal" style="--spot-x:32%;--icon:#caff37">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="16" r="3" stroke="currentColor" stroke-width="2"/></svg>
-            </span>
-            <h3>Musique multi-sources, totalement gratuite.</h3>
-            <p>YouTube, SoundCloud, Spotify (track / album / playlist) et Bandcamp dans le même <code>/play</code>. Volume, skip à la position, queue, /nowplaying avec barre de progression, stats d'écoute par serveur. Là où Jockie et Hydra exigent un abonnement, TookBot reste gratuit.</p>
-            <div class="chip-row">
-              <span class="chip">YouTube</span>
-              <span class="chip">SoundCloud</span>
-              <span class="chip">Spotify</span>
-              <span class="chip">Bandcamp</span>
-              <span class="chip chip-accent">Playlists 50 pistes</span>
+            <div>
+              <h3>Cartes à collectionner</h3>
+              <p>19 000+ persos, boss de raid en direct, guildes cross-serveur.</p>
+              <a class="fx-link" href="/cartes.html">Découvrir les cartes →</a>
+            </div>
+            <div class="fx">
+              <div class="fan">
+                <div class="c c1"><img src="https://dashboard.tookbot.click/static/cards_showcase/augusta_hell.png" alt=""></div>
+                <div class="c c2"><img src="https://dashboard.tookbot.click/static/cards_showcase/toji_alt.png" alt=""></div>
+                <div class="c c3"><img src="https://dashboard.tookbot.click/static/cards_showcase/byakuya_void.png" alt=""></div>
+              </div>
             </div>
           </article>
 
           <article class="feature is-tall reveal" style="--spot-x:76%;--icon:#caff37">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 2 3 5v6c0 5 3.5 9.5 9 11 5.5-1.5 9-6 9-11V5l-9-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <h3>Modération propre, permissions fines.</h3>
-            <p>Warns, kick, ban, clear, modlogs persistants, notes internes, auto-timeout au seuil. Les permissions par rôle donnent un accès cadré à tes mods sans leur filer les droits Admin Discord.</p>
+            <div class="fx">
+              <div class="eq"><i style="animation-delay:0s"></i><i style="animation-delay:.15s"></i><i style="animation-delay:.32s"></i><i style="animation-delay:.1s"></i><i style="animation-delay:.44s"></i><i style="animation-delay:.22s"></i><i style="animation-delay:.36s"></i><i style="animation-delay:.05s"></i></div>
+            </div>
+            <h3 class="fxtitle">Musique multi-sources</h3>
+            <p class="fxsub">YouTube, SoundCloud, Spotify, Bandcamp. Gratuit là où d'autres font payer.</p>
             <div class="chip-row">
-              <span class="chip">/warn</span>
-              <span class="chip">/modlogs</span>
-              <span class="chip">/kick</span>
-              <span class="chip">/ban</span>
-              <span class="chip">/clear</span>
-              <span class="chip">/poll</span>
-              <span class="chip">/setwelcome</span>
+              <span class="chip">YouTube</span><span class="chip">Spotify</span><span class="chip chip-accent">Gratuit</span>
             </div>
           </article>
 
           <article class="feature reveal" style="--spot-x:55%;--icon:#caff37">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.5l-5.2 2.6 1-5.8-4.3-4.1 5.9-.9L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-            </span>
-            <h3>XP & cartes profil</h3>
-            <p>XP par message avec cooldown anti-spam, leaderboard, daily streak, pass saisonnier avec missions. Cartes profil avec backgrounds custom (Premium optionnel).</p>
+            <div class="fx">
+              <div class="shieldwrap"><span class="ring"></span>
+                <svg viewBox="0 0 24 24"><path d="M12 2 3 5v6c0 5 3.5 9.5 9 11 5.5-1.5 9-6 9-11V5z"/><path d="m9 12 2 2 4-5"/></svg>
+                <span class="banpop">✕ banni</span>
+              </div>
+            </div>
+            <h3 class="fxtitle">Modération & automod</h3>
+            <p class="fxsub">Warn, ban, modlogs, anti-raid. Permissions par rôle, jamais Admin.</p>
           </article>
 
           <article class="feature reveal" style="--spot-x:20%;--icon:#caff37">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M21 11a7 7 0 0 1-7 7H7l-4 3v-12a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 11h8M8 14h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </span>
-            <h3>Tickets, rôles-réaction, alertes</h3>
-            <p>Panneau de tickets avec transcripts, rôles-réaction par emoji ou boutons, alertes auto Twitch live / YouTube upload / Reddit, giveaways et commandes custom.</p>
+            <div class="fx">
+              <div class="xpwrap"><div class="xplvl">LVL 12</div><div class="xpbar"><i></i></div></div>
+            </div>
+            <h3 class="fxtitle">XP & Pass saisonnier</h3>
+            <p class="fxsub">Niveaux, leaderboard, missions et récompenses.</p>
           </article>
 
           <article class="feature reveal" style="--spot-x:80%;--icon:#caff37">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="m14.5 4.5 5 5L9 20H4v-5L14.5 4.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m4 20 6.5-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </span>
-            <h3>Mini-jeux : duels, CS2, LoL</h3>
-            <p>Duels sabres laser (mindgame tour par tour, collection, boutique, pass saisonnier). Stats Counter-Strike 2 + Faceit, prix de skins live, inventaire en euros. Rangs LoL et masteries.</p>
+            <div class="fx">
+              <div class="notif"><span class="av"></span><div><b>Un stream démarre</b><small>Twitch · YouTube · Reddit</small></div><span class="live">LIVE</span></div>
+            </div>
+            <h3 class="fxtitle">Tickets, rôles & alertes</h3>
+            <p class="fxsub">Panneaux, rôles-réaction, alertes réseaux et giveaways.</p>
+          </article>
+
+          <article class="feature reveal" style="--spot-x:80%;--icon:#caff37">
+            <div class="fx">
+              <div class="sabres"><span class="spark"></span><span class="sabre a"></span><span class="sabre b"></span></div>
+            </div>
+            <h3 class="fxtitle">Mini-jeux : duels, CS2, LoL</h3>
+            <p class="fxsub">Duels de sabres, stats Steam/Faceit, profils Riot.</p>
           </article>
 
           <article class="feature is-wide reveal" style="--spot-x:64%;--icon:#caff37">
-            <span class="feature-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 9h4M7 12h6M14 9h3M14 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </span>
-            <h3>Dashboard web complet</h3>
-            <p>OAuth Discord, stats temps réel, builders visuels (tickets, alertes, rôles-réaction, welcome), gestion XP, queue musique en live avec contrôles depuis le navigateur, permissions par rôle, promo codes. Hébergé en Allemagne, 24/7.</p>
+            <div class="fx">
+              <div class="dash">
+                <div class="toggles"><span class="tg on tg1"></span><span class="tg on tg2"></span><span class="tg on tg3"></span></div>
+                <svg class="dchart" viewBox="0 0 160 76"><path d="M4 60 L26 46 L48 54 L70 30 L92 40 L114 18 L136 28 L156 10"/></svg>
+              </div>
+            </div>
+            <h3 class="fxtitle">Dashboard web complet</h3>
+            <p class="fxsub">Tout se configure au clic : features, permissions, musique en live, stats temps réel. Hébergé 24/7.</p>
           </article>
 
         </div>
