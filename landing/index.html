@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -32,9 +32,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script>
   (function () {
-    const saved = localStorage.getItem('tookbot-theme');
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.dataset.theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.dataset.theme = 'dark';
   })();
 </script>
 <style>
@@ -300,15 +298,7 @@
     color: #f7ffe8;
   }
 
-  .theme-toggle {
-    position: relative;
-    width: 46px;
-    min-width: 46px;
-    height: 46px;
-    padding: 0;
-    border-radius: 50%;
-    color: var(--ink);
-  }
+  .theme-toggle { display: none !important; }
 
   .nav-actions .theme-toggle {
     order: 2;
