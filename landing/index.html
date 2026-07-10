@@ -1203,6 +1203,68 @@
     .eq i,.xpbar i,.shieldwrap .ring,.banpop,.notif,.sabre,.spark,.tg1,.tg2,.tg3,.dchart path,.fan .c img{ animation:none !important; }
   }
 
+  /* ===== SPOTLIGHT CARTES + DEMO BOSS (accueil) ===== */
+  .cards-spotlight{ width:min(calc(100% - 32px), var(--max)); margin:0 auto; padding:clamp(40px,6vw,80px) 0; }
+  .cs-head{ text-align:center; max-width:640px; margin:0 auto 26px; }
+  .cs-head .tag{ display:inline-block; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase;
+    color:#b9f23a; border:1px solid rgba(202,255,55,.28); border-radius:999px; padding:6px 14px; background:rgba(185,242,58,.06); }
+  .cs-head h2{ margin:16px auto 10px; }
+  .cs-head p{ color:#9aa88a; font-size:clamp(15px,1.6vw,18px); }
+  .cs-cta{ display:inline-block; margin-top:18px; padding:12px 22px; border-radius:999px; font-weight:800; font-size:15px;
+    background:#b9f23a; color:#0b1400; box-shadow:0 8px 24px rgba(185,242,58,.3); }
+  .boss-demo{ max-width:960px; margin:8px auto 0; }
+  .bd-panel{ position:relative; background:
+      radial-gradient(circle at 50% -20%, rgba(255,61,87,.10), transparent 55%),
+      linear-gradient(180deg,#14100f,#0a0b07);
+    border:1px solid #2a2018; border-radius:20px; padding:22px 20px 20px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 0 60px rgba(0,0,0,.5); overflow:hidden; }
+  .bd-note{ position:absolute; top:12px; right:16px; }
+  .bd-note img{ width:52px; height:52px; object-fit:contain; filter:drop-shadow(0 0 10px rgba(255,255,255,.35)); }
+  .bd-boss{ display:flex; align-items:center; gap:16px; justify-content:center; margin:14px 0 6px; }
+  .bd-boss img{ width:96px; height:144px; object-fit:cover; border-radius:12px; border:2px solid #7a2230;
+    box-shadow:0 0 22px rgba(255,61,87,.35); }
+  .bd-boss-info{ flex:1; max-width:460px; }
+  .bd-boss-name{ font-weight:900; font-size:18px; margin-bottom:8px; }
+  .bd-boss-name .t{ color:#b9f23a; font-size:12px; border:1px solid rgba(202,255,55,.16);
+    border-radius:6px; padding:2px 7px; margin-left:6px; }
+  .hpbar{ position:relative; height:22px; border-radius:11px; background:#241016; overflow:hidden; border:1px solid #3a1a22; }
+  .hpbar > i{ display:block; height:100%; background:linear-gradient(90deg,#b3123b,#ff3d57); }
+  .hpbar > span{ position:absolute; inset:0; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; text-shadow:0 1px 3px #000; }
+  .bd-party{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0 6px; }
+  @media(max-width:640px){ .bd-party{ grid-template-columns:repeat(2,1fr); } }
+  .bd-pl{ background:rgba(255,255,255,.03); border:1px solid rgba(202,255,55,.16); border-radius:12px; padding:8px; text-align:center; }
+  .bd-pl img{ width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:8px; border:2px solid #333; }
+  .bd-pl.g img{ border-color:#7ee0a3; } .bd-pl.h img{ border-color:#ff8aa0; }
+  .bd-pl .nm{ font-size:11px; font-weight:800; margin:6px 0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hp-s{ height:8px; border-radius:5px; background:#1c2a20; overflow:hidden; }
+  .hp-s > i{ display:block; height:100%; background:linear-gradient(90deg,#1f9e63,#4ade80); }
+  .hp-s.low > i{ background:linear-gradient(90deg,#a01530,#ff3d57); }
+  .bd-pl .pw{ font-size:11px; color:#b9f23a; font-weight:800; margin-top:5px; }
+  .bd-pl .ap{ font-size:11px; color:#9aa88a; }
+  .bd-log{ margin-top:14px; background:rgba(0,0,0,.35); border:1px solid rgba(202,255,55,.16); border-radius:12px;
+    padding:10px 14px; font-size:12.5px; line-height:1.7; text-align:left; max-width:640px; margin-left:auto; margin-right:auto; }
+  .bd-log .l{ color:#cbb; } .bd-log .b{ color:#ff8aa0; } .bd-log .he{ color:#7ee0a3; } .bd-log .cr{ color:#ffd23f; font-weight:700; }
+  .bd-fx{ position:absolute; inset:0; pointer-events:none; z-index:6; overflow:hidden; }
+  .bd-bosswrap{ position:relative; flex:none; }
+  .slashfx{ position:absolute; inset:0; border-radius:12px; opacity:0; pointer-events:none;
+    background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.95) 49%, transparent 56%); }
+  .slashfx.go{ animation:slashGo .35s ease; }
+  @keyframes slashGo{ 0%{opacity:0; transform:translateX(-28%)} 35%{opacity:1} 100%{opacity:0; transform:translateX(28%)} }
+  .float{ position:absolute; font-weight:900; font-size:14px; white-space:nowrap; transform:translate(-50%,0);
+    text-shadow:0 2px 6px #000; animation:floatUp 1s ease forwards; }
+  .float.dmg{ color:#ff5470; } .float.heal{ color:#4ade80; } .float.crit{ font-size:18px; color:#ffd23f; }
+  @keyframes floatUp{ 0%{opacity:0; transform:translate(-50%,8px) scale(.8)} 18%{opacity:1} 100%{opacity:0; transform:translate(-50%,-36px) scale(1.05)} }
+  .flash-red{ animation:flRed .5s ease; }
+  @keyframes flRed{ 0%,100%{filter:none} 40%{filter:brightness(1.55) drop-shadow(0 0 8px #ff3d57)} }
+  .flash-green{ animation:flGr .6s ease; }
+  @keyframes flGr{ 0%,100%{filter:none} 40%{filter:brightness(1.3) drop-shadow(0 0 8px #4ade80)} }
+  .hp-s > i, .hpbar > i{ transition:width .5s ease; }
+  .beam{ position:absolute; height:3px; transform-origin:0 50%; border-radius:2px; pointer-events:none; opacity:0; animation:beamGo .5s ease forwards; }
+  @keyframes beamGo{ 0%{opacity:0} 25%{opacity:1} 100%{opacity:0} }
+  .beam.atk{ background:linear-gradient(90deg, rgba(185,242,58,0), #b9f23a 60%, #fff); box-shadow:0 0 10px #b9f23a; }
+  .beam.heal{ background:linear-gradient(90deg, rgba(74,222,128,0), #4ade80); box-shadow:0 0 10px #4ade80; }
+  .beam.boss{ background:linear-gradient(90deg, rgba(255,61,87,0), #ff3d57); box-shadow:0 0 10px #ff3d57; }
+
   /* Chips dans les feature cards (multi-source, perms, etc.) */
   .chip-row {
     display: flex; flex-wrap: wrap; gap: 8px;
@@ -2660,6 +2722,38 @@
         </div>
       </div>
 
+      <section class="cards-spotlight reveal" aria-labelledby="cs-title">
+        <div class="cs-head">
+          <span class="tag">Le différenciateur</span>
+          <h2 id="cs-title">Un vrai jeu de cartes, dans Discord.</h2>
+          <p>19 000+ personnages à collectionner, bordures cosmétiques, guildes cross-serveur, et des <b>boss de raid en équipe suivis en direct</b>. Aucun autre bot FR ne va aussi loin.</p>
+          <a class="cs-cta" href="/cartes.html">Découvrir les cartes →</a>
+        </div>
+        <div class="boss-demo">
+          <div class="bd-panel" id="bdPanel">
+            <div class="bd-fx" id="bdFx"></div>
+            <div class="bd-note"><img src="https://dashboard.tookbot.click/cards/img/bossweb/note/A" alt="Note A"></div>
+            <div class="bd-boss">
+              <div class="bd-bosswrap" id="bdBoss">
+                <img src="https://dashboard.tookbot.click/static/cards_showcase/goku_secret.webp" alt="Boss">
+              </div>
+              <div class="bd-boss-info">
+                <div class="bd-boss-name">🐲 Son Goku <span class="t">TIER 5 · Éclat</span></div>
+                <div class="hpbar"><i id="bdBossHp" style="width:58%"></i><span id="bdBossHpTxt">17 240 000 / 29 600 000 PV</span></div>
+              </div>
+            </div>
+            <div class="bd-party">
+              <div class="bd-pl" id="p0"><img src="https://dashboard.tookbot.click/static/cards_showcase/show3.png" alt=""><div class="nm">Kazuo_rt</div><div class="hp-s"><i id="hp0" style="width:82%"></i></div><div class="pw">⚡ 1 557 869</div><div class="ap">🩸 Berserker</div></div>
+              <div class="bd-pl g" id="p1"><img src="https://dashboard.tookbot.click/static/cards_showcase/show8.png" alt=""><div class="nm">mirelle.exe</div><div class="hp-s"><i id="hp1" style="width:95%"></i></div><div class="pw">⚡ 640 210</div><div class="ap">💚 Soigneur</div></div>
+              <div class="bd-pl" id="p2"><img src="https://dashboard.tookbot.click/static/cards_showcase/show12.png" alt=""><div class="nm">ryzoku_92</div><div class="hp-s"><i id="hp2" style="width:70%"></i></div><div class="pw">⚡ 1 102 540</div><div class="ap">🛡️ Gardien</div></div>
+              <div class="bd-pl h" id="p3"><img src="https://dashboard.tookbot.click/static/cards_showcase/show17.png" alt=""><div class="nm">Nova_Kirin</div><div class="hp-s"><i id="hp3" style="width:45%"></i></div><div class="pw">⚡ 918 300</div><div class="ap">⚔️ Duelliste</div></div>
+            </div>
+            <div class="bd-log" id="bdLog"></div>
+          </div>
+          <p style="text-align:center;color:#9aa88a;font-size:14px;max-width:640px;margin:16px auto 0;">Barres de vie, puissances et actions en <b>temps réel</b>. Les récompenses (Essences, rolls, cartes) dépendent de ta note A à F.</p>
+        </div>
+      </section>
+
       <section id="features" class="reveal" aria-labelledby="features-title">
         <div class="section-head">
           <div>
@@ -3807,6 +3901,73 @@
   });
   window.addEventListener("pagehide", function () { send(true); });
 })();
+</script>
+<script>
+  /* Parallax leger du graph de fond au scroll */
+  (function(){
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bg = document.querySelector('.bg-graph');
+    if (!bg) return;
+    bg.style.willChange = 'transform';
+    let ticking = false;
+    function update(){ bg.style.transform = 'translate3d(0,' + (window.scrollY * 0.12) + 'px,0)'; ticking = false; }
+    window.addEventListener('scroll', function(){ if(!ticking){ ticking = true; requestAnimationFrame(update); } }, {passive:true});
+    update();
+  })();
+
+  /* Simulation animee du combat de boss (spotlight cartes) */
+  (function(){
+    const panel=document.getElementById('bdPanel'); if(!panel) return;
+    const fx=document.getElementById('bdFx');
+    const boss=document.getElementById('bdBoss');
+    const bossHp=document.getElementById('bdBossHp'), bossTxt=document.getElementById('bdBossHpTxt');
+    const logEl=document.getElementById('bdLog');
+    const names=['Kazuo_rt','mirelle.exe','ryzoku_92','Nova_Kirin'];
+    const P=[0,1,2,3].map(i=>({el:document.getElementById('p'+i), hp:document.getElementById('hp'+i)}));
+    const BOSS_MAX=29600000; let bossCur=17240000;
+    const php=[82,95,70,45];
+    const fmt=n=>Math.round(n).toLocaleString('fr-FR');
+    function rel(el){ const p=panel.getBoundingClientRect(), r=el.getBoundingClientRect();
+      return {x:r.left-p.left+r.width/2, y:r.top-p.top+r.height/2}; }
+    function flt(el, txt, cls){ const s=document.createElement('div'); s.className='float '+cls;
+      const c=rel(el); s.style.left=c.x+'px'; s.style.top=(c.y-12)+'px'; s.textContent=txt;
+      fx.appendChild(s); setTimeout(()=>s.remove(),1000); }
+    function flash(el, cls){ el.classList.add(cls); setTimeout(()=>el.classList.remove(cls),600); }
+    function slash(){ const s=document.createElement('div'); s.className='slashfx go'; boss.appendChild(s); setTimeout(()=>s.remove(),380); }
+    function beam(srcEl, dstEl, cls){ const a=rel(srcEl), b=rel(dstEl);
+      const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy), ang=Math.atan2(dy,dx)*180/Math.PI;
+      const d=document.createElement('div'); d.className='beam '+cls;
+      d.style.left=a.x+'px'; d.style.top=a.y+'px'; d.style.width=len+'px';
+      d.style.transform='rotate('+ang+'deg)'; fx.appendChild(d); setTimeout(()=>d.remove(),500); }
+    function setBoss(){ bossHp.style.width=Math.max(0,bossCur/BOSS_MAX*100)+'%'; bossTxt.textContent=fmt(bossCur)+' / '+fmt(BOSS_MAX)+' PV'; }
+    function setP(i){ P[i].hp.style.width=php[i]+'%'; P[i].hp.parentElement.classList.toggle('low', php[i]<30); }
+    function addLog(html){ const d=document.createElement('div'); d.className='l'; d.innerHTML=html; logEl.prepend(d); while(logEl.children.length>3) logEl.lastChild.remove(); }
+    P.forEach((_,i)=>setP(i)); setBoss();
+    addLog('🐲 <span class="b">Son Goku (Tier 5) apparaît…</span>');
+    function attack(){ const i=Math.floor(Math.random()*4);
+      let dmg=800000+Math.floor(Math.random()*4200000); const crit=Math.random()<0.2; if(crit) dmg*=2;
+      beam(P[i].el, boss, 'atk'); slash(); flash(boss,'flash-red'); flt(boss,'-'+fmt(dmg), crit?'dmg crit':'dmg');
+      bossCur=Math.max(0,bossCur-dmg); setBoss();
+      addLog('⚔️ <b class="b">'+names[i]+'</b> inflige <b class="b">'+fmt(dmg)+'</b>'+(crit?' <span class="cr">CRIT !</span>':''));
+      if(bossCur<=0){ addLog('🎉 <span class="he">Son Goku vaincu ! Note A pour l\'équipe.</span>'); running=false; setTimeout(reset,1700); }
+    }
+    function aoe(){ flash(boss,'flash-red');
+      P.forEach((p,i)=>{ php[i]=Math.max(5,php[i]-(6+Math.floor(Math.random()*14))); setP(i);
+        beam(boss, p.el, 'boss'); flash(p.el,'flash-red'); flt(p.el,'-'+fmt(500000+Math.floor(Math.random()*1500000)),'dmg'); });
+      addLog('👹 <span class="b">Son Goku frappe toute l\'équipe</span> · 🛡️ Gardien couvre (-10%)');
+    }
+    function heal(){ let lo=0; php.forEach((h,i)=>{ if(h<php[lo]) lo=i; });
+      const crit=Math.random()<0.25; const amt=1000000+Math.floor(Math.random()*900000);
+      php[lo]=Math.min(100, php[lo]+(crit?30:18)); setP(lo);
+      beam(P[1].el, P[lo].el, 'heal'); flash(P[lo].el,'flash-green');
+      flt(P[lo].el,'+'+fmt(crit?amt*2:amt), crit?'heal crit':'heal');
+      addLog('💚 <span class="he">mirelle.exe soigne '+names[lo]+'</span>'+(crit?' <span class="cr">✨ SOIN DOUBLE !</span>':''));
+    }
+    function reset(){ bossCur=BOSS_MAX*0.94; php.forEach((_,i)=>{ php[i]=68+Math.floor(Math.random()*26); setP(i); });
+      setBoss(); addLog('🐲 <span class="b">Un nouveau boss apparaît…</span>'); running=true; }
+    let t=0, running=true;
+    setInterval(()=>{ if(document.hidden || !running) return; t++; attack(); if(t%4===0) aoe(); if(t%3===0) heal(); }, 1500);
+  })();
 </script>
 </body>
 </html>
