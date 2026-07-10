@@ -1252,11 +1252,13 @@
     margin: 0 auto 38px;
     text-align: center;
   }
-  .discord-showcase .showcase-inner .eyebrow { display: inline-block; }
+  .discord-showcase .showcase-inner .eyebrow { display: inline-flex; }
+  .discord-showcase .showcase-eb { text-align: right; }
   .discord-showcase h2 {
-    font-size: clamp(28px, 4vw, 44px);
+    font-size: clamp(34px, 5.8vw, 68px);
     font-weight: 800; letter-spacing: -0.02em;
-    margin-top: 14px;
+    line-height: .96;
+    margin: 10px auto 0;
   }
   .discord-showcase .showcase-sub {
     color: var(--muted); font-size: clamp(14px, 1.2vw, 16px);
@@ -2842,7 +2844,7 @@
       <!-- ===== Apercus Discord : 2 marquees auto (haut droite vers gauche, bas gauche vers droite) ===== -->
       <section class="discord-showcase reveal" aria-labelledby="showcase-title">
         <div class="showcase-inner">
-          <span class="eyebrow">Apercus</span>
+          <div class="showcase-eb"><span class="eyebrow">Aperçus</span></div>
           <h2 id="showcase-title">Le bot prend vie dans Discord.</h2>
           <p class="showcase-sub">Embeds reels, commandes interactives, moderation, mini-jeux : un echantillon de ce que tes membres voient au quotidien.</p>
         </div>
