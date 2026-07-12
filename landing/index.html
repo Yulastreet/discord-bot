@@ -37,35 +37,39 @@
 </script>
 <style>
   /* ===== BG decoratif : graph lime glowy qui defile lentement, fixed ===== */
-  .bg-graph {
-    position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    overflow: hidden;
-  }
-  .bg-graph svg {
-    width: 200%; height: 100%; display: block;
-    opacity: .35;
-  }
-  html[data-theme="dark"] .bg-graph svg { opacity: .55; }
-  .bg-graph .glow-line {
-    fill: none;
-    stroke: #b9ff24;
-    stroke-width: 2.4;
-    filter: drop-shadow(0 0 6px #b9ff24) drop-shadow(0 0 14px rgba(185,255,36,.55));
-    stroke-linejoin: round; stroke-linecap: round;
-  }
-  .bg-graph .glow-line.l1 {
-    animation: graph-scroll-slow 55s linear infinite;
-  }
-  .bg-graph .glow-line.l2 {
-    stroke-width: 1.6; opacity: .55;
-    animation: graph-scroll-slow 80s linear infinite reverse;
-  }
-  @keyframes graph-scroll-slow {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
-  }
+  /* ===== FOND : aurores lime floutees + champ de points (parallax multi-couches) ===== */
+  .bg-fx { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .bg-fx > * { position: absolute; inset: -12% -6%; will-change: transform; }
+  /* aurores */
+  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(95px); }
+  .bg-aurora .b1 { width: 540px; height: 540px; left: 6%; top: 4%;
+    background: radial-gradient(circle, rgba(185,242,58,.42), transparent 70%); opacity: .55; animation: drift1 28s ease-in-out infinite; }
+  .bg-aurora .b2 { width: 680px; height: 680px; right: 0%; top: 26%;
+    background: radial-gradient(circle, rgba(123,216,15,.34), transparent 70%); opacity: .5; animation: drift2 34s ease-in-out infinite; }
+  .bg-aurora .b3 { width: 480px; height: 480px; left: 34%; bottom: -8%;
+    background: radial-gradient(circle, rgba(76,181,249,.18), transparent 70%); opacity: .5; animation: drift3 31s ease-in-out infinite; }
+  @keyframes drift1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(46px,-34px) } }
+  @keyframes drift2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-40px,30px) } }
+  @keyframes drift3 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(30px,26px) } }
+  /* champ de points (deux couches) */
+  .bg-stars { background-repeat: repeat; }
+  .bg-stars-far {
+    background-image:
+      radial-gradient(1.4px 1.4px at 25% 25%, rgba(202,255,55,.45), transparent 60%),
+      radial-gradient(1px 1px at 72% 62%, rgba(255,255,255,.30), transparent 60%),
+      radial-gradient(1.2px 1.2px at 50% 88%, rgba(202,255,55,.35), transparent 60%);
+    background-size: 200px 200px, 300px 300px, 260px 260px;
+    opacity: .5; }
+  .bg-stars-near {
+    background-image:
+      radial-gradient(2px 2px at 18% 40%, rgba(202,255,55,.55), transparent 60%),
+      radial-gradient(1.6px 1.6px at 80% 20%, rgba(255,255,255,.4), transparent 60%),
+      radial-gradient(1.8px 1.8px at 55% 70%, rgba(185,242,58,.5), transparent 60%);
+    background-size: 340px 340px, 420px 420px, 380px 380px;
+    opacity: .55; animation: twinkle 6s ease-in-out infinite; }
+  @keyframes twinkle { 0%,100%{ opacity:.55 } 50%{ opacity:.32 } }
   @media (prefers-reduced-motion: reduce) {
-    .bg-graph .glow-line { animation: none !important; }
+    .bg-aurora .blob, .bg-stars-near { animation: none !important; }
   }
   /* Tout le contenu doit passer au-dessus du bg fixed */
   body > .site-shell, body > footer { position: relative; z-index: 1; }
@@ -2582,13 +2586,10 @@
 <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
 </head>
 <body>
-  <div class="bg-graph" aria-hidden="true">
-    <svg viewBox="0 0 2400 800" preserveAspectRatio="none">
-      <path class="glow-line l1"
-            d="M0,500 L80,500 L120,420 L180,480 L220,360 L280,440 L340,300 L400,400 L440,260 L520,520 L580,440 L640,540 L700,360 L760,460 L820,300 L880,420 L940,340 L1000,520 L1080,440 L1140,500 L1200,500 L1280,500 L1320,420 L1380,480 L1420,360 L1480,440 L1540,300 L1600,400 L1640,260 L1720,520 L1780,440 L1840,540 L1900,360 L1960,460 L2020,300 L2080,420 L2140,340 L2200,520 L2280,440 L2340,500 L2400,500" />
-      <path class="glow-line l2"
-            d="M0,300 L100,280 L180,360 L260,220 L340,340 L420,180 L500,360 L580,260 L660,400 L740,240 L820,360 L900,200 L1000,340 L1080,260 L1180,420 L1260,300 L1360,200 L1440,360 L1520,240 L1620,400 L1700,260 L1800,340 L1900,180 L2000,360 L2100,260 L2200,400 L2300,300 L2400,300" />
-    </svg>
+  <div class="bg-fx" aria-hidden="true">
+    <div class="bg-stars bg-stars-far" data-par="0.03"></div>
+    <div class="bg-aurora" data-par="0.07"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+    <div class="bg-stars bg-stars-near" data-par="0.14"></div>
   </div>
   <div class="site-shell">
     <header class="nav" aria-label="Navigation principale">
@@ -3903,14 +3904,13 @@
 })();
 </script>
 <script>
-  /* Parallax leger du graph de fond au scroll */
+  /* Parallax multi-couches du fond (aurores + points) au scroll */
   (function(){
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const bg = document.querySelector('.bg-graph');
-    if (!bg) return;
-    bg.style.willChange = 'transform';
+    const layers = [...document.querySelectorAll('.bg-fx [data-par]')].map(el => ({ el, par: parseFloat(el.dataset.par) || 0 }));
+    if (!layers.length) return;
     let ticking = false;
-    function update(){ bg.style.transform = 'translate3d(0,' + (window.scrollY * 0.12) + 'px,0)'; ticking = false; }
+    function update(){ const y = window.scrollY; layers.forEach(l => { l.el.style.transform = 'translate3d(0,' + (y * l.par) + 'px,0)'; }); ticking = false; }
     window.addEventListener('scroll', function(){ if(!ticking){ ticking = true; requestAnimationFrame(update); } }, {passive:true});
     update();
   })();
