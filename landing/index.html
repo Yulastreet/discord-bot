@@ -41,13 +41,15 @@
   .bg-fx { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
   .bg-fx > * { position: absolute; inset: -12% -6%; will-change: transform; }
   /* aurores */
-  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(52px); }
-  .bg-aurora .b1 { width: 520px; height: 520px; left: -8%; top: -6%;
-    background: radial-gradient(circle, rgba(185,242,58,1), rgba(185,242,58,.35) 38%, transparent 66%); opacity: 1; animation: drift1 28s ease-in-out infinite; }
-  .bg-aurora .b2 { width: 640px; height: 640px; right: -12%; top: 12%;
-    background: radial-gradient(circle, rgba(123,216,15,.95), rgba(123,216,15,.3) 40%, transparent 66%); opacity: 1; animation: drift2 34s ease-in-out infinite; }
-  .bg-aurora .b3 { width: 560px; height: 560px; left: 30%; bottom: -16%;
-    background: radial-gradient(circle, rgba(76,181,249,.75), rgba(76,181,249,.22) 42%, transparent 66%); opacity: 1; animation: drift3 31s ease-in-out infinite; }
+  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(60px); }
+  .bg-aurora .b1 { width: 760px; height: 760px; left: -10%; top: -8%;
+    background: radial-gradient(circle, rgba(185,242,58,.9), rgba(185,242,58,.28) 40%, transparent 68%); animation: drift1 28s ease-in-out infinite; }
+  .bg-aurora .b2 { width: 820px; height: 820px; right: -12%; top: 26%;
+    background: radial-gradient(circle, rgba(123,216,15,.85), rgba(123,216,15,.24) 42%, transparent 68%); animation: drift2 34s ease-in-out infinite; }
+  .bg-aurora .b3 { width: 720px; height: 720px; left: 6%; bottom: -18%;
+    background: radial-gradient(circle, rgba(76,181,249,.6), rgba(76,181,249,.18) 44%, transparent 68%); animation: drift3 31s ease-in-out infinite; }
+  .bg-aurora .b4 { width: 680px; height: 680px; right: 4%; bottom: -14%;
+    background: radial-gradient(circle, rgba(185,242,58,.7), rgba(185,242,58,.2) 42%, transparent 68%); animation: drift1 36s ease-in-out infinite reverse; }
   @keyframes drift1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(46px,-34px) } }
   @keyframes drift2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-40px,30px) } }
   @keyframes drift3 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(30px,26px) } }
@@ -2588,7 +2590,7 @@
 <body>
   <div class="bg-fx" aria-hidden="true">
     <div class="bg-stars bg-stars-far" data-par="0.03"></div>
-    <div class="bg-aurora" data-par="0.07"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+    <div class="bg-aurora" data-par="0.07"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span></div>
     <div class="bg-stars bg-stars-near" data-par="0.14"></div>
   </div>
   <div class="site-shell">
