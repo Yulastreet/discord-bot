@@ -41,13 +41,13 @@
   .bg-fx { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
   .bg-fx > * { position: absolute; inset: -12% -6%; will-change: transform; }
   /* aurores */
-  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(95px); }
-  .bg-aurora .b1 { width: 540px; height: 540px; left: 6%; top: 4%;
-    background: radial-gradient(circle, rgba(185,242,58,.42), transparent 70%); opacity: .55; animation: drift1 28s ease-in-out infinite; }
-  .bg-aurora .b2 { width: 680px; height: 680px; right: 0%; top: 26%;
-    background: radial-gradient(circle, rgba(123,216,15,.34), transparent 70%); opacity: .5; animation: drift2 34s ease-in-out infinite; }
-  .bg-aurora .b3 { width: 480px; height: 480px; left: 34%; bottom: -8%;
-    background: radial-gradient(circle, rgba(76,181,249,.18), transparent 70%); opacity: .5; animation: drift3 31s ease-in-out infinite; }
+  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(80px); }
+  .bg-aurora .b1 { width: 620px; height: 620px; left: 2%; top: 0%;
+    background: radial-gradient(circle, rgba(185,242,58,.95), transparent 68%); opacity: .9; animation: drift1 28s ease-in-out infinite; }
+  .bg-aurora .b2 { width: 760px; height: 760px; right: -4%; top: 20%;
+    background: radial-gradient(circle, rgba(123,216,15,.8), transparent 68%); opacity: .85; animation: drift2 34s ease-in-out infinite; }
+  .bg-aurora .b3 { width: 560px; height: 560px; left: 32%; bottom: -10%;
+    background: radial-gradient(circle, rgba(76,181,249,.55), transparent 68%); opacity: .8; animation: drift3 31s ease-in-out infinite; }
   @keyframes drift1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(46px,-34px) } }
   @keyframes drift2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-40px,30px) } }
   @keyframes drift3 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(30px,26px) } }
@@ -55,19 +55,19 @@
   .bg-stars { background-repeat: repeat; }
   .bg-stars-far {
     background-image:
-      radial-gradient(1.4px 1.4px at 25% 25%, rgba(202,255,55,.45), transparent 60%),
-      radial-gradient(1px 1px at 72% 62%, rgba(255,255,255,.30), transparent 60%),
-      radial-gradient(1.2px 1.2px at 50% 88%, rgba(202,255,55,.35), transparent 60%);
-    background-size: 200px 200px, 300px 300px, 260px 260px;
-    opacity: .5; }
+      radial-gradient(1.8px 1.8px at 25% 25%, rgba(202,255,55,.8), transparent 60%),
+      radial-gradient(1.4px 1.4px at 72% 62%, rgba(255,255,255,.6), transparent 60%),
+      radial-gradient(1.6px 1.6px at 50% 88%, rgba(202,255,55,.65), transparent 60%);
+    background-size: 170px 170px, 240px 240px, 210px 210px;
+    opacity: .85; }
   .bg-stars-near {
     background-image:
-      radial-gradient(2px 2px at 18% 40%, rgba(202,255,55,.55), transparent 60%),
-      radial-gradient(1.6px 1.6px at 80% 20%, rgba(255,255,255,.4), transparent 60%),
-      radial-gradient(1.8px 1.8px at 55% 70%, rgba(185,242,58,.5), transparent 60%);
-    background-size: 340px 340px, 420px 420px, 380px 380px;
-    opacity: .55; animation: twinkle 6s ease-in-out infinite; }
-  @keyframes twinkle { 0%,100%{ opacity:.55 } 50%{ opacity:.32 } }
+      radial-gradient(2.4px 2.4px at 18% 40%, rgba(202,255,55,.9), transparent 60%),
+      radial-gradient(2px 2px at 80% 20%, rgba(255,255,255,.7), transparent 60%),
+      radial-gradient(2.2px 2.2px at 55% 70%, rgba(185,242,58,.85), transparent 60%);
+    background-size: 300px 300px, 360px 360px, 330px 330px;
+    opacity: .9; animation: twinkle 6s ease-in-out infinite; }
+  @keyframes twinkle { 0%,100%{ opacity:.9 } 50%{ opacity:.55 } }
   @media (prefers-reduced-motion: reduce) {
     .bg-aurora .blob, .bg-stars-near { animation: none !important; }
   }
