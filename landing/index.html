@@ -41,13 +41,13 @@
   .bg-fx { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
   .bg-fx > * { position: absolute; inset: -12% -6%; will-change: transform; }
   /* aurores */
-  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(80px); }
-  .bg-aurora .b1 { width: 620px; height: 620px; left: 2%; top: 0%;
-    background: radial-gradient(circle, rgba(185,242,58,.95), transparent 68%); opacity: .9; animation: drift1 28s ease-in-out infinite; }
-  .bg-aurora .b2 { width: 760px; height: 760px; right: -4%; top: 20%;
-    background: radial-gradient(circle, rgba(123,216,15,.8), transparent 68%); opacity: .85; animation: drift2 34s ease-in-out infinite; }
-  .bg-aurora .b3 { width: 560px; height: 560px; left: 32%; bottom: -10%;
-    background: radial-gradient(circle, rgba(76,181,249,.55), transparent 68%); opacity: .8; animation: drift3 31s ease-in-out infinite; }
+  .bg-aurora .blob { position: absolute; border-radius: 50%; filter: blur(48px); mix-blend-mode: screen; }
+  .bg-aurora .b1 { width: 520px; height: 520px; left: -8%; top: -6%;
+    background: radial-gradient(circle, rgba(185,242,58,1), rgba(185,242,58,.35) 38%, transparent 66%); opacity: 1; animation: drift1 28s ease-in-out infinite; }
+  .bg-aurora .b2 { width: 640px; height: 640px; right: -12%; top: 12%;
+    background: radial-gradient(circle, rgba(123,216,15,.95), rgba(123,216,15,.3) 40%, transparent 66%); opacity: 1; animation: drift2 34s ease-in-out infinite; }
+  .bg-aurora .b3 { width: 560px; height: 560px; left: 30%; bottom: -16%;
+    background: radial-gradient(circle, rgba(76,181,249,.75), rgba(76,181,249,.22) 42%, transparent 66%); opacity: 1; animation: drift3 31s ease-in-out infinite; }
   @keyframes drift1 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(46px,-34px) } }
   @keyframes drift2 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(-40px,30px) } }
   @keyframes drift3 { 0%,100%{ transform: translate(0,0) } 50%{ transform: translate(30px,26px) } }
@@ -163,9 +163,9 @@
 
   html[data-theme="dark"] .site-shell {
     border-color: rgba(255, 255, 255, .10);
-    background: rgba(10, 18, 8, .58);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(8, 14, 6, .40);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, .08) inset, var(--shadow);
   }
   html[data-theme="dark"] body {
