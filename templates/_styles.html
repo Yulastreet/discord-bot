@@ -1300,6 +1300,52 @@ input:checked + .slider {
   font-size: 11px;
 }
 
+/* ===== Dashboard polish : deltas, medailles, barres niveau, empty states ===== */
+.stat-card .stat-delta.flat { color: var(--text-3); }
+.stat-card .stat-delta.flat::before { content: "="; font-size: 10px; }
+/* Baseline sous le sparkline (lisible meme quand l'activite est plate) */
+.stat-card .stat-spark { position: relative; }
+.stat-card .stat-spark::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 1px; background: var(--border-soft);
+}
+/* Icones stat-card colorees par metrique (rappel de la couleur du sparkline) */
+.stat-card.accent-purple .stat-icon .ic { color: oklch(0.72 0.20 305); filter: drop-shadow(0 0 6px oklch(0.72 0.20 305 / .4)); }
+.stat-card.accent-blue   .stat-icon .ic { color: oklch(0.78 0.18 240); filter: drop-shadow(0 0 6px oklch(0.78 0.18 240 / .4)); }
+.stat-card.accent-orange .stat-icon .ic { color: oklch(0.82 0.20 60);  filter: drop-shadow(0 0 6px oklch(0.82 0.20 60 / .4)); }
+
+/* Medailles de classement (or / argent / bronze) */
+.rank-medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  color: oklch(0.20 0.03 80);
+  box-shadow: inset 0 1px 1px oklch(1 0 0 / .3), 0 1px 3px oklch(0 0 0 / .3);
+}
+.rank-medal.rank-1 { background: linear-gradient(160deg, oklch(0.90 0.15 95), oklch(0.76 0.16 75)); }
+.rank-medal.rank-2 { background: linear-gradient(160deg, oklch(0.86 0.01 60), oklch(0.72 0.008 60)); }
+.rank-medal.rank-3 { background: linear-gradient(160deg, oklch(0.72 0.11 55), oklch(0.58 0.12 45)); }
+.tbl .rank-num { color: var(--text-3); font-family: var(--font-mono); }
+
+/* Cellule niveau avec barre de progression dans le niveau courant */
+.lvl-cell { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.lvl-cell .lvl-val { font-family: var(--font-mono); font-size: var(--t-sm); color: var(--text); }
+.lvl-cell .lvl-bar { width: 72px; height: 4px; border-radius: 4px; background: var(--bg-3); overflow: hidden; }
+.lvl-cell .lvl-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-strong), var(--accent)); border-radius: 4px; transition: width 400ms var(--ease-out); }
+
+/* Empty states enrichis (icone + titre + sous-texte + CTA optionnel) */
+.empty-state { padding: var(--s-9) var(--s-6); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.empty-state .empty-ico {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: var(--accent-soft);
+  border: 1px solid oklch(0.86 0.20 130 / 0.2);
+}
+.empty-state .empty-ico .ic { width: 24px; height: 24px; color: var(--accent); }
+.empty-state h3 { font-size: var(--t-md); font-weight: 600; color: var(--text); }
+.empty-state p { font-size: var(--t-sm); color: var(--text-3); max-width: 42ch; line-height: 1.5; }
+.empty-state .btn { margin-top: 6px; }
+
 /* Reduced motion: kill all decorative motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

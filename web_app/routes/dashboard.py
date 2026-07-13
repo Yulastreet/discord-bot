@@ -37,26 +37,43 @@ def register_dashboard_routes(app, deps):
         users = [dict(r) for r in db.execute(
             "SELECT * FROM users WHERE guild_id = ? ORDER BY xp DESC", (g_id,)).fetchall()]
         db.close()
+        # Progression dans le niveau courant (fraction 0-1) pour la barre du classement
+        _e = get_xp_curve_exponent(g_id)
+        for u in users:
+            lvl = int(u.get("level") or 0)
+            base = lvl ** _e
+            nxt = (lvl + 1) ** _e
+            span = nxt - base
+            u["lvl_progress"] = max(0.0, min(1.0, (int(u.get("xp") or 0) - base) / span)) if span > 0 else 0.0
         stats = get_global_stats()
         top10 = users[:10]
         activity   = get_activity_by_day(guild_id=g_id, days=14)
         heatmap    = get_activity_heatmap(guild_id=g_id, weeks=4)
         top_cmds   = get_top_commands(guild_id=g_id, days=30, limit=8)
         top_active = get_top_active_users(guild_id=g_id, days=30, limit=10)
-        # Vraies mini-tendances 8 jours pour les stat-cards (fini les hauteurs hardcodees)
+        # Vraies tendances : on tire 16 jours, la mini-sparkline = 8 derniers jours,
+        # le delta = semaine courante (8j) vs semaine precedente (8j).
         _cnt = lambda serie: [row["count"] for row in serie]
-        sparks = {
-            "users": _cnt(get_logs_by_day(guild_id=g_id, days=8, types=["action_member_join"])),
-            "xp":    _cnt(get_logs_by_day(guild_id=g_id, days=8, types=["earn_xp"])),
-            "level": _cnt(get_logs_by_day(guild_id=g_id, days=8)),
-        }
+        def _delta(series16):
+            prev = sum(series16[:8]); cur = sum(series16[8:])
+            if prev == 0:
+                return {"pct": None, "dir": "up" if cur > 0 else "flat"}
+            pct = round((cur - prev) / prev * 100)
+            return {"pct": pct, "dir": "up" if pct > 0 else ("down" if pct < 0 else "flat")}
         top_uid = (stats.get("top_user") or {}).get("user_id") if stats else None
-        sparks["top"] = _cnt(get_logs_by_day(guild_id=g_id, days=8, user_id=top_uid)) if top_uid else sparks["level"]
+        _series = {
+            "users": _cnt(get_logs_by_day(guild_id=g_id, days=16, types=["action_member_join"])),
+            "xp":    _cnt(get_logs_by_day(guild_id=g_id, days=16, types=["earn_xp"])),
+            "level": _cnt(get_logs_by_day(guild_id=g_id, days=16)),
+        }
+        _series["top"] = _cnt(get_logs_by_day(guild_id=g_id, days=16, user_id=top_uid)) if top_uid else _series["level"]
+        sparks = {k: v[8:] for k, v in _series.items()}
+        deltas = {k: _delta(v) for k, v in _series.items()}
         return render_template("dashboard.html",
                                users=users, stats=stats, top10=top10,
                                activity=activity, heatmap=heatmap,
                                top_cmds=top_cmds, top_active=top_active,
-                               sparks=sparks)
+                               sparks=sparks, deltas=deltas)
 
 
     @app.route("/search")

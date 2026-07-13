@@ -33,6 +33,7 @@ from database import (
     # Stats (temporelles + heatmap + top)
     get_activity_by_day, get_xp_by_day, get_activity_heatmap,
     get_top_commands, get_top_active_users, get_logs_by_day,
+    get_xp_curve_exponent,
     # Settings (config dynamique)
     get_all_settings, get_setting, set_setting, DEFAULT_SETTINGS,
     guild_setting_get, guild_setting_set, guild_settings_all,

@@ -36,6 +36,8 @@
   {% set smax = (series | max) or 1 %}
   {% for v in series %}<span class="bar" style="height: {{ (4 + (v / smax * 32)) | int }}px;"></span>{% endfor %}
 {% endmacro %}
+{# Pill de variation semaine courante vs precedente ; masque si pas de base de comparaison #}
+{% macro delta_pill(d) %}{% if d and d.pct is not none %}<span class="stat-delta {{ d.dir }}" title="vs 7 jours precedents">{{ d.pct | abs }}%</span>{% endif %}{% endmacro %}
 <section class="grid grid-4 mb-6">
   <div class="stat-card">
     <div class="stat-head">
@@ -48,11 +50,12 @@
       </div>
     </div>
     <div class="stat-foot">
+      {{ delta_pill(deltas.users) }}
       <span class="stat-foot-label">Comptes tracés sur la communauté</span>
     </div>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card accent-purple">
     <div class="stat-head">
       <span class="stat-icon"><svg class="ic"><use href="#i-bolt"/></svg> XP cumulé</span>
     </div>
@@ -63,11 +66,12 @@
       </div>
     </div>
     <div class="stat-foot">
+      {{ delta_pill(deltas.xp) }}
       <span class="stat-foot-label">Tous comptes confondus</span>
     </div>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card accent-blue">
     <div class="stat-head">
       <span class="stat-icon"><svg class="ic"><use href="#i-pulse"/></svg> Niveau moyen</span>
     </div>
@@ -78,12 +82,13 @@
       </div>
     </div>
     <div class="stat-foot">
+      {{ delta_pill(deltas.level) }}
       <span class="stat-foot-label">Sur la communauté entière</span>
     </div>
   </div>
 
   {% if stats.top_user %}
-  <div class="stat-card">
+  <div class="stat-card accent-orange">
     <div class="stat-head">
       <span class="stat-icon"><svg class="ic"><use href="#i-swords"/></svg> Tête de classement</span>
       <span class="pill pill-accent no-dot">#1</span>
@@ -195,22 +200,27 @@
     <tbody>
       {% for user in users %}
       <tr onclick="window.location.href='/user/{{ user.user_id }}'">
-        <td class="mono">{{ "%02d"|format(loop.index) }}</td>
         <td>
-          <div class="row gap-2">
-            <strong>{{ user.username }}</strong>
-            {% if loop.index <= 3 %}<span class="badge badge-accent"><span class="dot"></span> Top {{ loop.index }}</span>{% endif %}
+          {% if loop.index <= 3 %}<span class="rank-medal rank-{{ loop.index }}">{{ loop.index }}</span>
+          {% else %}<span class="rank-num">{{ "%02d"|format(loop.index) }}</span>{% endif %}
+        </td>
+        <td><strong>{{ user.username }}</strong></td>
+        <td class="num">{{ "{:,}".format(user.xp).replace(',', ' ') }}</td>
+        <td class="num">
+          <div class="lvl-cell">
+            <span class="lvl-val">{{ user.level }}</span>
+            <div class="lvl-bar" title="Progression dans le niveau {{ user.level }}"><div class="lvl-bar-fill" style="width: {{ (user.lvl_progress * 100) | int }}%"></div></div>
           </div>
         </td>
-        <td class="num">{{ "{:,}".format(user.xp).replace(',', ' ') }}</td>
-        <td class="num">{{ user.level }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">
-    <p>Aucun compte enregistré pour l'instant.</p>
+  <div class="empty-state">
+    <div class="empty-ico"><svg class="ic"><use href="#i-user"/></svg></div>
+    <h3>Aucun compte pour l'instant</h3>
+    <p>Les membres apparaîtront ici dès qu'ils gagnent de l'XP en discutant sur le serveur.</p>
   </div>
   {% endif %}
 </section>
