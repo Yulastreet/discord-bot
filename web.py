@@ -32,7 +32,7 @@ from database import (
     get_logs, list_channels,
     # Stats (temporelles + heatmap + top)
     get_activity_by_day, get_xp_by_day, get_activity_heatmap,
-    get_top_commands, get_top_active_users,
+    get_top_commands, get_top_active_users, get_logs_by_day,
     # Settings (config dynamique)
     get_all_settings, get_setting, set_setting, DEFAULT_SETTINGS,
     guild_setting_get, guild_setting_set, guild_settings_all,
@@ -776,7 +776,7 @@ def get_global_stats():
     total_users = db.execute("SELECT COUNT(*) AS n FROM users WHERE guild_id = ?", (g_id,)).fetchone()["n"]
     total_xp   = db.execute("SELECT COALESCE(SUM(xp), 0) AS s FROM users WHERE guild_id = ?", (g_id,)).fetchone()["s"]
     avg_level  = db.execute("SELECT COALESCE(AVG(level), 0) AS a FROM users WHERE guild_id = ?", (g_id,)).fetchone()["a"]
-    top_user   = db.execute("SELECT username, xp, level FROM users WHERE guild_id = ? ORDER BY xp DESC LIMIT 1", (g_id,)).fetchone()
+    top_user   = db.execute("SELECT user_id, username, xp, level FROM users WHERE guild_id = ? ORDER BY xp DESC LIMIT 1", (g_id,)).fetchone()
     db.close()
     return {
         "total_users": total_users,

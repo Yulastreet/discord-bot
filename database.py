@@ -4885,6 +4885,38 @@ def get_xp_by_day(guild_id=None, days=14):
         out.append({"date": ds, "count": by_day.get(ds, 0)})
     return out
 
+def get_logs_by_day(guild_id=None, days=8, types=None, user_id=None):
+    """Serie generique de comptage de logs par jour sur `days` jours.
+       types = liste de valeurs `type` a filtrer (None = tous).
+       user_id = filtre sur un utilisateur precis (None = tous).
+       Retourne [{date, count}, ...] ASC, jours vides inclus (count=0)."""
+    conn = get_db()
+    c = conn.cursor()
+    clauses = ["ts >= datetime('now', ?)"]
+    params = [f"-{int(days)} days"]
+    if guild_id is not None:
+        clauses.append("guild_id = ?")
+        params.append(str(guild_id))
+    if types:
+        placeholders = ",".join("?" for _ in types)
+        clauses.append(f"type IN ({placeholders})")
+        params.extend(types)
+    if user_id is not None:
+        clauses.append("user_id = ?")
+        params.append(str(user_id))
+    where = " AND ".join(clauses)
+    c.execute(f"SELECT DATE(ts) AS day, COUNT(*) AS n FROM logs WHERE {where} GROUP BY day", params)
+    by_day = {r["day"]: r["n"] for r in c.fetchall()}
+    conn.close()
+    import datetime as _dt
+    today = _dt.date.today()
+    out = []
+    for i in range(int(days) - 1, -1, -1):
+        d = today - _dt.timedelta(days=i)
+        ds = d.isoformat()
+        out.append({"date": ds, "count": by_day.get(ds, 0)})
+    return out
+
 def get_activity_heatmap(guild_id=None, weeks=4):
     """Heatmap 7 jours x 24h sur les `weeks` dernieres semaines.
        Retourne [[count_mon_h0, count_mon_h1, ...], [count_tue_h0, ...], ...] (7 lignes x 24 cols)."""

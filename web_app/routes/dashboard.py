@@ -43,10 +43,20 @@ def register_dashboard_routes(app, deps):
         heatmap    = get_activity_heatmap(guild_id=g_id, weeks=4)
         top_cmds   = get_top_commands(guild_id=g_id, days=30, limit=8)
         top_active = get_top_active_users(guild_id=g_id, days=30, limit=10)
+        # Vraies mini-tendances 8 jours pour les stat-cards (fini les hauteurs hardcodees)
+        _cnt = lambda serie: [row["count"] for row in serie]
+        sparks = {
+            "users": _cnt(get_logs_by_day(guild_id=g_id, days=8, types=["action_member_join"])),
+            "xp":    _cnt(get_logs_by_day(guild_id=g_id, days=8, types=["earn_xp"])),
+            "level": _cnt(get_logs_by_day(guild_id=g_id, days=8)),
+        }
+        top_uid = (stats.get("top_user") or {}).get("user_id") if stats else None
+        sparks["top"] = _cnt(get_logs_by_day(guild_id=g_id, days=8, user_id=top_uid)) if top_uid else sparks["level"]
         return render_template("dashboard.html",
                                users=users, stats=stats, top10=top10,
                                activity=activity, heatmap=heatmap,
-                               top_cmds=top_cmds, top_active=top_active)
+                               top_cmds=top_cmds, top_active=top_active,
+                               sparks=sparks)
 
 
     @app.route("/search")
