@@ -29,11 +29,12 @@ def setup_utility_commands(bot):
         bot_id = (os.getenv("DISCORD_BOT_ID") or "").strip()
         if not bot_id and bot.user:
             bot_id = str(bot.user.id)
-        # Permissions integer : View Channels + Send Messages + Embed Links +
-        # Attach Files + Read History + Manage Roles + Manage Channels +
-        # Manage Messages + Kick + Ban + Connect + Speak + Move Members +
-        # Add Reactions + External Emojis + View Audit Log + Use Slash Commands
-        perms = "1099780115008"
+        # Permissions integer (scope precis, PAS d'Administrator) :
+        # View Channels + Send Messages + Embed Links + Attach Files +
+        # Read History + Add Reactions + External Emojis + Manage Messages +
+        # Manage Roles + Manage Channels + Kick + Ban + Moderate Members (timeout) +
+        # Connect + Speak + Mute Members + Move Members + Use Slash Commands
+        perms = "1101952052310"
         url = (f"https://discord.com/oauth2/authorize?client_id={bot_id}"
                 f"&permissions={perms}&scope=bot+applications.commands")
         embed = discord.Embed(

@@ -8,7 +8,7 @@
 4. Onglet **OAuth2 -> Redirects** -> ajoute `http://localhost:5001/oauth/callback`
 5. Onglet **Bot -> Privileged Gateway Intents** -> active `MESSAGE CONTENT` + `SERVER MEMBERS`
 6. Invite TookBot Dev sur ton serveur test via :
-   `https://discord.com/oauth2/authorize?client_id=<CLIENT_ID>&permissions=8&scope=bot+applications.commands`
+   `https://discord.com/oauth2/authorize?client_id=<CLIENT_ID>&permissions=1101952052310&scope=bot+applications.commands`
 
 ## 2. Cree `.env.dev`
 
