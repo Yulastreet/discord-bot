@@ -91,25 +91,31 @@
   /* couches eparses d'etoiles vives qui clignotent (le vrai scintillement) */
   .bg-stars-sparkle {
     background-image:
-      radial-gradient(2.6px 2.6px at 40% 15%, rgba(255,255,255,1), transparent 52%),
-      radial-gradient(2.2px 2.2px at 88% 48%, rgba(202,255,55,.95), transparent 52%),
-      radial-gradient(2.4px 2.4px at 12% 75%, rgba(255,255,255,.95), transparent 52%),
-      radial-gradient(2px 2px at 62% 92%, rgba(185,242,58,.95), transparent 52%);
-    background-size: 420px 420px, 480px 480px, 450px 450px, 500px 500px;
-    opacity: .9; animation: blink-a 3.4s ease-in-out infinite; animation-delay: -.6s; }
+      radial-gradient(3.4px 3.4px at 40% 15%, rgba(255,255,255,1), transparent 55%),
+      radial-gradient(3px 3px at 88% 48%, rgba(202,255,55,1), transparent 55%),
+      radial-gradient(3.2px 3.2px at 12% 75%, rgba(255,255,255,1), transparent 55%),
+      radial-gradient(2.8px 2.8px at 62% 92%, rgba(185,242,58,1), transparent 55%),
+      radial-gradient(3px 3px at 30% 55%, rgba(255,255,255,.95), transparent 55%),
+      radial-gradient(2.8px 2.8px at 75% 8%, rgba(202,255,55,.95), transparent 55%);
+    background-size: 300px 300px, 340px 340px, 320px 320px, 360px 360px, 380px 380px, 410px 410px;
+    filter: drop-shadow(0 0 4px rgba(202,255,55,.55));
+    opacity: 1; animation: blink-a 3.4s ease-in-out infinite; animation-delay: -.6s; }
   .bg-stars-sparkle2 {
     background-image:
-      radial-gradient(2.4px 2.4px at 68% 22%, rgba(255,255,255,1), transparent 52%),
-      radial-gradient(2.2px 2.2px at 22% 55%, rgba(185,242,58,.95), transparent 52%),
-      radial-gradient(2.6px 2.6px at 92% 80%, rgba(255,255,255,.95), transparent 52%),
-      radial-gradient(2px 2px at 45% 38%, rgba(202,255,55,.9), transparent 52%);
-    background-size: 460px 460px, 520px 520px, 490px 490px, 540px 540px;
-    opacity: .9; animation: blink-b 4.2s ease-in-out infinite; animation-delay: -2.3s; }
-  @keyframes twinkle-a { 0%,100%{ opacity:.85 } 50%{ opacity:.55 } }
-  @keyframes twinkle-b { 0%,100%{ opacity:.9 } 45%{ opacity:.5 } }
+      radial-gradient(3.2px 3.2px at 68% 22%, rgba(255,255,255,1), transparent 55%),
+      radial-gradient(3px 3px at 22% 55%, rgba(185,242,58,1), transparent 55%),
+      radial-gradient(3.4px 3.4px at 92% 80%, rgba(255,255,255,1), transparent 55%),
+      radial-gradient(2.8px 2.8px at 45% 38%, rgba(202,255,55,1), transparent 55%),
+      radial-gradient(3px 3px at 8% 30%, rgba(255,255,255,.95), transparent 55%),
+      radial-gradient(2.8px 2.8px at 55% 68%, rgba(185,242,58,.95), transparent 55%);
+    background-size: 330px 330px, 370px 370px, 350px 350px, 390px 390px, 420px 420px, 450px 450px;
+    filter: drop-shadow(0 0 4px rgba(120,220,180,.5));
+    opacity: 1; animation: blink-b 4.2s ease-in-out infinite; animation-delay: -2.3s; }
+  @keyframes twinkle-a { 0%,100%{ opacity:.9 } 50%{ opacity:.6 } }
+  @keyframes twinkle-b { 0%,100%{ opacity:.95 } 45%{ opacity:.55 } }
   /* blink = etoile presque eteinte -> flash vif, court, pour un vrai scintillement */
-  @keyframes blink-a { 0%,100%{ opacity:.15 } 20%{ opacity:1 } 40%{ opacity:.25 } 70%{ opacity:.9 } }
-  @keyframes blink-b { 0%,100%{ opacity:.9 } 30%{ opacity:.1 } 55%{ opacity:1 } 80%{ opacity:.3 } }
+  @keyframes blink-a { 0%,100%{ opacity:.35 } 20%{ opacity:1 } 40%{ opacity:.45 } 70%{ opacity:1 } }
+  @keyframes blink-b { 0%,100%{ opacity:1 } 30%{ opacity:.3 } 55%{ opacity:1 } 80%{ opacity:.5 } }
   @media (prefers-reduced-motion: reduce) {
     .bg-aurora .ray, .bg-stars-far, .bg-stars-near, .bg-stars-sparkle, .bg-stars-sparkle2 { animation: none !important; }
   }
