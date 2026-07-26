@@ -3880,6 +3880,24 @@ def avg_guild_level_for_users(user_ids) -> int:
     return int(round(sum(per_user) / len(per_user)))
 
 
+def avg_combat_power_for_users(user_ids) -> int:
+    """Puissance de combat REELLE moyenne (combat_power = PV + ATK*poids, calcule
+    depuis compute_player_combat_stats) des membres qui possedent au moins une carte.
+    0 si personne n'a de carte. Sert a gater le spawn des avatars les plus durs
+    (secret) sur la vraie force de combat du serveur, pas le niveau de palier."""
+    uids = [str(u) for u in user_ids]
+    if not uids:
+        return 0
+    powers = []
+    for u in uids:
+        st = compute_player_combat_stats(u)
+        if st.get("unique_total", 0) > 0:
+            powers.append(combat_power(st["hp"], st["atk"]))
+    if not powers:
+        return 0
+    return int(round(sum(powers) / len(powers)))
+
+
 def card_boss_get_by_message(message_id):
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT * FROM card_boss WHERE message_id = ?", (str(message_id),)).fetchone()

@@ -894,7 +894,7 @@ async def _apply_card_choice(interaction, boss_id, card):
     await _refresh_boss_msg(interaction.client, boss_id)
 
 
-async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=None):
+async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=None, max_rarity=None):
     guild = bot.get_guild(int(guild_id))
     if not guild:
         return None
@@ -914,6 +914,11 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=Non
     # sinon : rareté aléatoire dans la fourchette du tier
     if not avatar:
         rng = list(_TIER_RANGE.get(tier, ["epic"]))
+        # plafond de rareté optionnel (boss auto : secret verrouille tant que la
+        # puissance de combat reelle du serveur n'est pas assez haute, cf auto_boss_loop)
+        if max_rarity in _RARITY_ORDER:
+            cap = _RARITY_ORDER.index(max_rarity)
+            rng = [r for r in rng if _RARITY_ORDER.index(r) <= cap] or [rng[0]]
         random.shuffle(rng)
         for _r in rng:
             avatar = card_pick_random_exact_rarity(_r, element=elem_filter)

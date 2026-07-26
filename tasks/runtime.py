@@ -1884,7 +1884,8 @@ def setup_runtime(bot, deps):
         try:
             import time as _t, random as _r, datetime as _dt
             from database import (get_setting, guild_card_config_get, card_boss_guild_has_active,
-                                  boss_auto_get_next, boss_auto_set_next, avg_guild_level_for_users)
+                                  boss_auto_get_next, boss_auto_set_next, avg_guild_level_for_users,
+                                  avg_combat_power_for_users)
             from services.card_boss import spawn_boss
             if get_setting("auto_boss_enabled", "1") != "1":
                 return
@@ -1918,9 +1919,15 @@ def setup_runtime(bot, deps):
                         continue
                     uids = [str(m.id) for m in guild.members if not m.bot]
                     tier = _auto_boss_tier(avg_guild_level_for_users(uids))
-                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier)
+                    # Avatar secret (le plus dur) verrouille tant que la puissance de
+                    # combat REELLE moyenne du serveur n'atteint pas le seuil : sinon
+                    # cap a mythic. Le tier reste pilote par le niveau des guildes.
+                    secret_min = int(get_setting("auto_boss_secret_min_avg_power", "12000000") or 12000000)
+                    avg_pow = avg_combat_power_for_users(uids)
+                    mr = None if avg_pow >= secret_min else "mythic"
+                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier, max_rarity=mr)
                     if bid:
-                        print(f"[auto_boss] spawn guild={guild.id} tier={tier}")
+                        print(f"[auto_boss] spawn guild={guild.id} tier={tier} avg_pow={avg_pow} secret={'oui' if mr is None else 'non(cap mythic)'}")
                     boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
                 except Exception as e:
                     print(f"[auto_boss] guild {getattr(guild, 'id', None)} err: {e!r}")
