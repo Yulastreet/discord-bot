@@ -1865,8 +1865,8 @@ def setup_runtime(bot, deps):
         await bot.wait_until_ready()
 
     def _auto_boss_tier(level):
-        # Tier calibre sur le niveau de la guilde la plus haute du serveur (loot a la
-        # hauteur des joueurs ; les PV/ATK sont de toute facon rescales sur l'equipe).
+        # Tier calibre sur le niveau MOYEN des guildes de cartes du serveur (force
+        # typique, pas le seul whale ; les PV/ATK sont rescales sur l'equipe presente).
         if level <= 5:    t = 1
         elif level <= 10: t = 2
         elif level <= 16: t = 3
@@ -1884,7 +1884,7 @@ def setup_runtime(bot, deps):
         try:
             import time as _t, random as _r, datetime as _dt
             from database import (get_setting, guild_card_config_get, card_boss_guild_has_active,
-                                  boss_auto_get_next, boss_auto_set_next, max_guild_level_for_users)
+                                  boss_auto_get_next, boss_auto_set_next, avg_guild_level_for_users)
             from services.card_boss import spawn_boss
             if get_setting("auto_boss_enabled", "1") != "1":
                 return
@@ -1917,8 +1917,10 @@ def setup_runtime(bot, deps):
                         boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
                         continue
                     uids = [str(m.id) for m in guild.members if not m.bot]
-                    tier = _auto_boss_tier(max_guild_level_for_users(uids))
-                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier)
+                    tier = _auto_boss_tier(avg_guild_level_for_users(uids))
+                    # Boss auto : avatar plafonne a mythic (jamais secret) pour lisser
+                    # la difficulte ; le secret reste dispo via /bossspawn (owner).
+                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier, max_rarity="mythic")
                     if bid:
                         print(f"[auto_boss] spawn guild={guild.id} tier={tier}")
                     boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)

@@ -3857,6 +3857,29 @@ def max_guild_level_for_users(user_ids) -> int:
     return best
 
 
+def avg_guild_level_for_users(user_ids) -> int:
+    """Niveau MOYEN des guildes de cartes des membres qui sont dans une guilde
+    (chaque membre compte pour le niveau de sa meilleure guilde ; les membres hors
+    guilde sont ignores). Retourne 0 si personne n'est en guilde. Sert a calibrer le
+    tier d'un boss automatique sur la force TYPIQUE du serveur (pas le seul whale)."""
+    uids = [str(u) for u in user_ids]
+    if not uids:
+        return 0
+    conn = get_db(); c = conn.cursor()
+    per_user = []
+    for i in range(0, len(uids), 400):
+        chunk = uids[i:i + 400]
+        ph = ",".join("?" * len(chunk))
+        rows = c.execute(f"SELECT m.user_id AS uid, MAX(g.level) AS lv FROM card_guild g "
+                         f"JOIN card_guild_member m ON m.guild_id = g.id "
+                         f"WHERE m.user_id IN ({ph}) GROUP BY m.user_id", chunk).fetchall()
+        per_user.extend(int(r["lv"]) for r in rows if r["lv"])
+    conn.close()
+    if not per_user:
+        return 0
+    return int(round(sum(per_user) / len(per_user)))
+
+
 def card_boss_get_by_message(message_id):
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT * FROM card_boss WHERE message_id = ?", (str(message_id),)).fetchone()
