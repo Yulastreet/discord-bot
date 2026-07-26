@@ -39,13 +39,6 @@ _QUICK_SECONDS = 60        # delai du demarrage rapide
 _TURN_DELAY = 4.8          # secondes entre 2 tours auto
 _MAX_TURNS = 60
 _BOSS_RATIO = 0.5          # le boss frappe a 50% de son atk
-# Exposant adoucissant le mult de difficulte rareté avatar sur les PV du boss.
-# Le boss scale deja lineairement sur la puissance equipe (BOSS_TIER_SCALE) ; avec
-# 30 tours equipe (60 tours alternes), la marge est ~2x. Un avatar secret (diff
-# 1.5^2=2.25) applique en plein depasserait le budget de tours -> imbattable. On
-# applique diff^_HP_DIFF_EXP (comme l'ATK utilise diff^0.6) : secret 2.25^0.55=1.55
-# (~ ancien mythic, tuable) tout en restant le boss le plus tanky. Gradient conserve.
-_HP_DIFF_EXP = 0.55
 
 _RARITY_RANK = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4, "secret": 5}
 _SORT_CYCLE = [None, "nom", "rareté", "étoiles", "optimisation"]
@@ -942,10 +935,10 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=Non
     avatar_rar = (avatar or {}).get("rarity")
     idx = _avatar_idx(tier, avatar_rar)
     diff = _avatar_difficulty(tier, idx)
-    # PV et ATK : diff adouci par exposant pour rester dans le budget de tours
-    # (PV = DPS check mais plafonne par _MAX_TURNS ; ATK adouci anti one-shot).
+    # PV : facteur plein (tanky = DPS check). ATK : adouci (diff^0.6) pour ne pas
+    # one-shot l'equipe avant qu'elle puisse DPS le boss.
     boss_atk = int(cfg["atk"] * diff ** 0.6)
-    boss_hp = int(cfg["hp"] * diff ** _HP_DIFF_EXP)
+    boss_hp = int(cfg["hp"] * diff)
     avatar_cid = avatar["id"] if avatar else None
     # start_at non defini : le timer ne demarre qu'au 1er joueur
     bid = card_boss_create(guild_id, channel_id, name, element, tier, boss_hp, boss_atk,
@@ -1063,9 +1056,9 @@ def _scale_boss_to_team(bid):
         avatar = card_get(boss["card_id"]) if boss.get("card_id") else None
         idx = _avatar_idx(tier, (avatar or {}).get("rarity"))
         diff = _avatar_difficulty(tier, idx)
-        # PV : diff adouci (diff^_HP_DIFF_EXP) pour rester dans le budget de tours
-        # (30 tours equipe) meme avec un avatar secret. ATK : adouci (diff^0.6) anti one-shot.
-        new_hp = int(max(cfg.get("hp", scaled_hp), scaled_hp) * diff ** _HP_DIFF_EXP)
+        # PV : facteur plein (tanky = DPS check). ATK : adouci (diff^0.6) pour ne pas
+        # one-shot l'equipe avant qu'elle puisse DPS.
+        new_hp = int(max(cfg.get("hp", scaled_hp), scaled_hp) * diff)
         new_atk = int(max(cfg.get("atk", scaled_atk), scaled_atk) * diff ** 0.6)
         card_boss_set_stats(bid, new_hp, new_atk)
     except Exception as e:
