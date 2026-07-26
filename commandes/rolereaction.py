@@ -350,7 +350,9 @@ def setup_rolereaction_commands(bot, deps):
                 msg = await self.salon.send(content=content, embed=embed, view=view)
             except discord.Forbidden:
                 await interaction.followup.send(
-                    "❌ Permissions manquantes dans ce salon (envoyer messages).",
+                    "❌ Je n'ai pas pu poster dans ce salon.\n"
+                    "Permissions Discord requises ici : **Voir le salon** (View Channel), "
+                    "**Envoyer des messages** (Send Messages), **Intégrer des liens** (Embed Links).",
                     ephemeral=True,
                 )
                 return
@@ -405,7 +407,11 @@ def setup_rolereaction_commands(bot, deps):
             )
             if failed:
                 details = "\n".join(f"  · {d} — `{e}`" for d, e in failed)
-                confirm += f"\n\n⚠️ **{len(failed)} réaction(s) non ajoutée(s) :**\n{details}"
+                confirm += (
+                    f"\n\n⚠️ **{len(failed)} réaction(s) non ajoutée(s) :**\n{details}\n"
+                    f"Permissions Discord requises pour réagir : **Ajouter des réactions** (Add Reactions), "
+                    f"**Utiliser des émojis externes** (Use External Emojis) et **Voir l'historique** (Read Message History) dans ce salon."
+                )
             await interaction.edit_original_response(
                 content=confirm, embed=None, view=None,
             )

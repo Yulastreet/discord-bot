@@ -294,7 +294,10 @@ def setup_giveaway_commands(bot: commands.Bot):
             msg = await target.send(embed=embed, view=view)
         except discord.Forbidden:
             await interaction.followup.send(
-                "❌ Permission manquante pour poster dans ce salon.", ephemeral=True)
+                "❌ Je n'ai pas pu poster le giveaway dans ce salon.\n"
+                "Permissions Discord requises ici : **Voir le salon** (View Channel), "
+                "**Envoyer des messages** (Send Messages), **Intégrer des liens** (Embed Links).",
+                ephemeral=True)
             return
         giveaway_set_message_id(gid, msg.id)
         await interaction.followup.send(

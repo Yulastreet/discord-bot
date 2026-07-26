@@ -1131,7 +1131,9 @@ def setup_runtime(bot, deps):
                         f"✅ Rôle {role.mention} attribué.", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message(
-                "❌ Je n'ai pas la permission de gérer ce rôle (vérifie ma hiérarchie).",
+                "❌ Je n'ai pas pu attribuer ce rôle.\n"
+                "Il me faut la permission **Gérer les rôles** (Manage Roles) et mon propre rôle doit être "
+                "**au-dessus** du rôle à attribuer dans la hiérarchie des rôles du serveur.",
                 ephemeral=True)
         except Exception as e:
             print(f"[rolebutton] error: {e!r}")

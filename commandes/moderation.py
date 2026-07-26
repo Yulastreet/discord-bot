@@ -7,14 +7,38 @@ def setup_moderation_commands(bot):
     @app_commands.describe(membre="Le membre a expulser", raison="La raison")
     @app_commands.default_permissions(kick_members=True)
     async def kick(interaction: discord.Interaction, membre: discord.Member, raison: str = "Aucune raison fournie"):
-        await membre.kick(reason=raison)
+        try:
+            await membre.kick(reason=raison)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f"❌ Je n'ai pas pu expulser **{membre.name}**.\n"
+                f"Il me faut la permission **Expulser des membres** (Kick Members) et mon rôle doit être "
+                f"**au-dessus** de celui du membre dans la hiérarchie des rôles du serveur.",
+                ephemeral=True)
+            return
+        except discord.HTTPException:
+            await interaction.response.send_message(
+                f"❌ Échec de l'expulsion de **{membre.name}** (erreur Discord).", ephemeral=True)
+            return
         await interaction.response.send_message(f"**{membre.name}** a ete expulse. Raison : {raison}")
 
     @bot.tree.command(name="ban", description="Bannir un membre")
     @app_commands.describe(membre="Le membre a bannir", raison="La raison")
     @app_commands.default_permissions(ban_members=True)
     async def ban(interaction: discord.Interaction, membre: discord.Member, raison: str = "Aucune raison fournie"):
-        await membre.ban(reason=raison)
+        try:
+            await membre.ban(reason=raison)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f"❌ Je n'ai pas pu bannir **{membre.name}**.\n"
+                f"Il me faut la permission **Bannir des membres** (Ban Members) et mon rôle doit être "
+                f"**au-dessus** de celui du membre dans la hiérarchie des rôles du serveur.",
+                ephemeral=True)
+            return
+        except discord.HTTPException:
+            await interaction.response.send_message(
+                f"❌ Échec du bannissement de **{membre.name}** (erreur Discord).", ephemeral=True)
+            return
         await interaction.response.send_message(f"**{membre.name}** a ete banni. Raison : {raison}")
 
     @bot.tree.command(name="clear", description="Supprimer des messages")
@@ -22,7 +46,20 @@ def setup_moderation_commands(bot):
     @app_commands.default_permissions(manage_messages=True)
     async def clear(interaction: discord.Interaction, nombre: int):
         await interaction.response.defer(ephemeral=True)
-        await interaction.channel.purge(limit=nombre)
+        try:
+            await interaction.channel.purge(limit=nombre)
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ Je n'ai pas pu supprimer les messages.\n"
+                "Il me faut les permissions **Gérer les messages** (Manage Messages) et "
+                "**Voir l'historique des messages** (Read Message History) dans ce salon.",
+                ephemeral=True)
+            return
+        except discord.HTTPException:
+            await interaction.followup.send(
+                "❌ Échec de la suppression (erreur Discord ; les messages de plus de 14 jours "
+                "ne peuvent pas être supprimés en masse).", ephemeral=True)
+            return
         await interaction.followup.send(f"**{nombre}** messages supprimes.", ephemeral=True)
 
     class PollBuilderModal(discord.ui.Modal, title="Creer un sondage"):

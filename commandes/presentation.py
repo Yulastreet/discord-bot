@@ -70,7 +70,9 @@ class _PresentationModal(discord.ui.Modal, title="Ta présentation"):
             await self.target_channel.send(embed=embed)
         except discord.Forbidden:
             await interaction.response.send_message(
-                "❌ Je n'ai pas la permission d'écrire dans le salon de présentation.",
+                "❌ Je n'ai pas pu écrire dans le salon de présentation.\n"
+                "Permissions Discord requises sur ce salon : **Voir le salon** (View Channel), "
+                "**Envoyer des messages** (Send Messages), **Intégrer des liens** (Embed Links).",
                 ephemeral=True,
             )
             return
