@@ -109,7 +109,9 @@ def register_premium_routes(app, deps):
         code = (data.get("code") or "").strip().upper()
         if not code:
             return jsonify({"ok": False, "message": "Entre une clé d'activation."}), 400
-        ok, reason, expires_at = tookbot_plus_key_redeem(code, uid)
+        disc = session.get("discord") or {}
+        ok, reason, expires_at = tookbot_plus_key_redeem(
+            code, uid, username=disc.get("username"), avatar=disc.get("avatar"))
         if not ok:
             msg = {
                 "code_invalid":     "Clé invalide.",
@@ -812,6 +814,15 @@ def register_premium_routes(app, deps):
             return jsonify({"error": "owner_only"}), 403
         n = tookbot_plus_key_delete(code)
         return jsonify({"success": True, "deleted": n})
+
+    @app.route("/api/owner/tookbot-plus-keys/<code>/deactivate", methods=["POST"])
+    def api_owner_plus_keys_deactivate(code):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        ok, uid = tookbot_plus_key_deactivate(code)
+        if not ok:
+            return jsonify({"success": False, "error": "cle non utilisee"}), 400
+        return jsonify({"success": True, "revoked_user": uid})
 
 
     # ===== Owner : analytics premium =====

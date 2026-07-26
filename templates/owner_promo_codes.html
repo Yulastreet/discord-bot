@@ -81,7 +81,7 @@
   </div>
 </section>
 
-<section class="card mb-6">
+<section class="card mb-6" style="margin-top: var(--s-10);">
   <h2 style="margin-bottom: var(--s-4);">Clés d'activation TookBot+</h2>
   <p class="muted" style="font-size:var(--t-sm); margin-bottom: var(--s-4);">
     Génère des clés à usage unique. Un utilisateur qui entre la clé sur la page Abonnement obtient TookBot+ pour la durée choisie.
@@ -244,21 +244,37 @@ function renderKeys(keys) {
     wrap.innerHTML = '<div style="padding: var(--s-9); text-align:center; color: var(--text-2);">Aucune clé générée.</div>';
     return;
   }
+  const DEFAULT_AV = 'https://cdn.discordapp.com/embed/avatars/0.png';
   wrap.innerHTML = `
     <table class="tbl">
-      <thead><tr><th>Clé</th><th class="num">Durée</th><th>Statut</th><th>Note</th><th style="width:80px;"></th></tr></thead>
+      <thead><tr><th>Clé</th><th class="num">Durée</th><th>Claimé par</th><th>Note</th><th style="width:110px;"></th></tr></thead>
       <tbody>
-        ${keys.map(k => `
+        ${keys.map(k => {
+          let who;
+          if (k.revoked_at) {
+            who = '<span class="badge" style="opacity:.7;">révoquée</span>';
+          } else if (k.redeemed_by) {
+            const name = (k.redeemed_username || k.redeemed_by).replace(/</g, '&lt;');
+            const av = k.redeemed_avatar || DEFAULT_AV;
+            who = `<span style="display:inline-flex;align-items:center;gap:8px;">
+                     <img src="${av}" alt="" style="width:24px;height:24px;border-radius:50%;object-fit:cover;" onerror="this.src='${DEFAULT_AV}'">
+                     <span>${name}</span>
+                   </span>`;
+          } else {
+            who = '<span class="badge badge-accent"><span class="dot"></span> active</span>';
+          }
+          const deact = (k.redeemed_by && !k.revoked_at)
+            ? `<button class="btn btn-secondary btn-sm pk-deact" data-code="${k.code}" title="Désactiver (retire TookBot+ au claimer)">⏻</button> `
+            : '';
+          return `
           <tr>
             <td class="mono"><strong>${k.code}</strong></td>
             <td class="num">${k.duration_days} j</td>
-            <td>${k.redeemed_by
-                  ? `<span class="badge">utilisée</span> <span class="muted mono">${k.redeemed_by}</span>`
-                  : '<span class="badge badge-accent"><span class="dot"></span> active</span>'}</td>
+            <td>${who}</td>
             <td>${(k.note || '').replace(/</g, '&lt;')}</td>
-            <td><button class="btn btn-secondary btn-sm pk-del" data-code="${k.code}">✕</button></td>
-          </tr>
-        `).join('')}
+            <td>${deact}<button class="btn btn-secondary btn-sm pk-del" data-code="${k.code}">✕</button></td>
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>`;
   wrap.querySelectorAll('.pk-del').forEach(btn => {
@@ -267,6 +283,14 @@ function renderKeys(keys) {
       if (!confirm(`Supprimer la clé ${code} ?`)) return;
       fetch(`/api/owner/tookbot-plus-keys/${encodeURIComponent(code)}`, {method: 'DELETE'})
         .then(r => r.json()).then(() => { window.toast?.('Clé supprimée'); loadKeys(); });
+    });
+  });
+  wrap.querySelectorAll('.pk-deact').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      if (!confirm(`Désactiver la clé ${code} ? Le claimer perdra TookBot+ immédiatement.`)) return;
+      fetch(`/api/owner/tookbot-plus-keys/${encodeURIComponent(code)}/deactivate`, {method: 'POST'})
+        .then(r => r.json()).then(() => { window.toast?.('Clé désactivée'); loadKeys(); });
     });
   });
 }

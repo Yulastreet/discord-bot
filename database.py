@@ -1273,8 +1273,17 @@ def init_db():
         created_at    TEXT DEFAULT CURRENT_TIMESTAMP,
         note          TEXT,
         redeemed_by   TEXT DEFAULT NULL,
-        redeemed_at   TEXT DEFAULT NULL
+        redeemed_at   TEXT DEFAULT NULL,
+        redeemed_username TEXT DEFAULT NULL,
+        redeemed_avatar   TEXT DEFAULT NULL,
+        revoked_at        TEXT DEFAULT NULL
     )''')
+    # Migrations pour les tables tookbot_plus_keys deja creees sans ces colonnes
+    for _col in ("redeemed_username TEXT", "redeemed_avatar TEXT", "revoked_at TEXT"):
+        try:
+            c.execute(f"ALTER TABLE tookbot_plus_keys ADD COLUMN {_col} DEFAULT NULL")
+        except Exception:
+            pass
 
     # Assignations Guild Boost + : un user assigne son achat/grant a une (ou
     # plusieurs si owner) guild. PK composite pour permettre l'owner d'avoir
@@ -7428,9 +7437,10 @@ def tookbot_plus_key_delete(code):
     conn.commit(); conn.close()
     return n
 
-def tookbot_plus_key_redeem(code, user_id):
+def tookbot_plus_key_redeem(code, user_id, username=None, avatar=None):
     """Redeem atomique d'une cle a usage unique. Marque la cle redeemed et accorde
     (ou prolonge) le grant TookBot+ de l'utilisateur pour `duration_days` jours.
+    Stocke username/avatar du claimer pour l'affichage owner.
     Retourne (ok, reason, expires_at). reason : ok | code_invalid | already_redeemed."""
     conn = get_db(); c = conn.cursor()
     row = c.execute("SELECT * FROM tookbot_plus_keys WHERE code = ?",
@@ -7456,8 +7466,9 @@ def tookbot_plus_key_redeem(code, user_id):
                                 (f"+{days} days",)).fetchone()[0]
     # Marque la cle consommee (atomic : re-check redeemed_by NULL)
     upd = c.execute("UPDATE tookbot_plus_keys SET redeemed_by = ?, "
-                    "redeemed_at = CURRENT_TIMESTAMP WHERE code = ? AND redeemed_by IS NULL",
-                    (str(user_id), str(code).upper()))
+                    "redeemed_at = CURRENT_TIMESTAMP, redeemed_username = ?, redeemed_avatar = ? "
+                    "WHERE code = ? AND redeemed_by IS NULL",
+                    (str(user_id), username, avatar, str(code).upper()))
     if upd.rowcount == 0:
         conn.close()
         return False, "already_redeemed", None
@@ -7473,6 +7484,25 @@ def tookbot_plus_key_redeem(code, user_id):
                f"Cle d'activation ({days}j)", new_expires))
     conn.commit(); conn.close()
     return True, "ok", new_expires
+
+def tookbot_plus_key_deactivate(code):
+    """Desactive manuellement une cle deja utilisee : retire le grant TookBot+ du
+    claimer et marque la cle revoquee. Retourne (ok, redeemed_by)."""
+    conn = get_db(); c = conn.cursor()
+    row = c.execute("SELECT redeemed_by FROM tookbot_plus_keys WHERE code = ?",
+                    (str(code).upper(),)).fetchone()
+    if not row or not row["redeemed_by"]:
+        conn.close()
+        return False, None
+    uid = row["redeemed_by"]
+    # Retire le grant TookBot+ du claimer (seulement si issu de CETTE cle, pour ne
+    # pas revoquer un abonnement Stripe / une autre cle active).
+    c.execute("DELETE FROM premium_grants WHERE user_id = ? AND feature = 'tookbot_plus' "
+              "AND granted_by = ?", (str(uid), f"key:{str(code).upper()}"))
+    c.execute("UPDATE tookbot_plus_keys SET revoked_at = CURRENT_TIMESTAMP WHERE code = ?",
+              (str(code).upper(),))
+    conn.commit(); conn.close()
+    return True, uid
 
 
 def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:

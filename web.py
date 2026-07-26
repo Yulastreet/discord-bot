@@ -40,7 +40,7 @@ from database import (
     promo_code_create, promo_code_get, promo_codes_list,
     promo_code_delete, promo_redeem_check, promo_redeem_apply,
     tookbot_plus_key_create, tookbot_plus_key_get, tookbot_plus_keys_list,
-    tookbot_plus_key_delete, tookbot_plus_key_redeem,
+    tookbot_plus_key_delete, tookbot_plus_key_redeem, tookbot_plus_key_deactivate,
     # Members (cache pour modération + picker)
     list_members,
     # Duels (global)
