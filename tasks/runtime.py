@@ -1918,9 +1918,7 @@ def setup_runtime(bot, deps):
                         continue
                     uids = [str(m.id) for m in guild.members if not m.bot]
                     tier = _auto_boss_tier(avg_guild_level_for_users(uids))
-                    # Boss auto : avatar plafonne a mythic (jamais secret) pour lisser
-                    # la difficulte ; le secret reste dispo via /bossspawn (owner).
-                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier, max_rarity="mythic")
+                    bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier)
                     if bid:
                         print(f"[auto_boss] spawn guild={guild.id} tier={tier}")
                     boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
