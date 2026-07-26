@@ -438,6 +438,25 @@ def setup_ticket_commands(bot, deps):
                 return
             await interaction.response.defer(ephemeral=True)
 
+            # Pre-check des permissions Discord du bot dans le salon cible, chaque
+            # permission manquante nommee explicitement (nom Discord exact).
+            perms = self.salon.permissions_for(self.guild.me)
+            missing = []
+            if not perms.view_channel:  missing.append("**Voir le salon** (View Channel)")
+            if not perms.send_messages: missing.append("**Envoyer des messages** (Send Messages)")
+            if not perms.embed_links:   missing.append("**Intégrer des liens** (Embed Links)")
+            if missing:
+                await interaction.edit_original_response(
+                    content=(
+                        f"❌ Le bot n'a pas les permissions Discord requises dans {self.salon.mention}.\n"
+                        f"Permissions manquantes : {', '.join(missing)}.\n"
+                        f"Ajoute-les au rôle du bot ou dans les permissions du salon, puis relance `/ticket`."
+                    ),
+                    embed=None, view=None,
+                )
+                self.stop()
+                return
+
             pid = ticket_panel_create(
                 guild_id=self.guild.id,
                 channel_id=self.salon.id,
@@ -457,7 +476,12 @@ def setup_ticket_commands(bot, deps):
             except discord.Forbidden:
                 ticket_panel_delete(pid, self.guild.id)
                 await interaction.edit_original_response(
-                    content=f"❌ Pas de permission pour poster dans {self.salon.mention}.",
+                    content=(
+                        f"❌ Le bot n'a pas pu poster dans {self.salon.mention}.\n"
+                        f"Permissions Discord requises sur ce salon : **Voir le salon** (View Channel), "
+                        f"**Envoyer des messages** (Send Messages), **Intégrer des liens** (Embed Links).\n"
+                        f"Ajoute-les au rôle du bot puis relance `/ticket`."
+                    ),
                     embed=None, view=None,
                 )
                 self.stop()
