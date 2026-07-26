@@ -201,9 +201,9 @@
   <p>Soutiens TookBot et débloque les features premium réservées aux abonnés TookBot+.</p>
 </div>
 
+{% if is_tookbot_plus %}
 <div class="sub-current">
   <h2>Ton plan actuel</h2>
-  {% if is_tookbot_plus %}
   <div class="sub-current-row is-premium">
     <div>
       <div class="plan-name">
@@ -293,16 +293,8 @@
       });
     })();
   </script>
-  {% else %}
-  <div class="sub-current-row">
-    <div>
-      <div class="plan-name">Gratuit</div>
-      <div class="plan-desc">Toutes les features essentielles pour démarrer.</div>
-    </div>
-    <div class="plan-price">0 €<span style="font-size:13px;color:var(--text-2);"> /mois</span></div>
   </div>
-  {% endif %}
-</div>
+{% endif %}
 
 {% if not is_tookbot_plus or trial_active %}
 <div class="sub-upgrade" id="subUpgrade">
