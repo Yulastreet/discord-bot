@@ -99,6 +99,39 @@ def register_premium_routes(app, deps):
             "message": f"TookBot+ active jusqu'au {result['expires_at']} ! Profite des 7 jours.",
         })
 
+    @app.route("/api/subscription/redeem-key", methods=["POST"])
+    def api_subscription_redeem_key():
+        """Redeem d'une cle d'activation TookBot+ par l'user connecte."""
+        uid = _current_user_id()
+        if not uid:
+            return jsonify({"ok": False, "error": "not_logged_in"}), 401
+        data = request.json or {}
+        code = (data.get("code") or "").strip().upper()
+        if not code:
+            return jsonify({"ok": False, "message": "Entre une clé d'activation."}), 400
+        ok, reason, expires_at = tookbot_plus_key_redeem(code, uid)
+        if not ok:
+            msg = {
+                "code_invalid":     "Clé invalide.",
+                "already_redeemed": "Cette clé a déjà été utilisée.",
+            }.get(reason, "Impossible d'activer cette clé.")
+            return jsonify({"ok": False, "error": reason, "message": msg}), 400
+        try:
+            from database import dash_notif_add
+            dash_notif_add(
+                uid, "system",
+                title="TookBot+ activé !",
+                message=f"Ta clé d'activation est validée. TookBot+ actif jusqu'au {expires_at}.",
+                link_url="/subscription",
+            )
+        except Exception:
+            pass
+        return jsonify({
+            "ok": True,
+            "expires_at": expires_at,
+            "message": f"TookBot+ activé jusqu'au {expires_at} !",
+        })
+
     @app.route("/api/owner/user/<user_id>/tookbot-plus", methods=["POST"])
     def api_owner_grant_tookbot_plus(user_id):
         if not _is_owner_session():
@@ -726,6 +759,58 @@ def register_premium_routes(app, deps):
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         n = promo_code_delete(code)
+        return jsonify({"success": True, "deleted": n})
+
+
+    # ===== Owner : cles d'activation TookBot+ =====
+
+    def _gen_plus_key():
+        import secrets
+        charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sans 0/O/1/I ambigus
+        grp = lambda n: "".join(secrets.choice(charset) for _ in range(n))
+        return f"TBP-{grp(5)}-{grp(5)}-{grp(5)}"
+
+    @app.route("/api/owner/tookbot-plus-keys", methods=["GET"])
+    def api_owner_plus_keys_list():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        return jsonify({"keys": tookbot_plus_keys_list()})
+
+    @app.route("/api/owner/tookbot-plus-keys", methods=["POST"])
+    def api_owner_plus_keys_create():
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        data = request.json or {}
+        try:
+            duration_days = int(data.get("duration_days", 0))
+            count = int(data.get("count", 1))
+        except (TypeError, ValueError):
+            return jsonify({"error": "valeurs numeriques invalides"}), 400
+        note = (data.get("note") or "").strip() or None
+        if duration_days < 1 or duration_days > 3650:
+            return jsonify({"error": "duree invalide (1-3650 jours)"}), 400
+        if count < 1 or count > 500:
+            return jsonify({"error": "count invalide (1-500)"}), 400
+        by = _current_user_id()
+        created = []
+        for _ in range(count):
+            for _try in range(6):
+                cand = _gen_plus_key()
+                if tookbot_plus_key_get(cand):
+                    continue
+                try:
+                    tookbot_plus_key_create(cand, duration_days, created_by=by, note=note)
+                    created.append(cand)
+                    break
+                except Exception:
+                    continue
+        return jsonify({"success": True, "keys": created, "count": len(created)})
+
+    @app.route("/api/owner/tookbot-plus-keys/<code>", methods=["DELETE"])
+    def api_owner_plus_keys_delete(code):
+        if not _is_owner_session():
+            return jsonify({"error": "owner_only"}), 403
+        n = tookbot_plus_key_delete(code)
         return jsonify({"success": True, "deleted": n})
 
 

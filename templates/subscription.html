@@ -419,6 +419,38 @@
   });
 </script>
 {% endif %}
+
+<div class="sub-key-card" style="margin-top:40px;padding:24px 28px;border:1px solid var(--border);border-radius:18px;background:var(--bg-1);text-align:center;">
+  <div style="font-weight:800;font-size:18px;margin-bottom:6px;color:var(--text);">🔑 J'ai une clé d'activation</div>
+  <div style="font-size:14px;color:var(--text-2);margin-bottom:16px;max-width:520px;margin-left:auto;margin-right:auto;">
+    Entre une clé d'activation TookBot+ pour débloquer l'abonnement pendant la durée associée à la clé.
+  </div>
+  <div style="display:flex;gap:10px;max-width:480px;margin:0 auto;flex-wrap:wrap;justify-content:center;">
+    <input id="keyInput" type="text" placeholder="TBP-XXXXX-XXXXX-XXXXX" autocomplete="off" maxlength="32"
+      style="flex:1;min-width:220px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-2);color:var(--text);font-family:var(--font-mono);letter-spacing:1px;text-transform:uppercase;">
+    <button class="btn btn-primary" id="keyBtn" type="button" style="min-width:140px;">Activer</button>
+  </div>
+  <div id="keyMsg" style="margin-top:12px;font-size:13px;color:var(--text-2);"></div>
+</div>
+<script>
+  (function(){
+    const btn=document.getElementById('keyBtn'), inp=document.getElementById('keyInput'), msg=document.getElementById('keyMsg');
+    if(!btn) return;
+    async function redeem(){
+      const code=(inp.value||'').trim();
+      if(!code){ msg.textContent='Entre une clé.'; msg.style.color='#e74c3c'; return; }
+      btn.disabled=true; btn.textContent='Activation...';
+      try{
+        const r=await fetch('/api/subscription/redeem-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+        const d=await r.json();
+        if(d.ok){ msg.textContent=d.message||'Activé !'; msg.style.color='#2ecc71'; btn.textContent='Activé ✓'; setTimeout(()=>window.location.reload(),1800); }
+        else { msg.textContent=d.message||d.error||'Erreur.'; msg.style.color='#e74c3c'; btn.disabled=false; btn.textContent='Activer'; }
+      }catch(e){ msg.textContent=e.message; msg.style.color='#e74c3c'; btn.disabled=false; btn.textContent='Activer'; }
+    }
+    btn.addEventListener('click',redeem);
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); redeem(); } });
+  })();
+</script>
 {% endif %}
 
 <script>

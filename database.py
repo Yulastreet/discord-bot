@@ -1263,6 +1263,19 @@ def init_db():
     except Exception:
         pass
 
+    # Cles d'activation TookBot+ : generees par l'owner (page codes promo), a
+    # usage unique, redeemables sur la page /subscription. Chaque cle accorde
+    # TookBot+ pour `duration_days` jours a partir de la redemption.
+    c.execute('''CREATE TABLE IF NOT EXISTS tookbot_plus_keys (
+        code          TEXT PRIMARY KEY,
+        duration_days INTEGER NOT NULL,
+        created_by    TEXT,
+        created_at    TEXT DEFAULT CURRENT_TIMESTAMP,
+        note          TEXT,
+        redeemed_by   TEXT DEFAULT NULL,
+        redeemed_at   TEXT DEFAULT NULL
+    )''')
+
     # Assignations Guild Boost + : un user assigne son achat/grant a une (ou
     # plusieurs si owner) guild. PK composite pour permettre l'owner d'avoir
     # plusieurs assignations ; pour les autres users on supprime les anciennes
@@ -7382,6 +7395,84 @@ def has_premium_grant(user_id, feature="all", inherit_all: bool = True) -> bool:
         ).fetchone()
     conn.close()
     return bool(row)
+
+
+# ===== Cles d'activation TookBot+ =====
+
+def tookbot_plus_key_create(code, duration_days, created_by=None, note=None):
+    conn = get_db(); c = conn.cursor()
+    c.execute("""INSERT INTO tookbot_plus_keys (code, duration_days, created_by, note)
+                 VALUES (?, ?, ?, ?)""",
+              (str(code).upper(), int(duration_days),
+               str(created_by) if created_by else None, note))
+    conn.commit(); conn.close()
+
+def tookbot_plus_key_get(code):
+    conn = get_db(); c = conn.cursor()
+    r = c.execute("SELECT * FROM tookbot_plus_keys WHERE code = ?",
+                  (str(code).upper(),)).fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+def tookbot_plus_keys_list():
+    conn = get_db(); c = conn.cursor()
+    rows = [dict(r) for r in c.execute(
+        "SELECT * FROM tookbot_plus_keys ORDER BY created_at DESC").fetchall()]
+    conn.close()
+    return rows
+
+def tookbot_plus_key_delete(code):
+    conn = get_db(); c = conn.cursor()
+    c.execute("DELETE FROM tookbot_plus_keys WHERE code = ?", (str(code).upper(),))
+    n = c.rowcount
+    conn.commit(); conn.close()
+    return n
+
+def tookbot_plus_key_redeem(code, user_id):
+    """Redeem atomique d'une cle a usage unique. Marque la cle redeemed et accorde
+    (ou prolonge) le grant TookBot+ de l'utilisateur pour `duration_days` jours.
+    Retourne (ok, reason, expires_at). reason : ok | code_invalid | already_redeemed."""
+    conn = get_db(); c = conn.cursor()
+    row = c.execute("SELECT * FROM tookbot_plus_keys WHERE code = ?",
+                    (str(code).upper(),)).fetchone()
+    if not row:
+        conn.close()
+        return False, "code_invalid", None
+    if row["redeemed_by"]:
+        conn.close()
+        return False, "already_redeemed", None
+    days = int(row["duration_days"])
+    # Point de depart = expiration TookBot+ active existante (prolongation) sinon now.
+    base = c.execute(
+        """SELECT expires_at FROM premium_grants
+           WHERE user_id = ? AND feature = 'tookbot_plus'
+             AND expires_at IS NOT NULL AND expires_at > datetime('now')""",
+        (str(user_id),)).fetchone()
+    if base and base["expires_at"]:
+        new_expires = c.execute("SELECT datetime(?, ?)",
+                                (base["expires_at"], f"+{days} days")).fetchone()[0]
+    else:
+        new_expires = c.execute("SELECT datetime('now', ?)",
+                                (f"+{days} days",)).fetchone()[0]
+    # Marque la cle consommee (atomic : re-check redeemed_by NULL)
+    upd = c.execute("UPDATE tookbot_plus_keys SET redeemed_by = ?, "
+                    "redeemed_at = CURRENT_TIMESTAMP WHERE code = ? AND redeemed_by IS NULL",
+                    (str(user_id), str(code).upper()))
+    if upd.rowcount == 0:
+        conn.close()
+        return False, "already_redeemed", None
+    # Applique / prolonge le grant TookBot+
+    c.execute('''INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note, expires_at)
+                 VALUES (?, 'tookbot_plus', ?, CURRENT_TIMESTAMP, ?, ?)
+                 ON CONFLICT(user_id, feature) DO UPDATE SET
+                   granted_by = excluded.granted_by,
+                   granted_at = CURRENT_TIMESTAMP,
+                   note       = excluded.note,
+                   expires_at = excluded.expires_at''',
+              (str(user_id), f"key:{str(code).upper()}",
+               f"Cle d'activation ({days}j)", new_expires))
+    conn.commit(); conn.close()
+    return True, "ok", new_expires
 
 
 def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:

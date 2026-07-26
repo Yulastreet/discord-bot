@@ -81,6 +81,43 @@
   </div>
 </section>
 
+<section class="card mb-6">
+  <h2 style="margin-bottom: var(--s-4);">Clés d'activation TookBot+</h2>
+  <p class="muted" style="font-size:var(--t-sm); margin-bottom: var(--s-4);">
+    Génère des clés à usage unique. Un utilisateur qui entre la clé sur la page Abonnement obtient TookBot+ pour la durée choisie.
+  </p>
+  <div class="grid grid-3 gap-3">
+    <div>
+      <label style="font-size:var(--t-sm);">Durée (jours)</label>
+      <input id="pkDays" type="number" min="1" max="3650" value="30" style="width:100%; margin-top:4px;">
+    </div>
+    <div>
+      <label style="font-size:var(--t-sm);">Nombre de clés</label>
+      <input id="pkCount" type="number" min="1" max="500" value="1" style="width:100%; margin-top:4px;">
+    </div>
+    <div>
+      <label style="font-size:var(--t-sm);">Note (optionnel)</label>
+      <input id="pkNote" type="text" maxlength="120" placeholder="Reviewer top.gg" style="width:100%; margin-top:4px;">
+    </div>
+  </div>
+  <button class="btn btn-primary" id="pkCreate" type="button" style="margin-top: var(--s-4);">Générer les clés</button>
+  <div id="pkResult" style="display:none; margin-top: var(--s-4);">
+    <label style="font-size:var(--t-sm);">Clés générées (à distribuer) :</label>
+    <textarea id="pkResultBox" readonly style="width:100%; margin-top:4px; min-height:90px; font-family:var(--font-mono); font-size:13px;"></textarea>
+    <button class="btn btn-secondary btn-sm" id="pkCopy" type="button" style="margin-top:6px;">📋 Copier</button>
+  </div>
+</section>
+
+<section class="card padless mb-6">
+  <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
+    <h2 style="margin:0;">Clés existantes</h2>
+    <span class="badge" id="pkCountBadge">—</span>
+  </div>
+  <div id="pkListWrap">
+    <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">Chargement…</div>
+  </div>
+</section>
+
 {% endblock %}
 
 {% block scripts %}
@@ -199,6 +236,79 @@ document.getElementById('pcCopy').addEventListener('click', () => {
   navigator.clipboard?.writeText(box.value).then(() => window.toast?.('Copié ✓'));
 });
 
+// ===== Cles d'activation TookBot+ =====
+function renderKeys(keys) {
+  const wrap = document.getElementById('pkListWrap');
+  document.getElementById('pkCountBadge').textContent = `${keys.length} clé(s)`;
+  if (keys.length === 0) {
+    wrap.innerHTML = '<div style="padding: var(--s-9); text-align:center; color: var(--text-2);">Aucune clé générée.</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="tbl">
+      <thead><tr><th>Clé</th><th class="num">Durée</th><th>Statut</th><th>Note</th><th style="width:80px;"></th></tr></thead>
+      <tbody>
+        ${keys.map(k => `
+          <tr>
+            <td class="mono"><strong>${k.code}</strong></td>
+            <td class="num">${k.duration_days} j</td>
+            <td>${k.redeemed_by
+                  ? `<span class="badge">utilisée</span> <span class="muted mono">${k.redeemed_by}</span>`
+                  : '<span class="badge badge-accent"><span class="dot"></span> active</span>'}</td>
+            <td>${(k.note || '').replace(/</g, '&lt;')}</td>
+            <td><button class="btn btn-secondary btn-sm pk-del" data-code="${k.code}">✕</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+  wrap.querySelectorAll('.pk-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.code;
+      if (!confirm(`Supprimer la clé ${code} ?`)) return;
+      fetch(`/api/owner/tookbot-plus-keys/${encodeURIComponent(code)}`, {method: 'DELETE'})
+        .then(r => r.json()).then(() => { window.toast?.('Clé supprimée'); loadKeys(); });
+    });
+  });
+}
+
+function loadKeys() {
+  fetch('/api/owner/tookbot-plus-keys').then(r => r.json()).then(data => {
+    renderKeys(data.keys || []);
+  }).catch(() => {
+    document.getElementById('pkListWrap').innerHTML =
+      '<div style="padding: var(--s-5); color: var(--danger);">Erreur de chargement.</div>';
+  });
+}
+
+document.getElementById('pkCreate').addEventListener('click', () => {
+  const payload = {
+    duration_days: parseInt(document.getElementById('pkDays').value, 10),
+    count: Math.max(1, parseInt(document.getElementById('pkCount').value, 10) || 1),
+    note: document.getElementById('pkNote').value.trim() || null,
+  };
+  fetch('/api/owner/tookbot-plus-keys', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(r => r.json()).then(res => {
+    if (res.error) { window.toast?.(res.error, 3500); return; }
+    const keys = res.keys || [];
+    window.toast?.(`${keys.length} clé(s) générée(s) ✓`);
+    const result = document.getElementById('pkResult');
+    document.getElementById('pkResultBox').value = keys.join('\n');
+    result.style.display = keys.length ? 'block' : 'none';
+    document.getElementById('pkNote').value = '';
+    loadKeys();
+  });
+});
+
+document.getElementById('pkCopy').addEventListener('click', () => {
+  const box = document.getElementById('pkResultBox');
+  box.select();
+  navigator.clipboard?.writeText(box.value).then(() => window.toast?.('Copié ✓'));
+});
+
 loadCodes();
+loadKeys();
 </script>
 {% endblock %}
