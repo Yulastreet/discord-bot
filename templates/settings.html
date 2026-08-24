@@ -136,7 +136,7 @@ const PRESENTATION_CURRENT = {
   channel: '{{ settings.get("presentation_channel_id", "") }}',
 };
 
-// Charge les salons texte pour le select présentation
+// Load text channels for the presentation select
 (async function loadPresentationChannels() {
   const sel = document.getElementById('presentation_channel_id');
   const enSel = document.getElementById('presentation_enabled');
@@ -223,7 +223,7 @@ function resetDefaults() {
 }
 window.resetDefaults = resetDefaults;
 
-// === Courbe de difficulté XP : preview ===
+// === XP difficulty curve: preview ===
 function syncCurveNum() {
   const num = document.getElementById('xp_curve_exponent_num');
   const rng = document.getElementById('xp_curve_exponent');
@@ -268,7 +268,7 @@ function updateCurvePreview() {
     tableEl.innerHTML = `<strong>Exponent ${e.toFixed(1)} (${qual})</strong> · ` + parts.join(' · ');
   }
 
-  // Canvas : courbe XP cumulée pour niveaux 0..50
+  // Canvas: cumulative XP curve for levels 0..50
   const cvs = document.getElementById('xpCurveCanvas');
   if (!cvs) return;
   const W = cvs.width, H = cvs.height;
@@ -328,7 +328,7 @@ function updateCurvePreview() {
     ctx.fillText(`L${Math.round(L)}`, x, H - padB + 6);
   }
 
-  // Courbe : XP cumulée par niveau (continue)
+  // Curve: cumulative XP per level (continuous)
   ctx.strokeStyle = 'oklch(0.86 0.20 130)';
   ctx.lineWidth = 2.5;
   ctx.beginPath();
@@ -342,7 +342,7 @@ function updateCurvePreview() {
   }
   ctx.stroke();
 
-  // Points repère sur niveaux clés
+  // Reference points on key levels
   ctx.fillStyle = 'oklch(0.86 0.20 130)';
   for (const L of [10, 20, 30, 40, 50]) {
     const xp = Math.pow(L, e);

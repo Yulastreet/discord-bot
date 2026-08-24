@@ -5849,31 +5849,31 @@ DEFAULT_SETTINGS = {
     "xp_cooldown_seconds":  "30",
     "log_retention_days":   "90",
     "log_keep_per_guild":   "5000",
-    "welcome_template":     "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
+    "welcome_template":     "👋 Welcome {user}!\nWelcome to **{guild}**! You are member number **{count}**.",
     # IA (Groq) — config globale, owner-only via dashboard
     "ai_enabled":           "0",
     "ai_model":             "llama-3.3-70b-versatile",
-    "ai_system_prompt":     "Tu es TookBot, l'assistant officiel d'un bot Discord polyvalent. Tu es concis, utile, sympa, et tu parles français. Tu réponds en quelques phrases max sauf si on te demande un détail. Évite les listes interminables.",
+    "ai_system_prompt":     "You are TookBot, the official assistant of an all-in-one Discord bot. You are concise, helpful and friendly. Answer in a few sentences at most unless asked for detail. Avoid endless lists.",
     "ai_allowed_user_ids":  "",   # CSV
     "ai_max_tokens":        "400",
     # Vision model (used if the user attaches an image/GIF to their message).
     # Must be a Groq model that supports vision (multimodal).
     "ai_vision_model":      "meta-llama/llama-4-scout-17b-16e-instruct",
     # AI voice mode: if "1", the AI answers with a voice message (TTS) instead of text.
-    # Voix Microsoft Edge TTS (gratuit). Voix FR dispo :
-    #   fr-FR-DeniseNeural (femme), fr-FR-HenriNeural (homme),
-    #   fr-FR-EloiseNeural (jeune femme), fr-FR-VivienneMultilingualNeural (multi).
+    # Microsoft Edge TTS voices (free). Available EN voices:
+    #   en-US-AriaNeural (female), en-US-GuyNeural (male),
+    #   en-GB-SoniaNeural (female, UK), en-US-JennyNeural (female, multilingual).
     "ai_voice_enabled":     "0",
-    "ai_voice_name":        "fr-FR-DeniseNeural",
+    "ai_voice_name":        "en-US-AriaNeural",
     # TTS provider: "edge" (Microsoft Edge, free, robotic) or "elevenlabs"
     # (top quality, free tier 10k chars/month, auto fallback to edge if the quota runs out).
     # ELEVENLABS_API_KEY must be set in .env for "elevenlabs".
     "ai_voice_provider":    "edge",
-    # ElevenLabs voice ID (premade voices, work in FR through the multilingual model).
-    "ai_elevenlabs_voice_id": "XB0fDUnXU5powFXDhCwa",  # Charlotte (femme, naturelle)
+    # ElevenLabs voice ID (premade voices, work in EN through the multilingual model).
+    "ai_elevenlabs_voice_id": "XB0fDUnXU5powFXDhCwa",  # Charlotte (female, natural)
     "ai_elevenlabs_model":    "eleven_multilingual_v2",
     # Ko-fi support message (posted when a member gets a donor role)
-    "soutien_message":      "<user> A décidé de filer un coup de main ! Merci pour ton soutien !",
+    "soutien_message":      "<user> decided to lend a hand! Thanks for your support!",
     "soutien_role_ids":     "",   # CSV of role IDs; empty = fallback on default names
     "soutien_channel_id":   "",   # empty = fallback on env SOUTIEN_CHANNEL_ID
     # Cards: minimum age (days) of a server to allow /roll (anti-farm through
@@ -6521,7 +6521,7 @@ GUILD_DEFAULT_SETTINGS = {
     # Higher = hard progression (each level requires a lot more XP).
     "xp_curve_exponent":   "5.0",
     # Default welcome message of the server
-    "welcome_template": "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
+    "welcome_template": "👋 Welcome {user}!\nWelcome to **{guild}**! You are member number **{count}**.",
     # Initial setup (configured via /setup)
     "setup_completed":            "0",
     "setup_welcome_channel_id":   "",

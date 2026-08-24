@@ -13,7 +13,7 @@
     {% set _configured = (current_guild.mod_access_configured if current_guild.mod_access_configured else '0') %}
   {% endif %}
   <p class="muted" style="font-size:var(--t-sm);max-width:60ch;margin:0 auto var(--s-5);line-height:1.6;">
-    {{ t('web_core.forbidden.body') }}<br><br>
+    {{ t('web_core.forbidden.body') | safe }}<br><br>
     {{ t('web_core.forbidden.personal_pages') }} <a href="/premium">{{ t('web_core.nav.premium') }}</a>, <a href="/my-pass">{{ t('web_core.nav.my_pass') }}</a>.
   </p>
   <div class="row gap-3" style="justify-content:center;">
