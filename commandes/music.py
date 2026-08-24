@@ -2,11 +2,13 @@ import asyncio
 import discord
 from discord import app_commands
 
+from services.i18n import ti, t, locale_of
+
 from .music_voice import connect_to_voice
 
 
 def _is_playlist_url(query):
-    """True si l'URL est une playlist YouTube (contient list=...)."""
+    """True if the URL is a YouTube playlist (contains list=...)."""
     if not isinstance(query, str) or not query.startswith("http"):
         return False
     q = query.lower()
@@ -26,7 +28,7 @@ def _is_spotify_url(query):
     return "open.spotify.com/" in query.lower()
 
 
-# Mapping nom emoji custom -> fallback unicode si introuvable
+# Custom emoji name -> unicode fallback when the emoji cannot be found
 _PLATFORM_EMOJI_FALLBACK = {
     "youtube":    "▶️",
     "spotify":    "🎧",
@@ -36,26 +38,22 @@ _PLATFORM_EMOJI_FALLBACK = {
 
 
 def _platform_emoji(bot, name):
-    """Cherche emoji custom 'name' dans toutes les guilds du bot.
-    Retourne string Discord (<:name:id>) ou fallback unicode."""
+    """Look for the custom emoji 'name' across every guild of the bot.
+    Returns a Discord string (<:name:id>) or the unicode fallback."""
     name_low = (name or "").lower()
     for em in bot.emojis:
         if (em.name or "").lower() == name_low:
             return str(em)
     return _PLATFORM_EMOJI_FALLBACK.get(name_low, "•")
 
-# Message friendly pour tous les soucis musique. Les vraies erreurs sont
-# loggees pour debug owner. L'utilisateur final voit juste un message
-# rassurant + pas de stack trace cryptique.
-MUSIC_TROUBLE_MESSAGE = (
-    "⚠️ **Cette fonctionnalité a quelques soucis pour l'instant.**\n"
-    "On s'en occupe ! Réessaie dans quelques minutes ou tente une autre vidéo."
-)
+# Friendly message for every music hiccup ("games.music.trouble"). The real
+# errors are logged so the owner can debug. The end user only sees a
+# reassuring message instead of a cryptic stack trace.
 
 
 def setup_music_commands(bot, deps):
     globals().update(deps)
-    # ===== MUSIQUE =====
+    # ===== MUSIC =====
 
     def _ensure_opus():
         """Ensure libopus is loaded. Re-tries load if not. Returns True on success."""
@@ -63,40 +61,43 @@ def setup_music_commands(bot, deps):
             return True
         return _load_opus()
 
-    @bot.tree.command(name="join", description="Rejoindre ton salon vocal")
+    @bot.tree.command(name="join", description="Join your voice channel")
     async def join(interaction: discord.Interaction):
         if not interaction.user.voice:
-            await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.not_in_voice"), ephemeral=True)
             return
         await interaction.response.defer()
         try:
             if not _ensure_opus():
-                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
-                print("[music /join] libopus non charge")
+                await interaction.followup.send(ti(interaction, "games.music.trouble"))
+                print("[music /join] libopus not loaded")
                 return
             channel = interaction.user.voice.channel
             await connect_to_voice(bot, interaction.guild, channel)
             music_state_set(str(interaction.guild.id),
                             voice_channel_id=str(channel.id),
                             voice_channel_name=channel.name)
-            await interaction.followup.send(f"✅ Connecté à **{channel.name}** !")
+            await interaction.followup.send(
+                ti(interaction, "games.music.join.connected", channel=channel.name))
         except Exception as e:
             import traceback
             print(f"[music /join] error: {type(e).__name__}: {e}")
             traceback.print_exc()
-            await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+            await interaction.followup.send(ti(interaction, "games.music.trouble"))
 
-    @bot.tree.command(name="play", description="Jouer une musique (lien ou titre, playlist YouTube supportee)")
-    @app_commands.describe(query="Titre, lien vidéo ou lien playlist YouTube")
+    @bot.tree.command(name="play", description="Play a track (link or title, YouTube playlists supported)")
+    @app_commands.describe(query="Title, video link or YouTube playlist link")
     async def play(interaction: discord.Interaction, query: str):
         if not interaction.user.voice:
-            await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.not_in_voice"), ephemeral=True)
             return
         await interaction.response.defer()
         try:
             if not _ensure_opus():
-                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
-                print("[music /play] libopus non charge")
+                await interaction.followup.send(ti(interaction, "games.music.trouble"))
+                print("[music /play] libopus not loaded")
                 return
             voice_channel = interaction.user.voice.channel
             vc = await connect_to_voice(bot, interaction.guild, voice_channel)
@@ -105,29 +106,28 @@ def setup_music_commands(bot, deps):
                             voice_channel_name=voice_channel.name)
             gid = str(interaction.guild.id)
 
-            # --- Spotify (track / album / playlist) : resolve via API puis search YT ---
+            # --- Spotify (track / album / playlist): resolve via API then search YT ---
             if _is_spotify_url(query):
-                await interaction.followup.send("🎧 Resolution Spotify en cours...")
+                await interaction.followup.send(ti(interaction, "games.music.play.spotify_resolving"))
                 try:
                     from services.spotify_resolver import resolve_spotify_url
                     sp = await asyncio.to_thread(resolve_spotify_url, query, 100)
                 except Exception as e:
                     print(f"[music spotify] error: {type(e).__name__}: {e}")
                     await interaction.followup.send(
-                        "⚠️ Spotify n'est pas configure (clefs API manquantes) ou URL invalide.\n"
-                        "Tu peux deja jouer SoundCloud, YouTube, Bandcamp via leur lien direct."
-                    )
+                        ti(interaction, "games.music.play.spotify_unavailable"))
                     return
                 tracks_meta = sp.get("tracks") or []
                 if not tracks_meta:
-                    await interaction.followup.send("❌ Aucune piste trouvee dans cette ressource Spotify.")
+                    await interaction.followup.send(
+                        ti(interaction, "games.music.play.spotify_no_track"))
                     return
 
-                # Strategie : 1er track full extract (lecture immediate avec
-                # proxy+POT), le reste en background PARALLEL avec
-                # get_audio_info_fast (scrape YT search HTML direct, ~200ms
-                # par track, thread-safe car pas de plugin yt-dlp). play_next
-                # re-resoudra l'URL en stream complet au moment de jouer.
+                # Strategy: 1st track gets a full extract (immediate playback with
+                # proxy+POT), the rest resolve in the background IN PARALLEL with
+                # get_audio_info_fast (direct YT search HTML scrape, ~200ms per
+                # track, thread-safe since no yt-dlp plugin). play_next will
+                # re-resolve the URL into a full stream when it actually plays.
                 async def _resolve_full(tm):
                     q = tm.get("query")
                     if not q:
@@ -149,10 +149,11 @@ def setup_music_commands(bot, deps):
                         print(f"[music spotify] fast search fail for {q!r}: {e}")
                         return None
 
-                # 1er track : full extract pour demarrer lecture asap
+                # 1st track: full extract so playback starts asap
                 first_info = await _resolve_full(tracks_meta[0])
                 if not first_info:
-                    await interaction.followup.send("❌ Premier track Spotify pas trouvable sur YouTube.")
+                    await interaction.followup.send(
+                        ti(interaction, "games.music.play.spotify_first_missing"))
                     return
                 music_queue_add(gid,
                                 title=first_info["title"], url=first_info["url"],
@@ -160,11 +161,11 @@ def setup_music_commands(bot, deps):
                                 duration=first_info.get("duration"),
                                 thumbnail=first_info.get("thumbnail"),
                                 requested_by=interaction.user.id)
-                # Lance lecture immediate
+                # Start playback right away
                 if vc.is_connected() and not vc.is_playing():
                     await play_next(vc, interaction.channel, interaction.guild.id)
 
-                # Resolve le reste en PARALLEL via fast HTML scrape
+                # Resolve the rest IN PARALLEL via the fast HTML scrape
                 async def _resolve_rest():
                     sem = asyncio.Semaphore(10)
                     rest = tracks_meta[1:]
@@ -191,38 +192,37 @@ def setup_music_commands(bot, deps):
                     try:
                         cap_note = ""
                         if sp.get("spotify_cap") and added >= 100:
-                            cap_note = (
-                                "\n⚠️ Limite Spotify : seules les **100 premieres** pistes "
-                                "ont ete ajoutees (l'API publique cap a 100 par playlist sans OAuth)."
-                            )
+                            cap_note = ti(interaction, "games.music.play.spotify_cap_note")
                         await interaction.followup.send(
-                            f"🎧 **{added}** piste(s) ajoutee(s) depuis Spotify : **{sp.get('title','?')}**"
+                            ti(interaction, "games.music.play.spotify_added",
+                               count=added, title=sp.get("title", "?"))
                             + cap_note
                         )
                     except Exception:
                         pass
-                    print(f"[music spotify] parallel-fast resolve done : {added} tracks", flush=True)
+                    print(f"[music spotify] parallel-fast resolve done: {added} tracks", flush=True)
 
                 if len(tracks_meta) > 1:
                     asyncio.create_task(_resolve_rest())
                 else:
                     await interaction.followup.send(
-                        f"🎧 **1** piste ajoutee depuis Spotify : **{sp.get('title','?')}**"
+                        ti(interaction, "games.music.play.spotify_added",
+                           count=1, title=sp.get("title", "?"))
                     )
                 return
 
-            # --- Playlist YouTube : on ajoute toutes les pistes ---
+            # --- YouTube playlist: add every track ---
             if _is_playlist_url(query):
-                await interaction.followup.send(f"🔍 Chargement de la playlist...")
+                await interaction.followup.send(ti(interaction, "games.music.play.playlist_loading"))
                 try:
                     pl = await get_playlist_info(query, max_items=200)
                 except Exception as e:
                     print(f"[music] playlist error: {e}")
-                    await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+                    await interaction.followup.send(ti(interaction, "games.music.trouble"))
                     return
                 entries = pl.get("entries") or []
                 if not entries:
-                    await interaction.followup.send("❌ Playlist vide ou inaccessible.")
+                    await interaction.followup.send(ti(interaction, "games.music.play.playlist_empty"))
                     return
                 for entry in entries:
                     music_queue_add(gid,
@@ -233,19 +233,21 @@ def setup_music_commands(bot, deps):
                                     thumbnail=entry.get("thumbnail"),
                                     requested_by=interaction.user.id)
                 await interaction.followup.send(
-                    f"📋 **{len(entries)}** pistes ajoutées depuis **{pl.get('playlist_title','Playlist')}**"
+                    ti(interaction, "games.music.play.playlist_added",
+                       count=len(entries), title=pl.get("playlist_title", "Playlist"))
                 )
                 if vc.is_connected() and not vc.is_playing():
                     await play_next(vc, interaction.channel, interaction.guild.id)
                 return
 
-            # --- Track unique (titre ou lien vidéo) ---
-            await interaction.followup.send(f"🔍 Recherche de **{query}**...")
+            # --- Single track (title or video link) ---
+            await interaction.followup.send(
+                ti(interaction, "games.music.play.searching", query=query))
             try:
                 info = await get_audio_info(query)
             except Exception as e:
                 print(f"[music] yt-dlp error: {e}")
-                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+                await interaction.followup.send(ti(interaction, "games.music.trouble"))
                 return
             music_queue_add(gid,
                             title=info["title"], url=info["url"],
@@ -253,7 +255,8 @@ def setup_music_commands(bot, deps):
                             duration=info.get("duration"),
                             thumbnail=info.get("thumbnail"),
                             requested_by=interaction.user.id)
-            await interaction.followup.send(f"✅ Ajouté à la file : **{info['title']}**")
+            await interaction.followup.send(
+                ti(interaction, "games.music.play.added", title=info["title"]))
             if vc.is_connected() and not vc.is_playing():
                 await play_next(vc, interaction.channel, interaction.guild.id)
         except Exception as e:
@@ -261,7 +264,7 @@ def setup_music_commands(bot, deps):
             print(f"[music /play] error: {type(e).__name__}: {e}")
             traceback.print_exc()
             try:
-                await interaction.followup.send(MUSIC_TROUBLE_MESSAGE)
+                await interaction.followup.send(ti(interaction, "games.music.trouble"))
             except Exception:
                 pass
 
@@ -277,13 +280,14 @@ def setup_music_commands(bot, deps):
         return f"{m}:{sec:02d}"
 
 
-    @bot.tree.command(name="nowplaying", description="Voir la musique en cours")
+    @bot.tree.command(name="nowplaying", description="Show the track currently playing")
     async def nowplaying(interaction: discord.Interaction):
         gid = str(interaction.guild.id)
         st = music_state_get(gid) or {}
         title = st.get("current_title")
         if not title:
-            await interaction.response.send_message("🔇 Aucune musique en cours.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.nowplaying.nothing"), ephemeral=True)
             return
 
         url = st.get("current_url") or ""
@@ -293,7 +297,7 @@ def setup_music_commands(bot, deps):
         is_paused = bool(st.get("is_paused"))
         voice_chan_name = st.get("voice_channel_name") or "?"
 
-        # Calcule position si started_at present
+        # Compute the position when started_at is available
         position_str = "—"
         progress_bar = ""
         if started_at:
@@ -326,61 +330,68 @@ def setup_music_commands(bot, deps):
         )
         if thumb:
             embed.set_thumbnail(url=thumb)
-        embed.add_field(name="Durée", value=position_str, inline=True)
-        embed.add_field(name="Salon vocal", value=f"🔊 {voice_chan_name}", inline=True)
+        embed.add_field(name=ti(interaction, "games.music.nowplaying.duration"),
+                        value=position_str, inline=True)
+        embed.add_field(name=ti(interaction, "games.music.nowplaying.voice_channel"),
+                        value=f"🔊 {voice_chan_name}", inline=True)
         if progress_bar:
             embed.add_field(name="​", value=f"`{progress_bar}`", inline=False)
 
-        # File suivante (3 premieres)
+        # Up next (first 3)
         try:
             q = music_queue_list(gid) or []
         except Exception:
             q = []
         if q:
             next_lines = []
-            for i, t in enumerate(q[:3], 1):
-                dur = _fmt_duration(t.get("duration")) if t.get("duration") else "—"
-                next_lines.append(f"`{i}.` {t['title'][:60]} · `{dur}`")
+            for i, t_item in enumerate(q[:3], 1):
+                dur = _fmt_duration(t_item.get("duration")) if t_item.get("duration") else "—"
+                next_lines.append(f"`{i}.` {t_item['title'][:60]} · `{dur}`")
+            more = (ti(interaction, "games.music.nowplaying.more", count=len(q) - 3)
+                    if len(q) > 3 else "")
             embed.add_field(
-                name=f"🎶 À suivre ({len(q)} en file)",
-                value="\n".join(next_lines) + (f"\n_… +{len(q)-3} autres_" if len(q) > 3 else ""),
+                name=ti(interaction, "games.music.nowplaying.up_next", count=len(q)),
+                value="\n".join(next_lines) + more,
                 inline=False,
             )
 
-        embed.set_footer(text="TookBot · /queue pour la file complète · /skip pour passer")
+        embed.set_footer(text=ti(interaction, "games.music.nowplaying.footer"))
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="skip", description="Passer la musique en cours (ou jusqu'a une position de la file)")
-    @app_commands.describe(position="Numero dans la file vers lequel sauter (1 = la prochaine). Vide = juste skip la courante.")
+    @bot.tree.command(name="skip", description="Skip the current track (or jump to a queue position)")
+    @app_commands.describe(position="Queue number to jump to (1 = the next one). Empty = just skip the current track.")
     async def skip(interaction: discord.Interaction, position: int = None):
         vc = interaction.guild.voice_client
         gid = str(interaction.guild.id)
 
-        # Skip simple
+        # Plain skip
         if position is None:
             if vc and vc.is_playing():
                 vc.stop()
-                await interaction.response.send_message("⏭️ Musique passée !")
+                await interaction.response.send_message(ti(interaction, "games.music.skip.done"))
             else:
-                await interaction.response.send_message("❌ Aucune musique en cours !", ephemeral=True)
+                await interaction.response.send_message(
+                    ti(interaction, "games.music.skip.nothing_playing"), ephemeral=True)
             return
 
-        # Skip vers position N : pop (N-1) tracks silencieusement, puis stop la courante
+        # Skip to position N: silently pop (N-1) tracks, then stop the current one
         if position < 1:
-            await interaction.response.send_message("❌ La position doit être >= 1.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.position_min"), ephemeral=True)
             return
 
         q = music_queue_list(gid) or []
         if not q:
-            await interaction.response.send_message("❌ La file est vide.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.queue_empty"), ephemeral=True)
             return
 
         skipped_count = min(position - 1, len(q))
-        # Pop silencieusement les tracks 1 a (position-1)
+        # Silently pop tracks 1 to (position-1)
         for _ in range(skipped_count):
             music_queue_pop_next(gid)
 
-        # Stop la courante pour declencher play_next sur ce qu'il reste
+        # Stop the current track to trigger play_next on whatever is left
         was_playing = bool(vc and vc.is_playing())
         if vc and vc.is_playing():
             vc.stop()
@@ -388,15 +399,16 @@ def setup_music_commands(bot, deps):
         total_skipped = skipped_count + (1 if was_playing else 0)
         target_msg = ""
         if position > len(q):
-            target_msg = f" (position {position} dépassait la file de {len(q)}, file vidée)"
+            target_msg = ti(interaction, "games.music.skip.overflow_note",
+                            position=position, total=len(q))
 
         await interaction.response.send_message(
-            f"⏭️ **{total_skipped}** musique(s) passée(s){target_msg}"
+            ti(interaction, "games.music.skip.done_count", count=total_skipped, note=target_msg)
         )
 
     PER_PAGE = 50
 
-    def _build_queue_embed(gid_str, page=1):
+    def _build_queue_embed(gid_str, page=1, locale=None):
         q = music_queue_list(gid_str) or []
         total = len(q)
         total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
@@ -404,24 +416,28 @@ def setup_music_commands(bot, deps):
         start = (page - 1) * PER_PAGE
         end = min(start + PER_PAGE, total)
         embed = discord.Embed(
-            title=f"🎵 File d'attente ({total} piste(s))",
+            title=t("games.music.queue.title", locale, total=total),
             color=discord.Color.blurple(),
         )
         lines = []
         for i in range(start, end):
-            t = q[i]
-            lines.append(f"**{i+1}.** {t['title']}")
-        embed.description = "\n".join(lines) or "*vide*"
-        embed.set_footer(text=f"Page {page}/{total_pages} • /jump position:N pour jouer une piste")
+            track = q[i]
+            lines.append(f"**{i+1}.** {track['title']}")
+        embed.description = "\n".join(lines) or t("games.music.queue.empty_line", locale)
+        embed.set_footer(text=t("games.music.queue.footer", locale,
+                                page=page, total_pages=total_pages))
         return embed, page, total_pages, total
 
     class QueueView(discord.ui.View):
-        def __init__(self, gid_str, page, total_pages, author_id):
+        def __init__(self, gid_str, page, total_pages, author_id, locale):
             super().__init__(timeout=180)
             self.gid_str = gid_str
             self.page = page
             self.total_pages = total_pages
             self.author_id = author_id
+            self.locale = locale
+            self.prev_btn.label = t("games.music.queue.previous_button", locale)
+            self.next_btn.label = t("games.music.queue.next_button", locale)
             self._refresh_buttons()
 
         def _refresh_buttons(self):
@@ -429,51 +445,56 @@ def setup_music_commands(bot, deps):
             self.next_btn.disabled = self.page >= self.total_pages
 
         async def _update(self, interaction):
-            embed, self.page, self.total_pages, _ = _build_queue_embed(self.gid_str, self.page)
+            embed, self.page, self.total_pages, _ = _build_queue_embed(
+                self.gid_str, self.page, self.locale)
             self._refresh_buttons()
             await interaction.response.edit_message(embed=embed, view=self)
 
-        @discord.ui.button(label="◀ Precedent", style=discord.ButtonStyle.secondary)
+        @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
         async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
             self.page = max(1, self.page - 1)
             await self._update(interaction)
 
-        @discord.ui.button(label="Suivant ▶", style=discord.ButtonStyle.secondary)
+        @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
         async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
             self.page = min(self.total_pages, self.page + 1)
             await self._update(interaction)
 
         @discord.ui.button(label="↻", style=discord.ButtonStyle.primary)
         async def refresh_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-            # Recalcule total (au cas ou queue a change)
+            # Recompute the total (the queue may have changed)
             await self._update(interaction)
 
-    @bot.tree.command(name="queue", description="Voir la file d'attente musicale")
+    @bot.tree.command(name="queue", description="Show the music queue")
     async def queue_cmd(interaction: discord.Interaction):
         gid = str(interaction.guild.id)
         q = music_queue_list(gid)
         if not q:
-            await interaction.response.send_message("📭 La file d'attente est vide !")
+            await interaction.response.send_message(ti(interaction, "games.music.queue.empty"))
             return
-        embed, page, total_pages, _ = _build_queue_embed(gid, page=1)
-        view = QueueView(gid, page, total_pages, interaction.user.id)
+        locale = locale_of(interaction)
+        embed, page, total_pages, _ = _build_queue_embed(gid, page=1, locale=locale)
+        view = QueueView(gid, page, total_pages, interaction.user.id, locale)
         await interaction.response.send_message(embed=embed, view=view)
 
 
-    @bot.tree.command(name="jump", description="Jouer une piste specifique de la file sans perdre les autres")
-    @app_commands.describe(position="Position dans la file (1 = la prochaine deja en tete)")
+    @bot.tree.command(name="jump", description="Play a specific queue track without losing the others")
+    @app_commands.describe(position="Position in the queue (1 = the next one already on top)")
     async def jump(interaction: discord.Interaction, position: int):
         if position < 1:
-            await interaction.response.send_message("❌ La position doit être >= 1.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.position_min"), ephemeral=True)
             return
         gid = str(interaction.guild.id)
         q = music_queue_list(gid) or []
         if not q:
-            await interaction.response.send_message("❌ La file est vide.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.queue_empty"), ephemeral=True)
             return
         if position > len(q):
             await interaction.response.send_message(
-                f"❌ Position {position} hors limites (file = {len(q)} piste(s)).",
+                ti(interaction, "games.music.position_out_of_range",
+                   position=position, total=len(q)),
                 ephemeral=True,
             )
             return
@@ -483,33 +504,36 @@ def setup_music_commands(bot, deps):
             ok = music_queue_move_to_front(gid, target["id"])
         except Exception as e:
             print(f"[music /jump] move err: {e}")
-            await interaction.response.send_message("❌ Erreur reordonnancement.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.jump.reorder_error"), ephemeral=True)
             return
         if not ok:
-            await interaction.response.send_message("❌ Track introuvable.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.jump.track_not_found"), ephemeral=True)
             return
         vc = interaction.guild.voice_client
         was_playing = bool(vc and vc.is_playing())
         if was_playing:
-            vc.stop()  # declenche play_next sur la track maintenant en tete
+            vc.stop()  # triggers play_next on the track now at the top
         await interaction.response.send_message(
-            f"⏯️ Saut vers **{target['title']}** (les autres pistes sont conservees)."
+            ti(interaction, "games.music.jump.done", title=target["title"])
         )
 
-    @bot.tree.command(name="volume", description="Regler le volume musique (0-200, default 100)")
-    @app_commands.describe(niveau="Volume en pourcentage (0 = muet, 100 = normal, 200 = max)")
-    async def volume(interaction: discord.Interaction, niveau: int):
-        if niveau < 0 or niveau > 200:
-            await interaction.response.send_message("❌ Volume entre 0 et 200.", ephemeral=True)
+    @bot.tree.command(name="volume", description="Set the music volume (0-200, default 100)")
+    @app_commands.describe(level="Volume in percent (0 = muted, 100 = normal, 200 = max)")
+    async def volume(interaction: discord.Interaction, level: int):
+        if level < 0 or level > 200:
+            await interaction.response.send_message(
+                ti(interaction, "games.music.volume.out_of_range"), ephemeral=True)
             return
         gid = str(interaction.guild.id)
-        vol_f = niveau / 100.0
+        vol_f = level / 100.0
         try:
             from database import guild_setting_set
             guild_setting_set(gid, "music_volume", str(vol_f))
         except Exception as e:
             print(f"[music /volume] persist error: {e}")
-        # Applique a la lecture en cours si possible
+        # Apply to the current playback when possible
         vc = interaction.guild.voice_client
         applied_live = False
         if vc and vc.source and hasattr(vc.source, "volume"):
@@ -518,23 +542,28 @@ def setup_music_commands(bot, deps):
                 applied_live = True
             except Exception as e:
                 print(f"[music /volume] live apply error: {e}")
-        suffix = " (applique en direct)" if applied_live else " (prochaine piste)"
-        await interaction.response.send_message(f"🔊 Volume : **{niveau}%**{suffix}")
+        suffix = (ti(interaction, "games.music.volume.applied_live") if applied_live
+                  else ti(interaction, "games.music.volume.next_track"))
+        await interaction.response.send_message(
+            ti(interaction, "games.music.volume.set", level=level, suffix=suffix))
 
-    @bot.tree.command(name="remove", description="Retirer une piste de la file par sa position")
-    @app_commands.describe(position="Position dans la file (1 = la prochaine)")
+    @bot.tree.command(name="remove", description="Remove a track from the queue by its position")
+    @app_commands.describe(position="Position in the queue (1 = the next one)")
     async def remove(interaction: discord.Interaction, position: int):
         if position < 1:
-            await interaction.response.send_message("❌ La position doit être >= 1.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.position_min"), ephemeral=True)
             return
         gid = str(interaction.guild.id)
         q = music_queue_list(gid) or []
         if not q:
-            await interaction.response.send_message("❌ La file est vide.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.queue_empty"), ephemeral=True)
             return
         if position > len(q):
             await interaction.response.send_message(
-                f"❌ Position {position} hors limites (file = {len(q)} piste(s)).",
+                ti(interaction, "games.music.position_out_of_range",
+                   position=position, total=len(q)),
                 ephemeral=True,
             )
             return
@@ -544,13 +573,15 @@ def setup_music_commands(bot, deps):
             music_queue_remove(gid, track["id"])
         except Exception as e:
             print(f"[music /remove] error: {e}")
-            await interaction.response.send_message(MUSIC_TROUBLE_MESSAGE, ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.trouble"), ephemeral=True)
             return
         await interaction.response.send_message(
-            f"🗑️ Retire de la file : **{track['title'][:120]}** (position {position})"
+            ti(interaction, "games.music.remove.done",
+               title=track["title"][:120], position=position)
         )
 
-    # ----- View boutons plateformes pour /search -----
+    # ----- Platform button view for /search -----
     class _PlatformPickerView(discord.ui.View):
         def __init__(self, bot, query, owner_id, voice_channel, guild, text_channel, _ensure_opus):
             super().__init__(timeout=60)
@@ -569,13 +600,13 @@ def setup_music_commands(bot, deps):
             specs = [
                 ("youtube",    "YouTube",    discord.ButtonStyle.danger),
                 ("spotify",    "Spotify",    discord.ButtonStyle.success),
-                ("soundcloud", "SoundCloud", discord.ButtonStyle.primary),  # blue (orange pas dispo)
+                ("soundcloud", "SoundCloud", discord.ButtonStyle.primary),  # blue (orange not available)
                 ("bandcamp",   "Bandcamp",   discord.ButtonStyle.secondary),
             ]
             for plat, label, style in specs:
                 em_str = _platform_emoji(self.bot, plat)
-                # Discord button emoji : doit etre PartialEmoji ou str unicode.
-                # Si custom <:name:id>, on extrait id via PartialEmoji.from_str.
+                # Discord button emoji: must be a PartialEmoji or a unicode str.
+                # For a custom <:name:id>, the id is extracted via PartialEmoji.from_str.
                 try:
                     emoji = discord.PartialEmoji.from_str(em_str) if em_str else None
                 except Exception:
@@ -587,10 +618,11 @@ def setup_music_commands(bot, deps):
         def _make_cb(self, platform):
             async def cb(inter: discord.Interaction):
                 if inter.user.id != self.owner_id:
-                    await inter.response.send_message("❌ Seul l'auteur peut choisir.", ephemeral=True)
+                    await inter.response.send_message(
+                        ti(inter, "games.music.search.not_author"), ephemeral=True)
                     return
                 self.chosen = True
-                # Disable les autres boutons
+                # Disable the other buttons
                 for child in self.children:
                     child.disabled = True
                 try:
@@ -612,7 +644,7 @@ def setup_music_commands(bot, deps):
                 elif platform == "spotify":
                     from services.spotify_resolver import search_spotify
                     sp_results = await asyncio.to_thread(search_spotify, self.query, 5)
-                    # Format : [{title, artists, url(spotify), duration_ms, thumbnail, query}]
+                    # Format: [{title, artists, url(spotify), duration_ms, thumbnail, query}]
                     for r in sp_results:
                         results.append({
                             "title":    f"{r['title']} - {r['artists']}",
@@ -620,35 +652,41 @@ def setup_music_commands(bot, deps):
                             "duration": int((r.get("duration_ms") or 0) / 1000) or None,
                             "uploader": r.get("artists") or "",
                             "thumbnail": r.get("thumbnail"),
-                            "spotify_query": r.get("query"),  # marqueur : on resoudra via YT
+                            "spotify_query": r.get("query"),  # marker: will be resolved through YT
                         })
                 elif platform == "bandcamp":
-                    # Pas de native search bandcamp dans yt-dlp. Fallback : ytsearch sur "bandcamp <query>"
-                    # puis on filtre les URLs bandcamp.com. Pas top mais marche pour les noms d'albums connus.
+                    # No native bandcamp search in yt-dlp. Fallback: ytsearch on "bandcamp <query>"
+                    # then filter the bandcamp.com URLs. Not great but works for known album names.
                     yt = await search_youtube(f"bandcamp {self.query}", max_results=10)
                     results = [r for r in yt if "bandcamp.com" in (r.get("url") or "")][:5]
                     if not results:
-                        error_msg = ("Bandcamp n'a pas de recherche native dans yt-dlp. "
-                                     "Colle directement une URL bandcamp.com dans `/play`.")
+                        error_msg = ti(inter, "games.music.search.bandcamp_no_native")
             except Exception as e:
                 print(f"[music /search {platform}] {type(e).__name__}: {e}")
-                error_msg = f"La recherche sur {platform} a échoué, réessaie."
+                error_msg = ti(inter, "games.music.search.failed", platform=platform)
 
             if error_msg:
                 await inter.followup.send(f"⚠️ {error_msg}", ephemeral=True)
                 return
             if not results:
-                await inter.followup.send(f"❌ Aucun resultat {platform} pour `{self.query[:80]}`.", ephemeral=True)
+                await inter.followup.send(
+                    ti(inter, "games.music.search.no_result",
+                       platform=platform, query=self.query[:80]),
+                    ephemeral=True)
                 return
             await self._send_results_picker(inter, platform, results)
 
         async def _send_results_picker(self, inter, platform, results):
+            loc = locale_of(inter)
+            untitled = t("games.music.search.untitled", loc)
+            unknown_uploader = t("games.music.search.unknown_uploader", loc)
             options = []
             for i, r in enumerate(results):
-                label = (r.get("title") or "(sans titre)")[:95]
+                label = (r.get("title") or untitled)[:95]
                 dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
                 up = (r.get("uploader") or "")[:50]
-                desc = f"{up} · {dur}"[:95] if up else f"durée : {dur}"
+                desc = (f"{up} · {dur}"[:95] if up
+                        else t("games.music.search.duration_only", loc, duration=dur))
                 options.append(discord.SelectOption(label=label, value=str(i), description=desc))
 
             outer = self
@@ -657,10 +695,14 @@ def setup_music_commands(bot, deps):
                     super().__init__(timeout=60)
                     self.picked = False
 
-                @discord.ui.select(placeholder=f"Choisis une piste {platform}...", options=options)
+                @discord.ui.select(
+                    placeholder=t("games.music.search.select_placeholder", loc, platform=platform),
+                    options=options,
+                )
                 async def pick(self, sel_inter: discord.Interaction, sel: discord.ui.Select):
                     if sel_inter.user.id != outer.owner_id:
-                        await sel_inter.response.send_message("❌ Ce menu n'est pas le tien.", ephemeral=True)
+                        await sel_inter.response.send_message(
+                            ti(sel_inter, "games.music.search.menu_not_yours"), ephemeral=True)
                         return
                     self.picked = True
                     idx = int(sel.values[0])
@@ -668,17 +710,19 @@ def setup_music_commands(bot, deps):
                     await sel_inter.response.defer()
                     try:
                         if not outer._ensure_opus():
-                            await sel_inter.followup.send(MUSIC_TROUBLE_MESSAGE, ephemeral=True)
+                            await sel_inter.followup.send(
+                                ti(sel_inter, "games.music.trouble"), ephemeral=True)
                             return
                         if not outer.voice_channel:
-                            await sel_inter.followup.send("❌ Tu n'es plus dans un vocal.", ephemeral=True)
+                            await sel_inter.followup.send(
+                                ti(sel_inter, "games.music.search.left_voice"), ephemeral=True)
                             return
                         vc = await connect_to_voice(outer.bot, outer.guild, outer.voice_channel)
                         gid = str(outer.guild.id)
                         music_state_set(gid,
                                         voice_channel_id=str(outer.voice_channel.id),
                                         voice_channel_name=outer.voice_channel.name)
-                        # Spotify : on doit resoudre via YouTube search
+                        # Spotify: must be resolved through a YouTube search
                         target_url = chosen.get("spotify_query") or chosen["url"]
                         info = await get_audio_info(target_url)
                         music_queue_add(gid,
@@ -687,23 +731,26 @@ def setup_music_commands(bot, deps):
                                         duration=info.get("duration"),
                                         thumbnail=info.get("thumbnail") or chosen.get("thumbnail"),
                                         requested_by=outer.owner_id)
-                        await sel_inter.followup.send(f"✅ Ajoute : **{info['title']}**")
+                        await sel_inter.followup.send(
+                            ti(sel_inter, "games.music.search.added", title=info["title"]))
                         if vc.is_connected() and not vc.is_playing():
                             await play_next(vc, outer.text_channel, outer.guild.id)
                     except Exception as e:
                         print(f"[music /search pick {platform}] {type(e).__name__}: {e}")
-                        await sel_inter.followup.send(MUSIC_TROUBLE_MESSAGE, ephemeral=True)
+                        await sel_inter.followup.send(
+                            ti(sel_inter, "games.music.trouble"), ephemeral=True)
                     self.stop()
 
             embed = discord.Embed(
-                title=f"Résultats {platform} pour : {outer.query[:80]}",
+                title=t("games.music.search.results_title", loc,
+                        platform=platform, query=outer.query[:80]),
                 color=discord.Color.blurple(),
             )
             for i, r in enumerate(results, 1):
                 dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
                 embed.add_field(
-                    name=f"`{i}.` {(r.get('title') or '(sans titre)')[:80]}",
-                    value=f"{(r.get('uploader') or 'Inconnu')[:40]} · `{dur}`",
+                    name=f"`{i}.` {(r.get('title') or untitled)[:80]}",
+                    value=f"{(r.get('uploader') or unknown_uploader)[:40]} · `{dur}`",
                     inline=False,
                 )
             await inter.followup.send(embed=embed, view=ResultsView())
@@ -714,21 +761,22 @@ def setup_music_commands(bot, deps):
                     for child in self.children:
                         child.disabled = True
                     await self._origin_interaction.edit_original_response(
-                        content="⌛ Choix de plateforme expiré (60s). Relance `/search`.",
+                        content=ti(self._origin_interaction, "games.music.search.timeout"),
                         view=self,
                     )
                 except Exception:
                     pass
 
-    @bot.tree.command(name="search", description="Chercher sur YouTube / SoundCloud / Spotify / Bandcamp")
-    @app_commands.describe(query="Titre, artiste, ou mots-cles a chercher")
+    @bot.tree.command(name="search", description="Search on YouTube / SoundCloud / Spotify / Bandcamp")
+    @app_commands.describe(query="Title, artist, or keywords to search for")
     async def search(interaction: discord.Interaction, query: str):
         if not interaction.user.voice:
-            await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.not_in_voice"), ephemeral=True)
             return
         await interaction.response.defer()
 
-        # Quick preview : 1er hit YouTube pour avoir titre/artiste/thumbnail
+        # Quick preview: top YouTube hit, for the title/artist/thumbnail
         preview = None
         try:
             yt_top = await search_youtube(query, max_results=1)
@@ -738,24 +786,22 @@ def setup_music_commands(bot, deps):
             print(f"[music /search preview] {e}")
 
         embed = discord.Embed(
-            title=f"Recherche : {query[:120]}",
-            description=(
-                "Choisis la plateforme sur laquelle chercher.\n"
-                "Le bot proposera 5 resultats au clic."
-            ),
+            title=ti(interaction, "games.music.search.title", query=query[:120]),
+            description=ti(interaction, "games.music.search.description"),
             color=discord.Color.blurple(),
         )
         if preview:
+            unknown_uploader = ti(interaction, "games.music.search.unknown_uploader")
             embed.add_field(
-                name="Aperçu (top YouTube)",
+                name=ti(interaction, "games.music.search.preview"),
                 value=f"**{(preview.get('title') or '?')[:120]}**\n"
-                      f"{(preview.get('uploader') or 'Inconnu')[:60]} · "
+                      f"{(preview.get('uploader') or unknown_uploader)[:60]} · "
                       f"`{_fmt_duration(preview.get('duration')) if preview.get('duration') else '?'}`",
                 inline=False,
             )
             if preview.get("thumbnail"):
                 embed.set_thumbnail(url=preview["thumbnail"])
-        embed.set_footer(text="60s pour choisir une plateforme")
+        embed.set_footer(text=ti(interaction, "games.music.search.footer"))
 
         view = _PlatformPickerView(
             bot=bot, query=query, owner_id=interaction.user.id,
@@ -766,103 +812,114 @@ def setup_music_commands(bot, deps):
         await interaction.followup.send(embed=embed, view=view)
         view._origin_interaction = interaction
 
-    @bot.tree.command(name="pause", description="Mettre la musique en pause")
+    @bot.tree.command(name="pause", description="Pause the music")
     async def pause(interaction: discord.Interaction):
         vc = interaction.guild.voice_client
         if not vc or not vc.is_playing():
-            await interaction.response.send_message("❌ Aucune musique en cours.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.pause.nothing_playing"), ephemeral=True)
             return
         vc.pause()
         music_state_set(str(interaction.guild.id), is_paused=1, is_playing=0)
-        await interaction.response.send_message("⏸️ Musique en pause.")
+        await interaction.response.send_message(ti(interaction, "games.music.pause.done"))
 
-    @bot.tree.command(name="resume", description="Reprendre la musique en pause")
+    @bot.tree.command(name="resume", description="Resume the paused music")
     async def resume(interaction: discord.Interaction):
         vc = interaction.guild.voice_client
         if not vc or not vc.is_paused():
-            await interaction.response.send_message("❌ Aucune musique en pause.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.resume.nothing_paused"), ephemeral=True)
             return
         vc.resume()
         music_state_set(str(interaction.guild.id), is_paused=0, is_playing=1)
-        await interaction.response.send_message("▶️ Lecture reprise.")
+        await interaction.response.send_message(ti(interaction, "games.music.resume.done"))
 
-    @bot.tree.command(name="musicstats", description="Top tracks / top auditeurs de ce serveur")
-    @app_commands.describe(periode="Periode en jours (1-365, default 30)")
-    async def musicstats(interaction: discord.Interaction, periode: int = 30):
-        if periode < 1 or periode > 365:
-            await interaction.response.send_message("❌ Periode entre 1 et 365 jours.", ephemeral=True)
+    @bot.tree.command(name="musicstats", description="Top tracks / top listeners of this server")
+    @app_commands.describe(days="Period in days (1-365, default 30)")
+    async def musicstats(interaction: discord.Interaction, days: int = 30):
+        if days < 1 or days > 365:
+            await interaction.response.send_message(
+                ti(interaction, "games.music.stats.bad_period"), ephemeral=True)
             return
         gid = str(interaction.guild.id)
         try:
             from database import (music_stats_summary, music_stats_top_tracks,
                                   music_stats_top_requesters)
-            summary = music_stats_summary(gid, periode)
-            tops    = music_stats_top_tracks(gid, periode, 10)
-            users   = music_stats_top_requesters(gid, periode, 5)
+            summary = music_stats_summary(gid, days)
+            tops    = music_stats_top_tracks(gid, days, 10)
+            users   = music_stats_top_requesters(gid, days, 5)
         except Exception as e:
             print(f"[music /musicstats] error: {e}")
-            await interaction.response.send_message(MUSIC_TROUBLE_MESSAGE, ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.trouble"), ephemeral=True)
             return
         if not summary or not summary.get("total_plays"):
             await interaction.response.send_message(
-                f"📊 Aucune lecture musicale sur les {periode} derniers jours."
+                ti(interaction, "games.music.stats.no_data", days=days)
             )
             return
         total_s = int(summary.get("total_seconds") or 0)
         h = total_s // 3600
         m = (total_s % 3600) // 60
         embed = discord.Embed(
-            title=f"📊 Stats musique ({periode}j)",
+            title=ti(interaction, "games.music.stats.title", days=days),
             color=discord.Color.blurple(),
         )
-        embed.add_field(name="Lectures", value=str(summary["total_plays"]), inline=True)
-        embed.add_field(name="Pistes uniques", value=str(summary["unique_tracks"]), inline=True)
-        embed.add_field(name="Auditeurs", value=str(summary["unique_users"]), inline=True)
-        embed.add_field(name="Temps total", value=f"{h}h{m:02d}m", inline=True)
+        embed.add_field(name=ti(interaction, "games.music.stats.plays"),
+                        value=str(summary["total_plays"]), inline=True)
+        embed.add_field(name=ti(interaction, "games.music.stats.unique_tracks"),
+                        value=str(summary["unique_tracks"]), inline=True)
+        embed.add_field(name=ti(interaction, "games.music.stats.listeners"),
+                        value=str(summary["unique_users"]), inline=True)
+        embed.add_field(name=ti(interaction, "games.music.stats.total_time"),
+                        value=f"{h}h{m:02d}m", inline=True)
         by_src = summary.get("by_source") or []
         if by_src:
             embed.add_field(
-                name="Par source",
-                value="\n".join(f"`{s['source']}` : {s['plays']}" for s in by_src),
+                name=ti(interaction, "games.music.stats.by_source"),
+                value="\n".join(f"`{s['source']}`: {s['plays']}" for s in by_src),
                 inline=True,
             )
         if tops:
             top_lines = []
-            for i, t in enumerate(tops, 1):
-                title = (t["track_title"] or "?")[:60]
-                top_lines.append(f"`{i}.` {title} · **{t['plays']}**")
-            embed.add_field(name="🎵 Top pistes", value="\n".join(top_lines), inline=False)
+            for i, tr in enumerate(tops, 1):
+                title = (tr["track_title"] or "?")[:60]
+                top_lines.append(f"`{i}.` {title} · **{tr['plays']}**")
+            embed.add_field(name=ti(interaction, "games.music.stats.top_tracks"),
+                            value="\n".join(top_lines), inline=False)
         if users:
             user_lines = []
             for i, u in enumerate(users, 1):
                 user_lines.append(f"`{i}.` <@{u['user_id']}> · **{u['plays']}**")
-            embed.add_field(name="👤 Top auditeurs", value="\n".join(user_lines), inline=False)
+            embed.add_field(name=ti(interaction, "games.music.stats.top_listeners"),
+                            value="\n".join(user_lines), inline=False)
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="stop", description="Stopper la musique et vider la file")
+    @bot.tree.command(name="stop", description="Stop the music and clear the queue")
     async def stop(interaction: discord.Interaction):
         gid = str(interaction.guild.id)
         music_queue_clear(gid)
         if interaction.guild.voice_client:
             interaction.guild.voice_client.stop()
         music_state_clear_current(gid)
-        await interaction.response.send_message("⏹️ Musique stoppée et file vidée !")
+        await interaction.response.send_message(ti(interaction, "games.music.stop.done"))
 
-    @bot.tree.command(name="leave", description="Quitter le salon vocal")
+    @bot.tree.command(name="leave", description="Leave the voice channel")
     async def leave(interaction: discord.Interaction):
         if interaction.guild.voice_client:
             gid = str(interaction.guild.id)
             music_queue_clear(gid)
             await interaction.guild.voice_client.disconnect()
             music_state_disconnect(gid)
-            await interaction.response.send_message("👋 Déconnecté du salon vocal !")
+            await interaction.response.send_message(ti(interaction, "games.music.leave.done"))
         else:
-            await interaction.response.send_message("❌ Je ne suis pas dans un salon vocal !", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "games.music.leave.not_connected"), ephemeral=True)
 
 
     async def _resume_music():
-        """Au boot, rejoindre les vocals connus + relancer la queue si elle n'est pas vide.
-        Lit music_state pour chaque guild où le bot est présent."""
+        """On boot, rejoin the known voice channels and restart the queue when it is not empty.
+        Reads music_state for every guild the bot is in."""
         from database import music_state_get, music_state_disconnect, music_queue_list
         for guild in bot.guilds:
             gid = str(guild.id)
@@ -872,7 +929,7 @@ def setup_music_commands(bot, deps):
             ch_id = st.get("voice_channel_id")
             if not ch_id:
                 continue
-            # Le voice channel existe-t-il toujours ?
+            # Does the voice channel still exist?
             channel = guild.get_channel(int(ch_id))
             if not channel or not isinstance(channel, discord.VoiceChannel):
                 music_state_disconnect(gid)
@@ -880,12 +937,12 @@ def setup_music_commands(bot, deps):
                 continue
             try:
                 vc = await connect_to_voice(bot, guild, channel)
-                print(f"[resume] {guild.name} : reconnecté à {channel.name}")
-                # Relancer la queue si non vide
+                print(f"[resume] {guild.name}: reconnected to {channel.name}")
+                # Restart the queue when it is not empty
                 if music_queue_list(gid):
                     await play_next(vc, None, guild.id)
             except Exception as e:
-                print(f"[resume] {guild.name} : échec reconnexion {channel.name}: {e}")
+                print(f"[resume] {guild.name}: reconnect to {channel.name} failed: {e}")
                 music_state_disconnect(gid)
 
     return _resume_music

@@ -425,6 +425,7 @@
       "no_mastery": "_No mastery data_",
       "no_recent_games": "_No recent games_",
       "not_enough_games": "_Not enough games (3+ required)_",
+      "ban_entry": "**{champion}** ({wr}% over {games}g)",
       "summary": "Level **{level}**\n🏆 {rank_line}\n🔥 **Recent picks**: {recent}\n💀 **Ban worthy** (WR over 3+ games): {bans}\n✨ Mastery: {mastery}"
     }
   }

@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = 'cards_trade' %}
-{% block title %}Échange de cartes · TookBot{% endblock %}
-{% block crumb %}Échange de cartes{% endblock %}
+{% block title %}{{ t('web_cards.trade.title') }} · TookBot{% endblock %}
+{% block crumb %}{{ t('web_cards.trade.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -136,16 +136,16 @@
       <div class="tr-head">
         <div class="col-id">
           <img class="av" id="leftAv" src="" alt="">
-          <div><div class="who">{{ me_name }}</div><div class="sub" id="leftSub">Tes cartes</div></div>
+          <div><div class="who">{{ me_name }}</div><div class="sub" id="leftSub">{{ t('web_cards.trade.your_cards') }}</div></div>
         </div>
         <div class="col-seg">
-          <button class="active" onclick="setView('L','binder')" id="leftSegBinder">📖 Classeur</button>
-          <button onclick="setView('L','simple')" id="leftSegSimple">▦ Vue simplifiée</button>
+          <button class="active" onclick="setView('L','binder')" id="leftSegBinder">{{ t('web_cards.trade.mode_binder') }}</button>
+          <button onclick="setView('L','simple')" id="leftSegSimple">{{ t('web_cards.trade.mode_simple') }}</button>
         </div>
         <span class="col-pageno" id="leftPageNo">— / —</span>
-        <input id="leftSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="renderSide('L')">
+        <input id="leftSearch" class="input" type="search" placeholder="{{ t('web_cards.trade.search_ph') }}" oninput="renderSide('L')">
         <select id="leftSort" onchange="renderSide('L')">
-          <option value="rarity">Tri : Rareté</option><option value="name">Tri : Nom</option><option value="stars">Tri : Étoiles</option>
+          <option value="rarity">{{ t('web_cards.trade.sort_rarity') }}</option><option value="name">{{ t('web_cards.trade.sort_name') }}</option><option value="stars">{{ t('web_cards.trade.sort_stars') }}</option>
         </select>
         <select id="leftPer" onchange="renderSide('L')" style="display:none;">
           <option value="30">30 / page</option><option value="60">60 / page</option>
@@ -161,31 +161,31 @@
 
     <!-- MILIEU : partager (haut) + valider (centre) -->
     <div class="tr-mid">
-      <button class="tr-share" id="shareBtn" onclick="shareTrade()">🔗 Partager</button>
-      <button class="tr-change" id="changeBtn" onclick="openPicker()" style="display:none;">🔁 Changer joueur</button>
+      <button class="tr-share" id="shareBtn" onclick="shareTrade()">{{ t('web_cards.trade.share') }}</button>
+      <button class="tr-change" id="changeBtn" onclick="openPicker()" style="display:none;">{{ t('web_cards.trade.change_player') }}</button>
       <div class="tr-midspacer"></div>
-      <button class="tr-validate" id="validateBtn" onclick="validateTrade()" disabled>VALIDER</button>
-      <div class="tr-selinfo" id="selInfo">Aucune carte sélectionnée</div>
+      <button class="tr-validate" id="validateBtn" onclick="validateTrade()" disabled>{{ t('web_cards.trade.validate') }}</button>
+      <div class="tr-selinfo" id="selInfo">{{ t('web_cards.trade.none_selected') }}</div>
       <div class="tr-midspacer b"></div>
     </div>
 
     <!-- DROITE : autre personne -->
     <div class="tr-side" id="rightSide">
-      <button class="tr-add" id="addBtn" onclick="openPicker()">➕ Ajouter une personne</button>
+      <button class="tr-add" id="addBtn" onclick="openPicker()">{{ t('web_cards.trade.add_person_btn') }}</button>
       <div id="rightContent" style="display:none;">
         <div class="tr-head">
           <div class="col-id">
             <img class="av" id="rightAv" src="" alt="">
-            <div><div class="who" id="rightName">—</div><div class="sub" id="rightSub">Ses cartes</div></div>
+            <div><div class="who" id="rightName">—</div><div class="sub" id="rightSub">{{ t('web_cards.trade.their_cards') }}</div></div>
           </div>
           <div class="col-seg">
-            <button class="active" onclick="setView('R','binder')" id="rightSegBinder">📖 Classeur</button>
-            <button onclick="setView('R','simple')" id="rightSegSimple">▦ Vue simplifiée</button>
+            <button class="active" onclick="setView('R','binder')" id="rightSegBinder">{{ t('web_cards.trade.mode_binder') }}</button>
+            <button onclick="setView('R','simple')" id="rightSegSimple">{{ t('web_cards.trade.mode_simple') }}</button>
           </div>
           <span class="col-pageno" id="rightPageNo">— / —</span>
-          <input id="rightSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="renderSide('R')">
+          <input id="rightSearch" class="input" type="search" placeholder="{{ t('web_cards.trade.search_ph') }}" oninput="renderSide('R')">
           <select id="rightSort" onchange="renderSide('R')">
-            <option value="rarity">Tri : Rareté</option><option value="name">Tri : Nom</option><option value="stars">Tri : Étoiles</option>
+            <option value="rarity">{{ t('web_cards.trade.sort_rarity') }}</option><option value="name">{{ t('web_cards.trade.sort_name') }}</option><option value="stars">{{ t('web_cards.trade.sort_stars') }}</option>
           </select>
           <select id="rightPer" onchange="renderSide('R')" style="display:none;">
             <option value="30">30 / page</option><option value="60">60 / page</option>
@@ -205,29 +205,29 @@
 <!-- MODAL sélecteur de membre -->
 <div class="tr-modal" id="pickerModal" onclick="if(event.target===this)closePicker()">
   <div class="tr-modal-box">
-    <h3>Ajouter une personne</h3>
-    <div class="muted" style="font-size:12px;">Choisis un serveur en commun, puis le joueur.</div>
+    <h3>{{ t('web_cards.trade.picker_title') }}</h3>
+    <div class="muted" style="font-size:12px;">{{ t('web_cards.trade.picker_sub') }}</div>
     <div id="pickerGuilds" class="tr-glist"></div>
     <div id="pickerMembers" style="display:none;">
-      <input id="memberSearch" type="search" placeholder="🔍 Rechercher un pseudo…" class="tr-tools" style="width:100%;margin:12px 0 0;" oninput="loadMembers()">
+      <input id="memberSearch" type="search" placeholder="{{ t('web_cards.trade.member_search_ph') }}" class="tr-tools" style="width:100%;margin:12px 0 0;" oninput="loadMembers()">
       <div id="memberList" class="tr-glist"></div>
     </div>
-    <div class="tr-modal-actions"><button class="tr-btn secondary" onclick="closePicker()">Fermer</button></div>
+    <div class="tr-modal-actions"><button class="tr-btn secondary" onclick="closePicker()">{{ t('web_cards.trade.close') }}</button></div>
   </div>
 </div>
 
 <!-- MODAL validation -->
 <div class="tr-modal" id="validateModal" onclick="if(event.target===this)closeValidate()">
   <div class="tr-modal-box">
-    <h3>Échange proposé</h3>
-    <div class="muted" style="font-size:12px;margin-bottom:6px;">Tu donnes :</div>
+    <h3>{{ t('web_cards.trade.proposed_title') }}</h3>
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">{{ t('web_cards.trade.you_give') }}</div>
     <div id="vOffer" class="tr-mini"></div>
-    <div class="muted" style="font-size:12px;margin-bottom:6px;">Tu reçois :</div>
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">{{ t('web_cards.trade.you_get') }}</div>
     <div id="vRequest" class="tr-mini"></div>
     <div class="tr-modal-actions">
-      <button class="tr-btn primary" id="vShare" onclick="shareTrade()">🔗 Partager le lien</button>
-      <button class="tr-btn secondary" id="vSend" onclick="sendTrade()">📤 Envoyer sur le serveur</button>
-      <button class="tr-btn secondary" onclick="closeValidate()" style="margin-left:auto;">Fermer</button>
+      <button class="tr-btn primary" id="vShare" onclick="shareTrade()">{{ t('web_cards.trade.share_link') }}</button>
+      <button class="tr-btn secondary" id="vSend" onclick="sendTrade()">{{ t('web_cards.trade.send_server') }}</button>
+      <button class="tr-btn secondary" onclick="closeValidate()" style="margin-left:auto;">{{ t('web_cards.trade.close') }}</button>
     </div>
     <div id="vHint" class="tr-hint muted"></div>
   </div>
@@ -267,7 +267,7 @@ function setSub(which){
   const s = SIDE[which]; const el = document.getElementById(s.sub); if(!el) return;
   const uniq = s.cards.length;
   const tot = s.cards.reduce((a,c)=>a+(c.count||1),0);
-  el.textContent = uniq ? `${tot} cartes · ${uniq} uniques` : (which==='L'?'Tes cartes':'Ses cartes');
+  el.textContent = uniq ? `${tot} cards · ${uniq} unique` : (which==='L'?'Your cards':'Their cards');
 }
 function renderSide(which){
   const s = SIDE[which];
@@ -287,7 +287,7 @@ function renderSide(which){
     const sel = s.sel.has(c.id) ? ' sel' : '';
     return `<div class="cc${sel}" style="--rcol:${rcol}" onclick="toggleCard('${which}',${c.id})">
       ${img}${cnt}${st}<div class="nm">${esc(c.name)}</div></div>`;
-  }).join('') : '<div class="tr-empty" style="grid-column:1/-1;">Aucune carte.</div>';
+  }).join('') : '<div class="tr-empty" style="grid-column:1/-1;">No cards.</div>';
   document.getElementById(s.pageNo).textContent = `${v.length?s.page:0} / ${total}`;
   const pv = document.getElementById(s.prev), nx = document.getElementById(s.next);
   if(pv) pv.disabled = s.page<=1;
@@ -311,14 +311,14 @@ function toggleCard(which, id){
 function updateValidate(){
   const nO = SIDE.L.sel.size, nR = SIDE.R.sel.size;
   document.getElementById('selInfo').textContent =
-    SIDE.R.uid ? `${nO} donnée(s) · ${nR} demandée(s)` : 'Ajoute une personne pour commencer';
+    SIDE.R.uid ? `${nO} given · ${nR} requested` : 'Add a person to get started';
   document.getElementById('validateBtn').disabled = !(SIDE.R.uid && (nO+nR) > 0);
 }
 
 /* ===== sélecteur de membre ===== */
 async function openPicker(){
   document.getElementById('pickerMembers').style.display='none';
-  document.getElementById('pickerGuilds').innerHTML='<div class="muted">Chargement…</div>';
+  document.getElementById('pickerGuilds').innerHTML='<div class="muted">Loading…</div>';
   document.getElementById('pickerModal').classList.add('open');
   try{
     const r = await fetch('/api/cards/trade/common-guilds'); const d = await r.json();
@@ -327,14 +327,14 @@ async function openPicker(){
     document.getElementById('pickerGuilds').innerHTML = gs.length ? gs.map(g=>{
       const ic = g.icon ? `<img src="${esc(g.icon)}">` : `<div class="x">🛡️</div>`;
       return `<div class="tr-grow" data-gid="${esc(g.guild_id)}" onclick="pickGuildSel(this.dataset.gid)">${ic}<span>${esc(g.name)}</span></div>`;
-    }).join('') : '<div class="muted">Aucun serveur en commun trouvé.</div>';
-  }catch(e){ document.getElementById('pickerGuilds').innerHTML='<div class="muted">Erreur.</div>'; }
+    }).join('') : '<div class="muted">No shared server found.</div>';
+  }catch(e){ document.getElementById('pickerGuilds').innerHTML='<div class="muted">Error.</div>'; }
 }
 function closePicker(){ document.getElementById('pickerModal').classList.remove('open'); }
 function pickGuildSel(gid){
   pickGuild = gid;
   const name = (GMAP[gid] || {}).name || '';
-  document.getElementById('pickerGuilds').innerHTML = `<div class="muted" style="font-size:12px;">Serveur : <b>${esc(name)}</b></div>`;
+  document.getElementById('pickerGuilds').innerHTML = `<div class="muted" style="font-size:12px;">Server: <b>${esc(name)}</b></div>`;
   document.getElementById('pickerMembers').style.display='block';
   document.getElementById('memberSearch').value='';
   loadMembers();
@@ -351,12 +351,12 @@ function loadMembers(){
     document.getElementById('memberList').innerHTML = ms.length ? ms.map(m=>{
       const av = m.avatar ? `<img src="${esc(m.avatar)}">` : `<div class="x">🃏</div>`;
       return `<div class="tr-grow" data-uid="${esc(m.user_id)}" onclick="pickMember(this.dataset.uid)">${av}<span>${esc(m.name)}</span></div>`;
-    }).join('') : '<div class="muted">Aucun membre.</div>';
+    }).join('') : '<div class="muted">No members.</div>';
   }, 220);
 }
 async function pickMember(uid){
-  if(uid === ME_ID){ alert("Tu ne peux pas t'échanger avec toi-même."); return; }
-  const m = MMAP[uid] || {}; const name = m.name || 'Joueur'; const avatar = m.avatar || '';
+  if(uid === ME_ID){ alert("You cannot trade with yourself."); return; }
+  const m = MMAP[uid] || {}; const name = m.name || 'Player'; const avatar = m.avatar || '';
   closePicker();
   SIDE.R.uid = uid; SIDE.R.sel = new Set(); SIDE.R.page = 1;
   document.getElementById('addBtn').style.display='none';
@@ -377,39 +377,39 @@ function miniHtml(ids, cards){
     const rcol=RCOL[c.rarity]||'#444';
     const img=c.img?`<img src="${esc(c.img)}">`:'';
     return `<div class="m" style="--rcol:${rcol}" title="${esc(c.name)}">${img}</div>`;
-  }).join('') || '<span class="muted" style="font-size:12px;">(rien)</span>';
+  }).join('') || '<span class="muted" style="font-size:12px;">(nothing)</span>';
 }
 async function validateTrade(){
   const offer = [...SIDE.L.sel], request = [...SIDE.R.sel];
   const hint = document.getElementById('vHint');
   document.getElementById('vOffer').innerHTML = miniHtml(offer, SIDE.L.cards);
   document.getElementById('vRequest').innerHTML = miniHtml(request, SIDE.R.cards);
-  hint.textContent='Création du trade…';
+  hint.textContent='Creating the trade…';
   document.getElementById('validateModal').classList.add('open');
   try{
     const r = await fetch('/api/cards/trade/create', {method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ receiver_id:SIDE.R.uid, guild_id:pickGuild, offer, request })});
     const d = await r.json();
-    if(d.ok){ lastTrade = d; hint.innerHTML = `✅ Trade #${d.trade_id} prêt.`; }
-    else { lastTrade=null; hint.innerHTML = '❌ '+(d.error||'Erreur'); }
-  }catch(e){ lastTrade=null; hint.textContent='Erreur réseau.'; }
+    if(d.ok){ lastTrade = d; hint.innerHTML = `✅ Trade #${d.trade_id} ready.`; }
+    else { lastTrade=null; hint.innerHTML = '❌ '+(d.error||'Error'); }
+  }catch(e){ lastTrade=null; hint.textContent='Network error.'; }
 }
 function closeValidate(){ document.getElementById('validateModal').classList.remove('open'); }
 async function shareTrade(){
-  if(!lastTrade){ alert("Valide d'abord l'échange (bouton VALIDER) pour générer le lien à partager."); return; }
-  try{ await navigator.clipboard.writeText(lastTrade.link); document.getElementById('vHint').textContent='Lien copié ✓ (accessible aux 2 joueurs)'; }
-  catch(e){ window.prompt('Copie le lien :', lastTrade.link); }
+  if(!lastTrade){ alert("Confirm the trade first (CONFIRM button) to generate the shareable link."); return; }
+  try{ await navigator.clipboard.writeText(lastTrade.link); document.getElementById('vHint').textContent='Link copied ✓ (both players can open it)'; }
+  catch(e){ window.prompt('Copy this link:', lastTrade.link); }
 }
 async function sendTrade(){
-  if(!lastTrade){ document.getElementById('vHint').textContent = "Valide d'abord l'échange."; return; }
+  if(!lastTrade){ document.getElementById('vHint').textContent = "Confirm the trade first."; return; }
   const hint = document.getElementById('vHint');
-  hint.textContent = 'Envoi sur le serveur…';
+  hint.textContent = 'Sending to the server…';
   try{
     const r = await fetch('/api/cards/trade/send', {method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ trade_id:lastTrade.trade_id })});
     const d = await r.json();
-    hint.textContent = d.ok ? '✅ Trade posté dans le salon cartes du serveur.' : '❌ '+(d.error||'Erreur');
-  }catch(e){ hint.textContent='Erreur réseau.'; }
+    hint.textContent = d.ok ? '✅ Trade posted in the server cards channel.' : '❌ '+(d.error||'Error');
+  }catch(e){ hint.textContent='Network error.'; }
 }
 window.renderSide=renderSide; window.pageSide=pageSide; window.toggleCard=toggleCard;
 window.openPicker=openPicker; window.closePicker=closePicker; window.pickGuildSel=pickGuildSel;
@@ -425,7 +425,7 @@ async function preselectMember(uid){
   document.getElementById('rightSide').classList.add('has-person');
   document.getElementById('changeBtn').style.display='';
   document.getElementById('rightContent').style.display='block';
-  document.getElementById('rightName').textContent = (col.user && col.user.name) || 'Joueur';
+  document.getElementById('rightName').textContent = (col.user && col.user.name) || 'Player';
   document.getElementById('rightAv').src = (col.user && col.user.avatar) || '';
   setSub('R'); renderSide('R'); updateValidate();
 }

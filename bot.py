@@ -1,6 +1,6 @@
 import os
-# Nettoyer les env vars Node IPC heritees de pm2 â€” sinon Deno (utilise par yt-dlp
-# pour resoudre les JS challenges YouTube) crash avec "fd is not from BiPipe".
+# Clear the Node IPC env vars inherited from pm2 - otherwise Deno (used by yt-dlp
+# to solve the YouTube JS challenges) crashes with "fd is not from BiPipe".
 for _v in ("NODE_CHANNEL_FD", "NODE_UNIQUE_ID", "NODE_OPTIONS",
            "PM2_USAGE", "PM2_HOME", "pm_id", "PM2_DISCRETE_MODE"):
     os.environ.pop(_v, None)
@@ -81,7 +81,7 @@ def _load_opus():
         except Exception as e:
             print(f"[opus] load_opus({path}) FAILED: {e}")
             continue
-    print("[opus] FAILED to load â€” install libopus0 (apt) or libopus (brew)")
+    print("[opus] FAILED to load - install libopus0 (apt) or libopus (brew)")
     return False
 
 _load_opus()
@@ -157,6 +157,13 @@ from cards.niveau import render_niveau_card, render_levelup_card_premium, preloa
 from services.emoji import parse_emoji_input as _parse_emoji_input
 from tasks.runtime import setup_runtime
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE, build_welcome_send_kwargs
+from services.i18n import (DEFAULT_LOCALE as _I18N_DEFAULT,
+                          guild_locale as _i18n_guild_locale, t, ti)
+
+
+def _guild_locale(guild_id):
+    """Locale configured for this server (fallback: English)."""
+    return _i18n_guild_locale(guild_id) or _I18N_DEFAULT
 
 _env_file = ".env.dev" if os.path.exists(".env.dev") else ".env"
 load_dotenv(_env_file)
@@ -183,7 +190,7 @@ PASS_XP_TOTAL = PASS_TIERS * PASS_XP_PER_TIER  # 7500
 
 
 def pass_tier_from_xp(xp: int) -> int:
-    """Renvoie le palier debloque par cet XP (cap a PASS_TIERS)."""
+    """Return the tier unlocked by this XP amount (capped at PASS_TIERS)."""
     if xp <= 0:
         return 0
     return min(PASS_TIERS, xp // PASS_XP_PER_TIER)
@@ -336,33 +343,33 @@ class DuelDB:
                     ajouter_sabre(user_id, sabre_id)
 
     def add_combat_xp(self, user_id, amount):
-        """Ajoute de l'XP de combat. Retourne (nouveau_niveau, a_monte_de_niveau)."""
+        """Add combat XP. Returns (new_level, leveled_up)."""
         return add_combat_xp_db(user_id, amount)
 
     def attribuer_stat(self, user_id, stat):
-        """Attribue 1 point à une stat. Retourne True si succès."""
+        """Assign 1 point to a stat. Returns True on success."""
         return attribuer_stat_db(user_id, stat)
 
 
 # ===== XP =====
-# get_level + get_progress + add_xp + xp_for_level fournis par database.py
-# (formule canonique level^5). Pas de redéfinition locale.
+# get_level + get_progress + add_xp + xp_for_level are provided by database.py
+# (canonical level^5 formula). No local redefinition.
 
 
 # ===== MUSIQUE (DB-backed) =====
 import datetime as _dt
 
-# PO Token provider (bgutil) : bypass anti-bot YouTube sans cookies.
-# Endpoint configurable via env BGUTIL_POT_URL (defaut: container Docker local).
+# PO Token provider (bgutil): bypasses the YouTube anti-bot without cookies.
+# Endpoint configurable through the BGUTIL_POT_URL env var (default: local Docker container).
 _BGUTIL_POT_URL = os.getenv("BGUTIL_POT_URL", "http://127.0.0.1:4416")
 
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
-    # Telecharge le solver EJS depuis GitHub : necessaire pour resoudre les
-    # challenges JS (sig + n) de YouTube. Deno seul ne suffit pas.
+    # Downloads the EJS solver from GitHub: required to solve the YouTube JS
+    # challenges (sig + n). Deno alone is not enough.
     'remote_components': ['ejs:github'],
-    'quiet': False,            # passe a False pour voir les details d'erreur dans les logs
+    'quiet': False,            # set to False to see the error details in the logs
     'no_warnings': False,
     'default_search': 'ytsearch',
     'source_address': '0.0.0.0',
@@ -421,9 +428,9 @@ FFMPEG_OPTIONS = {
 }
 
 def _music_auth_hint():
-    # Hint volontairement vide cote user-facing : les messages d'erreur musique
-    # sont remplaces par un message friendly dans commandes/music.py
-    # (MUSIC_TROUBLE_MESSAGE). Le detail technique reste dans les logs pm2.
+    # Deliberately empty on the user-facing side: music error messages are
+    # replaced by a friendly one in commandes/music.py (i18n key
+    # games.music.trouble). Technical detail stays in the pm2 logs.
     return ""
 
 
@@ -450,12 +457,12 @@ def _entry_url(entry):
 
 
 def _is_youtube_target(s):
-    """True si query/URL cible YouTube (donc besoin du proxy WARP + bgutil POT)."""
+    """True when the query/URL targets YouTube (so the WARP proxy + bgutil POT are needed)."""
     if not s:
         return False
     s_low = s.lower()
     if s_low.startswith("ytsearch") or s_low.startswith("http") is False:
-        # Recherche par mots-cles -> default_search ytsearch -> YouTube
+        # Keyword search -> default_search ytsearch -> YouTube
         return True
     return ("youtube.com/" in s_low or "youtu.be/" in s_low or
             "music.youtube.com" in s_low)
@@ -503,12 +510,12 @@ def _extract_audio_info_fast_sync(query):
         raise RuntimeError(f"yt search fetch fail: {type(e).__name__}: {e}")
     m = _re.search(r"var ytInitialData = (\{.*?\});</script>", html, _re.DOTALL)
     if not m:
-        raise RuntimeError("yt search: ytInitialData introuvable")
+        raise RuntimeError("yt search: ytInitialData not found")
     try:
         data = json.loads(m.group(1))
     except Exception as e:
         raise RuntimeError(f"yt search json parse: {e}")
-    # Cherche le premier videoRenderer dans les contents
+    # Look for the first videoRenderer in the contents
     def _walk_for_video(obj):
         if isinstance(obj, dict):
             if "videoRenderer" in obj:
@@ -525,7 +532,7 @@ def _extract_audio_info_fast_sync(query):
         return None
     vr = _walk_for_video(data)
     if not vr:
-        raise RuntimeError("yt search: aucun videoRenderer trouve")
+        raise RuntimeError("yt search: no videoRenderer found")
     vid = vr.get("videoId")
     title = ""
     title_runs = (vr.get("title") or {}).get("runs") or []
@@ -547,7 +554,7 @@ def _extract_audio_info_fast_sync(query):
     if thumbs:
         thumb = thumbs[-1].get("url")
     if not vid:
-        raise RuntimeError("yt search: pas de videoId")
+        raise RuntimeError("yt search: no videoId")
     yt_url = f"https://www.youtube.com/watch?v={vid}"
     return {
         "title": title or query,
@@ -587,12 +594,12 @@ def _extract_audio_info_sync(query):
                 print(f"[music] candidate failed: {candidate} -> {type(e).__name__}: {e}")
 
     if last_error:
-        raise RuntimeError(f"Aucun resultat YouTube lisible pour cette recherche.{_music_auth_hint()} Derniere erreur: {last_error}")
-    raise RuntimeError("Aucun resultat YouTube trouve pour cette recherche.")
+        raise RuntimeError(f"No playable YouTube result for this search.{_music_auth_hint()} Last error: {last_error}")
+    raise RuntimeError("No YouTube result found for this search.")
 
 
 def _is_playlist_url(query):
-    """True si l'URL est une playlist YouTube (contient list=...)."""
+    """True when the URL is a YouTube playlist (contains list=...)."""
     if not isinstance(query, str) or not query.startswith("http"):
         return False
     q = query.lower()
@@ -602,11 +609,11 @@ def _is_playlist_url(query):
 
 
 def _extract_playlist_sync(url, max_items=50):
-    """Extrait la liste des entries d'une playlist YouTube.
+    """Extract the entry list of a YouTube playlist.
 
-    Retourne une liste de dicts avec metadata minimale (title, url, duration).
-    On utilise extract_flat pour eviter de tout resoudre maintenant : on
-    resout chaque entry au moment de la lecture (play_next).
+    Returns a list of dicts with minimal metadata (title, url, duration).
+    extract_flat is used to avoid resolving everything up front: each entry
+    is resolved when it is about to be played (play_next).
     """
     opts = dict(YDL_OPTIONS)
     opts["noplaylist"] = False
@@ -673,7 +680,7 @@ async def search_youtube(query, max_results=5):
 
 
 def _search_soundcloud_sync(query, max_results=5):
-    """Recherche SoundCloud via yt-dlp scsearch. Stack proxy/POT n'est pas utilise (SC pas concerne)."""
+    """SoundCloud search through yt-dlp scsearch. The proxy/POT stack is not used (SC is not affected)."""
     opts = {
         'quiet': True, 'no_warnings': True,
         'extract_flat': 'in_playlist',
@@ -704,24 +711,24 @@ async def search_soundcloud(query, max_results=5):
 
 
 async def get_audio_info(query):
-    """Retourne dict {url, title, duration, thumbnail, source_url} depuis yt-dlp."""
+    """Return dict {url, title, duration, thumbnail, source_url} from yt-dlp."""
     loop = asyncio.get_event_loop()
     try:
         return await loop.run_in_executor(None, lambda: _extract_audio_info_sync(query))
     except Exception as e:
         msg = str(e)
         if "Sign in to confirm" in msg or "not a bot" in msg:
-            raise RuntimeError(f"YouTube demande une verification anti-bot.{_music_auth_hint()} Erreur yt-dlp: {msg}") from e
+            raise RuntimeError(f"YouTube is asking for an anti-bot verification.{_music_auth_hint()} yt-dlp error: {msg}") from e
         raise
 
-# Compteur de fails consecutifs par guild : evite spam quand TOUTE une playlist
-# foire (genre tous les liens sont des pages YT non resolvables).
+# Consecutive failure counter per guild: avoids spamming when a WHOLE playlist
+# fails (e.g. every link is an unresolvable YT page).
 _PLAY_FAIL_COUNTER: dict = {}
 _PLAY_FAIL_MAX = 5
 
 
 def _is_webpage_url(url):
-    """True si l'URL est une page web (YouTube/SoundCloud/Bandcamp) pas un stream audio direct."""
+    """True when the URL is a web page (YouTube/SoundCloud/Bandcamp), not a direct audio stream."""
     if not url:
         return False
     u = url.lower()
@@ -734,15 +741,15 @@ def _is_webpage_url(url):
 async def play_next(voice_client, channel, guild_id):
     """Pop next track from DB queue and play. channel optional (for chat notif).
 
-    Resout les URLs webpage YouTube en stream audio via yt-dlp avant lecture
-    (cas typique : tracks ajoutees depuis une playlist en mode extract_flat).
-    Circuit breaker apres N fails consecutifs pour eviter spam de la file.
+    Resolves YouTube web page URLs into an audio stream through yt-dlp before
+    playing (typical case: tracks added from a playlist in extract_flat mode).
+    Circuit breaker after N consecutive failures to avoid spamming the queue.
     """
     if not voice_client or not voice_client.is_connected():
         print(f"[music] play_next skipped: voice client not connected (guild={guild_id})")
         if channel:
             try:
-                await channel.send("❌ Je ne suis plus connecté au vocal. Relance `/join` puis `/play`.")
+                await channel.send(t("runtime.music.not_connected", _guild_locale(guild_id)))
             except Exception:
                 pass
         return
@@ -752,12 +759,12 @@ async def play_next(voice_client, channel, guild_id):
         music_state_clear_current(str(guild_id))
         _PLAY_FAIL_COUNTER.pop(str(guild_id), None)
         if channel:
-            try: await channel.send("✅ File d'attente terminée !")
+            try: await channel.send(t("runtime.music.queue_finished", _guild_locale(guild_id)))
             except Exception: pass
         return
 
-    # Si l'URL stockee est une page YouTube (cas playlist extract_flat),
-    # on re-resout via yt-dlp pour obtenir un vrai stream audio.
+    # If the stored URL is a YouTube page (extract_flat playlist case), resolve
+    # it again through yt-dlp to get a real audio stream.
     stream_url = track.get("url")
     thumbnail = track.get("thumbnail")
     duration = track.get("duration")
@@ -779,17 +786,17 @@ async def play_next(voice_client, channel, guild_id):
                 if channel:
                     try:
                         await channel.send(
-                            "⚠️ Trop d'erreurs de lecture consécutives. File vidée pour éviter le spam."
+                            t("runtime.music.too_many_errors", _guild_locale(guild_id))
                         )
                     except Exception:
                         pass
                 return
-            # Track suivante (silencieux, pas de notif)
+            # Next track (silent, no notification)
             return await play_next(voice_client, channel, guild_id)
 
     try:
-        # ffmpeg : passe par Privoxy (-> WARP) uniquement pour YouTube.
-        # SoundCloud/Bandcamp servent en direct, le proxy WARP bloque chez eux.
+        # ffmpeg: goes through Privoxy (-> WARP) for YouTube only.
+        # SoundCloud/Bandcamp serve directly, the WARP proxy blocks them.
         src_for_proxy = track.get("source_url") or track.get("url") or stream_url
         if _is_youtube_target(src_for_proxy) or "googlevideo.com" in (stream_url or "").lower():
             ff_opts = FFMPEG_OPTIONS
@@ -845,7 +852,8 @@ async def play_next(voice_client, channel, guild_id):
         except Exception as e:
             print(f"[music telemetry] log fail: {e}")
         if channel:
-            try: await channel.send(f"🎵 En cours : **{track['title']}**")
+            try: await channel.send(t("runtime.music.now_playing", _guild_locale(guild_id),
+                                      title=track['title']))
             except Exception: pass
     except Exception as e:
         print(f"[music] play_next error: {type(e).__name__}: {e}")
@@ -857,7 +865,7 @@ async def play_next(voice_client, channel, guild_id):
             if channel:
                 try:
                     await channel.send(
-                        "⚠️ Trop d'erreurs de lecture consécutives. File vidée pour éviter le spam."
+                        t("runtime.music.too_many_errors", _guild_locale(guild_id))
                     )
                 except Exception:
                     pass
@@ -865,14 +873,14 @@ async def play_next(voice_client, channel, guild_id):
 
 # ===== FEATURE GUARD TREE =====
 async def _feature_guard_check(interaction: discord.Interaction) -> bool:
-    """Verification feature/boost/mod-perm avant chaque slash command.
+    """feature/boost/mod-perm check run before every slash command.
 
-    Assigne sur bot.tree.interaction_check apres creation du bot (plus fiable
-    que tree_cls qui n'est pas toujours honore par commands.Bot)."""
+    Assigned on bot.tree.interaction_check after the bot is created (more reliable
+    than tree_cls, which commands.Bot does not always honour)."""
     if True:
-        # Les interactions AUTOCOMPLETE ne doivent jamais etre gatees ici : on ne
-        # peut pas y repondre par send_message -> ça les casse ("Echec des options
-        # de chargement"). Le gating se fait sur la vraie commande (au submit).
+        # AUTOCOMPLETE interactions must never be gated here: they cannot be
+        # answered with send_message -> it breaks them ("Failed to load options").
+        # Gating happens on the real command instead (at submit time).
         if interaction.type == discord.InteractionType.autocomplete:
             return True
 
@@ -883,7 +891,7 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
         if not root_name:
             return True
 
-        # === LOCK : salon support cartes = uniquement /cardsuggest et /cardmodify ===
+        # === LOCK: cards support channel = /cardsuggest and /cardmodify only ===
         SUGGEST_CHANNEL_ID = 1513592894265757716
         SUPPORT_GUILD_ID = int((os.getenv("SUPPORT_GUILD_ID") or "0").strip() or 0)
         if (SUPPORT_GUILD_ID and interaction.guild.id == SUPPORT_GUILD_ID
@@ -891,9 +899,7 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
                 and root_name not in ("cardsuggest", "cardmodify")):
             try:
                 await interaction.response.send_message(
-                    "❌ Ce salon est dédié aux suggestions de cartes. "
-                    "Utilise uniquement `/cardsuggest` ici.\n"
-                    "Pour les autres commandes, va dans un autre salon.",
+                    ti(interaction, "runtime.guard.suggest_channel_only"),
                     ephemeral=True,
                 )
             except Exception:
@@ -938,24 +944,22 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
                 _has = mod_has_perm(interaction.guild.id, uid, perm_key)
                 if not configured:
                     await interaction.response.send_message(
-                        "⛔ Cette commande est désactivée pour les modérateurs tant que le "
-                        "**propriétaire du serveur** n'a pas configuré les permissions.\n"
-                        f"Demande à <@{interaction.guild.owner_id}> de faire `/setup` ou de "
-                        "passer sur `dashboard.tookbot.click`.",
+                        ti(interaction, "runtime.guard.mod_not_configured",
+                           owner_id=interaction.guild.owner_id),
                         ephemeral=True,
                     )
                     return False
                 if not _has:
                     await interaction.response.send_message(
-                        f"⛔ Tu n'as pas la permission `{perm_key}` accordée par le propriétaire du serveur.\n"
-                        f"Demande à <@{interaction.guild.owner_id}> de l'activer via le dashboard.",
+                        ti(interaction, "runtime.guard.mod_missing_perm",
+                           perm=perm_key, owner_id=interaction.guild.owner_id),
                         ephemeral=True,
                     )
                     return False
 
         feature_key = COMMAND_FEATURE_MAP.get(root_name)
         if feature_key is None:
-            # Fallback : si c'est une commande custom du serveur, gate sur la feature custom_commands
+            # Fallback: if it is a server custom command, gate on the custom_commands feature
             try:
                 if custom_cmd_get(interaction.guild.id, root_name):
                     feature_key = "custom_commands"
@@ -968,14 +972,14 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
         if not enabled:
             label = get_feature_label(feature_key)
             await interaction.response.send_message(
-                f"Cette fonctionnalité **{label}** est désactivée sur ce serveur par les administrateurs.",
+                ti(interaction, "runtime.guard.feature_disabled", feature=label),
                 ephemeral=True,
             )
             return False
 
-        # Plus de gating Guild Boost : toutes les features sont gratuites,
-        # le gating reste juste l'interrupteur on/off par feature + les
-        # permissions roles configurees par les admins.
+        # No more Guild Boost gating: every feature is free, gating is now just
+        # the per-feature on/off switch + the role permissions configured by the
+        # admins.
         return True
 
 

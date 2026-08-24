@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ current_locale() }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>{{ boss_name }} · Combat live · TookBot</title>
+<title>{{ boss_name }} · {{ t('web_cards.boss_live.title') }} · TookBot</title>
 <style>
   :root{ --gold:#c9a24b; --red:#ff3d57; --green:#4ade80;
     /* tailles pilotees par la HAUTEUR de l'ecran -> jamais coupe (focus PC) */
@@ -343,7 +343,7 @@
 </style>
 </head>
 <body>
-<div id="status">Connexion…</div>
+<div id="status">{{ t('web_cards.boss_live.connecting') }}</div>
 <div id="arena">
   <div id="team"></div>
   <div id="powerCenter">
@@ -363,14 +363,14 @@
   </div>
 </div>
 <div id="myPanel">
-  <div class="mp-title">⚙️ Ma préparation</div>
-  <div class="mp-sec-h">🩸 Aptitude</div>
+  <div class="mp-title">{{ t('web_cards.boss_live.my_prep') }}</div>
+  <div class="mp-sec-h">{{ t('web_cards.boss_live.aptitude') }}</div>
   <div id="aptBtns" class="apt-grid"></div>
-  <div class="mp-sec-h">🎴 Ma carte de combat</div>
+  <div class="mp-sec-h">{{ t('web_cards.boss_live.my_card') }}</div>
   <div class="mp-tools">
-    <input id="cardSearch" placeholder="🔍 Nom / univers…" oninput="renderCards()">
+    <input id="cardSearch" placeholder="{{ t('web_cards.boss_live.card_search_ph') }}" oninput="renderCards()">
     <select id="elemFilter" onchange="loadCards()"></select>
-    <button id="sortBtn" onclick="cycleSort()">🔃 Trier</button>
+    <button id="sortBtn" onclick="cycleSort()">{{ t('web_cards.boss_live.sort') }}</button>
   </div>
   <div id="cardOpt" class="mp-opt"></div>
   <div id="cardList" class="card-list"></div>
@@ -380,11 +380,11 @@
 </div>
 
 <div id="lbPanel">
-  <div class="lb-title">🏆 Contribution</div>
+  <div class="lb-title">{{ t('web_cards.boss_live.contribution') }}</div>
   <div class="lb-sort">
-    <button data-k="damage" class="active" onclick="setLbSort('damage')">🗡️ Dégâts</button>
-    <button data-k="taken" onclick="setLbSort('taken')">🛡️ Tanké</button>
-    <button data-k="heal" onclick="setLbSort('heal')">💚 Soin</button>
+    <button data-k="damage" class="active" onclick="setLbSort('damage')">{{ t('web_cards.boss_live.lb_damage') }}</button>
+    <button data-k="taken" onclick="setLbSort('taken')">{{ t('web_cards.boss_live.lb_tanked') }}</button>
+    <button data-k="heal" onclick="setLbSort('heal')">{{ t('web_cards.boss_live.lb_heal') }}</button>
   </div>
   <div id="lbRows"></div>
 </div>
@@ -392,48 +392,48 @@
 <!-- coin bas-gauche : roue elementaire + legende des indicateurs -->
 <div id="cornerBL">
   <div id="elemWheel">
-    <div class="ew-title">Cercle élémentaire</div>
+    <div class="ew-title">{{ t('web_cards.boss_live.element_circle') }}</div>
     <div class="ew-ring" id="ewRing"></div>
-    <div class="ew-leg"><span class="dot boss"></span> Boss &nbsp; <span class="dot weak"></span> Le bat</div>
+    <div class="ew-leg"><span class="dot boss"></span> Boss &nbsp; <span class="dot weak"></span> {{ t('web_cards.boss_live.legend_beats') }}</div>
   </div>
   <div id="legend">
-    <div class="lg-title">📖 Indicateurs</div>
-    <div class="lg-row"><span class="lg-ico">⚔️</span> L'équipe attaque le boss</div>
-    <div class="lg-row"><span class="lg-ico">⚠️</span> Le boss frappe toute l'équipe</div>
-    <div class="lg-row"><span class="lg-ico">🎯</span> Coup dévastateur (1 cible)</div>
-    <div class="lg-row"><span class="lg-ico">💚</span> Soin d'un allié</div>
+    <div class="lg-title">{{ t('web_cards.boss_live.indicators') }}</div>
+    <div class="lg-row"><span class="lg-ico">⚔️</span> {{ t('web_cards.boss_live.ind_team_attack') }}</div>
+    <div class="lg-row"><span class="lg-ico">⚠️</span> {{ t('web_cards.boss_live.ind_boss_aoe') }}</div>
+    <div class="lg-row"><span class="lg-ico">🎯</span> {{ t('web_cards.boss_live.ind_smash') }}</div>
+    <div class="lg-row"><span class="lg-ico">💚</span> {{ t('web_cards.boss_live.ind_heal') }}</div>
     <div class="lg-bars">
-      <span><i class="b gold"></i> Équipe</span>
+      <span><i class="b gold"></i> {{ t('web_cards.boss_live.bar_team') }}</span>
       <span><i class="b red"></i> Boss</span>
-      <span><i class="b green"></i> Soin</span>
+      <span><i class="b green"></i> {{ t('web_cards.boss_live.bar_heal') }}</span>
     </div>
   </div>
 </div>
 
 <!-- chat live (haut droite) -->
 <div id="bchat">
-  <div class="bc-title">💬 Chat du combat</div>
+  <div class="bc-title">{{ t('web_cards.boss_live.chat_title') }}</div>
   <div id="bcMsgs" class="bc-msgs"></div>
   <div class="bc-input">
-    <input id="bcInput" type="text" maxlength="300" placeholder="Message…" autocomplete="off">
+    <input id="bcInput" type="text" maxlength="300" placeholder="{{ t('web_cards.boss_live.chat_ph') }}" autocomplete="off">
     <button id="bcSend" onclick="bchatSend()">➤</button>
   </div>
 </div>
 
 <svg id="fx"></svg>
 <div id="banner"></div>
-<div id="log"><div class="log-title">📜 Historique</div><div class="log-rows" id="logRows"></div></div>
+<div id="log"><div class="log-title">{{ t('web_cards.boss_live.history') }}</div><div class="log-rows" id="logRows"></div></div>
 <div id="endOverlay"><div id="endCard"></div></div>
 
 <script>
 const BID = {{ boss_id }};
 const MY_UID = "{{ me_uid }}";
 const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', neant:'🕳' };
-const ELEM_LABEL = { eclat:'Éclat', abysse:'Abysse', fracture:'Fracture', vif:'Vif', neant:'Néant' };
+const ELEM_LABEL = { eclat:'Radiance', abysse:'Abyss', fracture:'Fracture', vif:'Vivid', neant:'Void' };
 const APT_EMOJI  = { berserker:'🩸', gardien:'🛡️', soigneur:'💚', duelliste:'⚔️', executeur:'💀' };
-const APT_LABEL  = { berserker:'Berserker', gardien:'Gardien', soigneur:'Soigneur', duelliste:'Duelliste', executeur:'Exécuteur' };
+const APT_LABEL  = { berserker:'Berserker', gardien:'Guardian', soigneur:'Healer', duelliste:'Duelist', executeur:'Executioner' };
 const RAR_EMOJI  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴', secret:'🌈' };
-const RAR_LABEL  = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
+const RAR_LABEL  = { common:'Common', rare:'Rare', epic:'Epic', legendary:'Legendary', mythic:'Mythic', secret:'Secret' };
 function eIco(key){ return `<img class="eico" src="/cards/img/element/${encodeURIComponent(key||'')}" onerror="this.remove()">`; }
 function rIco(r){
   if(!r) return '';
@@ -447,7 +447,7 @@ let lastSig = '';
 let ended = false;
 let pollMs = 1500;
 const P = {};            // uid -> {el, hpBar}
-function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
+function fmt(n){ return (n||0).toLocaleString('en-US'); }
 function fmtShort(n){ n=n||0; if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+'M';
   if(n>=1e4) return Math.round(n/1e3)+'k'; return fmt(n); }
 // Puissance en chiffres-images. Joueur/total = format compact (1m345), boss = entier.
@@ -544,7 +544,7 @@ function syncHp(d){
     players:Object.fromEntries(d.players.map(p=>[p.uid,{hp:p.hp, max_hp:p.max_hp}])) };
   document.getElementById('bossSub').innerHTML =
     `${esc(d.boss.tier_label)} · ${eIco(d.boss.element)} ${esc(d.boss.element_label)} · 🗡️ ${fmt(d.boss.atk)}`
-    + (d.boss.weak && d.boss.weak.length ? ` · faible: ${esc(d.boss.weak.join(' '))}` : '');
+    + (d.boss.weak && d.boss.weak.length ? ` · weak: ${esc(d.boss.weak.join(' '))}` : '');
   document.getElementById('pwTeam').innerHTML = powerImgs(d.team_power, false, true);
   document.getElementById('pwBoss').innerHTML = powerImgs(d.boss.power, true);
   const wk = (d.boss.element||'')+'|'+(d.boss.weak_keys||[]).join(',');
@@ -612,7 +612,7 @@ function banner(txt, cls){
   setTimeout(()=>{ if(b.firstChild) b.innerHTML=''; }, 1600);
 }
 
-function pname(uid){ return (P[uid] && P[uid].name) || 'Joueur'; }
+function pname(uid){ return (P[uid] && P[uid].name) || 'Player'; }
 function hist(html, cls){
   const rows=document.getElementById('logRows');
   const ln=document.createElement('div'); ln.className='ln'+(cls?' '+cls:''); ln.innerHTML=html;
@@ -622,14 +622,14 @@ function hist(html, cls){
 }
 function histFor(ev){
   const t=ev.type, d=ev.data||{}, tn=d.turn?`<b>T${d.turn}</b> · `:'';
-  if(t==='start') hist('⚔️ Le combat commence');
-  else if(t==='party_hit') hist(`${tn}🗡️ L'équipe inflige <b>${fmt(d.total)}</b>${d.crit?' 🔥':''}`, d.crit?'crit':'');
-  else if(t==='boss_aoe') hist(`${tn}👹 Le boss frappe l'équipe : <b>${fmt(d.total)}</b>${(d.kos&&d.kos.length)?' · 💀 '+d.kos.map(pname).join(', '):''}`,'boss');
-  else if(t==='boss_smash') hist(`${tn}💥 Coup dévastateur sur <b>${pname(d.target)}</b> : -${fmt(d.dmg)}${d.ko?' 💀':''}`,'boss');
-  else if(t==='enrage') hist('🔥 Le boss se déchaîne !','boss');
-  else if(t==='boss_heal') hist(`🩹 Le boss se régénère +${fmt(d.amount)}`,'boss');
-  else if(t==='party_heal') hist(`💚 ${pname(d.healer)} soigne ${pname(d.target)} +${fmt(d.amount)}`,'heal');
-  else if(t==='end') hist(d.victory?'🎉 Victoire !':'💀 Défaite…');
+  if(t==='start') hist('⚔️ The fight begins');
+  else if(t==='party_hit') hist(`${tn}🗡️ The team deals <b>${fmt(d.total)}</b>${d.crit?' 🔥':''}`, d.crit?'crit':'');
+  else if(t==='boss_aoe') hist(`${tn}👹 The boss hits the team: <b>${fmt(d.total)}</b>${(d.kos&&d.kos.length)?' · 💀 '+d.kos.map(pname).join(', '):''}`,'boss');
+  else if(t==='boss_smash') hist(`${tn}💥 Devastating blow on <b>${pname(d.target)}</b>: -${fmt(d.dmg)}${d.ko?' 💀':''}`,'boss');
+  else if(t==='enrage') hist('🔥 The boss goes berserk!','boss');
+  else if(t==='boss_heal') hist(`🩹 The boss regenerates +${fmt(d.amount)}`,'boss');
+  else if(t==='party_heal') hist(`💚 ${pname(d.healer)} heals ${pname(d.target)} +${fmt(d.amount)}`,'heal');
+  else if(t==='end') hist(d.victory?'🎉 Victory!':'💀 Defeat…');
 }
 
 const bossWrap = ()=>document.getElementById('bossCardWrap');
@@ -696,7 +696,7 @@ function playEvent(ev){
   if(t==='boss_smash'){
     const r=P[d.target];
     if(r){ tBeam(bossWrap(), r.card, '#ff8a1f'); tMark(r.card,'🎯'); }
-    banner('💥 COUP DÉVASTATEUR', 'banner-smash');
+    banner('💥 DEVASTATING BLOW', 'banner-smash');
     setTimeout(()=>{
       anim(bossWrap(),'lunge'); shakeArena();
       if(r){ flashPlayer(d.target,'red'); anim(r.el,'hurt'); popOn(r.card,'-'+fmt(d.dmg),'dmg crit'); setPlayerBar(d.target); }
@@ -711,7 +711,7 @@ function playEvent(ev){
     return TG + GAP;
   }
   if(t==='enrage'){
-    banner('🔥 DÉCHAÎNÉ', 'banner-enrage'); bossWrap().classList.add('enraged');
+    banner('🔥 ENRAGED', 'banner-enrage'); bossWrap().classList.add('enraged');
     document.getElementById('bossHp').style.background='linear-gradient(90deg,#7a0a1f,#ff1f44)';
     return 850;
   }
@@ -730,7 +730,7 @@ function showEnd(victory, cold){
   if(victory){
     if(pendingRewards){ runVictory(pendingRewards); }
     else { const c=document.getElementById('endCard'); c.className='victory';
-           c.innerHTML='<div class="big">🎉 VICTOIRE</div>'; }
+           c.innerHTML='<div class="big">🎉 VICTORY</div>'; }
   } else {
     runDefeat();
   }
@@ -746,12 +746,12 @@ function victoryTable(c, data, heroGrade){
       <img class="rw-note-mini" src="/cards/img/bossweb/note/${p.grade||'C'}" alt="">
       <div class="rw-body">
         <div class="rw-head">${p.mvp?'👑 ':''}<b>${esc(p.name)}</b>
-          <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts${p.died?' 💀':''}</span></div>
+          <span class="rw-dmg">🗡️ ${fmt(p.dmg)} damage${p.died?' 💀':''}</span></div>
         <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
       </div>
     </div>`).join('') || '<div class="sub">—</div>';
   c.className='victory';
-  c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+  c.innerHTML = `<div class="big">🎉 VICTORY</div>
     <div class="rw-note-wrap"><div class="rays"></div>
       <img class="rw-big-note show" src="/cards/img/bossweb/note/${heroGrade}" alt=""></div>
     <div class="rw-hdr">${esc(data.header||'')}</div>
@@ -771,7 +771,7 @@ function runVictory(data){
     c.className='victory';
     c.innerHTML=`<div class="chest-wrap"><div class="burst" id="burst"></div>
       <img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
-      <div class="sub">Ouverture du butin…</div>`;
+      <div class="sub">Opening the loot…</div>`;
     const chest=document.getElementById('chest');
     setTimeout(()=>{ chest.classList.remove('shake'); chest.classList.add('open');
       chest.src='/cards/img/chest/open'; document.getElementById('burst')?.classList.add('go'); }, 1300);
@@ -787,7 +787,7 @@ function runVictory(data){
 function runDefeat(){
   const c=document.getElementById('endCard');
   const finish=()=>{ c.className='defeat';
-    c.innerHTML=`<div class="big">💀 DÉFAITE</div><div class="sub" id="killCount">L'équipe a été anéantie.</div>`;
+    c.innerHTML=`<div class="big">💀 DEFEAT</div><div class="sub" id="killCount">The team was wiped out.</div>`;
     startKill(); };
   if(COLD){ finish(); return; }
   c.className='defeat bare';
@@ -822,7 +822,7 @@ function startKill(){
   let left=10;
   const tickCount=()=>{
     const el=document.getElementById('killCount');
-    if(el) el.textContent = `Cette page se fermera dans ${left}s…`;
+    if(el) el.textContent = `This page will close in ${left}s…`;
     if(left<=0){ killPage(); return; }
     left--; setTimeout(tickCount, 1000);
   };
@@ -832,7 +832,7 @@ function killPage(){
   dead = true;
   document.body.innerHTML =
     '<div style="position:fixed;inset:0;display:grid;place-items:center;'
-    + 'color:#7a6a8c;font-family:system-ui;font-size:18px;">Combat terminé.</div>';
+    + 'color:#7a6a8c;font-family:system-ui;font-size:18px;">Combat over.</div>';
 }
 
 /* ===== FILE D'EVENEMENTS (joue en sequence) ===== */
@@ -853,12 +853,12 @@ function setStatus(d){
   const s=document.getElementById('status');
   const st=d.boss.status;
   if(st==='recruiting'){
-    let txt='🐲 Recrutement en cours…';
+    let txt='🐲 Recruiting…';
     if(d.boss.start_at){ const left=Math.max(0,Math.round(d.boss.start_at-d.now));
-      txt = `🐲 Le combat démarre dans ${left}s`; }
+      txt = `🐲 The fight starts in ${left}s`; }
     s.textContent=txt; s.style.display='block';
   } else if(st==='fighting'){
-    s.textContent='⚔️ Combat en cours'; s.style.display='block';
+    s.textContent='⚔️ Fight in progress'; s.style.display='block';
   } else if(st==='defeated'){ showEnd(true); s.style.display='none';
   } else if(st==='wiped'||st==='expired'){ showEnd(st==='wiped'?false:true); s.style.display='none';
   } else { s.style.display='none'; }
@@ -870,11 +870,11 @@ const MY = { participant:false, aptitude:'', card_id:null };
 let ALLCARDS = [], cardP = 1, bossEl = '';
 const PER = 10;
 const SORT_CYCLE = [null,'nom','rareté','étoiles','optimisation'];
-const SORT_LBL = { 'null':'🔃 Trier', 'nom':'🔤 Nom', 'rareté':'🎯 Rareté', 'étoiles':'⭐ Étoiles', 'optimisation':'⚡ Optimal' };
+const SORT_LBL = { 'null':'🔃 Sort', 'nom':'🔤 Name', 'rareté':'🎯 Rarity', 'étoiles':'⭐ Stars', 'optimisation':'⚡ Optimal' };
 let curSort = null;
 const APT_LIST = ['berserker','gardien','soigneur','duelliste','executeur','none'];
-const APT_DESC = { berserker:'Berserker', gardien:'Gardien', soigneur:'Soigneur',
-  duelliste:'Duelliste', executeur:'Exécuteur', none:'Aucune' };
+const APT_DESC = { berserker:'Berserker', gardien:'Guardian', soigneur:'Healer',
+  duelliste:'Duelist', executeur:'Executioner', none:'None' };
 
 let panelReady = false, panelTries = 0;
 async function initPanel(){
@@ -888,7 +888,7 @@ async function initPanel(){
     if(MY.participant){
       // remplit le filtre element
       const sel=document.getElementById('elemFilter');
-      sel.innerHTML = '<option value="all">Tous éléments</option>'
+      sel.innerHTML = '<option value="all">All elements</option>'
         + Object.keys(ELEM_LABEL).map(k=>`<option value="${k}">${ELEM_LABEL[k]}</option>`).join('');
       renderApt();
       await loadCards();
@@ -908,7 +908,7 @@ function maybePanel(status){
 }
 function renderApt(){
   document.getElementById('aptBtns').innerHTML = APT_LIST.map(a=>{
-    const lbl = a==='none' ? '➖ Aucune' : `${APT_EMOJI[a]||''} ${APT_DESC[a]}`;
+    const lbl = a==='none' ? '➖ None' : `${APT_EMOJI[a]||''} ${APT_DESC[a]}`;
     const on = (MY.aptitude||'none')===a ? ' active' : '';
     return `<button class="${on.trim()}" onclick="setApt('${a}')">${lbl}</button>`;
   }).join('');
@@ -919,9 +919,9 @@ async function setApt(v){
     const r=await fetch(`/cards/boss/${BID}/set-aptitude`,{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify({aptitude:v})});
     const d=await r.json();
-    if(d.ok){ MY.aptitude=(v==='none'?'':v); renderApt(); msg.className='mp-msg ok'; msg.textContent='Aptitude mise à jour ✓'; }
-    else { msg.className='mp-msg err'; msg.textContent=d.error||'Erreur'; }
-  }catch(e){ msg.className='mp-msg err'; msg.textContent='Erreur réseau'; }
+    if(d.ok){ MY.aptitude=(v==='none'?'':v); renderApt(); msg.className='mp-msg ok'; msg.textContent='Aptitude updated ✓'; }
+    else { msg.className='mp-msg err'; msg.textContent=d.error||'Error'; }
+  }catch(e){ msg.className='mp-msg err'; msg.textContent='Network error'; }
 }
 function cycleSort(){
   const i=SORT_CYCLE.indexOf(curSort); curSort=SORT_CYCLE[(i+1)%SORT_CYCLE.length];
@@ -938,7 +938,7 @@ async function loadCards(){
     ALLCARDS=d.cards||[]; bossEl=d.boss_element_label||'';
     cardP=1; renderCards();
     document.getElementById('cardOpt').textContent = (curSort==='optimisation')
-      ? `⚡ Classé par dégâts réels vs boss ${bossEl} (👑 = meilleur)` : '';
+      ? `⚡ Ranked by real damage vs ${bossEl} boss (👑 = best)` : '';
   }catch(e){}
 }
 function renderCards(){
@@ -960,7 +960,7 @@ function renderCards(){
       <span>${rIco(c.rarity)}</span>${eIco(c.element)}
       <span class="cr-name">${crown}${esc(c.name)}${stars}${cnt} ${adv}<br><span class="cr-uni">${esc(c.universe||'')}</span></span>
       ${eff}</div>`;
-  }).join('') || '<div class="cr-uni" style="padding:8px;">Aucune carte.</div>';
+  }).join('') || '<div class="cr-uni" style="padding:8px;">No cards.</div>';
   document.getElementById('cardPageNo').textContent=`${cardP} / ${total}`;
   document.querySelector('.mp-pager button:first-child').disabled = cardP<=1;
   document.querySelector('.mp-pager button:last-child').disabled = cardP>=total;
@@ -972,9 +972,9 @@ async function setCard(cid){
     const r=await fetch(`/cards/boss/${BID}/set-card`,{method:'POST',
       headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:cid})});
     const d=await r.json();
-    if(d.ok){ MY.card_id=cid; renderCards(); msg.className='mp-msg ok'; msg.textContent='Carte engagée ✓'; }
-    else { msg.className='mp-msg err'; msg.textContent=d.error||'Erreur'; }
-  }catch(e){ msg.className='mp-msg err'; msg.textContent='Erreur réseau'; }
+    if(d.ok){ MY.card_id=cid; renderCards(); msg.className='mp-msg ok'; msg.textContent='Card locked in ✓'; }
+    else { msg.className='mp-msg err'; msg.textContent=d.error||'Error'; }
+  }catch(e){ msg.className='mp-msg err'; msg.textContent='Network error'; }
 }
 window.setApt=setApt; window.cycleSort=cycleSort; window.loadCards=loadCards;
 window.renderCards=renderCards; window.cardPage=cardPage; window.setCard=setCard;
@@ -1019,7 +1019,7 @@ async function tick(){
     // ralentit le poll quand fini
     pollMs = (d.boss.status==='fighting'||d.boss.status==='recruiting') ? 1500 : 6000;
   }catch(e){
-    document.getElementById('status').textContent='Reconnexion…';
+    document.getElementById('status').textContent='Reconnecting…';
   }
   setTimeout(tick, pollMs);
 }
@@ -1031,7 +1031,7 @@ let bcLast = 0;
 function bchatRender(msgs, append){
   const box=document.getElementById('bcMsgs');
   if(!append){
-    box.innerHTML = (msgs && msgs.length) ? '' : '<div class="bc-empty">Aucun message. Lance la discussion !</div>';
+    box.innerHTML = (msgs && msgs.length) ? '' : '<div class="bc-empty">No messages. Start the conversation!</div>';
   }
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 50;
   (msgs||[]).forEach(m=>{

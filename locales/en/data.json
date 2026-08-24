@@ -14,11 +14,26 @@
     "neant": "Void"
   },
   "global_event": {
-    "summer": { "name": "Summer", "coin": "Coconuts" },
-    "halloween": { "name": "Halloween", "coin": "Candy" },
-    "noel": { "name": "Christmas", "coin": "Snowflakes" },
-    "winter": { "name": "Winter", "coin": "Ice Cubes" },
-    "valentine": { "name": "Valentine's Day", "coin": "Hearts" },
+    "summer": {
+      "name": "Summer",
+      "coin": "Coconuts"
+    },
+    "halloween": {
+      "name": "Halloween",
+      "coin": "Candy"
+    },
+    "noel": {
+      "name": "Christmas",
+      "coin": "Snowflakes"
+    },
+    "winter": {
+      "name": "Winter",
+      "coin": "Ice Cubes"
+    },
+    "valentine": {
+      "name": "Valentine's Day",
+      "coin": "Hearts"
+    },
     "coin_default": "Tokens"
   },
   "profile_color": {
@@ -34,9 +49,18 @@
     "blanc": "White"
   },
   "guild_shop": {
-    "xpboost": { "name": "XP Boost", "desc": "+{n} XP for the guild" },
-    "rollall": { "name": "Rolls for Everyone", "desc": "+{n} rolls for every member" },
-    "essall": { "name": "Essences for Everyone", "desc": "+{n} ✨ for every member" }
+    "xpboost": {
+      "name": "XP Boost",
+      "desc": "+{n} XP for the guild"
+    },
+    "rollall": {
+      "name": "Rolls for Everyone",
+      "desc": "+{n} rolls for every member"
+    },
+    "essall": {
+      "name": "Essences for Everyone",
+      "desc": "+{n} ✨ for every member"
+    }
   },
   "guild_quest": {
     "d_roll": "Do {n} rolls",
@@ -50,5 +74,10 @@
     "not_found": "Guild not found.",
     "not_enough_power": "Combat power too low ({power}/{required}).",
     "not_enough_cards": "Too few cards ({count}/{required})."
+  },
+  "universe": {
+    "Jeu Vidéo": "Video game",
+    "Film/Série": "Movie / Series",
+    "Anime": "Anime"
   }
 }

@@ -28,25 +28,24 @@
   <div>
     <h1>🎁 Cards Events</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
-      Drops aleatoires de cartes dans un salon. La premiere reaction sur le message gagne la carte.
-      Configure par serveur (intervalle min-max + rareté minimum). Trigger manuel pour tester.
+      {{ t('web_cards.owner_events.intro') }}
     </p>
   </div>
 
   <!-- Trigger manuel -->
   <div class="ce-section ce-trigger">
-    <h3>🧪 Trigger manuel (test)</h3>
+    <h3>{{ t('web_cards.owner_events.h_trigger') }}</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Serveur</span>
+        <span class="muted">{{ t('web_cards.owner_events.guild') }}</span>
         <select id="trgGuild" onchange="trgGuildChanged()" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Salon</span>
+        <span class="muted">{{ t('web_cards.owner_events.channel') }}</span>
         <select id="trgChannel" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted" id="trgRarityLbl">Rareté min</span>
+        <span class="muted" id="trgRarityLbl">{{ t('web_cards.owner_events.rarity_min') }}</span>
         <select id="trgRarity" class="input">
           <option value="common">Common</option>
           <option value="rare" selected>Rare</option>
@@ -56,44 +55,44 @@
           <option value="secret" hidden disabled>Secret</option>
         </select>
       </label>
-      <button class="btn btn-primary" onclick="triggerManual()">🎁 Lancer drop</button>
+      <button class="btn btn-primary" onclick="triggerManual()">{{ t('web_cards.owner_events.btn_drop') }}</button>
     </div>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:8px;cursor:pointer;">
       <input type="checkbox" id="trgExact" onchange="trgExactChanged()">
-      <span>Rareté exacte (sinon : cette rareté <b>ou plus</b>)</span>
+      <span>{{ t('web_cards.owner_events.exact_rarity') | safe }}</span>
     </label>
     <!-- Carte precise : si choisie, ignore la rarete -->
     <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Carte précise (optionnel — ignore la rareté)</span>
-        <input id="trgCardSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+        <span class="muted">{{ t('web_cards.owner_events.exact_card') }}</span>
+        <input id="trgCardSearch" class="input" placeholder="{{ t('web_cards.owner_events.card_search_ph') }}"
                onkeydown="if(event.key==='Enter'){event.preventDefault();trgCardSearchGo();}">
       </label>
-      <button class="btn" onclick="trgCardSearchGo()">🔍 Chercher</button>
+      <button class="btn" onclick="trgCardSearchGo()">{{ t('web_cards.owner_events.btn_search') }}</button>
     </div>
     <div id="trgCardResults" style="margin-top:8px;display:none;">
       <select id="trgCardPick" class="input" onchange="trgCardPicked()"></select>
     </div>
     <div id="trgCardChosen" class="muted" style="font-size:12px;margin-top:6px;display:none;">
-      🎯 Carte choisie : <b id="trgCardChosenName"></b>
-      <a href="#" onclick="trgCardClear();return false;" style="margin-left:8px;">✖ revenir à l'aléatoire</a>
+      {{ t('web_cards.owner_events.chosen_card') }} <b id="trgCardChosenName"></b>
+      <a href="#" onclick="trgCardClear();return false;" style="margin-left:8px;">{{ t('web_cards.owner_events.back_random') }}</a>
     </div>
     <div id="trgHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
     <div class="muted" style="font-size:11px;margin-top:6px;">
-      Si les salons ne s'affichent pas : clic sur 🔄 à côté du serveur dans les configs ci-dessous pour rafraîchir.
+      {{ t('web_cards.owner_events.channels_hint') }}
     </div>
   </div>
 
   <!-- Spawn boss de combat -->
   <div class="ce-section ce-trigger" style="margin-top:14px;">
-    <h3>⚔️ Spawn boss de combat</h3>
+    <h3>{{ t('web_cards.owner_events.h_boss') }}</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Serveur</span>
+        <span class="muted">{{ t('web_cards.owner_events.guild') }}</span>
         <select id="bossGuild" onchange="bossGuildChanged()" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Salon</span>
+        <span class="muted">{{ t('web_cards.owner_events.channel') }}</span>
         <select id="bossChannel" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
@@ -107,20 +106,20 @@
         </select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Élément (optionnel)</span>
+        <span class="muted">{{ t('web_cards.owner_events.element_opt') }}</span>
         <select id="bossElement" class="input">
-          <option value="">Aléatoire</option>
-          <option value="eclat">🔆 Éclat</option>
-          <option value="abysse">🌊 Abysse</option>
-          <option value="fracture">⛓ Fracture</option>
-          <option value="vif">🩸 Vif</option>
-          <option value="neant">🕳 Néant</option>
+          <option value="">{{ t('web_cards.owner_events.random') }}</option>
+          <option value="eclat">🔆 {{ t('data.element.eclat') }}</option>
+          <option value="abysse">🌊 {{ t('data.element.abysse') }}</option>
+          <option value="fracture">⛓ {{ t('data.element.fracture') }}</option>
+          <option value="vif">🩸 {{ t('data.element.vif') }}</option>
+          <option value="neant">🕳 {{ t('data.element.neant') }}</option>
         </select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Rareté (optionnel)</span>
+        <span class="muted">{{ t('web_cards.owner_events.rarity_opt') }}</span>
         <select id="bossRarity" class="input">
-          <option value="">Aléatoire (selon tier)</option>
+          <option value="">{{ t('web_cards.owner_events.random_tier') }}</option>
           <option value="common">Common</option>
           <option value="rare">Rare</option>
           <option value="epic">Epic</option>
@@ -132,29 +131,28 @@
       <button class="btn btn-primary" onclick="spawnBoss()">⚔️ Spawn boss</button>
     </div>
     <div style="margin-top:8px;">
-      <button class="btn btn-secondary" onclick="bossRefreshChannels()">🔄 Rafraîchir les salons du serveur</button>
+      <button class="btn btn-secondary" onclick="bossRefreshChannels()">{{ t('web_cards.owner_events.refresh_channels') }}</button>
     </div>
     <div id="bossHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
 
     <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">🔁 Cercle des éléments</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">{{ t('web_cards.owner_events.element_circle') }}</div>
       <div class="muted" style="font-size:11px;margin-bottom:10px;">
-        Chacun est <b style="color:#7bdc6b;">fort (×1.25)</b> contre le suivant et
-        <b style="color:#ff7b7b;">faible (×0.8)</b> contre le précédent.
-        Cycle : 🔆 Éclat → 🌊 Abysse → ⛓ Fracture → 🩸 Vif → 🕳 Néant → 🔆
+        {{ t('web_cards.owner_events.element_circle_help') | safe }}
+        {{ t('web_cards.owner_events.cycle') }} 🔆 {{ t('data.element.eclat') }} → 🌊 {{ t('data.element.abysse') }} → ⛓ {{ t('data.element.fracture') }} → 🩸 {{ t('data.element.vif') }} → 🕳 {{ t('data.element.neant') }} → 🔆
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="text-align:left;color:var(--muted,#888);">
-          <th style="padding:5px 8px;">Élément</th>
-          <th style="padding:5px 8px;color:#7bdc6b;">Fort contre ×1.25</th>
-          <th style="padding:5px 8px;color:#ff7b7b;">Faible contre ×0.8</th>
+          <th style="padding:5px 8px;">{{ t('web_cards.owner_events.th_element') }}</th>
+          <th style="padding:5px 8px;color:#7bdc6b;">{{ t('web_cards.owner_events.th_strong') }}</th>
+          <th style="padding:5px 8px;color:#ff7b7b;">{{ t('web_cards.owner_events.th_weak') }}</th>
         </tr></thead>
         <tbody>
-          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🔆 Éclat</td><td style="padding:5px 8px;">🌊 Abysse</td><td style="padding:5px 8px;">🕳 Néant</td></tr>
-          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🌊 Abysse</td><td style="padding:5px 8px;">⛓ Fracture</td><td style="padding:5px 8px;">🔆 Éclat</td></tr>
-          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">⛓ Fracture</td><td style="padding:5px 8px;">🩸 Vif</td><td style="padding:5px 8px;">🌊 Abysse</td></tr>
-          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🩸 Vif</td><td style="padding:5px 8px;">🕳 Néant</td><td style="padding:5px 8px;">⛓ Fracture</td></tr>
-          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🕳 Néant</td><td style="padding:5px 8px;">🔆 Éclat</td><td style="padding:5px 8px;">🩸 Vif</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🔆 {{ t('data.element.eclat') }}</td><td style="padding:5px 8px;">🌊 {{ t('data.element.abysse') }}</td><td style="padding:5px 8px;">🕳 {{ t('data.element.neant') }}</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🌊 {{ t('data.element.abysse') }}</td><td style="padding:5px 8px;">⛓ {{ t('data.element.fracture') }}</td><td style="padding:5px 8px;">🔆 {{ t('data.element.eclat') }}</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">⛓ {{ t('data.element.fracture') }}</td><td style="padding:5px 8px;">🩸 {{ t('data.element.vif') }}</td><td style="padding:5px 8px;">🌊 {{ t('data.element.abysse') }}</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🩸 {{ t('data.element.vif') }}</td><td style="padding:5px 8px;">🕳 {{ t('data.element.neant') }}</td><td style="padding:5px 8px;">⛓ {{ t('data.element.fracture') }}</td></tr>
+          <tr style="border-top:1px solid var(--bg-2);"><td style="padding:5px 8px;">🕳 {{ t('data.element.neant') }}</td><td style="padding:5px 8px;">🔆 {{ t('data.element.eclat') }}</td><td style="padding:5px 8px;">🩸 {{ t('data.element.vif') }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -162,108 +160,106 @@
 
   <!-- Simuler un roll (test wishlist) -->
   <div class="ce-section ce-trigger" style="margin-top:14px;">
-    <h3>🎲 Simuler un roll (test)</h3>
+    <h3>{{ t('web_cards.owner_events.h_sim') }}</h3>
     <div class="muted" style="font-size:11px;margin-bottom:8px;">
-      Poste une carte au format <code>/roll</code> dans un salon + ping les wishers. Ne donne la carte à personne (test pur des notifs wishlist).
+      {{ t('web_cards.owner_events.sim_help') | safe }}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Serveur</span>
+        <span class="muted">{{ t('web_cards.owner_events.guild') }}</span>
         <select id="simGuild" onchange="simGuildChanged()" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Salon</span>
+        <span class="muted">{{ t('web_cards.owner_events.channel') }}</span>
         <select id="simChannel" class="input"></select>
       </label>
-      <button class="btn btn-primary" onclick="simulateRoll()">🎲 Simuler</button>
+      <button class="btn btn-primary" onclick="simulateRoll()">{{ t('web_cards.owner_events.btn_sim') }}</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Carte</span>
-        <input id="simCardSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+        <span class="muted">{{ t('web_cards.owner_events.card') }}</span>
+        <input id="simCardSearch" class="input" placeholder="{{ t('web_cards.owner_events.card_search_ph') }}"
                onkeydown="if(event.key==='Enter'){event.preventDefault();simCardSearchGo();}">
       </label>
-      <button class="btn" onclick="simCardSearchGo()">🔍 Chercher</button>
+      <button class="btn" onclick="simCardSearchGo()">{{ t('web_cards.owner_events.btn_search') }}</button>
     </div>
     <div id="simCardResults" style="margin-top:8px;display:none;">
       <select id="simCardPick" class="input" onchange="simCardPicked()"></select>
     </div>
     <div id="simCardChosen" class="muted" style="font-size:12px;margin-top:6px;display:none;">
-      🎯 Carte : <b id="simCardChosenName"></b>
+      {{ t('web_cards.owner_events.chosen_card_short') }} <b id="simCardChosenName"></b>
     </div>
     <div id="simHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
   </div>
 
   <!-- Faux drop (troll) -->
   <div class="ce-section ce-trigger" style="margin-top:14px;">
-    <h3>🤡 Faux drop (troll)</h3>
+    <h3>{{ t('web_cards.owner_events.h_fake') }}</h3>
     <div class="muted" style="font-size:11px;margin-bottom:8px;">
-      Drop classique (image + code à taper) de la carte de ton choix. Une fois claim, le bot révèle que c'était faux et se moque — <b>aucune carte donnée</b>.
+      {{ t('web_cards.owner_events.fake_help') | safe }}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Serveur</span>
+        <span class="muted">{{ t('web_cards.owner_events.guild') }}</span>
         <select id="fakeGuild" onchange="fakeGuildChanged()" class="input"></select>
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Salon</span>
+        <span class="muted">{{ t('web_cards.owner_events.channel') }}</span>
         <select id="fakeChannel" class="input"></select>
       </label>
-      <button class="btn btn-primary" onclick="fakeDrop()">🤡 Lancer le troll</button>
+      <button class="btn btn-primary" onclick="fakeDrop()">{{ t('web_cards.owner_events.btn_fake') }}</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:10px;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Carte affichée (le piège)</span>
-        <input id="fakeCardSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+        <span class="muted">{{ t('web_cards.owner_events.fake_card') }}</span>
+        <input id="fakeCardSearch" class="input" placeholder="{{ t('web_cards.owner_events.card_search_ph') }}"
                onkeydown="if(event.key==='Enter'){event.preventDefault();fakeCardSearchGo();}">
       </label>
-      <button class="btn" onclick="fakeCardSearchGo()">🔍 Chercher</button>
+      <button class="btn" onclick="fakeCardSearchGo()">{{ t('web_cards.owner_events.btn_search') }}</button>
     </div>
     <div id="fakeCardResults" style="margin-top:8px;display:none;">
       <select id="fakeCardPick" class="input" onchange="fakeCardPicked()"></select>
     </div>
     <div id="fakeCardChosen" class="muted" style="font-size:12px;margin-top:6px;display:none;">
-      🎯 Carte : <b id="fakeCardChosenName"></b>
+      {{ t('web_cards.owner_events.chosen_card_short') }} <b id="fakeCardChosenName"></b>
     </div>
     <div id="fakeHint" class="muted" style="font-size:11px;margin-top:8px;"></div>
   </div>
 
   <!-- Reset roue de la chance -->
   <div class="ce-section ce-trigger" style="margin-top:14px;">
-    <h3>🎡 Roue de la chance</h3>
+    <h3>{{ t('web_cards.owner_events.h_wheel') }}</h3>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <button class="btn btn-danger" onclick="resetWheel()">♻️ Reset la roue pour tout le monde</button>
-      <button class="btn btn-secondary" onclick="resetWheelWins()">🗑️ Vider la liste des gains</button>
+      <button class="btn btn-danger" onclick="resetWheel()">{{ t('web_cards.owner_events.btn_wheel_reset') }}</button>
+      <button class="btn btn-secondary" onclick="resetWheelWins()">{{ t('web_cards.owner_events.btn_wheel_clear') }}</button>
       <span id="wheelHint" class="muted" style="font-size:12px;"></span>
     </div>
     <div class="muted" style="font-size:11px;margin-top:6px;">
-      Reset = chacun peut re-tourner immédiatement. Vider la liste = efface seulement le feed "en direct" (n'autorise pas de re-tourner).
+      {{ t('web_cards.owner_events.wheel_help') }}
     </div>
   </div>
 
   <!-- Gestion des rolls -->
   <div class="ce-section">
-    <h3>🎲 Gestion des rolls</h3>
+    <h3>{{ t('web_cards.owner_events.h_rolls') }}</h3>
     <p class="muted" style="font-size:11px;margin-bottom:10px;">
-      Reset = remet à zéro le cooldown de roll de <b>tout le monde</b> (chacun peut re-roll tout de suite).
-      Give = offre N rolls bonus à <b>tout le monde</b> (non rechargeables, consommés avant les rolls normaux).
+      {{ t('web_cards.owner_events.rolls_help') | safe }}
     </p>
     <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-      <button class="btn btn-secondary" onclick="rollsReset()">♻️ Reset tous les cooldowns</button>
+      <button class="btn btn-secondary" onclick="rollsReset()">{{ t('web_cards.owner_events.btn_reset_cds') }}</button>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Rolls bonus à donner à tous</span>
+        <span class="muted">{{ t('web_cards.owner_events.bonus_rolls_all') }}</span>
         <input id="rollGiveN" type="number" min="1" max="1000" value="1" class="input" style="width:120px;">
       </label>
-      <button class="btn btn-primary" onclick="rollsGive()">🎟️ Give à tout le monde</button>
-      <button class="btn btn-danger" onclick="rollsResetGrant()" style="margin-left:auto;">🗑 Retirer les rolls bonus</button>
+      <button class="btn btn-primary" onclick="rollsGive()">{{ t('web_cards.owner_events.btn_give_all') }}</button>
+      <button class="btn btn-danger" onclick="rollsResetGrant()" style="margin-left:auto;">{{ t('web_cards.owner_events.btn_remove_bonus') }}</button>
     </div>
     <div id="rollsHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
 
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
-      <h4 style="margin:0 0 8px;font-size:13px;">🌈 Golden / Epic rolls (coupons d'inventaire)</h4>
+      <h4 style="margin:0 0 8px;font-size:13px;">{{ t('web_cards.owner_events.h_coupons') }}</h4>
       <p class="muted" style="font-size:11px;margin-bottom:8px;">
-        Donne des coupons <b>Golden Roll</b> (légendaire garantie) ou <b>Epic Roll</b> (épique garantie),
-        à un utilisateur précis ou à <b>tous</b> les joueurs (laisse l'ID vide).
+        {{ t('web_cards.owner_events.coupons_help') | safe }}
       </p>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
@@ -274,36 +270,36 @@
           </select>
         </label>
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-          <span class="muted">Quantité</span>
+          <span class="muted">{{ t('web_cards.owner_events.qty') }}</span>
           <input id="itemN" type="number" min="1" max="1000" value="1" class="input" style="width:100px;">
         </label>
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-          <span class="muted">User ID (vide = tous)</span>
-          <input id="itemUser" type="text" placeholder="vide = tout le monde" class="input" style="width:220px;">
+          <span class="muted">{{ t('web_cards.owner_events.user_id_all') }}</span>
+          <input id="itemUser" type="text" placeholder="{{ t('web_cards.owner_events.user_id_ph') }}" class="input" style="width:220px;">
         </label>
-        <button class="btn btn-primary" onclick="itemsGive()">🎁 Donner</button>
+        <button class="btn btn-primary" onclick="itemsGive()">{{ t('web_cards.owner_events.btn_give') }}</button>
       </div>
       <div id="itemsHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
     </div>
 
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
-      <h4 style="margin:0 0 8px;font-size:13px;">🧪 Tester sur un utilisateur</h4>
+      <h4 style="margin:0 0 8px;font-size:13px;">{{ t('web_cards.owner_events.h_test_user') }}</h4>
       <p class="muted" style="font-size:11px;margin-bottom:8px;">
-        Cible un ID Discord (ex : ton compte test) pour vérifier reset/give avant de l'appliquer à tous.
+        {{ t('web_cards.owner_events.test_user_help') }}
       </p>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-          <span class="muted">User ID</span>
+          <span class="muted">{{ t('web_cards.owner_events.user_id') }}</span>
           <input id="rollTestUser" type="text" placeholder="123456789012345678" class="input" style="width:220px;">
         </label>
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-          <span class="muted">Rolls bonus</span>
+          <span class="muted">{{ t('web_cards.owner_events.bonus_rolls') }}</span>
           <input id="rollTestN" type="number" min="1" max="1000" value="3" class="input" style="width:100px;">
         </label>
-        <button class="btn btn-primary" onclick="rollsGiveUser()">🎟️ Give à cet user</button>
-        <button class="btn btn-secondary" onclick="rollsResetUser(false)">♻️ Reset son cooldown</button>
-        <button class="btn btn-danger" onclick="rollsResetUser(true)">🗑 Reset cd + bonus</button>
-        <button class="btn btn-secondary" onclick="rollsUserStatus()">👁 Voir son état</button>
+        <button class="btn btn-primary" onclick="rollsGiveUser()">{{ t('web_cards.owner_events.btn_give_user') }}</button>
+        <button class="btn btn-secondary" onclick="rollsResetUser(false)">{{ t('web_cards.owner_events.btn_reset_user_cd') }}</button>
+        <button class="btn btn-danger" onclick="rollsResetUser(true)">{{ t('web_cards.owner_events.btn_reset_cd_bonus') }}</button>
+        <button class="btn btn-secondary" onclick="rollsUserStatus()">{{ t('web_cards.owner_events.btn_view_state') }}</button>
       </div>
       <div id="rollTestHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
     </div>
@@ -311,28 +307,25 @@
 
   <!-- Config GLOBALE -->
   <div class="ce-section">
-    <h3>⚙ Configuration globale des drops</h3>
+    <h3>{{ t('web_cards.owner_events.h_global_cfg') }}</h3>
     <p class="muted" style="font-size:11px;margin-bottom:12px;">
-      Ces réglages s'appliquent à <b>tous les serveurs</b> ayant activé Cards Events.
-      Le bot dropera une carte toutes les X minutes (intervalle aléatoire min-max), au-dessus
-      de la rareté minimale. Le salon est choisi automatiquement par serveur (system channel
-      ou premier salon où le bot peut écrire).
+      {{ t('web_cards.owner_events.global_cfg_help') | safe }}
     </p>
     <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Drops actifs</span>
+        <span class="muted">{{ t('web_cards.owner_events.drops_active') }}</span>
         <input id="gcEnabled" type="checkbox" style="width:20px;height:20px;">
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Intervalle min (minutes)</span>
+        <span class="muted">{{ t('web_cards.owner_events.interval_min') }}</span>
         <input id="gcMin" type="number" min="1" value="300" class="input" style="width:140px;">
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Intervalle max (minutes)</span>
+        <span class="muted">{{ t('web_cards.owner_events.interval_max') }}</span>
         <input id="gcMax" type="number" min="1" value="600" class="input" style="width:140px;">
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-        <span class="muted">Rareté minimum</span>
+        <span class="muted">{{ t('web_cards.owner_events.min_rarity') }}</span>
         <select id="gcRarity" class="input">
           <option value="common">Common</option>
           <option value="rare">Rare</option>
@@ -341,21 +334,21 @@
           <option value="mythic">Mythic</option>
         </select>
       </label>
-      <button class="btn btn-primary" onclick="saveGlobalConfig()">💾 Sauvegarder</button>
+      <button class="btn btn-primary" onclick="saveGlobalConfig()">{{ t('web_cards.owner_events.btn_save') }}</button>
     </div>
     <div id="gcHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
     <div style="margin-top:14px;">
-      <h4 style="margin:0 0 6px;font-size:13px;">Serveurs avec Cards Events activé</h4>
-      <div id="enabledGuilds" class="muted" style="font-size:12px;">Chargement…</div>
+      <h4 style="margin:0 0 6px;font-size:13px;">{{ t('web_cards.owner_events.enabled_guilds') }}</h4>
+      <div id="enabledGuilds" class="muted" style="font-size:12px;">{{ t('web_cards.owner_events.loading') }}</div>
     </div>
   </div>
 
   <!-- Historique recent -->
   <div class="ce-section ce-recent">
-    <h3>📜 Drops récents</h3>
+    <h3>{{ t('web_cards.owner_events.h_recent') }}</h3>
     <table>
-      <thead><tr><th>Quand</th><th>Serveur</th><th>Carte</th><th>Rareté</th><th>Status</th><th>Gagné par</th></tr></thead>
-      <tbody id="recentBody"><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+      <thead><tr><th>{{ t('web_cards.owner_events.th_when') }}</th><th>{{ t('web_cards.owner_events.guild') }}</th><th>{{ t('web_cards.owner_events.card') }}</th><th>{{ t('web_cards.owner_events.th_rarity') }}</th><th>{{ t('web_cards.owner_events.th_status') }}</th><th>{{ t('web_cards.owner_events.th_won_by') }}</th></tr></thead>
+      <tbody id="recentBody"><tr><td colspan="6" class="muted">{{ t('web_cards.owner_events.loading') }}</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -372,7 +365,7 @@ async function loadGuilds() {
     const r = await fetch('/api/owner/card-events/guilds');
     const d = await r.json();
     _guildsCache = d.items || [];
-    const opts = '<option value="">— Choisir —</option>' + _guildsCache.map(g => `<option value="${g.id}">${escHtml(g.name)} (${g.member_count})</option>`).join('');
+    const opts = '<option value="">— Select —</option>' + _guildsCache.map(g => `<option value="${g.id}">${escHtml(g.name)} (${g.member_count})</option>`).join('');
     document.getElementById('trgGuild').innerHTML = opts;
     const bsel = document.getElementById('bossGuild');
     if (bsel) bsel.innerHTML = opts;
@@ -386,14 +379,14 @@ function trgGuildChanged() {
   const gid = document.getElementById('trgGuild').value;
   const g = _guildsCache.find(x => x.id === gid);
   const ch = document.getElementById('trgChannel');
-  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
-  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+  if (!g) { ch.innerHTML = '<option value="">— Select a server —</option>'; return; }
+  ch.innerHTML = '<option value="">— Select —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
 }
 window.trgGuildChanged = trgGuildChanged;
 
 function trgExactChanged() {
   const exact = document.getElementById('trgExact').checked;
-  document.getElementById('trgRarityLbl').textContent = exact ? 'Rareté exacte' : 'Rareté min';
+  document.getElementById('trgRarityLbl').textContent = exact ? 'Exact rarity' : 'Min rarity';
   // 'secret' jamais dispo comme plancher min
   const secret = document.querySelector('#trgRarity option[value="secret"]');
   if (secret) {
@@ -408,20 +401,20 @@ let _trgCardId = null;
 async function trgCardSearchGo() {
   const q = (document.getElementById('trgCardSearch').value || '').trim();
   const hint = document.getElementById('trgHint');
-  if (!q) { hint.textContent = 'Tape un nom de carte à chercher.'; return; }
-  hint.textContent = 'Recherche…';
+  if (!q) { hint.textContent = 'Type a card name to search.'; return; }
+  hint.textContent = 'Searching…';
   try {
     const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
     const d = await r.json();
     const sel = document.getElementById('trgCardPick');
     const box = document.getElementById('trgCardResults');
     const items = d.items || [];
-    if (!items.length) { hint.textContent = 'Aucune carte trouvée.'; box.style.display = 'none'; return; }
-    sel.innerHTML = '<option value="">— Choisir une carte (' + items.length + ') —</option>' +
+    if (!items.length) { hint.textContent = 'No card found.'; box.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">— Select a card (' + items.length + ') —</option>' +
       items.map(c => `<option value="${c.id}">${escHtml(c.name)} · ${escHtml((c.rarity||'').toUpperCase())} · ${escHtml(c.universe||'?')} · #${c.id}</option>`).join('');
     box.style.display = 'block';
-    hint.textContent = items.length >= 25 ? '25+ résultats, affine ta recherche.' : '';
-  } catch (e) { hint.textContent = `Erreur recherche : ${e.message}`; }
+    hint.textContent = items.length >= 25 ? '25+ results, refine your search.' : '';
+  } catch (e) { hint.textContent = `Search error: ${e.message}`; }
 }
 window.trgCardSearchGo = trgCardSearchGo;
 
@@ -449,8 +442,8 @@ async function triggerManual() {
   const rar = document.getElementById('trgRarity').value;
   const exact = document.getElementById('trgExact').checked;
   const hint = document.getElementById('trgHint');
-  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
-  hint.textContent = 'Drop en cours…';
+  if (!gid || !cid) { hint.textContent = 'Pick a server and a channel.'; return; }
+  hint.textContent = 'Drop in progress…';
   try {
     const r = await fetch('/api/owner/card-events/trigger', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -458,12 +451,12 @@ async function triggerManual() {
     });
     const d = await r.json();
     if (d.ok) {
-      hint.textContent = `✅ Drop event #${d.event_id} : ${d.card_name} envoyé.`;
+      hint.textContent = `✅ Drop event #${d.event_id}: ${d.card_name} sent.`;
       loadRecent();
     } else {
-      hint.textContent = `❌ ${d.error || 'Erreur'}`;
+      hint.textContent = `❌ ${d.error || 'Error'}`;
     }
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.triggerManual = triggerManual;
 
@@ -471,8 +464,8 @@ function bossGuildChanged() {
   const gid = document.getElementById('bossGuild').value;
   const g = _guildsCache.find(x => x.id === gid);
   const ch = document.getElementById('bossChannel');
-  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
-  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+  if (!g) { ch.innerHTML = '<option value="">— Select a server —</option>'; return; }
+  ch.innerHTML = '<option value="">— Select —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
 }
 window.bossGuildChanged = bossGuildChanged;
 
@@ -483,16 +476,16 @@ async function spawnBoss() {
   const element = document.getElementById('bossElement').value;
   const rarity = document.getElementById('bossRarity').value;
   const hint = document.getElementById('bossHint');
-  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
-  hint.textContent = 'Spawn en cours…';
+  if (!gid || !cid) { hint.textContent = 'Pick a server and a channel.'; return; }
+  hint.textContent = 'Spawn in progress…';
   try {
     const r = await fetch('/api/owner/card-events/spawn-boss', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({guild_id: gid, channel_id: cid, tier: parseInt(tier, 10), element: element, rarity: rarity}),
     });
     const d = await r.json();
-    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Error'}`;
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.spawnBoss = spawnBoss;
 
@@ -501,8 +494,8 @@ function simGuildChanged() {
   const gid = document.getElementById('simGuild').value;
   const g = _guildsCache.find(x => x.id === gid);
   const ch = document.getElementById('simChannel');
-  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
-  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+  if (!g) { ch.innerHTML = '<option value="">— Select a server —</option>'; return; }
+  ch.innerHTML = '<option value="">— Select —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
 }
 window.simGuildChanged = simGuildChanged;
 
@@ -510,20 +503,20 @@ let _simCardId = null;
 async function simCardSearchGo() {
   const q = (document.getElementById('simCardSearch').value || '').trim();
   const hint = document.getElementById('simHint');
-  if (!q) { hint.textContent = 'Tape un nom de carte.'; return; }
-  hint.textContent = 'Recherche…';
+  if (!q) { hint.textContent = 'Type a card name.'; return; }
+  hint.textContent = 'Searching…';
   try {
     const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
     const d = await r.json();
     const sel = document.getElementById('simCardPick');
     const box = document.getElementById('simCardResults');
     const items = d.items || [];
-    if (!items.length) { hint.textContent = 'Aucune carte trouvée.'; box.style.display = 'none'; return; }
-    sel.innerHTML = '<option value="">— Choisir une carte (' + items.length + ') —</option>' +
+    if (!items.length) { hint.textContent = 'No card found.'; box.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">— Select a card (' + items.length + ') —</option>' +
       items.map(c => `<option value="${c.id}">${escHtml(c.name)} · ${escHtml((c.rarity||'').toUpperCase())} · ${escHtml(c.universe||'?')} · #${c.id}</option>`).join('');
     box.style.display = 'block';
-    hint.textContent = items.length >= 25 ? '25+ résultats, affine ta recherche.' : '';
-  } catch (e) { hint.textContent = `Erreur recherche : ${e.message}`; }
+    hint.textContent = items.length >= 25 ? '25+ results, refine your search.' : '';
+  } catch (e) { hint.textContent = `Search error: ${e.message}`; }
 }
 window.simCardSearchGo = simCardSearchGo;
 
@@ -542,17 +535,17 @@ async function simulateRoll() {
   const gid = document.getElementById('simGuild').value;
   const cid = document.getElementById('simChannel').value;
   const hint = document.getElementById('simHint');
-  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
-  if (!_simCardId) { hint.textContent = 'Choisis une carte (recherche + sélection).'; return; }
-  hint.textContent = 'Simulation en cours…';
+  if (!gid || !cid) { hint.textContent = 'Pick a server and a channel.'; return; }
+  if (!_simCardId) { hint.textContent = 'Pick a card (search + selection).'; return; }
+  hint.textContent = 'Simulation in progress…';
   try {
     const r = await fetch('/api/owner/card-events/simulate-roll', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({guild_id: gid, channel_id: cid, card_id: parseInt(_simCardId, 10)}),
     });
     const d = await r.json();
-    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Error'}`;
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.simulateRoll = simulateRoll;
 
@@ -561,8 +554,8 @@ function fakeGuildChanged() {
   const gid = document.getElementById('fakeGuild').value;
   const g = _guildsCache.find(x => x.id === gid);
   const ch = document.getElementById('fakeChannel');
-  if (!g) { ch.innerHTML = '<option value="">— Choisir un serveur —</option>'; return; }
-  ch.innerHTML = '<option value="">— Choisir —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
+  if (!g) { ch.innerHTML = '<option value="">— Select a server —</option>'; return; }
+  ch.innerHTML = '<option value="">— Select —</option>' + (g.channels || []).map(c => `<option value="${c.id}">#${escHtml(c.name)}${c.category ? ' (' + escHtml(c.category) + ')' : ''}</option>`).join('');
 }
 window.fakeGuildChanged = fakeGuildChanged;
 
@@ -570,20 +563,20 @@ let _fakeCardId = null;
 async function fakeCardSearchGo() {
   const q = (document.getElementById('fakeCardSearch').value || '').trim();
   const hint = document.getElementById('fakeHint');
-  if (!q) { hint.textContent = 'Tape un nom de carte.'; return; }
-  hint.textContent = 'Recherche…';
+  if (!q) { hint.textContent = 'Type a card name.'; return; }
+  hint.textContent = 'Searching…';
   try {
     const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
     const d = await r.json();
     const sel = document.getElementById('fakeCardPick');
     const box = document.getElementById('fakeCardResults');
     const items = d.items || [];
-    if (!items.length) { hint.textContent = 'Aucune carte trouvée.'; box.style.display = 'none'; return; }
-    sel.innerHTML = '<option value="">— Choisir une carte (' + items.length + ') —</option>' +
+    if (!items.length) { hint.textContent = 'No card found.'; box.style.display = 'none'; return; }
+    sel.innerHTML = '<option value="">— Select a card (' + items.length + ') —</option>' +
       items.map(c => `<option value="${c.id}">${escHtml(c.name)} · ${escHtml((c.rarity||'').toUpperCase())} · ${escHtml(c.universe||'?')} · #${c.id}</option>`).join('');
     box.style.display = 'block';
-    hint.textContent = items.length >= 25 ? '25+ résultats, affine ta recherche.' : '';
-  } catch (e) { hint.textContent = `Erreur recherche : ${e.message}`; }
+    hint.textContent = items.length >= 25 ? '25+ results, refine your search.' : '';
+  } catch (e) { hint.textContent = `Search error: ${e.message}`; }
 }
 window.fakeCardSearchGo = fakeCardSearchGo;
 
@@ -602,57 +595,57 @@ async function fakeDrop() {
   const gid = document.getElementById('fakeGuild').value;
   const cid = document.getElementById('fakeChannel').value;
   const hint = document.getElementById('fakeHint');
-  if (!gid || !cid) { hint.textContent = 'Choisis serveur et salon.'; return; }
-  if (!_fakeCardId) { hint.textContent = 'Choisis une carte (recherche + sélection).'; return; }
-  hint.textContent = 'Troll en cours…';
+  if (!gid || !cid) { hint.textContent = 'Pick a server and a channel.'; return; }
+  if (!_fakeCardId) { hint.textContent = 'Pick a card (search + selection).'; return; }
+  hint.textContent = 'Troll in progress…';
   try {
     const r = await fetch('/api/owner/card-events/fake-drop', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({guild_id: gid, channel_id: cid, card_id: parseInt(_fakeCardId, 10)}),
     });
     const d = await r.json();
-    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Erreur'}`;
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+    hint.textContent = d.ok ? `✅ ${d.note}` : `❌ ${d.error || 'Error'}`;
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.fakeDrop = fakeDrop;
 
 async function bossRefreshChannels() {
   const gid = document.getElementById('bossGuild').value;
   const hint = document.getElementById('bossHint');
-  if (!gid) { hint.textContent = 'Choisis d\'abord un serveur.'; return; }
-  hint.textContent = '🔄 Rafraîchissement des salons… (~2s)';
+  if (!gid) { hint.textContent = 'Pick a server first.'; return; }
+  hint.textContent = '🔄 Refreshing channels… (~2s)';
   try {
     await fetch(`/api/owner/card-events/refresh-channels/${gid}`, {method:'POST'});
     await new Promise(r => setTimeout(r, 2500));
     await loadGuilds();                 // recharge le cache (avec les salons à jour)
     document.getElementById('bossGuild').value = gid;
     bossGuildChanged();                 // re-peuple le select salon
-    hint.textContent = '✅ Salons rafraîchis.';
-  } catch (e) { hint.textContent = 'Erreur : ' + e.message; }
+    hint.textContent = '✅ Channels refreshed.';
+  } catch (e) { hint.textContent = 'Error: ' + e.message; }
 }
 window.bossRefreshChannels = bossRefreshChannels;
 
 async function resetWheel() {
   const hint = document.getElementById('wheelHint');
-  if (!confirm('Reset la roue du jour pour TOUT LE MONDE ?')) return;
-  hint.textContent = 'Reset en cours…';
+  if (!confirm("Reset today's wheel for EVERYONE?")) return;
+  hint.textContent = 'Reset in progress…';
   try {
     const r = await fetch('/api/owner/card-events/wheel/reset', {method:'POST'});
     const d = await r.json();
-    hint.textContent = d.ok ? `✅ ${d.cleared} tour(s) effacé(s). Tout le monde peut re-tourner.` : `❌ ${d.error || 'Erreur'}`;
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+    hint.textContent = d.ok ? `✅ ${d.cleared} spin(s) cleared. Everyone can spin again.` : `❌ ${d.error || 'Error'}`;
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.resetWheel = resetWheel;
 
 async function resetWheelWins() {
   const hint = document.getElementById('wheelHint');
-  if (!confirm('Vider la liste des gains de la roue ?')) return;
-  hint.textContent = 'Suppression…';
+  if (!confirm('Clear the wheel wins list?')) return;
+  hint.textContent = 'Deleting…';
   try {
     const r = await fetch('/api/owner/card-events/wheel/reset-wins', {method:'POST'});
     const d = await r.json();
-    hint.textContent = d.ok ? `✅ ${d.cleared} gain(s) effacé(s) du feed.` : `❌ ${d.error || 'Erreur'}`;
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+    hint.textContent = d.ok ? `✅ ${d.cleared} win(s) cleared from the feed.` : `❌ ${d.error || 'Error'}`;
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.resetWheelWins = resetWheelWins;
 
@@ -674,15 +667,15 @@ async function saveGlobalConfig() {
     min_rarity: document.getElementById('gcRarity').value,
   };
   const hint = document.getElementById('gcHint');
-  hint.textContent = 'Sauvegarde…';
+  hint.textContent = 'Saving…';
   try {
     const r = await fetch('/api/owner/card-events/global-config', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload),
     });
     const d = await r.json();
-    hint.textContent = d.ok ? '✅ Config globale sauvegardée (s\'applique à tous les serveurs activés).' : `❌ ${d.error || 'Erreur'}`;
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+    hint.textContent = d.ok ? '✅ Global config saved (applies to every enabled server).' : `❌ ${d.error || 'Error'}`;
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.saveGlobalConfig = saveGlobalConfig;
 
@@ -693,10 +686,10 @@ async function loadEnabledGuilds() {
     const items = d.items || [];
     const box = document.getElementById('enabledGuilds');
     if (!items.length) {
-      box.innerHTML = 'Aucun serveur n\'a activé Cards Events (onglet Fonctionnalités, 10 membres min).';
+      box.innerHTML = 'No server has enabled Cards Events (Features tab, 10 members min).';
       return;
     }
-    box.innerHTML = items.map(g => `• ${escHtml(g.name)} <span class="muted">(${g.member_count} membres)</span>`).join('<br>');
+    box.innerHTML = items.map(g => `• ${escHtml(g.name)} <span class="muted">(${g.member_count} members)</span>`).join('<br>');
   } catch (e) {}
 }
 
@@ -706,7 +699,7 @@ async function loadRecent() {
     const d = await r.json();
     const items = d.items || [];
     const body = document.getElementById('recentBody');
-    if (!items.length) { body.innerHTML = '<tr><td colspan="6" class="muted">Aucun drop.</td></tr>'; return; }
+    if (!items.length) { body.innerHTML = '<tr><td colspan="6" class="muted">No drop.</td></tr>'; return; }
     body.innerHTML = items.map(e => `
       <tr>
         <td>${escHtml((e.dropped_at || '').slice(0, 19))}</td>
@@ -725,28 +718,28 @@ async function loadRollsStatus(){
     const r = await fetch('/api/owner/card-events/rolls/status');
     const d = await r.json();
     document.getElementById('rollsHint').textContent =
-      `Rolls bonus actifs (par personne) : ${d.global_grant} · rolls normaux utilisés dans la dernière heure : ${d.rolls_last_hour}`;
+      `Active bonus rolls (per person): ${d.global_grant} · normal rolls used in the last hour: ${d.rolls_last_hour}`;
   } catch(e){}
 }
 async function rollsReset(){
-  if(!confirm('Reset le cooldown de roll de TOUT LE MONDE ?')) return;
+  if(!confirm('Reset the roll cooldown for EVERYONE?')) return;
   const r = await fetch('/api/owner/card-events/rolls/reset', {method:'POST'});
   const d = await r.json();
-  document.getElementById('rollsHint').textContent = d.ok ? `✅ ${d.cleared} cooldown(s) reset.` : '❌ erreur';
+  document.getElementById('rollsHint').textContent = d.ok ? `✅ ${d.cleared} cooldown(s) reset.` : '❌ error';
   loadRollsStatus();
 }
 async function rollsGive(){
   const n = parseInt(document.getElementById('rollGiveN').value,10)||0;
   const r = await fetch('/api/owner/card-events/rolls/give', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({n})});
   const d = await r.json();
-  document.getElementById('rollsHint').textContent = d.ok ? `✅ +${n} rolls bonus pour tout le monde (total ${d.global_grant}).` : ('❌ '+(d.error||'?'));
+  document.getElementById('rollsHint').textContent = d.ok ? `✅ +${n} bonus rolls for everyone (total ${d.global_grant}).` : ('❌ '+(d.error||'?'));
   loadRollsStatus();
 }
 async function rollsResetGrant(){
-  if(!confirm('Retirer TOUS les rolls bonus non utilisés à tout le monde ?')) return;
+  if(!confirm('Remove ALL unused bonus rolls from everyone?')) return;
   const r = await fetch('/api/owner/card-events/rolls/reset-grant', {method:'POST'});
   const d = await r.json();
-  document.getElementById('rollsHint').textContent = d.ok ? '✅ Rolls bonus retirés.' : '❌ erreur';
+  document.getElementById('rollsHint').textContent = d.ok ? '✅ Bonus rolls removed.' : '❌ error';
   loadRollsStatus();
 }
 window.rollsReset=rollsReset; window.rollsGive=rollsGive; window.rollsResetGrant=rollsResetGrant;
@@ -755,24 +748,24 @@ function _rollTestUid(){ return (document.getElementById('rollTestUser').value||
 async function rollsGiveUser(){
   const uid=_rollTestUid(); const n=parseInt(document.getElementById('rollTestN').value,10)||0;
   const h=document.getElementById('rollTestHint');
-  if(!uid){ h.textContent='User ID requis.'; return; }
+  if(!uid){ h.textContent='User ID required.'; return; }
   const r=await fetch('/api/owner/card-events/rolls/give-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,n})});
   const d=await r.json();
-  h.textContent=d.ok?`✅ +${n} rolls bonus. Dispo pour ${uid} : ${d.bonus_available}.`:('❌ '+(d.error||'?'));
+  h.textContent=d.ok?`✅ +${n} bonus rolls. Available for ${uid}: ${d.bonus_available}.`:('❌ '+(d.error||'?'));
 }
 async function rollsResetUser(alsoGrant){
   const uid=_rollTestUid(); const h=document.getElementById('rollTestHint');
-  if(!uid){ h.textContent='User ID requis.'; return; }
+  if(!uid){ h.textContent='User ID required.'; return; }
   const r=await fetch('/api/owner/card-events/rolls/reset-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,also_grant:!!alsoGrant})});
   const d=await r.json();
-  h.textContent=d.ok?`✅ Cooldown reset (${d.cleared}) pour ${uid}${alsoGrant?' + bonus retirés':''}.`:('❌ '+(d.error||'?'));
+  h.textContent=d.ok?`✅ Cooldown reset (${d.cleared}) for ${uid}${alsoGrant?' + bonus removed':''}.`:('❌ '+(d.error||'?'));
 }
 async function rollsUserStatus(){
   const uid=_rollTestUid(); const h=document.getElementById('rollTestHint');
-  if(!uid){ h.textContent='User ID requis.'; return; }
+  if(!uid){ h.textContent='User ID required.'; return; }
   const r=await fetch('/api/owner/card-events/rolls/user-status?user_id='+encodeURIComponent(uid));
   const d=await r.json();
-  h.textContent=d.error?('❌ '+d.error):`État ${uid} : ${d.bonus_available} rolls bonus dispo · ${d.rolls_last_hour} roll(s) normaux dans la dernière heure.`;
+  h.textContent=d.error?('❌ '+d.error):`Status ${uid}: ${d.bonus_available} bonus rolls available · ${d.rolls_last_hour} normal roll(s) in the last hour.`;
 }
 window.rollsGiveUser=rollsGiveUser; window.rollsResetUser=rollsResetUser; window.rollsUserStatus=rollsUserStatus;
 
@@ -782,21 +775,21 @@ async function itemsGive(){
   const uid = (document.getElementById('itemUser').value||'').trim();
   const hint = document.getElementById('itemsHint');
   const label = item==='golden_roll' ? 'Golden Roll' : 'Epic Roll';
-  if(n<=0){ hint.textContent='Quantité invalide.'; return; }
+  if(n<=0){ hint.textContent='Invalid quantity.'; return; }
   try{
     if(uid){
       const r = await fetch('/api/owner/card-events/items/give-user', {method:'POST',
         headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:uid, item, n})});
       const d = await r.json();
-      hint.textContent = d.ok ? `✅ +${n} ${label} à ${uid} (total : ${d.total}).` : ('❌ '+(d.error||'erreur'));
+      hint.textContent = d.ok ? `✅ +${n} ${label} to ${uid} (total: ${d.total}).` : ('❌ '+(d.error||'error'));
     } else {
-      if(!confirm(`Donner ${n} ${label} à TOUS les joueurs ?`)) return;
+      if(!confirm(`Give ${n} ${label} to ALL players?`)) return;
       const r = await fetch('/api/owner/card-events/items/give-all', {method:'POST',
         headers:{'Content-Type':'application/json'}, body:JSON.stringify({item, n})});
       const d = await r.json();
-      hint.textContent = d.ok ? `✅ +${n} ${label} donné à ${d.users} joueur(s).` : ('❌ '+(d.error||'erreur'));
+      hint.textContent = d.ok ? `✅ +${n} ${label} given to ${d.users} player(s).` : ('❌ '+(d.error||'error'));
     }
-  }catch(e){ hint.textContent='Erreur réseau.'; }
+  }catch(e){ hint.textContent='Network error.'; }
 }
 window.itemsGive = itemsGive;
 

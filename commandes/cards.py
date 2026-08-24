@@ -22,7 +22,7 @@ from database import (
     CARD_ELEMENT_LABELS as _ELEM_LABELS,
 )
 
-from services.i18n import t, ti, locale_of, guild_locale, DEFAULT_LOCALE
+from services.i18n import t, ti, locale_of, guild_locale, DEFAULT_LOCALE, universe_label
 
 
 # Reliable repo root. __file__ of this module resolves to a wrong cwd on the VPS
@@ -446,7 +446,7 @@ def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
     color = RARITY_COLORS.get(rarity, 0x9aa0a6)
     emoji = _get_rarity_title_emoji(bot, rarity)
     origin = card.get("subtitle") or "?"
-    universe = card.get("universe") or "?"
+    universe = universe_label(card.get("universe"), locale) or "?"
     rarity_display = "?????" if rarity == "secret" else rarity.upper()
     flavor = (card.get("flavor_subtitle") or "").strip()
     essence_line = (t("cards.roll.essences_line", locale, amount=essence_gain)
@@ -972,7 +972,7 @@ def setup_cards_commands(bot, deps):
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = _get_rarity_title_emoji(bot, rarity)
         origin = card.get("subtitle") or "?"
-        universe_name = card.get("universe") or "?"
+        universe_name = universe_label(card.get("universe"), loc) or "?"
         rarity_display = "?????" if rarity == "secret" else rarity.upper()
         flavor = (card.get("flavor_subtitle") or "").strip()
         essence_line = (t("cards.roll.essences_line", loc, amount=essence_gain)
@@ -1121,7 +1121,7 @@ def setup_cards_commands(bot, deps):
                 emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
                 elem = _get_element_emoji(bot, c.get("element"))
                 pre = f"{emoji}｜{elem}" if elem else emoji
-                uni = c.get("universe") or "?"
+                uni = universe_label(c.get("universe"), loc) or "?"
                 fusion = fusion_map.get(c["card_id"], 0)
                 cosmetic_tag = " ✨" if custom_map.get(c["card_id"]) else ""
                 total_n = c["count"]
@@ -1381,7 +1381,7 @@ def setup_cards_commands(bot, deps):
             color = RARITY_COLORS.get(rarity, 0x9aa0a6)
             emoji = _get_rarity_title_emoji(bot, rarity)
             origin = data.get("subtitle") or "?"
-            universe = data.get("universe") or "?"
+            universe = universe_label(data.get("universe"), loc) or "?"
             rarity_display = "?????" if rarity == "secret" else rarity.upper()
             flavor = (data.get("flavor_subtitle") or "").strip()
             elem = data.get("element")
@@ -1679,7 +1679,7 @@ def setup_cards_commands(bot, deps):
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = _get_rarity_title_emoji(bot, rarity)
         origin = card.get("subtitle") or "?"
-        universe = card.get("universe") or "?"
+        universe = universe_label(card.get("universe"), locale) or "?"
         rarity_display = "?????" if rarity == "secret" else rarity.upper()
         flavor = (card.get("flavor_subtitle") or "").strip()
         essence_line = (t("cards.roll.essences_line", locale, amount=essence_gain)
@@ -2685,7 +2685,7 @@ def setup_cards_commands(bot, deps):
                 emb.description = "\n".join(
                     t("cards.wishlist.line", loc,
                       emoji=RARITY_EMOJIS.get(i['rarity'], '⚪'), name=i['name'],
-                      universe=i.get('universe') or '?')
+                      universe=universe_label(i.get('universe'), loc) or '?')
                     for i in its[:40])
             return emb, its
 

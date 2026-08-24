@@ -127,3 +127,15 @@ def locale_of(interaction):
 def ti(interaction, key, **kwargs):
     """Raccourci : traduit pour une interaction Discord."""
     return t(key, locale_of(interaction), **kwargs)
+
+def universe_label(value, locale=DEFAULT_LOCALE):
+    """Display label for a card `universe` value.
+
+    The values stored in DB are historical French strings ("Jeu Video",
+    "Film/Serie"); they are kept as-is so existing collections do not split in
+    two. Only the displayed label is translated. Unknown values pass through.
+    """
+    if not value:
+        return value
+    return t(f"data.universe.{value}", locale) if f"data.universe.{value}" in get_catalog(
+        locale or DEFAULT_LOCALE) or f"data.universe.{value}" in get_catalog(DEFAULT_LOCALE) else value

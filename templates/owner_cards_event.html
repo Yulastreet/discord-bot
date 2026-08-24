@@ -22,40 +22,40 @@
 </style>
 
 <div class="cs-section">
-  <h3>🎉 Event global</h3>
-  <p class="sub">Active un event saisonnier ou ponctuel pour <b>tous les serveurs</b> : les cartes taguées à l'event ont un <b>drop boosté</b> pendant l'event. Elles restent toujours obtenables (pas d'exclusivité, anti-désavantage pour les nouveaux).</p>
+  <h3>{{ t('web_cards.owner_theme_event.h_global') }}</h3>
+  <p class="sub">{{ t('web_cards.owner_theme_event.global_sub') | safe }}</p>
 
   <div class="cs-field">
-    <label>Event actif</label>
+    <label>{{ t('web_cards.owner_theme_event.ev_active') }}</label>
     <select id="evKey" class="input"></select>
-    <div class="cs-hint">« Aucun » désactive le boost. Les cartes event restent rollables normalement hors event.</div>
+    <div class="cs-hint">{{ t('web_cards.owner_theme_event.ev_active_hint') }}</div>
   </div>
 
   <div class="cs-field">
-    <label>Boost du drop des cartes event <span class="cs-hint">— multiplicateur de chance des cartes taguées à l'event. 1 = aucun boost.</span></label>
+    <label>{{ t('web_cards.owner_theme_event.drop_boost') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.drop_boost_hint') }}</span></label>
     <input id="evBoost" type="number" min="1" max="20" step="0.5" value="2" class="input">
-    <div class="cs-hint">Ex : 2 = les cartes de l'event sortent 2× plus souvent. Exception : pour un joueur qui possède déjà la carte en 5⭐, son taux revient à la normale (plus de boost sur cette carte pour lui).</div>
+    <div class="cs-hint">{{ t('web_cards.owner_theme_event.drop_boost_help') }}</div>
   </div>
 
   <div class="cs-field">
-    <label>Boost général des rares (epic / legendary / mythic) <span class="cs-hint">— booste TOUT le pool rare pendant l'event. 1 = aucun.</span></label>
+    <label>{{ t('web_cards.owner_theme_event.rare_boost') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.rare_boost_hint') }}</span></label>
     <input id="evRarBoost" type="number" min="1" max="10" step="0.25" value="1" class="input">
-    <div class="cs-hint">Ex : 1.5 = +50% de chances de tirer epic/legendary/mythic (en plus du boost des cartes event). 1 = désactivé.</div>
+    <div class="cs-hint">{{ t('web_cards.owner_theme_event.rare_boost_help') }}</div>
   </div>
 
   <div class="cs-field">
-    <label>Serveurs de test <span class="cs-hint">— IDs séparés par virgule. Vide = tout le monde.</span></label>
-    <input id="evTestGuilds" class="input" placeholder="ex : 1502322150822908115, 1234…">
-    <div class="cs-hint">Si rempli : l'event (boost, /eventfight, /eventshop, jetons /daily) n'est actif QUE sur ces serveurs. Idéal pour tester avant un lancement global.</div>
+    <label>{{ t('web_cards.owner_theme_event.test_guilds') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.test_guilds_hint') }}</span></label>
+    <input id="evTestGuilds" class="input" placeholder="{{ t('web_cards.owner_theme_event.test_guilds_ph') }}">
+    <div class="cs-hint">{{ t('web_cards.owner_theme_event.test_guilds_help') }}</div>
   </div>
 
   <div class="cs-field">
-    <label>📊 Taux de rareté en temps réel <span class="cs-hint">— recalculé selon le boost rares ci-dessus</span></label>
+    <label>{{ t('web_cards.owner_theme_event.rates') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.rates_hint') }}</span></label>
     <table id="evRateTable" style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead><tr style="text-align:left;color:var(--text-2);font-size:11px;text-transform:uppercase;">
-        <th style="padding:6px 8px;">Rareté</th>
-        <th style="padding:6px 8px;">Sans event</th>
-        <th style="padding:6px 8px;">Avec boost</th>
+        <th style="padding:6px 8px;">{{ t('web_cards.owner_theme_event.th_rarity') }}</th>
+        <th style="padding:6px 8px;">{{ t('web_cards.owner_theme_event.th_no_event') }}</th>
+        <th style="padding:6px 8px;">{{ t('web_cards.owner_theme_event.th_with_boost') }}</th>
       </tr></thead>
       <tbody id="evRateBody"></tbody>
     </table>
@@ -64,32 +64,32 @@
 
   <div id="evCounts" class="cs-hint" style="margin-bottom:12px;"></div>
 
-  <button class="btn btn-primary" onclick="evSave()">💾 Appliquer l'event</button>
+  <button class="btn btn-primary" onclick="evSave()">{{ t('web_cards.owner_theme_event.btn_apply') }}</button>
   <div id="evResult" class="muted" style="margin-top:14px;"></div>
 </div>
 
 <div class="cs-section" style="margin-top:18px;">
-  <h3>🎴 Cartes boostées de l'event</h3>
-  <p class="sub">Choisis les cartes concernées par le boost de drop pour un event donné.</p>
+  <h3>{{ t('web_cards.owner_theme_event.h_cards') }}</h3>
+  <p class="sub">{{ t('web_cards.owner_theme_event.cards_sub') }}</p>
 
   <div class="cs-field">
-    <label>Event à gérer</label>
+    <label>{{ t('web_cards.owner_theme_event.ev_manage') }}</label>
     <select id="emEvent" class="input" onchange="emLoad()"></select>
   </div>
 
   <div class="cs-field">
-    <label>Ajouter une carte existante <span class="cs-hint">— recherche par nom / univers</span></label>
-    <input id="emSearch" class="input" placeholder="🔍 Tape un nom puis Entrée…"
+    <label>{{ t('web_cards.owner_theme_event.add_card') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.add_card_hint') }}</span></label>
+    <input id="emSearch" class="input" placeholder="{{ t('web_cards.owner_theme_event.add_card_ph') }}"
            onkeydown="if(event.key==='Enter'){event.preventDefault();emSearch();}">
     <div id="emResults" style="display:none;margin-top:6px;border:1px solid var(--border);border-radius:10px;max-height:200px;overflow:auto;"></div>
   </div>
 
   <!-- Créer une NOUVELLE carte event (brouillon) -->
   <details style="margin:6px 0 14px; border:1px solid var(--border); border-radius:10px; padding:0 12px;">
-    <summary style="cursor:pointer; padding:10px 0; font-weight:700; font-size:13px;">➕ Créer une nouvelle carte event (brouillon)</summary>
+    <summary style="cursor:pointer; padding:10px 0; font-weight:700; font-size:13px;">{{ t('web_cards.owner_theme_event.new_card_summary') }}</summary>
     <div style="padding:0 0 12px;">
-      <div class="cs-field"><label>Nom</label><input id="ecName" class="input" placeholder="Nom du personnage"></div>
-      <div class="cs-field"><label>Rareté</label>
+      <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_name') }}</label><input id="ecName" class="input" placeholder="{{ t('web_cards.owner_theme_event.f_name_ph') }}"></div>
+      <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_rarity') }}</label>
         <select id="ecRarity" class="input">
           <option value="common">⚪ Common</option>
           <option value="rare">🔵 Rare</option>
@@ -99,52 +99,52 @@
           <option value="secret">🌈 Secret</option>
         </select>
       </div>
-      <div class="cs-field"><label>Univers <span class="cs-hint">— ex: Anime, Film/Série…</span></label><input id="ecUniverse" class="input"></div>
-      <div class="cs-field"><label>Origine <span class="cs-hint">— ex: One Piece</span></label><input id="ecSubtitle" class="input"></div>
-      <div class="cs-field"><label>Image par URL</label><input id="ecImage" class="input" placeholder="https://… (ou utilise l'upload ci-dessous)"></div>
-      <div class="cs-field"><label>… ou upload un fichier <span class="cs-hint">— recadré 2:3 + cadre rareté auto</span></label>
+      <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_universe') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.f_universe_hint') }}</span></label><input id="ecUniverse" class="input"></div>
+      <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_origin') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.f_origin_hint') }}</span></label><input id="ecSubtitle" class="input"></div>
+      <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_image_url') }}</label><input id="ecImage" class="input" placeholder="{{ t('web_cards.owner_theme_event.f_image_ph') }}"></div>
+      <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_upload') }} <span class="cs-hint">{{ t('web_cards.owner_theme_event.f_upload_hint') }}</span></label>
         <input id="ecFile" type="file" accept="image/*" class="input"></div>
-      <button class="btn btn-secondary" onclick="ecCreate()">➕ Créer en brouillon</button>
+      <button class="btn btn-secondary" onclick="ecCreate()">{{ t('web_cards.owner_theme_event.btn_create_draft') }}</button>
       <div id="ecResult" class="muted" style="margin-top:8px;"></div>
     </div>
   </details>
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin:6px 0;">
-    <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);">Cartes de l'event</span>
-    <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="emDeploy()">🚀 Déployer les brouillons</button>
+    <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);">{{ t('web_cards.owner_theme_event.event_cards') }}</span>
+    <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;" onclick="emDeploy()">{{ t('web_cards.owner_theme_event.btn_deploy') }}</button>
   </div>
   <div id="emList" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
   <div id="emResult" class="muted" style="margin-top:10px;"></div>
 
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);margin:14px 0 6px;">📈 Taux de drop par carte event (avec boosts)</div>
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);margin:14px 0 6px;">{{ t('web_cards.owner_theme_event.card_rates') }}</div>
   <div id="evCardRates" style="border:1px solid var(--border);border-radius:10px;max-height:280px;overflow:auto;"></div>
 </div>
 
 <!-- Modal d'edition d'une carte event -->
 <div id="edmScrim" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center;" onclick="if(event.target===this)emEditClose()">
   <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:14px;padding:22px;width:min(460px,92vw);max-height:90vh;overflow:auto;">
-    <h3 style="margin:0 0 14px;">✏️ Modifier la carte</h3>
+    <h3 style="margin:0 0 14px;">{{ t('web_cards.owner_theme_event.edit_title') }}</h3>
     <input type="hidden" id="edmId">
-    <div class="cs-field"><label>Nom</label><input id="edmName" class="input"></div>
-    <div class="cs-field"><label>Rareté</label>
+    <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_name') }}</label><input id="edmName" class="input"></div>
+    <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_rarity') }}</label>
       <select id="edmRarity" class="input">
         <option value="common">⚪ Common</option><option value="rare">🔵 Rare</option>
         <option value="epic">🟣 Epic</option><option value="legendary">🟠 Legendary</option>
         <option value="mythic">🔴 Mythic</option><option value="secret">🌈 Secret</option>
       </select>
     </div>
-    <div class="cs-field"><label>Univers</label><input id="edmUniverse" class="input"></div>
-    <div class="cs-field"><label>Origine</label><input id="edmSubtitle" class="input"></div>
-    <div class="cs-field"><label>Image principale par URL</label><input id="edmImage" class="input" placeholder="https://…"></div>
+    <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_universe') }}</label><input id="edmUniverse" class="input"></div>
+    <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_origin') }}</label><input id="edmSubtitle" class="input"></div>
+    <div class="cs-field"><label>{{ t('web_cards.owner_theme_event.f_main_image_url') }}</label><input id="edmImage" class="input" placeholder="https://…"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;">
-      <button class="btn btn-secondary" onclick="emUpload(document.getElementById('edmId').value,'main')">🖼️ Upload image principale</button>
-      <button class="btn btn-secondary" onclick="emUpload(document.getElementById('edmId').value,'alt')">🎨 Upload skin alt</button>
+      <button class="btn btn-secondary" onclick="emUpload(document.getElementById('edmId').value,'main')">{{ t('web_cards.owner_theme_event.btn_upload_main') }}</button>
+      <button class="btn btn-secondary" onclick="emUpload(document.getElementById('edmId').value,'alt')">{{ t('web_cards.owner_theme_event.btn_upload_alt') }}</button>
     </div>
     <div id="edmAltStatus" class="cs-hint" style="margin-bottom:10px;"></div>
     <div id="edmResult" class="muted" style="margin-bottom:14px;"></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn btn-secondary" onclick="emEditClose()">Fermer</button>
-      <button class="btn btn-primary" onclick="emEditSave()">💾 Enregistrer</button>
+      <button class="btn btn-secondary" onclick="emEditClose()">{{ t('web_cards.owner_theme_event.close') }}</button>
+      <button class="btn btn-primary" onclick="emEditSave()">{{ t('web_cards.owner_theme_event.save') }}</button>
     </div>
   </div>
 </div>
@@ -160,8 +160,8 @@ async function evLoad(){
     const d = await r.json();
     EV_CATALOG = d.catalog || [];
     const sel = document.getElementById('evKey');
-    sel.innerHTML = '<option value="">— Aucun (désactivé) —</option>' +
-      EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name} (${e.cards} carte${e.cards>1?'s':''})</option>`).join('');
+    sel.innerHTML = '<option value="">— None (disabled) —</option>' +
+      EV_CATALOG.map(e => `<option value="${e.key}">${e.emoji} ${e.name} (${e.cards} card${e.cards>1?'s':''})</option>`).join('');
     sel.value = (d.current && d.current.key) || '';
     document.getElementById('evBoost').value = (d.current && d.current.drop_boost) || 2;
     document.getElementById('evRarBoost').value = (d.current && d.current.rarity_boost) || 1;
@@ -170,7 +170,7 @@ async function evLoad(){
     UNI_RARITY_TOTALS = d.uni_rarity_totals || {};
     evRefreshCounts();
     evRecalcRates();
-  } catch(e){ document.getElementById('evResult').textContent = 'Erreur de chargement : ' + e.message; }
+  } catch(e){ document.getElementById('evResult').textContent = 'Load error: ' + e.message; }
 }
 
 // Poids de base (doit matcher database.CARD_RARITY_WEIGHTS)
@@ -201,7 +201,7 @@ function evRecalcRates(){
     </tr>`;
   }).join('');
   document.getElementById('evRateNote').textContent =
-    `Cartes event ×${dropBoost} dans leur rareté. Détail carte par carte ci-dessous (section "Cartes boostées").`;
+    `Event cards ×${dropBoost} within their rarity. Card-by-card detail below (section "Boosted event cards").`;
   evRecalcEventCards();
 }
 // Taux exact (%) de chaque carte event deployee, vu en bas de la liste.
@@ -211,7 +211,7 @@ function evRecalcEventCards(){
   const dropBoost = parseFloat(document.getElementById('evBoost').value) || 1;
   const items = Object.values(EM_ITEMS || {});
   const deployed = items.filter(c => !c.not_obtainable);
-  if (!deployed.length) { box.innerHTML = '<div class="em-empty">Aucune carte event déployée (les brouillons ne droppent pas).</div>'; return; }
+  if (!deployed.length) { box.innerHTML = '<div class="em-empty">No event card deployed (drafts do not drop).</div>'; return; }
   // E = nb cartes event deployees par rarete
   const E = {};
   deployed.forEach(c => { E[c.rarity] = (E[c.rarity]||0) + 1; });
@@ -248,13 +248,13 @@ function evRecalcEventCards(){
 function evRefreshCounts(){
   const total = EV_CATALOG.reduce((s,e)=>s+e.cards,0);
   document.getElementById('evCounts').textContent =
-    total ? `${total} carte(s) taguée(s) event au total.` : 'Aucune carte taguée à un event pour le moment.';
+    total ? `${total} card(s) tagged to an event in total.` : 'No card tagged to an event yet.';
 }
 async function evSave(){
   const key = document.getElementById('evKey').value;
   const boost = parseFloat(document.getElementById('evBoost').value) || 1;
   const res = document.getElementById('evResult');
-  res.textContent = 'Application…';
+  res.textContent = 'Applying…';
   try {
     const r = await fetch('/api/owner/global-event', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -263,12 +263,12 @@ async function evSave(){
                             test_guilds: document.getElementById('evTestGuilds').value.trim()}),
     });
     const d = await r.json();
-    const scope = (d.test_guilds && d.test_guilds.trim()) ? ' · 🧪 mode test (serveurs listés)' : '';
+    const scope = (d.test_guilds && d.test_guilds.trim()) ? ' · 🧪 test mode (listed servers)' : '';
     if (d.ok) res.innerHTML = d.active
-        ? `✅ Event <b>${d.emoji} ${d.name}</b> activé · drop cartes event ×<b>${d.drop_boost}</b>${scope}.`
-        : '✅ Event désactivé.';
-    else res.textContent = `❌ ${d.error || 'Erreur'}`;
-  } catch(e){ res.textContent = 'Erreur : ' + e.message; }
+        ? `✅ Event <b>${d.emoji} ${d.name}</b> enabled · event card drop ×<b>${d.drop_boost}</b>${scope}.`
+        : '✅ Event disabled.';
+    else res.textContent = `❌ ${d.error || 'Error'}`;
+  } catch(e){ res.textContent = 'Error: ' + e.message; }
 }
 window.evSave = evSave;
 
@@ -281,17 +281,17 @@ let EM_ITEMS = {};
 async function emLoad(){
   const ek = document.getElementById('emEvent').value;
   const box = document.getElementById('emList');
-  if(!ek){ box.innerHTML = '<div class="em-empty">Sélectionne un event.</div>'; return; }
-  box.innerHTML = '<div class="em-empty">Chargement…</div>';
+  if(!ek){ box.innerHTML = '<div class="em-empty">Pick an event.</div>'; return; }
+  box.innerHTML = '<div class="em-empty">Loading…</div>';
   try{
     const r = await fetch(`/api/owner/global-event/cards/${ek}`);
     const d = await r.json();
     const items = d.items || [];
     EM_ITEMS = {}; items.forEach(c => EM_ITEMS[c.id] = c);
     box.innerHTML = items.length ? items.map(c => emRow(c, true)).join('')
-      : '<div class="em-empty">Aucune carte taguée à cet event.</div>';
+      : '<div class="em-empty">No card tagged to this event.</div>';
     evRecalcEventCards();
-  }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
+  }catch(e){ box.innerHTML = '<div class="em-empty">Error.</div>'; }
 }
 function emRow(c, tagged){
   // tagged (carte deja de l'event) -> affiche statut + gestion skin alt
@@ -299,20 +299,20 @@ function emRow(c, tagged){
     return `<div class="em-row">
       <span>${RAR_EMO[c.rarity]||'⚪'}</span>
       <div class="nm">${emEsc(c.name)} <span class="rar">${emEsc(c.universe||'')}</span></div>
-      <button onclick="emTag(${c.id}, true)">➕ Ajouter</button>
+      <button onclick="emTag(${c.id}, true)">➕ Add</button>
     </div>`;
   }
   const status = c.not_obtainable
-    ? '<span class="rar" style="color:#f2b33a">🟡 brouillon</span>'
-    : '<span class="rar" style="color:#4ade80">🟢 déployée</span>';
+    ? '<span class="rar" style="color:#f2b33a">🟡 draft</span>'
+    : '<span class="rar" style="color:#4ade80">🟢 deployed</span>';
   const alt = c.alt_image_url
     ? '<span class="rar" style="color:#a86dff">🎨 alt ✓</span>'
-    : '<span class="rar" style="color:#777">🎨 sans alt</span>';
+    : '<span class="rar" style="color:#777">🎨 no alt</span>';
   return `<div class="em-row">
     <span>${RAR_EMO[c.rarity]||'⚪'}</span>
     <div class="nm">${emEsc(c.name)} ${status} ${alt}</div>
-    <button onclick="emEdit(${c.id})" title="Modifier la carte">✏️ Modifier</button>
-    <button onclick="emTag(${c.id}, false)">➖ Retirer</button>
+    <button onclick="emEdit(${c.id})" title="Edit the card">✏️ Edit</button>
+    <button onclick="emTag(${c.id}, false)">➖ Remove</button>
   </div>`;
 }
 
@@ -323,7 +323,7 @@ function emUpload(cardId, kind){
   inp.onchange = async () => {
     const f = inp.files[0]; if(!f) return;
     const res = document.getElementById('edmResult');
-    res.textContent = (kind==='alt'?'Upload skin alt…':'Upload image…');
+    res.textContent = (kind==='alt'?'Uploading alt skin…':'Uploading image…');
     const fd = new FormData(); fd.append('image', f);
     const url = kind==='alt'
       ? `/api/owner/global-event/card/${cardId}/alt`
@@ -331,9 +331,9 @@ function emUpload(cardId, kind){
     try{
       const r = await fetch(url, { method:'POST', body: fd });
       const d = await r.json();
-      if(d.ok){ res.textContent = '✅ Image enregistrée.'; emLoad(); }
-      else res.textContent = `❌ ${d.error||'Erreur'}`;
-    }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+      if(d.ok){ res.textContent = '✅ Image saved.'; emLoad(); }
+      else res.textContent = `❌ ${d.error||'Error'}`;
+    }catch(e){ res.textContent = 'Error: ' + e.message; }
   };
   inp.click();
 }
@@ -345,7 +345,7 @@ function emEdit(cardId){
   document.getElementById('edmUniverse').value = c.universe || '';
   document.getElementById('edmSubtitle').value = c.subtitle || '';
   document.getElementById('edmImage').value = (c.image_url||'').startsWith('http') ? c.image_url : '';
-  document.getElementById('edmAltStatus').textContent = c.alt_image_url ? '🎨 skin alt présent' : '🎨 aucun skin alt';
+  document.getElementById('edmAltStatus').textContent = c.alt_image_url ? '🎨 alt skin present' : '🎨 no alt skin';
   document.getElementById('edmResult').textContent = '';
   document.getElementById('edmScrim').style.display = 'flex';
 }
@@ -353,7 +353,7 @@ function emEditClose(){ document.getElementById('edmScrim').style.display='none'
 async function emEditSave(){
   const cid = document.getElementById('edmId').value;
   const res = document.getElementById('edmResult');
-  res.textContent = 'Enregistrement…';
+  res.textContent = 'Saving…';
   const payload = {
     name: document.getElementById('edmName').value.trim(),
     rarity: document.getElementById('edmRarity').value,
@@ -366,18 +366,18 @@ async function emEditSave(){
     const r = await fetch(`/api/owner/cards/${cid}`, {
       method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const d = await r.json();
-    if(d.ok){ res.textContent = '✅ Carte modifiée.'; emLoad(); }
-    else res.textContent = `❌ ${d.error||'Erreur'}`;
-  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+    if(d.ok){ res.textContent = '✅ Card updated.'; emLoad(); }
+    else res.textContent = `❌ ${d.error||'Error'}`;
+  }catch(e){ res.textContent = 'Error: ' + e.message; }
 }
 window.emEdit = emEdit; window.emEditClose = emEditClose; window.emEditSave = emEditSave; window.emUpload = emUpload;
 async function ecCreate(){
   const ek = document.getElementById('emEvent').value;
   const res = document.getElementById('ecResult');
   const name = document.getElementById('ecName').value.trim();
-  if(!ek){ res.textContent = 'Sélectionne un event d\'abord.'; return; }
-  if(!name){ res.textContent = 'Nom requis.'; return; }
-  res.textContent = 'Création…';
+  if(!ek){ res.textContent = 'Pick an event first.'; return; }
+  if(!name){ res.textContent = 'Name required.'; return; }
+  res.textContent = 'Creating…';
   const file = document.getElementById('ecFile').files[0];
   try{
     let r;
@@ -405,42 +405,42 @@ async function ecCreate(){
     }
     const d = await r.json();
     if(d.ok){
-      res.textContent = '✅ Carte créée en brouillon.';
+      res.textContent = '✅ Card created as draft.';
       ['ecName','ecUniverse','ecSubtitle','ecImage'].forEach(id=>document.getElementById(id).value='');
       document.getElementById('ecFile').value='';
       emLoad(); evLoad();
-    } else res.textContent = `❌ ${d.error||'Erreur'}`;
-  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+    } else res.textContent = `❌ ${d.error||'Error'}`;
+  }catch(e){ res.textContent = 'Error: ' + e.message; }
 }
 async function emDeploy(){
   const ek = document.getElementById('emEvent').value;
   const res = document.getElementById('emResult');
-  if(!ek){ res.textContent = 'Sélectionne un event.'; return; }
-  if(!confirm('Déployer toutes les cartes en brouillon de cet event ? Elles deviendront rollables.')) return;
-  res.textContent = 'Déploiement…';
+  if(!ek){ res.textContent = 'Pick an event.'; return; }
+  if(!confirm('Deploy every draft card of this event? They will become rollable.')) return;
+  res.textContent = 'Deploying…';
   try{
     const r = await fetch('/api/owner/global-event/deploy', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({event_key: ek}),
     });
     const d = await r.json();
-    if(d.ok){ res.innerHTML = `🚀 <b>${d.deployed}</b> carte(s) déployée(s).`; emLoad(); }
-    else res.textContent = `❌ ${d.error||'Erreur'}`;
-  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+    if(d.ok){ res.innerHTML = `🚀 <b>${d.deployed}</b> card(s) deployed.`; emLoad(); }
+    else res.textContent = `❌ ${d.error||'Error'}`;
+  }catch(e){ res.textContent = 'Error: ' + e.message; }
 }
 window.ecCreate = ecCreate; window.emDeploy = emDeploy;
 async function emSearch(){
   const q = (document.getElementById('emSearch').value||'').trim();
   const box = document.getElementById('emResults');
   if(!q){ box.style.display='none'; return; }
-  box.style.display='block'; box.innerHTML = '<div class="em-empty">Recherche…</div>';
+  box.style.display='block'; box.innerHTML = '<div class="em-empty">Searching…</div>';
   try{
     const r = await fetch(`/api/owner/cards?q=${encodeURIComponent(q)}&per_page=20`);
     const d = await r.json();
     const items = d.items || [];
     box.innerHTML = items.length ? items.map(c => emRow(c, false)).join('')
-      : '<div class="em-empty">Aucun résultat.</div>';
-  }catch(e){ box.innerHTML = '<div class="em-empty">Erreur.</div>'; }
+      : '<div class="em-empty">No result.</div>';
+  }catch(e){ box.innerHTML = '<div class="em-empty">Error.</div>'; }
 }
 async function emTag(cardId, add){
   const ek = document.getElementById('emEvent').value;
@@ -452,12 +452,12 @@ async function emTag(cardId, add){
     });
     const d = await r.json();
     if(d.ok){
-      res.textContent = add ? '✅ Carte ajoutée à l\'event.' : '✅ Carte retirée.';
+      res.textContent = add ? '✅ Card added to the event.' : '✅ Card removed.';
       emLoad(); evLoad();
       document.getElementById('emResults').style.display='none';
       document.getElementById('emSearch').value='';
-    } else res.textContent = `❌ ${d.error||'Erreur'}`;
-  }catch(e){ res.textContent = 'Erreur : ' + e.message; }
+    } else res.textContent = `❌ ${d.error||'Error'}`;
+  }catch(e){ res.textContent = 'Error: ' + e.message; }
 }
 window.emLoad = emLoad; window.emSearch = emSearch; window.emTag = emTag;
 

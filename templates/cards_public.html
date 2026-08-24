@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'public_cards' %}
 
-{% block title %}Catalogue Cartes · TookBot{% endblock %}
-{% block crumb %}Catalogue Cartes{% endblock %}
+{% block title %}{{ t('web_cards.public.title') }} · TookBot{% endblock %}
+{% block crumb %}{{ t('web_cards.public.title') }}{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
@@ -133,16 +133,13 @@
 <div class="col gap-6">
   <div class="pc-header">
     <div>
-      <h1>🃏 Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="pcCount"></span></h1>
+      <h1>{{ t('web_cards.public.heading') }} <span class="muted" style="font-size:14px;font-weight:500;" id="pcCount"></span></h1>
       <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
-        Tous les personnages disponibles sur TookBot. Tire des cartes avec
-        <code>/roll</code> sur Discord, gagne des Essences ✨, fusionne avec
-        <code>/cardfuse</code>, customise avec <code>/cardcustom</code>, et échange via
-        <code>/cardtrade</code>. Guide complet : <code>/cardhelp</code>.
+        {{ t('web_cards.public.intro') | safe }}
       </p>
     </div>
     {% if fast_edit_allowed %}
-    <button id="fastEditBtn" class="fast-edit-btn" onclick="toggleFastEdit()" title="Activer pour cliquer direct sur une carte = ouvrir le recadrage">
+    <button id="fastEditBtn" class="fast-edit-btn" onclick="toggleFastEdit()" title="{{ t('web_cards.public.fast_edit_title') }}">
       ⚡ FAST EDIT
     </button>
     {% endif %}
@@ -150,33 +147,33 @@
 
   <!-- Drop rates info -->
   <div>
-    <h3 style="margin-bottom:8px;">📊 Taux de drop & cooldown</h3>
+    <h3 style="margin-bottom:8px;">{{ t('web_cards.public.drop_rates_title') }}</h3>
     <p class="muted" style="font-size:12px;margin-bottom:10px;">
-      Cooldown <strong>1 heure par serveur</strong> (30 min = 2 rolls/h sur le serveur support). Chaque <code>/roll</code> tire selon ces probabilités :
+      {{ t('web_cards.public.cooldown_note') | safe }}
     </p>
     <div class="pc-stats" id="pcStats"></div>
   </div>
 
   <!-- Barre filtres -->
   <div class="pc-filterbar">
-    <input type="search" id="pcSearch" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:220px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;" oninput="pcDebouncedReload()">
+    <input type="search" id="pcSearch" placeholder="{{ t('web_cards.public.search_ph') }}" style="flex:1;min-width:220px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;" oninput="pcDebouncedReload()">
     <button class="pc-filter-btn" id="pcFilterBtn" onclick="pcToggleFilters()">
-      ⚙ Tous les filtres
+      {{ t('web_cards.public.all_filters') }}
       <span class="chev">▼</span>
     </button>
-    <label class="pc-switch" title="Affiche toute la collection : tes cartes en couleur, les manquantes en grisé">
+    <label class="pc-switch" title="{{ t('web_cards.public.mine_title') }}">
       <input type="checkbox" id="pcMine" onchange="pcToggleMine()">
       <span class="track"></span>
-      <span>Voir ma collection</span>
+      <span>{{ t('web_cards.public.see_mine') }}</span>
     </label>
   </div>
 
   <!-- Panneau filtres dépliable -->
   <div class="pc-filter-panel" id="pcFilterPanel">
     <div class="pc-filter-grid">
-      <label>Rareté
+      <label>{{ t('web_cards.public.f_rarity') }}
         <select id="pcRarity" onchange="pcResetAndLoad()">
-          <option value="">Toutes raretés</option>
+          <option value="">{{ t('web_cards.public.all_rarities') }}</option>
           <option value="secret">🌈 Secret ???</option>
           <option value="mythic">Mythic (1%)</option>
           <option value="legendary">Legendary (4%)</option>
@@ -185,29 +182,29 @@
           <option value="common">Common (50%)</option>
         </select>
       </label>
-      <label>Univers
+      <label>{{ t('web_cards.public.f_universe') }}
         <select id="pcUniverse" onchange="pcUniverseChanged()">
-          <option value="">Tous univers</option>
+          <option value="">{{ t('web_cards.public.all_universes') }}</option>
         </select>
       </label>
-      <label>Origine
+      <label>{{ t('web_cards.public.f_origin') }}
         <select id="pcOrigin" onchange="pcResetAndLoad()">
-          <option value="">Toutes origines</option>
+          <option value="">{{ t('web_cards.public.all_origins') }}</option>
         </select>
       </label>
-      <label>Trier par
+      <label>{{ t('web_cards.public.sort_by') }}
         <select id="pcSort" onchange="pcResetAndLoad()">
-          <option value="name_asc">Nom A→Z</option>
-          <option value="name_desc">Nom Z→A</option>
-          <option value="universe_asc">Univers A→Z</option>
-          <option value="subtitle_asc">Origine A→Z</option>
-          <option value="rarity_desc" selected>Rareté ↓ (mythic d'abord)</option>
-          <option value="rarity_asc">Rareté ↑ (common d'abord)</option>
-          <option value="newest">Plus récent</option>
-          <option value="oldest">Plus ancien</option>
+          <option value="name_asc">{{ t('web_cards.public.sort_name_asc') }}</option>
+          <option value="name_desc">{{ t('web_cards.public.sort_name_desc') }}</option>
+          <option value="universe_asc">{{ t('web_cards.public.sort_universe') }}</option>
+          <option value="subtitle_asc">{{ t('web_cards.public.sort_origin') }}</option>
+          <option value="rarity_desc" selected>{{ t('web_cards.public.sort_rarity_desc') }}</option>
+          <option value="rarity_asc">{{ t('web_cards.public.sort_rarity_asc') }}</option>
+          <option value="newest">{{ t('web_cards.public.sort_newest') }}</option>
+          <option value="oldest">{{ t('web_cards.public.sort_oldest') }}</option>
         </select>
       </label>
-      <label>Par page
+      <label>{{ t('web_cards.public.per_page') }}
         <select id="pcPerPage" onchange="pcResetAndLoad()">
           <option value="25">25 / page</option>
           <option value="50" selected>50 / page</option>
@@ -218,14 +215,14 @@
     </div>
   </div>
 
-  <div id="pcGrid" class="pc-grid"><div class="muted">Chargement…</div></div>
+  <div id="pcGrid" class="pc-grid"><div class="muted">{{ t('web_cards.public.loading') }}</div></div>
 
   <div class="pc-toolbar" style="justify-content:center;margin-top:14px;">
-    <button class="btn btn-ghost" onclick="pcPrev()" id="pcPrev">← Préc.</button>
+    <button class="btn btn-ghost" onclick="pcPrev()" id="pcPrev">{{ t('web_cards.public.prev') }}</button>
     <span class="muted" id="pcPagInfo" style="min-width:120px;text-align:center;">—</span>
-    <button class="btn btn-ghost" onclick="pcNext()" id="pcNext">Suiv. →</button>
+    <button class="btn btn-ghost" onclick="pcNext()" id="pcNext">{{ t('web_cards.public.next') }}</button>
     <span style="margin-left:14px;display:flex;align-items:center;gap:6px;">
-      <label class="muted" style="font-size:12px;">Aller à :</label>
+      <label class="muted" style="font-size:12px;">{{ t('web_cards.public.jump_to') }}</label>
       <input type="number" id="pcJump" min="1" style="width:80px;padding:6px 8px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;" onkeydown="if(event.key==='Enter')pcJumpTo()">
       <button class="btn btn-secondary" onclick="pcJumpTo()" style="padding:6px 10px;font-size:12px;">OK</button>
     </span>
@@ -243,8 +240,8 @@
       <span id="pcPreviewSub">—</span>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
-      <button class="btn btn-secondary" onclick="pcOpenEdit()">✏ Proposer une modif</button>
-      <button class="btn btn-ghost" onclick="pcClosePreview()">Fermer</button>
+      <button class="btn btn-secondary" onclick="pcOpenEdit()">{{ t('web_cards.public.suggest_edit') }}</button>
+      <button class="btn btn-ghost" onclick="pcClosePreview()">{{ t('web_cards.public.close') }}</button>
     </div>
   </div>
 </div>
@@ -252,20 +249,20 @@
 <!-- Edit suggest modal -->
 <div class="pc-preview-scrim" id="pcEditScrim" onclick="pcCloseEdit(event)">
   <div class="pc-preview-modal" onclick="event.stopPropagation()" style="max-width:480px;">
-    <h3>✏ Proposer une modification</h3>
+    <h3>{{ t('web_cards.public.edit_title') }}</h3>
     <p class="muted" style="font-size:12px;margin-bottom:14px;">
-      L'équipe valide chaque proposition. Édite les champs ci-dessous. Vide = inchangé.
+      {{ t('web_cards.public.edit_sub') }}
     </p>
     <div class="col" style="gap:10px;">
-      <label class="muted" style="font-size:11px;">Nom</label>
-      <input id="pcEditName" placeholder="(nom actuel si vide)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
-      <label class="muted" style="font-size:11px;">Univers</label>
-      <input id="pcEditUniverse" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
-      <label class="muted" style="font-size:11px;">Origine</label>
-      <input id="pcEditSubtitle" placeholder="(inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
-      <label class="muted" style="font-size:11px;">Rareté proposée</label>
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.public.f_name') }}</label>
+      <input id="pcEditName" placeholder="{{ t('web_cards.public.f_name_ph') }}" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.public.f_universe') }}</label>
+      <input id="pcEditUniverse" placeholder="{{ t('web_cards.public.unchanged_ph') }}" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.public.f_origin') }}</label>
+      <input id="pcEditSubtitle" placeholder="{{ t('web_cards.public.unchanged_ph') }}" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.public.f_proposed_rarity') }}</label>
       <select id="pcEditRarity" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
-        <option value="">(inchangée)</option>
+        <option value="">{{ t('web_cards.public.unchanged_opt') }}</option>
         <option value="common">Common</option>
         <option value="rare">Rare</option>
         <option value="epic">Epic</option>
@@ -274,17 +271,17 @@
         <option value="secret">🌈 Secret</option>
       </select>
       <label class="muted" style="font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <span>Nouvelle image (URL)</span>
-        <a href="https://imgur.com/upload" target="_blank" rel="noopener" style="color:var(--accent,#b9f23a);text-decoration:none;font-size:11px;">📤 Upload sur imgur ↗</a>
+        <span>{{ t('web_cards.public.f_new_image') }}</span>
+        <a href="https://imgur.com/upload" target="_blank" rel="noopener" style="color:var(--accent,#b9f23a);text-decoration:none;font-size:11px;">{{ t('web_cards.public.upload_imgur') }}</a>
       </label>
-      <input id="pcEditImage" placeholder="https://i.imgur.com/... (vide = inchangé)" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <input id="pcEditImage" placeholder="{{ t('web_cards.public.f_image_ph') }}" class="input" style="width:100%;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
       <div id="pcEditCropStatus" class="muted" style="font-size:11px;font-style:italic;"></div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px;flex-wrap:wrap;">
-      <button class="btn btn-ghost" onclick="pcOpenCropFromEdit()">✂ Recadrer l'image actuelle</button>
+      <button class="btn btn-ghost" onclick="pcOpenCropFromEdit()">{{ t('web_cards.public.crop_current') }}</button>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary" onclick="pcCloseEdit()">Annuler</button>
-        <button class="btn btn-primary" onclick="pcSubmitEdit()">Envoyer la proposition</button>
+        <button class="btn btn-secondary" onclick="pcCloseEdit()">{{ t('web_cards.public.cancel') }}</button>
+        <button class="btn btn-primary" onclick="pcSubmitEdit()">{{ t('web_cards.public.submit') }}</button>
       </div>
     </div>
   </div>
@@ -293,20 +290,20 @@
 <!-- Cropper modal public -->
 <div id="pcCropScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:301;display:none;place-items:center;padding:20px;">
   <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:720px;width:100%;">
-    <h3 style="margin:0 0 12px;">✂ Recadrer la carte</h3>
-    <p class="muted" style="font-size:12px;margin-bottom:10px;">Ratio fixe 2:3. Output 450×675px.</p>
+    <h3 style="margin:0 0 12px;">{{ t('web_cards.public.crop_title') }}</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">{{ t('web_cards.public.crop_hint') }}</p>
     <div style="max-height:60vh;overflow:hidden;background:#000;border-radius:8px;">
       <img id="pcCropImg" src="" style="display:block;max-width:100%;">
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
-      <button class="btn btn-secondary" onclick="pcCropReset()">Reset cadre</button>
+      <button class="btn btn-secondary" onclick="pcCropReset()">{{ t('web_cards.public.crop_reset') }}</button>
       <button class="btn btn-ghost" onclick="_pcCropper && _pcCropper.zoom(0.2)">🔍+</button>
       <button class="btn btn-ghost" onclick="_pcCropper && _pcCropper.zoom(-0.2)">🔍−</button>
-      <button class="btn btn-ghost" onclick="pcCropFlip('h')" title="Miroir horizontal">↔ Miroir H</button>
-      <button class="btn btn-ghost" onclick="pcCropFlip('v')" title="Miroir vertical">↕ Miroir V</button>
+      <button class="btn btn-ghost" onclick="pcCropFlip('h')" title="{{ t('web_cards.public.flip_h_title') }}">{{ t('web_cards.public.flip_h') }}</button>
+      <button class="btn btn-ghost" onclick="pcCropFlip('v')" title="{{ t('web_cards.public.flip_v_title') }}">{{ t('web_cards.public.flip_v') }}</button>
       <span style="flex:1;"></span>
-      <button class="btn btn-ghost" onclick="pcCloseCrop()">Annuler</button>
-      <button class="btn btn-primary" onclick="pcValidateCrop()">Valider recadrage</button>
+      <button class="btn btn-ghost" onclick="pcCloseCrop()">{{ t('web_cards.public.cancel') }}</button>
+      <button class="btn btn-primary" onclick="pcValidateCrop()">{{ t('web_cards.public.crop_validate') }}</button>
     </div>
   </div>
 </div>
@@ -323,7 +320,7 @@ function toggleFastEdit() {
     btn.classList.toggle('active', _fastEditMode);
     btn.textContent = _fastEditMode ? '⚡ FAST EDIT ON' : '⚡ FAST EDIT';
   }
-  toast(_fastEditMode ? 'Fast Edit activé : clic carte = recadrage' : 'Fast Edit désactivé');
+  toast(_fastEditMode ? 'Fast Edit on: click a card = crop' : 'Fast Edit off');
 }
 window.toggleFastEdit = toggleFastEdit;
 window.addEventListener('DOMContentLoaded', () => {
@@ -343,7 +340,7 @@ function pcDebouncedReload(){clearTimeout(pcDebTimer);pcDebTimer=setTimeout(()=>
 function pcResetAndLoad(){pcPage=1;pcLoad();}
 function pcPrev(){if(pcPage>1){pcPage--;pcLoad();scrollTo(0,0);}}
 function pcNext(){if(pcPage<pcTotalPages){pcPage++;pcLoad();scrollTo(0,0);}}
-function pcJumpTo(){const v=parseInt(document.getElementById('pcJump').value,10);if(!Number.isFinite(v)||v<1){toast('Page invalide.','error');return;}if(v>pcTotalPages){toast('Max : '+pcTotalPages,'error');return;}pcPage=v;pcLoad();scrollTo(0,0);}
+function pcJumpTo(){const v=parseInt(document.getElementById('pcJump').value,10);if(!Number.isFinite(v)||v<1){toast('Invalid page.','error');return;}if(v>pcTotalPages){toast('Max: '+pcTotalPages,'error');return;}pcPage=v;pcLoad();scrollTo(0,0);}
 window.pcDebouncedReload=pcDebouncedReload;
 window.pcResetAndLoad=pcResetAndLoad;
 window.pcPrev=pcPrev; window.pcNext=pcNext; window.pcJumpTo=pcJumpTo;
@@ -366,10 +363,10 @@ async function pcToggleMine(){
   if (pcMineMode && pcOwnedSet === null) {
     try {
       const r = await fetch('/api/public/cards/my-collection');
-      if (r.status === 401) { toast('Connecte-toi pour voir ta collection.', 'error'); cb.checked=false; pcMineMode=false; return; }
+      if (r.status === 401) { toast('Log in to see your collection.', 'error'); cb.checked=false; pcMineMode=false; return; }
       const d = await r.json();
       pcOwnedSet = new Set((d.card_ids || []).map(Number));
-    } catch(e){ toast('Erreur collection', 'error'); cb.checked=false; pcMineMode=false; return; }
+    } catch(e){ toast('Collection error', 'error'); cb.checked=false; pcMineMode=false; return; }
   }
   pcPage = 1; pcLoad();
 }
@@ -384,10 +381,10 @@ async function pcLoadContributors(){
     if (!items.length) return;
     const track = document.getElementById('pcMarqueeTrack');
     const html = items.map(c =>
-      `<span class="pc-marquee-item">💚 <span class="nm">${pcEsc(c.name)}</span> <span class="ct">— ${c.count} carte${c.count>1?'s':''} approuvée${c.count>1?'s':''}</span></span>`
+      `<span class="pc-marquee-item">💚 <span class="nm">${pcEsc(c.name)}</span> <span class="ct">— ${c.count} card${c.count>1?'s':''} approved</span></span>`
     ).join('');
     // Duplique pour un défilement continu
-    track.innerHTML = '<span class="pc-marquee-item" style="font-weight:800;">🙏 Merci aux contributeurs !</span>' + html + html;
+    track.innerHTML = '<span class="pc-marquee-item" style="font-weight:800;">🙏 Thanks to the contributors!</span>' + html + html;
     const mq = document.getElementById('pcMarquee');
     // Sort le bandeau de .content (max-width centré) -> direct dans .main pour
     // qu'il prenne TOUTE la largeur, juste sous le header (topbar).
@@ -426,23 +423,23 @@ async function pcLoadStats() {
       const perCard = (d.per_card_chance || {})[k] || 0;
       let perCardDisplay = '—';
       if (perCard > 0) {
-        perCardDisplay = `1 sur ~${Math.round(100/perCard).toLocaleString('fr')}`;
+        perCardDisplay = `1 in ~${Math.round(100/perCard).toLocaleString('en-US')}`;
       }
       const poolPct = ((count / poolTotal) * 100).toFixed(2);
-      const tip = `Part du pool : ${poolPct}% (${count}/${poolTotal})\n/roll pioche rareté avec poids fixe ${rateStatic}%`;
+      const tip = `Pool share: ${poolPct}% (${count}/${poolTotal})\n/roll picks rarity with fixed weight ${rateStatic}%`;
       return `
         <div class="pc-stat rar-${k}" title="${tip}">
           <div class="lbl">${RAR_LABELS[k]}</div>
-          <div class="val">${count.toLocaleString('fr')}</div>
-          <div class="pct">Part du pool : <strong>${poolPct}%</strong></div>
-          <div class="pct" style="opacity:.85;margin-top:2px;">/roll : ${rateStatic}% · Cette carte : ${perCardDisplay}</div>
+          <div class="val">${count.toLocaleString('en-US')}</div>
+          <div class="pct">Pool share: <strong>${poolPct}%</strong></div>
+          <div class="pct" style="opacity:.85;margin-top:2px;">/roll: ${rateStatic}% · This card: ${perCardDisplay}</div>
         </div>
       `;
     }).join('') + `
       <div class="pc-stat">
-        <div class="lbl">${isFiltered ? 'FILTRÉ' : 'TOTAL'}</div>
-        <div class="val">${(isFiltered ? d.filtered : d.total || 0).toLocaleString('fr')}</div>
-        <div class="pct">${isFiltered ? `sur ${(d.total || 0).toLocaleString('fr')} total` : 'cartes au catalogue'}</div>
+        <div class="lbl">${isFiltered ? 'FILTERED' : 'TOTAL'}</div>
+        <div class="val">${(isFiltered ? d.filtered : d.total || 0).toLocaleString('en-US')}</div>
+        <div class="pct">${isFiltered ? `of ${(d.total || 0).toLocaleString('en-US')} total` : 'cards in the catalog'}</div>
       </div>
     `;
   } catch (e) {}
@@ -472,7 +469,7 @@ async function pcLoadOrigins() {
     const d = await r.json();
     const sel = document.getElementById('pcOrigin');
     const cur = sel.value;
-    sel.innerHTML = '<option value="">Toutes origines</option>' +
+    sel.innerHTML = '<option value="">All origins</option>' +
       (d.items || []).map(o => `<option value="${pcEsc(o.origin)}">${pcEsc(o.origin)} (${o.count})</option>`).join('');
     // garde la sélection si toujours dispo
     if (cur && [...sel.options].some(op => op.value === cur)) sel.value = cur;
@@ -510,13 +507,13 @@ async function pcLoad() {
     const total = d.total ?? filtered;
     const filtering = (q || rar || uni);
     document.getElementById('pcCount').textContent =
-      filtering ? `(${filtered.toLocaleString('fr')} / ${total.toLocaleString('fr')})`
-                : `(${total.toLocaleString('fr')} cartes)`;
+      filtering ? `(${filtered.toLocaleString('en-US')} / ${total.toLocaleString('en-US')})`
+                : `(${total.toLocaleString('en-US')} cards)`;
     document.getElementById('pcPagInfo').textContent = `Page ${pcPage} / ${pcTotalPages}`;
     document.getElementById('pcPrev').disabled = pcPage <= 1;
     document.getElementById('pcNext').disabled = pcPage >= pcTotalPages;
     const grid = document.getElementById('pcGrid');
-    if (!pcAll.length) { grid.innerHTML = '<div class="muted">Aucune carte ne correspond.</div>'; return; }
+    if (!pcAll.length) { grid.innerHTML = '<div class="muted">No card matches.</div>'; return; }
     grid.innerHTML = pcAll.map(c => {
       const missing = pcMineMode && pcOwnedSet && !pcOwnedSet.has(Number(c.id));
       return `
@@ -574,7 +571,7 @@ function pcOpenCropFromEdit() {
   // Prefere source_image_url (originale haute resolution sans overlay)
   // pour qualite recadrage. Fallback image_url (deja rendue avec overlay).
   const src = _pcEditCard.source_image_url || _pcEditCard.image_url;
-  if (!src) { toast('Pas d\'image à recadrer.', 'error'); return; }
+  if (!src) { toast('No image to crop.', 'error'); return; }
   _pcCropSource = src;  // memorise l'original pour le re-crop futur
   const img = document.getElementById('pcCropImg');
   img.crossOrigin = 'anonymous';
@@ -611,11 +608,11 @@ function pcValidateCrop() {
     width: 450, height: 675, fillColor: '#1a1a1a',
     imageSmoothingQuality: 'high',
   });
-  if (!canvas) { toast('Erreur canvas.', 'error'); return; }
+  if (!canvas) { toast('Canvas error.', 'error'); return; }
   canvas.toBlob((blob) => {
-    if (!blob) { toast('Erreur blob.', 'error'); return; }
+    if (!blob) { toast('Blob error.', 'error'); return; }
     _pcCroppedBlob = blob;
-    document.getElementById('pcEditCropStatus').textContent = '✂ Recadrage prêt (sera envoyé avec la proposition).';
+    document.getElementById('pcEditCropStatus').textContent = '✂ Crop ready (will be sent with the suggestion).';
     pcCloseCrop();
     // Fast edit : envoie direct la proposition sans repasser par edit modal
     if (_fastEditMode) {
@@ -653,7 +650,7 @@ async function pcSubmitEdit() {
   const subtitle = document.getElementById('pcEditSubtitle').value.trim();
   const imageUrl = document.getElementById('pcEditImage').value.trim();
   const rarity = document.getElementById('pcEditRarity').value.trim();
-  toast('Envoi en cours...');
+  toast('Sending...');
   try {
     let r;
     if (_pcCroppedBlob) {
@@ -674,22 +671,22 @@ async function pcSubmitEdit() {
       });
     }
     if (r.status === 401) {
-      toast('Tu dois te connecter pour proposer une modif.', 'error');
+      toast('You must log in to suggest an edit.', 'error');
       return;
     }
     let d;
     try { d = await r.json(); }
     catch (e) {
-      toast(`Erreur serveur (${r.status}). pm2 restart manquant ?`, 'error');
+      toast(`Server error (${r.status}). Missing pm2 restart?`, 'error');
       return;
     }
     if (d.ok) {
-      toast(`Proposition envoyée (#${d.suggestion_id}). L'équipe va l'examiner.`);
+      toast(`Suggestion sent (#${d.suggestion_id}). The team will review it.`);
       _pcCroppedBlob = null;
       pcCloseEdit();
       pcClosePreview();
-    } else toast(d.error || `Erreur (status ${r.status})`, 'error');
-  } catch (e) { toast(e.message || 'Erreur réseau', 'error'); }
+    } else toast(d.error || `Error (status ${r.status})`, 'error');
+  } catch (e) { toast(e.message || 'Network error', 'error'); }
 }
 window.pcOpenEdit = pcOpenEdit;
 window.pcCloseEdit = pcCloseEdit;

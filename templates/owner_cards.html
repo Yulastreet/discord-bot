@@ -140,38 +140,38 @@
 
 <div class="col gap-7">
   <div>
-    <h1>Catalogue de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="cardsCount"></span></h1>
+    <h1>{{ t('web_cards.owner_cards.heading') }} <span class="muted" style="font-size:14px;font-weight:500;" id="cardsCount"></span></h1>
     <p class="muted mt-2" style="font-size: var(--t-sm); max-width: 60ch;">
-      Gestion owner-only du catalogue. Clic sur une carte pour la prévisualiser. Filtre par rareté/recherche en haut.
+      {{ t('web_cards.owner_cards.intro') }}
     </p>
   </div>
 
   <div class="oc-stats" id="ocStats"></div>
 
   <div class="cards-toolbar">
-    <input type="search" id="searchInput" placeholder="🔍 Nom / univers / origine" style="flex:1;min-width:200px;" oninput="debouncedReload()">
-    <button class="oc-filter-btn" id="ocFilterBtn" onclick="ocToggleFilters()">⚙ Tous les filtres <span class="chev">▼</span></button>
-    <button class="btn btn-primary" onclick="openCreateModal()">+ Nouvelle carte</button>
-    <button class="btn btn-secondary" onclick="openImportCenter()">📦 Centre d'import</button>
+    <input type="search" id="searchInput" placeholder="{{ t('web_cards.owner_cards.search_ph') }}" style="flex:1;min-width:200px;" oninput="debouncedReload()">
+    <button class="oc-filter-btn" id="ocFilterBtn" onclick="ocToggleFilters()">{{ t('web_cards.owner_cards.all_filters') }} <span class="chev">▼</span></button>
+    <button class="btn btn-primary" onclick="openCreateModal()">{{ t('web_cards.owner_cards.new_card') }}</button>
+    <button class="btn btn-secondary" onclick="openImportCenter()">{{ t('web_cards.owner_cards.import_center') }}</button>
     <details class="cards-menu">
       <summary class="btn btn-secondary">🎨 Images ▾</summary>
       <div class="cards-menu-panel">
-        <button class="btn btn-secondary" onclick="refreshImages(false)">⟳ Refetch manquantes</button>
-        <button class="btn btn-secondary" onclick="bakeOverlays()">🎨 Baker overlays</button>
-        <button class="btn btn-secondary" onclick="rebalanceByPopularity()">⚖ Rebalance rareté par popularité</button>
-        <button class="btn btn-danger" onclick="refreshImages(true)">⟳⟳ Force refetch TOUT</button>
+        <button class="btn btn-secondary" onclick="refreshImages(false)">{{ t('web_cards.owner_cards.refetch_missing') }}</button>
+        <button class="btn btn-secondary" onclick="bakeOverlays()">{{ t('web_cards.owner_cards.bake_overlays') }}</button>
+        <button class="btn btn-secondary" onclick="rebalanceByPopularity()">{{ t('web_cards.owner_cards.rebalance') }}</button>
+        <button class="btn btn-danger" onclick="refreshImages(true)">{{ t('web_cards.owner_cards.force_refetch') }}</button>
       </div>
     </details>
-    <button class="btn btn-secondary" onclick="toggleSelectMode()" id="selModeBtn">☑ Sélection</button>
+    <button class="btn btn-secondary" onclick="toggleSelectMode()" id="selModeBtn">{{ t('web_cards.owner_cards.select_mode') }}</button>
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe</button>
   </div>
 
   <!-- Panneau filtres dépliable -->
   <div class="oc-filter-panel" id="ocFilterPanel">
     <div class="oc-filter-grid">
-      <label>Rareté
+      <label>{{ t('web_cards.owner_cards.f_rarity') }}
         <select id="raritySelect" onchange="resetPageAndLoad()">
-          <option value="">Toutes raretés</option>
+          <option value="">{{ t('web_cards.owner_cards.all_rarities') }}</option>
           <option value="secret">🌈 Secret ???</option>
           <option value="mythic">Mythic</option>
           <option value="legendary">Legendary</option>
@@ -180,30 +180,30 @@
           <option value="common">Common</option>
         </select>
       </label>
-      <label>Univers
+      <label>{{ t('web_cards.owner_cards.f_universe') }}
         <select id="universeSelect" onchange="ocUniverseChanged()">
-          <option value="">Tous univers</option>
+          <option value="">{{ t('web_cards.owner_cards.all_universes') }}</option>
         </select>
       </label>
-      <label>Origine
+      <label>{{ t('web_cards.owner_cards.f_origin') }}
         <select id="originSelect" onchange="resetPageAndLoad()">
-          <option value="">Toutes origines</option>
+          <option value="">{{ t('web_cards.owner_cards.all_origins') }}</option>
         </select>
       </label>
-      <label>Trier par
+      <label>{{ t('web_cards.owner_cards.sort_by') }}
         <select id="sortSelect" onchange="resetPageAndLoad()">
-          <option value="name_asc">Nom A→Z</option>
-          <option value="name_desc">Nom Z→A</option>
-          <option value="universe_asc">Univers A→Z</option>
-          <option value="subtitle_asc">Origine A→Z</option>
-          <option value="rarity_desc">Rareté ↓ (mythic d'abord)</option>
-          <option value="rarity_asc">Rareté ↑ (common d'abord)</option>
-          <option value="newest">Plus récent</option>
-          <option value="oldest">Plus ancien</option>
+          <option value="name_asc">{{ t('web_cards.owner_cards.sort_name_asc') }}</option>
+          <option value="name_desc">{{ t('web_cards.owner_cards.sort_name_desc') }}</option>
+          <option value="universe_asc">{{ t('web_cards.owner_cards.sort_universe') }}</option>
+          <option value="subtitle_asc">{{ t('web_cards.owner_cards.sort_origin') }}</option>
+          <option value="rarity_desc">{{ t('web_cards.owner_cards.sort_rarity_desc') }}</option>
+          <option value="rarity_asc">{{ t('web_cards.owner_cards.sort_rarity_asc') }}</option>
+          <option value="newest">{{ t('web_cards.owner_cards.sort_newest') }}</option>
+          <option value="oldest">{{ t('web_cards.owner_cards.sort_oldest') }}</option>
         </select>
       </label>
-      <label>Par page
-        <select id="perPageSelect" onchange="resetPageAndLoad()" title="Cartes par page">
+      <label>{{ t('web_cards.owner_cards.per_page') }}
+        <select id="perPageSelect" onchange="resetPageAndLoad()" title="{{ t('web_cards.owner_cards.per_page_title') }}">
           <option value="25">25 / page</option>
           <option value="50" selected>50 / page</option>
           <option value="100">100 / page</option>
@@ -216,25 +216,25 @@
 
   <div class="bulk-bar" id="bulkBar">
     <strong id="bulkCount">0</strong>
-    <span class="muted">carte(s) sélectionnée(s)</span>
+    <span class="muted">{{ t('web_cards.owner_cards.bulk_selected') }}</span>
     <span style="flex:1;"></span>
-    <button class="btn btn-secondary" onclick="selectVisiblePage()">Tout sur cette page</button>
-    <button class="btn btn-secondary" onclick="clearSelection()">Désélectionner</button>
-    <button class="btn btn-primary" onclick="openBulkEdit()">✏ Modifier</button>
-    <button class="btn btn-secondary" onclick="openBulkRebake()">🎨 Re-baker overlay</button>
-    <button class="btn btn-danger" onclick="deleteSelected()">🗑 Supprimer</button>
+    <button class="btn btn-secondary" onclick="selectVisiblePage()">{{ t('web_cards.owner_cards.select_page') }}</button>
+    <button class="btn btn-secondary" onclick="clearSelection()">{{ t('web_cards.owner_cards.clear_selection') }}</button>
+    <button class="btn btn-primary" onclick="openBulkEdit()">{{ t('web_cards.owner_cards.btn_edit') }}</button>
+    <button class="btn btn-secondary" onclick="openBulkRebake()">{{ t('web_cards.owner_cards.btn_rebake') }}</button>
+    <button class="btn btn-danger" onclick="deleteSelected()">{{ t('web_cards.owner_cards.btn_delete') }}</button>
   </div>
 
   <div id="cardsGrid" class="cards-grid">
-    <div class="muted">Chargement…</div>
+    <div class="muted">{{ t('web_cards.owner_cards.loading') }}</div>
   </div>
 
   <div class="cards-toolbar" id="pagBar" style="justify-content:center;margin-top:14px;">
-    <button class="btn btn-ghost" onclick="prevPage()" id="pagPrev">← Préc.</button>
+    <button class="btn btn-ghost" onclick="prevPage()" id="pagPrev">{{ t('web_cards.owner_cards.prev') }}</button>
     <span class="muted" id="pagInfo" style="min-width:120px;text-align:center;">—</span>
-    <button class="btn btn-ghost" onclick="nextPage()" id="pagNext">Suiv. →</button>
+    <button class="btn btn-ghost" onclick="nextPage()" id="pagNext">{{ t('web_cards.owner_cards.next') }}</button>
     <span style="margin-left:14px;display:flex;align-items:center;gap:6px;">
-      <label class="muted" style="font-size:12px;">Aller à :</label>
+      <label class="muted" style="font-size:12px;">{{ t('web_cards.owner_cards.jump_to') }}</label>
       <input type="number" id="pagJumpInput" min="1" style="width:80px;padding:6px 8px;background:var(--bg-2);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:13px;" onkeydown="if(event.key==='Enter')jumpToPage()">
       <button class="btn btn-secondary" onclick="jumpToPage()" style="padding:6px 10px;font-size:12px;">OK</button>
     </span>
@@ -247,7 +247,7 @@
     <img id="previewImg" src="" alt="">
     <h3 id="previewName">—</h3>
     <div class="meta">
-      <span id="previewId" title="Cliquer pour copier l'ID" style="cursor:pointer;font-family:var(--font-mono,monospace);background:var(--bg-1,#161616);border:1px solid var(--border,#333);border-radius:6px;padding:2px 8px;" onclick="copyCardId()">ID —</span>
+      <span id="previewId" title="{{ t('web_cards.owner_cards.copy_id_title') }}" style="cursor:pointer;font-family:var(--font-mono,monospace);background:var(--bg-1,#161616);border:1px solid var(--border,#333);border-radius:6px;padding:2px 8px;" onclick="copyCardId()">ID —</span>
       <span id="previewUniverse">—</span>
       <span id="previewSubtitle">—</span>
       <span id="previewRarity">—</span>
@@ -255,7 +255,7 @@
     <div class="desc" id="previewDesc">—</div>
     <div class="actions" style="flex-wrap:wrap;gap:6px;align-items:center;">
       <select id="rebakeOverlaySel" class="input" style="min-width:130px;font-size:12px;padding:6px 8px;">
-        <option value="">Overlay (rareté)…</option>
+        <option value="">{{ t('web_cards.owner_cards.overlay_rarity') }}</option>
         <option value="common">⚪ Common</option>
         <option value="rare">🔵 Rare</option>
         <option value="epic">🟣 Epic</option>
@@ -264,11 +264,11 @@
         <option value="secret">🌈 Secret ???</option>
       </select>
       <button class="btn btn-secondary" onclick="rebakeCurrentOverlay()">🎨 Re-bake</button>
-      <button class="btn btn-secondary" onclick="openCardCropper()">✂ Recadrer</button>
+      <button class="btn btn-secondary" onclick="openCardCropper()">{{ t('web_cards.owner_cards.btn_crop') }}</button>
       <button class="btn btn-primary" onclick="giveCurrentCard()">🎁 Give</button>
       <button class="btn btn-ghost" onclick="editCurrentCard()">✏ Edit</button>
       <button class="btn btn-danger" onclick="deleteCurrentCard()">🗑 Delete</button>
-      <button class="btn btn-secondary" onclick="closePreview()">Fermer</button>
+      <button class="btn btn-secondary" onclick="closePreview()">{{ t('web_cards.owner_cards.close') }}</button>
     </div>
   </div>
 </div>
@@ -277,14 +277,14 @@
 <div class="card-preview-scrim" id="importScrim" onclick="closeImportCenter(event)">
   <div class="card-preview-modal" onclick="event.stopPropagation()" style="max-width:920px;width:100%;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 style="margin:0;">📦 Centre d'import de cartes</h3>
+      <h3 style="margin:0;">{{ t('web_cards.owner_cards.import_title') }}</h3>
       <button class="btn btn-ghost" onclick="closeImportCenter()">✕</button>
     </div>
     <!-- Tabs -->
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px;">
       <button class="ic-tab active" data-tab="anime" onclick="switchImportTab('anime')">📺 Anime</button>
-      <button class="ic-tab" data-tab="film" onclick="switchImportTab('film')">🎬 Films/Séries</button>
-      <button class="ic-tab" data-tab="game" onclick="switchImportTab('game')">🎮 Jeux Vidéo</button>
+      <button class="ic-tab" data-tab="film" onclick="switchImportTab('film')">{{ t('web_cards.owner_cards.tab_film') }}</button>
+      <button class="ic-tab" data-tab="game" onclick="switchImportTab('game')">{{ t('web_cards.owner_cards.tab_game') }}</button>
       <button class="ic-tab" data-tab="comics" onclick="switchImportTab('comics')">🦸 Comics</button>
     </div>
 
@@ -333,14 +333,14 @@
 <!-- Bulk edit modal -->
 <div class="card-preview-scrim" id="bulkEditScrim" onclick="closeBulkEdit(event)">
   <div class="card-preview-modal" onclick="event.stopPropagation()" style="max-width:480px;">
-    <h3>Modifier <span id="bulkEditCount">0</span> carte(s)</h3>
+    <h3>{{ t('web_cards.owner_cards.bulk_edit_title') }} <span id="bulkEditCount">0</span> {{ t('web_cards.owner_cards.cards_word') }}</h3>
     <p class="muted" style="font-size:12px;margin-bottom:14px;">
-      Seuls les champs remplis seront appliqués. Vide = inchangé.
+      {{ t('web_cards.owner_cards.bulk_edit_sub') }}
     </p>
     <div class="col" style="gap:10px;">
-      <label class="muted" style="font-size:11px;">Rareté</label>
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.owner_cards.f_rarity') }}</label>
       <select id="bulkRarity" class="input">
-        <option value="">(inchangé)</option>
+        <option value="">{{ t('web_cards.owner_cards.unchanged_opt') }}</option>
         <option value="common">Common</option>
         <option value="rare">Rare</option>
         <option value="epic">Epic</option>
@@ -348,16 +348,16 @@
         <option value="mythic">Mythic</option>
         <option value="secret">🌈 Secret ???</option>
       </select>
-      <label class="muted" style="font-size:11px;">Univers</label>
-      <input id="bulkUniverse" placeholder="(inchangé)" class="input" style="width:100%;">
-      <label class="muted" style="font-size:11px;">Origine</label>
-      <input id="bulkSubtitle" placeholder="(inchangé)" class="input" style="width:100%;">
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.owner_cards.f_universe') }}</label>
+      <input id="bulkUniverse" placeholder="{{ t('web_cards.owner_cards.unchanged_ph') }}" class="input" style="width:100%;">
+      <label class="muted" style="font-size:11px;">{{ t('web_cards.owner_cards.f_origin') }}</label>
+      <input id="bulkSubtitle" placeholder="{{ t('web_cards.owner_cards.unchanged_ph') }}" class="input" style="width:100%;">
       <label class="muted" style="font-size:11px;">Description</label>
-      <textarea id="bulkDesc" placeholder="(inchangé)" rows="2" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
+      <textarea id="bulkDesc" placeholder="{{ t('web_cards.owner_cards.unchanged_ph') }}" rows="2" class="input" style="width:100%;font-family:var(--font-mono);font-size:13px;"></textarea>
     </div>
     <div class="actions" style="margin-top:14px;">
-      <button class="btn btn-secondary" onclick="closeBulkEdit()">Annuler</button>
-      <button class="btn btn-primary" onclick="submitBulkEdit()">Appliquer</button>
+      <button class="btn btn-secondary" onclick="closeBulkEdit()">{{ t('web_cards.owner_cards.cancel') }}</button>
+      <button class="btn btn-primary" onclick="submitBulkEdit()">{{ t('web_cards.owner_cards.apply') }}</button>
     </div>
   </div>
 </div>
@@ -365,13 +365,12 @@
 <!-- Bulk rebake modal -->
 <div class="card-preview-scrim" id="bulkRebakeScrim" onclick="closeBulkRebake(event)">
   <div class="card-preview-modal" onclick="event.stopPropagation()" style="max-width:420px;">
-    <h3>Re-baker overlay sur <span id="bulkRebakeCount">0</span> carte(s)</h3>
+    <h3>{{ t('web_cards.owner_cards.bulk_rebake_title') }} <span id="bulkRebakeCount">0</span> {{ t('web_cards.owner_cards.cards_word') }}</h3>
     <p class="muted" style="font-size:12px;margin-bottom:14px;">
-      Applique cet overlay à toute la sélection. Source originale requise.
-      Les cartes sans source d'origine seront skippées.
+      {{ t('web_cards.owner_cards.bulk_rebake_sub') }}
     </p>
     <select id="bulkOverlayRarity" class="input" style="width:100%;">
-      <option value="">— Choisir overlay —</option>
+      <option value="">{{ t('web_cards.owner_cards.pick_overlay') }}</option>
       <option value="common">⚪ Common</option>
       <option value="rare">🔵 Rare</option>
       <option value="epic">🟣 Epic</option>
@@ -379,8 +378,8 @@
       <option value="mythic">🔴 Mythic</option>
     </select>
     <div class="actions" style="margin-top:14px;">
-      <button class="btn btn-secondary" onclick="closeBulkRebake()">Annuler</button>
-      <button class="btn btn-primary" onclick="submitBulkRebake()">Appliquer</button>
+      <button class="btn btn-secondary" onclick="closeBulkRebake()">{{ t('web_cards.owner_cards.cancel') }}</button>
+      <button class="btn btn-primary" onclick="submitBulkRebake()">{{ t('web_cards.owner_cards.apply') }}</button>
     </div>
   </div>
 </div>
@@ -388,23 +387,23 @@
 <!-- Cropper modal pour cards -->
 <div id="cardCropScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:301;display:none;place-items:center;padding:20px;">
   <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:720px;width:100%;">
-    <h3 style="margin:0 0 12px;">✂ Recadrer <span id="cardCropName">—</span></h3>
+    <h3 style="margin:0 0 12px;">{{ t('web_cards.owner_cards.crop_title') }} <span id="cardCropName">—</span></h3>
     <p class="muted" style="font-size:12px;margin-bottom:10px;">
-      Ratio fixe 2:3. Source originale rechargee. Overlay rareté re-appliqué auto.
+      {{ t('web_cards.owner_cards.crop_hint') }}
     </p>
     <div style="max-height:60vh;overflow:hidden;background:#000;border-radius:8px;">
       <img id="cardCropImg" src="" style="display:block;max-width:100%;">
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
-      <button class="btn btn-secondary" onclick="cardCropReset()">Reset cadre</button>
+      <button class="btn btn-secondary" onclick="cardCropReset()">{{ t('web_cards.owner_cards.crop_reset') }}</button>
       <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(0.2)" title="Zoom +">🔍+</button>
       <button class="btn btn-ghost" onclick="_cardCropper && _cardCropper.zoom(-0.2)" title="Zoom -">🔍−</button>
-      <button class="btn btn-ghost" onclick="cardCropFlip('h')" title="Miroir horizontal">↔ Miroir H</button>
-      <button class="btn btn-ghost" onclick="cardCropFlip('v')" title="Miroir vertical">↕ Miroir V</button>
-      <button class="btn btn-ghost" onclick="cardCropLoadUrl()" title="Charger une autre image">🔗 Autre image</button>
+      <button class="btn btn-ghost" onclick="cardCropFlip('h')" title="{{ t('web_cards.owner_cards.flip_h_title') }}">{{ t('web_cards.owner_cards.flip_h') }}</button>
+      <button class="btn btn-ghost" onclick="cardCropFlip('v')" title="{{ t('web_cards.owner_cards.flip_v_title') }}">{{ t('web_cards.owner_cards.flip_v') }}</button>
+      <button class="btn btn-ghost" onclick="cardCropLoadUrl()" title="{{ t('web_cards.owner_cards.other_img_title') }}">{{ t('web_cards.owner_cards.other_img') }}</button>
       <span style="flex:1;"></span>
-      <button class="btn btn-ghost" onclick="closeCardCropper()">Annuler</button>
-      <button class="btn btn-primary" onclick="submitCardCrop()">✅ Appliquer recadrage</button>
+      <button class="btn btn-ghost" onclick="closeCardCropper()">{{ t('web_cards.owner_cards.cancel') }}</button>
+      <button class="btn btn-primary" onclick="submitCardCrop()">{{ t('web_cards.owner_cards.crop_apply') }}</button>
     </div>
   </div>
 </div>
@@ -429,30 +428,30 @@
 <div class="card-preview-scrim" id="editScrim" onclick="closeEditModal(event)"
      onmousedown="window._editDownOnScrim = (event.target === this)">
   <div class="card-preview-modal" onclick="event.stopPropagation()">
-    <h3 id="editTitle" style="margin-bottom:2px;">Nouvelle carte</h3>
-    <p class="muted" style="font-size:12px;margin:0 0 12px;">Modifie les infos de la carte puis enregistre.</p>
+    <h3 id="editTitle" style="margin-bottom:2px;">{{ t('web_cards.owner_cards.new_card_title') }}</h3>
+    <p class="muted" style="font-size:12px;margin:0 0 12px;">{{ t('web_cards.owner_cards.edit_sub') }}</p>
     <input type="hidden" id="editCardId">
     <div class="ef-form">
       <div class="ef">
-        <label>Nom <span class="ef-req">*</span></label>
-        <input id="editName" placeholder="Ex : Goku" class="input">
+        <label>{{ t('web_cards.owner_cards.f_name') }} <span class="ef-req">*</span></label>
+        <input id="editName" placeholder="{{ t('web_cards.owner_cards.f_name_ph') }}" class="input">
       </div>
       <div class="ef">
-        <label>Sous-titre <span class="ef-hint">— affiché sous le nom</span></label>
-        <input id="editFlavor" placeholder="Ex : MASTERED ULTRA INSTINCT" class="input">
+        <label>{{ t('web_cards.owner_cards.f_flavor') }} <span class="ef-hint">{{ t('web_cards.owner_cards.f_flavor_hint') }}</span></label>
+        <input id="editFlavor" placeholder="{{ t('web_cards.owner_cards.f_flavor_ph') }}" class="input">
       </div>
       <div class="ef-row">
         <div class="ef">
-          <label>Univers</label>
+          <label>{{ t('web_cards.owner_cards.f_universe') }}</label>
           <input id="editUniverse" placeholder="Anime, Comics…" class="input">
         </div>
         <div class="ef">
-          <label>Origine</label>
+          <label>{{ t('web_cards.owner_cards.f_origin') }}</label>
           <input id="editSubtitle" placeholder="Naruto, Marvel…" class="input">
         </div>
       </div>
       <div class="ef">
-        <label>Rareté</label>
+        <label>{{ t('web_cards.owner_cards.f_rarity') }}</label>
         <select id="editRarity" class="input">
           <option value="common">⚪ Common</option>
           <option value="rare">🔵 Rare</option>
@@ -463,33 +462,33 @@
         </select>
       </div>
       <div class="ef">
-        <label>Image <span class="ef-hint">— URL (vide = auto-fetch Wikipedia)</span></label>
+        <label>{{ t('web_cards.owner_cards.f_image') }} <span class="ef-hint">{{ t('web_cards.owner_cards.f_image_hint') }}</span></label>
         <input id="editImage" placeholder="https://…" class="input">
       </div>
       <div class="ef">
         <label>Description</label>
-        <textarea id="editDesc" placeholder="Texte de flavor / citation…" rows="3" class="input" style="font-family:var(--font-mono);font-size:13px;resize:vertical;"></textarea>
+        <textarea id="editDesc" placeholder="{{ t('web_cards.owner_cards.f_desc_ph') }}" rows="3" class="input" style="font-family:var(--font-mono);font-size:13px;resize:vertical;"></textarea>
       </div>
       <div class="ef">
-        <label>Event <span class="ef-hint">— carte boostée au roll pendant l'event (reste toujours obtenable)</span></label>
+        <label>Event <span class="ef-hint">{{ t('web_cards.owner_cards.f_event_hint') }}</span></label>
         <select id="editEvent" class="input">
-          <option value="">— Aucun (toujours obtenable) —</option>
-          <option value="summer">☀️ Summer</option>
-          <option value="halloween">🎃 Halloween</option>
-          <option value="noel">🎄 Noël</option>
-          <option value="winter">❄️ Hiver</option>
-          <option value="valentine">💖 Saint-Valentin</option>
+          <option value="">{{ t('web_cards.owner_cards.event_none') }}</option>
+          <option value="summer">☀️ {{ t('data.global_event.summer.name') }}</option>
+          <option value="halloween">🎃 {{ t('data.global_event.halloween.name') }}</option>
+          <option value="noel">🎄 {{ t('data.global_event.noel.name') }}</option>
+          <option value="winter">❄️ {{ t('data.global_event.winter.name') }}</option>
+          <option value="valentine">💖 {{ t('data.global_event.valentine.name') }}</option>
         </select>
       </div>
       <label class="ef-check">
         <input id="editNotObtainable" type="checkbox">
-        <span style="font-size:13px;">🚫 Non obtenible</span>
-        <span class="muted" style="font-size:11px;">— cachée du catalogue + jamais rollée</span>
+        <span style="font-size:13px;">{{ t('web_cards.owner_cards.not_obtainable') }}</span>
+        <span class="muted" style="font-size:11px;">{{ t('web_cards.owner_cards.not_obtainable_hint') }}</span>
       </label>
     </div>
     <div class="actions" style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn btn-secondary" onclick="closeEditModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveCard()">💾 Enregistrer</button>
+      <button class="btn btn-secondary" onclick="closeEditModal()">{{ t('web_cards.owner_cards.cancel') }}</button>
+      <button class="btn btn-primary" onclick="saveCard()">{{ t('web_cards.owner_cards.save') }}</button>
     </div>
   </div>
 </div>
@@ -523,8 +522,8 @@ function prevPage() { if (_currentPage > 1) { _currentPage--; loadCards(); windo
 function nextPage() { if (_currentPage < _totalPages) { _currentPage++; loadCards(); window.scrollTo(0, 0); } }
 function jumpToPage() {
   const v = parseInt(document.getElementById('pagJumpInput').value, 10);
-  if (!Number.isFinite(v) || v < 1) { toast('Page invalide.', 'error'); return; }
-  if (v > _totalPages) { toast(`Max : ${_totalPages}`, 'error'); return; }
+  if (!Number.isFinite(v) || v < 1) { toast('Invalid page.', 'error'); return; }
+  if (v > _totalPages) { toast(`Max: ${_totalPages}`, 'error'); return; }
   _currentPage = v; loadCards(); window.scrollTo(0, 0);
 }
 window.resetPageAndLoad = resetPageAndLoad;
@@ -554,22 +553,22 @@ async function loadOcStats() {
       const count = (d.by_rarity || {})[k] || 0;
       const rateStatic = (d.drop_rates || {})[k] || 0;
       const perCard = (d.per_card_chance || {})[k] || 0;
-      const perCardDisplay = perCard > 0 ? `1 sur ~${Math.round(100/perCard).toLocaleString('fr')}` : '—';
+      const perCardDisplay = perCard > 0 ? `1 in ~${Math.round(100/perCard).toLocaleString('en-US')}` : '—';
       const poolPct = ((count / poolTotal) * 100).toFixed(2);
-      const tip = `Part du pool : ${poolPct}% (${count}/${poolTotal})\n/roll pioche rareté avec poids fixe ${rateStatic}%`;
+      const tip = `Pool share: ${poolPct}% (${count}/${poolTotal})\n/roll picks rarity with fixed weight ${rateStatic}%`;
       return `
         <div class="oc-stat rar-${k}" title="${tip}">
           <div class="lbl">${OC_RAR_LABELS[k]}</div>
-          <div class="val">${count.toLocaleString('fr')}</div>
-          <div class="pct">Part du pool : <strong>${poolPct}%</strong></div>
-          <div class="pct" style="opacity:.85;margin-top:2px;">/roll : ${rateStatic}% · Cette carte : ${perCardDisplay}</div>
+          <div class="val">${count.toLocaleString('en-US')}</div>
+          <div class="pct">Pool share: <strong>${poolPct}%</strong></div>
+          <div class="pct" style="opacity:.85;margin-top:2px;">/roll: ${rateStatic}% · This card: ${perCardDisplay}</div>
         </div>
       `;
     }).join('') + `
       <div class="oc-stat">
-        <div class="lbl">${isFiltered ? 'FILTRÉ' : 'TOTAL'}</div>
-        <div class="val">${((isFiltered ? d.filtered : d.total) || 0).toLocaleString('fr')}</div>
-        <div class="pct">${isFiltered ? `sur ${(d.total || 0).toLocaleString('fr')}` : 'au catalogue'}</div>
+        <div class="lbl">${isFiltered ? 'FILTERED' : 'TOTAL'}</div>
+        <div class="val">${((isFiltered ? d.filtered : d.total) || 0).toLocaleString('en-US')}</div>
+        <div class="pct">${isFiltered ? `of ${(d.total || 0).toLocaleString('en-US')}` : 'in the catalog'}</div>
       </div>
     `;
   } catch (e) {}
@@ -607,7 +606,7 @@ async function loadCards() {
     document.getElementById('pagNext').disabled = _currentPage >= _totalPages;
     const grid = document.getElementById('cardsGrid');
     if (!_allCards.length) {
-      grid.innerHTML = '<div class="muted">Aucune carte.</div>';
+      grid.innerHTML = '<div class="muted">No cards.</div>';
       return;
     }
     grid.innerHTML = _allCards.map(c => {
@@ -621,7 +620,7 @@ async function loadCards() {
           ${selBox}
           ${c.image_url ? `<img src="${escapeHtml(c.image_url + _imgCacheBust)}" alt="" onerror="this.style.display='none';this.parentNode.innerHTML+='<div class=\\'no-img\\'>?</div>'">` : '<div class="no-img">?</div>'}
           <span class="rarity-badge rar-${c.rarity}">${c.rarity}</span>
-          ${(c.owned_count ?? 0) > 0 ? `<span class="owned-badge" title="${c.owned_count} possession(s) chez ${c.owners_count} joueur(s)">👥 ${c.owned_count}</span>` : '<span class="owned-badge zero" title="Personne ne possède cette carte">○ 0</span>'}
+          ${(c.owned_count ?? 0) > 0 ? `<span class="owned-badge" title="${c.owned_count} copy/copies held by ${c.owners_count} player(s)">👥 ${c.owned_count}</span>` : '<span class="owned-badge zero" title="Nobody owns this card">○ 0</span>'}
         </div>
         <div class="card-tile-meta">
           <div class="card-tile-name">${escapeHtml(c.name)}</div>
@@ -648,14 +647,14 @@ function openPreview(id) {
   document.getElementById('previewUniverse').textContent = c.universe || '?';
   document.getElementById('previewSubtitle').textContent = c.subtitle || '?';
   document.getElementById('previewRarity').textContent = c.rarity;
-  document.getElementById('previewDesc').textContent = c.description || '*Pas de description.*';
+  document.getElementById('previewDesc').textContent = c.description || '*No description.*';
   document.getElementById('previewScrim').classList.add('open');
 }
 window.openPreview = openPreview;
 function copyCardId() {
   if (!_currentPreview) return;
   const id = String(_currentPreview.id);
-  navigator.clipboard?.writeText(id).then(() => window.toast?.('ID ' + id + ' copié'));
+  navigator.clipboard?.writeText(id).then(() => window.toast?.('ID ' + id + ' copied'));
 }
 window.copyCardId = copyCardId;
 function closePreview(e) {
@@ -665,7 +664,7 @@ function closePreview(e) {
 window.closePreview = closePreview;
 
 function openCreateModal() {
-  document.getElementById('editTitle').textContent = 'Nouvelle carte';
+  document.getElementById('editTitle').textContent = 'New card';
   document.getElementById('editCardId').value = '';
   document.getElementById('editName').value = '';
   document.getElementById('editFlavor').value = '';
@@ -720,37 +719,37 @@ async function saveCard() {
     description: document.getElementById('editDesc').value.trim(),
     event_key:   document.getElementById('editEvent').value,
   };
-  if (!payload.name) { toast('Nom requis.', 'error'); return; }
+  if (!payload.name) { toast('Name required.', 'error'); return; }
   try {
     const url = id ? `/api/owner/cards/${id}` : '/api/owner/cards';
     const method = id ? 'PATCH' : 'POST';
     const r = await fetch(url, { method, headers: {'Content-Type': 'application/json'},
                                  body: JSON.stringify(payload) });
     const d = await r.json();
-    if (d.ok || d.id) { toast(id ? 'Modifiee.' : 'Creee.'); bumpCache(); closeEditModal(); loadCards(); }
-    else toast(d.error || 'Erreur', 'error');
+    if (d.ok || d.id) { toast(id ? 'Updated.' : 'Created.'); bumpCache(); closeEditModal(); loadCards(); }
+    else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.saveCard = saveCard;
 
 async function giveCurrentCard() {
   if (!_currentPreview) return;
-  const userId = prompt(`Give "${_currentPreview.name}" à quel user ?\nColle son ID Discord (clic droit user → Copier l'ID, mode dev activé).`);
+  const userId = prompt(`Give "${_currentPreview.name}" to which user?\nPaste their Discord ID (right-click the user → Copy ID, developer mode on).`);
   if (!userId) return;
   const clean = userId.trim();
-  if (!/^\d{15,20}$/.test(clean)) { toast('ID Discord invalide (15-20 chiffres).', 'error'); return; }
-  const qtyStr = prompt('Quantité ? (1-100)', '1');
+  if (!/^\d{15,20}$/.test(clean)) { toast('Invalid Discord ID (15-20 digits).', 'error'); return; }
+  const qtyStr = prompt('Quantity? (1-100)', '1');
   if (!qtyStr) return;
   const qty = parseInt(qtyStr, 10);
-  if (!Number.isFinite(qty) || qty < 1) { toast('Quantité invalide.', 'error'); return; }
+  if (!Number.isFinite(qty) || qty < 1) { toast('Invalid quantity.', 'error'); return; }
   try {
     const r = await fetch(`/api/owner/cards/${_currentPreview.id}/give`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({user_id: clean, qty}),
     });
     const d = await r.json();
-    if (d.ok) toast(`Donné ×${d.given} "${d.card_name}" à ${d.user_id}`);
-    else toast(d.error || 'Erreur', 'error');
+    if (d.ok) toast(`Gave ×${d.given} "${d.card_name}" to ${d.user_id}`);
+    else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.giveCurrentCard = giveCurrentCard;
@@ -762,9 +761,9 @@ function openCardCropper() {
   // /card_suggestions/ = image originale proposée (sans overlay) -> OK pour recadrer.
   // /card_renders/ = render bake (overlay deja applique) -> source perdue, demande une URL.
   if (!src || src.includes('/card_renders/')) {
-    const newUrl = prompt('Source originale perdue. Colle une nouvelle URL d\'image (http) à recadrer pour cette carte :', '');
+    const newUrl = prompt('Original source lost. Paste a new image URL (http) to crop for this card:', '');
     if (!newUrl || !/^https?:\/\//i.test(newUrl.trim())) {
-      if (newUrl !== null) toast('URL invalide (doit commencer par http).', 'error');
+      if (newUrl !== null) toast('Invalid URL (must start with http).', 'error');
       return;
     }
     src = newUrl.trim();
@@ -813,9 +812,9 @@ function cardCropFlip(axis) {
 window.cardCropFlip = cardCropFlip;
 
 function cardCropLoadUrl() {
-  const url = prompt('Colle l\'URL de l\'image à charger (http) :', '');
+  const url = prompt('Paste the image URL to load (http):', '');
   if (!url || !/^https?:\/\//i.test(url.trim())) {
-    if (url !== null) toast('URL invalide (doit commencer par http).', 'error');
+    if (url !== null) toast('Invalid URL (must start with http).', 'error');
     return;
   }
   const img = document.getElementById('cardCropImg');
@@ -830,15 +829,15 @@ function closeCardCropper() {
 }
 async function submitCardCrop() {
   if (!_cardCropper || !_currentPreview) return;
-  toast('Recadrage en cours...');
+  toast('Cropping...');
   // Genere canvas cropee (Cropper handle scale image native + crop coords)
   const canvas = _cardCropper.getCroppedCanvas({
     width: 450, height: 675, fillColor: '#1a1a1a',
     imageSmoothingQuality: 'high',
   });
-  if (!canvas) { toast('Erreur crop canvas.', 'error'); return; }
+  if (!canvas) { toast('Crop canvas error.', 'error'); return; }
   canvas.toBlob(async (blob) => {
-    if (!blob) { toast('Erreur creation blob.', 'error'); return; }
+    if (!blob) { toast('Blob creation error.', 'error'); return; }
     const fd = new FormData();
     fd.append('cropped', blob, 'crop.png');
     try {
@@ -848,16 +847,16 @@ async function submitCardCrop() {
       let d;
       try { d = await r.json(); }
       catch (e) {
-        toast('Erreur serveur (HTML retourne, pm2 restart ?)', 'error'); return;
+        toast('Server error (HTML returned, pm2 restart?)', 'error'); return;
       }
       if (d.ok) {
-        toast('Carte recadrée.');
+        toast('Card cropped.');
         bumpCache();
         _currentPreview.image_url = d.image_url;
         document.getElementById('previewImg').src = d.image_url + _imgCacheBust;
         closeCardCropper();
         loadCards();
-      } else toast(d.error || 'Erreur', 'error');
+      } else toast(d.error || 'Error', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }, 'image/png');
 }
@@ -869,9 +868,9 @@ window.submitCardCrop = submitCardCrop;
 async function rebakeCurrentOverlay() {
   if (!_currentPreview) return;
   const rar = document.getElementById('rebakeOverlaySel').value;
-  if (!rar) { toast('Choisis une rareté pour l\'overlay.', 'error'); return; }
-  if (!confirm(`Re-baker l'overlay "${rar.toUpperCase()}" sur "${_currentPreview.name}" ?`)) return;
-  toast('Re-bake en cours...');
+  if (!rar) { toast('Pick a rarity for the overlay.', 'error'); return; }
+  if (!confirm(`Re-bake the "${rar.toUpperCase()}" overlay on "${_currentPreview.name}"?`)) return;
+  toast('Re-bake in progress...');
   try {
     const r = await fetch(`/api/owner/cards/${_currentPreview.id}/rebake`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -879,34 +878,34 @@ async function rebakeCurrentOverlay() {
     });
     const d = await r.json();
     if (d.ok) {
-      toast(`Overlay ${rar} appliqué.`);
+      toast(`Overlay ${rar} applied.`);
       bumpCache();
       _currentPreview.image_url = d.image_url;
       document.getElementById('previewImg').src = d.image_url + _imgCacheBust;
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.rebakeCurrentOverlay = rebakeCurrentOverlay;
 
 async function deleteCurrentCard() {
   if (!_currentPreview) return;
-  if (!confirm(`Supprimer "${_currentPreview.name}" ?`)) return;
+  if (!confirm(`Delete "${_currentPreview.name}"?`)) return;
   try {
     const r = await fetch(`/api/owner/cards/${_currentPreview.id}`, { method: 'DELETE' });
     const d = await r.json();
-    if (d.ok) { toast('Supprimee.'); closePreview(); loadCards(); }
-    else toast(d.error || 'Erreur', 'error');
+    if (d.ok) { toast('Deleted.'); closePreview(); loadCards(); }
+    else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.deleteCurrentCard = deleteCurrentCard;
 
 async function refreshImages(force = false) {
   const msg = force
-    ? 'FORCE overwrite : refetch toutes les images (meme celles deja set, ex URLs Wikia mortes). Confirmer ?'
-    : 'Rafraichir uniquement les image_url manquantes ? (Ctrl+clic = force overwrite)';
+    ? 'FORCE overwrite: refetch every image (even the ones already set, e.g. dead Wikia URLs). Confirm?'
+    : 'Refresh only the missing image_url? (Ctrl+click = force overwrite)';
   if (!confirm(msg)) return;
-  toast('Refresh en cours, peut prendre 30s-2min...');
+  toast('Refresh in progress, may take 30s-2min...');
   try {
     const r = await fetch('/api/owner/cards/refresh-images', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -916,18 +915,18 @@ async function refreshImages(force = false) {
     if (d.ok) {
       toast(`Updated ${d.stats.updated} / kept ${d.stats.kept} / failed ${d.stats.failed}`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.refreshImages = refreshImages;
 
 async function bulkImportJikan() {
-  const pagesStr = prompt('Combien de pages Jikan ? (25 personnages/page, 40 = 1000 cartes). Max 100.', '40');
+  const pagesStr = prompt('How many Jikan pages? (25 characters/page, 40 = 1000 cards). Max 100.', '40');
   if (!pagesStr) return;
   const pages = parseInt(pagesStr, 10);
-  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
-  if (!confirm(`Import ${pages*25} personnages anime via Jikan/MAL. Skip doublons. Peut prendre ~${Math.round(pages*1.5)}s. Continuer ?`)) return;
-  toast(`Import en cours (${pages} pages, ~${Math.round(pages*1.5)}s)...`);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Invalid number.', 'error'); return; }
+  if (!confirm(`Import ${pages*25} anime characters via Jikan/MAL. Duplicates skipped. May take ~${Math.round(pages*1.5)}s. Continue?`)) return;
+  toast(`Import in progress (${pages} pages, ~${Math.round(pages*1.5)}s)...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-jikan', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -937,18 +936,18 @@ async function bulkImportJikan() {
     if (d.ok) {
       toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportJikan = bulkImportJikan;
 
 async function rebalanceByPopularity() {
-  const msg = `Rebalance rareté par popularité sur :\n- Anime\n- Films/Série\n\n` +
-              `Jeu Vidéo NON touché (curated manuellement).\n\n` +
-              `Cibles : 1% mythic, 4% legendary, 15% epic, 30% rare, 50% common.\n` +
-              `Re-bake overlay auto sur cards changées. Durée ~5-10min.`;
+  const msg = `Rebalance rarity by popularity on:\n- Anime\n- Movies/Series\n\n` +
+              `Video games NOT touched (curated manually).\n\n` +
+              `Targets: 1% mythic, 4% legendary, 15% epic, 30% rare, 50% common.\n` +
+              `Auto overlay re-bake on changed cards. Takes ~5-10min.`;
   if (!confirm(msg)) return;
-  toast('Rebalance en cours, patience...');
+  toast('Rebalance in progress, hang on...');
   try {
     const r = await fetch('/api/owner/cards/rebalance-by-popularity', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -957,26 +956,26 @@ async function rebalanceByPopularity() {
     const d = await r.json();
     if (d.ok) {
       const s = d.stats;
-      let summary = `Total : ${s.total_changed} cards rebalancees. Rebaked : ${s.total_rebaked}.`;
+      let summary = `Total: ${s.total_changed} cards rebalanced. Rebaked: ${s.total_rebaked}.`;
       Object.entries(s.universes || {}).forEach(([uni, st]) => {
         summary += `\n${uni}: ${st.changed}/${st.total} changes`;
       });
       toast(summary);
       bumpCache();
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.rebalanceByPopularity = rebalanceByPopularity;
 
 async function bakeOverlays() {
-  const force = confirm('FORCE re-bake (re-genere TOUTES les images compositees) ?\nOK = force, Annuler = skip celles deja bakees.');
-  if (!confirm(`Bake overlays sur toutes les cartes${force ? ' (FORCE)' : ''}. ~15-25min selon volume.`)) return;
+  const force = confirm('FORCE re-bake (regenerate ALL composited images)?\nOK = force, Cancel = skip the ones already baked.');
+  if (!confirm(`Bake overlays on every card${force ? ' (FORCE)' : ''}. ~15-25min depending on volume.`)) return;
   // Open progress modal en reutilisant import center
   document.getElementById('importScrim').classList.add('open');
   document.getElementById('importProgress').style.display = 'block';
-  document.getElementById('ipLabel').textContent = `🎨 Baker overlays ${force ? '(FORCE)' : ''}`;
-  document.getElementById('ipStats').textContent = 'Démarrage…';
+  document.getElementById('ipLabel').textContent = `🎨 Bake overlays ${force ? '(FORCE)' : ''}`;
+  document.getElementById('ipStats').textContent = 'Starting…';
   document.getElementById('ipBar').style.width = '0%';
   document.getElementById('ipBar').style.background = 'linear-gradient(90deg,#4ade80,#22c55e)';
   document.getElementById('ipPct').textContent = '0 %';
@@ -986,7 +985,7 @@ async function bakeOverlays() {
       body: JSON.stringify({force, workers: 10}),
     });
     const d = await r.json();
-    if (!d.ok) { toast(d.error || 'Erreur start bake', 'error'); return; }
+    if (!d.ok) { toast(d.error || 'Bake start error', 'error'); return; }
     pollImportProgress(d.job_id);
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -995,12 +994,12 @@ window.bakeOverlays = bakeOverlays;
 // === IMPORT CENTER ===
 const IMPORT_SOURCES = {
   anime: [
-    {key:'anilist', name:'📺 Anilist', desc:'Top characters MyAnimeList. 50/page. Excellent qualité images.', vol:'~5000 max', source:'anilist', params:{pages:100}, featured:true},
-    {key:'anilist_more', name:'📺 Anilist (next batch)', desc:'Pages 101+ (chars moins populaires).', vol:'+200 pages possibles', source:'anilist', params:{pages:200, start_page:101}},
-    {key:'jikan', name:'🌸 Jikan (MAL fallback)', desc:'MAL via Jikan unofficial. Plus lent.', vol:'~1500 utile', source:'jikan', params:{pages:60}},
+    {key:'anilist', name:'📺 Anilist', desc:'Top MyAnimeList characters. 50/page. Excellent image quality.', vol:'~5000 max', source:'anilist', params:{pages:100}, featured:true},
+    {key:'anilist_more', name:'📺 Anilist (next batch)', desc:'Pages 101+ (less popular chars).', vol:'+200 pages possible', source:'anilist', params:{pages:200, start_page:101}},
+    {key:'jikan', name:'🌸 Jikan (MAL fallback)', desc:'MAL via unofficial Jikan. Slower.', vol:'~1500 usable', source:'jikan', params:{pages:60}},
   ],
   film: [
-    {key:'tadc', name:'🎪 The Amazing Digital Circus', desc:'Fandom TADC. Persos officiels.', vol:'~20', source:'fandom_show', params:{show_key:'tadc'}, featured:true},
+    {key:'tadc', name:'🎪 The Amazing Digital Circus', desc:'TADC Fandom. Official characters.', vol:'~20', source:'fandom_show', params:{show_key:'tadc'}, featured:true},
     {key:'hazbinhotel', name:'😈 Hazbin Hotel', desc:'Fandom Vivziepop.', vol:'~30', source:'fandom_show', params:{show_key:'hazbinhotel'}},
     {key:'helluvaboss', name:'👹 Helluva Boss', desc:'Fandom Vivziepop.', vol:'~25', source:'fandom_show', params:{show_key:'helluvaboss'}},
     {key:'starwars', name:'⭐ Star Wars', desc:'Wookieepedia.', vol:'~200', source:'fandom_show', params:{show_key:'starwars'}, featured:true},
@@ -1021,18 +1020,18 @@ const IMPORT_SOURCES = {
     {key:'pixar', name:'🚀 Pixar', desc:'Pixar Fandom.', vol:'~80', source:'fandom_show', params:{show_key:'pixar'}},
   ],
   game: [
-    {key:'pokemon', name:'🔴 Pokémon (PokeAPI)', desc:'Tous pokémons gen 1-9 avec artwork HD officiel.', vol:'1025', source:'pokemon', params:{start_id:1, end_id:1025}, featured:true},
-    {key:'nookipedia', name:'🍃 Animal Crossing', desc:'Villagers via Nookipedia API (clé requise).', vol:'~391', source:'nookipedia', params:{}, featured:true},
-    {key:'wuwa', name:'⚔ Wuthering Waves', desc:'Tous résonateurs (wiki Fandom officiel).', vol:'~30', source:'fandom_game', params:{game_key:'wuwa'}, featured:true},
-    {key:'mrivals', name:'🦸 Marvel Rivals', desc:'Heroes via wiki Fandom.', vol:'~33', source:'fandom_game', params:{game_key:'marvelrivals'}, featured:true},
-    {key:'smash', name:'🎮 Super Smash Bros.', desc:'Roster Smash Ultimate complet.', vol:'~89 fighters', source:'fandom_game', params:{game_key:'smash'}, featured:true},
+    {key:'pokemon', name:'🔴 Pokémon (PokeAPI)', desc:'All Pokemon gen 1-9 with official HD artwork.', vol:'1025', source:'pokemon', params:{start_id:1, end_id:1025}, featured:true},
+    {key:'nookipedia', name:'🍃 Animal Crossing', desc:'Villagers via the Nookipedia API (key required).', vol:'~391', source:'nookipedia', params:{}, featured:true},
+    {key:'wuwa', name:'⚔ Wuthering Waves', desc:'All resonators (official Fandom wiki).', vol:'~30', source:'fandom_game', params:{game_key:'wuwa'}, featured:true},
+    {key:'mrivals', name:'🦸 Marvel Rivals', desc:'Heroes via the Fandom wiki.', vol:'~33', source:'fandom_game', params:{game_key:'marvelrivals'}, featured:true},
+    {key:'smash', name:'🎮 Super Smash Bros.', desc:'Full Smash Ultimate roster.', vol:'~89 fighters', source:'fandom_game', params:{game_key:'smash'}, featured:true},
     {key:'zzz', name:'⚡ Zenless Zone Zero', desc:'Agents via hakush.in.', vol:'~40', source:'hakush', params:{game_key:'zzz'}},
-    {key:'lol', name:'⚔ League of Legends', desc:'Tous champions LoL.', vol:'~170', source:'fandom_game', params:{game_key:'lol'}, featured:true},
+    {key:'lol', name:'⚔ League of Legends', desc:'All LoL champions.', vol:'~170', source:'fandom_game', params:{game_key:'lol'}, featured:true},
     {key:'overwatch', name:'🎯 Overwatch', desc:'Heroes Blizzard.', vol:'~40', source:'fandom_game', params:{game_key:'overwatch'}, featured:true},
     {key:'genshin', name:'⚔ Genshin Impact', desc:'Playable characters.', vol:'~80', source:'fandom_game', params:{game_key:'genshin'}, featured:true},
     {key:'honkai-sr', name:'🚂 Honkai: Star Rail', desc:'Trailblazer + chars.', vol:'~50', source:'fandom_game', params:{game_key:'honkai-sr'}, featured:true},
-    {key:'finalfantasy', name:'⚔ Final Fantasy', desc:'Wiki FF (pas d\'API officielle Square).', vol:'~500', source:'fandom_game', params:{game_key:'finalfantasy'}, featured:true},
-    {key:'fireemblem', name:'🔥 Fire Emblem Heroes', desc:'Wiki FEH avec heroes.', vol:'~600', source:'fandom_game', params:{game_key:'fireemblem'}, featured:true},
+    {key:'finalfantasy', name:'⚔ Final Fantasy', desc:'FF wiki (no official Square API).', vol:'~500', source:'fandom_game', params:{game_key:'finalfantasy'}, featured:true},
+    {key:'fireemblem', name:'🔥 Fire Emblem Heroes', desc:'FEH wiki with heroes.', vol:'~600', source:'fandom_game', params:{game_key:'fireemblem'}, featured:true},
     {key:'mario', name:'🍄 Mario', desc:'Mario universe.', vol:'~200', source:'fandom_game', params:{game_key:'mario'}, featured:true},
     {key:'zelda', name:'🗡 The Legend of Zelda', desc:'Zelda Wiki.', vol:'~100', source:'fandom_game', params:{game_key:'zelda'}, featured:true},
     {key:'sonic', name:'💨 Sonic', desc:'Sonic universe.', vol:'~80', source:'fandom_game', params:{game_key:'sonic'}},
@@ -1040,9 +1039,9 @@ const IMPORT_SOURCES = {
     {key:'wow', name:'⚔ World of Warcraft', desc:'WoW lore characters.', vol:'~500', source:'fandom_game', params:{game_key:'wow'}, featured:true},
   ],
   comics: [
-    {key:'sh_marvel', name:'🦸 Marvel', desc:'SuperHero API officielle. Iron Man, Spider-Man, Hulk...', vol:'~400', source:'superhero', params:{publishers:['Marvel Comics']}, featured:true},
+    {key:'sh_marvel', name:'🦸 Marvel', desc:'Official SuperHero API. Iron Man, Spider-Man, Hulk...', vol:'~400', source:'superhero', params:{publishers:['Marvel Comics']}, featured:true},
     {key:'sh_dc', name:'🦇 DC Comics', desc:'Batman, Superman, WW...', vol:'~200', source:'superhero', params:{publishers:['DC Comics']}, featured:true},
-    {key:'sh_all', name:'📚 Tous comics', desc:'Marvel + DC + Image + Dark Horse + indie.', vol:'~730', source:'superhero', params:{publishers:null}},
+    {key:'sh_all', name:'📚 All comics', desc:'Marvel + DC + Image + Dark Horse + indie.', vol:'~730', source:'superhero', params:{publishers:null}},
   ],
 };
 
@@ -1079,10 +1078,10 @@ window.closeImportCenter = closeImportCenter;
 window.switchImportTab = switchImportTab;
 
 async function startImport(src) {
-  if (!confirm(`Lancer import : ${src.name} (${src.vol}) ?`)) return;
+  if (!confirm(`Start import: ${src.name} (${src.vol})?`)) return;
   document.getElementById('importProgress').style.display = 'block';
   document.getElementById('ipLabel').textContent = src.name;
-  document.getElementById('ipStats').textContent = 'Démarrage…';
+  document.getElementById('ipStats').textContent = 'Starting…';
   document.getElementById('ipBar').style.width = '0%';
   document.getElementById('ipPct').textContent = '0 %';
   try {
@@ -1091,7 +1090,7 @@ async function startImport(src) {
       body: JSON.stringify({source: src.source, params: src.params}),
     });
     const d = await r.json();
-    if (!d.ok) { toast(d.error || 'Erreur start', 'error'); return; }
+    if (!d.ok) { toast(d.error || 'Start error', 'error'); return; }
     pollImportProgress(d.job_id);
   } catch (e) { toast(e.message, 'error'); }
 }
@@ -1116,16 +1115,16 @@ async function pollImportProgress(jobId) {
       document.getElementById('ipStats').textContent = stat || `${j.current||0}/${j.total||0}`;
       if (j.status === 'done') {
         document.getElementById('ipBar').style.background = 'linear-gradient(90deg,#4ade80,#22c55e)';
-        document.getElementById('ipStats').textContent = `✅ ${stat || 'Terminé'}`;
-        toast(`Import terminé : ${stat || 'OK'}`);
+        document.getElementById('ipStats').textContent = `✅ ${stat || 'Done'}`;
+        toast(`Import done: ${stat || 'OK'}`);
         loadCards();
         stopped = true;
         return;
       }
       if (j.status === 'error') {
         document.getElementById('ipBar').style.background = 'linear-gradient(90deg,#ff3d57,#dc2626)';
-        document.getElementById('ipStats').textContent = `❌ ${j.error || 'Erreur'}`;
-        toast(j.error || 'Erreur import', 'error');
+        document.getElementById('ipStats').textContent = `❌ ${j.error || 'Error'}`;
+        toast(j.error || 'Import error', 'error');
         stopped = true;
         return;
       }
@@ -1136,18 +1135,18 @@ async function pollImportProgress(jobId) {
 }
 
 async function bulkImportAll() {
-  const aniPagesStr = prompt('Anime Anilist : combien de pages ? (50 chars/page). Vide = skip.', '20');
-  const igdbPagesStr = prompt('Jeux Vidéo IGDB : combien de pages ? (500 chars/page). Vide = skip.', '4');
+  const aniPagesStr = prompt('Anime Anilist: how many pages? (50 chars/page). Empty = skip.', '20');
+  const igdbPagesStr = prompt('Video games IGDB: how many pages? (500 chars/page). Empty = skip.', '4');
   const aniPages = parseInt(aniPagesStr || '0', 10) || 0;
   const igdbPages = parseInt(igdbPagesStr || '0', 10) || 0;
-  if (!aniPages && !igdbPages) { toast('Rien à importer.', 'error'); return; }
+  if (!aniPages && !igdbPages) { toast('Nothing to import.', 'error'); return; }
   const total = aniPages*50 + igdbPages*500;
-  if (!confirm(`Import total : ~${total} cartes (Anilist ${aniPages*50} + IGDB ${igdbPages*500}). Skip doublons. Continuer ?`)) return;
-  toast('Import en cours, peut prendre plusieurs minutes...');
+  if (!confirm(`Total import: ~${total} cards (Anilist ${aniPages*50} + IGDB ${igdbPages*500}). Duplicates skipped. Continue?`)) return;
+  toast('Import in progress, may take several minutes...');
   let aniStats = null, igdbStats = null;
   try {
     if (aniPages > 0) {
-      toast(`Anilist en cours (${aniPages} pages)...`);
+      toast(`Anilist in progress (${aniPages} pages)...`);
       const r = await fetch('/api/owner/cards/bulk-import-anilist', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({pages: aniPages, skip_existing: true, wipe_first: false}),
@@ -1157,7 +1156,7 @@ async function bulkImportAll() {
       else toast(`Anilist err: ${d.error}`, 'error');
     }
     if (igdbPages > 0) {
-      toast(`IGDB en cours (${igdbPages} pages)...`);
+      toast(`IGDB in progress (${igdbPages} pages)...`);
       const r = await fetch('/api/owner/cards/bulk-import-igdb', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({pages: igdbPages, page_size: 500, skip_existing: true, wipe_first: false}),
@@ -1169,16 +1168,16 @@ async function bulkImportAll() {
     const summary = [];
     if (aniStats) summary.push(`Anilist: +${aniStats.inserted} (skip ${aniStats.skipped}, fail ${aniStats.failed})`);
     if (igdbStats) summary.push(`IGDB: +${igdbStats.inserted} (skip ${igdbStats.skipped}, fail ${igdbStats.failed})`);
-    toast(summary.join(' · ') || 'Import terminé');
+    toast(summary.join(' · ') || 'Import done');
     loadCards();
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAll = bulkImportAll;
 
 async function bulkImportSuperhero(publishers) {
-  const label = publishers ? publishers.join(' + ') : 'tous éditeurs (Marvel+DC+indie)';
-  if (!confirm(`Import SuperHero API : ${label}. Skip doublons. ~5-15s.`)) return;
-  toast(`Import ${label} en cours...`);
+  const label = publishers ? publishers.join(' + ') : 'all publishers (Marvel+DC+indie)';
+  if (!confirm(`SuperHero API import: ${label}. Duplicates skipped. ~5-15s.`)) return;
+  toast(`Importing ${label}...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-superhero', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1194,18 +1193,18 @@ async function bulkImportSuperhero(publishers) {
       }
       toast(msg);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportSuperhero = bulkImportSuperhero;
 
 async function bulkImportMarvelAPI() {
-  const pagesStr = prompt('Combien de pages Marvel API ? (100 chars/page, max 30 pages = 3000 calls jour). 15 = ~1500 chars iconiques.', '15');
+  const pagesStr = prompt('How many Marvel API pages? (100 chars/page, max 30 pages = 3000 calls/day). 15 = ~1500 iconic chars.', '15');
   if (!pagesStr) return;
   const pages = parseInt(pagesStr, 10);
-  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
-  if (!confirm(`Import ${pages * 100} chars Marvel API. Skip doublons. Durée ~${pages}s.`)) return;
-  toast(`Import Marvel API en cours...`);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Invalid number.', 'error'); return; }
+  if (!confirm(`Import ${pages * 100} Marvel API chars. Duplicates skipped. Takes ~${pages}s.`)) return;
+  toast(`Marvel API import in progress...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-marvel', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1215,14 +1214,14 @@ async function bulkImportMarvelAPI() {
     if (d.ok) {
       toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / no-image ${d.stats.no_image} / failed ${d.stats.failed}`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportMarvelAPI = bulkImportMarvelAPI;
 
 async function bulkImportOneShow(showKey, showLabel) {
-  if (!confirm(`Importer tous les persos de ${showLabel} ? (skip doublons)`)) return;
-  toast(`Import ${showLabel} en cours...`);
+  if (!confirm(`Import every character from ${showLabel}? (duplicates skipped)`)) return;
+  toast(`Importing ${showLabel}...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-show', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1233,7 +1232,7 @@ async function bulkImportOneShow(showKey, showLabel) {
       const s = d.stats;
       toast(`${showLabel} : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}, blacklist ${s.blacklisted})`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportOneShow = bulkImportOneShow;
@@ -1244,8 +1243,8 @@ async function bulkImportAllSelectedShows() {
                   'breakingbad','thewalkingdead','squidgame','theoffice','friends',
                   'succession','simpsons','southpark','familyguy','rickandmorty',
                   'spongebob','adventuretime','avatar','disney','pixar'];
-  if (!confirm(`Importer tous les persos des 26 films/séries listés ? Durée ~3-5min.`)) return;
-  toast('Import multi-séries en cours... ~3-5min');
+  if (!confirm(`Import every character from the 26 listed movies/series? Takes ~3-5min.`)) return;
+  toast('Multi-series import in progress... ~3-5min');
   try {
     const r = await fetch('/api/owner/cards/bulk-import-shows-multi', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1254,16 +1253,16 @@ async function bulkImportAllSelectedShows() {
     const d = await r.json();
     if (d.ok) {
       const s = d.stats;
-      toast(`Total : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}). ${s.shows_done}/${shows.length} shows OK.`);
+      toast(`Total: +${s.inserted} (skip ${s.skipped}, fail ${s.failed}). ${s.shows_done}/${shows.length} shows OK.`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAllSelectedShows = bulkImportAllSelectedShows;
 
 async function bulkImportOneGame(gameKey, gameLabel) {
-  if (!confirm(`Importer tous les personnages disponibles de ${gameLabel} ? (skip doublons)`)) return;
-  toast(`Import ${gameLabel} en cours...`);
+  if (!confirm(`Import every available character from ${gameLabel}? (duplicates skipped)`)) return;
+  toast(`Importing ${gameLabel}...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-game', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1274,15 +1273,15 @@ async function bulkImportOneGame(gameKey, gameLabel) {
       const s = d.stats;
       toast(`${gameLabel} : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}, blacklist ${s.blacklisted})`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportOneGame = bulkImportOneGame;
 
 async function bulkImportAllSelectedGames() {
   const games = ['lol','overwatch','mario','sonic','dragonquest','zelda','genshin','honkai-sr','wow'];
-  if (!confirm(`Importer tous les persos de : LoL, Overwatch, Mario, Sonic, Dragon Quest, Zelda, Genshin, Honkai SR, WoW ?`)) return;
-  toast('Import multi-jeux en cours... ~1-3min');
+  if (!confirm(`Import every character from: LoL, Overwatch, Mario, Sonic, Dragon Quest, Zelda, Genshin, Honkai SR, WoW?`)) return;
+  toast('Multi-game import in progress... ~1-3min');
   try {
     const r = await fetch('/api/owner/cards/bulk-import-games-multi', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1291,23 +1290,23 @@ async function bulkImportAllSelectedGames() {
     const d = await r.json();
     if (d.ok) {
       const s = d.stats;
-      toast(`Total : +${s.inserted} (skip ${s.skipped}, fail ${s.failed}). ${s.games_done}/${games.length} jeux OK.`);
+      toast(`Total: +${s.inserted} (skip ${s.skipped}, fail ${s.failed}). ${s.games_done}/${games.length} games OK.`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAllSelectedGames = bulkImportAllSelectedGames;
 
 async function bulkImportGiantBomb() {
-  const pagesStr = prompt('Combien de pages Giant Bomb ? (100 chars/page). ATTENTION rate limit 200 req/h. 50 pages = 5000 chars en ~15min. Max 200 pages.', '50');
+  const pagesStr = prompt('How many Giant Bomb pages? (100 chars/page). WARNING rate limit 200 req/h. 50 pages = 5000 chars in ~15min. Max 200 pages.', '50');
   if (!pagesStr) return;
   const pages = parseInt(pagesStr, 10);
-  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
-  const offsetStr = prompt('Start offset ? (0 = depart, sinon reprend session interrompue)', '0');
+  if (!Number.isFinite(pages) || pages < 1) { toast('Invalid number.', 'error'); return; }
+  const offsetStr = prompt('Start offset? (0 = from the start, otherwise resumes an interrupted session)', '0');
   const startOffset = parseInt(offsetStr || '0', 10) || 0;
   const minutes = Math.round(pages * 17 / 60);
-  if (!confirm(`Import ${pages*100} chars Giant Bomb (offset ${startOffset}). Duree ~${minutes}min. Continuer ?`)) return;
-  toast(`Import Giant Bomb en cours (${pages} pages, ~${minutes}min)... Console pour progress.`);
+  if (!confirm(`Import ${pages*100} Giant Bomb chars (offset ${startOffset}). Takes ~${minutes}min. Continue?`)) return;
+  toast(`Giant Bomb import in progress (${pages} pages, ~${minutes}min)... Console for progress.`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-giantbomb', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1318,18 +1317,18 @@ async function bulkImportGiantBomb() {
     if (d.ok) {
       toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportGiantBomb = bulkImportGiantBomb;
 
 async function bulkImportIgdb() {
-  const pagesStr = prompt('Combien de pages IGDB ? (500 chars/page, 4 = 2000 cartes). Max 20.', '4');
+  const pagesStr = prompt('How many IGDB pages? (500 chars/page, 4 = 2000 cards). Max 20.', '4');
   if (!pagesStr) return;
   const pages = parseInt(pagesStr, 10);
-  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
-  if (!confirm(`Import ~${pages*500} personnages jeux video IGDB. Skip doublons. ~${Math.round(pages*2)}s. Continuer ?`)) return;
-  toast(`Import IGDB en cours (${pages} pages, ~${Math.round(pages*2)}s)...`);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Invalid number.', 'error'); return; }
+  if (!confirm(`Import ~${pages*500} IGDB video game characters. Duplicates skipped. ~${Math.round(pages*2)}s. Continue?`)) return;
+  toast(`IGDB import in progress (${pages} pages, ~${Math.round(pages*2)}s)...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-igdb', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1339,18 +1338,18 @@ async function bulkImportIgdb() {
     if (d.ok) {
       toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportIgdb = bulkImportIgdb;
 
 async function bulkImportAnilist() {
-  const pagesStr = prompt('Combien de pages Anilist ? (50 personnages/page, 20 = 1000 cartes). Max 50.', '20');
+  const pagesStr = prompt('How many Anilist pages? (50 characters/page, 20 = 1000 cards). Max 50.', '20');
   if (!pagesStr) return;
   const pages = parseInt(pagesStr, 10);
-  if (!Number.isFinite(pages) || pages < 1) { toast('Nombre invalide.', 'error'); return; }
-  if (!confirm(`Import ${pages*50} personnages Anilist. Skip doublons. ~${Math.round(pages*1)}s. Continuer ?`)) return;
-  toast(`Import Anilist en cours (${pages} pages, ~${Math.round(pages*1)}s)...`);
+  if (!Number.isFinite(pages) || pages < 1) { toast('Invalid number.', 'error'); return; }
+  if (!confirm(`Import ${pages*50} Anilist characters. Duplicates skipped. ~${Math.round(pages*1)}s. Continue?`)) return;
+  toast(`Anilist import in progress (${pages} pages, ~${Math.round(pages*1)}s)...`);
   try {
     const r = await fetch('/api/owner/cards/bulk-import-anilist', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1360,7 +1359,7 @@ async function bulkImportAnilist() {
     if (d.ok) {
       toast(`Inserted ${d.stats.inserted} / skipped ${d.stats.skipped} / failed ${d.stats.failed}`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.bulkImportAnilist = bulkImportAnilist;
@@ -1375,20 +1374,20 @@ async function wipeCatalog() {
   } catch (e) { toast(e.message, 'error'); return; }
   const list = univs.map((u, i) => `${i+1}. ${u.universe} (${u.count})`).join('\n');
   const choice = prompt(
-    `WIPE catalogue. Choisis :\n0. TOUT (toutes cartes + collections)\n${list}\n\nNuméro (0 = tout) :`,
+    `WIPE catalog. Choose:\n0. EVERYTHING (all cards + collections)\n${list}\n\nNumber (0 = everything):`,
     '0'
   );
   if (choice === null) return;
   const idx = parseInt(choice, 10);
   let universe = null;
   if (idx === 0) {
-    if (!confirm('SUPPRIMER TOUTES LES CARTES + collections users ? Irreversible.')) return;
-    if (!confirm('Vraiment ? Confirmer une 2eme fois.')) return;
+    if (!confirm('DELETE EVERY CARD + user collections? Irreversible.')) return;
+    if (!confirm('Really? Confirm a 2nd time.')) return;
   } else if (idx >= 1 && idx <= univs.length) {
     universe = univs[idx - 1].universe;
-    if (!confirm(`Wipe univers "${universe}" (${univs[idx-1].count} cartes) ? Irreversible.`)) return;
+    if (!confirm(`Wipe universe "${universe}" (${univs[idx-1].count} cards)? Irreversible.`)) return;
   } else {
-    toast('Choix invalide.', 'error'); return;
+    toast('Invalid choice.', 'error'); return;
   }
   try {
     const r = await fetch('/api/owner/cards/wipe', {
@@ -1397,10 +1396,10 @@ async function wipeCatalog() {
     });
     const d = await r.json();
     if (d.ok) {
-      const scope = d.universe ? `univers "${d.universe}"` : 'catalogue';
-      toast(`Wipe ${scope} : ${d.deleted} cartes supprimees.`);
+      const scope = d.universe ? `universe "${d.universe}"` : 'catalog';
+      toast(`Wipe ${scope}: ${d.deleted} cards deleted.`);
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.wipeCatalog = wipeCatalog;
@@ -1410,7 +1409,7 @@ function toggleSelectMode() {
   _selectMode = !_selectMode;
   document.getElementById('selModeBtn').classList.toggle('btn-primary', _selectMode);
   document.getElementById('selModeBtn').classList.toggle('btn-secondary', !_selectMode);
-  document.getElementById('selModeBtn').textContent = _selectMode ? '✕ Quitter sélection' : '☑ Sélection';
+  document.getElementById('selModeBtn').textContent = _selectMode ? '✕ Exit selection' : '☑ Select';
   if (!_selectMode) _selected.clear();
   loadCards();
 }
@@ -1436,10 +1435,10 @@ function updateBulkBar() {
 }
 async function deleteSelected() {
   if (!_selected.size) return;
-  if (!confirm(`Supprimer ${_selected.size} carte(s) + leurs collections joueurs ? Irreversible.`)) return;
-  if (!confirm('Vraiment ? 2eme confirmation.')) return;
+  if (!confirm(`Delete ${_selected.size} card(s) + their player collections? Irreversible.`)) return;
+  if (!confirm('Really? 2nd confirmation.')) return;
   const ids = [..._selected];
-  toast('Suppression...');
+  toast('Deleting...');
   try {
     const r = await fetch('/api/owner/cards/bulk-delete', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1447,10 +1446,10 @@ async function deleteSelected() {
     });
     const d = await r.json();
     if (d.ok) {
-      toast(`${d.deleted} carte(s) supprimée(s), ${d.user_cards_deleted} possession(s) retirée(s).`);
+      toast(`${d.deleted} card(s) deleted, ${d.user_cards_deleted} copy/copies removed.`);
       _selected.clear();
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.toggleSelectMode = toggleSelectMode;
@@ -1460,7 +1459,7 @@ window.clearSelection = clearSelection;
 window.deleteSelected = deleteSelected;
 
 function openBulkEdit() {
-  if (!_selected.size) { toast('Aucune carte sélectionnée.', 'error'); return; }
+  if (!_selected.size) { toast('No card selected.', 'error'); return; }
   document.getElementById('bulkEditCount').textContent = _selected.size;
   ['bulkRarity','bulkUniverse','bulkSubtitle','bulkDesc'].forEach(id =>
     document.getElementById(id).value = '');
@@ -1478,8 +1477,8 @@ async function submitBulkEdit() {
     description: document.getElementById('bulkDesc').value.trim(),
   };
   const filled = Object.entries(fields).filter(([k,v]) => v && v.length).reduce((a,[k,v]) => (a[k]=v,a),{});
-  if (!Object.keys(filled).length) { toast('Aucun champ rempli.', 'error'); return; }
-  if (!confirm(`Appliquer ${Object.keys(filled).length} champ(s) à ${_selected.size} carte(s) ?`)) return;
+  if (!Object.keys(filled).length) { toast('No field filled in.', 'error'); return; }
+  if (!confirm(`Apply ${Object.keys(filled).length} field(s) to ${_selected.size} card(s)?`)) return;
   try {
     const r = await fetch('/api/owner/cards/bulk-update', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1487,14 +1486,14 @@ async function submitBulkEdit() {
     });
     const d = await r.json();
     if (d.ok) {
-      let msg = `${d.updated} carte(s) modifiée(s).`;
-      if (d.rebake) msg += ` Overlay : baked ${d.rebake.baked} / skipped ${d.rebake.skipped} / failed ${d.rebake.failed}.`;
+      let msg = `${d.updated} card(s) updated.`;
+      if (d.rebake) msg += ` Overlay: baked ${d.rebake.baked} / skipped ${d.rebake.skipped} / failed ${d.rebake.failed}.`;
       toast(msg);
       bumpCache();
       closeBulkEdit();
       loadCards();
     }
-    else toast(d.error || 'Erreur', 'error');
+    else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.openBulkEdit = openBulkEdit;
@@ -1502,7 +1501,7 @@ window.closeBulkEdit = closeBulkEdit;
 window.submitBulkEdit = submitBulkEdit;
 
 function openBulkRebake() {
-  if (!_selected.size) { toast('Aucune carte sélectionnée.', 'error'); return; }
+  if (!_selected.size) { toast('No card selected.', 'error'); return; }
   document.getElementById('bulkRebakeCount').textContent = _selected.size;
   document.getElementById('bulkOverlayRarity').value = '';
   document.getElementById('bulkRebakeScrim').classList.add('open');
@@ -1513,9 +1512,9 @@ function closeBulkRebake(e) {
 }
 async function submitBulkRebake() {
   const rar = document.getElementById('bulkOverlayRarity').value;
-  if (!rar) { toast('Choisis un overlay.', 'error'); return; }
-  if (!confirm(`Re-baker overlay ${rar.toUpperCase()} sur ${_selected.size} carte(s) ? Peut prendre du temps.`)) return;
-  toast('Re-bake en cours...');
+  if (!rar) { toast('Pick an overlay.', 'error'); return; }
+  if (!confirm(`Re-bake the ${rar.toUpperCase()} overlay on ${_selected.size} card(s)? May take a while.`)) return;
+  toast('Re-bake in progress...');
   try {
     const r = await fetch('/api/owner/cards/bulk-rebake', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1527,7 +1526,7 @@ async function submitBulkRebake() {
       bumpCache();
       closeBulkRebake();
       loadCards();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.openBulkRebake = openBulkRebake;
@@ -1556,7 +1555,7 @@ async function loadOriginsOwner() {
     const d = await r.json();
     const sel = document.getElementById('originSelect');
     const cur = sel.value;
-    sel.innerHTML = '<option value="">Toutes origines</option>' +
+    sel.innerHTML = '<option value="">All origins</option>' +
       (d.items || []).map(o => `<option value="${(o.origin||'').replace(/"/g,'&quot;')}">${(o.origin||'')} (${o.count})</option>`).join('');
     if (cur && [...sel.options].some(op => op.value === cur)) sel.value = cur;
   } catch (e) {}

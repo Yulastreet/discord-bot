@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'cards_wheel' %}
 
-{% block title %}Roue de la chance · TookBot{% endblock %}
-{% block crumb %}Roue de la chance{% endblock %}
+{% block title %}{{ t('web_cards.wheel.title') }} · TookBot{% endblock %}
+{% block crumb %}{{ t('web_cards.wheel.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -74,8 +74,8 @@
 </style>
 
 <div class="wh-wrap">
-  <h2 style="margin:0 0 4px;">🎡 Roue de la chance quotidienne</h2>
-  <p class="muted" style="margin:0 0 16px;">Un tour par jour. Gagne un bonus d'essences (pour aujourd'hui) ou des rolls (à utiliser quand tu veux).</p>
+  <h2 style="margin:0 0 4px;">{{ t('web_cards.wheel.heading') }}</h2>
+  <p class="muted" style="margin:0 0 16px;">{{ t('web_cards.wheel.sub') }}</p>
 
   <div class="wh-case">
     <div class="wh-fade l"></div>
@@ -85,35 +85,35 @@
   </div>
 
   <div class="wh-actions">
-    <button id="whSpin" class="btn btn-primary wh-spin-btn" onclick="spin()" disabled>Chargement…</button>
+    <button id="whSpin" class="btn btn-primary wh-spin-btn" onclick="spin()" disabled>{{ t('web_cards.wheel.loading') }}</button>
   </div>
 
   <div id="whGain" class="wh-gain">
     <div class="gic">✨</div>
     <div class="gtxt">
-      <span class="gtop">🎁 Gain du jour</span>
+      <span class="gtop">{{ t('web_cards.wheel.gain_today') }}</span>
       <span class="glb"></span>
     </div>
   </div>
   <div id="whNote" class="wh-note"></div>
 
-  <h3 style="margin:22px 0 6px;">Récompenses & chances</h3>
+  <h3 style="margin:22px 0 6px;">{{ t('web_cards.wheel.rewards_odds') }}</h3>
   <div id="whGrid" class="wh-grid"></div>
 
   <div id="whTimer" class="wh-timer" style="display:none;">
-    <div class="lbl">Prochain tour dans</div>
+    <div class="lbl">{{ t('web_cards.wheel.next_spin_in') }}</div>
     <div id="whClock" class="clk">--:--:--</div>
   </div>
 
   <div class="wh-booster">
-    <div class="wb-title">Booster de Cartes Gratuit</div>
-    <div class="wb-sub">9 cartes par paquet · épique garantie minimum sur la dernière (les 8 avant : épique max).</div>
+    <div class="wb-title">{{ t('web_cards.wheel.booster_title') }}</div>
+    <div class="wb-sub">{{ t('web_cards.wheel.booster_sub') }}</div>
     <div class="wb-pack" id="wbPack"><img src="/cards/img/booster/close" alt="Booster" onclick="boosterPresent()"></div>
     <div id="wbStatus" class="wh-note" style="text-align:center;"></div>
   </div>
 
   <div class="wh-wins">
-    <div class="wh-wins-title"><span class="live-dot2"></span> Gains de la roue en direct</div>
+    <div class="wh-wins-title"><span class="live-dot2"></span> {{ t('web_cards.wheel.live_wins') }}</div>
     <div id="winsFeed" class="wins-feed"></div>
   </div>
 </div>
@@ -138,7 +138,7 @@
     g.style.borderColor = rw.color;
     g.querySelector('.gic').innerHTML = WICON[rw.type] || '✨';
     g.querySelector('.glb').innerHTML = `<span style="color:${rw.color}">${esc(rw.label)}</span>`
-      + (rw.type==='essence' ? ' <span style="font-size:14px;color:var(--text-2);font-weight:600">sur tes gains du jour</span>' : '');
+      + (rw.type==='essence' ? ' <span style="font-size:14px;color:var(--text-2);font-weight:600">on your gains today</span>' : '');
   }
 
   function fmt2(n){ return String(n).padStart(2,'0'); }
@@ -148,7 +148,7 @@
     let secs = Math.max(0, Math.round((resetAt - Date.now())/1000));
     if (secs <= 0){
       t.classList.add('ready');
-      clk.textContent = 'Disponible !';
+      clk.textContent = 'Available!';
       return;
     }
     const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
@@ -204,18 +204,18 @@
       renderOdds();
       const btn = document.getElementById('whSpin');
       if (!d.logged_in){
-        btn.disabled = true; btn.textContent = '🔒 Connecte-toi pour jouer';
+        btn.disabled = true; btn.textContent = '🔒 Log in to play';
       } else if (d.claimed){
-        btn.disabled = true; btn.textContent = '✅ Déjà tourné aujourd\'hui';
+        btn.disabled = true; btn.textContent = '✅ Already spun today';
         const cl = d.claim || {};
         showGain(cl.reward_type, cl.reward_value);
         showCountdown(d.reset_in || 0);
       } else {
-        btn.disabled = false; btn.textContent = '🎡 Tourner la roue';
+        btn.disabled = false; btn.textContent = '🎡 Spin the wheel';
       }
       if (window.setBoosterState) window.setBoosterState(!!d.logged_in, !!d.daily_booster_claimed);
     } catch(e){
-      document.getElementById('whSpin').textContent = 'Erreur de chargement';
+      document.getElementById('whSpin').textContent = 'Loading error';
     }
   }
 
@@ -230,10 +230,10 @@
     try {
       const r = await fetch('/api/public/wheel/spin', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
       data = await r.json();
-    } catch(e){ note.textContent = 'Erreur réseau'; busy=false; btn.disabled=false; btn.textContent='🎡 Tourner la roue'; return; }
+    } catch(e){ note.textContent = 'Network error'; busy=false; btn.disabled=false; btn.textContent='🎡 Spin the wheel'; return; }
     if (!data.ok){
-      note.textContent = '❌ ' + (data.error || 'Erreur');
-      busy = false; btn.disabled = true; btn.textContent = '✅ Indisponible';
+      note.textContent = '❌ ' + (data.error || 'Error');
+      busy = false; btn.disabled = true; btn.textContent = '✅ Unavailable';
       return;
     }
     // Construit la bande a partir du reel renvoye
@@ -253,7 +253,7 @@
     track.style.transform = `translateX(${targetX}px)`;
     setTimeout(()=>{
       const w = data.won;
-      btn.textContent = '✅ Déjà tourné aujourd\'hui';
+      btn.textContent = '✅ Already spun today';
       showGain(w.type, w.value);
       showCountdown(window._resetIn || 0);
       busy = false;
@@ -285,14 +285,14 @@
       _winsSig = sig;
       const feed = document.getElementById('winsFeed');
       if (!items.length){
-        feed.innerHTML = '<div class="wh-win-empty">Aucun gain pour le moment — sois le premier à tourner la roue !</div>';
+        feed.innerHTML = '<div class="wh-win-empty">No win yet — be the first to spin the wheel!</div>';
         return;
       }
       // items en DESC (plus recent d'abord) = ordre d'affichage
       feed.innerHTML = items.map(it => {
         const col = winColor(it);
         return `<div class="wh-win"><span class="dot" style="background:${col}"></span>`
-          + `<span><span class="u">@${esc(it.user)}</span> a gagné `
+          + `<span><span class="u">@${esc(it.user)}</span> won `
           + `<span class="g" style="color:${col}">${esc(winLabel(it))}</span></span></div>`;
       }).join('');
     } catch(e){}
@@ -407,13 +407,13 @@
   <div class="bo-flash" id="boFlash"></div>
   <div class="bo-suspense" id="boSuspense"></div>
   <div class="bo-cardstage" id="boCardStage" onclick="nextCard()"></div>
-  <div class="bo-hint" id="boHint" style="display:none;">Clique pour la carte suivante</div>
+  <div class="bo-hint" id="boHint" style="display:none;">{{ t('web_cards.wheel.hint_next_card') }}</div>
 </div>
 
 <script>
 const RCOL = { common:'#9aa0a6', rare:'#4cb5f9', epic:'#b06bf2', legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
 const RGLOW = { legendary:'#f5a524', mythic:'#ff5470', secret:'#c084fc' };
-const RLABEL = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
+const RLABEL = { common:'Common', rare:'Rare', epic:'Epic', legendary:'Legendary', mythic:'Mythic', secret:'Secret' };
 let PACK = [], idx = 0, stage='idle', _advLock=false;
 let boosterLogged=false, boosterClaimed=false;
 function bEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -421,16 +421,16 @@ function bEsc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function updateBoosterUI(){
   const s=document.getElementById('wbStatus'), pack=document.getElementById('wbPack');
   if(!s || !pack) return;
-  if(!boosterLogged){ s.textContent='Connecte-toi pour ouvrir ton booster.'; pack.classList.add('claimed'); }
-  else if(boosterClaimed){ s.textContent='Déjà ouvert aujourd\'hui — reviens demain (reset minuit, heure FR).'; pack.classList.add('claimed'); }
-  else { s.textContent='Clique sur le booster pour l\'ouvrir.'; pack.classList.remove('claimed'); }
+  if(!boosterLogged){ s.textContent='Log in to open your booster.'; pack.classList.add('claimed'); }
+  else if(boosterClaimed){ s.textContent='Already opened today — come back tomorrow (resets at midnight, Paris time).'; pack.classList.add('claimed'); }
+  else { s.textContent='Click the booster to open it.'; pack.classList.remove('claimed'); }
 }
 // alimente par le wheel status (lecture session fiable)
 window.setBoosterState=function(logged, claimed){ boosterLogged=!!logged; boosterClaimed=!!claimed; updateBoosterUI(); };
 
 function boosterPresent(){
-  if(!boosterLogged){ boToast('Connecte-toi pour ouvrir ton booster.'); return; }
-  if(boosterClaimed){ boToast('Booster quotidien déjà ouvert aujourd\'hui.'); return; }
+  if(!boosterLogged){ boToast('Log in to open your booster.'); return; }
+  if(boosterClaimed){ boToast('Daily booster already opened today.'); return; }
   if(stage==='presented' || stage==='opening') return;
   stage='presented';
   document.getElementById('boCardStage').classList.remove('show');
@@ -441,7 +441,7 @@ function boosterPresent(){
   big.style.display='grid'; big.className='bo-bigpack idle';
   big.querySelector('img').src='/cards/img/booster/close';
   const hint=document.getElementById('boHint');
-  hint.textContent="Clique sur le paquet pour l'ouvrir"; hint.style.display='block';
+  hint.textContent="Click the pack to open it"; hint.style.display='block';
   document.getElementById('boOverlay').classList.add('show');
 }
 function onBigClick(){ if(stage==='presented') openSequence(); }
@@ -458,7 +458,7 @@ async function openSequence(){
   }catch(e){ stage='idle'; closeBooster(); return; }
   if(!data || !data.ok){
     stage='idle'; closeBooster();
-    boToast(data && data.error ? data.error : 'Erreur'); boosterClaimed=true; updateBoosterUI(); return;
+    boToast(data && data.error ? data.error : 'Error'); boosterClaimed=true; updateBoosterUI(); return;
   }
   PACK = data.cards || []; idx = 0; boosterClaimed = true;
   big.classList.add('shake');
@@ -500,7 +500,7 @@ function startReveal(){
   document.getElementById('boCounter').style.display='block';
   document.getElementById('boCardStage').classList.add('show');
   const hint=document.getElementById('boHint');
-  hint.textContent='Clique pour la carte suivante'; hint.style.display='block';
+  hint.textContent='Click for the next card'; hint.style.display='block';
   idx = 0; showCard();
 }
 function showCard(){
@@ -509,7 +509,7 @@ function showCard(){
   const rays=document.getElementById('boRays');
   if(idx>=PACK.length){ closeBooster(); return; }   // apres la derniere carte : on sort
   const c=PACK[idx];
-  document.getElementById('boCounter').textContent=`Carte ${idx+1} / ${PACK.length}`;
+  document.getElementById('boCounter').textContent=`Card ${idx+1} / ${PACK.length}`;
   const rare = (c.rarity==='legendary'||c.rarity==='mythic'||c.rarity==='secret');
   const build=()=>{
     cs.innerHTML = cardHTML(c);
@@ -522,7 +522,7 @@ function showCard(){
     }
     if(idx===PACK.length-1 && (c.rarity==='legendary'||c.rarity==='mythic')){
       const b=document.createElement('button'); b.className='bo-share-btn';
-      b.textContent='Partager mon drop';
+      b.textContent='Share my drop';
       b.onclick=(e)=>{ e.stopPropagation(); shareDrop(c); };
       cs.appendChild(b);
     }
@@ -577,7 +577,7 @@ async function makeShareImage(c){
   ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='bold 34px system-ui';
   ctx.fillText(c.name, W/2, cy+cardH+58);
   ctx.fillStyle='#cdbfe0'; ctx.font='18px system-ui';
-  ctx.fillText('obtenu en ouvrant un TookBot Card Booster', W/2, cy+cardH+90);
+  ctx.fillText('pulled from a TookBot Card Booster', W/2, cy+cardH+90);
   return await new Promise(res=>cv.toBlob(res,'image/png'));
 }
 function boToast(msg){
@@ -591,10 +591,10 @@ function boToast(msg){
 }
 const _isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
 async function shareDrop(c){
-  const text = `J'ai eu ${c.name} en ouvrant un TookBot Card Booster !`;
+  const text = `I pulled ${c.name} from a TookBot Card Booster!`;
   if(!_isTouch && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
     try{ await navigator.clipboard.write([ new ClipboardItem({ 'image/png': makeShareImage(c) }) ]);
-      boToast('Image copiée — colle-la (Ctrl+V) dans Discord ✓'); return; }catch(e){}
+      boToast('Image copied — paste it (Ctrl+V) into Discord ✓'); return; }catch(e){}
   }
   let blob=null; try{ blob = await makeShareImage(c); }catch(e){ blob=null; }
   if(blob){
@@ -605,9 +605,9 @@ async function shareDrop(c){
     }
     const url=URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download='tookbot_drop.png'; a.click(); URL.revokeObjectURL(url);
-    boToast('Image téléchargée ✓'); return;
+    boToast('Image downloaded ✓'); return;
   }
-  try{ await navigator.clipboard.writeText(text); boToast('Texte copié ✓'); }catch(e){}
+  try{ await navigator.clipboard.writeText(text); boToast('Text copied ✓'); }catch(e){}
 }
 function closeBooster(){
   document.getElementById('boOverlay').classList.remove('show');

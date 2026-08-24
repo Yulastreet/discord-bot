@@ -79,16 +79,16 @@
 <div class="col gap-7">
   <div class="sug-header">
     <div>
-      <h1>Suggestions de cartes <span class="muted" style="font-size:14px;font-weight:500;" id="sugCount"></span></h1>
+      <h1>{{ t('web_cards.owner_suggestions.heading') }} <span class="muted" style="font-size:14px;font-weight:500;" id="sugCount"></span></h1>
       <p class="muted mt-2" style="font-size:var(--t-sm); max-width:60ch;">
-        Suggestions communauté via <code>/cardsuggest</code> sur serveur support.
-        Approuve = crée la carte. Refuse = rejette avec raison optionnelle.
+        {{ t('web_cards.owner_suggestions.intro_1') | safe }}
+        {{ t('web_cards.owner_suggestions.intro_2') }}
       </p>
     </div>
     <aside class="sug-leaderboard">
-      <h3>🏆 Top contributeurs</h3>
+      <h3>{{ t('web_cards.owner_suggestions.top_contributors') }}</h3>
       <div id="sugLeaderboard">
-        <div class="muted" style="font-size:11px;">Chargement…</div>
+        <div class="muted" style="font-size:11px;">{{ t('web_cards.owner_suggestions.loading') }}</div>
       </div>
     </aside>
   </div>
@@ -98,53 +98,53 @@
   <div class="sug-toolbar">
     <select id="statusFilter" onchange="loadSugs()">
       <option value="pending" selected>Pending</option>
-      <option value="approved">Approuvées</option>
-      <option value="rejected">Refusées</option>
-      <option value="">Toutes</option>
+      <option value="approved">{{ t('web_cards.owner_suggestions.st_approved') }}</option>
+      <option value="rejected">{{ t('web_cards.owner_suggestions.st_rejected') }}</option>
+      <option value="">{{ t('web_cards.owner_suggestions.st_all') }}</option>
     </select>
-    <button class="btn btn-secondary" onclick="loadSugs()">⟳ Rafraichir</button>
-    <button class="btn btn-secondary" onclick="toggleSugSelectMode()" id="sugSelModeBtn">☑ Sélection</button>
-    <select id="sugColsSelect" onchange="applyGridCols()" title="Cartes par ligne">
+    <button class="btn btn-secondary" onclick="loadSugs()">{{ t('web_cards.owner_suggestions.refresh') }}</button>
+    <button class="btn btn-secondary" onclick="toggleSugSelectMode()" id="sugSelModeBtn">{{ t('web_cards.owner_suggestions.select_mode') }}</button>
+    <select id="sugColsSelect" onchange="applyGridCols()" title="{{ t('web_cards.owner_suggestions.cols_title') }}">
       <option value="auto" selected>🎛 Auto</option>
-      <option value="1">1 / ligne</option>
-      <option value="2">2 / ligne</option>
-      <option value="3">3 / ligne</option>
-      <option value="4">4 / ligne</option>
-      <option value="5">5 / ligne</option>
-      <option value="6">6 / ligne</option>
+      <option value="1">{{ t('web_cards.owner_suggestions.per_row', n=1) }}</option>
+      <option value="2">{{ t('web_cards.owner_suggestions.per_row', n=2) }}</option>
+      <option value="3">{{ t('web_cards.owner_suggestions.per_row', n=3) }}</option>
+      <option value="4">{{ t('web_cards.owner_suggestions.per_row', n=4) }}</option>
+      <option value="5">{{ t('web_cards.owner_suggestions.per_row', n=5) }}</option>
+      <option value="6">{{ t('web_cards.owner_suggestions.per_row', n=6) }}</option>
     </select>
   </div>
 
   <div class="sug-bulk-bar" id="sugBulkBar">
     <strong id="sugBulkCount">0</strong>
-    <span class="muted">suggestion(s) sélectionnée(s)</span>
+    <span class="muted">{{ t('web_cards.owner_suggestions.bulk_selected') }}</span>
     <span style="flex:1;"></span>
-    <button class="btn btn-secondary" onclick="selectAllVisibleSugs()">Tout sélectionner</button>
-    <button class="btn btn-secondary" onclick="clearSugSelection()">Désélectionner</button>
+    <button class="btn btn-secondary" onclick="selectAllVisibleSugs()">{{ t('web_cards.owner_suggestions.select_all') }}</button>
+    <button class="btn btn-secondary" onclick="clearSugSelection()">{{ t('web_cards.owner_suggestions.clear_selection') }}</button>
     <select id="sugBulkRarity" class="input" style="min-width:180px;">
-      <option value="__keep__" selected>↺ Garder rareté individuelle</option>
-      <option value="common">Tous : Common</option>
-      <option value="rare">Tous : Rare</option>
-      <option value="epic">Tous : Epic</option>
-      <option value="legendary">Tous : Legendary</option>
-      <option value="mythic">Tous : Mythic</option>
-      <option value="secret">Tous : 🌈 Secret</option>
+      <option value="__keep__" selected>{{ t('web_cards.owner_suggestions.keep_rarity') }}</option>
+      <option value="common">{{ t('web_cards.owner_suggestions.all_as', rarity='Common') }}</option>
+      <option value="rare">{{ t('web_cards.owner_suggestions.all_as', rarity='Rare') }}</option>
+      <option value="epic">{{ t('web_cards.owner_suggestions.all_as', rarity='Epic') }}</option>
+      <option value="legendary">{{ t('web_cards.owner_suggestions.all_as', rarity='Legendary') }}</option>
+      <option value="mythic">{{ t('web_cards.owner_suggestions.all_as', rarity='Mythic') }}</option>
+      <option value="secret">{{ t('web_cards.owner_suggestions.all_as', rarity='🌈 Secret') }}</option>
     </select>
-    <button class="btn btn-primary" onclick="bulkApproveSugs()">✅ Approuver tout (avec bake auto)</button>
-    <button class="btn btn-danger" onclick="bulkRejectSugs()">❌ Refuser tout</button>
+    <button class="btn btn-primary" onclick="bulkApproveSugs()">{{ t('web_cards.owner_suggestions.bulk_approve') }}</button>
+    <button class="btn btn-danger" onclick="bulkRejectSugs()">{{ t('web_cards.owner_suggestions.bulk_reject') }}</button>
   </div>
 
   <div id="sugGrid" class="sug-grid">
-    <div class="muted">Chargement…</div>
+    <div class="muted">{{ t('web_cards.owner_suggestions.loading') }}</div>
   </div>
 </div>
 
 <!-- Cropper modal -->
 <div id="cropScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:none;place-items:center;padding:20px;">
   <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:20px;max-width:720px;width:100%;">
-    <h3 style="margin:0 0 12px;">✂ Recadrer la suggestion #<span id="cropSid">—</span></h3>
+    <h3 style="margin:0 0 12px;">{{ t('web_cards.owner_suggestions.crop_title') }}<span id="cropSid">—</span></h3>
     <p class="muted" style="font-size:12px;margin-bottom:10px;">
-      Ajuste le cadre (ratio fixe 2:3 portrait). Output 450×675px.
+      {{ t('web_cards.owner_suggestions.crop_hint') }}
     </p>
     <div style="max-height:60vh;overflow:hidden;background:#000;border-radius:8px;">
       <img id="cropImg" src="" style="display:block;max-width:100%;">
@@ -157,12 +157,12 @@
         <option value="legendary">Legendary</option>
         <option value="mythic">Mythic</option>
       </select>
-      <button class="btn btn-secondary" onclick="cropReset()">Reset cadre</button>
+      <button class="btn btn-secondary" onclick="cropReset()">{{ t('web_cards.owner_suggestions.crop_reset') }}</button>
       <button class="btn btn-ghost" onclick="_cropper && _cropper.zoom(0.2)" title="Zoom +">🔍+</button>
       <button class="btn btn-ghost" onclick="_cropper && _cropper.zoom(-0.2)" title="Zoom -">🔍−</button>
       <span style="flex:1;"></span>
-      <button class="btn btn-ghost" onclick="closeCropper()">Annuler</button>
-      <button class="btn btn-primary" onclick="submitCrop()">✅ Approuver avec ce recadrage</button>
+      <button class="btn btn-ghost" onclick="closeCropper()">{{ t('web_cards.owner_suggestions.cancel') }}</button>
+      <button class="btn btn-primary" onclick="submitCrop()">{{ t('web_cards.owner_suggestions.crop_approve') }}</button>
     </div>
   </div>
 </div>
@@ -177,7 +177,7 @@ let _sugSelected = new Set();
 let _sugCurrent = [];  // last loaded list
 function toggleSugSelectMode() {
   _sugSelectMode = !_sugSelectMode;
-  document.getElementById('sugSelModeBtn').textContent = _sugSelectMode ? '✕ Quitter sélection' : '☑ Sélection';
+  document.getElementById('sugSelModeBtn').textContent = _sugSelectMode ? '✕ Exit selection' : '☑ Select';
   document.getElementById('sugSelModeBtn').classList.toggle('btn-primary', _sugSelectMode);
   document.getElementById('sugSelModeBtn').classList.toggle('btn-secondary', !_sugSelectMode);
   if (!_sugSelectMode) _sugSelected.clear();
@@ -210,9 +210,9 @@ async function bulkApproveSugs() {
       rarities[sid] = el ? el.value : 'common';
     });
   }
-  const label = keepIndividual ? 'rareté individuelle de chaque tile' : `tous en ${bulkVal.toUpperCase()}`;
-  if (!confirm(`Approuver ${_sugSelected.size} suggestion(s) (${label}) + bake overlay auto ?`)) return;
-  toast('Approbation en cours...');
+  const label = keepIndividual ? 'each tile individual rarity' : `all as ${bulkVal.toUpperCase()}`;
+  if (!confirm(`Approve ${_sugSelected.size} suggestion(s) (${label}) + auto overlay bake?`)) return;
+  toast('Approving...');
   try {
     const body = {sids: [..._sugSelected]};
     if (keepIndividual) body.rarities = rarities;
@@ -228,14 +228,14 @@ async function bulkApproveSugs() {
       loadSugs();
       loadSugCounts();
       loadSugLeaderboard();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 async function bulkRejectSugs() {
   if (!_sugSelected.size) return;
-  const reason = prompt('Raison du refus (optionnel) :', '');
+  const reason = prompt('Reject reason (optional):', '');
   if (reason === null) return;
-  if (!confirm(`Refuser ${_sugSelected.size} suggestion(s) ?`)) return;
+  if (!confirm(`Reject ${_sugSelected.size} suggestion(s)?`)) return;
   try {
     const r = await fetch('/api/owner/card-suggestions/bulk-reject', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -243,12 +243,12 @@ async function bulkRejectSugs() {
     });
     const d = await r.json();
     if (d.ok) {
-      toast(`Refusées : ${d.rejected}, skipped : ${d.skipped}`);
+      toast(`Rejected: ${d.rejected}, skipped: ${d.skipped}`);
       _sugSelected.clear();
       loadSugs();
       loadSugCounts();
       loadSugLeaderboard();
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.toggleSugSelectMode = toggleSugSelectMode;
@@ -271,7 +271,7 @@ async function loadSugs() {
     updateSugBulkBar();
     const grid = document.getElementById('sugGrid');
     if (!items.length) {
-      grid.innerHTML = '<div class="muted">Aucune suggestion.</div>';
+      grid.innerHTML = '<div class="muted">No suggestion.</div>';
       return;
     }
     grid.innerHTML = items.map(s => {
@@ -282,23 +282,23 @@ async function loadSugs() {
       const onClick = _sugSelectMode ? `toggleSugSelectId(${s.id})` : '';
       return `
       <div class="${cls}" style="${span}${_sugSelectMode ? 'cursor:pointer;' : ''}" ${onClick ? `onclick="${onClick}"` : ''}>
-        ${isEdit ? `<div style="padding:8px 12px;background:#fbbf24;color:#2a1a00;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">✏ Proposition d'édition · carte #${s.target_card_id}</div>` : ''}
+        ${isEdit ? `<div style="padding:8px 12px;background:#fbbf24;color:#2a1a00;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">✏ Edit proposal · card #${s.target_card_id}</div>` : ''}
         ${isEdit ? `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;background:var(--bg-2);">
             <div>
-              <div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Avant</div>
+              <div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Before</div>
               <div id="orig-${s.id}" style="aspect-ratio:2/3;background:var(--bg-1);border-radius:8px;display:grid;place-items:center;color:var(--text-3);">…</div>
-              <div id="orig-meta-${s.id}" class="muted" style="font-size:10px;margin-top:4px;">Chargement…</div>
+              <div id="orig-meta-${s.id}" class="muted" style="font-size:10px;margin-top:4px;">Loading…</div>
             </div>
             <div>
-              <div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Proposé</div>
+              <div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Proposed</div>
               <div id="prop-${s.id}" style="aspect-ratio:2/3;background:var(--bg-1);border-radius:8px;overflow:hidden;">
-                ${s.image_url ? `<img src="${escapeHtml(s.image_url)}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="display:grid;place-items:center;height:100%;color:var(--text-3);font-size:11px;text-align:center;padding:6px;">image inchangée</div>'}
+                ${s.image_url ? `<img src="${escapeHtml(s.image_url)}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="display:grid;place-items:center;height:100%;color:var(--text-3);font-size:11px;text-align:center;padding:6px;">image unchanged</div>'}
               </div>
               <div class="muted" style="font-size:10px;margin-top:4px;">
                 <strong>${escapeHtml(s.name)}</strong><br>
                 <span id="prop-uni-${s.id}">${escapeHtml(s.universe || '')}${s.subtitle ? ' · ' + escapeHtml(s.subtitle) : ''}</span>
-                ${s.proposed_rarity ? `<br><span class="sug-badge badge-pending" style="display:inline-block;margin-top:3px;">Rareté: ${escapeHtml(s.proposed_rarity.toUpperCase())}</span>` : ''}
+                ${s.proposed_rarity ? `<br><span class="sug-badge badge-pending" style="display:inline-block;margin-top:3px;">Rarity: ${escapeHtml(s.proposed_rarity.toUpperCase())}</span>` : ''}
               </div>
             </div>
           </div>
@@ -310,19 +310,19 @@ async function loadSugs() {
         <div class="sug-body">
           ${!isEdit ? `<div class="sug-name">${escapeHtml(s.name)}</div>
                        <div class="sug-meta">${escapeHtml(s.universe || '?')}${s.subtitle ? ' · ' + escapeHtml(s.subtitle) : ''}</div>
-                       ${s.proposed_rarity ? `<div class="sug-meta">Rareté suggérée : <span class="sug-badge badge-pending">${escapeHtml(s.proposed_rarity.toUpperCase())}</span></div>` : ''}` : ''}
+                       ${s.proposed_rarity ? `<div class="sug-meta">Suggested rarity: <span class="sug-badge badge-pending">${escapeHtml(s.proposed_rarity.toUpperCase())}</span></div>` : ''}` : ''}
           <div class="sug-meta">
-            Par <strong>${escapeHtml(s.suggester_name || s.suggester_id)}</strong>
+            By <strong>${escapeHtml(s.suggester_name || s.suggester_id)}</strong>
             <span class="sug-badge badge-${s.status}">${s.status}</span>
           </div>
           ${(function(u,d){ const tot=u+d; const pct=tot?Math.round(100*u/tot):0;
-            return `<div class="sug-votes" title="${u} pour / ${d} contre">
+            return `<div class="sug-votes" title="${u} up / ${d} down">
               <span class="sug-vote up">🔼 ${u}</span>
               <span class="sug-vote down">🔽 ${d}</span>
               <span class="sug-ratio-bar"><span style="width:${pct}%;"></span></span>
               <span class="sug-ratio-pct">${tot?pct+'%':'—'}</span>
             </div>`; })(s.votes_up||0, s.votes_down||0)}
-          ${s.reject_reason ? `<div class="sug-meta" style="color:#ff7a8a;">Refusée : ${escapeHtml(s.reject_reason)}</div>` : ''}
+          ${s.reject_reason ? `<div class="sug-meta" style="color:#ff7a8a;">Rejected: ${escapeHtml(s.reject_reason)}</div>` : ''}
         </div>
         ${s.status === 'pending' ? `
           <div class="sug-foot">
@@ -333,9 +333,9 @@ async function loadSugs() {
               <option value="legendary" ${pr==='legendary'?'selected':''}>Legendary</option>
               <option value="mythic" ${pr==='mythic'?'selected':''}>Mythic</option>
             </select>`; })(s.proposed_rarity || 'common') : ''}
-            <button class="btn btn-primary" onclick="approveSug(${s.id})">✅ Approuver</button>
-            ${!isEdit ? `<button class="btn btn-secondary" onclick="openCropper(${s.id}, '${(s.image_url || '').replace(/'/g,"\\'")}')">✂ Recadrer</button>` : ''}
-            <button class="btn btn-danger" onclick="rejectSug(${s.id})">❌ Refuser</button>
+            <button class="btn btn-primary" onclick="approveSug(${s.id})">✅ Approve</button>
+            ${!isEdit ? `<button class="btn btn-secondary" onclick="openCropper(${s.id}, '${(s.image_url || '').replace(/'/g,"\\'")}')">✂ Crop</button>` : ''}
+            <button class="btn btn-danger" onclick="rejectSug(${s.id})">❌ Reject</button>
           </div>
         ` : ''}
       </div>
@@ -367,7 +367,7 @@ async function loadSugs() {
         if (meta) {
           meta.innerHTML = `<strong>${escapeHtml(d.card.name)}</strong><br>
                              ${escapeHtml(d.card.universe || '?')}${d.card.subtitle ? ' · ' + escapeHtml(d.card.subtitle) : ''}
-                             <br><span class="muted" style="font-size:10px;">Rareté: ${escapeHtml((d.card.rarity || '?').toUpperCase())}</span>`;
+                             <br><span class="muted" style="font-size:10px;">Rarity: ${escapeHtml((d.card.rarity || '?').toUpperCase())}</span>`;
         }
       }).catch(()=>{});
     });
@@ -379,7 +379,7 @@ async function approveSug(sid) {
   // Edit suggestions n'ont pas de select rarete (rar-{sid} absent)
   const rarEl = document.getElementById('rar-' + sid);
   const rar = rarEl ? rarEl.value : '';
-  toast('Approbation en cours...');
+  toast('Approving...');
   try {
     const r = await fetch(`/api/owner/card-suggestions/${sid}/approve`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -388,22 +388,22 @@ async function approveSug(sid) {
     let d;
     try { d = await r.json(); }
     catch (e) {
-      toast(`Erreur serveur (${r.status}). pm2 restart manquant ?`, 'error');
+      toast(`Server error (${r.status}). Missing pm2 restart?`, 'error');
       return;
     }
     if (d.ok) {
       const msg = d.type === 'edit'
-        ? `Édition appliquée à carte #${d.card_id}.${d.rebaked ? ' Overlay re-baké.' : ''}`
-        : `Approuvée. Carte #${d.card_id} créée.`;
+        ? `Edit applied to card #${d.card_id}.${d.rebaked ? ' Overlay re-baked.' : ''}`
+        : `Approved. Card #${d.card_id} created.`;
       toast(msg);
       loadSugs();
-    } else toast(d.error || `Erreur (status ${r.status})`, 'error');
-  } catch (e) { toast(e.message || 'Erreur réseau', 'error'); }
+    } else toast(d.error || `Error (status ${r.status})`, 'error');
+  } catch (e) { toast(e.message || 'Network error', 'error'); }
 }
 window.approveSug = approveSug;
 
 async function rejectSug(sid) {
-  const reason = prompt('Raison du refus (optionnel, max 200 chars) :', '');
+  const reason = prompt('Reject reason (optional, max 200 chars):', '');
   if (reason === null) return;
   try {
     const r = await fetch(`/api/owner/card-suggestions/${sid}/reject`, {
@@ -411,8 +411,8 @@ async function rejectSug(sid) {
       body: JSON.stringify({reason}),
     });
     const d = await r.json();
-    if (d.ok) { toast('Refusée.'); loadSugs(); }
-    else toast(d.error || 'Erreur', 'error');
+    if (d.ok) { toast('Rejected.'); loadSugs(); }
+    else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.rejectSug = rejectSug;
@@ -421,7 +421,7 @@ let _cropper = null;
 let _cropSid = null;
 
 function openCropper(sid, imgUrl) {
-  if (!imgUrl) { toast('Pas d\'image à recadrer.', 'error'); return; }
+  if (!imgUrl) { toast('No image to crop.', 'error'); return; }
   _cropSid = sid;
   document.getElementById('cropSid').textContent = sid;
   // Pre-select rarity from card list
@@ -456,14 +456,14 @@ function closeCropper() {
 async function submitCrop() {
   if (!_cropper || !_cropSid) return;
   const rar = document.getElementById('cropRarity').value;
-  toast('Recadrage + sauvegarde...');
+  toast('Cropping + saving...');
   const canvas = _cropper.getCroppedCanvas({
     width: 450, height: 675, fillColor: '#1a1a1a',
     imageSmoothingQuality: 'high',
   });
-  if (!canvas) { toast('Erreur crop canvas.', 'error'); return; }
+  if (!canvas) { toast('Crop canvas error.', 'error'); return; }
   canvas.toBlob(async (blob) => {
-    if (!blob) { toast('Erreur blob.', 'error'); return; }
+    if (!blob) { toast('Blob error.', 'error'); return; }
     const fd = new FormData();
     fd.append('rarity', rar);
     fd.append('cropped', blob, 'crop.png');
@@ -474,13 +474,13 @@ async function submitCrop() {
       let d;
       try { d = await r.json(); }
       catch (e) {
-        toast('Erreur serveur (HTML retourne, pm2 restart manquant ?)', 'error'); return;
+        toast('Server error (HTML returned, missing pm2 restart?)', 'error'); return;
       }
       if (d.ok) {
-        toast(`Carte #${d.card_id} créée avec recadrage.`);
+        toast(`Card #${d.card_id} created with crop.`);
         closeCropper();
         loadSugs();
-      } else toast(d.error || 'Erreur', 'error');
+      } else toast(d.error || 'Error', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }, 'image/png');
 }
@@ -496,19 +496,19 @@ async function loadSugCounts() {
     document.getElementById('sugCounts').innerHTML = `
       <div class="sug-count pending">
         <div class="lbl">⏳ Pending</div>
-        <div class="val">${(d.pending || 0).toLocaleString('fr')}</div>
+        <div class="val">${(d.pending || 0).toLocaleString('en-US')}</div>
       </div>
       <div class="sug-count approved">
-        <div class="lbl">✅ Approuvées</div>
-        <div class="val">${(d.approved || 0).toLocaleString('fr')}</div>
+        <div class="lbl">✅ Approved</div>
+        <div class="val">${(d.approved || 0).toLocaleString('en-US')}</div>
       </div>
       <div class="sug-count rejected">
-        <div class="lbl">❌ Refusées</div>
-        <div class="val">${(d.rejected || 0).toLocaleString('fr')}</div>
+        <div class="lbl">❌ Rejected</div>
+        <div class="val">${(d.rejected || 0).toLocaleString('en-US')}</div>
       </div>
       <div class="sug-count">
         <div class="lbl">📊 TOTAL</div>
-        <div class="val">${(d.total || 0).toLocaleString('fr')}</div>
+        <div class="val">${(d.total || 0).toLocaleString('en-US')}</div>
       </div>
     `;
   } catch (e) {}
@@ -541,7 +541,7 @@ async function loadSugLeaderboard() {
     const d = await r.json();
     const items = d.items || [];
     if (!items.length) {
-      document.getElementById('sugLeaderboard').innerHTML = '<div class="muted" style="font-size:12px;">Aucune suggestion approuvée.</div>';
+      document.getElementById('sugLeaderboard').innerHTML = '<div class="muted" style="font-size:12px;">No approved suggestion.</div>';
       return;
     }
     document.getElementById('sugLeaderboard').innerHTML = items.map((u, i) => `
