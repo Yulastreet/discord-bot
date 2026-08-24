@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="{{ current_locale() }}" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -47,7 +47,7 @@
   }
   .topbar .status.stopped { background: rgba(231,76,60,0.18); color: var(--danger); }
 
-  /* ===== Layout grille 5 cards × 2 rows + sidebar ===== */
+  /* ===== Grid layout: 5 cards × 2 rows + sidebar ===== */
   .layout {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr)) 360px;
@@ -68,7 +68,7 @@
     height: 100%;
   }
 
-  /* ===== Card joueur ===== */
+  /* ===== Player card ===== */
   .player-card {
     background: var(--bg-1);
     border: 1px solid var(--border);
@@ -444,7 +444,7 @@
     font-size: 14px;
   }
 
-  /* ===== Map modal plein ecran ===== */
+  /* ===== Fullscreen map modal ===== */
   .map-modal-bg {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.92);
@@ -547,20 +547,20 @@
   {# Sidebar : chat + map #}
   <div class="side-col">
     <div class="chat-box">
-      <div class="chat-header">💬 Chat de session</div>
+      <div class="chat-header">💬 {{ t('web_premium.scout_session.chat_header') }}</div>
       <div class="you-info" id="youInfo" style="display:none;">
         <span class="color-dot" id="youColor"></span>
         <span><strong id="youPseudo">—</strong></span>
-        <button class="change-pseudo" id="changePseudo">Changer</button>
+        <button class="change-pseudo" id="changePseudo">{{ t('web_premium.scout_session.change') }}</button>
       </div>
       <div class="chat-messages" id="chatMessages"></div>
       <div class="chat-input">
-        <input type="text" id="chatInput" placeholder="Message…" maxlength="500" {% if session_data.status != 'active' %}disabled{% endif %}>
+        <input type="text" id="chatInput" placeholder="{{ t('web_premium.scout_session.chat_placeholder') }}" maxlength="500" {% if session_data.status != 'active' %}disabled{% endif %}>
         <button id="chatSend" {% if session_data.status != 'active' %}disabled{% endif %}>↑</button>
       </div>
     </div>
     <div class="bans-synthesis" id="bansSynthesis">
-      <h4>💀 Top bans priorité</h4>
+      <h4>💀 {{ t('web_premium.scout_session.top_bans') }}</h4>
       <div class="bans-list" id="bansList">
         {% for b in top_bans %}
         <div class="ban-row">
@@ -577,26 +577,26 @@
           <span class="wr-pill">{{ '%.0f'|format(b.wr) }}%</span>
         </div>
         {% else %}
-        <div style="color: var(--muted); font-size: 12px;">Pas encore de bans calculés.</div>
+        <div style="color: var(--muted); font-size: 12px;">{{ t('web_premium.scout_session.no_bans') }}</div>
         {% endfor %}
       </div>
     </div>
-    <div class="map-box" id="mapBox" title="Cliquer pour zoom + annotations">
+    <div class="map-box" id="mapBox" title="{{ t('web_premium.scout_session.map_box_title') }}">
       <div class="map-thumb"></div>
-      <small>Map SR</small>
+      <small>{{ t('web_premium.scout_session.map_sr') }}</small>
     </div>
   </div>
 </div>
 
 <div class="map-modal-bg" id="mapModal">
   <div class="map-modal-header">
-    <strong>🗺️ Map Summoner's Rift — annotations partagées</strong>
+    <strong>🗺️ {{ t('web_premium.scout_session.map_modal_title') }}</strong>
     <div class="tool-group">
-      <label style="font-size:12px;color:var(--muted);">Trait</label>
+      <label style="font-size:12px;color:var(--muted);">{{ t('web_premium.scout_session.stroke') }}</label>
       <input type="range" class="width-slider" id="strokeWidth" min="2" max="14" value="4">
-      <button id="clearMine" type="button">🗑 Mes traits</button>
-      <button id="clearAll" type="button" title="Tout effacer (visible par tous)">🧹 Tout</button>
-      <button id="closeMap" type="button" class="primary">Fermer</button>
+      <button id="clearMine" type="button">🗑 {{ t('web_premium.scout_session.clear_mine') }}</button>
+      <button id="clearAll" type="button" title="{{ t('web_premium.scout_session.clear_all_title') }}">🧹 {{ t('web_premium.scout_session.clear_all') }}</button>
+      <button id="closeMap" type="button" class="primary">{{ t('web_premium.scout_session.close') }}</button>
     </div>
   </div>
   <div class="map-modal-stage">
@@ -610,11 +610,11 @@
 {% if session_data.status == 'active' %}
 <div class="pseudo-modal-bg" id="pseudoModal">
   <div class="pseudo-modal">
-    <h2>👋 Identifie-toi</h2>
-    <p>Renseigne un pseudo pour rejoindre la session<br>(changeable a tout moment).</p>
-    <input type="text" id="pseudoInput" placeholder="Ton pseudo" maxlength="24">
+    <h2>👋 {{ t('web_premium.scout_session.pseudo_title') }}</h2>
+    <p>{{ t('web_premium.scout_session.pseudo_p1') }}<br>{{ t('web_premium.scout_session.pseudo_p2') }}</p>
+    <input type="text" id="pseudoInput" placeholder="{{ t('web_premium.scout_session.pseudo_placeholder') }}" maxlength="24">
     <br>
-    <button id="pseudoSubmit">Rejoindre</button>
+    <button id="pseudoSubmit">{{ t('web_premium.scout_session.join') }}</button>
   </div>
 </div>
 {% endif %}
@@ -627,7 +627,7 @@ let myColor  = localStorage.getItem('scout_color_'  + SLUG) || '#888';
 let lastChatId = 0;
 let DD_VERSION = '15.10.1';  // fallback
 
-// Charge versions.json Data Dragon
+// Load Data Dragon versions.json
 (async function loadDDVersion() {
   try {
     const r = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
@@ -640,7 +640,7 @@ let DD_VERSION = '15.10.1';  // fallback
   if (img) img.src = url;
   const thumb = document.querySelector('.map-thumb');
   if (thumb) thumb.style.backgroundImage = `url('${url}')`;
-  // Hydrate icones de toutes les cards + bans synthesis
+  // Hydrate icons for every card + bans synthesis
   document.querySelectorAll('.player-card').forEach(card => {
     hydrateCardIcons(card);
   });
@@ -655,7 +655,7 @@ function hydrateBansIcons() {
 }
 
 function rebuildBansSynthesis() {
-  // Aggrege depuis le DOM les top_wr de toutes les cards enemy
+  // Aggregate top_wr from the DOM across every enemy card
   const bans = [];
   document.querySelectorAll('.player-card.enemy').forEach(card => {
     const role = card.dataset.roleKey;
@@ -666,9 +666,9 @@ function rebuildBansSynthesis() {
       const wrStr = el.dataset.wr || '0%';
       const wr = parseFloat(wrStr) || 0;
       const title = el.getAttribute('title') || '';
-      // Title : "Yasuo 75% sur 8g"
+      // Title : "Yasuo 75% over 8g"
       const champMatch = title.match(/^(.+?)\s+\d+%/);
-      const gamesMatch = title.match(/sur (\d+)g/);
+      const gamesMatch = title.match(/over (\d+)g/);
       const champ = champMatch ? champMatch[1] : '?';
       const total = gamesMatch ? parseInt(gamesMatch[1]) : 0;
       bans.push({slug, wr, total, champ, role, player});
@@ -679,7 +679,7 @@ function rebuildBansSynthesis() {
   const list = document.getElementById('bansList');
   if (!list) return;
   if (top.length === 0) {
-    list.innerHTML = '<div style="color: var(--muted); font-size: 12px;">Pas encore de bans calculés.</div>';
+    list.innerHTML = '<div style="color: var(--muted); font-size: 12px;">No bans calculated yet.</div>';
     return;
   }
   list.innerHTML = top.map((b, i) => `
@@ -710,7 +710,7 @@ function champIconUrl(slug) {
 function tierEmblemUrl(tier) {
   const t = (tier || 'UNRANKED').toLowerCase();
   if (t === 'unranked' || !t) return '';
-  // Serveur sert le PNG cropped tight depuis le cache local
+  // Server serves the tight-cropped PNG from the local cache
   return `/assets/lol-emblem/${t}`;
 }
 
@@ -739,9 +739,9 @@ function buildCardBodyHTML(p, side, role) {
     `<div class="champ-icon" data-slug="${escapeHtml(x.slug || '')}" data-count="x${x.games}" title="${escapeHtml(x.champ)} ×${x.games}"></div>`
   ).join('');
   const bansSection = (side === 'enemy') ? `
-    <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
+    <div class="stat-line"><span class="lbl">💀 To ban (WR 3+ games)</span></div>
     <div class="champ-row">${(p.top_wr || []).map(x =>
-      `<div class="champ-icon ban" data-slug="${escapeHtml(x.slug || '')}" data-wr="${Math.round(x.wr)}%" title="${escapeHtml(x.champ)} ${Math.round(x.wr)}% sur ${x.total}g"></div>`
+      `<div class="champ-icon ban" data-slug="${escapeHtml(x.slug || '')}" data-wr="${Math.round(x.wr)}%" title="${escapeHtml(x.champ)} ${Math.round(x.wr)}% over ${x.total}g"></div>`
     ).join('') || '<span class="empty-pill">—</span>'}</div>
   ` : '';
   const mast = (p.mastery || []).map(m =>
@@ -751,14 +751,14 @@ function buildCardBodyHTML(p, side, role) {
     <div class="ready-wrap">
       <label class="ready-toggle${p.ready ? ' ready' : ''}">
         <input type="checkbox" class="ready-check" data-role="${escapeHtml(role || '')}" ${p.ready ? 'checked' : ''}>
-        <span>✅ Je suis prêt</span>
+        <span>✅ I'm ready</span>
       </label>
     </div>
   ` : '';
   return `
-    <div class="stat-line"><span class="lbl">Niveau</span> <strong>${p.level || '?'}</strong></div>
+    <div class="stat-line"><span class="lbl">Level</span> <strong>${p.level || '?'}</strong></div>
     <div class="stat-line">${p.rank_line || ''}</div>
-    <div class="stat-line"><span class="lbl">🔥 Pick récent</span></div>
+    <div class="stat-line"><span class="lbl">🔥 Recent picks</span></div>
     <div class="champ-row">${picks || '<span class="empty-pill">—</span>'}</div>
     ${bansSection}
     <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
@@ -798,13 +798,13 @@ function renderPlayerCard(card, p) {
     const side = card.dataset.side;
     const role = card.dataset.roleKey;
     if (isEmpty) {
-      let html = '<div class="empty-pill">— Slot vide. Renseigne le Riot ID.</div>';
+      let html = '<div class="empty-pill">— Empty slot. Fill in the Riot ID.</div>';
       if (side === 'ally') {
         html += `
           <div class="ready-wrap">
             <label class="ready-toggle">
               <input type="checkbox" class="ready-check" data-role="${escapeHtml(role)}">
-              <span>✅ Je suis prêt</span>
+              <span>✅ I'm ready</span>
             </label>
           </div>`;
       }
@@ -841,7 +841,7 @@ function bindReadyChecks() {
 }
 bindReadyChecks();
 
-// Bind edit Enter sur tous les inputs
+// Bind edit Enter on every input
 document.querySelectorAll('.riot-id-edit').forEach(inp => {
   inp.addEventListener('keydown', async e => {
     if (e.key !== 'Enter') return;
@@ -863,10 +863,10 @@ document.querySelectorAll('.riot-id-edit').forEach(inp => {
         renderPlayerCard(card, d.data);
         if (side === 'enemy') rebuildBansSynthesis();
       } else {
-        alert('Erreur : ' + (d.error || 'unknown'));
+        alert('Error: ' + (d.error || 'unknown'));
       }
     } catch (_) {
-      alert('Erreur réseau.');
+      alert('Network error.');
     } finally {
       card.classList.remove('loading');
       inp.blur();
@@ -911,7 +911,7 @@ async function joinSession(pseudo) {
     updateYouInfo();
     hidePseudoModal();
   } else {
-    alert(d.error || 'Erreur');
+    alert(d.error || 'Error');
   }
 }
 document.getElementById('pseudoSubmit')?.addEventListener('click', () => {
@@ -940,7 +940,7 @@ function appendChatMsg(m) {
   const cont = document.getElementById('chatMessages');
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  const t = m.ts ? new Date((m.ts || '').replace(' ', 'T') + 'Z').toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) : '';
+  const t = m.ts ? new Date((m.ts || '').replace(' ', 'T') + 'Z').toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}) : '';
   div.innerHTML =
     `<span class="author" style="color:${m.color || '#fff'}">${escapeHtml(m.pseudo)}</span>` +
     `<span>${escapeHtml(m.message)}</span>` +
@@ -1080,11 +1080,11 @@ async function postClear(scope) {
 }
 document.getElementById('clearMine')?.addEventListener('click', () => {
   if (!myPseudo) return;
-  if (!confirm('Effacer tes traits ?')) return;
+  if (!confirm('Clear your strokes?')) return;
   postClear('mine');
 });
 document.getElementById('clearAll')?.addEventListener('click', () => {
-  if (!confirm('Tout effacer (visible par TOUS) ?')) return;
+  if (!confirm('Clear everything (visible to EVERYONE)?')) return;
   postClear('all');
 });
 async function pollAnnotations() {

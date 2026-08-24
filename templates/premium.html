@@ -1,5 +1,5 @@
 {% extends "_base.html" %}
-{% block title %}Premium · TookBot{% endblock %}
+{% block title %}{{ t('web_premium.premium.page_title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -88,37 +88,37 @@
 
 <div class="premium-hero">
   <div>
-    <h1>✨ TookBot Premium</h1>
-    <div class="sub">Personnalise ta carte <code>/niveau</code> et débloque les backgrounds exclusifs.</div>
+    <h1>✨ {{ t('web_premium.premium.hero_title') }}</h1>
+    <div class="sub">{{ t('web_premium.premium.hero_sub_1') }} <code>/level</code> {{ t('web_premium.premium.hero_sub_2') }}</div>
   </div>
   <div>
     {% if is_premium %}
-      <span class="badge-active">★ PREMIUM ACTIF</span>
+      <span class="badge-active">{{ t('web_premium.premium.badge_active') }}</span>
     {% else %}
-      <span class="badge-locked">Non débloqué</span>
+      <span class="badge-locked">{{ t('web_premium.premium.badge_locked') }}</span>
     {% endif %}
   </div>
 </div>
 
 {% if not is_premium %}
   <div class="locked-overlay">
-    <h2>Débloque la personnalisation</h2>
-    <p>Achète <strong>/niveau Premium</strong> via la <em>boutique</em> du bot dans Discord (clique sur le profil de TookBot → Boutique) pour accéder à 15 backgrounds exclusifs, au rendu image HD et au badge ⭐ sur ta carte. Achat unique, à vie.</p>
+    <h2>{{ t('web_premium.premium.locked_title') }}</h2>
+    <p>{{ t('web_premium.premium.locked_p_1') }} <strong>/level Premium</strong> {{ t('web_premium.premium.locked_p_2') }} <em>{{ t('web_premium.premium.locked_p_shop') }}</em> {{ t('web_premium.premium.locked_p_3') }}</p>
     <div class="price">1,99 $US</div>
-    <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">Astuce : ouvre le profil de TookBot, onglet « Boutique », puis sélectionne <strong>/niveau Premium</strong>.</p>
+    <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">{{ t('web_premium.premium.locked_tip') }} <strong>/level Premium</strong>.</p>
   </div>
 {% else %}
   <div class="preview-wrap">
-    <img id="preview" src="/api/premium/niveau/preview.png?bg={{ settings_p.niveau_background or 'default' }}" alt="Aperçu carte /niveau">
-    <div class="help">Aperçu live — sélectionne un background puis clique « Sauvegarder ».</div>
+    <img id="preview" src="/api/premium/niveau/preview.png?bg={{ settings_p.niveau_background or 'default' }}" alt="{{ t('web_premium.premium.preview_alt') }}">
+    <div class="help">{{ t('web_premium.premium.preview_help') }}</div>
   </div>
 
   <div class="row between" style="align-items:center; margin: 16px 0 8px;">
-    <h3 style="margin:0;">Background</h3>
+    <h3 style="margin:0;">{{ t('web_premium.premium.background_title') }}</h3>
     <div class="row" style="gap: 10px; align-items: center;">
-      <span id="dirtyHint" class="muted" style="font-size: 12px; opacity: 0; transition: opacity 150ms;">Modifications non enregistrées</span>
+      <span id="dirtyHint" class="muted" style="font-size: 12px; opacity: 0; transition: opacity 150ms;">{{ t('web_premium.premium.unsaved_changes') }}</span>
       <button id="saveBtn" class="btn btn-primary" type="button" disabled>
-        <svg class="ic"><use href="#i-bolt"/></svg> Sauvegarder
+        <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_premium.common.save') }}
       </button>
     </div>
   </div>
@@ -230,7 +230,7 @@
   .gb-slot-counter .num { color: oklch(0.86 0.20 130); font-weight: 800; }
 </style>
 
-<div class="toast" id="toast">Sauvegardé ✓</div>
+<div class="toast" id="toast">{{ t('web_premium.premium.saved') }}</div>
 
 {% if is_premium %}
 <script>
@@ -281,19 +281,19 @@
       if (r.ok) {
         savedBg = selectedBg;
         grid.dataset.current = savedBg;
-        showToast('Sauvegardé ✓');
+        showToast('Saved ✓');
       } else {
-        showToast('Erreur de sauvegarde');
+        showToast('Save error');
       }
     } catch (_) {
-      showToast('Erreur réseau');
+      showToast('Network error');
     } finally {
       saving = false;
       refreshDirty();
     }
   });
 
-  // Avertir si l'user quitte la page avec des changements non sauvegardes
+  // Warn if the user leaves the page with unsaved changes
   window.addEventListener('beforeunload', (e) => {
     if (selectedBg !== savedBg) {
       e.preventDefault();
@@ -304,7 +304,7 @@
 </script>
 {% endif %}
 
-<!-- Guild Boost JS retire. -->
+<!-- Guild Boost JS removed. -->
 <script>
 (function() { return; /* legacy stub */
   function escapeHtml(s) {
@@ -327,7 +327,7 @@
       if (!r.ok) throw new Error(r.status);
       d = await r.json();
     } catch (e) {
-      content.innerHTML = '<div class="muted" style="font-size:13px;color:#f88;">Erreur de chargement.</div>';
+      content.innerHTML = '<div class="muted" style="font-size:13px;color:#f88;">Load error.</div>';
       return;
     }
 
@@ -346,7 +346,7 @@
       const owned     = !!tiers[t];
       if (tierCard) tierCard.classList.toggle('owned', owned);
       if (tierStat) {
-        tierStat.textContent = owned ? '★ Actif' : 'Non débloqué';
+        tierStat.textContent = owned ? '★ Active' : 'Not unlocked';
         tierStat.className   = 'tier-status ' + (owned ? 'on' : 'off');
       }
     });
@@ -354,23 +354,23 @@
     if (canAssign) {
       card.classList.add('active');
       const counter = isOwner
-        ? '<span class="gb-slot-counter"><span class="num">∞</span> serveurs (owner)</span>'
-        : `<span class="gb-slot-counter"><span class="num">${usedSlots}</span> / ${maxSlots} slots utilisés</span>`;
-      badge.innerHTML = '<span class="gb-status-active">★ ACTIF</span> ' + counter;
+        ? '<span class="gb-slot-counter"><span class="num">∞</span> servers (owner)</span>'
+        : `<span class="gb-slot-counter"><span class="num">${usedSlots}</span> / ${maxSlots} slots used</span>`;
+      badge.innerHTML = '<span class="gb-status-active">★ ACTIVE</span> ' + counter;
     } else {
       card.classList.remove('active');
-      badge.innerHTML = '<span class="gb-status-inactive">Non débloqué</span>';
+      badge.innerHTML = '<span class="gb-status-inactive">Not unlocked</span>';
     }
 
     if (!canAssign) {
       content.innerHTML = `
         <div class="gb-buy-block">
           <div style="font-size:13px;color:var(--text);">
-            Choisis un palier ci-dessus, ouvre le profil de <strong>TookBot</strong> sur Discord
-            → onglet <em>Boutique</em> → sélectionne <strong>Guild Boost + Solo / Duo / Squad</strong>.
+            Pick a tier above, open the <strong>TookBot</strong> profile on Discord
+            → <em>Shop</em> tab → select <strong>Guild Boost + Solo / Duo / Squad</strong>.
           </div>
           <div class="help">
-            Une fois acheté, reviens sur cette page pour assigner le boost à un ou plusieurs serveurs.
+            Once purchased, come back to this page to assign the boost to one or more servers.
           </div>
         </div>`;
       return;
@@ -379,19 +379,19 @@
     if (!guilds.length) {
       content.innerHTML = `
         <div class="muted" style="font-size:13px;margin-top:12px;">
-          Aucun serveur où tu es admin/owner et où TookBot est présent.
-          Invite le bot sur ton serveur ou demande les permissions <code>Administrateur</code>.
+          No server where you are admin/owner and where TookBot is present.
+          Invite the bot to your server or ask for the <code>Administrator</code> permission.
         </div>`;
       return;
     }
 
     const slotsLeft = isOwner ? 999 : Math.max(0, maxSlots - usedSlots);
     const ownerHint = isOwner
-      ? `<div class="gb-sub" style="margin: 12px 0 6px;color:oklch(0.86 0.20 130);">👑 Owner du bot : assignations illimitées.</div>`
+      ? `<div class="gb-sub" style="margin: 12px 0 6px;color:oklch(0.86 0.20 130);">👑 Bot owner: unlimited assignments.</div>`
       : `<div class="gb-sub" style="margin: 12px 0 6px;">
            ${slotsLeft > 0
-             ? `Tu as encore <strong>${slotsLeft} slot${slotsLeft > 1 ? 's' : ''}</strong> disponible${slotsLeft > 1 ? 's' : ''}.`
-             : 'Limite atteinte. Retire une assignation ou achète un palier supérieur pour en ajouter.'}
+             ? `You still have <strong>${slotsLeft} slot${slotsLeft > 1 ? 's' : ''}</strong> available.`
+             : 'Limit reached. Remove an assignment or buy a higher tier to add more.'}
          </div>`;
 
     const items = guilds.map(g => {
@@ -402,18 +402,18 @@
         : escapeHtml((g.name || '?')[0].toUpperCase());
       let actionBtn;
       if (isAssigned) {
-        actionBtn = `<button class="btn btn-secondary btn-sm" data-action="unassign" data-guild="${escapeHtml(id)}">Retirer</button>`;
+        actionBtn = `<button class="btn btn-secondary btn-sm" data-action="unassign" data-guild="${escapeHtml(id)}">Remove</button>`;
       } else if (slotsLeft <= 0) {
-        actionBtn = `<button class="btn btn-secondary btn-sm" disabled title="Plus de slots disponibles">Plein</button>`;
+        actionBtn = `<button class="btn btn-secondary btn-sm" disabled title="No slots available">Full</button>`;
       } else {
-        actionBtn = `<button class="btn btn-primary btn-sm" data-action="assign" data-guild="${escapeHtml(id)}">Assigner</button>`;
+        actionBtn = `<button class="btn btn-primary btn-sm" data-action="assign" data-guild="${escapeHtml(id)}">Assign</button>`;
       }
       return `
         <div class="gb-guild ${isAssigned ? 'assigned' : ''}">
           <div class="icon">${iconHtml}</div>
           <div class="meta">
             <div class="name">${escapeHtml(g.name)}</div>
-            <div class="hint">${isAssigned ? '★ Boost assigné ici' : (slotsLeft <= 0 ? 'Slots épuisés' : 'Disponible pour assignation')}</div>
+            <div class="hint">${isAssigned ? '★ Boost assigned here' : (slotsLeft <= 0 ? 'No slots left' : 'Available for assignment')}</div>
           </div>
           <div class="actions">${actionBtn}</div>
         </div>`;
@@ -439,10 +439,10 @@
           });
           const dat = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(dat.error || r.status);
-          showToast(action === 'assign' ? 'Boost assigné ✓' : 'Boost retiré ✓');
+          showToast(action === 'assign' ? 'Boost assigned ✓' : 'Boost removed ✓');
           await refresh();
         } catch (e) {
-          showToast('Erreur : ' + e.message);
+          showToast('Error: ' + e.message);
           btn.disabled = false;
           btn.textContent = prev;
         }

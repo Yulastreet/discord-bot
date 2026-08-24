@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'search' %}
 
-{% block title %}Profil · Bot Console{% endblock %}
-{% block crumb %}<a href="/search" style="color:var(--text-3);">Rechercher</a> <span class="sep">/</span> Profil{% endblock %}
+{% block title %}{{ t('web_premium.user.page_title') }}{% endblock %}
+{% block crumb %}<a href="/search" style="color:var(--text-3);">{{ t('web_premium.user.crumb_search') }}</a> <span class="sep">/</span> {{ t('web_premium.user.crumb_current') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -58,7 +58,7 @@
   }
 </style>
 
-<div id="loadingState" class="muted" style="padding: var(--s-7) 0;">Chargement du profil...</div>
+<div id="loadingState" class="muted" style="padding: var(--s-7) 0;">{{ t('web_premium.user.loading_profile') }}</div>
 
 <div id="profileContent" class="hidden col gap-7">
 
@@ -72,7 +72,7 @@
       <div class="discord-badges" id="discordBadges"></div>
       <div class="discord-about" id="discordAbout"></div>
       <div class="discord-mini-panel">
-        <div class="discord-mini-title">Serveurs connus</div>
+        <div class="discord-mini-title">{{ t('web_premium.user.known_servers') }}</div>
         <div id="discordGuilds" class="muted" style="font-size:var(--t-sm);"></div>
       </div>
     </div>
@@ -80,27 +80,27 @@
 
   <div class="row between" style="align-items:flex-start;flex-wrap:wrap;gap:var(--s-4);">
     <div class="col gap-2">
-      <span class="eyebrow">Profil utilisateur</span>
+      <span class="eyebrow">{{ t('web_premium.user.eyebrow') }}</span>
       <h1 id="username"></h1>
       <span class="badge badge-mono" id="userId"></span>
     </div>
     <div class="row" style="gap:var(--s-2);flex-wrap:wrap;">
       {% if is_owner %}
       <a href="/duels" class="btn btn-secondary">
-        <svg class="ic"><use href="#i-swords"/></svg> Voir profil duel
+        <svg class="ic"><use href="#i-swords"/></svg> {{ t('web_premium.user.view_duel_profile') }}
       </a>
       {% endif %}
       {% if is_owner %}
-        <button id="premiumToggleBtn" class="btn btn-secondary" type="button" disabled title="Cartes de niveau premium (backgrounds custom, badges)">
-          <svg class="ic"><use href="#i-bolt"/></svg> <span id="premiumToggleLabel">Niveau Premium…</span>
+        <button id="premiumToggleBtn" class="btn btn-secondary" type="button" disabled title="{{ t('web_premium.user.premium_btn_title') }}">
+          <svg class="ic"><use href="#i-bolt"/></svg> <span id="premiumToggleLabel">{{ t('web_premium.user.premium_btn_label') }}</span>
         </button>
-        <button id="passToggleBtn" class="btn btn-secondary" type="button" disabled title="Battle Pass saisonnier (missions, récompenses)">
-          <svg class="ic"><use href="#i-swords"/></svg> <span id="passToggleLabel">Pass…</span>
+        <button id="passToggleBtn" class="btn btn-secondary" type="button" disabled title="{{ t('web_premium.user.pass_btn_title') }}">
+          <svg class="ic"><use href="#i-swords"/></svg> <span id="passToggleLabel">{{ t('web_premium.user.pass_btn_label') }}</span>
         </button>
-        <!-- Guild Boost retire : plus de grant tier solo/duo/squad. -->
+        <!-- Guild Boost removed: no more solo/duo/squad tier grant. -->
         <div id="guildBoostBtnGroup" hidden></div>
         <button id="tookbotPlusBtn" class="btn btn-secondary" type="button" data-state="unknown" style="--ico:#ffa726;">
-          <svg class="ic"><use href="#i-bolt"/></svg> <span id="tookbotPlusLabel">TookBot+...</span>
+          <svg class="ic"><use href="#i-bolt"/></svg> <span id="tookbotPlusLabel">{{ t('web_premium.user.tookbot_plus_btn_label') }}</span>
         </button>
       {% endif %}
     </div>
@@ -110,8 +110,8 @@
   <div class="card" id="premiumPanel" style="border-color: oklch(0.86 0.20 130 / .35);">
     <div class="row between" style="align-items:center;">
       <div>
-        <div class="eyebrow">Premium</div>
-        <div id="premiumPanelLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+        <div class="eyebrow">{{ t('web_premium.user.premium_eyebrow') }}</div>
+        <div id="premiumPanelLabel" class="muted" style="font-size:var(--t-sm);">{{ t('web_premium.common.loading') }}</div>
       </div>
       <div id="premiumPanelBadge"></div>
     </div>
@@ -120,24 +120,24 @@
   <div class="card" id="passAdminPanel" style="border-color: oklch(0.62 0.22 30 / .35);">
     <div class="row between" style="align-items:center;margin-bottom:14px;">
       <div>
-        <div class="eyebrow">Battle Pass — admin</div>
-        <div id="passAdminLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+        <div class="eyebrow">{{ t('web_premium.user.pass_admin_eyebrow') }}</div>
+        <div id="passAdminLabel" class="muted" style="font-size:var(--t-sm);">{{ t('web_premium.common.loading') }}</div>
       </div>
       <div id="passAdminBadge"></div>
     </div>
     <div id="passAdminBody" class="hidden">
       <div class="row gap-3" style="flex-wrap:wrap;align-items:flex-end;">
         <label style="display:flex;flex-direction:column;gap:4px;">
-          <span class="muted" style="font-size:var(--t-xs);">XP saison</span>
+          <span class="muted" style="font-size:var(--t-xs);">{{ t('web_premium.user.pass_season_xp') }}</span>
           <input id="passEditXp" type="number" min="0" step="50" class="input" style="width:140px;">
         </label>
         <label style="display:flex;flex-direction:column;gap:4px;">
-          <span class="muted" style="font-size:var(--t-xs);">Palier (auto)</span>
+          <span class="muted" style="font-size:var(--t-xs);">{{ t('web_premium.user.pass_tier_auto') }}</span>
           <input id="passEditTier" type="number" min="0" step="1" class="input" style="width:120px;">
         </label>
-        <button id="passSaveBtn"   class="btn btn-primary"   type="button">Sauvegarder</button>
-        <button id="passResetBtn"  class="btn btn-secondary" type="button">Réinitialiser</button>
-        <button id="passQuestRoll" class="btn btn-secondary" type="button">Re-roll quêtes</button>
+        <button id="passSaveBtn"   class="btn btn-primary"   type="button">{{ t('web_premium.common.save') }}</button>
+        <button id="passResetBtn"  class="btn btn-secondary" type="button">{{ t('web_premium.user.reset') }}</button>
+        <button id="passQuestRoll" class="btn btn-secondary" type="button">{{ t('web_premium.user.reroll_quests') }}</button>
         <span id="passEditHint" class="muted" style="font-size:var(--t-xs);margin-left:auto;"></span>
       </div>
       <div id="passQuestList" style="margin-top:14px;display:flex;flex-direction:column;gap:6px;font-size:var(--t-sm);"></div>
@@ -147,24 +147,24 @@
   <div class="card" id="cardsAdminPanel" style="border-color: oklch(0.62 0.22 30 / .35);">
     <div class="row between" style="align-items:center;margin-bottom:8px;">
       <div>
-        <div class="eyebrow">Cartes — admin</div>
-        <div id="cardsAdminLabel" class="muted" style="font-size:var(--t-sm);">Chargement…</div>
+        <div class="eyebrow">{{ t('web_premium.user.cards_admin_eyebrow') }}</div>
+        <div id="cardsAdminLabel" class="muted" style="font-size:var(--t-sm);">{{ t('web_premium.common.loading') }}</div>
         <div id="cardGuildInfo" style="font-size:var(--t-sm);margin-top:6px;"></div>
       </div>
     </div>
     <div class="row gap-3" style="flex-wrap:wrap;margin-top:8px;">
-      <button id="cardsGiveBtn" class="btn btn-primary" type="button">🎁 Donner une carte</button>
-      <button id="cardsListBtn" class="btn btn-secondary" type="button">📋 Voir ses cartes</button>
-      <button id="cardsClearAllBtn" class="btn btn-danger" type="button">🗑 Clear toutes les cartes</button>
-      <button id="cardsResetCdBtn" class="btn btn-secondary" type="button">⟳ Reset cooldown /roll (tous serveurs)</button>
+      <button id="cardsGiveBtn" class="btn btn-primary" type="button">🎁 {{ t('web_premium.user.give_card') }}</button>
+      <button id="cardsListBtn" class="btn btn-secondary" type="button">📋 {{ t('web_premium.user.view_cards') }}</button>
+      <button id="cardsClearAllBtn" class="btn btn-danger" type="button">🗑 {{ t('web_premium.user.clear_all_cards') }}</button>
+      <button id="cardsResetCdBtn" class="btn btn-secondary" type="button">⟳ {{ t('web_premium.user.reset_roll_cooldown') }}</button>
     </div>
     <div id="cardsAdminHint" class="muted" style="font-size:var(--t-xs);margin-top:8px;"></div>
     <div id="cardsInventory" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;font-size:var(--t-sm);"></div>
   </div>
 
-  <!-- Wishlist du joueur (owner-only) -->
+  <!-- Player wishlist (owner-only) -->
   <div class="card" id="wishlistPanel" style="display:none;">
-    <div class="eyebrow">⭐ Wishlist <span id="wishlistCount" class="muted" style="font-size:var(--t-sm);"></span></div>
+    <div class="eyebrow">⭐ {{ t('web_premium.user.wishlist') }} <span id="wishlistCount" class="muted" style="font-size:var(--t-sm);"></span></div>
     <div id="wishlistGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;margin-top:12px;"></div>
   </div>
 
@@ -172,15 +172,15 @@
   <div id="cardsListScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:300;display:none;place-items:center;padding:20px;">
     <div onclick="event.stopPropagation()" style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:900px;width:100%;max-height:85vh;display:flex;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 style="margin:0;">📋 Cartes de <span id="clUserLabel">…</span></h3>
+        <h3 style="margin:0;">📋 {{ t('web_premium.user.cl_title') }} <span id="clUserLabel">…</span></h3>
         <button onclick="document.getElementById('cardsListScrim').style.display='none'" style="background:transparent;border:none;color:var(--text-2);font-size:24px;cursor:pointer;">×</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
-        <input id="clSearch" type="text" placeholder="Filtrer nom / univers…" class="input" style="flex:1;min-width:200px;">
+        <input id="clSearch" type="text" placeholder="{{ t('web_premium.user.cl_filter_placeholder') }}" class="input" style="flex:1;min-width:200px;">
         <span id="clCount" class="muted" style="font-size:12px;"></span>
       </div>
       <div id="clBody" style="overflow-y:auto;flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
-        <div class="muted">Chargement…</div>
+        <div class="muted">{{ t('web_premium.common.loading') }}</div>
       </div>
     </div>
   </div>
@@ -188,52 +188,52 @@
   <!-- Give Card modal owner-only -->
   <div id="giveCardScrim" style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:300;display:none;place-items:center;padding:20px;">
     <div onclick="event.stopPropagation()" style="background:var(--bg-1);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:540px;width:100%;">
-      <h3 style="margin:0 0 12px;">🎁 Donner une carte à <span id="gcUserLabel">…</span></h3>
+      <h3 style="margin:0 0 12px;">🎁 {{ t('web_premium.user.gc_title') }} <span id="gcUserLabel">…</span></h3>
       <div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px;">
-        <button class="gc-tab active" data-tab="existing" onclick="gcSwitchTab('existing')" style="padding:8px 14px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid #b9f23a;">📦 Carte existante</button>
-        <button class="gc-tab" data-tab="new" onclick="gcSwitchTab('new')" style="padding:8px 14px;border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;">✨ Créer une nouvelle carte</button>
+        <button class="gc-tab active" data-tab="existing" onclick="gcSwitchTab('existing')" style="padding:8px 14px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid #b9f23a;">📦 {{ t('web_premium.user.gc_tab_existing') }}</button>
+        <button class="gc-tab" data-tab="new" onclick="gcSwitchTab('new')" style="padding:8px 14px;border:none;background:transparent;color:var(--text-2);font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;">✨ {{ t('web_premium.user.gc_tab_new') }}</button>
       </div>
 
       <!-- Existing tab -->
       <div id="gcExisting" class="col" style="gap:10px;">
-        <input id="gcSearchInput" type="search" placeholder="🔍 Rechercher nom carte (autocomplete)…" class="input" style="width:100%;" oninput="gcSearchCards()">
+        <input id="gcSearchInput" type="search" placeholder="{{ t('web_premium.user.gc_search_placeholder') }}" class="input" style="width:100%;" oninput="gcSearchCards()">
         <div id="gcResults" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--bg-2);"></div>
-        <div id="gcSelected" class="muted" style="font-size:12px;">Aucune carte sélectionnée.</div>
+        <div id="gcSelected" class="muted" style="font-size:12px;">{{ t('web_premium.user.gc_no_card_selected') }}</div>
       </div>
 
       <!-- New tab -->
       <div id="gcNew" class="col hidden" style="gap:10px;">
-        <input id="gcNewName" placeholder="Nom (obligatoire)" class="input" style="width:100%;">
-        <input id="gcNewFlavor" placeholder="Sous-titre (optionnel)" class="input" style="width:100%;">
-        <input id="gcNewUniverse" placeholder="Univers (ex: Anime)" class="input" style="width:100%;">
-        <input id="gcNewSubtitle" placeholder="Origine (ex: Naruto)" class="input" style="width:100%;">
+        <input id="gcNewName" placeholder="{{ t('web_premium.user.gc_name_ph') }}" class="input" style="width:100%;">
+        <input id="gcNewFlavor" placeholder="{{ t('web_premium.user.gc_flavor_ph') }}" class="input" style="width:100%;">
+        <input id="gcNewUniverse" placeholder="{{ t('web_premium.user.gc_universe_ph') }}" class="input" style="width:100%;">
+        <input id="gcNewSubtitle" placeholder="{{ t('web_premium.user.gc_origin_ph') }}" class="input" style="width:100%;">
         <select id="gcNewRarity" class="input">
-          <option value="common">Common</option>
-          <option value="rare">Rare</option>
-          <option value="epic">Epic</option>
-          <option value="legendary">Legendary</option>
-          <option value="mythic">Mythic</option>
-          <option value="secret">🌈 Secret</option>
+          <option value="common">{{ t('web_premium.user.rarity_common') }}</option>
+          <option value="rare">{{ t('web_premium.user.rarity_rare') }}</option>
+          <option value="epic">{{ t('web_premium.user.rarity_epic') }}</option>
+          <option value="legendary">{{ t('web_premium.user.rarity_legendary') }}</option>
+          <option value="mythic">{{ t('web_premium.user.rarity_mythic') }}</option>
+          <option value="secret">🌈 {{ t('web_premium.user.rarity_secret') }}</option>
         </select>
-        <input id="gcNewImage" placeholder="Image URL" class="input" style="width:100%;">
-        <textarea id="gcNewDesc" placeholder="Description" rows="2" class="input" style="width:100%;font-size:13px;"></textarea>
+        <input id="gcNewImage" placeholder="{{ t('web_premium.user.gc_image_ph') }}" class="input" style="width:100%;">
+        <textarea id="gcNewDesc" placeholder="{{ t('web_premium.user.gc_desc_ph') }}" rows="2" class="input" style="width:100%;font-size:13px;"></textarea>
       </div>
 
       <!-- Common options -->
       <div class="row gap-3" style="margin-top:14px;flex-wrap:wrap;align-items:center;">
         <label style="display:flex;flex-direction:column;gap:4px;">
-          <span class="muted" style="font-size:11px;">Quantité</span>
+          <span class="muted" style="font-size:11px;">{{ t('web_premium.user.gc_qty') }}</span>
           <input id="gcQty" type="number" min="1" max="100" value="1" class="input" style="width:90px;">
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:18px;">
           <input id="gcNotTradeable" type="checkbox">
-          <span>🔒 Non-tradeable</span>
+          <span>🔒 {{ t('web_premium.user.gc_not_tradeable') }}</span>
         </label>
       </div>
       <div id="gcHint" class="muted" style="font-size:12px;margin-top:8px;"></div>
       <div class="row gap-2" style="margin-top:14px;justify-content:flex-end;">
-        <button class="btn btn-secondary" type="button" onclick="closeGiveCard()">Annuler</button>
-        <button class="btn btn-primary" type="button" onclick="submitGiveCard()">Donner</button>
+        <button class="btn btn-secondary" type="button" onclick="closeGiveCard()">{{ t('web_premium.user.cancel') }}</button>
+        <button class="btn btn-primary" type="button" onclick="submitGiveCard()">{{ t('web_premium.user.give') }}</button>
       </div>
     </div>
   </div>
@@ -241,22 +241,21 @@
 
   {% if is_guild_admin %}
   <div class="card" id="xpEditPanel">
-    <div class="eyebrow">Édition XP / Niveau (ce serveur)</div>
+    <div class="eyebrow">{{ t('web_premium.user.xp_edit_eyebrow') }}</div>
     <p class="muted" style="font-size:var(--t-xs);margin-top:6px;">
-      Modifier l'un des deux champs met l'autre à jour automatiquement après sauvegarde.
-      L'XP est la valeur autoritaire — le niveau est recalculé.
+      {{ t('web_premium.user.xp_edit_help') }}
     </p>
     <div class="row gap-3" style="margin-top:12px;flex-wrap:wrap;align-items:flex-end;">
       <label style="display:flex;flex-direction:column;gap:4px;">
-        <span class="muted" style="font-size:var(--t-xs);">XP total</span>
+        <span class="muted" style="font-size:var(--t-xs);">{{ t('web_premium.user.xp_total') }}</span>
         <input id="editXp" type="number" min="0" step="1" class="input" style="width:160px;">
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;">
-        <span class="muted" style="font-size:var(--t-xs);">Niveau</span>
+        <span class="muted" style="font-size:var(--t-xs);">{{ t('web_premium.user.level') }}</span>
         <input id="editLevel" type="number" min="0" step="1" class="input" style="width:120px;">
       </label>
-      <button id="xpSaveBtn"   class="btn btn-primary" type="button">Sauvegarder</button>
-      <button id="xpResetBtn"  class="btn btn-secondary" type="button">Réinitialiser à 0</button>
+      <button id="xpSaveBtn"   class="btn btn-primary" type="button">{{ t('web_premium.common.save') }}</button>
+      <button id="xpResetBtn"  class="btn btn-secondary" type="button">{{ t('web_premium.user.reset_to_zero') }}</button>
       <span id="xpHint" class="muted" style="font-size:var(--t-xs);margin-left:auto;"></span>
     </div>
   </div>
@@ -264,17 +263,17 @@
 
   <div class="grid grid-3">
     <div class="stat">
-      <div class="stat-label">Niveau message</div>
+      <div class="stat-label">{{ t('web_premium.user.stat_message_level') }}</div>
       <div class="stat-value" id="level">-</div>
-      <div class="stat-sub" id="progressText">Progression</div>
+      <div class="stat-sub" id="progressText">{{ t('web_premium.user.progress') }}</div>
     </div>
     <div class="stat">
-      <div class="stat-label">XP cumulé</div>
+      <div class="stat-label">{{ t('web_premium.user.stat_total_xp') }}</div>
       <div class="stat-value" id="xp">-</div>
-      <div class="stat-sub">Sur ce serveur</div>
+      <div class="stat-sub">{{ t('web_premium.user.on_this_server') }}</div>
     </div>
     <div class="stat">
-      <div class="stat-label">Avant le prochain niveau</div>
+      <div class="stat-label">{{ t('web_premium.user.stat_to_next_level') }}</div>
       <div class="stat-value" id="xpToNext">-</div>
       <div class="bar-track" style="margin-top:10px;"><div class="bar-fill" id="progressFill" style="width:0%"></div></div>
     </div>
@@ -283,8 +282,8 @@
   <div class="card">
     <div class="card-row mb-4">
       <div>
-        <h2>Activité — 14 derniers jours</h2>
-        <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Évènements traçés sur ce serveur.</p>
+        <h2>{{ t('web_premium.user.activity_title') }}</h2>
+        <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">{{ t('web_premium.user.activity_sub') }}</p>
       </div>
       <span class="badge" id="activityTotal">—</span>
     </div>
@@ -293,26 +292,26 @@
 
   <div class="grid grid-2 gap-5">
     <div class="card">
-      <h2 style="margin-bottom: var(--s-3);">Salons favoris (30 j)</h2>
+      <h2 style="margin-bottom: var(--s-3);">{{ t('web_premium.user.fav_channels') }}</h2>
       <div id="favChannels"></div>
     </div>
     <div class="card">
-      <h2 style="margin-bottom: var(--s-3);">Type d'évènements (30 j)</h2>
+      <h2 style="margin-bottom: var(--s-3);">{{ t('web_premium.user.event_types') }}</h2>
       <div id="typeBreakdown"></div>
     </div>
   </div>
 
   <div id="duelCard" class="card hidden">
-    <h2 style="margin-bottom: var(--s-3);">Profil duel</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_premium.user.duel_profile') }}</h2>
     <div class="grid grid-4" id="duelStats"></div>
   </div>
 
 </div>
 
 <div id="errorState" class="hidden card" style="text-align:center;">
-  <h2>Profil introuvable</h2>
+  <h2>{{ t('web_premium.user.not_found_title') }}</h2>
   <p class="muted mt-2" id="errorMessage" style="font-size:var(--t-sm);"></p>
-  <div class="mt-6"><a href="/search" class="btn btn-secondary">Retour à la recherche</a></div>
+  <div class="mt-6"><a href="/search" class="btn btn-secondary">{{ t('web_premium.user.back_to_search') }}</a></div>
 </div>
 
 {% endblock %}
@@ -322,14 +321,14 @@
 const userId = window.location.pathname.split('/').pop();
 
 const TYPE_LABELS = {
-  'command':                'Commandes',
+  'command':                'Commands',
   'action_voice_join':      'Voice join',
   'action_voice_leave':     'Voice leave',
   'action_voice_move':      'Voice move',
-  'action_message_delete':  'Messages supprimés',
-  'action_message_edit':    'Messages édités',
-  'action_member_join':     'A rejoint le serveur',
-  'action_member_leave':    'A quitté le serveur',
+  'action_message_delete':  'Deleted messages',
+  'action_message_edit':    'Edited messages',
+  'action_member_join':     'Joined the server',
+  'action_member_leave':    'Left the server',
 };
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -350,7 +349,7 @@ function openGiveCard() {
   document.getElementById('gcUserLabel').textContent = uid;
   document.getElementById('gcSearchInput').value = '';
   document.getElementById('gcResults').innerHTML = '';
-  document.getElementById('gcSelected').textContent = 'Aucune carte sélectionnée.';
+  document.getElementById('gcSelected').textContent = 'No card selected.';
   _gcSelectedCard = null;
   ['gcNewName','gcNewFlavor','gcNewUniverse','gcNewSubtitle','gcNewImage','gcNewDesc'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('gcNewRarity').value = 'common';
@@ -377,7 +376,7 @@ async function gcSearchCards() {
   _gcSearchTimer = setTimeout(async () => {
     const q = document.getElementById('gcSearchInput').value.trim();
     if (q.length < 2) {
-      document.getElementById('gcResults').innerHTML = '<div class="muted" style="font-size:12px;padding:6px;">Tape au moins 2 lettres…</div>';
+      document.getElementById('gcResults').innerHTML = '<div class="muted" style="font-size:12px;padding:6px;">Type at least 2 letters…</div>';
       return;
     }
     try {
@@ -385,7 +384,7 @@ async function gcSearchCards() {
       const d = await r.json();
       const items = d.items || [];
       if (!items.length) {
-        document.getElementById('gcResults').innerHTML = '<div class="muted" style="font-size:12px;padding:6px;">Aucun résultat.</div>';
+        document.getElementById('gcResults').innerHTML = '<div class="muted" style="font-size:12px;padding:6px;">No results.</div>';
         return;
       }
       document.getElementById('gcResults').innerHTML = items.map(c => `
@@ -410,12 +409,12 @@ async function submitGiveCard() {
   const notTradeable = document.getElementById('gcNotTradeable').checked;
   const newTab = !document.getElementById('gcNew').classList.contains('hidden');
   const hint = document.getElementById('gcHint');
-  hint.textContent = 'En cours…';
+  hint.textContent = 'Working…';
   try {
     let r, d;
     if (newTab) {
       const name = document.getElementById('gcNewName').value.trim();
-      if (!name) { hint.textContent = 'Nom requis.'; return; }
+      if (!name) { hint.textContent = 'Name required.'; return; }
       r = await fetch(`/api/owner/user/${uid}/cards/give-new`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -430,7 +429,7 @@ async function submitGiveCard() {
         }),
       });
     } else {
-      if (!_gcSelectedCard) { hint.textContent = 'Choisis une carte.'; return; }
+      if (!_gcSelectedCard) { hint.textContent = 'Pick a card.'; return; }
       r = await fetch(`/api/owner/user/${uid}/cards/give-existing`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({card_id: _gcSelectedCard.id, qty, not_tradeable: notTradeable}),
@@ -438,12 +437,12 @@ async function submitGiveCard() {
     }
     d = await r.json();
     if (d.ok) {
-      hint.textContent = `✅ ${d.given} carte(s) donnée(s)${d.not_tradeable ? ' (🔒 non-tradeable)' : ''}.`;
+      hint.textContent = `✅ ${d.given} card(s) given${d.not_tradeable ? ' (🔒 non-tradeable)' : ''}.`;
       setTimeout(closeGiveCard, 1500);
     } else {
-      hint.textContent = `Erreur : ${d.error || '?'}`;
+      hint.textContent = `Error: ${d.error || '?'}`;
     }
-  } catch (e) { hint.textContent = `Erreur : ${e.message}`; }
+  } catch (e) { hint.textContent = `Error: ${e.message}`; }
 }
 window.openGiveCard = openGiveCard;
 window.closeGiveCard = closeGiveCard;
@@ -463,10 +462,10 @@ function setupCardsAdmin() {
   async function refreshCount() {
     try {
       const r = await fetch(`/api/owner/user/${uid}/cards/stats`);
-      if (!r.ok) { labelEl.textContent = 'Erreur chargement.'; return; }
+      if (!r.ok) { labelEl.textContent = 'Load error.'; return; }
       const d = await r.json();
-      labelEl.textContent = `${d.total_cards} cartes · ${d.unique_cards} uniques · ${d.cooldowns_active} cooldown(s) actif(s)`;
-    } catch (e) { labelEl.textContent = 'Erreur : ' + e.message; }
+      labelEl.textContent = `${d.total_cards} cards · ${d.unique_cards} unique · ${d.cooldowns_active} active cooldown(s)`;
+    } catch (e) { labelEl.textContent = 'Error: ' + e.message; }
   }
   refreshCount();
 
@@ -481,16 +480,16 @@ function setupCardsAdmin() {
           <span class="muted">${lbl}</span>
           <input id="inv_${id}" type="number" min="0" value="${val}" class="input" style="width:120px;"></label>`;
       let html = fld('✨ Essences', 'essences', d.essences)
-        + fld('🎟️ Rolls bonus', 'rolls', d.rolls)
+        + fld('🎟️ Bonus rolls', 'rolls', d.rolls)
         + fld('🟣 Epic Rolls', 'epic_rolls', d.epic_rolls)
-        + fld('🔴 Fragments Mythic', 'mythic_fragments', d.mythic_fragments)
+        + fld('🔴 Mythic Fragments', 'mythic_fragments', d.mythic_fragments)
         + fld('🌈 Golden Rolls', 'golden_rolls', d.golden_rolls);
       if (d.event_active) {
         html += fld(`${d.event_emoji} ${d.event_name}`, 'event_coins', d.event_coins);
       }
-      html += `<button id="invSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-end;">💾 Enregistrer items</button>`;
+      html += `<button id="invSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-end;">💾 Save items</button>`;
       if (d.borders && d.borders.length) {
-        html += '<div style="flex-basis:100%;font-size:var(--t-xs);" class="muted">Bordures : '
+        html += '<div style="flex-basis:100%;font-size:var(--t-xs);" class="muted">Borders: '
           + d.borders.map(b => `${b.name} ×${b.qty}`).join(', ') + '</div>';
       }
       inv.innerHTML = html;
@@ -510,9 +509,9 @@ function setupCardsAdmin() {
         body: JSON.stringify(payload),
       });
       const d = await r.json();
-      if (d.success) { hintEl.textContent = '✅ Inventaire mis à jour.'; refreshInventory(); }
-      else hintEl.textContent = 'Erreur : ' + (d.error || '?');
-    } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
+      if (d.success) { hintEl.textContent = '✅ Inventory updated.'; refreshInventory(); }
+      else hintEl.textContent = 'Error: ' + (d.error || '?');
+    } catch (e) { hintEl.textContent = 'Error: ' + e.message; }
   }
   refreshInventory();
 
@@ -520,26 +519,26 @@ function setupCardsAdmin() {
   document.getElementById('cardsListBtn').addEventListener('click', () => openCardsList(uid, refreshCount));
 
   document.getElementById('cardsClearAllBtn').addEventListener('click', async () => {
-    if (!confirm(`Supprimer TOUTES les cartes de l'user ${uid} ? Irreversible.`)) return;
-    if (!confirm('Vraiment ? 2eme confirmation.')) return;
-    hintEl.textContent = 'Suppression en cours...';
+    if (!confirm(`Delete ALL cards of user ${uid}? Irreversible.`)) return;
+    if (!confirm('Really? Second confirmation.')) return;
+    hintEl.textContent = 'Deleting...';
     try {
       const r = await fetch(`/api/owner/user/${uid}/cards/clear`, {method: 'POST'});
       const d = await r.json();
-      if (d.ok) { hintEl.textContent = `${d.deleted} cartes supprimees.`; refreshCount(); }
-      else hintEl.textContent = 'Erreur : ' + (d.error || '?');
-    } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
+      if (d.ok) { hintEl.textContent = `${d.deleted} cards deleted.`; refreshCount(); }
+      else hintEl.textContent = 'Error: ' + (d.error || '?');
+    } catch (e) { hintEl.textContent = 'Error: ' + e.message; }
   });
 
   document.getElementById('cardsResetCdBtn').addEventListener('click', async () => {
-    if (!confirm(`Reset cooldown /roll de l'user ${uid} sur TOUS les serveurs ?`)) return;
-    hintEl.textContent = 'Reset en cours...';
+    if (!confirm(`Reset the /roll cooldown of user ${uid} on ALL servers?`)) return;
+    hintEl.textContent = 'Resetting...';
     try {
       const r = await fetch(`/api/owner/user/${uid}/cards/reset-cooldown`, {method: 'POST'});
       const d = await r.json();
-      if (d.ok) { hintEl.textContent = `${d.deleted} cooldown(s) supprime(s).`; refreshCount(); }
-      else hintEl.textContent = 'Erreur : ' + (d.error || '?');
-    } catch (e) { hintEl.textContent = 'Erreur : ' + e.message; }
+      if (d.ok) { hintEl.textContent = `${d.deleted} cooldown(s) deleted.`; refreshCount(); }
+      else hintEl.textContent = 'Error: ' + (d.error || '?');
+    } catch (e) { hintEl.textContent = 'Error: ' + e.message; }
   });
 }
 
@@ -554,7 +553,7 @@ async function openCardsList(uid, refreshCb) {
   _clRefresh = refreshCb;
   document.getElementById('clUserLabel').textContent = uid;
   document.getElementById('cardsListScrim').style.display = 'grid';
-  document.getElementById('clBody').innerHTML = '<div class="muted">Chargement…</div>';
+  document.getElementById('clBody').innerHTML = '<div class="muted">Loading…</div>';
   document.getElementById('clSearch').value = '';
   try {
     const r = await fetch(`/api/owner/user/${uid}/cards/list`);
@@ -562,7 +561,7 @@ async function openCardsList(uid, refreshCb) {
     _clItems = d.items || [];
     renderCardsList();
   } catch (e) {
-    document.getElementById('clBody').innerHTML = '<div class="muted">Erreur : ' + e.message + '</div>';
+    document.getElementById('clBody').innerHTML = '<div class="muted">Error: ' + e.message + '</div>';
   }
 }
 
@@ -572,9 +571,9 @@ function renderCardsList() {
     if (!q) return true;
     return (c.name || '').toLowerCase().includes(q) || (c.universe || '').toLowerCase().includes(q);
   });
-  document.getElementById('clCount').textContent = `${filtered.length} / ${_clItems.length} cartes`;
+  document.getElementById('clCount').textContent = `${filtered.length} / ${_clItems.length} cards`;
   const body = document.getElementById('clBody');
-  if (!filtered.length) { body.innerHTML = '<div class="muted">Aucune carte.</div>'; return; }
+  if (!filtered.length) { body.innerHTML = '<div class="muted">No cards.</div>'; return; }
   body.innerHTML = filtered.map(c => {
     const col = RAR_COLORS[c.rarity] || '#9aa0a6';
     const img = c.image_url ? `<img src="${c.image_url}" style="width:100%;height:140px;object-fit:cover;border-radius:6px;">` : `<div style="width:100%;height:140px;background:var(--bg-2);border-radius:6px;display:grid;place-items:center;color:var(--text-2);font-size:10px;">no img</div>`;
@@ -583,7 +582,7 @@ function renderCardsList() {
       ${img}
       <div style="font-weight:700;font-size:11px;line-height:1.2;">${flag}${escHtmlCl(c.name || '?')}</div>
       <div style="font-size:9px;color:var(--text-2);">${escHtmlCl((c.rarity || '').toUpperCase())} · ${escHtmlCl(c.universe || '')}</div>
-      <button onclick="cardsListDelete(${c.uc_id}, '${escHtmlCl((c.name||'').replace(/'/g,"\\'"))}')" style="background:#ff3d57;color:#fff;border:none;border-radius:4px;padding:3px;font-size:10px;cursor:pointer;">🗑 Supprimer</button>
+      <button onclick="cardsListDelete(${c.uc_id}, '${escHtmlCl((c.name||'').replace(/'/g,"\\'"))}')" style="background:#ff3d57;color:#fff;border:none;border-radius:4px;padding:3px;font-size:10px;cursor:pointer;">🗑 Delete</button>
     </div>`;
   }).join('');
 }
@@ -591,7 +590,7 @@ function renderCardsList() {
 function escHtmlCl(s){if(!s)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 async function cardsListDelete(ucId, name) {
-  if (!confirm(`Supprimer la carte "${name}" ? Irreversible.`)) return;
+  if (!confirm(`Delete the card "${name}"? Irreversible.`)) return;
   try {
     const r = await fetch(`/api/owner/user/${_clUid}/cards/${ucId}`, {method:'DELETE'});
     const d = await r.json();
@@ -599,8 +598,8 @@ async function cardsListDelete(ucId, name) {
       _clItems = _clItems.filter(c => c.uc_id !== ucId);
       renderCardsList();
       if (_clRefresh) _clRefresh();
-    } else alert('Erreur : ' + (d.error || '?'));
-  } catch (e) { alert('Erreur : ' + e.message); }
+    } else alert('Error: ' + (d.error || '?'));
+  } catch (e) { alert('Error: ' + e.message); }
 }
 window.cardsListDelete = cardsListDelete;
 
@@ -639,10 +638,10 @@ function setupPassAdmin() {
       const d = await r.json();
       active   = !!d.has_pass;
       seasonId = d.season?.season_id;
-      lbl.textContent = d.season?.name ? d.season.name : 'Aucune saison';
+      lbl.textContent = d.season?.name ? d.season.name : 'No season';
       badge.innerHTML = active
-        ? '<span class="badge" style="background:oklch(0.86 0.20 130);color:#1a1a1a;font-weight:700;">★ ACTIF</span>'
-        : '<span class="badge badge-mono" style="opacity:.7;">inactif</span>';
+        ? '<span class="badge" style="background:oklch(0.86 0.20 130);color:#1a1a1a;font-weight:700;">★ ACTIVE</span>'
+        : '<span class="badge badge-mono" style="opacity:.7;">inactive</span>';
 
       if (!active) {
         body.classList.add('hidden');
@@ -653,7 +652,7 @@ function setupPassAdmin() {
       xpIn.value = xp;
       tIn.value  = Math.min(PASS_TIERS_MAX, Math.floor(xp / PASS_XP_PER_TIER));
 
-      // Quetes actives
+      // Active quests
       const r2 = await fetch(`/api/user/${userId}/pass/quests`);
       if (r2.ok) {
         const dd = await r2.json();
@@ -669,10 +668,10 @@ function setupPassAdmin() {
               ${done ? '<span style="color:oklch(0.86 0.20 130);">✓</span>' : ''}
             </div>
           </div>`;
-        }).join('') || '<div class="muted" style="font-size:var(--t-xs);">Aucune quête active.</div>';
+        }).join('') || '<div class="muted" style="font-size:var(--t-xs);">No active quest.</div>';
       }
     } catch (e) {
-      lbl.textContent = 'Erreur de chargement.';
+      lbl.textContent = 'Load error.';
     }
   }
 
@@ -701,7 +700,7 @@ function setupPassAdmin() {
         body:    JSON.stringify({ xp }),
       });
       if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.status);
-      hint.textContent = '✓ Sauvegardé';
+      hint.textContent = '✓ Saved';
       await refresh();
       setTimeout(() => hint.textContent = '', 2000);
     } catch (e) {
@@ -714,21 +713,21 @@ function setupPassAdmin() {
 
   save.addEventListener('click', () => {
     const xp = parseInt(xpIn.value || '0', 10);
-    if (!isFinite(xp) || xp < 0) { hint.textContent = '✗ XP invalide'; return; }
+    if (!isFinite(xp) || xp < 0) { hint.textContent = '✗ Invalid XP'; return; }
     saveXp(xp);
   });
   reset.addEventListener('click', () => {
-    if (!confirm('Remettre la progression du Pass à 0 pour cet utilisateur ?')) return;
+    if (!confirm('Reset this user\'s Pass progress to 0?')) return;
     saveXp(0);
   });
   reroll.addEventListener('click', async () => {
-    if (!confirm('Re-générer les quêtes daily/weekly de cet utilisateur ?')) return;
+    if (!confirm('Re-generate this user\'s daily/weekly quests?')) return;
     reroll.disabled = true;
     hint.textContent = '…';
     try {
       const r = await fetch(`/api/user/${userId}/pass/quests`, { method: 'DELETE' });
       if (!r.ok) throw new Error(r.status);
-      hint.textContent = '✓ Quêtes re-rollées';
+      hint.textContent = '✓ Quests re-rolled';
       await refresh();
       setTimeout(() => hint.textContent = '', 2000);
     } catch (e) {
@@ -739,7 +738,7 @@ function setupPassAdmin() {
   });
 
   refresh();
-  // Aussi refresh quand le toggle Pass change
+  // Also refresh when the Pass toggle changes
   const passBtn = document.getElementById('passToggleBtn');
   if (passBtn) passBtn.addEventListener('click', () => setTimeout(refresh, 400));
 }
@@ -765,17 +764,17 @@ function setupPassToggle() {
         lbl.textContent = 'Pass (owner)';
         btn.disabled = true;
       } else if (active && hasEnt && !hasGrant) {
-        lbl.textContent = 'Pass (achat Discord)';
+        lbl.textContent = 'Pass (Discord purchase)';
         btn.disabled = true;
       } else if (active && hasGrant) {
-        lbl.textContent = 'Retirer le Pass (offert)';
+        lbl.textContent = 'Remove Pass (granted)';
         btn.disabled = false;
       } else {
-        lbl.textContent = 'Offrir le Pass';
+        lbl.textContent = 'Grant Pass';
         btn.disabled = false;
       }
     } catch (_) {
-      lbl.textContent = 'Pass (erreur)';
+      lbl.textContent = 'Pass (error)';
     }
   }
 
@@ -787,12 +786,12 @@ function setupPassToggle() {
       } else {
         await fetch(`/api/user/${userId}/pass`, { method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ note: 'Offert depuis dashboard' }),
+          body: JSON.stringify({ note: 'Granted from dashboard' }),
         });
       }
       await refresh();
     } catch (e) {
-      alert('Erreur : ' + e.message);
+      alert('Error: ' + e.message);
       btn.disabled = false;
     }
   });
@@ -814,7 +813,7 @@ function setupGuildBoostToggle() {
       const d = await r.json();
       const tiers = d.tiers || {};
       if (d.is_owner) {
-        hint.textContent = `(owner, illimité)`;
+        hint.textContent = `(owner, unlimited)`;
       } else {
         hint.textContent = d.max_slots > 0
           ? `${d.max_slots} slot${d.max_slots > 1 ? 's' : ''}`
@@ -831,24 +830,24 @@ function setupGuildBoostToggle() {
           btn.classList.remove('btn-primary');
           btn.classList.add('btn-secondary');
         } else if (hasEnt && !hasGrant) {
-          btn.textContent = `${tier[0].toUpperCase() + tier.slice(1)} (achat)`;
+          btn.textContent = `${tier[0].toUpperCase() + tier.slice(1)} (purchase)`;
           btn.disabled = true;
           btn.classList.remove('btn-primary');
           btn.classList.add('btn-secondary');
         } else if (hasGrant) {
-          btn.textContent = `Retirer ${tier}`;
+          btn.textContent = `Remove ${tier}`;
           btn.disabled = false;
           btn.classList.remove('btn-primary');
           btn.classList.add('btn-secondary');
         } else {
-          btn.textContent = `Offrir ${tier}`;
+          btn.textContent = `Grant ${tier}`;
           btn.disabled = false;
           btn.classList.add('btn-primary');
           btn.classList.remove('btn-secondary');
         }
       });
     } catch (e) {
-      hint.textContent = '(erreur)';
+      hint.textContent = '(error)';
     }
   }
 
@@ -856,7 +855,7 @@ function setupGuildBoostToggle() {
     btn.addEventListener('click', async () => {
       const tier = btn.dataset.tier;
       const prev = btn.textContent;
-      const wasGrant = prev.toLowerCase().startsWith('retirer');
+      const wasGrant = prev.toLowerCase().startsWith('remove');
       btn.disabled = true;
       btn.textContent = '...';
       try {
@@ -866,12 +865,12 @@ function setupGuildBoostToggle() {
           await fetch(`/api/user/${userId}/guild-boost`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ tier, note: 'Offert depuis dashboard' }),
+            body:    JSON.stringify({ tier, note: 'Granted from dashboard' }),
           });
         }
         await refresh();
       } catch (e) {
-        alert('Erreur : ' + e.message);
+        alert('Error: ' + e.message);
         btn.disabled = false;
         btn.textContent = prev;
       }
@@ -881,16 +880,16 @@ function setupGuildBoostToggle() {
   refresh();
 }
 
-// ===== EDIT XP / NIVEAU (admin du serveur courant) =====
+// ===== EDIT XP / LEVEL (current server admin) =====
 function setupXpEdit() {
   const xpIn    = document.getElementById('editXp');
   const lvIn    = document.getElementById('editLevel');
   const saveBtn = document.getElementById('xpSaveBtn');
   const resetBtn= document.getElementById('xpResetBtn');
   const hint    = document.getElementById('xpHint');
-  if (!xpIn) return; // Pas admin du serveur
+  if (!xpIn) return; // Not a server admin
 
-  // Pre-remplir depuis l'API user (charge en parallele)
+  // Pre-fill from the user API (loaded in parallel)
   fetch(`/api/user/${userId}`).then(r => r.ok ? r.json() : null).then(d => {
     if (!d) return;
     xpIn.value = d.user?.xp ?? 0;
@@ -912,7 +911,7 @@ function setupXpEdit() {
   async function save(xp) {
     saveBtn.disabled = true;
     resetBtn.disabled = true;
-    hint.textContent  = 'Enregistrement…';
+    hint.textContent  = 'Saving…';
     try {
       const r = await fetch(`/api/user/${userId}/xp`, {
         method:  'POST',
@@ -923,12 +922,12 @@ function setupXpEdit() {
       const d = await r.json();
       xpIn.value = d.xp;
       lvIn.value = d.level;
-      hint.textContent = '✓ Sauvegardé';
+      hint.textContent = '✓ Saved';
       // Refresh profile data for the rest of the page
       if (typeof loadProfile === 'function') loadProfile();
       setTimeout(() => hint.textContent = '', 2500);
     } catch (e) {
-      hint.textContent = '✗ Erreur : ' + e.message;
+      hint.textContent = '✗ Error: ' + e.message;
     } finally {
       saveBtn.disabled = false;
       resetBtn.disabled = false;
@@ -937,11 +936,11 @@ function setupXpEdit() {
 
   saveBtn.addEventListener('click', () => {
     const xp = parseInt(xpIn.value || '0', 10);
-    if (!isFinite(xp) || xp < 0) { hint.textContent = '✗ XP invalide'; return; }
+    if (!isFinite(xp) || xp < 0) { hint.textContent = '✗ Invalid XP'; return; }
     save(xp);
   });
   resetBtn.addEventListener('click', () => {
-    if (!confirm('Remettre l\'XP de cet utilisateur à 0 sur ce serveur ?')) return;
+    if (!confirm('Reset this user\'s XP to 0 on this server?')) return;
     save(0);
   });
 }
@@ -958,7 +957,7 @@ async function loadTookbotPlus() {
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     _tbpActive = !!d.has_tookbot_plus;
-    _tbpLabel.textContent = _tbpActive ? 'TookBot+ ✦ ON' : 'Donner TookBot+';
+    _tbpLabel.textContent = _tbpActive ? 'TookBot+ ✦ ON' : 'Grant TookBot+';
     _tbpBtn.style.background = _tbpActive ? 'linear-gradient(180deg,#ffa726,#ff8a00)' : '';
     _tbpBtn.style.color      = _tbpActive ? '#2a1a00' : '';
     _tbpBtn.disabled = false;
@@ -977,7 +976,7 @@ if (_tbpBtn) {
       if (!r.ok) throw new Error(r.status);
       await loadTookbotPlus();
     } catch (e) {
-      alert('Erreur : ' + e.message);
+      alert('Error: ' + e.message);
       _tbpBtn.disabled = false;
     }
   });
@@ -992,14 +991,14 @@ const _premPanelBadge = document.getElementById('premiumPanelBadge');
 let _premIsActive = false;
 
 async function loadPremiumStatus() {
-  if (!_premBtn) return; // Pas owner
+  if (!_premBtn) return; // Not owner
   try {
     const r = await fetch(`/api/user/${userId}/premium`);
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     _renderPremium(d);
   } catch (e) {
-    if (_premPanelLabel) _premPanelLabel.textContent = 'Erreur de chargement.';
+    if (_premPanelLabel) _premPanelLabel.textContent = 'Load error.';
   }
 }
 
@@ -1012,22 +1011,22 @@ function _renderPremium(d) {
   _premBtn.classList.toggle('btn-primary', !_premIsActive);
   _premBtn.classList.toggle('btn-secondary', _premIsActive);
   _premLabel.textContent = _premIsActive
-    ? (hasGrant ? 'Retirer Premium (offert)' : 'Premium (achat Discord)')
-    : 'Offrir Premium ✨';
-  _premBtn.disabled = _premIsActive && !hasGrant;  // Pas retirer un vrai achat
+    ? (hasGrant ? 'Remove Premium (granted)' : 'Premium (Discord purchase)')
+    : 'Grant Premium ✨';
+  _premBtn.disabled = _premIsActive && !hasGrant;  // Do not remove a real purchase
 
-  // Panel descriptif
+  // Descriptive panel
   if (_premPanelLabel) {
-    if (d.is_owner)        _premPanelLabel.textContent = 'Owner du bot — accès complet automatique.';
-    else if (hasGrant && hasEnt) _premPanelLabel.textContent = 'Premium via achat Discord + grant manuel.';
-    else if (hasGrant)     _premPanelLabel.textContent = `Premium offert (${d.grants[0].feature || 'all'}).`;
-    else if (hasEnt)       _premPanelLabel.textContent = 'Premium via achat Discord.';
-    else                   _premPanelLabel.textContent = 'Pas de premium actuellement.';
+    if (d.is_owner)        _premPanelLabel.textContent = 'Bot owner — full access automatically.';
+    else if (hasGrant && hasEnt) _premPanelLabel.textContent = 'Premium via Discord purchase + manual grant.';
+    else if (hasGrant)     _premPanelLabel.textContent = `Premium granted (${d.grants[0].feature || 'all'}).`;
+    else if (hasEnt)       _premPanelLabel.textContent = 'Premium via Discord purchase.';
+    else                   _premPanelLabel.textContent = 'No premium currently.';
   }
   if (_premPanelBadge) {
     _premPanelBadge.innerHTML = _premIsActive
-      ? '<span class="badge" style="background:oklch(0.86 0.20 130);color:#1a1a1a;font-weight:700;">★ ACTIF</span>'
-      : '<span class="badge badge-mono" style="opacity:.7;">inactif</span>';
+      ? '<span class="badge" style="background:oklch(0.86 0.20 130);color:#1a1a1a;font-weight:700;">★ ACTIVE</span>'
+      : '<span class="badge badge-mono" style="opacity:.7;">inactive</span>';
   }
 
   _premBtn.onclick = async () => {
@@ -1040,13 +1039,13 @@ function _renderPremium(d) {
         const r = await fetch(`/api/user/${userId}/premium`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ feature: 'all', note: 'Offert depuis le dashboard' }),
+          body:    JSON.stringify({ feature: 'all', note: 'Granted from the dashboard' }),
         });
         if (!r.ok) throw new Error(r.status);
       }
       await loadPremiumStatus();
     } catch (e) {
-      alert('Erreur : ' + e.message);
+      alert('Error: ' + e.message);
       _premBtn.disabled = false;
     }
   };
@@ -1054,7 +1053,7 @@ function _renderPremium(d) {
 
 function loadProfile() {
   fetch(`/api/user/${userId}`)
-    .then(r => { if (!r.ok) throw new Error('Cet utilisateur est introuvable.'); return r.json(); })
+    .then(r => { if (!r.ok) throw new Error('This user could not be found.'); return r.json(); })
     .then(data => display(data))
     .catch(err => showError(err.message));
 }
@@ -1076,8 +1075,8 @@ function renderWishlist(list) {
       ? `<img src="${profileEscapeHtml(c.img)}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';this.parentNode.innerHTML='🃏';">`
       : '🃏';
     const badge = c.owned
-      ? `<div style="position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;background:rgba(40,200,90,.9);color:#fff;border-radius:6px;padding:1px 5px;">✓ possédée</div>`
-      : `<div style="position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;background:rgba(220,60,80,.9);color:#fff;border-radius:6px;padding:1px 5px;">✗ manquante</div>`;
+      ? `<div style="position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;background:rgba(40,200,90,.9);color:#fff;border-radius:6px;padding:1px 5px;">✓ owned</div>`
+      : `<div style="position:absolute;top:4px;left:4px;font-size:9px;font-weight:800;background:rgba(220,60,80,.9);color:#fff;border-radius:6px;padding:1px 5px;">✗ missing</div>`;
     return `<div title="${profileEscapeHtml(c.name)}" style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;border:2px solid ${rcol};background:var(--bg-2);display:grid;place-items:center;font-size:22px;color:var(--text-3);${c.owned?'':'opacity:.82;'}">
       ${img}${badge}
       <div style="position:absolute;left:0;right:0;bottom:0;padding:4px 6px;font-size:10px;font-weight:700;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${profileEscapeHtml(c.name)}</div>
@@ -1090,7 +1089,7 @@ function renderDiscordProfile(data) {
   const u = data.user || {};
   const card = document.getElementById('discordProfileCard');
   card.classList.toggle('global', data.scope === 'global');
-  const name = u.username || '(sans nom)';
+  const name = u.username || '(no name)';
   document.getElementById('discordName').textContent = name;
   document.getElementById('discordHandle').textContent = `${name.toLowerCase().replace(/\s+/g, '')} · ${u.user_id}`;
   const avatar = document.getElementById('discordAvatar');
@@ -1106,18 +1105,18 @@ function renderDiscordProfile(data) {
   document.getElementById('discordBadges').innerHTML = badges.map(b => `<span class="discord-badge">${profileEscapeHtml(b)}</span>`).join('');
   document.getElementById('discordAbout').innerHTML =
     data.scope === 'global'
-      ? `Profil global owner · ${fmtNum(u.xp || 0)} XP cumulés · niveau max ${u.level || 0}`
-      : `Profil du serveur sélectionné · ${fmtNum(u.xp || 0)} XP · niveau ${u.level || 0}`;
+      ? `Global owner profile · ${fmtNum(u.xp || 0)} cumulative XP · max level ${u.level || 0}`
+      : `Selected server profile · ${fmtNum(u.xp || 0)} XP · level ${u.level || 0}`;
   const guilds = data.guilds || [];
   document.getElementById('discordGuilds').innerHTML = guilds.length
-    ? guilds.slice(0, 5).map(g => `${profileEscapeHtml(g.guild_name || g.guild_id)} · niv. ${g.level || 0}`).join('<br>')
-    : 'Aucun serveur enregistré.';
+    ? guilds.slice(0, 5).map(g => `${profileEscapeHtml(g.guild_name || g.guild_id)} · lvl ${g.level || 0}`).join('<br>')
+    : 'No server registered.';
 }
 
 function display(data) {
   const u = data.user;
   renderDiscordProfile(data);
-  document.getElementById('username').textContent = u.username || '(sans nom)';
+  document.getElementById('username').textContent = u.username || '(no name)';
   document.getElementById('userId').textContent = u.user_id;
   document.getElementById('level').textContent = u.level;
   document.getElementById('xp').textContent = fmtNum(u.xp);
@@ -1131,30 +1130,30 @@ function display(data) {
 
   document.getElementById('xpToNext').textContent = fmtNum(remaining);
   document.getElementById('progressFill').style.width = progress + '%';
-  document.getElementById('progressText').textContent = `${Math.round(progress)}% vers niv. ${u.level + 1}`;
+  document.getElementById('progressText').textContent = `${Math.round(progress)}% to lvl ${u.level + 1}`;
 
-  // Guilde de cartes (club) - owner only
+  // Card guild (club) - owner only
   const cgEl = document.getElementById('cardGuildInfo');
   if (cgEl) {
     const cg = data.card_guild;
     if (cg) {
-      const role = {master:'👑 Maître', officer:'🔧 Officier', member:'▫️ Membre'}[cg.role] || cg.role;
+      const role = {master:'👑 Master', officer:'🔧 Officer', member:'▫️ Member'}[cg.role] || cg.role;
       const tag = cg.tag ? ` [${profileEscapeHtml(cg.tag)}]` : '';
-      cgEl.innerHTML = `🛡️ Guilde : <a href="/owner/guild-settings?gid=${cg.id}" style="color:var(--accent);font-weight:700;">${profileEscapeHtml(cg.name)}${tag}</a> · niv ${cg.level} · ${role}`;
+      cgEl.innerHTML = `🛡️ Guild: <a href="/owner/guild-settings?gid=${cg.id}" style="color:var(--accent);font-weight:700;">${profileEscapeHtml(cg.name)}${tag}</a> · lvl ${cg.level} · ${role}`;
     } else {
-      cgEl.innerHTML = `<span class="muted">🛡️ Aucune guilde de cartes.</span>`;
+      cgEl.innerHTML = `<span class="muted">🛡️ No card guild.</span>`;
     }
   }
 
-  // Wishlist (owner-only : presente seulement si le payload la contient)
+  // Wishlist (owner-only: present only if the payload carries it)
   renderWishlist(data.wishlist);
 
-  // Activité sparkline
+  // Activity sparkline
   renderSparkline(data.activity || []);
   const total = (data.activity || []).reduce((s, a) => s + a.count, 0);
-  document.getElementById('activityTotal').textContent = `total : ${total}`;
+  document.getElementById('activityTotal').textContent = `total: ${total}`;
 
-  // Salons favoris
+  // Favorite channels
   renderFavChannels(data.fav_channels || []);
 
   // Types
@@ -1169,7 +1168,7 @@ function display(data) {
 
 function renderSparkline(activity) {
   if (!activity.length) {
-    document.getElementById('activityChart').innerHTML = '<p class="muted">Aucune activité.</p>';
+    document.getElementById('activityChart').innerHTML = '<p class="muted">No activity.</p>';
     return;
   }
   const w = 900, h = 110;
@@ -1197,11 +1196,11 @@ function renderSparkline(activity) {
 
 function renderFavChannels(chans) {
   const el = document.getElementById('favChannels');
-  if (!chans.length) { el.innerHTML = '<p class="muted">Aucune activité dans un salon.</p>'; return; }
+  if (!chans.length) { el.innerHTML = '<p class="muted">No activity in any channel.</p>'; return; }
   const max = chans[0].n;
   el.innerHTML = '<div class="bar-list">' + chans.map(c => `
     <div class="bar-row" style="grid-template-columns: 200px 1fr 60px;">
-      <span class="bar-label">#${c.name || '(salon)'}</span>
+      <span class="bar-label">#${c.name || '(channel)'}</span>
       <div class="bar-track"><div class="bar-fill" style="width: ${(c.n/max*100).toFixed(0)}%"></div></div>
       <span class="bar-value">${c.n}</span>
     </div>
@@ -1210,7 +1209,7 @@ function renderFavChannels(chans) {
 
 function renderTypes(types) {
   const el = document.getElementById('typeBreakdown');
-  if (!types.length) { el.innerHTML = '<p class="muted">Aucun évènement.</p>'; return; }
+  if (!types.length) { el.innerHTML = '<p class="muted">No events.</p>'; return; }
   const max = types[0].n;
   el.innerHTML = '<div class="bar-list">' + types.map(t => `
     <div class="bar-row" style="grid-template-columns: 220px 1fr 50px;">
@@ -1226,12 +1225,12 @@ function renderDuel(d) {
   el.classList.remove('hidden');
   const ratio = d.victoires && d.defaites ? (d.victoires / d.defaites).toFixed(2) : (d.victoires ? d.victoires.toFixed(2) : '0');
   document.getElementById('duelStats').innerHTML = `
-    <div class="stat"><div class="stat-label">Niveau combat</div><div class="stat-value">${d.combat_level || 1}</div></div>
+    <div class="stat"><div class="stat-label">Combat level</div><div class="stat-value">${d.combat_level || 1}</div></div>
     <div class="stat"><div class="stat-label">TookCoins</div><div class="stat-value">${fmtNum(d.tookcoins)}</div></div>
-    <div class="stat"><div class="stat-label">Victoires</div><div class="stat-value">${d.victoires || 0}</div></div>
-    <div class="stat"><div class="stat-label">Défaites</div><div class="stat-value">${d.defaites || 0}</div></div>
-    <div class="stat"><div class="stat-label">Ratio V/D</div><div class="stat-value">${ratio}</div></div>
-    <div class="stat"><div class="stat-label">Sabre équipé</div><div class="stat-value" style="font-size:var(--t-md);">${d.sabre_equipe || 'bleu'}</div></div>`;
+    <div class="stat"><div class="stat-label">Wins</div><div class="stat-value">${d.victoires || 0}</div></div>
+    <div class="stat"><div class="stat-label">Losses</div><div class="stat-value">${d.defaites || 0}</div></div>
+    <div class="stat"><div class="stat-label">W/L ratio</div><div class="stat-value">${ratio}</div></div>
+    <div class="stat"><div class="stat-label">Equipped saber</div><div class="stat-value" style="font-size:var(--t-md);">${d.sabre_equipe || 'bleu'}</div></div>`;
 }
 
 function showError(msg) {
