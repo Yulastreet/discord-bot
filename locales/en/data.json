@@ -1,0 +1,54 @@
+{
+  "border": {
+    "gold": "Gold Border",
+    "leaf": "Leaf Border",
+    "frost": "Frost Border",
+    "hell": "Hell Border",
+    "void": "Void Border"
+  },
+  "element": {
+    "eclat": "Radiance",
+    "abysse": "Abyss",
+    "fracture": "Fracture",
+    "vif": "Vivid",
+    "neant": "Void"
+  },
+  "global_event": {
+    "summer": { "name": "Summer", "coin": "Coconuts" },
+    "halloween": { "name": "Halloween", "coin": "Candy" },
+    "noel": { "name": "Christmas", "coin": "Snowflakes" },
+    "winter": { "name": "Winter", "coin": "Ice Cubes" },
+    "valentine": { "name": "Valentine's Day", "coin": "Hearts" },
+    "coin_default": "Tokens"
+  },
+  "profile_color": {
+    "lime": "Lime",
+    "rouge": "Red",
+    "bleu": "Blue",
+    "vert": "Green",
+    "jaune": "Yellow",
+    "violet": "Purple",
+    "rose": "Pink",
+    "orange": "Orange",
+    "cyan": "Cyan",
+    "blanc": "White"
+  },
+  "guild_shop": {
+    "xpboost": { "name": "XP Boost", "desc": "+{n} XP for the guild" },
+    "rollall": { "name": "Rolls for Everyone", "desc": "+{n} rolls for every member" },
+    "essall": { "name": "Essences for Everyone", "desc": "+{n} ✨ for every member" }
+  },
+  "guild_quest": {
+    "d_roll": "Do {n} rolls",
+    "d_fusion": "Fuse {n} card",
+    "d_boss": "Take part in a defeated boss",
+    "w_roll": "The guild does {n} rolls",
+    "w_boss": "Defeat {n} bosses as a group",
+    "w_fusion": "Fuse {n} cards (guild)"
+  },
+  "guild_join": {
+    "not_found": "Guild not found.",
+    "not_enough_power": "Combat power too low ({power}/{required}).",
+    "not_enough_cards": "Too few cards ({count}/{required})."
+  }
+}

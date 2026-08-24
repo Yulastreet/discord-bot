@@ -54,6 +54,8 @@ def main():
             continue
         for m in RE_KEYS.finditer(src):
             key = m.group(1)
+            if key.endswith("."):
+                continue  # cle dynamique (concatenation), non verifiable
             used.setdefault(key, []).append(rel)
             if key not in catalog:
                 missing.setdefault(key, []).append(rel)

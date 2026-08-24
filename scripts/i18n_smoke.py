@@ -70,6 +70,8 @@ def keys_resolve():
             except Exception:
                 continue
             for m in rx.finditer(src):
+                if m.group(1).endswith("."):
+                    continue  # cle dynamique (concatenation), non verifiable
                 if m.group(1) not in cat:
                     missing.setdefault(m.group(1), f)
     if missing:

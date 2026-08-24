@@ -1,20 +1,20 @@
 """
-Feature guard : registre des fonctionnalités toggleables par guild.
-Utilisé par le dashboard (/features) et le hook interaction_check du tree.
+Feature guard: registry of per-guild toggleable features.
+Used by the dashboard (/features) and the tree's interaction_check hook.
 """
 
 FEATURE_REGISTRY = [
     # --- Engagement ---
     {
         "key":   "xp_enabled",
-        "label": "XP & Niveaux",
-        "desc":  "Gain d'XP par message, niveaux, leaderboard.",
+        "label": "XP & Levels",
+        "desc":  "XP gain per message, levels, leaderboard.",
         "cat":   "Engagement",
     },
     {
         "key":   "duels",
-        "label": "Duels sabres laser",
-        "desc":  "Duels TookCoins, collection de sabres, profil combat.",
+        "label": "Lightsaber Duels",
+        "desc":  "TookCoins duels, saber collection, combat profile.",
         "cat":   "Engagement",
     },
     {
@@ -25,99 +25,99 @@ FEATURE_REGISTRY = [
     },
     {
         "key":     "card_events",
-        "label":   "Cards Events (drops auto)",
-        "desc":    "Drops automatiques de cartes dans un salon (1ere personne à taper le code gagne). Le timing et la rareté sont gérés par l'équipe TookBot.",
+        "label":   "Cards Events (auto drops)",
+        "desc":    "Automatic card drops in a channel (first person to type the code wins). Timing and rarity are handled by the TookBot team.",
         "cat":     "Engagement",
-        "default": "0",   # opt-in : désactivé par défaut
+        "default": "0",   # opt-in: disabled by default
     },
     # --- Fun ---
     {
         "key":   "fun",
         "label": "Fun",
-        "desc":  "/8ball, /dé, /coinflip, /ship, /qui, /blague, /rate...",
+        "desc":  "/8ball, /dice, /coinflip, /ship, /who, /joke, /rate...",
         "cat":   "Fun",
     },
     {
         "key":   "music",
-        "label": "Musique",
+        "label": "Music",
         "desc":  "/play, /skip, /queue, /stop, /join, /leave.",
         "cat":   "Fun",
     },
-    # --- Modération ---
+    # --- Moderation ---
     {
         "key":   "moderation_cmds",
-        "label": "Modération (slash)",
-        "desc":  "/kick, /ban, /clear — commandes de modération directes.",
-        "cat":   "Modération",
+        "label": "Moderation (slash)",
+        "desc":  "/kick, /ban, /clear - direct moderation commands.",
+        "cat":   "Moderation",
     },
     {
         "key":   "tickets",
         "label": "Tickets",
-        "desc":  "Système de tickets avec panneaux configurables.",
-        "cat":   "Modération",
+        "desc":  "Ticket system with configurable panels.",
+        "cat":   "Moderation",
     },
     {
         "key":   "welcome",
-        "label": "Bienvenue",
-        "desc":  "Message de bienvenue personnalisé à l'arrivée d'un membre.",
-        "cat":   "Modération",
+        "label": "Welcome",
+        "desc":  "Custom welcome message when a member joins.",
+        "cat":   "Moderation",
     },
     {
         "key":   "rolereaction",
-        "label": "Rôles-Réaction",
-        "desc":  "Assignation de rôles par clic sur un emoji.",
-        "cat":   "Modération",
+        "label": "Reaction Roles",
+        "desc":  "Assign roles by clicking an emoji.",
+        "cat":   "Moderation",
     },
-    # --- Outils ---
+    # --- Tools ---
     {
         "key":   "reactions",
-        "label": "Auto-réactions",
-        "desc":  "Réactions automatiques configurées sur certains membres.",
-        "cat":   "Outils",
+        "label": "Auto-reactions",
+        "desc":  "Automatic reactions configured for specific members.",
+        "cat":   "Tools",
     },
     {
         "key":   "social_alerts",
-        "label": "Alertes Twitch/YT",
-        "desc":  "Notifications lors d'un live Twitch ou d'une vidéo YouTube.",
-        "cat":   "Outils",
+        "label": "Twitch/YT Alerts",
+        "desc":  "Notifications when a Twitch stream goes live or a YouTube video drops.",
+        "cat":   "Tools",
     },
     {
         "key":   "custom_commands",
-        "label": "Commandes custom",
-        "desc":  "/cmd — commandes personnalisées créées sur ce serveur.",
-        "cat":   "Outils",
+        "label": "Custom Commands",
+        "desc":  "/cmd - custom commands created on this server.",
+        "cat":   "Tools",
     },
     {
         "key":   "poll",
-        "label": "Sondages",
-        "desc":  "/poll pour créer un sondage dans un salon.",
-        "cat":   "Outils",
+        "label": "Polls",
+        "desc":  "/poll to create a poll in a channel.",
+        "cat":   "Tools",
     },
-    # --- Jeux ---
+    # --- Games ---
     {
         "key":   "cs2",
         "label": "Counter-Strike 2",
-        "desc":  "Stats, rank, inventaire, prix, queue, loadout...",
-        "cat":   "Jeux",
+        "desc":  "Stats, rank, inventory, prices, queue, loadout...",
+        "cat":   "Games",
     },
     {
         "key":   "lol",
         "label": "League of Legends",
         "desc":  "Stats, rank, history, live, build, scout, skin, mastery...",
-        "cat":   "Jeux",
+        "cat":   "Games",
     },
 ]
 
-# Clés valides (pour validation côté API)
+# Valid keys (for API-side validation)
 FEATURE_KEYS = {f["key"] for f in FEATURE_REGISTRY}
 
-# Mapping : nom de commande racine Discord -> clé de feature
-# La commande racine = ce que Discord envoie dans interaction.data["name"]
+# Mapping: Discord root command name -> feature key
+# Root command = what Discord sends in interaction.data["name"]
 COMMAND_FEATURE_MAP: dict[str, str] = {
     # XP / Niveaux
-    # Note : "xp" (groupe /xp on/off) intentionnellement ABSENT
-    # pour que les admins puissent re-activer l'XP via slash même si désactivé.
-    "niveau":      "xp_enabled",
+    # Note: "xp" (the /xp on/off group) is intentionally ABSENT so admins can
+    # re-enable XP via slash even when the feature is disabled.
+    "level":       "xp_enabled",
     "leaderboard": "xp_enabled",
 
     # Musique
@@ -133,19 +133,19 @@ COMMAND_FEATURE_MAP: dict[str, str] = {
 
     # Fun
     "8ball":    "fun",
-    "dé":       "fun",
+    "dice":     "fun",
     "coinflip": "fun",
-    "blague":   "fun",
+    "joke":     "fun",
     "ship":     "fun",
-    "choix":    "fun",
+    "choice":   "fun",
     "random":   "fun",
-    "qui":      "fun",
+    "who":      "fun",
     "clap":     "fun",
     "rate":     "fun",
-    "citation": "fun",
-    "zgeg":     "fun",
+    "quote":    "fun",
+    "pp":       "fun",
 
-    # Modération
+    # Moderation
     "kick":  "moderation_cmds",
     "ban":   "moderation_cmds",
     "clear": "moderation_cmds",
@@ -156,10 +156,10 @@ COMMAND_FEATURE_MAP: dict[str, str] = {
     # Bienvenue
     "setwelcome": "welcome",
 
-    # Rôles-Réaction
+    # Reaction roles
     "rolereaction": "rolereaction",
 
-    # Auto-réactions
+    # Auto-reactions
     "reaction_add":    "reactions",
     "reaction_remove": "reactions",
     "reaction_list":   "reactions",
@@ -190,7 +190,7 @@ COMMAND_FEATURE_MAP: dict[str, str] = {
 
 
 def get_feature_label(key: str) -> str:
-    """Retourne le label lisible d'une clé de feature."""
+    """Return the human-readable label for a feature key."""
     for f in FEATURE_REGISTRY:
         if f["key"] == key:
             return f["label"]

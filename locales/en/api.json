@@ -1,0 +1,128 @@
+{
+  "auth": {
+    "fetch_user_failed": "Couldn't fetch your Discord profile and servers: {error}",
+    "guild_id_required": "guild_id is required.",
+    "invalid_discord_response": "Invalid response from Discord.",
+    "invalid_oauth_state": "Invalid OAuth state. Try again.",
+    "no_access_token": "No access token received from Discord.",
+    "oauth_denied": "Discord OAuth denied: {error}",
+    "oauth_not_configured": "Discord OAuth is not configured.",
+    "oauth_not_configured_short": "OAuth is not configured.",
+    "password_login_disabled": "Password login is disabled. Use Discord instead.",
+    "token_exchange_failed": "Code to token exchange failed: {error}",
+    "too_many_attempts": "Too many attempts. Try again in {minutes}m {seconds}s.",
+    "unknown_or_forbidden_guild": "Unknown server, or you're not allowed to manage it.",
+    "wrong_password": "Wrong password"
+  },
+  "bot_profile": {
+    "apply_failed": "Couldn't apply the profile right now. Try again later.",
+    "file_too_large": "{field}: 5 MB max",
+    "missing_discord_token": "DISCORD_TOKEN is missing on the server.",
+    "plus_required": "TookBot+ required",
+    "reset_failed": "Couldn't reset the profile right now. Try again later.",
+    "server_error": "Server error, try again later.",
+    "unsupported_extension": "{field}: unsupported file extension"
+  },
+  "cards_booster": {
+    "already_opened_today": "Daily booster already opened today.",
+    "login_required": "Log in to open your booster.",
+    "unavailable": "Booster unavailable right now."
+  },
+  "cards_boss": {
+    "card_not_found": "Card not found.",
+    "card_not_owned": "You don't own this card.",
+    "denied_back": "Back to dashboard",
+    "denied_body": "Only fighters who joined can watch this battle live.",
+    "denied_heading": "You're not part of this battle",
+    "denied_title": "Access denied",
+    "empty_message": "Empty message.",
+    "invalid_aptitude": "Invalid aptitude.",
+    "not_in_team": "You're not in the team.",
+    "player_fallback": "Player",
+    "recruiting_closed": "Recruiting is closed."
+  },
+  "cards_shop": {
+    "border_not_found": "Border not found.",
+    "render_failed": "Render failed.",
+    "render_failed_missing_bg": "Render failed (missing background?).",
+    "user_and_border_required": "user_id and border_key are required."
+  },
+  "cards_trade": {
+    "guild_id_required": "guild_id is required.",
+    "invalid_cards_ownership": "Invalid cards (ownership).",
+    "no_guild_linked": "No server linked to this trade.",
+    "not_a_participant": "You're not part of this trade.",
+    "pick_another_player": "Pick another player.",
+    "pick_at_least_one_card": "Select at least one card.",
+    "player_fallback": "Player",
+    "trade_not_found": "Trade not found."
+  },
+  "dashboard": {
+    "user_not_found": "User not found",
+    "user_not_found_in_guild": "User not found on this server"
+  },
+  "duels": {
+    "default_saber_locked": "The 'bleu' saber can't be deleted (default saber).",
+    "invalid_rarity": "Invalid rarity.",
+    "nothing_updated": "Nothing to update.",
+    "profile_not_found": "Duel profile not found.",
+    "saber_fields_required": "id, name and rarity are required.",
+    "saber_id_required": "saber_id is required.",
+    "saber_id_taken": "A saber with this ID already exists.",
+    "saber_not_found": "Saber not found.",
+    "unknown_saber": "Unknown saber."
+  },
+  "music": {
+    "command_not_found": "Command not found.",
+    "invalid_position": "Invalid position.",
+    "invalid_volume": "Invalid volume.",
+    "query_required": "query is required.",
+    "track_id_required": "track_id is required.",
+    "track_ids_required": "track_ids is required.",
+    "unknown_track_id": "Unknown track_id.",
+    "voice_channel_id_required": "voice_channel_id is required."
+  },
+  "pass": {
+    "xp_boost_label": "XP x{multiplier} for {hours}h"
+  },
+  "reactions": {
+    "user_id_and_emoji_required": "user_id and emoji are required.",
+    "user_id_required": "user_id is required."
+  },
+  "server_tools": {
+    "channel_and_mappings_required": "channel_id and mappings are required.",
+    "default_role_title": "Choose your role",
+    "embed_must_be_object": "Embed JSON must be an object.",
+    "emoji_required_for_reactions": "An emoji is required for reaction mode.",
+    "empty_embed": "Empty embed.",
+    "giveaway_already_ended": "Giveaway already ended.",
+    "giveaway_not_found": "Giveaway not found.",
+    "incomplete_mapping": "Incomplete mapping (role_id is required).",
+    "invalid_command_name": "Invalid name (a-z 0-9 _ - only, 32 chars max).",
+    "invalid_delivery": "Invalid delivery.",
+    "invalid_embed_json": "Invalid embed JSON: {error}",
+    "invalid_giveaway_fields": "Invalid fields (prize, channel_id, duration_sec between 30s and 30d).",
+    "invalid_link": "Invalid link. Example: {example}",
+    "invalid_mode": "Invalid mode.",
+    "invalid_platform": "Invalid platform.",
+    "invalid_style": "Invalid style.",
+    "invalid_winners_count": "Winners must be between 1 and 50.",
+    "link_and_channel_required": "A link and a channel are required.",
+    "plus_required_for_guild": "TookBot+ is required for this server. Subscribe: /subscription",
+    "prize_too_long": "Prize is 200 characters max.",
+    "reserved_command_name": "Reserved name: `/{name}` is already a bot command.",
+    "response_text_required": "response_text is required in text mode.",
+    "response_text_too_long": "response_text is 2000 characters max."
+  },
+  "stripe": {
+    "checkout_unavailable": "Payment is temporarily unavailable. Try again in a few minutes.",
+    "invalid_months": "Invalid months (1, 3, 6 or 12 only).",
+    "invalid_signature": "Invalid signature.",
+    "module_missing": "stripe module is not installed. Run: pip install stripe",
+    "no_subscription": "No Stripe subscription found for your account.",
+    "portal_unavailable": "The subscription portal is temporarily unavailable. Try again later.",
+    "price_env_missing": "Env var {env_var} is not configured.",
+    "secret_key_missing": "STRIPE_SECRET_KEY is missing from .env",
+    "webhook_secret_missing": "STRIPE_WEBHOOK_SECRET is missing."
+  }
+}
