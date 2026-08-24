@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  backup_db.sh — Sauvegarde sécurisée de la base SQLite du bot
+#  backup_db.sh - Safe backup of the bot's SQLite database
 # ============================================================================
 #
 #  Pratiques:
 #    - utilise sqlite3 .backup pour un snapshot consistent (pas de cp pendant
 #      qu'une transaction est ouverte)
-#    - rotation locale: garde les N dernières backups
+#    - local rotation: keeps the last N backups
 #    - compression gzip
-#    - upload optionnel vers un bucket S3-compatible si rclone est configuré
+#    - optional upload to an S3-compatible bucket if rclone is configured
 #
 #  Usage:
 #    ./backup_db.sh                         # sauvegarde locale + rotation
@@ -25,7 +25,7 @@ DB_PATH="${DB_PATH:-/home/ubuntu/discord-bot/bot_database.db}"
 BACKUP_DIR="${BACKUP_DIR:-/home/ubuntu/discord-bot/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 RETENTION_LOCAL_COUNT="${RETENTION_LOCAL_COUNT:-14}"
-BACKUP_REMOTE="${BACKUP_REMOTE:-}"  # ex: "b2:bot-backups" si rclone configuré
+BACKUP_REMOTE="${BACKUP_REMOTE:-}"  # e.g. "b2:bot-backups" if rclone is configured
 
 mkdir -p "$BACKUP_DIR"
 
@@ -35,7 +35,7 @@ GZ="${SNAP}.gz"
 
 echo "[backup] $(date -Iseconds) start, source=$DB_PATH"
 
-# 1. Snapshot atomique via sqlite3 (consistent même si une écriture en cours)
+# 1. Atomic snapshot via sqlite3 (consistent even during a concurrent write)
 sqlite3 "$DB_PATH" ".backup '$SNAP'"
 echo "[backup] snapshot ok -> $SNAP"
 
@@ -47,7 +47,7 @@ echo "[backup] gzip ok -> $GZ"
 ls -1t "$BACKUP_DIR"/bot_*.db.gz 2>/dev/null | tail -n +$((RETENTION_LOCAL_COUNT + 1)) | xargs -r rm -f
 echo "[backup] rotation locale ok (keep $RETENTION_LOCAL_COUNT)"
 
-# 4. Upload distant via rclone si configuré
+# 4. Remote upload via rclone if configured
 if [[ -n "$BACKUP_REMOTE" ]]; then
   if command -v rclone >/dev/null 2>&1; then
     rclone copy "$GZ" "$BACKUP_REMOTE/" --quiet
@@ -56,7 +56,7 @@ if [[ -n "$BACKUP_REMOTE" ]]; then
     rclone delete "$BACKUP_REMOTE/" --min-age "${RETENTION_DAYS}d" --quiet || true
     echo "[backup] rclone purge >${RETENTION_DAYS}d ok"
   else
-    echo "[backup] WARN BACKUP_REMOTE défini mais rclone introuvable" >&2
+    echo "[backup] WARN BACKUP_REMOTE is set but rclone was not found" >&2
   fi
 fi
 
