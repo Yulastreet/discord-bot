@@ -1,0 +1,21 @@
+{
+  "kick": {
+    "forbidden": "❌ I couldn't kick **{member}**.\nI need the **Kick Members** permission, and my role must be **above** the target member's role in the server's role hierarchy.",
+    "http_error": "❌ Failed to kick **{member}** (Discord error).",
+    "success": "**{member}** has been kicked. Reason: {reason}"
+  },
+  "ban": {
+    "forbidden": "❌ I couldn't ban **{member}**.\nI need the **Ban Members** permission, and my role must be **above** the target member's role in the server's role hierarchy.",
+    "http_error": "❌ Failed to ban **{member}** (Discord error).",
+    "success": "**{member}** has been banned. Reason: {reason}"
+  },
+  "clear": {
+    "forbidden": "❌ I couldn't delete the messages.\nI need the **Manage Messages** and **Read Message History** permissions in this channel.",
+    "http_error": "❌ Deletion failed (Discord error; messages older than 14 days can't be bulk deleted).",
+    "success": "**{amount}** messages deleted."
+  },
+  "poll": {
+    "need_two_options": "You need at least 2 options (one per line).",
+    "create_failed": "Couldn't create the poll. Check your option format and try again."
+  }
+}

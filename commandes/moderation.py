@@ -1,83 +1,78 @@
 import discord
 from discord import app_commands
 
+from services.i18n import ti
+
 
 def setup_moderation_commands(bot):
-    @bot.tree.command(name="kick", description="Expulser un membre")
-    @app_commands.describe(membre="Le membre a expulser", raison="La raison")
+    @bot.tree.command(name="kick", description="Kick a member from the server")
+    @app_commands.describe(member="The member to kick", reason="Reason for the kick")
     @app_commands.default_permissions(kick_members=True)
-    async def kick(interaction: discord.Interaction, membre: discord.Member, raison: str = "Aucune raison fournie"):
+    async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
         try:
-            await membre.kick(reason=raison)
+            await member.kick(reason=reason)
         except discord.Forbidden:
             await interaction.response.send_message(
-                f"❌ Je n'ai pas pu expulser **{membre.name}**.\n"
-                f"Il me faut la permission **Expulser des membres** (Kick Members) et mon rôle doit être "
-                f"**au-dessus** de celui du membre dans la hiérarchie des rôles du serveur.",
-                ephemeral=True)
+                ti(interaction, "moderation.kick.forbidden", member=member.name), ephemeral=True)
             return
         except discord.HTTPException:
             await interaction.response.send_message(
-                f"❌ Échec de l'expulsion de **{membre.name}** (erreur Discord).", ephemeral=True)
+                ti(interaction, "moderation.kick.http_error", member=member.name), ephemeral=True)
             return
-        await interaction.response.send_message(f"**{membre.name}** a ete expulse. Raison : {raison}")
+        await interaction.response.send_message(
+            ti(interaction, "moderation.kick.success", member=member.name, reason=reason))
 
-    @bot.tree.command(name="ban", description="Bannir un membre")
-    @app_commands.describe(membre="Le membre a bannir", raison="La raison")
+    @bot.tree.command(name="ban", description="Ban a member from the server")
+    @app_commands.describe(member="The member to ban", reason="Reason for the ban")
     @app_commands.default_permissions(ban_members=True)
-    async def ban(interaction: discord.Interaction, membre: discord.Member, raison: str = "Aucune raison fournie"):
+    async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
         try:
-            await membre.ban(reason=raison)
+            await member.ban(reason=reason)
         except discord.Forbidden:
             await interaction.response.send_message(
-                f"❌ Je n'ai pas pu bannir **{membre.name}**.\n"
-                f"Il me faut la permission **Bannir des membres** (Ban Members) et mon rôle doit être "
-                f"**au-dessus** de celui du membre dans la hiérarchie des rôles du serveur.",
-                ephemeral=True)
+                ti(interaction, "moderation.ban.forbidden", member=member.name), ephemeral=True)
             return
         except discord.HTTPException:
             await interaction.response.send_message(
-                f"❌ Échec du bannissement de **{membre.name}** (erreur Discord).", ephemeral=True)
+                ti(interaction, "moderation.ban.http_error", member=member.name), ephemeral=True)
             return
-        await interaction.response.send_message(f"**{membre.name}** a ete banni. Raison : {raison}")
+        await interaction.response.send_message(
+            ti(interaction, "moderation.ban.success", member=member.name, reason=reason))
 
-    @bot.tree.command(name="clear", description="Supprimer des messages")
-    @app_commands.describe(nombre="Nombre de messages a supprimer")
+    @bot.tree.command(name="clear", description="Delete a number of messages in this channel")
+    @app_commands.describe(amount="How many messages to delete")
     @app_commands.default_permissions(manage_messages=True)
-    async def clear(interaction: discord.Interaction, nombre: int):
+    async def clear(interaction: discord.Interaction, amount: int):
         await interaction.response.defer(ephemeral=True)
         try:
-            await interaction.channel.purge(limit=nombre)
+            await interaction.channel.purge(limit=amount)
         except discord.Forbidden:
             await interaction.followup.send(
-                "❌ Je n'ai pas pu supprimer les messages.\n"
-                "Il me faut les permissions **Gérer les messages** (Manage Messages) et "
-                "**Voir l'historique des messages** (Read Message History) dans ce salon.",
-                ephemeral=True)
+                ti(interaction, "moderation.clear.forbidden"), ephemeral=True)
             return
         except discord.HTTPException:
             await interaction.followup.send(
-                "❌ Échec de la suppression (erreur Discord ; les messages de plus de 14 jours "
-                "ne peuvent pas être supprimés en masse).", ephemeral=True)
+                ti(interaction, "moderation.clear.http_error"), ephemeral=True)
             return
-        await interaction.followup.send(f"**{nombre}** messages supprimes.", ephemeral=True)
+        await interaction.followup.send(
+            ti(interaction, "moderation.clear.success", amount=amount), ephemeral=True)
 
-    class PollBuilderModal(discord.ui.Modal, title="Creer un sondage"):
+    class PollBuilderModal(discord.ui.Modal, title="Create a poll"):
         question = discord.ui.TextInput(
             label="Question",
-            placeholder="Ex : Quelle pizza ce soir ?",
+            placeholder="e.g. What pizza tonight?",
             max_length=300,
             required=True,
         )
         options = discord.ui.TextInput(
-            label="Options (une par ligne, 2 a 10)",
+            label="Options (one per line, 2 to 10)",
             style=discord.TextStyle.paragraph,
-            placeholder="4 fromages\nReine\nPepperoni",
+            placeholder="Four cheese\nMargherita\nPepperoni",
             max_length=600,
             required=True,
         )
         duration = discord.ui.TextInput(
-            label="Duree (en heures, 1 a 168)",
+            label="Duration (in hours, 1 to 168)",
             placeholder="24",
             default="24",
             max_length=3,
@@ -89,12 +84,12 @@ def setup_moderation_commands(bot):
             opts = [ln.strip() for ln in str(self.options.value).splitlines() if ln.strip()]
             if len(opts) < 2:
                 await interaction.response.send_message(
-                    "Il faut au moins 2 options (une par ligne).", ephemeral=True,
+                    ti(interaction, "moderation.poll.need_two_options"), ephemeral=True,
                 )
                 return
             if len(opts) > 10:
                 opts = opts[:10]
-            # Parse duree, clamp [1, 168]h (= 7 jours max, limite Discord)
+            # Parse duration, clamp [1, 168]h (= 7 days max, Discord limit)
             try:
                 dh = int(str(self.duration.value).strip() or "24")
             except ValueError:
@@ -111,13 +106,12 @@ def setup_moderation_commands(bot):
             except Exception as e:
                 print(f"[moderation/poll] err: {e!r}")
                 await interaction.response.send_message(
-                    "Impossible de créer le sondage. Vérifie le format des options et réessaie.",
-                    ephemeral=True,
+                    ti(interaction, "moderation.poll.create_failed"), ephemeral=True,
                 )
 
-    @bot.tree.command(name="poll", description="Creer un sondage (ouvre un builder)")
+    @bot.tree.command(name="poll", description="Create a poll (opens a builder)")
     async def poll(interaction: discord.Interaction):
-        # Ouvre le modal de creation. Le sondage utilise le composant
-        # natif Discord (vote live + UI integree). Pour 5+ options ou
-        # plus de controle, utiliser le builder du dashboard.
+        # Opens the creation modal. The poll uses Discord's native component
+        # (live voting + built-in UI). For 5+ options or more control,
+        # use the dashboard builder.
         await interaction.response.send_modal(PollBuilderModal())
