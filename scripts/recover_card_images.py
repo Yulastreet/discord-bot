@@ -1,5 +1,5 @@
 """Recuperation post-bake : restaure les ORIGINAUX (transparence/alpha) depuis un
-backup DB pre-bake, et re-bake proprement les renders cassés.
+backs up the DB pre-bake, and cleanly re-bakes the broken renders.
 
 Contexte : un bake a re-genere des renders depuis l'original (center-crop) +
 aplati les PNG transparents (alpha perdu). Ce script :
@@ -90,7 +90,7 @@ def main():
     if args.limit:
         cards = cards[:args.limit]
 
-    # Pré-filtre : cartes avec un original récupérable
+    # Pre-filter: cards with a recoverable original
     work = []
     n_noorig = 0
     for row in cards:
@@ -109,7 +109,7 @@ def main():
         print(f"\n[dry] {len(work)} cartes recuperables | {n_noorig} sans original")
         return
 
-    # Parallèle (IO bound : download + bake). Ecritures DB regroupees en bulk.
+    # Parallel (IO bound: download + bake). DB writes batched in bulk.
     from concurrent.futures import ThreadPoolExecutor
     import threading
     workers = max(1, args.workers)

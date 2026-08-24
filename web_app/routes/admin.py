@@ -1,4 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
+from services.i18n import t
 from services.status_utils import create_db_backup, db_info, read_backup_meta, system_metrics, music_engine_diagnostics, ROOT_DIR
 
 def register_admin_routes(app, deps):
@@ -33,7 +34,7 @@ def register_admin_routes(app, deps):
     @app.route("/api/analytics/cohort-retention")
     def api_analytics_cohort_retention():
         if not _is_tookbot_plus_session():
-            return jsonify({"error": "TookBot+ requis"}), 402
+            return jsonify({"error": t("api.admin.plus_required")}), 402
         from database import get_cohort_retention
         g_id = gid()
         if not g_id:
@@ -48,7 +49,7 @@ def register_admin_routes(app, deps):
     @app.route("/api/analytics/export/<kind>.csv")
     def api_analytics_export_csv(kind):
         if not _is_tookbot_plus_session():
-            return jsonify({"error": "TookBot+ requis"}), 402
+            return jsonify({"error": t("api.admin.plus_required")}), 402
         from database import export_logs_csv_rows, get_top_commands, get_top_active_users
         g_id = gid()
         if not g_id:
@@ -74,7 +75,7 @@ def register_admin_routes(app, deps):
             for i, r in enumerate(get_top_active_users(g_id, days=days, limit=200), start=1):
                 w.writerow([i, r.get("user_id"), r.get("username"), r.get("n")])
         else:
-            return jsonify({"error": "kind invalide (events|top-commands|top-users)"}), 400
+            return jsonify({"error": t("api.admin.invalid_kind")}), 400
         data = buf.getvalue()
         from flask import Response
         resp = Response(data, mimetype="text/csv")
@@ -156,7 +157,7 @@ def register_admin_routes(app, deps):
             or (globals().get("SKU_TOOKBOT_PLUS") and user_has_active_entitlement(uid, sku_id=globals().get("SKU_TOOKBOT_PLUS")))
         )
         if not is_plus:
-            return jsonify({"error": "TookBot+ requis"}), 402
+            return jsonify({"error": t("api.admin.plus_required")}), 402
         g_id = gid()
         if not g_id:
             return jsonify({"error": "no_guild"}), 400
@@ -290,9 +291,9 @@ def register_admin_routes(app, deps):
         rows = list_channels(g_id, type_filter=type_filter)
         return jsonify({"channels": rows})
 
-    # Note : la feature "Messages privés" (lecture/envoi de DM via dashboard
-    # + stockage en base) a été retirée volontairement (raison vie privée).
-    # Les DM users -> bot ne sont plus enregistrés. Voir privacy.html §1.3.
+    # Note: the "Direct messages" feature (reading/sending DMs from the dashboard
+    # + storing them in DB) was removed on purpose (privacy reasons).
+    # User -> bot DMs are no longer recorded. See privacy.html section 1.3.
 
     @app.route("/api/bottalk/send", methods=["POST"])
     def api_bottalk_send():
@@ -302,14 +303,14 @@ def register_admin_routes(app, deps):
         content    = (data.get("content") or "").strip()
         embed      = data.get("embed")
         if not channel_id:
-            return jsonify({"error": "channel_id requis"}), 400
+            return jsonify({"error": t("api.admin.channel_id_required")}), 400
         if not content and not embed:
-            return jsonify({"error": "content ou embed requis"}), 400
+            return jsonify({"error": t("api.admin.content_or_embed_required")}), 400
         if len(content) > 2000:
-            return jsonify({"error": "content trop long (max 2000 chars)"}), 400
+            return jsonify({"error": t("api.admin.content_too_long")}), 400
         payload = {"channel_id": channel_id, "content": content}
         if embed and isinstance(embed, dict):
-            # Sanitize : on ne forwarde que les clés attendues
+            # Sanitize: only forward the expected keys
             allowed = {"title","description","url","color","author_name","author_url","author_icon",
                        "footer_text","footer_icon","image","thumbnail","fields","timestamp"}
             clean = {k: v for k, v in embed.items() if k in allowed}
@@ -420,13 +421,13 @@ def register_admin_routes(app, deps):
         options    = [str(o).strip() for o in (data.get("options") or []) if str(o).strip()]
         duration_h = data.get("duration_hours")
         if not channel_id:
-            return jsonify({"error": "channel_id requis"}), 400
+            return jsonify({"error": t("api.admin.channel_id_required")}), 400
         if not question or len(question) > 300:
-            return jsonify({"error": "question requise (max 300 chars)"}), 400
+            return jsonify({"error": t("api.admin.question_required")}), 400
         if len(options) < 2 or len(options) > 10:
             return jsonify({"error": "2 a 10 options"}), 400
         if any(len(o) > 55 for o in options):
-            return jsonify({"error": "option trop longue (max 55 chars)"}), 400
+            return jsonify({"error": t("api.admin.option_too_long")}), 400
         try:
             duration_h = max(1, min(168, int(duration_h or 24)))
         except (TypeError, ValueError):
@@ -454,27 +455,32 @@ def register_admin_routes(app, deps):
     # ===== Mod permissions config (server owner only) =====
     _MOD_PERMS_REGISTRY = [
         # Slash commands
-        ("warn",            "/warn",          "Avertir un membre",                      "Slash"),
-        ("kick",            "/kick",          "Expulser un membre",                     "Slash"),
-        ("ban",             "/ban",           "Bannir un membre",                       "Slash"),
-        ("clear",           "/clear",         "Supprimer des messages en masse",        "Slash"),
-        ("ticket",          "/ticket",        "Créer un panneau de tickets",            "Slash"),
-        ("giveaway",        "/giveaway",      "Créer/gérer des giveaways",              "Slash"),
-        ("poll",            "/poll",          "Créer des sondages",                     "Slash"),
-        ("rolereaction",    "/rolereaction",  "Configurer les rôles-réaction",          "Slash"),
-        ("socialalert",     "/socialalert",   "Configurer les alertes Twitch/YT/Reddit","Slash"),
-        ("setwelcome",      "/setwelcome",    "Configurer le message de bienvenue",     "Slash"),
-        ("reaction",        "/reaction_*",    "Configurer les auto-réactions",          "Slash"),
-        ("modlogs",         "/modlogs",       "Consulter / configurer le modlog",       "Slash"),
-        ("setup",           "/setup",         "Reconfigurer les salons du bot",         "Slash"),
-        ("xp",              "/xp",            "Activer/désactiver le système d'XP",     "Slash"),
-        ("note",            "/note",          "Ajouter une note sur un membre",         "Slash"),
+        ("warn",            "/warn",          t("api.mod_perms.warn"),          "Slash"),
+        ("kick",            "/kick",          t("api.mod_perms.kick"),          "Slash"),
+        ("ban",             "/ban",           t("api.mod_perms.ban"),           "Slash"),
+        ("clear",           "/clear",         t("api.mod_perms.clear"),         "Slash"),
+        ("ticket",          "/ticket",        t("api.mod_perms.ticket"),        "Slash"),
+        ("giveaway",        "/giveaway",      t("api.mod_perms.giveaway"),      "Slash"),
+        ("poll",            "/poll",          t("api.mod_perms.poll"),          "Slash"),
+        ("rolereaction",    "/rolereaction",  t("api.mod_perms.rolereaction"),  "Slash"),
+        ("socialalert",     "/socialalert",   t("api.mod_perms.socialalert"),   "Slash"),
+        ("setwelcome",      "/setwelcome",    t("api.mod_perms.setwelcome"),    "Slash"),
+        ("reaction",        "/reaction_*",    t("api.mod_perms.reaction"),      "Slash"),
+        ("modlogs",         "/modlogs",       t("api.mod_perms.modlogs"),       "Slash"),
+        ("setup",           "/setup",         t("api.mod_perms.setup"),         "Slash"),
+        ("xp",              "/xp",            t("api.mod_perms.xp"),            "Slash"),
+        ("note",            "/note",          t("api.mod_perms.note"),          "Slash"),
         # Dashboard only
-        ("logs",            "Logs",           "Consulter les logs du serveur",          "Dashboard"),
-        ("custom_commands", "Commandes custom","Créer/éditer les commandes /<nom>",     "Dashboard"),
-        ("music",           "Musique",        "Contrôler la musique du bot",            "Dashboard"),
-        ("features",        "Fonctionnalités","Activer/désactiver les modules du bot",  "Dashboard"),
-        ("settings",        "Réglages serveur","Réglages XP/welcome par serveur",       "Dashboard"),
+        ("logs",            t("api.mod_perms.label_logs"),
+                            t("api.mod_perms.logs"),            "Dashboard"),
+        ("custom_commands", t("api.mod_perms.label_custom_commands"),
+                            t("api.mod_perms.custom_commands"), "Dashboard"),
+        ("music",           t("api.mod_perms.label_music"),
+                            t("api.mod_perms.music"),           "Dashboard"),
+        ("features",        t("api.mod_perms.label_features"),
+                            t("api.mod_perms.features"),        "Dashboard"),
+        ("settings",        t("api.mod_perms.label_settings"),
+                            t("api.mod_perms.settings"),        "Dashboard"),
     ]
 
 
@@ -562,9 +568,9 @@ def register_admin_routes(app, deps):
         key   = (data.get("key") or "").strip()
         value = data.get("value")
         if key not in FEATURE_KEYS:
-            return jsonify({"error": "cle invalide"}), 400
+            return jsonify({"error": t("api.admin.invalid_key")}), 400
         if value is None:
-            return jsonify({"error": "value requis"}), 400
+            return jsonify({"error": t("api.admin.value_required")}), 400
         val_str = "1" if str(value) in ("1", "true", "True", "on") else "0"
         # Gate : Cards Events necessite >= 10 membres (sauf serveur support)
         if key == "card_events" and val_str == "1":
@@ -578,8 +584,8 @@ def register_admin_routes(app, deps):
                 conn.close()
                 mc = int(row["member_count"]) if row and row["member_count"] else 0
                 if mc < 10:
-                    return jsonify({"error": f"Cards Events nécessite au moins 10 membres "
-                                              f"(ce serveur en a {mc})."}), 400
+                    return jsonify({"error": t("api.admin.card_events_min_members",
+                                               count=mc)}), 400
         guild_setting_set(g_id, key, val_str)
         return jsonify({"success": True, "key": key, "value": val_str})
 
@@ -606,7 +612,7 @@ def register_admin_routes(app, deps):
         user_id = (data.get("user_id") or "").strip()
         reason  = (data.get("reason") or "").strip() or None
         if not user_id:
-            return jsonify({"error": "user_id requis"}), 400
+            return jsonify({"error": t("api.admin.user_id_required")}), 400
         if reason and len(reason) > 500:
             return jsonify({"error": "raison max 500 caracteres"}), 400
         aid = mod_action_add(g_id, user_id, "warn",
@@ -644,10 +650,10 @@ def register_admin_routes(app, deps):
         action_id = int(data.get("action_id") or 0)
         revoke_reason = (data.get("reason") or "").strip() or None
         if not action_id:
-            return jsonify({"error": "action_id requis"}), 400
+            return jsonify({"error": t("api.admin.action_id_required")}), 400
         a = mod_action_get(action_id)
         if not a or str(a.get("guild_id")) != str(g_id):
-            return jsonify({"error": "introuvable"}), 404
+            return jsonify({"error": t("api.admin.not_found")}), 404
         ok = mod_action_revoke(action_id, _current_user_id(), revoke_reason)
         return jsonify({"success": ok})
 
@@ -683,12 +689,12 @@ def register_admin_routes(app, deps):
     @app.route("/api/moderation/<action>", methods=["POST"])
     def api_moderation(action):
         if action not in ("kick", "ban", "timeout", "unban"):
-            return jsonify({"error": "action invalide"}), 400
+            return jsonify({"error": t("api.admin.invalid_action")}), 400
         g_id = gid()
         data = request.json or {}
         user_id = (data.get("user_id") or "").strip()
         if not user_id:
-            return jsonify({"error": "user_id requis"}), 400
+            return jsonify({"error": t("api.admin.user_id_required")}), 400
         payload = {
             "user_id":          user_id,
             "reason":           (data.get("reason") or "").strip() or None,
@@ -702,7 +708,7 @@ def register_admin_routes(app, deps):
         return jsonify({"success": True, "command_id": cid})
 
 
-    # On lit l'etat du bot via la DB (process séparé). Le bot persiste son etat
+    # We read the bot state from the DB (separate process). The bot persists its state
     # dans une mini-table 'kv' qu'on cree a la volee. Plus simple : on stocke
     # le pid + boot ts dans bot_state.json a cote.
 
@@ -733,11 +739,11 @@ def register_admin_routes(app, deps):
         database_info = db_info()
         db.close()
 
-        # Bot state via fichier partagé
+        # Bot state via shared file
         bot_state = _read_bot_state() or {}
         now = time.time()
 
-        # Login attempts récents
+        # Recent login attempts
         login_log = list(_LOGIN_LOG)[:20]
 
         return jsonify({
@@ -771,14 +777,14 @@ def register_admin_routes(app, deps):
 
 
     def _current_user_id():
-        """Snowflake Discord de l'utilisateur connecte (str), ou None."""
+        """Discord snowflake of the logged-in user (str), or None."""
         if not session.get("logged_in"):
             return None
         return (session.get("discord") or {}).get("user_id")
 
 
     def _is_admin_of_current_guild() -> bool:
-        """True si owner OU admin du serveur actuellement selectionne."""
+        """True when the user is the owner OR an admin of the currently selected server."""
         if _is_owner_session():
             return True
         cg = session.get("guild_id")
@@ -792,7 +798,7 @@ def register_admin_routes(app, deps):
 
 
     def _has_pass(uid) -> bool:
-        """Pass actif : owner OU grant manuel feature='pass' OU entitlement subscription."""
+        """Pass granted: owner OR manual grant feature='pass' OR subscription entitlement."""
         if not uid:
             return False
         if DISCORD_OWNER_ID and str(uid) == str(DISCORD_OWNER_ID):
@@ -801,10 +807,10 @@ def register_admin_routes(app, deps):
 
 
     def _is_premium(uid, feature="all") -> bool:
-        """Wrapper unifie : entitlement Discord OU grant manuel OU owner ENV.
+        """Unified wrapper: Discord entitlement OR manual grant OR owner ENV.
 
-        Si feature='all', on accepte aussi 'pass' (les abonnés Pass ont automatiquement
-        le pack /niveau Premium).
+        When feature='all', 'pass' is accepted too (Pass subscribers automatically
+        get the Premium /niveau pack).
         """
         if _db_user_is_premium(uid, feature=feature, owner_id=DISCORD_OWNER_ID):
             return True
@@ -814,7 +820,7 @@ def register_admin_routes(app, deps):
 
 
     def _require_premium_user():
-        """Retourne user_id si user connecte ET premium actif, sinon None."""
+        """Return the user_id when the user is logged in AND premium, else None."""
         uid = _current_user_id()
         if not uid:
             return None

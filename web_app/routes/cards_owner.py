@@ -1,43 +1,45 @@
-"""Routes owner-only pour gerer le catalogue de cartes."""
+"""Owner-only routes to manage the card catalogue."""
 from flask import render_template, request, jsonify
 
+from services.i18n import t
 
-# Page de partage public (balises Open Graph -> previsualisation Discord/Twitter).
-# Le crawler lit les <meta>, les humains sont rediriges par le <script>.
+
+# Public share page (Open Graph tags -> Discord/Twitter preview).
+# The crawler reads the <meta> tags, humans are redirected by the <script>.
 _COLLECTION_OG_HTML = """<!DOCTYPE html>
-<html lang="fr"><head>
+<html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Collection de {{ name }} · TookBot</title>
+<title>{{ name }}'s collection · TookBot</title>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TookBot">
-<meta property="og:title" content="🃏 Collection de {{ name }}">
-<meta property="og:description" content="{{ total }} cartes collectionnées sur TookBot. Viens voir le classeur !">
+<meta property="og:title" content="🃏 {{ name }}'s collection">
+<meta property="og:description" content="{{ total }} cards collected on TookBot. Come and see the binder!">
 <meta property="og:url" content="{{ og_url }}">
 {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
 <meta name="twitter:card" content="{{ card_type }}">
-<meta name="twitter:title" content="🃏 Collection de {{ name }}">
-<meta name="twitter:description" content="{{ total }} cartes collectionnées sur TookBot.">
+<meta name="twitter:title" content="🃏 {{ name }}'s collection">
+<meta name="twitter:description" content="{{ total }} cards collected on TookBot.">
 {% if og_image %}<meta name="twitter:image" content="{{ og_image }}">{% endif %}
 <meta name="theme-color" content="#b9f23a">
 </head><body style="background:#0c0b0e;color:#eee;font-family:sans-serif;text-align:center;padding:60px">
-<p>Redirection vers la collection de {{ name }}…</p>
-<p><a href="{{ target }}" style="color:#b9f23a">Cliquer ici si rien ne se passe</a></p>
+<p>Redirecting to {{ name }}'s collection…</p>
+<p><a href="{{ target }}" style="color:#b9f23a">Click here if nothing happens</a></p>
 <script>location.replace({{ target|tojson }});</script>
 </body></html>"""
 
 
-# Recompenses de la roue quotidienne. Plus la valeur est forte, plus le poids est
-# faible (donc rare). Les chances affichees = weight / somme des weights.
+# Daily wheel rewards. The higher the value, the lower the weight (so the rarer
+# it is). Displayed odds = weight / sum of the weights.
 _WHEEL_REWARDS = [
     {"type": "essence",         "value": 2,  "weight": 30, "label": "+2% essences",        "color": "#9aa0a6"},
     {"type": "essence",         "value": 5,  "weight": 20, "label": "+5% essences",        "color": "#4cb5f9"},
-    {"type": "epic_roll",       "value": 1,  "weight": 18, "label": "Roll Épique garanti", "color": "#a86dff"},
+    {"type": "epic_roll",       "value": 1,  "weight": 18, "label": t("api.cards_owner.wheel_epic_roll_1"), "color": "#a86dff"},
     {"type": "essence",         "value": 10, "weight": 12, "label": "+10% essences",       "color": "#a86dff"},
-    {"type": "epic_roll",       "value": 3,  "weight": 10, "label": "3 Rolls Épique",      "color": "#b06bf2"},
+    {"type": "epic_roll",       "value": 3,  "weight": 10, "label": t("api.cards_owner.wheel_epic_roll_3"),      "color": "#b06bf2"},
     {"type": "essence",         "value": 20, "weight": 5,  "label": "+20% essences",       "color": "#ffa726"},
     {"type": "golden_roll",     "value": 1,  "weight": 4,  "label": "Golden Roll",         "color": "#ffd23f"},
-    {"type": "mythic_fragment", "value": 1,  "weight": 1,  "label": "Fragment Mythic",     "color": "#ff3d57"},
+    {"type": "mythic_fragment", "value": 1,  "weight": 1,  "label": t("api.cards_owner.wheel_mythic_fragment"),     "color": "#ff3d57"},
 ]
 
 
@@ -47,7 +49,7 @@ def register_cards_owner_routes(app, deps):
     # ===== PUBLIC =====
     @app.route("/cards")
     def public_cards_page():
-        """Page publique : tout le monde peut voir le catalogue (read-only)."""
+        """Public page: anyone can browse the catalogue (read-only)."""
         import os as _os
         from flask import session as _ses
         dsc = _ses.get("discord") or {}
@@ -136,7 +138,7 @@ def register_cards_owner_routes(app, deps):
         from database import card_get
         card = card_get(cid)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         return jsonify({"card": card})
 
 
@@ -154,7 +156,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/public/cards/origins", methods=["GET"])
     def api_public_cards_origins():
-        """Liste des origines (subtitle) distinctes avec compte. Filtre optionnel par univers."""
+        """Distinct origins (subtitle) with their count. Optional filter by universe."""
         from database import get_db
         uni = request.args.get("universe") or None
         conn = get_db(); c = conn.cursor()
@@ -171,7 +173,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/public/cards/contributors", methods=["GET"])
     def api_public_cards_contributors():
-        """Top contributeurs : nb de suggestions approuvees par personne."""
+        """Top contributors: number of approved suggestions per person."""
         from database import get_db
         conn = get_db(); c = conn.cursor()
         rows = c.execute(
@@ -181,18 +183,18 @@ def register_cards_owner_routes(app, deps):
             "GROUP BY suggester_id ORDER BY n DESC LIMIT 30").fetchall()
         conn.close()
         return jsonify({"items": [
-            {"name": (r["name"] or "Anonyme"), "count": int(r["n"])} for r in rows]})
+            {"name": (r["name"] or t("api.cards_owner.anonymous")), "count": int(r["n"])} for r in rows]})
 
 
     @app.route("/api/public/cards/my-collection", methods=["GET"])
     def api_public_cards_my_collection():
-        """Card_ids possedes par l'utilisateur connecte (pour la vue collection)."""
+        """Card_ids owned by the logged-in user (for the collection view)."""
         from flask import session as _ses
         from database import get_db
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         if not uid:
-            return jsonify({"error": "non connecte"}), 401
+            return jsonify({"error": t("api.cards_owner.not_logged_in")}), 401
         conn = get_db(); c = conn.cursor()
         rows = c.execute("SELECT DISTINCT card_id FROM user_cards WHERE user_id = ?",
                          (str(uid),)).fetchall()
@@ -207,7 +209,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/public/cards/recent-acquisitions", methods=["GET"])
     def api_public_cards_recent_acquisitions():
-        """Dernieres cartes obtenues, tous serveurs confondus."""
+        """Latest cards obtained, across every server."""
         from database import get_db
         try:
             limit = max(1, min(int(request.args.get("limit", 60)), 120))
@@ -233,7 +235,7 @@ def register_cards_owner_routes(app, deps):
                           "WHERE user_id = ? LIMIT 1", (str(r["user_id"]),)).fetchone()
             out.append({
                 "id": r["id"],
-                "user": (m["username"] if m and m["username"] else "Inconnu"),
+                "user": (m["username"] if m and m["username"] else t("api.cards_owner.unknown_user")),
                 "avatar": (m["avatar_url"] if m else None),
                 "name": r["name"],
                 "rarity": r["rarity"],
@@ -263,7 +265,7 @@ def register_cards_owner_routes(app, deps):
                     total_power += combat_power(st["hp"], st["atk"])
                 except Exception:
                     pass
-            owner_name = "Inconnu"
+            owner_name = t("api.cards_owner.unknown_user")
             owner_id = g.get("owner_id")
             if owner_id:
                 om = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
@@ -297,7 +299,7 @@ def register_cards_owner_routes(app, deps):
                               compute_player_combat_stats, combat_power, user_card_count)
         g = guild_get(gid)
         if not g:
-            return jsonify({"error": "guilde introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.guild_not_found")}), 404
         conn = get_db(); c = conn.cursor()
         out = []
         for m in guild_members(gid):
@@ -315,7 +317,7 @@ def register_cards_owner_routes(app, deps):
                 cards = 0
             out.append({
                 "user_id": str(uid),
-                "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
+                "user": (mm["username"] if mm and mm["username"] else t("api.cards_owner.unknown_user")),
                 "avatar": (mm["avatar_url"] if mm else None),
                 "role": m.get("role", "member"),
                 "power": pw, "cards": cards,
@@ -397,8 +399,8 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/cards/og-image.png")
     def collection_og_image():
-        """Image FIXE de previsualisation (identique pour tous). Servie par Flask
-        sous /cards/ (deja proxy nginx) car /assets/ n'est pas servi publiquement."""
+        """FIXED preview image (the same for everyone). Served by Flask under
+        /cards/ (already proxied by nginx) because /assets/ is not public."""
         import os as _os
         from flask import send_file, abort
         p = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
@@ -409,8 +411,8 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/cards/s/<user_id>")
     def collection_share_preview(user_id):
-        """Lien de partage public : sert les balises Open Graph (previsualisation
-        Discord) puis redirige les humains vers le classeur dashboard."""
+        """Public share link: serves the Open Graph tags (Discord preview) then
+        redirects humans to the dashboard binder."""
         import os as _os
         from flask import request as _rq, render_template_string, redirect as _redir
         target = f"/cards/collection/{user_id}"
@@ -422,7 +424,7 @@ def register_cards_owner_routes(app, deps):
             m = c.execute("SELECT username, avatar_url FROM guild_members WHERE user_id = ? LIMIT 1",
                           (str(user_id),)).fetchone()
             conn.close()
-            name = (m["username"] if m and m["username"] else "Joueur")
+            name = (m["username"] if m and m["username"] else t("api.cards_owner.player"))
             avatar = (m["avatar_url"] if m else None)
             try:
                 total = user_card_count(user_id)
@@ -490,7 +492,7 @@ def register_cards_owner_routes(app, deps):
         return jsonify({
             "user": {
                 "id": str(user_id),
-                "name": (m["username"] if m and m["username"] else "Joueur"),
+                "name": (m["username"] if m and m["username"] else t("api.cards_owner.player")),
                 "avatar": (m["avatar_url"] if m else None),
             },
             "total": total, "unique": len(items),
@@ -539,7 +541,7 @@ def register_cards_owner_routes(app, deps):
             total_power += pw
             row = {
                 "user_id": str(muid),
-                "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
+                "user": (mm["username"] if mm and mm["username"] else t("api.cards_owner.unknown_user")),
                 "avatar": (mm["avatar_url"] if mm else None),
                 "role": m.get("role", "member"),
                 "power": pw, "cards": cards,
@@ -581,7 +583,7 @@ def register_cards_owner_routes(app, deps):
             lm = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
                            (str(e["user_id"]),)).fetchone()
             xp_log.append({
-                "user": (lm["username"] if lm and lm["username"] else "Inconnu"),
+                "user": (lm["username"] if lm and lm["username"] else t("api.cards_owner.unknown_user")),
                 "amount": e["amount"], "source": e.get("source") or "action",
                 "created_at": e.get("created_at"),
             })
@@ -624,13 +626,13 @@ def register_cards_owner_routes(app, deps):
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         if not uid:
-            return jsonify({"error": "non connecté"}), 401
+            return jsonify({"error": t("api.cards_owner.not_logged_in")}), 401
         g = guild_of_user(uid)
         if not g:
-            return jsonify({"error": "pas de guilde"}), 400
+            return jsonify({"error": t("api.cards_owner.no_guild")}), 400
         gid = g["id"]
         if guild_member_role(gid, uid) not in ("master", "officer"):
-            return jsonify({"error": "réservé Maître/Officier"}), 403
+            return jsonify({"error": t("api.cards_owner.master_officer_only")}), 403
         if request.method == "DELETE":
             guild_application_remove(gid, auid)
             return jsonify({"ok": True})
@@ -638,12 +640,12 @@ def register_cards_owner_routes(app, deps):
         cfg = get_guild_config()
         if _gou(auid):
             guild_application_remove(gid, auid)
-            return jsonify({"error": "déjà dans une guilde"}), 400
+            return jsonify({"error": t("api.cards_owner.already_in_guild")}), 400
         if guild_member_count(gid) >= int(cfg.get("max_members", 30)):
-            return jsonify({"error": "guilde pleine"}), 400
+            return jsonify({"error": t("api.cards_owner.guild_full")}), 400
         ok, reason = guild_meets_requirements(gid, auid)
         if not ok:
-            return jsonify({"error": f"prérequis non remplis : {reason}"}), 400
+            return jsonify({"error": t("api.cards_owner.requirements_not_met", reason=reason)}), 400
         guild_add_member(gid, auid, "member")
         guild_application_remove(gid, auid)
         return jsonify({"ok": True})
@@ -691,14 +693,14 @@ def register_cards_owner_routes(app, deps):
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         if not uid:
-            return jsonify({"error": "Connecte-toi pour récupérer ton roll."}), 401
+            return jsonify({"error": t("api.cards_owner.login_for_roll")}), 401
         if not daily_roll_grant(uid):
-            return jsonify({"error": "Roll quotidien déjà récupéré aujourd'hui."}), 400
+            return jsonify({"error": t("api.cards_owner.daily_roll_already")}), 400
         return jsonify({"ok": True})
 
     @app.route("/api/public/wheel/recent-wins", methods=["GET"])
     def api_public_wheel_recent_wins():
-        """Derniers gains de la roue, tous joueurs confondus (journal wheel_wins)."""
+        """Latest wheel wins, across every player (wheel_wins log)."""
         from database import wheel_wins_recent, get_db
         try:
             limit = max(1, min(int(request.args.get("limit", 40)), 80))
@@ -711,7 +713,7 @@ def register_cards_owner_routes(app, deps):
             m = c.execute("SELECT username FROM guild_members WHERE user_id = ? LIMIT 1",
                           (str(r["user_id"]),)).fetchone()
             out.append({
-                "user": (m["username"] if m and m["username"] else "Inconnu"),
+                "user": (m["username"] if m and m["username"] else t("api.cards_owner.unknown_user")),
                 "type": r["reward_type"],
                 "value": r["reward_value"],
                 "at": r["won_at"],
@@ -728,9 +730,9 @@ def register_cards_owner_routes(app, deps):
         dsc = _ses.get("discord") or {}
         uid = dsc.get("user_id")
         if not uid:
-            return jsonify({"error": "Connecte-toi pour jouer."}), 401
+            return jsonify({"error": t("api.cards_owner.login_to_play")}), 401
         if wheel_claim_today(uid):
-            return jsonify({"error": "Tu as deja tourne la roue aujourd'hui."}), 400
+            return jsonify({"error": t("api.cards_owner.wheel_already_spun")}), 400
         # Tirage pondere
         total = sum(r["weight"] for r in _WHEEL_REWARDS)
         pick = _rnd.uniform(0, total)
@@ -743,7 +745,7 @@ def register_cards_owner_routes(app, deps):
                 break
         # Enregistre (anti double-spin) AVANT d'octroyer
         if not wheel_record(uid, won["type"], won["value"]):
-            return jsonify({"error": "Tu as deja tourne la roue aujourd'hui."}), 400
+            return jsonify({"error": t("api.cards_owner.wheel_already_spun")}), 400
         wtype = won["type"]
         if wtype == "essence":
             essence_bonus_set(uid, won["value"])
@@ -806,10 +808,10 @@ def register_cards_owner_routes(app, deps):
         uid = dsc.get("user_id")
         uname = dsc.get("username") or dsc.get("global_name")
         if not uid:
-            return jsonify({"error": "login Discord requis pour proposer une modif"}), 401
+            return jsonify({"error": t("api.cards_owner.login_required_for_edit")}), 401
         card = card_get(cid)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
 
         # Multipart si fichier present, sinon JSON
         is_multipart = "cropped" in request.files
@@ -828,7 +830,7 @@ def register_cards_owner_routes(app, deps):
         if new_rarity and new_rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             new_rarity = None
         if not new_name:
-            return jsonify({"error": "nom requis"}), 400
+            return jsonify({"error": t("api.cards_owner.name_required")}), 400
 
         # Resolve image proposee
         final_image_url = None
@@ -842,7 +844,7 @@ def register_cards_owner_routes(app, deps):
             try:
                 cropped = _Img.open(f.stream).convert("RGBA")
             except Exception as e:
-                return jsonify({"error": f"PNG invalide : {type(e).__name__}"}), 400
+                return jsonify({"error": t("api.cards_owner.invalid_png", error=type(e).__name__)}), 400
             cropped = cropped.resize((450, 675), _Img.LANCZOS)
             # Save vers _proposed_<uid>_<ts>.png pour unicite
             import time as _t
@@ -865,7 +867,7 @@ def register_cards_owner_routes(app, deps):
                 and new_subtitle == (card.get("subtitle") or "")
                 and not final_image_url
                 and not rarity_changed):
-            return jsonify({"error": "aucun changement detecte"}), 400
+            return jsonify({"error": t("api.cards_owner.no_change_detected")}), 400
 
         sname = uname or f"User#{uid}"
         try:
@@ -997,7 +999,7 @@ def register_cards_owner_routes(app, deps):
                 days = int(data.get("roll_min_guild_age_days"))
                 solo = int(data.get("roll_max_solo_guilds"))
             except (ValueError, TypeError):
-                return jsonify({"error": "valeur invalide (entiers attendus)"}), 400
+                return jsonify({"error": t("api.cards_owner.invalid_value_integers")}), 400
             days = max(0, min(days, 3650))
             solo = max(0, min(solo, 1000))
             set_setting("roll_min_guild_age_days", days)
@@ -1023,12 +1025,12 @@ def register_cards_owner_routes(app, deps):
             data = request.json or {}
             key = (data.get("key") or "").strip()
             if key and key not in GLOBAL_EVENTS:
-                return jsonify({"error": "event inconnu"}), 400
+                return jsonify({"error": t("api.cards_owner.unknown_event")}), 400
             try:
                 boost = max(1.0, float(data.get("drop_boost", 2.0)))
                 rar_boost = max(1.0, float(data.get("rarity_boost", 1.0)))
             except (ValueError, TypeError):
-                return jsonify({"error": "boost invalide"}), 400
+                return jsonify({"error": t("api.cards_owner.invalid_boost")}), 400
             global_event_set(key, drop_boost=boost, rarity_boost=rar_boost)
             # serveurs de test (CSV d'IDs) : si fourni, l'event n'est actif que la-bas
             if "test_guilds" in data:
@@ -1066,7 +1068,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/global-event/cards/<event_key>", methods=["GET"])
     def api_owner_global_event_cards(event_key):
-        """Liste les cartes taguees a un event (pour le gestionnaire dashboard)."""
+        """List the cards tagged to an event (for the dashboard manager)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db, GLOBAL_EVENTS
@@ -1083,16 +1085,16 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/global-event/card/<int:cid>/alt", methods=["POST"])
     def api_owner_global_event_alt(cid):
-        """Upload le skin ALT d'une carte event (multipart 'image')."""
+        """Upload the ALT skin of an event card (multipart 'image')."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         import os as _os
         from database import card_get, card_alt_set
         if not card_get(cid):
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         f = request.files.get("image")
         if not f or not f.filename:
-            return jsonify({"error": "fichier image requis"}), 400
+            return jsonify({"error": t("api.cards_owner.image_file_required")}), 400
         try:
             from PIL import Image as _Img
             from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H
@@ -1112,20 +1114,20 @@ def register_cards_owner_routes(app, deps):
             card_alt_set(cid, (public_base + rel) if public_base else rel)
             return jsonify({"ok": True, "alt_image_url": rel})
         except Exception as e:
-            return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_image", error=f"{type(e).__name__}: {e}")}), 400
 
     @app.route("/api/owner/global-event/card/<int:cid>/image", methods=["POST"])
     def api_owner_global_event_main_image(cid):
-        """Remplace l'image PRINCIPALE d'une carte event (multipart 'image')."""
+        """Replace the MAIN image of an event card (multipart 'image')."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         import os as _os
         from database import card_get, get_db
         if not card_get(cid):
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         f = request.files.get("image")
         if not f or not f.filename:
-            return jsonify({"error": "fichier image requis"}), 400
+            return jsonify({"error": t("api.cards_owner.image_file_required")}), 400
         try:
             from PIL import Image as _Img
             from services.cards_overlay import _OUTPUT_DIR, _CARD_W, _CARD_H, _get_overlay
@@ -1161,13 +1163,13 @@ def register_cards_owner_routes(app, deps):
             conn.commit(); conn.close()
             return jsonify({"ok": True, "image_url": rel})
         except Exception as e:
-            return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_image", error=f"{type(e).__name__}: {e}")}), 400
 
     @app.route("/api/owner/global-event/card", methods=["POST"])
     def api_owner_global_event_create_card():
-        """Cree une carte d'event en BROUILLON (event_key + not_obtainable=1).
-        Image : soit par URL (JSON), soit par UPLOAD (multipart champ 'image').
-        Elle n'est ni au catalogue ni rollable tant qu'elle n'est pas deployee."""
+        """Create an event card as a DRAFT (event_key + not_obtainable=1).
+        Image: either through a URL (JSON) or an UPLOAD (multipart 'image' field).
+        It is neither in the catalogue nor rollable until it is deployed."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import card_add, get_db, GLOBAL_EVENTS
@@ -1177,13 +1179,13 @@ def register_cards_owner_routes(app, deps):
         src = request.form if is_multipart else (request.json or {})
         ek = (src.get("event_key") or "").strip()
         if ek not in GLOBAL_EVENTS:
-            return jsonify({"error": "event inconnu"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_event")}), 400
         name = (src.get("name") or "").strip()
         if not name:
-            return jsonify({"error": "nom requis"}), 400
+            return jsonify({"error": t("api.cards_owner.name_required")}), 400
         rarity = (src.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "rareté invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_rarity")}), 400
         cid = card_add(
             name=name,
             universe=(src.get("universe") or "").strip() or None,
@@ -1219,7 +1221,7 @@ def register_cards_owner_routes(app, deps):
                 c0.execute("UPDATE cards SET image_url = ? WHERE id = ?", (final, cid))
                 conn0.commit(); conn0.close()
             except Exception as e:
-                return jsonify({"error": f"image invalide : {type(e).__name__}: {e}"}), 400
+                return jsonify({"error": t("api.cards_owner.invalid_image", error=f"{type(e).__name__}: {e}")}), 400
         conn = get_db(); c = conn.cursor()
         c.execute("UPDATE cards SET event_key = ?, not_obtainable = 1 WHERE id = ?", (ek, cid))
         conn.commit(); conn.close()
@@ -1227,15 +1229,15 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/global-event/deploy", methods=["POST"])
     def api_owner_global_event_deploy():
-        """Deploie les cartes en brouillon d'un event : not_obtainable 1 -> 0.
-        Elles deviennent rollables (et boostees si l'event est actif)."""
+        """Deploy the draft cards of an event: not_obtainable 1 -> 0.
+        They become rollable (and boosted while the event runs)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db, GLOBAL_EVENTS
         data = request.json or {}
         ek = (data.get("event_key") or "").strip()
         if ek not in GLOBAL_EVENTS:
-            return jsonify({"error": "event inconnu"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_event")}), 400
         conn = get_db(); c = conn.cursor()
         c.execute("UPDATE cards SET not_obtainable = 0 "
                   "WHERE event_key = ? AND COALESCE(not_obtainable,0) = 1", (ek,))
@@ -1245,7 +1247,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/global-event/tag", methods=["POST"])
     def api_owner_global_event_tag():
-        """Ajoute/retire une carte d'un event. {card_id, event_key} (vide=retirer)."""
+        """Add/remove a card to/from an event. {card_id, event_key} (empty = remove)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db, GLOBAL_EVENTS, card_get
@@ -1253,12 +1255,12 @@ def register_cards_owner_routes(app, deps):
         try:
             cid = int(data.get("card_id"))
         except (ValueError, TypeError):
-            return jsonify({"error": "card_id invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_card_id")}), 400
         ek = (data.get("event_key") or "").strip()
         if ek and ek not in GLOBAL_EVENTS:
-            return jsonify({"error": "event inconnu"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_event")}), 400
         if not card_get(cid):
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         conn = get_db(); c = conn.cursor()
         c.execute("UPDATE cards SET event_key = ? WHERE id = ?",
                   (ek or None, cid))
@@ -1293,18 +1295,18 @@ def register_cards_owner_routes(app, deps):
         uid = (str(data.get("user_id") or "").strip()
                or (_ses.get("discord") or {}).get("user_id"))
         if not uid or not str(uid).isdigit():
-            return jsonify({"error": "user_id invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_user_id")}), 400
         try:
             count = max(1, min(int(data.get("count") or 1), 1000))
         except (ValueError, TypeError):
-            return jsonify({"error": "count invalide (1-1000)"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_count")}), 400
         universe = (data.get("universe") or "").strip() or None
         rarity = (data.get("rarity") or "").strip().lower() or None
         if rarity and rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "rareté invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_rarity")}), 400
 
         def _pick():
-            # rareté forcee : carte random de cette rareté (+ univers si fourni)
+            # forced rarity: random card of that exact rarity (+ universe if given)
             if rarity:
                 from database import get_db as _gdb
                 conn = _gdb(); cc = conn.cursor()
@@ -1329,7 +1331,7 @@ def register_cards_owner_routes(app, deps):
             r = card.get("rarity", "common")
             by_rarity[r] = by_rarity.get(r, 0) + 1
         if added == 0:
-            return jsonify({"error": "aucune carte (categorie vide ?)"}), 400
+            return jsonify({"error": t("api.cards_owner.no_card_available")}), 400
         # compte dans le total de rolls effectues (affiche en bas du profil)
         try:
             from database import roll_total_inc
@@ -1341,7 +1343,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/cards-cheat/force-next", methods=["POST"])
     def api_owner_cards_cheat_force():
-        """Owner : force la carte exacte de SON prochain /roll."""
+        """Owner: force the exact card of THEIR next /roll."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from flask import session as _ses
@@ -1351,14 +1353,14 @@ def register_cards_owner_routes(app, deps):
         target = (str(data.get("user_id") or "").strip()
                   or (_ses.get("discord") or {}).get("user_id"))
         if not target or not str(target).isdigit():
-            return jsonify({"error": "user_id invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_user_id")}), 400
         try:
             cid = int(data.get("card_id"))
         except (ValueError, TypeError):
-            return jsonify({"error": "card_id invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_card_id")}), 400
         card = card_get(cid)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         forced_roll_set(target, cid)
         return jsonify({"ok": True, "name": card["name"], "user_id": str(target)})
 
@@ -1475,7 +1477,7 @@ def register_cards_owner_routes(app, deps):
                               guild_quests_weekly_get, guild_application_list)
         g = guild_get(gid)
         if not g:
-            return jsonify({"error": "guilde introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.guild_not_found")}), 404
         conn = get_db(); c = conn.cursor()
         members = []
         for m in guild_members(gid):
@@ -1493,7 +1495,7 @@ def register_cards_owner_routes(app, deps):
                 cards = 0
             members.append({
                 "user_id": str(uid),
-                "user": (mm["username"] if mm and mm["username"] else "Inconnu"),
+                "user": (mm["username"] if mm and mm["username"] else t("api.cards_owner.unknown_user")),
                 "avatar": (mm["avatar_url"] if mm else None),
                 "role": m.get("role", "member"),
                 "xp_contributed": m.get("xp_contributed", 0),
@@ -1527,13 +1529,13 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from database import guild_get, guild_admin_update
         if not guild_get(gid):
-            return jsonify({"error": "guilde introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.guild_not_found")}), 404
         data = request.json or {}
         fields = {}
         if "name" in data:
             nm = (data.get("name") or "").strip()
             if len(nm) < 3:
-                return jsonify({"error": "nom trop court (3 min)"}), 400
+                return jsonify({"error": t("api.cards_owner.name_too_short")}), 400
             fields["name"] = nm[:32]
         if "tag" in data:
             fields["tag"] = ((data.get("tag") or "").strip()[:8]) or None
@@ -1569,16 +1571,16 @@ def register_cards_owner_routes(app, deps):
         from database import (guild_get, guild_application_remove, guild_add_member,
                               guild_of_user, guild_member_count, get_guild_config)
         if not guild_get(gid):
-            return jsonify({"error": "guilde introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.guild_not_found")}), 404
         if request.method == "DELETE":
             guild_application_remove(gid, auid)
             return jsonify({"ok": True})
         # accept (owner force, ignore prerequis)
         if guild_of_user(auid):
             guild_application_remove(gid, auid)
-            return jsonify({"error": "déjà dans une guilde"}), 400
+            return jsonify({"error": t("api.cards_owner.already_in_guild")}), 400
         if guild_member_count(gid) >= int(get_guild_config().get("max_members", 30)):
-            return jsonify({"error": "guilde pleine"}), 400
+            return jsonify({"error": t("api.cards_owner.guild_full")}), 400
         guild_add_member(gid, auid, "member")
         guild_application_remove(gid, auid)
         return jsonify({"ok": True})
@@ -1589,16 +1591,16 @@ def register_cards_owner_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from database import guild_get, guild_set_role, guild_remove_member, guild_member_role
         if not guild_get(gid):
-            return jsonify({"error": "guilde introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.guild_not_found")}), 404
         if request.method == "DELETE":
             guild_remove_member(gid, user_id)
             return jsonify({"ok": True})
         data = request.json or {}
         role = (data.get("role") or "").strip()
         if role not in ("master", "officer", "member"):
-            return jsonify({"error": "role invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_role")}), 400
         if not guild_member_role(gid, user_id):
-            return jsonify({"error": "pas membre de cette guilde"}), 400
+            return jsonify({"error": t("api.cards_owner.not_a_guild_member")}), 400
         guild_set_role(gid, user_id, role)
         return jsonify({"ok": True})
 
@@ -1628,10 +1630,10 @@ def register_cards_owner_routes(app, deps):
         from database import card_suggestion_get, card_get
         sugg = card_suggestion_get(sid)
         if not sugg or not sugg.get("target_card_id"):
-            return jsonify({"error": "pas de target"}), 404
+            return jsonify({"error": t("api.cards_owner.no_target")}), 404
         card = card_get(sugg["target_card_id"])
         if not card:
-            return jsonify({"error": "carte cible introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.target_card_not_found")}), 404
         return jsonify({"card": card})
 
 
@@ -1704,7 +1706,7 @@ def register_cards_owner_routes(app, deps):
             print(f"[suggestion notify] {e}")
 
     def _notify_bulk_reject_dm(suggester_id, count, reason=None):
-        """Un seul DM groupe quand plusieurs cartes d'un meme demandeur sont refusees."""
+        """A single grouped DM when several cards from the same requester are rejected."""
         try:
             import os as _os
             from database import bot_command_enqueue
@@ -1718,9 +1720,9 @@ def register_cards_owner_routes(app, deps):
             print(f"[suggestion bulk dm] {e}")
 
     def _approve_apply_image(tcid, new_image_url, original, target, final_rarity, image_changed):
-        """Approbation modif image : héberge l'ORIGINAL en local (source_image_url,
-        re-crop perenne), bake le render depuis le crop proposé, supprime le crop
-        de suggestion consommé. Retourne True si re-bake OK."""
+        """Image edit approval: hosts the ORIGINAL locally (source_image_url, so a
+        re-crop stays possible), bakes the render from the proposed crop, then removes
+        the consumed suggestion crop. Returns True when the re-bake succeeded."""
         from services.cards_overlay import composite_card, localize_source
         from database import get_db
         import os as _os
@@ -1734,7 +1736,7 @@ def register_cards_owner_routes(app, deps):
             rel = localize_source(tcid, orig) if orig else None
             if rel:
                 src_local = (public_base + rel) if public_base else rel
-        # 2. Render = bake du crop proposé (framing) ; sinon re-bake source pour rarete
+        # 2. Render = bake of the proposed crop (framing); otherwise re-bake source for rarity
         src_for_bake = new_image_url if image_changed else (target.get("source_image_url") or target.get("image_url"))
         rebaked = False
         if src_for_bake and "/card_renders/" not in src_for_bake:
@@ -1752,7 +1754,7 @@ def register_cards_owner_routes(app, deps):
                     rebaked = True
             except Exception as e:
                 print(f"[approve apply image] err {tcid}: {e}")
-        # 3. Supprime le crop de suggestion consommé (evite l'orphelin sur disque)
+        # 3. Delete the consumed suggestion crop (avoids an orphan on disk)
         if new_image_url and "/card_suggestions/" in new_image_url:
             try:
                 fname = new_image_url.split("/card_suggestions/", 1)[1].split("?")[0]
@@ -1773,9 +1775,9 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         sugg = card_suggestion_get(sid)
         if not sugg:
-            return jsonify({"error": "suggestion introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.suggestion_not_found")}), 404
         if sugg["status"] != "pending":
-            return jsonify({"error": f"deja {sugg['status']}"}), 400
+            return jsonify({"error": t("api.cards_owner.already_reviewed", status=sugg["status"])}), 400
         reviewer_id = _ses.get("user_id") or "owner"
 
         sugg_type = sugg.get("suggestion_type") or "new"
@@ -1785,7 +1787,7 @@ def register_cards_owner_routes(app, deps):
             from database import card_get
             target = card_get(tcid)
             if not target:
-                return jsonify({"error": "carte cible introuvable"}), 404
+                return jsonify({"error": t("api.cards_owner.target_card_not_found")}), 404
             new_image_url = sugg.get("image_url") or ""
             original = sugg.get("original_image_url")
 
@@ -1805,7 +1807,7 @@ def register_cards_owner_routes(app, deps):
                 c.execute(f"UPDATE cards SET {', '.join(fields)} WHERE id = ?", params)
             conn.commit(); conn.close()
 
-            # Image : héberge l'ORIGINAL en local (re-crop perenne) + render = crop.
+            # Image: host the ORIGINAL locally (re-croppable later) + render = crop.
             final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
             rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
             rebaked = False
@@ -1821,7 +1823,7 @@ def register_cards_owner_routes(app, deps):
                              "new_rarity": final_rarity if rarity_changed else None})
 
         # type 'new' : create nouvelle carte
-        # Priorité : rarity body > proposed_rarity suggestion > common
+        # Priority: rarity body > proposed_rarity suggestion > common
         rarity = (data.get("rarity") or sugg.get("proposed_rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
@@ -1832,10 +1834,11 @@ def register_cards_owner_routes(app, deps):
                 subtitle=sugg.get("subtitle"),
                 rarity=rarity,
                 image_url=sugg.get("image_url"),
-                description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
+                description=t("api.cards_owner.community_suggestion",
+                                  name=sugg.get("suggester_name", "?")),
             )
         except Exception as e:
-            return jsonify({"error": f"erreur create : {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": t("api.cards_owner.create_error", error=f"{type(e).__name__}: {e}")}), 500
         # Bake overlay auto pour single approve aussi
         from services.cards_overlay import composite_card
         import os as _os
@@ -1860,23 +1863,23 @@ def register_cards_owner_routes(app, deps):
 
 
     def _approve_one_suggestion(sid, rarity_override=None, reviewer_id="owner"):
-        """Helper : approve une suggestion + bake overlay auto. Retourne dict."""
+        """Helper: approve a suggestion + auto bake the overlay. Returns a dict."""
         from database import (card_suggestion_get, card_suggestion_review,
                                 card_add, card_get, get_db)
         import os as _os
         from services.cards_overlay import composite_card
         sugg = card_suggestion_get(sid)
         if not sugg:
-            return {"ok": False, "error": "introuvable"}
+            return {"ok": False, "error": t("api.cards_owner.not_found")}
         if sugg["status"] != "pending":
-            return {"ok": False, "error": f"deja {sugg['status']}"}
+            return {"ok": False, "error": t("api.cards_owner.already_reviewed", status=sugg["status"])}
 
         sugg_type = sugg.get("suggestion_type") or "new"
         if sugg_type == "edit" and sugg.get("target_card_id"):
             tcid = int(sugg["target_card_id"])
             target = card_get(tcid)
             if not target:
-                return {"ok": False, "error": "carte cible introuvable"}
+                return {"ok": False, "error": t("api.cards_owner.target_card_not_found")}
             new_image_url = sugg.get("image_url") or ""
             original = sugg.get("original_image_url")
             conn = get_db(); c = conn.cursor()
@@ -1895,7 +1898,7 @@ def register_cards_owner_routes(app, deps):
             conn.commit(); conn.close()
             final_rarity = proposed_rar if proposed_rar else target.get("rarity", "common")
             rarity_changed = proposed_rar and proposed_rar != target.get("rarity")
-            # Image : héberge l'original (re-crop perenne) + render du crop + cleanup
+            # Image: host the original (re-croppable later) + render the crop + cleanup
             if image_changed or rarity_changed:
                 _approve_apply_image(tcid, new_image_url, original, target,
                                      final_rarity, image_changed)
@@ -1914,10 +1917,11 @@ def register_cards_owner_routes(app, deps):
                 subtitle=sugg.get("subtitle"),
                 rarity=rarity,
                 image_url=sugg.get("image_url"),
-                description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
+                description=t("api.cards_owner.community_suggestion",
+                                  name=sugg.get("suggester_name", "?")),
             )
         except Exception as e:
-            return {"ok": False, "error": f"create card : {type(e).__name__}: {e}"}
+            return {"ok": False, "error": t("api.cards_owner.create_card_error", error=f"{type(e).__name__}: {e}")}
         # Bake overlay auto
         src = sugg.get("image_url") or ""
         if src and "/card_renders/" not in src and "/card_suggestions/" not in src:
@@ -1945,11 +1949,11 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         sids = data.get("sids") or []
         if not isinstance(sids, list) or not sids:
-            return jsonify({"error": "sids vide"}), 400
+            return jsonify({"error": t("api.cards_owner.sids_empty")}), 400
         try:
             sids_int = [int(x) for x in sids][:500]
         except (ValueError, TypeError):
-            return jsonify({"error": "sids invalides"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_sids")}), 400
         default_rarity = (data.get("default_rarity") or "common").strip()
         # rarities optionnel : dict {sid: rarity} pour override par suggestion
         rarities = data.get("rarities") or {}
@@ -1975,11 +1979,11 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         sids = data.get("sids") or []
         if not isinstance(sids, list) or not sids:
-            return jsonify({"error": "sids vide"}), 400
+            return jsonify({"error": t("api.cards_owner.sids_empty")}), 400
         try:
             sids_int = [int(x) for x in sids][:500]
         except (ValueError, TypeError):
-            return jsonify({"error": "sids invalides"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_sids")}), 400
         reason = (data.get("reason") or "").strip()[:200] or None
         reviewer = _ses.get("user_id") or "owner"
         rejected = 0; skipped = 0
@@ -2003,7 +2007,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/card-suggestions/<int:sid>/approve-cropped", methods=["POST"])
     def api_owner_card_suggestion_approve_cropped(sid):
-        """Recoit image cropee (multipart) + cree card avec cette image."""
+        """Receive a cropped image (multipart) + create a card with that image."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import (card_suggestion_get, card_suggestion_review,
@@ -2015,19 +2019,19 @@ def register_cards_owner_routes(app, deps):
 
         sugg = card_suggestion_get(sid)
         if not sugg:
-            return jsonify({"error": "suggestion introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.suggestion_not_found")}), 404
         if sugg["status"] != "pending":
-            return jsonify({"error": f"deja {sugg['status']}"}), 400
+            return jsonify({"error": t("api.cards_owner.already_reviewed", status=sugg["status"])}), 400
         rarity = (request.form.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
         if "cropped" not in request.files:
-            return jsonify({"error": "champ 'cropped' manquant"}), 400
+            return jsonify({"error": t("api.cards_owner.missing_cropped_field")}), 400
         f = request.files["cropped"]
         try:
             cropped = _Img.open(f.stream).convert("RGBA")
         except Exception as e:
-            return jsonify({"error": f"PNG invalide : {type(e).__name__}"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_png", error=type(e).__name__)}), 400
 
         tmp_dir = _os.path.join(_os.path.dirname(_RENDERS_DIR), "card_suggestions")
         _os.makedirs(tmp_dir, exist_ok=True)
@@ -2039,10 +2043,11 @@ def register_cards_owner_routes(app, deps):
                 universe=sugg.get("universe"),
                 subtitle=sugg.get("subtitle"),
                 rarity=rarity, image_url=None,
-                description=f"Suggestion communautaire de {sugg.get('suggester_name', '?')}.",
+                description=t("api.cards_owner.community_suggestion",
+                                  name=sugg.get("suggester_name", "?")),
             )
         except Exception as e:
-            return jsonify({"error": f"create card : {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": t("api.cards_owner.create_card_error", error=f"{type(e).__name__}: {e}")}), 500
 
         out_path = _os.path.join(tmp_dir, f"{cid}.png")
         cropped.convert("RGB").save(out_path, "PNG", optimize=True)
@@ -2069,9 +2074,9 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         sugg = card_suggestion_get(sid)
         if not sugg:
-            return jsonify({"error": "suggestion introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.suggestion_not_found")}), 404
         if sugg["status"] != "pending":
-            return jsonify({"error": f"deja {sugg['status']}"}), 400
+            return jsonify({"error": t("api.cards_owner.already_reviewed", status=sugg["status"])}), 400
         reason = (data.get("reason") or "").strip()[:200] or None
         reviewer_id = _ses.get("user_id") or "owner"
         card_suggestion_review(sid, "rejected", reviewer_id, reason=reason)
@@ -2158,10 +2163,10 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         name = (data.get("name") or "").strip()
         if not name:
-            return jsonify({"error": "name requis"}), 400
+            return jsonify({"error": t("api.cards_owner.name_field_required")}), 400
         rarity = (data.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "rarity invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_rarity_field")}), 400
         cid = card_add(
             name=name,
             universe=(data.get("universe") or "").strip() or None,
@@ -2183,9 +2188,9 @@ def register_cards_owner_routes(app, deps):
         allowed = {"name", "universe", "subtitle", "rarity", "image_url", "description", "flavor_subtitle", "not_obtainable", "event_key"}
         fields = {k: v for k, v in data.items() if k in allowed}
         if not fields:
-            return jsonify({"error": "rien a update"}), 400
+            return jsonify({"error": t("api.cards_owner.nothing_to_update")}), 400
         if "rarity" in fields and fields["rarity"] not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "rarity invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_rarity_field")}), 400
         if "not_obtainable" in fields:
             fields["not_obtainable"] = 1 if fields["not_obtainable"] else 0
         if "event_key" in fields:
@@ -2269,14 +2274,14 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         user_id = (data.get("user_id") or "").strip()
         if not user_id or not user_id.isdigit():
-            return jsonify({"error": "user_id invalide (ID Discord numerique)"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_user_id_numeric")}), 400
         try:
             qty = max(1, min(int(data.get("qty", 1)), 100))
         except (ValueError, TypeError):
             qty = 1
         card = card_get(cid)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         for _ in range(qty):
             user_card_add(user_id, cid)
         return jsonify({"ok": True, "given": qty, "card_name": card.get("name"),
@@ -2291,7 +2296,7 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         game_key = (data.get("game_key") or "").strip()
         if game_key not in GAMES:
-            return jsonify({"error": f"jeu inconnu : {game_key}"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_game", game=game_key)}), 400
         try:
             limit = max(10, min(int(data.get("limit", 500)), 2000))
         except (ValueError, TypeError):
@@ -2313,10 +2318,10 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         game_keys = data.get("game_keys") or []
         if not isinstance(game_keys, list) or not game_keys:
-            return jsonify({"error": "game_keys liste vide"}), 400
+            return jsonify({"error": t("api.cards_owner.game_keys_empty")}), 400
         invalid = [g for g in game_keys if g not in GAMES]
         if invalid:
-            return jsonify({"error": f"jeux inconnus : {invalid}"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_games", games=invalid)}), 400
         try:
             limit = max(10, min(int(data.get("limit_per_game", 500)), 2000))
         except (ValueError, TypeError):
@@ -2341,7 +2346,7 @@ def register_cards_owner_routes(app, deps):
         source = (data.get("source") or "").strip().lower()
         params = data.get("params") or {}
         if not isinstance(params, dict):
-            return jsonify({"error": "params doit etre dict"}), 400
+            return jsonify({"error": t("api.cards_owner.params_must_be_dict")}), 400
 
         if source == "anilist":
             from services.cards_anilist_bulk import bulk_import_anilist
@@ -2361,7 +2366,7 @@ def register_cards_owner_routes(app, deps):
             from services.cards_superhero_bulk import bulk_import_superhero
             publishers = params.get("publishers")
             if publishers is not None and not isinstance(publishers, list):
-                return jsonify({"error": "publishers liste ou null"}), 400
+                return jsonify({"error": t("api.cards_owner.publishers_list_or_null")}), 400
             label = ("SuperHero " + (",".join(publishers) if publishers else "all"))
             job_id = run_async(label, bulk_import_superhero,
                                  publishers=publishers, skip_existing=True)
@@ -2369,7 +2374,7 @@ def register_cards_owner_routes(app, deps):
             from services.cards_fandom_games import bulk_import_game, GAMES
             game_key = (params.get("game_key") or "").strip()
             if game_key not in GAMES:
-                return jsonify({"error": f"jeu inconnu : {game_key}"}), 400
+                return jsonify({"error": t("api.cards_owner.unknown_game", game=game_key)}), 400
             limit_v = max(10, min(int(params.get("limit", 1000)), 2000))
             job_id = run_async(f"Fandom game {game_key}",
                                  bulk_import_game, game_key,
@@ -2386,7 +2391,7 @@ def register_cards_owner_routes(app, deps):
             from services.cards_hakush_bulk import bulk_import_hakush, GAMES_HAKUSH
             gkey = (params.get("game_key") or "").strip()
             if gkey not in GAMES_HAKUSH:
-                return jsonify({"error": f"hakush jeu inconnu : {gkey}"}), 400
+                return jsonify({"error": t("api.cards_owner.unknown_hakush_game", game=gkey)}), 400
             job_id = run_async(f"hakush {gkey}", bulk_import_hakush,
                                  gkey, skip_existing=True)
         elif source == "nookipedia":
@@ -2398,13 +2403,13 @@ def register_cards_owner_routes(app, deps):
             from services.cards_fandom_films import bulk_import_show, SHOWS
             show_key = (params.get("show_key") or "").strip()
             if show_key not in SHOWS:
-                return jsonify({"error": f"show inconnu : {show_key}"}), 400
+                return jsonify({"error": t("api.cards_owner.unknown_show", show=show_key)}), 400
             limit_v = max(10, min(int(params.get("limit", 1000)), 2000))
             job_id = run_async(f"Fandom show {show_key}",
                                  bulk_import_show, show_key,
                                  limit=limit_v, skip_existing=True)
         else:
-            return jsonify({"error": f"source inconnue : {source}"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_source", source=source)}), 400
 
         return jsonify({"ok": True, "job_id": job_id})
 
@@ -2416,7 +2421,7 @@ def register_cards_owner_routes(app, deps):
         from services.import_jobs import get_job
         j = get_job(job_id)
         if not j:
-            return jsonify({"error": "job introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.job_not_found")}), 404
         return jsonify(j)
 
 
@@ -2428,7 +2433,7 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         publishers = data.get("publishers")
         if publishers is not None and not isinstance(publishers, list):
-            return jsonify({"error": "publishers doit etre liste ou null"}), 400
+            return jsonify({"error": t("api.cards_owner.publishers_must_be_list")}), 400
         skip_existing = bool(data.get("skip_existing", True))
         try:
             limit_v = int(data.get("limit", 0))
@@ -2476,7 +2481,7 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         show_key = (data.get("show_key") or "").strip()
         if show_key not in SHOWS:
-            return jsonify({"error": f"show inconnu : {show_key}"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_show", show=show_key)}), 400
         try:
             limit = max(10, min(int(data.get("limit", 500)), 2000))
         except (ValueError, TypeError):
@@ -2498,10 +2503,10 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         show_keys = data.get("show_keys") or []
         if not isinstance(show_keys, list) or not show_keys:
-            return jsonify({"error": "show_keys liste vide"}), 400
+            return jsonify({"error": t("api.cards_owner.show_keys_empty")}), 400
         invalid = [s for s in show_keys if s not in SHOWS]
         if invalid:
-            return jsonify({"error": f"shows inconnus : {invalid}"}), 400
+            return jsonify({"error": t("api.cards_owner.unknown_shows", shows=invalid)}), 400
         try:
             limit = max(10, min(int(data.get("limit_per_show", 500)), 2000))
         except (ValueError, TypeError):
@@ -2592,7 +2597,7 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/cards/<int:cid>/recrop", methods=["POST"])
     def api_owner_card_recrop(cid):
-        """Recoit l'image deja cropee (multipart) + applique overlay rarete."""
+        """Receive the already cropped image (multipart) + apply the rarity overlay."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db
@@ -2602,19 +2607,19 @@ def register_cards_owner_routes(app, deps):
 
         # Body : multipart avec champ 'cropped' (PNG blob de Cropper canvas)
         if "cropped" not in request.files:
-            return jsonify({"error": "champ 'cropped' manquant (multipart file)"}), 400
+            return jsonify({"error": t("api.cards_owner.missing_cropped_file")}), 400
         f = request.files["cropped"]
         try:
             cropped = _Img.open(f.stream).convert("RGBA")
         except Exception as e:
-            return jsonify({"error": f"PNG invalide : {type(e).__name__}: {e}"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_png", error=f"{type(e).__name__}: {e}")}), 400
 
         conn = get_db(); c = conn.cursor()
         row = c.execute("SELECT id, name, rarity, source_image_url, image_url "
                          "FROM cards WHERE id = ?", (int(cid),)).fetchone()
         if not row:
             conn.close()
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         rarity = row["rarity"] or "common"
         conn.close()
 
@@ -2656,17 +2661,17 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         overlay_rarity = (data.get("overlay_rarity") or "").strip().lower()
         if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "overlay_rarity invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_overlay_rarity")}), 400
         conn = get_db(); c = conn.cursor()
         row = c.execute("SELECT id, source_image_url, image_url FROM cards WHERE id = ?",
                          (int(cid),)).fetchone()
         if not row:
             conn.close()
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         src = row["source_image_url"] or row["image_url"] or ""
         if not src or "/card_renders/" in src or "/card_suggestions/" in src:
             conn.close()
-            return jsonify({"error": "pas de source image pour rebake (URL deja locale)"}), 400
+            return jsonify({"error": t("api.cards_owner.no_source_image")}), 400
         # Save source si pas deja
         if not row["source_image_url"]:
             c.execute("UPDATE cards SET source_image_url = ? WHERE id = ?",
@@ -2676,7 +2681,7 @@ def register_cards_owner_routes(app, deps):
         # Composite avec overlay choisi
         url = composite_card(src, overlay_rarity, int(cid))
         if not url:
-            return jsonify({"error": "echec composite"}), 500
+            return jsonify({"error": t("api.cards_owner.composite_failed")}), 500
         public_base = (_os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
         final = (public_base + url) if public_base else url
         conn = get_db(); c = conn.cursor()
@@ -2710,7 +2715,7 @@ def register_cards_owner_routes(app, deps):
             "ok": True,
             "without_source": broken,
             "with_source": ok,
-            "note": "Cartes sans source ne peuvent pas etre re-cropees ou re-bakees. Re-importer la source d'origine si possible.",
+            "note": t("api.cards_owner.backfill_note"),
         })
 
 
@@ -2786,7 +2791,7 @@ def register_cards_owner_routes(app, deps):
             "borders": [{"name": b["name"], "qty": b["qty"]} for b in user_borders_list(user_id)],
             "event_active": bool(ev.get("active")),
             "event_key": ev.get("key") or "",
-            "event_name": ev.get("coin") or "Jetons",
+            "event_name": ev.get("coin") or t("api.cards_owner.event_tokens"),
             "event_emoji": ev.get("coin_emoji") or "🎟️",
             "event_coins": event_coins_get(user_id, ev["key"]) if ev.get("active") else 0,
         }
@@ -2853,7 +2858,7 @@ def register_cards_owner_routes(app, deps):
         except (ValueError, TypeError):
             card_id = None
         if not card_id:
-            return jsonify({"error": "card_id requis"}), 400
+            return jsonify({"error": t("api.cards_owner.card_id_required")}), 400
         try:
             qty = max(1, min(int(data.get("qty", 1)), 100))
         except (ValueError, TypeError):
@@ -2861,7 +2866,7 @@ def register_cards_owner_routes(app, deps):
         not_tradeable = bool(data.get("not_tradeable", False))
         card = card_get(card_id)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.card_not_found")}), 404
         for _ in range(qty):
             user_card_add_with_flag(user_id, card_id, not_tradeable=not_tradeable)
         return jsonify({"ok": True, "given": qty, "card_name": card.get("name"),
@@ -2878,7 +2883,7 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         name = (data.get("name") or "").strip()
         if not name:
-            return jsonify({"error": "name requis"}), 400
+            return jsonify({"error": t("api.cards_owner.name_field_required")}), 400
         rarity = (data.get("rarity") or "common").strip()
         if rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
             rarity = "common"
@@ -2898,7 +2903,7 @@ def register_cards_owner_routes(app, deps):
                 flavor_subtitle=(data.get("flavor_subtitle") or "").strip() or None,
             )
         except Exception as e:
-            return jsonify({"error": f"create card : {type(e).__name__}: {e}"}), 500
+            return jsonify({"error": t("api.cards_owner.create_card_error", error=f"{type(e).__name__}: {e}")}), 500
         # Bake overlay si image fournie
         if image_url and "/card_renders/" not in image_url and "/card_suggestions/" not in image_url:
             try:
@@ -2959,7 +2964,7 @@ def register_cards_owner_routes(app, deps):
         deleted = c.rowcount
         conn.commit(); conn.close()
         if not deleted:
-            return jsonify({"error": "ligne introuvable"}), 404
+            return jsonify({"error": t("api.cards_owner.row_not_found")}), 404
         return jsonify({"ok": True})
 
 
@@ -2971,11 +2976,11 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         ids = data.get("ids") or []
         if not isinstance(ids, list) or not ids:
-            return jsonify({"error": "ids vide"}), 400
+            return jsonify({"error": t("api.cards_owner.ids_empty")}), 400
         try:
             ids_int = [int(x) for x in ids][:5000]
         except (ValueError, TypeError):
-            return jsonify({"error": "ids invalides"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_ids")}), 400
         fields = data.get("fields") or {}
         allowed = {"rarity", "universe", "subtitle", "description", "flavor_subtitle"}
         clean = {}
@@ -2986,7 +2991,7 @@ def register_cards_owner_routes(app, deps):
                 continue
             clean[k] = v.strip() if isinstance(v, str) else v
         if not clean:
-            return jsonify({"error": "aucun champ a update"}), 400
+            return jsonify({"error": t("api.cards_owner.no_field_to_update")}), 400
         sets = ", ".join(f"{k} = ?" for k in clean.keys())
         placeholders = ",".join("?" * len(ids_int))
         sql_params = list(clean.values()) + ids_int
@@ -3044,14 +3049,14 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         ids = data.get("ids") or []
         if not isinstance(ids, list) or not ids:
-            return jsonify({"error": "ids vide"}), 400
+            return jsonify({"error": t("api.cards_owner.ids_empty")}), 400
         try:
             ids_int = [int(x) for x in ids][:5000]
         except (ValueError, TypeError):
-            return jsonify({"error": "ids invalides"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_ids")}), 400
         overlay_rarity = (data.get("overlay_rarity") or "").strip().lower()
         if overlay_rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "overlay_rarity invalide"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_overlay_rarity")}), 400
 
         conn = get_db(); c = conn.cursor()
         placeholders = ",".join("?" * len(ids_int))
@@ -3095,13 +3100,13 @@ def register_cards_owner_routes(app, deps):
         data = request.json or {}
         ids = data.get("ids") or []
         if not isinstance(ids, list) or not ids:
-            return jsonify({"error": "ids vide"}), 400
+            return jsonify({"error": t("api.cards_owner.ids_empty")}), 400
         try:
             ids_int = [int(x) for x in ids][:5000]
         except (ValueError, TypeError):
-            return jsonify({"error": "ids invalides"}), 400
+            return jsonify({"error": t("api.cards_owner.invalid_ids")}), 400
         if not ids_int:
-            return jsonify({"error": "ids vide"}), 400
+            return jsonify({"error": t("api.cards_owner.ids_empty")}), 400
         placeholders = ",".join("?" * len(ids_int))
         conn = get_db(); c = conn.cursor()
         c.execute(f"DELETE FROM user_cards WHERE card_id IN ({placeholders})", ids_int)
@@ -3115,12 +3120,12 @@ def register_cards_owner_routes(app, deps):
 
     @app.route("/api/owner/cards/rebalance-by-popularity", methods=["POST"])
     def api_owner_cards_rebalance():
-        """Recalcule rarete par quantile de popularite.
+        """Recompute the rarity by popularity quantile.
         Body: {universes: [...], rebake: bool}
-        - Anime : popularite = favoris Anilist (parse description)
-        - Films/Série : popularite = ordre d'import (id ASC = top en premier)
-        - Jeu Vidéo : NEVER touched (user curated manually)
-        Repartition cibles : top 1% mythic, 4% leg, 15% epic, 30% rare, reste common.
+        - Anime: popularity = Anilist favourites (parsed from the description)
+        - "Film/Serie": popularity = import order (id ASC = top first)
+        - "Jeu Video": NEVER touched (user curated manually)
+        Target split: top 1% mythic, 4% leg, 15% epic, 30% rare, rest common.
         """
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
@@ -3129,10 +3134,10 @@ def register_cards_owner_routes(app, deps):
         from services.cards_overlay import composite_card
         data = request.json or {}
         universes = data.get("universes") or ["Anime", "Film/Série"]
-        # Securite : exclure explicitement Jeu Vidéo
+        # Safety: explicitly exclude the video game universe
         universes = [u for u in universes if u != "Jeu Vidéo"]
         if not universes:
-            return jsonify({"error": "aucun univers a rebalance"}), 400
+            return jsonify({"error": t("api.cards_owner.no_universe_to_rebalance")}), 400
         do_rebake = bool(data.get("rebake", True))
 
         conn = get_db(); c = conn.cursor()
@@ -3156,7 +3161,7 @@ def register_cards_owner_routes(app, deps):
                     s = m.group(1).replace(",", "").replace(" ", "").strip()
                     try: return int(s)
                     except ValueError: return 0
-                # Films/Série fallback : id desc (recent = peu prio)
+                # Movies/Series fallback: id desc (recent = low priority)
                 # mais id asc = early imports = top games. On veut top = popular
                 return -int(r["id"])  # plus petit id = plus populaire (early import)
 

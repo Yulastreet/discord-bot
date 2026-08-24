@@ -1,8 +1,8 @@
-"""Génère 15 backgrounds 1024x320 pour la carte /niveau premium.
+"""Generate 15 backgrounds 1024x320 for the premium /level card.
 
-Chaque BG est un PNG composite (gradient + overlay shapes) sauvé dans
-`assets/niveau_bg/<id>.png`. Le module est volontairement dépendance-light
-(Pillow only) et déterministe (random seed fixé).
+Each BG is a composite PNG (gradient + overlay shapes) saved to
+`assets/niveau_bg/<id>.png`. The module is deliberately dependency-light
+(Pillow only) and deterministic (fixed random seed).
 
 Lancement :
     python scripts/generate_niveau_backgrounds.py

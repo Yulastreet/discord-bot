@@ -1,4 +1,5 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
+from services.i18n import t
 from services.owner_settings_utils import update_seasonal_sabre_name
 
 def register_premium_routes(app, deps):
@@ -10,7 +11,7 @@ def register_premium_routes(app, deps):
             return redirect(url_for("oauth_login"))
         is_premium = _is_premium(uid)
         settings_p = get_premium_settings(uid) if is_premium else {}
-        # On passe user_id pour que le BG custom owner apparaisse pour lui seul.
+        # user_id is passed so the owner custom BG only shows up for them.
         backgrounds = list_available_backgrounds(user_id=uid)
         user = session.get("discord") or {}
         return render_template(
@@ -69,7 +70,7 @@ def register_premium_routes(app, deps):
 
     @app.route("/api/subscription/start-trial", methods=["POST"])
     def api_subscription_start_trial():
-        """Demarre un trial TookBot+ 7 jours pour l'user connecte (1/lifetime)."""
+        """Start a 7-day TookBot+ trial for the logged-in user (once per lifetime)."""
         from database import start_tookbot_plus_trial
         uid = _current_user_id()
         if not uid:
@@ -78,17 +79,17 @@ def register_premium_routes(app, deps):
         if not result["ok"]:
             err = result["error"]
             msg = {
-                "trial_already_used": "Tu as deja utilise ton essai gratuit.",
-                "already_active":     "Tu as deja TookBot+ actif.",
-            }.get(err, "Erreur inconnue.")
+                "trial_already_used": t("api.premium.trial_already_used"),
+                "already_active":     t("api.premium.plus_already_active"),
+            }.get(err, t("api.premium.unknown_error"))
             return jsonify({"ok": False, "error": err, "message": msg}), 400
-        # Cree une notif cloche dashboard
+        # Create a dashboard bell notification
         try:
             from database import dash_notif_add
             dash_notif_add(
                 uid, "system",
-                title="Trial TookBot+ active !",
-                message=f"Tu as 7 jours pour tester. Expire le {result['expires_at']}.",
+                title=t("api.premium.trial_notif_title"),
+                message=t("api.premium.trial_notif_body", expires_at=result["expires_at"]),
                 link_url="/subscription",
             )
         except Exception:
@@ -96,34 +97,34 @@ def register_premium_routes(app, deps):
         return jsonify({
             "ok": True,
             "expires_at": result["expires_at"],
-            "message": f"TookBot+ active jusqu'au {result['expires_at']} ! Profite des 7 jours.",
+            "message": t("api.premium.trial_started", expires_at=result["expires_at"]),
         })
 
     @app.route("/api/subscription/redeem-key", methods=["POST"])
     def api_subscription_redeem_key():
-        """Redeem d'une cle d'activation TookBot+ par l'user connecte."""
+        """Redeem a TookBot+ activation key for the logged-in user."""
         uid = _current_user_id()
         if not uid:
             return jsonify({"ok": False, "error": "not_logged_in"}), 401
         data = request.json or {}
         code = (data.get("code") or "").strip().upper()
         if not code:
-            return jsonify({"ok": False, "message": "Entre une clé d'activation."}), 400
+            return jsonify({"ok": False, "message": t("api.premium.key_required")}), 400
         disc = session.get("discord") or {}
         ok, reason, expires_at = tookbot_plus_key_redeem(
             code, uid, username=disc.get("username"), avatar=disc.get("avatar"))
         if not ok:
             msg = {
-                "code_invalid":     "Clé invalide.",
-                "already_redeemed": "Cette clé a déjà été utilisée.",
-            }.get(reason, "Impossible d'activer cette clé.")
+                "code_invalid":     t("api.premium.key_invalid"),
+                "already_redeemed": t("api.premium.key_already_used"),
+            }.get(reason, t("api.premium.key_activation_failed"))
             return jsonify({"ok": False, "error": reason, "message": msg}), 400
         try:
             from database import dash_notif_add
             dash_notif_add(
                 uid, "system",
-                title="TookBot+ activé !",
-                message=f"Ta clé d'activation est validée. TookBot+ actif jusqu'au {expires_at}.",
+                title=t("api.premium.key_notif_title"),
+                message=t("api.premium.key_notif_body", expires_at=expires_at),
                 link_url="/subscription",
             )
         except Exception:
@@ -131,7 +132,7 @@ def register_premium_routes(app, deps):
         return jsonify({
             "ok": True,
             "expires_at": expires_at,
-            "message": f"TookBot+ activé jusqu'au {expires_at} !",
+            "message": t("api.premium.plus_active_until", expires_at=expires_at),
         })
 
     @app.route("/api/owner/user/<user_id>/tookbot-plus", methods=["POST"])
@@ -222,7 +223,7 @@ def register_premium_routes(app, deps):
     # ===== GUILD BOOST + : assignation par user =====
 
     def _user_guilds_admin_or_owner():
-        """Liste des guilds connues du bot ou le user connecte est admin OU owner."""
+        """Guilds known to the bot where the logged-in user is an admin OR the owner."""
         metas = (session.get("discord") or {}).get("guilds_meta") or []
         out = []
         seen = set()
@@ -247,8 +248,8 @@ def register_premium_routes(app, deps):
         }
 
 
-    # Guild Boost retire : tous les endpoints renvoient un statut "always active"
-    # pour ne pas casser l'UI legacy. Plus aucun gating.
+    # Guild Boost removed: every endpoint returns an "always active" status so the
+    # legacy UI does not break. No gating left.
     @app.route("/api/guild-boost/guild-status", methods=["GET"])
     def api_guild_boost_guild_status():
         return jsonify({"ok": True, "active": True, "deprecated": True})
@@ -265,13 +266,13 @@ def register_premium_routes(app, deps):
     @app.route("/api/guild-boost/assign", methods=["POST"])
     @app.route("/api/guild-boost/unassign", methods=["POST"])
     def api_guild_boost_assign_disabled():
-        return jsonify({"error": "Guild Boost a ete retire. Toutes les features sont gratuites."}), 410
+        return jsonify({"error": t("api.premium.guild_boost_removed_all_free")}), 410
 
     @app.route("/api/user/<user_id>/guild-boost", methods=["GET", "POST", "DELETE"])
     def api_user_guild_boost_disabled(user_id):
-        return jsonify({"error": "Guild Boost a ete retire."}), 410
+        return jsonify({"error": t("api.premium.guild_boost_removed")}), 410
 
-    # ===== Owner : page de paramètres avancée (custom BG, etc.) =====
+    # ===== Owner: advanced settings page (custom BG, etc.) =====
 
     # ===== Owner : Analytics (visites + tokens IA) =====
     @app.route("/owner/analytics")
@@ -482,7 +483,7 @@ def register_premium_routes(app, deps):
             keep = max(100, int(data.get("log_keep_per_guild", 5000)))
             age  = max(7,   int(data.get("log_retention_days", 90)))
         except (TypeError, ValueError):
-            return jsonify({"error": "valeurs invalides"}), 400
+            return jsonify({"error": t("api.premium.invalid_values")}), 400
         set_setting("log_keep_per_guild", str(keep))
         set_setting("log_retention_days", str(age))
         updated = ["log_keep_per_guild", "log_retention_days"]
@@ -512,14 +513,14 @@ def register_premium_routes(app, deps):
         if size > 10 * 1024 * 1024:
             return jsonify({"error": "file_too_large", "max_bytes": 10 * 1024 * 1024}), 400
 
-        # Charger via Pillow + redimensionner cote serveur
+        # Load through Pillow + resize server-side
         try:
             from PIL import Image as _PIL
             img = _PIL.open(f.stream)
             save_owner_custom_bg(uid, img)
         except Exception as e:
             print(f"[premium bg] decode err: {type(e).__name__}: {e}")
-            return jsonify({"error": "Image illisible. Utilise un PNG ou JPG valide."}), 400
+            return jsonify({"error": t("api.premium.unreadable_image")}), 400
 
         return jsonify({"ok": True, "bg_id": f"owner:{uid}"})
 
@@ -583,7 +584,7 @@ def register_premium_routes(app, deps):
 
     @app.route("/api/owner/seasonal-sabres", methods=["GET"])
     def api_owner_seasonal_sabres():
-        """Liste tous les sabres saisonniers (id LIKE 'season_%') pour visu owner."""
+        """List every seasonal saber (id LIKE 'season_%') for the owner view."""
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         db = get_db()
@@ -626,15 +627,15 @@ def register_premium_routes(app, deps):
         return jsonify({"ok": True})
 
 
-    # ===== Admin : edit XP/niveau d'un membre (refonte clean juin 2026) =====
+    # ===== Admin: edit a member's XP/level (clean rework, June 2026) =====
     @app.route("/api/user/<user_id>/xp", methods=["POST"])
     def api_user_xp_set(user_id):
-        """Modifie XP (ou niveau) d'un membre sur le serveur courant.
+        """Set the XP (or level) of a member on the current server.
 
-        Accepte JSON {xp: int} OU {level: int}. Si level fourni, calcule l'XP
-        minimum pour ce niveau via xp_for_level() (formule canonique level^5).
-        Utilise set_xp() de database.py qui UPSERT et recalcule level.
-        Cree le row si l'user n'a pas encore d'XP sur ce serveur.
+        Accepts JSON {xp: int} OR {level: int}. When level is given, computes the
+        minimum XP for that level through xp_for_level() (canonical level^5 formula).
+        Uses set_xp() from database.py, which UPSERTs and recomputes the level.
+        Creates the row when the user has no XP yet on this server.
         """
         if not _is_admin_of_current_guild():
             return jsonify({"error": "admin_only"}), 403
@@ -712,18 +713,18 @@ def register_premium_routes(app, deps):
             max_uses = int(data.get("max_uses", 1))
             count    = int(data.get("count", 1))
         except (TypeError, ValueError):
-            return jsonify({"error": "valeurs numeriques invalides"}), 400
+            return jsonify({"error": t("api.premium.invalid_numeric_values")}), 400
         expires_at = (data.get("expires_at") or "").strip() or None
         note       = (data.get("note") or "").strip() or None
 
         if rtype not in _PROMO_TYPES:
-            return jsonify({"error": "reward_type invalide"}), 400
+            return jsonify({"error": t("api.premium.invalid_reward_type")}), 400
         if rvalue <= 0:
             return jsonify({"error": "reward_value doit etre > 0"}), 400
         if max_uses < 1 or max_uses > 100000:
-            return jsonify({"error": "max_uses invalide"}), 400
+            return jsonify({"error": t("api.premium.invalid_max_uses")}), 400
         if count < 1 or count > 500:
-            return jsonify({"error": "count invalide (1-500)"}), 400
+            return jsonify({"error": t("api.premium.invalid_count")}), 400
 
         # 1 seul code : utilise le code fourni (ou auto). Plusieurs : genere des
         # codes aleatoires, le champ 'code' sert alors de prefixe optionnel.
@@ -731,7 +732,7 @@ def register_premium_routes(app, deps):
         if count == 1:
             final = code or _gen_promo_code()
             if len(final) > 32:
-                return jsonify({"error": "code requis (max 32 chars)"}), 400
+                return jsonify({"error": t("api.premium.code_required")}), 400
             try:
                 promo_code_create(final, rtype, rvalue, max_uses=max_uses,
                                   expires_at=expires_at, note=note)
@@ -787,12 +788,12 @@ def register_premium_routes(app, deps):
             duration_days = int(data.get("duration_days", 0))
             count = int(data.get("count", 1))
         except (TypeError, ValueError):
-            return jsonify({"error": "valeurs numeriques invalides"}), 400
+            return jsonify({"error": t("api.premium.invalid_numeric_values")}), 400
         note = (data.get("note") or "").strip() or None
         if duration_days < 1 or duration_days > 3650:
-            return jsonify({"error": "duree invalide (1-3650 jours)"}), 400
+            return jsonify({"error": t("api.premium.invalid_duration")}), 400
         if count < 1 or count > 500:
-            return jsonify({"error": "count invalide (1-500)"}), 400
+            return jsonify({"error": t("api.premium.invalid_count")}), 400
         by = _current_user_id()
         created = []
         for _ in range(count):
@@ -821,7 +822,7 @@ def register_premium_routes(app, deps):
             return jsonify({"error": "owner_only"}), 403
         ok, uid = tookbot_plus_key_deactivate(code)
         if not ok:
-            return jsonify({"success": False, "error": "cle non utilisee"}), 400
+            return jsonify({"success": False, "error": t("api.premium.key_not_used")}), 400
         return jsonify({"success": True, "revoked_user": uid})
 
 

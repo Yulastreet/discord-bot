@@ -260,7 +260,7 @@ except Exception as _e:
 # Index reactions par (guild_id_str, user_id_int)
 USER_REACTIONS = get_all_reactions_index()
 
-# ===== Etat runtime exposé pour /api/status =====
+# ===== Runtime state exposed for /api/status =====
 import time as _time
 import json as _json
 import math as _math
@@ -380,7 +380,7 @@ YDL_OPTIONS = {
     # YT_PROXY="" pour desactiver.
     'proxy': os.getenv("YT_PROXY", "socks5://127.0.0.1:40000") or None,
     # Clients YouTube : on restreint a ceux qui exploitent les PO tokens bgutil.
-    # web_safari + tv_simply marchent bien avec WARP + PoToken sans nécessiter de login.
+    # web_safari + tv_simply work well with WARP + PoToken without requiring a login.
     # On retire android/ios qui exigent un PoToken specifique qu'on n'a pas, et qui
     # produisent des URLs 403 quand ffmpeg les fetch.
     'extractor_args': {
@@ -910,7 +910,7 @@ async def _feature_guard_check(interaction: discord.Interaction) -> bool:
         from database import (guild_setting_get, custom_cmd_get, guild_has_active_boost,
                               mod_has_perm)
 
-        # === Gating permissions modérateurs (PRIORITAIRE) ===
+        # === Moderator permission gating (TAKES PRECEDENCE) ===
         # Tourne avant le gating feature : certaines commandes (warn/setup/xp/note/
         # modlogs) ne sont pas dans COMMAND_FEATURE_MAP et seraient sinon skippees.
         SLASH_MOD_PERM_MAP = {

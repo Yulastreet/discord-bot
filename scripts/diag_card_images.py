@@ -1,7 +1,7 @@
-"""Health-check images cartes : artefacts (source flattée .webp) + liens externes.
+"""Card image health check: artefacts (flattened .webp source) + external links.
 
 - source brute OK  : static/card_sources/<id>.(png|jpg|jpeg|gif)  -> propre
-- source flattée   : static/card_sources/<id>.webp               -> ARTEFACT (re-deriver)
+- flattened source : static/card_sources/<id>.webp               -> ARTEFACT (re-derive)
 - pas de source    : check image_url (externe = risque lien mort)
 """
 import os
@@ -56,10 +56,10 @@ def main():
             linkrisk += 1
     print("total cartes:", len(rows))
     print("source brute propre (png/jpg):", raw)
-    print("source flattée .webp (ARTEFACT, a re-deriver):", flat)
+    print("flattened .webp source (ARTEFACT, must be re-derived):", flat)
     print("sans source locale:", none)
     print("risque lien mort (pas de render local + image externe):", linkrisk)
-    print("\norigines des artefactées (.webp) - top 30 :")
+    print("\norigins of the artefacted ones (.webp) - top 30:")
     for k, v in sorted(flat_uni.items(), key=lambda x: -x[1])[:30]:
         print("  %5d  %s" % (v, k))
 

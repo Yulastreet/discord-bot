@@ -23,7 +23,7 @@ DB_FILE = os.getenv("DB_PATH") or "bot_database.db"
 
 def _is_broken(src):
     """Source a re-deriver : vide, ou pointant sur un fichier LOCAL (render, crop,
-    ou source flattée par l'ancien bake) -> on veut le vrai original Fandom."""
+    or a source flattened by the old bake) -> we want the real Fandom original."""
     if not src:
         return True
     return ("/card_renders/" in src or "/card_suggestions/" in src

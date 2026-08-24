@@ -1,4 +1,4 @@
-"""Génère le banner produit Discord SKU 680x240 (ratio 17:6).
+"""Generate the Discord SKU product banner 680x240 (17:6 ratio).
 
 Sortie : assets/sku_niveau_premium.png
 À uploader manuellement dans Discord Developer Portal -> SKU -> Image.
@@ -126,7 +126,7 @@ def main():
     f_sub   = find_font(16, bold=False)
     d = ImageDraw.Draw(img)
     d.text((W / 2, 28), "/niveau Premium", font=f_title, fill=(240, 252, 220), anchor="mt")
-    d.text((W / 2, H - 36), "Carte XP stylée · Backgrounds exclusifs · Achat unique", font=f_sub, fill=(220, 235, 200), anchor="mt")
+    d.text((W / 2, H - 36), "Styled XP card - Exclusive backgrounds - One-time purchase", font=f_sub, fill=(220, 235, 200), anchor="mt")
 
     img.save(OUT, "PNG", optimize=True)
     print(f"Saved {OUT}")

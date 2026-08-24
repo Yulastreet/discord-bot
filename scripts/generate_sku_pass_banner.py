@@ -1,4 +1,4 @@
-"""Génère le banner Discord SKU 680x240 pour le Battle Pass.
+"""Generate the Discord SKU banner 680x240 for the Battle Pass.
 
 Sortie : assets/sku_pass.png
 À uploader manuellement dans Discord Developer Portal -> SKU "Battle Pass" -> Image.
@@ -139,7 +139,7 @@ def main():
 
     # Footer
     d.text((W / 2, H - 36),
-           "Renouvellement mensuel · récompenses qui rotent à chaque saison",
+           "Monthly renewal - rewards rotate every season",
            font=f_sub, fill=(220, 235, 200), anchor="mt")
 
     img.save(OUT, "PNG", optimize=True)

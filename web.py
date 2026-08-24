@@ -9,7 +9,7 @@ from collections import deque
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Lazy import requests — utilisé uniquement pour OAuth Discord
+# Lazy import requests - used only for Discord OAuth
 try:
     import requests as _requests
 except ImportError:
@@ -41,7 +41,7 @@ from database import (
     promo_code_delete, promo_redeem_check, promo_redeem_apply,
     tookbot_plus_key_create, tookbot_plus_key_get, tookbot_plus_keys_list,
     tookbot_plus_key_delete, tookbot_plus_key_redeem, tookbot_plus_key_deactivate,
-    # Members (cache pour modération + picker)
+    # Members (cache for moderation + picker)
     list_members,
     # Duels (global)
     admin_lister_duel_users, admin_get_full_duel_user, admin_update_duel_profil,
@@ -103,12 +103,12 @@ _logging.getLogger("werkzeug").addFilter(_StaticFilter())
 # Met FLASK_SECRET dans le .env, sinon clef ephemere.
 app.secret_key = os.getenv("FLASK_SECRET") or os.urandom(24)
 
-# Filtre Jinja : bg_id technique -> nom convivial pour l'UI dashboard.
+# Jinja filter: technical bg_id -> friendly name for the dashboard UI.
 from seasonal_themes import bg_display_name as _bg_display_name
 app.jinja_env.filters["bg_display_name"] = _bg_display_name
 
-# i18n : `t()` dispo dans tous les templates Jinja. La langue vient de la session
-# (choix user) sinon Accept-Language, sinon anglais.
+# i18n: `t()` is available in every Jinja template. The language comes from the
+# session (user choice), else Accept-Language, else English.
 from services.i18n import t as _i18n_t, DEFAULT_LOCALE as _I18N_DEFAULT, available_locales as _i18n_locales
 
 def _web_locale():
@@ -131,7 +131,7 @@ def _t_web(key, **kwargs):
 
 app.jinja_env.globals["t"] = _t_web
 app.jinja_env.globals["current_locale"] = _web_locale
-PASSWORD = os.getenv("WEB_PASSWORD")  # Fallback si OAuth pas configure (dev)
+PASSWORD = os.getenv("WEB_PASSWORD")  # Fallback when OAuth is not configured (dev)
 
 # ===== OAuth Discord =====
 DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID")
@@ -196,27 +196,27 @@ MOD_BLOCKED_API_PREFIXES = (
 )
 
 if not OAUTH_ENABLED:
-    print("[WARN] OAuth Discord non configure (DISCORD_CLIENT_ID/SECRET/REDIRECT_URI manquants ou requests absent).")
-    print("       Login en fallback : password (WEB_PASSWORD).")
+    print("[WARN] Discord OAuth is not configured (DISCORD_CLIENT_ID/SECRET/REDIRECT_URI missing, or requests not installed).")
+    print("       Falling back to password login (WEB_PASSWORD).")
 if not PASSWORD and not OAUTH_ENABLED:
-    print("[WARN] WEB_PASSWORD ni OAuth definis — login impossible.")
+    print("[WARN] Neither WEB_PASSWORD nor OAuth is set - nobody can log in.")
 
-# ===== Sécurité dashboard =====
+# ===== Dashboard security =====
 SESSION_LIFETIME_HOURS = int(os.getenv("SESSION_LIFETIME_HOURS", "24"))
 app.permanent_session_lifetime = timedelta(hours=SESSION_LIFETIME_HOURS)
 app.config["SESSION_COOKIE_HTTPONLY"]   = True
 app.config["SESSION_COOKIE_SAMESITE"]   = "Lax"
-# Cookie secure activé seulement si HTTPS (proxy nginx). Active via HTTPS_ENABLED=1 dans .env
+# Secure cookie only when HTTPS is used (nginx proxy). Enable with HTTPS_ENABLED=1 in .env
 if os.getenv("HTTPS_ENABLED", "0") == "1":
     app.config["SESSION_COOKIE_SECURE"] = True
     app.config["PREFERRED_URL_SCHEME"]  = "https"
 
-# Login attempts (anti brute-force, en mémoire)
+# Login attempts (anti brute-force, in memory)
 _LOGIN_FAIL = {}                 # ip -> [timestamps...]
-_LOGIN_LOG  = deque(maxlen=200)  # historique succès/échec pour /status
+_LOGIN_LOG  = deque(maxlen=200)  # success/failure history for /status
 
 LOGIN_RATE_WINDOW = 300          # 5 min
-LOGIN_RATE_MAX    = 5            # 5 tentatives ratées en 5 min -> bannit 15 min
+LOGIN_RATE_MAX    = 5            # 5 failed attempts in 5 min -> 15 min ban
 LOGIN_BAN_SECONDS = 900
 
 def _client_ip():
@@ -246,25 +246,25 @@ def _record_login(ip, success, username=None):
 
 # ===== Discord OAuth helpers =====
 def _is_owner_session():
-    """L'user logge est-il le proprio (super-admin) ?"""
+    """Is the logged-in user the owner (super-admin)?"""
     d = session.get("discord") or {}
     return bool(d.get("is_owner"))
 
 def _accessible_guild_ids():
-    """IDs des serveurs accessibles par l'user logge.
-    Owner -> toutes les guilds actives du bot.
-    Mod -> intersection (guilds du bot ∩ guilds ou il a manage_guild|admin)."""
+    """IDs of the servers the logged-in user can access.
+    Owner -> every active guild of the bot.
+    Mod -> intersection (bot guilds ∩ guilds where they have manage_guild|admin)."""
     d = session.get("discord") or {}
     if d.get("is_owner"):
         return [g["guild_id"] for g in list_guilds(active_only=True)]
     return list(d.get("accessible_guild_ids") or [])
 
 def _user_can_access_page(endpoint, path):
-    """Vérifie que l'user peut accéder à cette page/route."""
+    """Check that the user is allowed to reach this page/route."""
     if _is_owner_session():
         return True
 
-    # Pages essentielles toujours accessibles (auth + selection guild + statique)
+    # Essential pages, always reachable (auth + guild selection + static)
     if path in ("/select-guild", "/logout", "/oauth/logout"):
         return True
     if path.startswith("/oauth/") or path.startswith("/static") or path.startswith("/assets/"):
@@ -360,15 +360,15 @@ def _user_can_access_page(endpoint, path):
     return _mod_has_any_perm(cg, uid, perm)
 
 def _filter_guilds_by_session(guilds):
-    """Filtre une liste de guilds (du bot) selon l'access user."""
+    """Filter a list of (bot) guilds according to the user access."""
     if _is_owner_session():
         return guilds
     allowed = set(_accessible_guild_ids())
     return [g for g in guilds if g.get("guild_id") in allowed]
 
 
-PUBLIC_PATHS = {"/", "/static"}        # tout le reste exige login
-GUILD_FREE_PATHS = {                   # routes qui n'exigent pas de guild sélectionné
+PUBLIC_PATHS = {"/", "/static"}        # everything else requires a login
+GUILD_FREE_PATHS = {                   # routes that do not require a selected guild
     "/", "/select-guild", "/general", "/logout",
     "/dms", "/status", "/settings",
     "/oauth/login", "/oauth/callback", "/oauth/logout",
@@ -407,14 +407,14 @@ PUBLIC_NO_AUTH_PREFIXES = ("/scout/", "/api/scout/", "/api/track/", "/api/kofi/"
 
 
 def _current_user_id():
-    """Snowflake Discord de l'utilisateur connecte (str), ou None."""
+    """Discord snowflake of the logged-in user (str), or None."""
     if not session.get("logged_in"):
         return None
     return (session.get("discord") or {}).get("user_id")
 
 
 def _is_admin_of_current_guild() -> bool:
-    """True si owner OU admin du serveur actuellement selectionne."""
+    """True when the user is the owner OR an admin of the currently selected server."""
     if _is_owner_session():
         return True
     cg = session.get("guild_id")
@@ -428,7 +428,7 @@ def _is_admin_of_current_guild() -> bool:
 
 
 def _is_server_owner_of(guild_id) -> bool:
-    """True si l'user est le proprietaire Discord du serveur (OAuth `owner: true`)."""
+    """True when the user is the Discord owner of the server (OAuth `owner: true`)."""
     if not guild_id:
         return False
     metas = (session.get("discord") or {}).get("guilds_meta") or []
@@ -439,7 +439,7 @@ def _is_server_owner_of(guild_id) -> bool:
 
 
 def _user_role_class(guild_id) -> str:
-    """Renvoie 'bot_owner' | 'server_owner' | 'mod' | 'none' pour la guild donnee."""
+    """Return 'bot_owner' | 'server_owner' | 'mod' | 'none' for the given guild."""
     if _is_owner_session():
         return "bot_owner"
     if not guild_id:
@@ -475,7 +475,7 @@ _PATH_MOD_PERMS = {
 
 
 def _mod_has_any_perm(guild_id, uid, perms) -> bool:
-    """True si user a au moins une des perms listees pour cette guild."""
+    """True when the user has at least one of the listed perms for this guild."""
     from database import mod_has_perm
     if isinstance(perms, str):
         perms = [perms]
@@ -501,7 +501,7 @@ def _is_premium(uid, feature="all") -> bool:
 
 
 def _require_premium_user():
-    """Retourne user_id si user connecte ET premium actif, sinon None."""
+    """Return the user_id when the user is logged in AND premium, else None."""
     uid = _current_user_id()
     if not uid:
         return None
@@ -510,7 +510,7 @@ def _require_premium_user():
     return uid
 
 def _hash_ip(ip: str) -> str:
-    """Hash IP avec un salt court (RGPD-friendly : on ne stocke pas l'IP brute)."""
+    """Hash an IP with a short salt (GDPR-friendly: the raw IP is never stored)."""
     import hashlib
     salt = os.getenv("VISIT_HASH_SALT", "tookbot")
     return hashlib.sha256((salt + (ip or "")).encode()).hexdigest()[:32]
@@ -518,7 +518,7 @@ def _hash_ip(ip: str) -> str:
 
 @app.route("/api/track/landing")
 def api_track_landing():
-    """Beacon 1x1 pour tracker les visites de tookbot.click (servie par nginx)."""
+    """1x1 beacon used to track visits on tookbot.click (served by nginx)."""
     try:
         from database import visit_log
         ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
@@ -526,17 +526,17 @@ def api_track_landing():
         visit_log("landing", ref[:200], _hash_ip(ip))
     except Exception:
         pass
-    # GIF 1x1 transparent
+    # Transparent 1x1 GIF
     return (b'GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;',
             200, {"Content-Type": "image/gif", "Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
 def _ua_parse(ua: str):
-    """Parse minimaliste du User-Agent : device, browser, os. Sans dependance externe."""
+    """Minimal User-Agent parsing: device, browser, os. No external dependency."""
     ua = (ua or "").lower()
     # device
     if any(k in ua for k in ("ipad", "tablet")):
-        device = "tablette"
+        device = "tablet"
     elif any(k in ua for k in ("mobi", "iphone", "android")):
         device = "mobile"
     else:
@@ -553,8 +553,8 @@ def _ua_parse(ua: str):
     elif "linux" in ua:
         os_name = "Linux"
     else:
-        os_name = "Autre"
-    # browser (ordre important : edge/chrome avant safari)
+        os_name = "Other"
+    # browser (order matters: edge/chrome before safari)
     if "edg" in ua:
         browser = "Edge"
     elif "opr" in ua or "opera" in ua:
@@ -566,12 +566,12 @@ def _ua_parse(ua: str):
     elif "safari" in ua:
         browser = "Safari"
     else:
-        browser = "Autre"
+        browser = "Other"
     return device, browser, os_name
 
 
 def _clean_referrer(ref: str):
-    """Reduit un referrer a son host (ex: https://google.com/x -> google.com). 'direct' si vide/self."""
+    """Reduce a referrer to its host (e.g. https://google.com/x -> google.com). 'direct' when empty/self."""
     if not ref:
         return "direct"
     try:
@@ -587,8 +587,8 @@ def _clean_referrer(ref: str):
 
 @app.after_request
 def _static_cors(resp):
-    """Autorise le cross-origin sur /static (images) pour que le cropper (canvas
-    crossOrigin) puisse re-cropper l'original servi par le domaine sans 'tainted canvas'."""
+    """Allow cross-origin on /static (images) so the cropper (canvas crossOrigin)
+    can re-crop the original served by the domain without a 'tainted canvas'."""
     try:
         if request.path.startswith("/static/"):
             resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -598,7 +598,7 @@ def _static_cors(resp):
 
 
 def _track_cors(resp):
-    """Autorise le beacon cross-origin depuis la landing (tookbot.click -> dashboard.tookbot.click)."""
+    """Allow the cross-origin beacon from the landing page (tookbot.click -> dashboard.tookbot.click)."""
     origin = request.headers.get("Origin", "")
     if "tookbot.click" in origin:
         resp.headers["Access-Control-Allow-Origin"] = origin
@@ -705,13 +705,13 @@ def api_kofi_webhook():
 
 @app.before_request
 def _log_dashboard_visit():
-    """Log les pageviews dashboard (HTML, pas API/static)."""
+    """Log the dashboard pageviews (HTML only, not API/static)."""
     try:
         p = request.path or ""
         if (p.startswith("/static") or p.startswith("/api/") or p.startswith("/oauth/")
                 or p == "/favicon.ico" or p.startswith("/scout/")):
             return
-        # Seulement les requêtes HTML (GET)
+        # HTML requests only (GET)
         if request.method != "GET":
             return
         from database import visit_log
@@ -732,7 +732,7 @@ def _ctx():
     g.guild_id = session.get("guild_id")
     g.guild = get_guild(g.guild_id) if g.guild_id else None
     if g.guild_id and not g.guild:
-        # Bot a quitté ce serveur — invalider la sélection
+        # Bot left this server - invalidate the selection
         session.pop("guild_id", None)
         g.guild_id = None
     # Guild non-accessible pour cet user ? Reset.
@@ -750,18 +750,18 @@ def _ctx():
             and not path.startswith("/oauth/") \
             and not any(path.startswith(pref) for pref in PUBLIC_NO_AUTH_PREFIXES):
         if path.startswith("/api/"):
-            return jsonify({"error": "Non authentifié"}), 401
+            return jsonify({"error": _t_web("api.web.not_authenticated")}), 401
         return redirect("/")
     # Page-level access check (owner vs mod)
     if g.logged_in and g.discord_user and not g.is_owner:
         if not _user_can_access_page(request.endpoint or "", path):
             if path.startswith("/api/"):
-                return jsonify({"error": "Accès refusé (mod)"}), 403
+                return jsonify({"error": _t_web("api.web.access_denied_mod")}), 403
             return render_template("forbidden.html"), 403
     # Guild gate
     if g.logged_in and not g.guild_id and needs_guild(path):
         if path.startswith("/api/"):
-            return jsonify({"error": "Aucun serveur sélectionné", "redirect": "/select-guild"}), 412
+            return jsonify({"error": _t_web("api.web.no_guild_selected"), "redirect": "/select-guild"}), 412
         return redirect("/select-guild")
 
 
@@ -771,7 +771,7 @@ def _inject_ctx():
     guilds   = getattr(g, "guilds", []) or []
     cg = getattr(g, "guild_id", None)
     is_so = _is_server_owner_of(cg) if cg else False
-    # Mod = a au moins une guild commune avec perms moderation/admin (mais pas owner).
+    # Mod = shares at least one guild with moderation/admin perms (but is not the owner).
     has_mod_access = bool(guilds) and not is_owner
     # Configuration des perms mod (pour le popup first-login)
     mod_config_needed = False
@@ -798,7 +798,7 @@ def gid():
     return session.get("guild_id")
 
 def get_global_stats():
-    """Stats du serveur sélectionné (pas global cross-guild)."""
+    """Stats of the selected server (not global cross-guild)."""
     db = get_db()
     g_id = gid()
     total_users = db.execute("SELECT COUNT(*) AS n FROM users WHERE guild_id = ?", (g_id,)).fetchone()["n"]

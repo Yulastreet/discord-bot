@@ -92,7 +92,7 @@ def templates_parse():
         except Exception as e:
             bad.append(f"{f}: {type(e).__name__}: {e}")
     if bad:
-        raise RuntimeError(f"{len(bad)} template(s) cassé(s):\n  " + "\n  ".join(bad[:15]))
+        raise RuntimeError(f"{len(bad)} broken template(s):\n  " + "\n  ".join(bad[:15]))
 
 
 def commands_load():

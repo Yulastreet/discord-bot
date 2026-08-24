@@ -1,5 +1,7 @@
-"""Routes owner-only pour Cards Events (drops aleatoires)."""
+"""Owner-only routes for Cards Events (random drops)."""
 from flask import render_template, request, jsonify
+
+from services.i18n import t
 
 
 def register_cards_events_routes(app, deps):
@@ -30,13 +32,13 @@ def register_cards_events_routes(app, deps):
 
     @app.route("/api/owner/card-events/guilds", methods=["GET"])
     def api_owner_card_events_guilds():
-        """Liste tous les serveurs du bot (DB) avec leurs salons (cache)."""
+        """List every server of the bot (DB) along with its channels (cache)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import list_guilds, get_db, guild_setting_get
         import json as _json
         guilds = list_guilds(active_only=True)
-        # Cache channels chargee depuis guild_channels_cache si dispo
+        # Channel cache loaded from guild_channels_cache when available
         conn = get_db(); c = conn.cursor()
         try:
             c.execute("CREATE TABLE IF NOT EXISTS guild_channels_cache ("
@@ -68,12 +70,12 @@ def register_cards_events_routes(app, deps):
 
     @app.route("/api/owner/card-events/refresh-channels/<guild_id>", methods=["POST"])
     def api_owner_card_events_refresh_channels(guild_id):
-        """Push une commande bot pour rafraichir cache des channels d'un guild."""
+        """Push a bot command to refresh the channel cache of a guild."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import bot_command_enqueue
         bot_command_enqueue(guild_id, "list_guild_channels", {})
-        return jsonify({"ok": True, "note": "Channels seront rafraichis sous 2s"})
+        return jsonify({"ok": True, "note": t("api.cards_events.channels_refreshing")})
 
 
     # ===== Config GLOBALE (s'applique a tous les serveurs feature ON) =====
@@ -94,12 +96,12 @@ def register_cards_events_routes(app, deps):
             mn = max(1, int(data.get("min_interval_min", 300)))
             mx = max(1, int(data.get("max_interval_min", 600)))
         except (ValueError, TypeError):
-            return jsonify({"error": "intervalles invalides"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_intervals")}), 400
         if mn > mx:
             return jsonify({"error": "min > max"}), 400
         rar = (data.get("min_rarity") or "rare").strip().lower()
         if rar not in ("common", "rare", "epic", "legendary", "mythic"):
-            return jsonify({"error": "rareté invalide"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_rarity")}), 400
         set_setting("card_event_interval_min", mn)
         set_setting("card_event_interval_max", mx)
         set_setting("card_event_min_rarity", rar)
@@ -148,7 +150,7 @@ def register_cards_events_routes(app, deps):
         if "reset_next" in data and data["reset_next"]:
             fields["next_drop_at"] = None
         if not fields:
-            return jsonify({"error": "rien a update"}), 400
+            return jsonify({"error": t("api.cards_events.nothing_to_update")}), 400
         # Verify min <= max
         cur_min = fields.get("min_interval_min")
         cur_max = fields.get("max_interval_min")
@@ -160,7 +162,7 @@ def register_cards_events_routes(app, deps):
 
     @app.route("/api/owner/card-events/trigger", methods=["POST"])
     def api_owner_card_events_trigger():
-        """Trigger manuel d'un drop via bot_command queue (cross-process)."""
+        """Manual drop trigger through the bot_command queue (cross-process)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import bot_command_enqueue
@@ -171,33 +173,33 @@ def register_cards_events_routes(app, deps):
         exact_rarity = bool(data.get("exact_rarity"))
         card_id = data.get("card_id") or None
         if not guild_id or not channel_id:
-            return jsonify({"error": "guild_id + channel_id requis"}), 400
-        # Carte precise : on valide juste qu'elle existe (ignore la rarete)
+            return jsonify({"error": t("api.cards_events.guild_and_channel_required")}), 400
+        # Specific card: just check that it exists (rarity is ignored)
         if card_id:
             from database import card_get
             try:
                 card_id = int(card_id)
             except (ValueError, TypeError):
-                return jsonify({"error": "card_id invalide"}), 400
+                return jsonify({"error": t("api.cards_events.invalid_card_id")}), 400
             if not card_get(card_id):
-                return jsonify({"error": "carte introuvable"}), 404
+                return jsonify({"error": t("api.cards_events.card_not_found")}), 404
         else:
-            # secret autorisé seulement en rareté EXACTE (jamais comme plancher min)
+            # secret is allowed only as an EXACT rarity (never as a minimum floor)
             valid = ("common", "rare", "epic", "legendary", "mythic") + (("secret",) if exact_rarity else ())
             if min_rarity not in valid:
-                return jsonify({"error": "rareté invalide"}), 400
+                return jsonify({"error": t("api.cards_events.invalid_rarity")}), 400
         bot_command_enqueue(guild_id, "card_event_drop", {
             "channel_id": str(channel_id),
             "min_rarity": min_rarity,
             "exact_rarity": exact_rarity,
             "card_id": card_id,
         })
-        return jsonify({"ok": True, "note": "Drop dispatché au bot (visible sous 2s)"})
+        return jsonify({"ok": True, "note": t("api.cards_events.drop_dispatched")})
 
 
     @app.route("/api/owner/card-events/spawn-boss", methods=["POST"])
     def api_owner_spawn_boss():
-        """Spawn un boss de combat via bot_command queue (cross-process)."""
+        """Spawn a combat boss through the bot_command queue (cross-process)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import bot_command_enqueue
@@ -207,30 +209,31 @@ def register_cards_events_routes(app, deps):
         try:
             tier = max(1, min(5, int(data.get("tier") or 1)))
         except (ValueError, TypeError):
-            return jsonify({"error": "tier invalide (1-5)"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_tier")}), 400
         if not guild_id or not channel_id:
-            return jsonify({"error": "guild_id + channel_id requis"}), 400
+            return jsonify({"error": t("api.cards_events.guild_and_channel_required")}), 400
         element = (data.get("element") or "").strip().lower() or None
         if element and element not in ("eclat", "abysse", "fracture", "vif", "neant"):
-            return jsonify({"error": "element invalide"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_element")}), 400
         rarity = (data.get("rarity") or "").strip().lower() or None
         if rarity and rarity not in ("common", "rare", "epic", "legendary", "mythic", "secret"):
-            return jsonify({"error": "rareté invalide"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_rarity")}), 400
         bot_command_enqueue(guild_id, "boss_spawn", {
             "channel_id": str(channel_id),
             "tier": tier,
             "element": element,
             "rarity": rarity,
         })
-        suffix = f" élément {element}" if element else ""
+        suffix = t("api.cards_events.boss_suffix_element", element=element) if element else ""
         if rarity:
-            suffix += f" rareté {rarity}"
-        return jsonify({"ok": True, "note": f"Boss Tier {tier}{suffix} dispatché (visible sous 2s)"})
+            suffix += t("api.cards_events.boss_suffix_rarity", rarity=rarity)
+        return jsonify({"ok": True, "note": t("api.cards_events.boss_dispatched",
+                                              tier=tier, suffix=suffix)})
 
 
     @app.route("/api/owner/card-events/simulate-roll", methods=["POST"])
     def api_owner_simulate_roll():
-        """Faux roll de test : poste le format /roll + ping wishers, sans rien donner."""
+        """Fake test roll: posts the /roll layout + pings wishers, without giving anything."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import bot_command_enqueue, card_get
@@ -239,24 +242,25 @@ def register_cards_events_routes(app, deps):
         channel_id = data.get("channel_id")
         card_id = data.get("card_id")
         if not guild_id or not channel_id or not card_id:
-            return jsonify({"error": "guild_id + channel_id + card_id requis"}), 400
+            return jsonify({"error": t("api.cards_events.guild_channel_card_required")}), 400
         try:
             card_id = int(card_id)
         except (ValueError, TypeError):
-            return jsonify({"error": "card_id invalide"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_card_id")}), 400
         card = card_get(card_id)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_events.card_not_found")}), 404
         bot_command_enqueue(guild_id, "simulate_roll", {
             "channel_id": str(channel_id),
             "card_id": card_id,
         })
-        return jsonify({"ok": True, "note": f"Roll simulé de {card['name']} dispatché (visible sous 2s)"})
+        return jsonify({"ok": True, "note": t("api.cards_events.simulated_roll_dispatched",
+                                              card=card["name"])})
 
 
     @app.route("/api/owner/card-events/fake-drop", methods=["POST"])
     def api_owner_fake_drop():
-        """Faux drop (troll) : drop normal mais aucune carte donnee au claim."""
+        """Fake drop (troll): normal drop, but no card is given on claim."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import bot_command_enqueue, card_get
@@ -265,24 +269,25 @@ def register_cards_events_routes(app, deps):
         channel_id = data.get("channel_id")
         card_id = data.get("card_id")
         if not guild_id or not channel_id or not card_id:
-            return jsonify({"error": "guild_id + channel_id + card_id requis"}), 400
+            return jsonify({"error": t("api.cards_events.guild_channel_card_required")}), 400
         try:
             card_id = int(card_id)
         except (ValueError, TypeError):
-            return jsonify({"error": "card_id invalide"}), 400
+            return jsonify({"error": t("api.cards_events.invalid_card_id")}), 400
         card = card_get(card_id)
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_events.card_not_found")}), 404
         bot_command_enqueue(guild_id, "fake_drop", {
             "channel_id": str(channel_id),
             "card_id": card_id,
         })
-        return jsonify({"ok": True, "note": f"Faux drop de {card['name']} dispatché (troll, visible sous 2s)"})
+        return jsonify({"ok": True, "note": t("api.cards_events.fake_drop_dispatched",
+                                              card=card["name"])})
 
 
     @app.route("/api/owner/card-events/wheel/reset", methods=["POST"])
     def api_owner_wheel_reset():
-        """Owner : reset la roue de la chance du jour pour tout le monde."""
+        """Owner: reset today's lucky wheel for everyone."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import wheel_reset_all
@@ -291,7 +296,7 @@ def register_cards_events_routes(app, deps):
 
     @app.route("/api/owner/card-events/wheel/reset-wins", methods=["POST"])
     def api_owner_wheel_reset_wins():
-        """Owner : vide le journal des gains de la roue (le feed en direct)."""
+        """Owner: clear the wheel win log (the live feed)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import wheel_wins_reset
@@ -352,7 +357,7 @@ def register_cards_events_routes(app, deps):
         from database import roll_bonus_available, get_db
         uid = (request.args.get("user_id") or "").strip()
         if not uid:
-            return jsonify({"error": "user_id requis"}), 400
+            return jsonify({"error": t("api.cards_events.user_id_required")}), 400
         conn = get_db(); c = conn.cursor()
         recent = c.execute("SELECT COUNT(*) AS n FROM roll_events "
                            "WHERE user_id = ? AND rolled_at > ?",
@@ -373,7 +378,7 @@ def register_cards_events_routes(app, deps):
         except (ValueError, TypeError):
             n = 0
         if not uid or n <= 0 or n > 1000:
-            return jsonify({"error": "user_id + n (1-1000) requis"}), 400
+            return jsonify({"error": t("api.cards_events.user_id_and_n_required")}), 400
         avail = roll_give_user(uid, n)
         return jsonify({"ok": True, "bonus_available": avail})
 
@@ -393,7 +398,7 @@ def register_cards_events_routes(app, deps):
         except (ValueError, TypeError):
             n = 0
         if not uid or item not in _GIVE_ITEMS or n <= 0 or n > 1000:
-            return jsonify({"error": "user_id + item (golden_roll/epic_roll) + n (1-1000) requis"}), 400
+            return jsonify({"error": t("api.cards_events.user_id_item_n_required")}), 400
         user_item_add(uid, item, n)
         return jsonify({"ok": True, "total": user_item_get(uid, item)})
 
@@ -409,7 +414,7 @@ def register_cards_events_routes(app, deps):
         except (ValueError, TypeError):
             n = 0
         if item not in _GIVE_ITEMS or n <= 0 or n > 1000:
-            return jsonify({"error": "item (golden_roll/epic_roll) + n (1-1000) requis"}), 400
+            return jsonify({"error": t("api.cards_events.item_and_n_required")}), 400
         conn = get_db(); c = conn.cursor()
         rows = c.execute("SELECT DISTINCT user_id FROM user_cards").fetchall()
         conn.close()
@@ -426,7 +431,7 @@ def register_cards_events_routes(app, deps):
         data = request.json or {}
         uid = str(data.get("user_id") or "").strip()
         if not uid:
-            return jsonify({"error": "user_id requis"}), 400
+            return jsonify({"error": t("api.cards_events.user_id_required")}), 400
         cleared = roll_reset_user_cooldown(uid)
         if data.get("also_grant"):
             roll_reset_user_grant(uid)

@@ -34,7 +34,7 @@ def _url_ok(url: str) -> bool:
         rel = "static/" + url.split("/static/", 1)[1].split("?")[0]
         return os.path.exists(os.path.join(_ROOT, rel.replace("/", os.sep)))
     if url.startswith("http"):
-        # Si c'est un render local exposé via PUBLIC_BASE_URL, teste le fichier disque
+        # If it is a local render exposed through PUBLIC_BASE_URL, test the file on disk
         if "/static/card_renders/" in url:
             rel = "static/" + url.split("/static/", 1)[1].split("?")[0]
             if os.path.exists(os.path.join(_ROOT, rel.replace("/", os.sep))):
@@ -79,7 +79,7 @@ def _pid_from_name(name):
 
 
 def _needs_bake(image_url: str) -> bool:
-    """True si l'image n'est PAS un render local (donc à baker en local).
+    """True if the image is NOT a local render (so it must be baked locally).
     Les URLs github/remote ne s'affichent pas dans les embeds Discord."""
     if not image_url:
         return True

@@ -1,4 +1,4 @@
-"""Génère le favicon TookBot.
+"""Generate the TookBot favicon.
 
 Sortie :
     static/favicon.ico        (multi-resolution 16/32/48)
@@ -8,7 +8,7 @@ Sortie :
     landing/favicon.ico       (copie pour la landing)
     landing/favicon-32.png
 
-Identité : hexagone vert lime + "T" minimaliste centré, fond sombre.
+Identity: lime green hexagon + minimal centred "T", dark background.
 """
 from __future__ import annotations
 
@@ -71,13 +71,13 @@ def render_favicon(size: int) -> Image.Image:
         font = _find_font(f_size, bold=True)
         bbox = draw.textbbox((0, 0), "T", font=font)
         tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        # Décalage vertical : retire l'ascent visuel
+        # Vertical offset: remove the visual ascent
         draw.text(
             (cx - tw / 2 - bbox[0], cy - th / 2 - bbox[1] - size * 0.03),
             "T", font=font, fill=ACCENT,
         )
     else:
-        # Pour 16x16, dessiner T à la main car font illisible
+        # For 16x16, draw the T by hand because the font is unreadable
         bw = max(1, int(size * 0.6))   # barre horizontale du T
         bh = max(1, int(size * 0.18))
         sw = max(1, int(size * 0.16))  # tige verticale

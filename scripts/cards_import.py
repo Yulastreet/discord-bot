@@ -96,7 +96,7 @@ def main():
     for t in TABLES_ORDER:
         rows = tables.get(t) or []
         n = insert_rows(c, t, rows, mode)
-        print(f"[import] {t}: {n}/{len(rows)} rows insérés")
+        print(f"[import] {t}: {n}/{len(rows)} rows inserted")
 
     conn.commit(); conn.close()
     print(f"[OK] Import termine.")
