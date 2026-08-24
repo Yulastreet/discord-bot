@@ -1,6 +1,6 @@
 """Bulk import via hakush.in API (Wuthering Waves, Marvel Rivals, etc).
 
-API publique non-officielle qui agrège data des jeux miHoYo + autres.
+Unofficial public API aggregating data from miHoYo games and others.
 - Wuthering Waves : api.hakush.in/ww/data/character.json
 - Marvel Rivals   : api.hakush.in/mr/data/character.json
 - Zenless Zone Zero : api.hakush.in/zzz/data/character.json

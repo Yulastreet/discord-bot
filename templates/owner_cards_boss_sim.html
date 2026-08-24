@@ -108,7 +108,7 @@
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmt(n){ return (n||0).toLocaleString('en-US'); }
 
-// ----- éditeur de joueurs -----
+// ----- player editor -----
 let PID = 0;
 function addPlayerRow(name, grade, dmg, died){
   const id = ++PID;
@@ -129,7 +129,7 @@ function addPlayerRow(name, grade, dmg, died){
 }
 document.getElementById('addPlayer').addEventListener('click', ()=> addPlayerRow());
 
-// items factices selon la note (juste pour l'aperçu visuel)
+// dummy items based on the grade (visual preview only)
 function fakeItems(grade){
   const ESS={A:7500,B:6250,C:5000,D:4250,E:3250,F:2000};
   const ROLLS={A:12,B:9,C:6,D:4,E:2,F:1};
@@ -151,7 +151,7 @@ function collectPlayers(){
   });
 }
 
-// ----- animations (même logique que le live boss) -----
+// ----- animations (same logic as the live boss) -----
 function playFrames(container, kind, count, fps, onDone){
   const img=document.createElement('img'); container.appendChild(img);
   let f=1; const dt=1000/(fps||10);
@@ -230,7 +230,7 @@ document.getElementById('simLose').addEventListener('click', simLose);
 });
 document.getElementById('endOverlay').addEventListener('click', e=>{ if(e.target.id==='endOverlay') e.currentTarget.classList.remove('show'); });
 
-// 3 joueurs par défaut
+// 3 players by default
 addPlayerRow('Carry DPS','A',5200000,false);
 addPlayerRow('Healer','B',900000,false);
 addPlayerRow('Dead tank','C',1500000,true);

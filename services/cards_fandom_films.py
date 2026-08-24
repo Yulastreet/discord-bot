@@ -1,6 +1,6 @@
 """Bulk import personnages films/series TV via Fandom wikis.
 
-Meme pattern que cards_fandom_games mais universe = 'Film/Série'.
+Same pattern as cards_fandom_games but universe = 'Film/Serie'.
 Priorise franchises iconiques. The Amazing Digital Circus inclus.
 """
 from __future__ import annotations

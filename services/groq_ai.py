@@ -1,7 +1,7 @@
 """Client minimal pour l'API Groq (compatible OpenAI chat completions).
 
 Doc : https://console.groq.com/docs/quickstart
-Modèles dispo : llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768,
+Available models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768,
 gemma2-9b-it, etc.
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ async def groq_chat(prompt, *,
     """
     key = get_groq_api_key()
     if not key:
-        raise RuntimeError("GROQ_API_KEY non configurée dans .env")
+        raise RuntimeError("GROQ_API_KEY is not configured in .env")
 
     messages = []
     if system_prompt:
@@ -84,7 +84,7 @@ async def groq_chat(prompt, *,
             try:
                 txt = data["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError):
-                raise RuntimeError(f"Réponse Groq inattendue : {str(data)[:200]}")
+                raise RuntimeError(f"Unexpected Groq response: {str(data)[:200]}")
             usage = data.get("usage") or {}
             return {
                 "text":              txt,

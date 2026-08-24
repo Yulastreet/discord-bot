@@ -68,7 +68,7 @@ def _rarity_from_rank(rank: int) -> str:
 def bulk_import_marvel(pages: int = 15, page_size: int = 100,
                          sleep_between: float = 1.0,
                          skip_existing: bool = True) -> dict:
-    """Fetch top N chars Marvel. Default 15 × 100 = 1500 (max dispo)."""
+    """Fetch top N Marvel characters. Default 15 x 100 = 1500 (max available)."""
     from database import get_db, card_add
     if not _auth_params():
         return {"error": "MARVEL_PUBLIC_KEY/MARVEL_PRIVATE_KEY non set"}

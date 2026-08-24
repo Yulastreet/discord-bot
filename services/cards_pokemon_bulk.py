@@ -1,7 +1,7 @@
-"""Bulk import Pokémon via PokeAPI (officielle, gratuite, sans token).
+"""Bulk import Pokemon via PokeAPI (official, free, no token).
 
 Source : https://pokeapi.co
-1025 pokémons (gen 1-9), artwork officiel HD.
+1025 Pokemon (gen 1-9), official HD artwork.
 """
 from __future__ import annotations
 
@@ -80,8 +80,8 @@ def bulk_import_pokemon(start_id: int = 1, end_id: int = 1025,
             generation = (species or {}).get("generation", {}).get("name", "")
             gen_label = generation.replace("generation-", "Gen ").upper() if generation else ""
 
-            subtitle = f"Pokémon {gen_label}".strip()
-            desc = f"Type : {types_str}. Total stats : {base_total}." if types_str else "Pokémon."
+            subtitle = f"Pokemon {gen_label}".strip()
+            desc = f"Type: {types_str}. Total stats: {base_total}." if types_str else "Pokemon."
 
             card_add(name=name, universe="Jeu Vidéo",
                       subtitle=subtitle[:80], rarity=rarity,

@@ -92,8 +92,8 @@ def bulk_import_nookipedia(sleep_between: float = 0.1,
 
             subtitle = "Animal Crossing"
             desc_parts = []
-            if species: desc_parts.append(f"Espèce : {species}")
-            if personality: desc_parts.append(f"Personnalité : {personality}")
+            if species: desc_parts.append(f"Species: {species}")
+            if personality: desc_parts.append(f"Personality: {personality}")
             if phrase: desc_parts.append(f'"{phrase}"')
             desc = " · ".join(desc_parts)[:300] or "Villager Animal Crossing."
 
