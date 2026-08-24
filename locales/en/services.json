@@ -6,5 +6,13 @@
     "unknown_item_type": "Unknown item type.",
     "insufficient_balance": "Not enough Essences ({balance} / {price} ✨).",
     "debit_failed": "Payment failed (not enough Essences)."
+  },
+  "card_event": {
+    "drop_description": "**Rarity:** {rarity}\n**Origin:** {origin}\n**Universe:** {universe}\n\n⚡ First person to **type the code shown on the image** in this channel wins this card!",
+    "trolled": "🤡 **{user} got trolled!**",
+    "troll_1": "🤡 LMAO **{user}**, you really thought you had **{card}**? Fake drop, you won NOTHING. 😹",
+    "troll_2": "😹 Hahaha **{user}** rushed for **{card}**… except it was a TRAP. Zero cards. 🤡",
+    "troll_3": "🤡 Plot twist: **{card}** never existed. Well done for nothing **{user}** 💀",
+    "won_by": "✅ **Won by {user}**!"
   }
 }

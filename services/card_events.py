@@ -12,6 +12,8 @@ import random
 from typing import Optional
 
 import discord
+
+from services.i18n import t, guild_locale
 from PIL import Image, ImageDraw, ImageFont
 
 from database import (
@@ -211,9 +213,10 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
                                 exact_rarity: bool = False,
                                 card_id: int = None,
                                 triggered_by: str = "auto") -> Optional[dict]:
-    """Drop une carte dans le salon. Retourne dict {event_id, card, message_id}
+    """Drop a card in the channel. Returns dict {event_id, card, message_id}
     ou None si echec. card_id -> carte precise (ignore rarete). exact_rarity=True
-    -> carte de cette rareté EXACTE (sinon min)."""
+    -> card of that EXACT rarity (otherwise min)."""
+    _loc = guild_locale(guild_id) or "en"
     guild = bot.get_guild(int(guild_id))
     if not guild:
         print(f"[card_event] guild {guild_id} introuvable")
@@ -243,14 +246,13 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     emoji = RARITY_EMOJIS.get(rarity, "⚪")
     embed = discord.Embed(
         title=f"{emoji} {card['name']}",
-        description=(f"**Rareté :** {rarity.upper()}\n"
-                       f"**Origine :** {card.get('subtitle') or '?'}\n"
-                       f"**Univers :** {card.get('universe') or '?'}\n\n"
-                       f"⚡ Première personne à **taper le code affiché sur l'image** "
-                       f"dans ce salon gagne cette carte !"),
+        description=t("services.card_event.drop_description", _loc,
+                      rarity=rarity.upper(),
+                      origin=card.get('subtitle') or '?',
+                      universe=card.get('universe') or '?'),
         color=color,
     )
-    # Image = carte + code captcha (non copiable). Fallback : image carte brute.
+    # Image = card + captcha code (not copyable). Fallback: raw card image.
     drop_img_path = _render_drop_image(bot, card, code, event_id)
     drop_file = None
     if drop_img_path:
@@ -258,7 +260,7 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
         embed.set_image(url="attachment://drop.png")
     elif card.get("image_url"):
         embed.set_image(url=card["image_url"])
-    # Badge animé rareté en thumbnail (emoji custom du support server)
+    # Animated rarity badge as thumbnail (custom emoji from the support server)
     try:
         from commandes.cards import _get_rarity_custom_emoji_url
         badge_url = _get_rarity_custom_emoji_url(bot, rarity)
@@ -301,11 +303,12 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
 
 
 async def handle_message_claim(bot, message: discord.Message) -> bool:
-    """Si message correspond au code d'un event pending dans le salon, claim."""
+    """If the message matches the code of a pending event in the channel, claim it."""
     if message.author.bot:
         return False
     if not message.guild:
         return False
+    _loc = guild_locale(message.guild.id) or "en"
     content = (message.content or "").strip()
     if not content or len(content) > 32:
         return False
@@ -340,12 +343,9 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
         except Exception as e:
             print(f"[fake drop] edit err: {e}")
         troll = random.choice([
-            f"🤡 Mdrrr **{message.author.display_name}**, tu pensais vraiment avoir **{cname}** ? "
-            f"Faux drop, t'as RIEN gagné. 😹",
-            f"😹 Hahaha **{message.author.display_name}** a foncé sur **{cname}**… "
-            f"sauf que c'était un PIÈGE. Zéro carte. 🤡",
-            f"🤡 Plot twist : **{cname}** n'existait jamais. Bien joué pour rien "
-            f"**{message.author.display_name}** 💀",
+            t(f"services.card_event.troll_{i}", _loc,
+              user=message.author.display_name, card=cname)
+            for i in (1, 2, 3)
         ])
         try:
             await message.channel.send(troll)
@@ -360,17 +360,17 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
         user_card_add(message.author.id, matched["card_id"])
     except Exception as e:
         print(f"[card_event claim] add err: {e}")
-    # Update embed : remplace l'image captcha par la carte propre (sans code) + react
+    # Update embed: replace the captcha image with the clean card (no code) + react
     try:
         msg_id = matched.get("message_id")
         if msg_id:
             event_msg = await message.channel.fetch_message(int(msg_id))
             if event_msg and event_msg.embeds:
                 emb = event_msg.embeds[0]
-                emb.description = (emb.description or "") + f"\n\n✅ **Gagnée par {message.author.mention}** !"
+                emb.description = (emb.description or "") + "\n\n" + t("services.card_event.won_by", _loc, user=message.author.mention)
                 emb.color = 0x4ade80
-                # Image propre = render local (webp/png) ou domaine public, SANS bande
-                # captcha. attachments=[] / [file] vire l'ancienne image (le code).
+                # Clean image = local render (webp/png) or public domain, WITHOUT the
+                # captcha strip. attachments=[] / [file] drops the old image (the code).
                 from database import card_get
                 from commandes.cards import _resolve_card_image
                 url, clean_file = _resolve_card_image(card_get(matched["card_id"]) or {})
@@ -393,7 +393,7 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
 
 async def check_due_drops(bot) -> int:
     """Config GLOBALE : pour chaque serveur ayant la feature activee, drop selon
-    l'intervalle + rareté globaux. Salon auto-resolu. Timer next_drop_at par serveur."""
+    the global interval + rarity. Channel auto-resolved. Per-guild next_drop_at timer."""
     from database import guild_setting_get, card_event_config_get
     gcfg = global_event_config()
     if not gcfg.get("enabled"):

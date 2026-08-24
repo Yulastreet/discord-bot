@@ -82,7 +82,7 @@ def localize_source(card_id: int, source_url: str) -> str | None:
         ext = ".jpg"
     try:
         os.makedirs(_SOURCES_DIR, exist_ok=True)
-        # purge les anciennes versions (autre ext / vieux webp ré-encodé)
+        # purge older versions (other ext / old re-encoded webp)
         for e in _SRC_EXTS:
             old = os.path.join(_SOURCES_DIR, f"{card_id}{e}")
             if e != ext and os.path.exists(old):
@@ -142,7 +142,7 @@ def _download_image(url: str, timeout: int = 15) -> Image.Image | None:
 
 def _download_image_raw(url: str, timeout: int = 15):
     """Comme _download_image mais retourne l'objet PIL BRUT (sans convert),
-    pour pouvoir detecter/iterer les frames d'un GIF/WEBP/APNG animé."""
+    so we can detect/iterate the frames of an animated GIF/WEBP/APNG."""
     if not url:
         return None
     local_rel = None
@@ -159,7 +159,7 @@ def _download_image_raw(url: str, timeout: int = 15):
                 print(f"[overlay] raw local open err {p}: {e}")
                 return None
     if ".svg" in url.lower().split("?")[0]:
-        return None  # SVG jamais animé -> laisse le path normal gerer
+        return None  # SVG is never animated -> let the normal path handle it
     try:
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -214,8 +214,8 @@ def _compose_one_frame(src_rgba: Image.Image, overlay: Image.Image | None) -> Im
 
 def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
     """Genere carte compositee. Retourne URL relative ou None si echec.
-    Si la source est animée (GIF/WEBP/APNG), genere un WEBP animé (chaque frame
-    compositee avec l'overlay) -> les cartes secretes restent animées."""
+    If the source is animated (GIF/WEBP/APNG), generate an animated WEBP (each frame
+    composited with the overlay) -> secret cards stay animated."""
     os.makedirs(_OUTPUT_DIR, exist_ok=True)
     raw = _download_image_raw(source_url)
     if raw is None:
@@ -252,8 +252,8 @@ def composite_card(source_url: str, rarity: str, card_id: int) -> str | None:
 
 
 def _save_render(img: "Image.Image", card_id: int) -> str:
-    """Sauve le render en WebP LOSSLESS (zéro perte, pas de banding sur les
-    degradés de l'overlay / fonds unis). Plus lourd que lossy mais propre.
+    """Save the render as LOSSLESS WebP (no loss, no banding on the overlay
+    gradients / flat backgrounds). Heavier than lossy but clean.
     Supprime l'ancien .png s'il existe (evite les doublons sur disque)."""
     out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
     # lossless (pas de banding sur l'overlay) + method=0 = encodage rapide
@@ -268,7 +268,7 @@ def _save_render(img: "Image.Image", card_id: int) -> str:
 
 
 def _save_render_animated(frames: list, durations: list, card_id: int) -> str:
-    """Sauve un WEBP ANIMÉ (cartes secretes). Lossy q90 (lossless animé = trop
+    """Save an ANIMATED WEBP (secret cards). Lossy q90 (lossless animated = too
     lourd). loop=0 = infini. Discord anime le webp dans les embeds."""
     out_path = os.path.join(_OUTPUT_DIR, f"{card_id}.webp")
     rgb = [f.convert("RGB") for f in frames]
@@ -358,7 +358,7 @@ def bake_all_cards(force: bool = False, public_base_url: str | None = None,
             final = (pub + url) if (url and pub) else url
             results.append((cid, final, src_local, only_source))
 
-    # Bulk DB update. only_source -> on ne touche QUE source_image_url (render preservé).
+    # Bulk DB update. only_source -> we only touch source_image_url (render preserved).
     if results:
         conn = get_db(); c = conn.cursor()
         for cid, final_url, src_local, only_source in results:
