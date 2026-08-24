@@ -331,6 +331,7 @@
     "card_footer": "Trade #{trade_id} · card {index}/{total}",
     "the_sender": "the sender",
     "the_recipient": "the recipient",
+    "owned_ratio": "`{name}` (owns {owned}/{qty})",
     "no_cards_left": "This trade has no cards left to display.",
     "nothing": "_(nothing)_",
     "status_pending": "⏳ Pending",
