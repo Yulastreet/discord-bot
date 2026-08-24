@@ -270,7 +270,7 @@
   function winColor(it){
     const rw = findReward(it.type, it.value);
     if (rw) return rw.color;
-    return it.type === 'roll' ? '#7bdc6b' : '#a86dff';  // fallback si REWARDS pas encore chargé
+    return it.type === 'roll' ? '#7bdc6b' : '#a86dff';  // fallback if REWARDS is not loaded yet
   }
 
   let _winsSig = null;

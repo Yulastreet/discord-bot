@@ -84,7 +84,7 @@
   .pc-preview-modal .meta { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; font-size:12px; }
   .pc-preview-modal .meta span { padding:3px 9px; background: var(--bg-2); border-radius:999px; }
 
-  /* Filtres dépliables */
+  /* Collapsible filters */
   .pc-filterbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: var(--s-4); }
   .pc-filter-btn { display:inline-flex; align-items:center; gap:8px; background: var(--bg-1);
                     border:1px solid var(--border); border-radius:10px; padding:9px 16px;
@@ -168,7 +168,7 @@
     </label>
   </div>
 
-  <!-- Panneau filtres dépliable -->
+  <!-- Collapsible filter panel -->
   <div class="pc-filter-panel" id="pcFilterPanel">
     <div class="pc-filter-grid">
       <label>{{ t('web_cards.public.f_rarity') }}
@@ -345,7 +345,7 @@ window.pcDebouncedReload=pcDebouncedReload;
 window.pcResetAndLoad=pcResetAndLoad;
 window.pcPrev=pcPrev; window.pcNext=pcNext; window.pcJumpTo=pcJumpTo;
 
-// ===== Filtres dépliables =====
+// ===== Collapsible filters =====
 function pcToggleFilters(){
   const p = document.getElementById('pcFilterPanel');
   const b = document.getElementById('pcFilterBtn');
@@ -354,7 +354,7 @@ function pcToggleFilters(){
 }
 window.pcToggleFilters = pcToggleFilters;
 
-// ===== Voir ma collection (album : possédées en couleur, manquantes grisées) =====
+// ===== View my collection (album: owned in colour, missing greyed out) =====
 let pcMineMode = false;
 let pcOwnedSet = null;   // Set<card_id>
 async function pcToggleMine(){
@@ -383,10 +383,10 @@ async function pcLoadContributors(){
     const html = items.map(c =>
       `<span class="pc-marquee-item">💚 <span class="nm">${pcEsc(c.name)}</span> <span class="ct">— ${c.count} card${c.count>1?'s':''} approved</span></span>`
     ).join('');
-    // Duplique pour un défilement continu
+    // Duplicate for a continuous scroll
     track.innerHTML = '<span class="pc-marquee-item" style="font-weight:800;">🙏 Thanks to the contributors!</span>' + html + html;
     const mq = document.getElementById('pcMarquee');
-    // Sort le bandeau de .content (max-width centré) -> direct dans .main pour
+    // Pull the banner out of .content (centred max-width) -> straight into .main so
     // qu'il prenne TOUTE la largeur, juste sous le header (topbar).
     try {
       const main = document.querySelector('main.main');
@@ -471,12 +471,12 @@ async function pcLoadOrigins() {
     const cur = sel.value;
     sel.innerHTML = '<option value="">All origins</option>' +
       (d.items || []).map(o => `<option value="${pcEsc(o.origin)}">${pcEsc(o.origin)} (${o.count})</option>`).join('');
-    // garde la sélection si toujours dispo
+    // keep the selection if still available
     if (cur && [...sel.options].some(op => op.value === cur)) sel.value = cur;
   } catch (e) {}
 }
 function pcUniverseChanged() {
-  pcLoadOrigins();   // re-scope les origines à l'univers choisi
+  pcLoadOrigins();   // re-scope origins to the chosen universe
   pcResetAndLoad();
 }
 window.pcUniverseChanged = pcUniverseChanged;

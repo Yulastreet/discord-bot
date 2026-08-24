@@ -275,7 +275,7 @@ async function saveSlot(n){
     label: document.getElementById('s-label-'+n).value,
     price: parseInt(document.getElementById('s-price-'+n).value,10)||0,
   };
-  // Carte : envoie aussi le texte tapé pour resolution fiable par nom
+  // Card: also send the typed text for reliable name resolution
   if(type==='card'){
     const sEl = document.getElementById('s-cardsearch-'+n);
     if(sEl) payload.item_query = sEl.value;

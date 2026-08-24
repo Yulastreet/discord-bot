@@ -869,8 +869,10 @@ function setStatus(d){
 const MY = { participant:false, aptitude:'', card_id:null };
 let ALLCARDS = [], cardP = 1, bossEl = '';
 const PER = 10;
-const SORT_CYCLE = [null,'nom','rareté','étoiles','optimisation'];
-const SORT_LBL = { 'null':'🔃 Sort', 'nom':'🔤 Name', 'rareté':'🎯 Rarity', 'étoiles':'⭐ Stars', 'optimisation':'⚡ Optimal' };
+// Values sent as the ?sort= query param: they must match the modes accepted
+// by _sort_cards() in services/card_boss.py (name / rarity / stars / optimal).
+const SORT_CYCLE = [null,'name','rarity','stars','optimal'];
+const SORT_LBL = { 'null':'🔃 Sort', 'name':'🔤 Name', 'rarity':'🎯 Rarity', 'stars':'⭐ Stars', 'optimal':'⚡ Optimal' };
 let curSort = null;
 const APT_LIST = ['berserker','gardien','soigneur','duelliste','executeur','none'];
 const APT_DESC = { berserker:'Berserker', gardien:'Guardian', soigneur:'Healer',

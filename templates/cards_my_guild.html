@@ -173,7 +173,7 @@ function render(d){
     ${isMaster?'<div class="mg-m-sub" style="margin-top:8px;">Editable from <code>/guildprofile</code> → Guild customisation → Requirements &amp; access.</div>':''}
   </div>`;
 
-  // historique XP gagnée (qui / comment / combien)
+  // XP gain history (who / how / how much)
   const log = d.xp_log || [];
   html += `<div class="mg-card"><h3>📈 Earned XP history</h3>`;
   if(!log.length){ html += `<div class="mg-m-sub">No XP recorded yet.</div>`; }

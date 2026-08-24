@@ -352,12 +352,12 @@ async function loadSugs() {
             ? `<img src="${escapeHtml(d.card.image_url)}" style="width:100%;height:100%;object-fit:cover;">`
             : '<div style="color:var(--text-3);">?</div>';
         }
-        // PROPOSÉ : si pas de nouvelle image, montre l'image actuelle (inchangée)
+        // PROPOSED: if there is no new image, show the current one (unchanged)
         if (!s.image_url && d.card.image_url) {
           const prop = document.getElementById('prop-' + s.id);
           if (prop) prop.innerHTML = `<img src="${escapeHtml(d.card.image_url)}" style="width:100%;height:100%;object-fit:cover;">`;
         }
-        // PROPOSÉ meta : univers/origine inchangés -> valeurs actuelles de la carte
+        // PROPOSED meta: universe/origin unchanged -> current card values
         const pu = document.getElementById('prop-uni-' + s.id);
         if (pu) {
           const uni = s.universe || d.card.universe || '?';

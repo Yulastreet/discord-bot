@@ -202,7 +202,7 @@
   </div>
 </div>
 
-<!-- MODAL sélecteur de membre -->
+<!-- Member picker MODAL -->
 <div class="tr-modal" id="pickerModal" onclick="if(event.target===this)closePicker()">
   <div class="tr-modal-box">
     <h3>{{ t('web_cards.trade.picker_title') }}</h3>
@@ -315,7 +315,7 @@ function updateValidate(){
   document.getElementById('validateBtn').disabled = !(SIDE.R.uid && (nO+nR) > 0);
 }
 
-/* ===== sélecteur de membre ===== */
+/* ===== member picker ===== */
 async function openPicker(){
   document.getElementById('pickerMembers').style.display='none';
   document.getElementById('pickerGuilds').innerHTML='<div class="muted">Loading…</div>';

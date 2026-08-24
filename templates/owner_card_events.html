@@ -617,7 +617,7 @@ async function bossRefreshChannels() {
   try {
     await fetch(`/api/owner/card-events/refresh-channels/${gid}`, {method:'POST'});
     await new Promise(r => setTimeout(r, 2500));
-    await loadGuilds();                 // recharge le cache (avec les salons à jour)
+    await loadGuilds();                 // reload the cache (with up-to-date channels)
     document.getElementById('bossGuild').value = gid;
     bossGuildChanged();                 // re-peuple le select salon
     hint.textContent = '✅ Channels refreshed.';

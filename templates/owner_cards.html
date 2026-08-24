@@ -166,7 +166,7 @@
     <button class="btn btn-danger" onclick="wipeCatalog()">🗑 Wipe</button>
   </div>
 
-  <!-- Panneau filtres dépliable -->
+  <!-- Collapsible filter panel -->
   <div class="oc-filter-panel" id="ocFilterPanel">
     <div class="oc-filter-grid">
       <label>{{ t('web_cards.owner_cards.f_rarity') }}
@@ -758,7 +758,7 @@ let _cardCropper = null;
 function openCardCropper() {
   if (!_currentPreview) return;
   let src = _currentPreview.source_image_url || _currentPreview.image_url;
-  // /card_suggestions/ = image originale proposée (sans overlay) -> OK pour recadrer.
+  // /card_suggestions/ = original proposed image (no overlay) -> fine to crop.
   // /card_renders/ = render bake (overlay deja applique) -> source perdue, demande une URL.
   if (!src || src.includes('/card_renders/')) {
     const newUrl = prompt('Original source lost. Paste a new image URL (http) to crop for this card:', '');
