@@ -54,7 +54,7 @@
       "xp_name": "⭐ Levels & XP",
       "xp_value": "**/level `[member]`** — show level + XP\n**/leaderboard** — server top 10 XP",
       "duel_name": "⚔️ Duel",
-      "duel_value": "**/duel fight `<opponent>` `[nerf]`** — lightsaber challenge (defense mindgame)\n**/duel info** — full guide to the system\n**/profil `[member]`** — duel profile\n**/statpoint `<stat>`** — spend a stat point\n**/sabre** — saber menu (equipped / collection / shop)\n**/historique `[member]`** — duel history",
+      "duel_value": "**/duel fight `<opponent>` `[nerf]`** — lightsaber challenge (defense mindgame)\n**/duel info** — full guide to the system\n**/profile `[member]`** — duel profile\n**/statpoint `<stat>`** — spend a stat point\n**/saber** — saber menu (equipped / collection / shop)\n**/history `[member]`** — duel history",
       "music_name": "🎵 Music",
       "music_value": "**/join** **/leave** — join / leave your voice channel\n**/play `<title|link>`** — YouTube, SoundCloud, Bandcamp, Spotify (track/album/playlist)\n**/search `<query>`** — pick from 5 YouTube results\n**/queue** **/nowplaying** — full queue / current track\n**/skip `[position]`** **/remove `<position>`** — skip / drop a track\n**/volume `<0-200>`** **/pause** **/resume** **/stop**\n**/musicstats `[period]`** — top tracks and top listeners"
     },

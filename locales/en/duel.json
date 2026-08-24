@@ -286,7 +286,9 @@
     "points_to_spend": " *(⚠️ {points} point(s) to spend!)*",
     "combat_level": "⚔️ Combat level: {level}{points}",
     "stats_block": "⚔️ **Strength {strength}** → +{attack} attack\n💨 **Agility {agility}** → +{dodge}% dodge\n🛡️ **Defense {defense}** → +{def_bonus} defense\n❤️ **Endurance {endurance}** → +{hp} max HP\n🍀 **Luck {luck}** → +{crit}% crit",
-    "stats_title": "📈 Combat statistics"
+    "stats_title": "📈 Combat statistics",
+    "equipped_value": "{emoji} {name} ({rarity_emoji} {rarity})",
+    "xp_progress": "{bar} {current}/{needed} XP"
   },
   "statpoint": {
     "none_available": "❌ You have no stat point to spend! Win duels to gain combat levels.",
@@ -359,7 +361,11 @@
     "not_found": "❌ Saber not found.",
     "already_owned": "❌ You already own **{name}**.",
     "not_enough_coins": "❌ Not enough TookCoins. You need 🪙 {price} (you have 🪙 {coins}).",
-    "bought": "✅ You bought **{name}** {emoji}!\n✨ Special: **{special}** — _{description}_"
+    "bought": "✅ You bought **{name}** {emoji}!\n✨ Special: **{special}** — _{description}_",
+    "collection_saber_line": "{emoji}  **{name}**  ·  {status}",
+    "collection_saber_special": "╰─  {emoji}  _{special}_",
+    "shop_saber_line": "{emoji}  **{name}**  ·  {status}",
+    "shop_saber_special": "╰─  {emoji}  *{special}*  —  {description}"
   },
   "info": {
     "dm_forbidden": "❌ I could not send you a DM. Turn on your direct messages then try again.",
