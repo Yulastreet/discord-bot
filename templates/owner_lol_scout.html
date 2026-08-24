@@ -1,33 +1,33 @@
 {% extends "_base.html" %}
 {% set active_nav = 'owner_lol_scout' %}
 
-{% block title %}LoL Scout · Owner{% endblock %}
-{% block crumb %}Owner · LoL Scout{% endblock %}
+{% block title %}{{ t('web_premium.owner_lol_scout.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_lol_scout.crumb') }}{% endblock %}
 
 {% block content %}
 <section class="hero">
   <div class="parallax-layer">
-    <span class="eyebrow">Owner only</span>
-    <h1>LoL Scout — Sessions</h1>
-    <p class="hero-sub">Liens partageables avec ta 5-stack pour scout les adversaires Clash.</p>
+    <span class="eyebrow">{{ t('web_premium.common.owner_only') }}</span>
+    <h1>{{ t('web_premium.owner_lol_scout.title') }}</h1>
+    <p class="hero-sub">{{ t('web_premium.owner_lol_scout.subtitle') }}</p>
   </div>
 </section>
 
 <section class="card padless">
   <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-    <h2 style="margin:0;">Sessions créées</h2>
+    <h2 style="margin:0;">{{ t('web_premium.owner_lol_scout.sessions_created') }}</h2>
     <span class="badge">{{ sessions|length }}</span>
   </div>
   {% if sessions %}
   <table class="tbl">
     <thead>
       <tr>
-        <th>Slug</th>
-        <th>Statut</th>
-        <th>Région</th>
-        <th>Riot IDs</th>
-        <th>Créée</th>
-        <th>Stop</th>
+        <th>{{ t('web_premium.owner_lol_scout.th_slug') }}</th>
+        <th>{{ t('web_premium.owner_lol_scout.th_status') }}</th>
+        <th>{{ t('web_premium.owner_lol_scout.th_region') }}</th>
+        <th>{{ t('web_premium.owner_lol_scout.th_riot_ids') }}</th>
+        <th>{{ t('web_premium.owner_lol_scout.th_created') }}</th>
+        <th>{{ t('web_premium.owner_lol_scout.th_stop') }}</th>
       </tr>
     </thead>
     <tbody>
@@ -37,14 +37,14 @@
           {% if s.status == 'active' %}
             <a href="/scout/{{ s.slug }}" target="_blank">{{ s.slug }}</a>
           {% else %}
-            <span class="muted" title="Lien expiré">{{ s.slug }}</span>
+            <span class="muted" title="{{ t('web_premium.owner_lol_scout.link_expired') }}">{{ s.slug }}</span>
           {% endif %}
         </td>
         <td>
           {% if s.status == 'active' %}
-            <span class="badge badge-success">🟢 active</span>
+            <span class="badge badge-success">🟢 {{ t('web_premium.owner_lol_scout.status_active') }}</span>
           {% else %}
-            <span class="badge">⏹ stopped</span>
+            <span class="badge">⏹ {{ t('web_premium.owner_lol_scout.status_stopped') }}</span>
           {% endif %}
         </td>
         <td>{{ s.platform.upper() }}</td>
@@ -56,7 +56,7 @@
         <td class="mono">{{ s.created_at[:16] }}</td>
         <td>
           {% if s.status == 'active' %}
-          <button class="btn btn-secondary btn-sm scout-stop" data-slug="{{ s.slug }}">Stop</button>
+          <button class="btn btn-secondary btn-sm scout-stop" data-slug="{{ s.slug }}">{{ t('web_premium.owner_lol_scout.th_stop') }}</button>
           {% else %}
             <span class="muted">{{ s.ended_at[:16] if s.ended_at else '' }}</span>
           {% endif %}
@@ -67,7 +67,7 @@
   </table>
   {% else %}
   <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">
-    <p>Aucune session. Lance <code>/lol scout create</code> depuis Discord.</p>
+    <p>{{ t('web_premium.owner_lol_scout.empty_before') }} <code>/lol scout create</code> {{ t('web_premium.owner_lol_scout.empty_after') }}</p>
   </div>
   {% endif %}
 </section>
@@ -79,12 +79,12 @@
 document.querySelectorAll('.scout-stop').forEach(btn => {
   btn.addEventListener('click', async () => {
     const slug = btn.dataset.slug;
-    if (!confirm(`Stop session ${slug} ?`)) return;
+    if (!confirm(`Stop session ${slug}?`)) return;
     btn.disabled = true;
     btn.textContent = '...';
     const r = await fetch(`/api/owner/lol-scout/${slug}/stop`, {method: 'POST'});
     if (r.ok) location.reload();
-    else { btn.disabled = false; btn.textContent = 'Stop'; alert('Erreur'); }
+    else { btn.disabled = false; btn.textContent = 'Stop'; alert('Error'); }
   });
 });
 </script>

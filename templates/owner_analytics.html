@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'owner_analytics' %}
 
-{% block title %}Analytics · TookBot{% endblock %}
-{% block crumb %}Analytics{% endblock %}
+{% block title %}{{ t('web_premium.owner_analytics.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_analytics.crumb') }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -96,7 +96,7 @@
   .top-list .row .uid { color: var(--text-2); }
   .top-list .row .tok { color: oklch(0.86 0.20 130); font-weight: 700; }
 
-  /* --- Engagement : barres horizontales (device/browser/os/referrer) --- */
+  /* --- Engagement: horizontal bars (device/browser/os/referrer) --- */
   .split-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -110,13 +110,13 @@
   .hbar .hfill { height: 100%; background: oklch(0.86 0.20 130 / 0.7); border-radius: 999px; }
   .hbar .hn { text-align: right; font-family: var(--font-mono); color: var(--text); }
 
-  /* --- Heatmap horaire --- */
+  /* --- Hourly heatmap --- */
   .hours { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
   .hours .hcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .hours .hbarv { width: 100%; background: oklch(0.70 0.16 250 / 0.7); border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
   .hours .hbarv:hover { background: oklch(0.70 0.16 250); }
   .hours .hbarv::after {
-    content: attr(data-val) " visites · " attr(data-h) "h";
+    content: attr(data-val) "{{ t('web_premium.owner_analytics.css_visits_at') }}" attr(data-h) "h";
     position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
     background: var(--bg-0, #0a0d08); color: var(--text); font-size: 11px;
     padding: 3px 7px; border-radius: 4px; border: 1px solid var(--border);
@@ -125,7 +125,7 @@
   .hours .hbarv:hover::after { opacity: 1; }
   .hours .hlbl { font-size: 9px; color: var(--text-3); }
 
-  /* --- Pages engageantes (par temps) --- */
+  /* --- Most engaging pages (by time) --- */
   .time-pages { display: grid; gap: 14px; }
   .tpage { display: grid; gap: 6px; }
   .tpage-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -135,7 +135,7 @@
   .tpage .tfill { height: 100%; background: linear-gradient(90deg, oklch(0.86 0.20 130 / 0.5), oklch(0.86 0.20 130)); border-radius: 999px; }
   .tpage .tmeta { font-size: 11px; color: var(--text-3); }
 
-  /* --- Liste des dons --- */
+  /* --- Donation list --- */
   .don-list { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
   .don-row {
     padding: 10px 12px;
@@ -156,7 +156,7 @@
   }
   .don-del:hover { color: #ff5b5b; background: oklch(0.6 0.2 25 / 0.12); }
 
-  /* --- Ajout manuel de don --- */
+  /* --- Manual donation entry --- */
   .add-don-btn {
     margin-left: 12px; font-size: 12px; font-weight: 600;
     background: oklch(0.86 0.20 130 / 0.14); color: oklch(0.86 0.20 130);
@@ -192,53 +192,53 @@
 
 <div class="stat-grid">
   <div class="stat {{ 'accent' if accent }}">
-    <div class="lbl">Visites 24h</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.visits_24h') }}</div>
     <div class="val">{{ fmt(v.h24.visits) }}</div>
-    <div class="sub">{{ v.h24.unique }} uniques</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.unique_n', n=v.h24.unique) }}</div>
   </div>
   <div class="stat">
-    <div class="lbl">Visites 7j</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.visits_7d') }}</div>
     <div class="val">{{ fmt(v.d7.visits) }}</div>
-    <div class="sub">{{ v.d7.unique }} uniques</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.unique_n', n=v.d7.unique) }}</div>
   </div>
   <div class="stat">
-    <div class="lbl">Visites 30j</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.visits_30d') }}</div>
     <div class="val">{{ fmt(v.d30.visits) }}</div>
-    <div class="sub">{{ v.d30.unique }} uniques</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.unique_n', n=v.d30.unique) }}</div>
   </div>
   <div class="stat">
-    <div class="lbl">Total</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.total') }}</div>
     <div class="val">{{ fmt(v.total.visits) }}</div>
-    <div class="sub">{{ v.total.unique }} uniques</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.unique_n', n=v.total.unique) }}</div>
   </div>
 </div>
 
 <div class="stat-grid">
   <div class="stat {{ 'accent' if accent }}">
-    <div class="lbl">Temps moyen / visite</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.avg_time_per_visit') }}</div>
     <div class="val">{{ dur(eng.d30.avg_sec) }}</div>
-    <div class="sub">30j · mediane {{ dur(eng.median_sec_30d) }}</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.median_30d') }} {{ dur(eng.median_sec_30d) }}</div>
   </div>
   <div class="stat">
-    <div class="lbl">Taux de rebond</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.bounce_rate') }}</div>
     <div class="val">{{ eng.d30.bounce_pct }}%</div>
-    <div class="sub">visites &lt; 10s · 30j</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.bounce_sub') }}</div>
   </div>
   <div class="stat">
-    <div class="lbl">Scroll moyen</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.avg_scroll') }}</div>
     <div class="val">{{ eng.d30.avg_scroll }}%</div>
-    <div class="sub">profondeur lecture · 30j</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.scroll_sub') }}</div>
   </div>
   <div class="stat">
-    <div class="lbl">Temps moyen 24h</div>
+    <div class="lbl">{{ t('web_premium.owner_analytics.avg_time_24h') }}</div>
     <div class="val">{{ dur(eng.h24.avg_sec) }}</div>
-    <div class="sub">{{ eng.h24.visits }} visite(s)</div>
+    <div class="sub">{{ t('web_premium.owner_analytics.visits_n', n=eng.h24.visits) }}</div>
   </div>
 </div>
 
 {% if eng.by_day_30d %}
 <div class="chart-wrap">
-  <h3>Visites · 30 derniers jours</h3>
+  <h3>{{ t('web_premium.owner_analytics.visits_last_30d') }}</h3>
   {% set max_v = eng.by_day_30d|map(attribute='visits')|max %}
   <div class="bar-chart">
     {% for d in eng.by_day_30d %}
@@ -254,7 +254,7 @@
 <div class="split-grid">
   {% if eng.by_device_30d %}
   <div class="chart-wrap" style="margin-bottom:0;">
-    <h3>Appareils · 30j</h3>
+    <h3>{{ t('web_premium.owner_analytics.devices_30d') }}</h3>
     {% set md = eng.by_device_30d|map(attribute='n')|max %}
     <div class="hbars">
       {% for r in eng.by_device_30d %}
@@ -270,7 +270,7 @@
 
   {% if eng.by_browser_30d %}
   <div class="chart-wrap" style="margin-bottom:0;">
-    <h3>Navigateurs · 30j</h3>
+    <h3>{{ t('web_premium.owner_analytics.browsers_30d') }}</h3>
     {% set mb = eng.by_browser_30d|map(attribute='n')|max %}
     <div class="hbars">
       {% for r in eng.by_browser_30d %}
@@ -286,7 +286,7 @@
 
   {% if eng.by_os_30d %}
   <div class="chart-wrap" style="margin-bottom:0;">
-    <h3>Systemes · 30j</h3>
+    <h3>{{ t('web_premium.owner_analytics.systems_30d') }}</h3>
     {% set mo = eng.by_os_30d|map(attribute='n')|max %}
     <div class="hbars">
       {% for r in eng.by_os_30d %}
@@ -304,7 +304,7 @@
 <div class="split-grid">
   {% if eng.top_referrers_30d %}
   <div class="chart-wrap" style="margin-bottom:0;">
-    <h3>Sources de trafic · 30j</h3>
+    <h3>{{ t('web_premium.owner_analytics.traffic_sources_30d') }}</h3>
     {% set mr = eng.top_referrers_30d|map(attribute='n')|max %}
     <div class="hbars">
       {% for r in eng.top_referrers_30d %}
@@ -320,7 +320,7 @@
 
   {% if eng.top_pages_30d %}
   <div class="chart-wrap" style="margin-bottom:0;">
-    <h3>Pages populaires · 30j (par visites)</h3>
+    <h3>{{ t('web_premium.owner_analytics.popular_pages_30d') }}</h3>
     {% set mp = eng.top_pages_30d|map(attribute='n')|max %}
     <div class="hbars">
       {% for r in eng.top_pages_30d %}
@@ -337,10 +337,9 @@
 
 {% if eng.top_time_pages_30d %}
 <div class="chart-wrap">
-  <h3>Pages les plus engageantes · 30j (par temps moyen passe)</h3>
+  <h3>{{ t('web_premium.owner_analytics.most_engaging_pages_30d') }}</h3>
   <p class="muted" style="font-size:11px;margin:-6px 0 14px;">
-    Temps actif moyen par visite (min. 3 visites). En haut = on y reste le plus longtemps.
-    En bas avec beaucoup de visites = candidat a ameliorer.
+    {{ t('web_premium.owner_analytics.most_engaging_pages_help') }}
   </p>
   {% set mt = eng.top_time_pages_30d|map(attribute='avg_sec')|max %}
   <div class="time-pages">
@@ -351,7 +350,7 @@
         <span class="tdur">{{ dur(r.avg_sec) }}</span>
       </div>
       <div class="ttrack"><span class="tfill" style="width: {{ (r.avg_sec / mt * 100) if mt > 0 else 0 }}%"></span></div>
-      <div class="tmeta">{{ r.n }} visite(s) · scroll {{ r.avg_scroll }}%</div>
+      <div class="tmeta">{{ t('web_premium.owner_analytics.visits_n', n=r.n) }} · {{ t('web_premium.owner_analytics.scroll') }} {{ r.avg_scroll }}%</div>
     </div>
     {% endfor %}
   </div>
@@ -360,7 +359,7 @@
 
 {% if eng.by_hour_30d %}
 <div class="chart-wrap">
-  <h3>Heures de pointe · 30j (heure serveur)</h3>
+  <h3>{{ t('web_premium.owner_analytics.peak_hours_30d') }}</h3>
   {% set mh = eng.by_hour_30d|map(attribute='n')|max %}
   <div class="hours">
     {% for h in eng.by_hour_30d %}
@@ -377,65 +376,63 @@
 {% block content %}
 <div class="col gap-3">
   <div>
-    <h1>📊 Analytics</h1>
+    <h1>📊 {{ t('web_premium.owner_analytics.title') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:70ch;">
-      Suivi complet de l'utilisation : visites, temps passe, scroll, rebond, appareils,
-      sources de trafic et heures de pointe. Plus consommation IA. Visible uniquement par l'owner.
-      IPs anonymisees (hashees) pour respecter la vie privee.
+      {{ t('web_premium.owner_analytics.intro') }}
     </p>
   </div>
 
-  <h2 class="sect-title">💚 Dons (Ko-fi)
-    <button class="add-don-btn" onclick="toggleAddDon()">+ Ajouter un don</button>
+  <h2 class="sect-title">💚 {{ t('web_premium.owner_analytics.donations') }}
+    <button class="add-don-btn" onclick="toggleAddDon()">{{ t('web_premium.owner_analytics.add_donation') }}</button>
   </h2>
 
   <div id="addDonForm" class="add-don-form" style="display:none;">
     <div class="add-don-grid">
-      <label>Donateur
-        <input type="text" id="adName" placeholder="Pseudo (vide = Anonyme)">
+      <label>{{ t('web_premium.owner_analytics.donor') }}
+        <input type="text" id="adName" placeholder="{{ t('web_premium.owner_analytics.donor_placeholder') }}">
       </label>
-      <label>Montant
+      <label>{{ t('web_premium.owner_analytics.amount') }}
         <input type="number" id="adAmount" step="0.01" min="0" placeholder="5.00">
       </label>
-      <label>Devise
+      <label>{{ t('web_premium.owner_analytics.currency') }}
         <input type="text" id="adCurrency" value="EUR" maxlength="8">
       </label>
-      <label class="add-don-msg">Message (optionnel)
-        <input type="text" id="adMessage" placeholder="Merci !">
+      <label class="add-don-msg">{{ t('web_premium.owner_analytics.message_optional') }}
+        <input type="text" id="adMessage" placeholder="{{ t('web_premium.owner_analytics.message_placeholder') }}">
       </label>
     </div>
     <div class="add-don-actions">
-      <button class="btn btn-primary" onclick="submitAddDon(this)">Enregistrer le don</button>
+      <button class="btn btn-primary" onclick="submitAddDon(this)">{{ t('web_premium.owner_analytics.save_donation') }}</button>
       <span id="adStatus" class="muted" style="font-size:13px;"></span>
     </div>
   </div>
 
   <div class="stat-grid">
     <div class="stat accent">
-      <div class="lbl">Total recu</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.total_received') }}</div>
       <div class="val">{{ donations.total.amount }} {{ donations.currency }}</div>
-      <div class="sub">{{ donations.total.count }} don(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.donations_n', n=donations.total.count) }}</div>
     </div>
     <div class="stat">
-      <div class="lbl">30 jours</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.range_30d') }}</div>
       <div class="val">{{ donations.d30.amount }} {{ donations.currency }}</div>
-      <div class="sub">{{ donations.d30.count }} don(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.donations_n', n=donations.d30.count) }}</div>
     </div>
     <div class="stat">
-      <div class="lbl">7 jours</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.range_7d') }}</div>
       <div class="val">{{ donations.d7.amount }} {{ donations.currency }}</div>
-      <div class="sub">{{ donations.d7.count }} don(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.donations_n', n=donations.d7.count) }}</div>
     </div>
     <div class="stat">
-      <div class="lbl">Don moyen</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.avg_donation') }}</div>
       <div class="val">{{ donations.avg_amount }} {{ donations.currency }}</div>
-      <div class="sub">sur {{ donations.total.count }} don(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.over_n_donations', n=donations.total.count) }}</div>
     </div>
   </div>
 
   {% if donations.by_day_30d %}
   <div class="chart-wrap">
-    <h3>Dons · 30 derniers jours</h3>
+    <h3>{{ t('web_premium.owner_analytics.donations_last_30d') }}</h3>
     {% set max_d = donations.by_day_30d|map(attribute='amount')|max %}
     <div class="bar-chart">
       {% for d in donations.by_day_30d %}
@@ -451,11 +448,11 @@
   <div class="split-grid">
     {% if donations.top_donors %}
     <div class="chart-wrap" style="margin-bottom:0;">
-      <h3>Top donateurs</h3>
+      <h3>{{ t('web_premium.owner_analytics.top_donors') }}</h3>
       <div class="top-list">
         {% for u in donations.top_donors %}
         <div class="row">
-          <span class="uid">{{ u.name }} · {{ u.count }} don(s)</span>
+          <span class="uid">{{ u.name }} · {{ t('web_premium.owner_analytics.donations_n', n=u.count) }}</span>
           <span class="tok">{{ u.total }} {{ donations.currency }}</span>
         </div>
         {% endfor %}
@@ -464,15 +461,15 @@
     {% endif %}
 
     <div class="chart-wrap" style="margin-bottom:0;">
-      <h3>Derniers dons</h3>
+      <h3>{{ t('web_premium.owner_analytics.latest_donations') }}</h3>
       {% if donations.recent %}
       <div class="don-list">
         {% for d in donations.recent %}
         <div class="don-row" data-don-id="{{ d.id }}">
           <div class="don-head">
-            <span class="don-name">{{ d.name }}{% if d.is_subscription %} <span class="don-sub">abonnement</span>{% endif %}</span>
+            <span class="don-name">{{ d.name }}{% if d.is_subscription %} <span class="don-sub">{{ t('web_premium.owner_analytics.subscription') }}</span>{% endif %}</span>
             <span class="don-amt">{{ d.amount }} {{ d.currency }}
-              <button class="don-del" title="Supprimer ce don" onclick="deleteDonation({{ d.id }}, this)">✕</button>
+              <button class="don-del" title="{{ t('web_premium.owner_analytics.delete_donation') }}" onclick="deleteDonation({{ d.id }}, this)">✕</button>
             </span>
           </div>
           {% if d.message %}<div class="don-msg">« {{ d.message }} »</div>{% endif %}
@@ -481,7 +478,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="muted" style="font-size:13px;">Aucun don pour l'instant. Le webhook Ko-fi remplira cette section automatiquement.</p>
+      <p class="muted" style="font-size:13px;">{{ t('web_premium.owner_analytics.no_donation') }}</p>
       {% endif %}
     </div>
   </div>
@@ -489,33 +486,33 @@
   {{ render_engagement("Landing — tookbot.click", landing, eng_landing, accent=True) }}
   {{ render_engagement("Dashboard — dashboard.tookbot.click", dashboard, eng_dashboard) }}
 
-  <h2 class="sect-title">🧠 Consommation IA (Groq)</h2>
+  <h2 class="sect-title">🧠 {{ t('web_premium.owner_analytics.ai_usage') }}</h2>
   <div class="stat-grid">
     <div class="stat accent">
-      <div class="lbl">24h · tokens</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.tokens_24h') }}</div>
       <div class="val">{{ fmt(ai.h24.tokens) }}</div>
-      <div class="sub">{{ ai.h24.calls }} appel(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.calls_n', n=ai.h24.calls) }}</div>
     </div>
     <div class="stat">
-      <div class="lbl">7 jours · tokens</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.tokens_7d') }}</div>
       <div class="val">{{ fmt(ai.d7.tokens) }}</div>
-      <div class="sub">{{ ai.d7.calls }} appel(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.calls_n', n=ai.d7.calls) }}</div>
     </div>
     <div class="stat">
-      <div class="lbl">30 jours · tokens</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.tokens_30d') }}</div>
       <div class="val">{{ fmt(ai.d30.tokens) }}</div>
-      <div class="sub">{{ ai.d30.calls }} appel(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.calls_n', n=ai.d30.calls) }}</div>
     </div>
     <div class="stat">
-      <div class="lbl">Total</div>
+      <div class="lbl">{{ t('web_premium.owner_analytics.total') }}</div>
       <div class="val">{{ fmt(ai.total.tokens) }}</div>
-      <div class="sub">{{ ai.total.calls }} appel(s)</div>
+      <div class="sub">{{ t('web_premium.owner_analytics.calls_n', n=ai.total.calls) }}</div>
     </div>
   </div>
 
   {% if ai.by_day_30d %}
   <div class="chart-wrap">
-    <h3>Tokens consommes · 30 derniers jours</h3>
+    <h3>{{ t('web_premium.owner_analytics.tokens_last_30d') }}</h3>
     {% set max_t = ai.by_day_30d|map(attribute='tokens')|max %}
     <div class="bar-chart">
       {% for d in ai.by_day_30d %}
@@ -530,11 +527,11 @@
 
   {% if ai.top_users_30d %}
   <div class="chart-wrap">
-    <h3>Top utilisateurs IA · 30 derniers jours</h3>
+    <h3>{{ t('web_premium.owner_analytics.top_ai_users_30d') }}</h3>
     <div class="top-list">
       {% for u in ai.top_users_30d %}
       <div class="row">
-        <span class="uid">{{ u.user_id }} · {{ u.calls }} appel(s)</span>
+        <span class="uid">{{ u.user_id }} · {{ t('web_premium.owner_analytics.calls_n', n=u.calls) }}</span>
         <span class="tok">{{ fmt(u.tokens) }} tok</span>
       </div>
       {% endfor %}
@@ -543,8 +540,7 @@
   {% endif %}
 
   <p class="muted" style="font-size:11px;text-align:center;margin-top:18px;">
-    Limite gratuite Groq : 30 req/min, environ 6 000 tokens/min.
-    · Engagement (temps/scroll/device) base sur le tracker JS, donnees disponibles apres deploiement.
+    {{ t('web_premium.owner_analytics.footer_note') }}
   </p>
 </div>
 
@@ -557,9 +553,9 @@ function toggleAddDon() {
 async function submitAddDon(btn) {
   const status = document.getElementById("adStatus");
   const amount = parseFloat(document.getElementById("adAmount").value);
-  if (!amount || amount <= 0) { status.textContent = "Montant invalide"; return; }
+  if (!amount || amount <= 0) { status.textContent = "Invalid amount"; return; }
   btn.disabled = true;
-  status.textContent = "Enregistrement...";
+  status.textContent = "Saving...";
   try {
     const r = await fetch("/api/owner/donations", {
       method: "POST",
@@ -573,20 +569,20 @@ async function submitAddDon(btn) {
     });
     const data = await r.json();
     if (data.ok) {
-      status.textContent = "Ajoute, rechargement...";
+      status.textContent = "Added, reloading...";
       location.reload();
     } else {
-      status.textContent = "Echec";
+      status.textContent = "Failed";
       btn.disabled = false;
     }
   } catch (e) {
-    status.textContent = "Erreur reseau";
+    status.textContent = "Network error";
     btn.disabled = false;
   }
 }
 
 async function deleteDonation(id, btn) {
-  if (!confirm("Supprimer ce don ? (utile pour les dons de test)")) return;
+  if (!confirm("Delete this donation? (handy for test donations)")) return;
   btn.disabled = true;
   try {
     const r = await fetch("/api/owner/donations/" + id, { method: "DELETE" });
@@ -595,11 +591,11 @@ async function deleteDonation(id, btn) {
       const row = document.querySelector('.don-row[data-don-id="' + id + '"]');
       if (row) row.remove();
     } else {
-      alert("Echec de la suppression.");
+      alert("Deletion failed.");
       btn.disabled = false;
     }
   } catch (e) {
-    alert("Erreur reseau.");
+    alert("Network error.");
     btn.disabled = false;
   }
 }

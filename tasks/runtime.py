@@ -9,26 +9,28 @@ import discord
 from discord import app_commands
 from discord.ext import tasks
 
+from services.i18n import guild_locale, t, ti
 
-# Cooldown anti-spam XP : (guild_id, user_id) -> ts du dernier gain
+
+# XP anti-spam cooldown: (guild_id, user_id) -> ts of the last gain
 _XP_LAST_GAIN: dict = {}
 
-# Memoire conversation IA par salon : channel_id -> {"history": [...], "ts": epoch}
-# Reset auto apres 1h sans message (limite la conso de tokens).
+# Per-channel AI conversation memory: channel_id -> {"history": [...], "ts": epoch}
+# Auto reset after 1h without a message (keeps token usage down).
 _AI_MEMORY: dict = {}
-_AI_MEMORY_TTL = 3600        # 1h d'inactivite => reset
-_AI_MEMORY_MAX_MSGS = 12     # garde 12 derniers messages (6 echanges)
+_AI_MEMORY_TTL = 3600        # 1h of inactivity => reset
+_AI_MEMORY_MAX_MSGS = 12     # keep the last 12 messages (6 exchanges)
 
 
 def setup_runtime(bot, deps):
     globals().update(deps)
 
     def _resolve_setup_channel(guild, key: str):
-        """Retourne le salon configure via /setup pour `key` (welcome/logs/alerts/admin).
+        """Return the channel configured through /setup for `key` (welcome/logs/alerts/admin).
 
-        Fallback : si non configure OU salon introuvable OU non-writable,
-        retourne le premier salon ecrit writable du serveur (system_channel
-        prioritaire, sinon premier text_channel writable). None si rien dispo.
+        Fallback: if not configured OR the channel is missing OR not writable,
+        return the first writable text channel of the server (system_channel
+        first, otherwise the first writable text_channel). None if nothing available.
         """
         if not guild:
             return None
@@ -41,7 +43,7 @@ def setup_runtime(bot, deps):
                 ch = None
             if ch and me and ch.permissions_for(me).send_messages:
                 return ch
-        # Fallback : system_channel puis premier text_channel writable
+        # Fallback: system_channel then the first writable text_channel
         if guild.system_channel and me and guild.system_channel.permissions_for(me).send_messages:
             return guild.system_channel
         for ch in guild.text_channels:
@@ -51,15 +53,15 @@ def setup_runtime(bot, deps):
 
     @bot.event
     async def on_ready():
-        print(f"✅ Bot connecté en tant que {bot.user}")
-        # Re-enregistre les vues persistantes APRES connexion (timing fiable :
-        # garantit que les vieux messages ticket sont captes sans re-poster)
+        print(f"✅ Bot connected as {bot.user}")
+        # Re-register persistent views AFTER connecting (reliable timing:
+        # makes sure old ticket messages are caught without re-posting)
         try:
             if hasattr(bot, "_register_ticket_views"):
                 bot._register_ticket_views()
         except Exception as e:
             print(f"[ticket] re-register views on_ready: {e!r}")
-        # Enregistrer chaque guild où le bot est présent + sync ses channels
+        # Register every guild the bot is in + sync its channels
         for guild in bot.guilds:
             upsert_guild(
                 guild.id, guild.name,
@@ -70,16 +72,16 @@ def setup_runtime(bot, deps):
             try:
                 _sync_guild_channels(guild)
             except Exception as e:
-                print(f"[channels] sync {guild.name} échoué : {e}")
+                print(f"[channels] sync {guild.name} failed: {e}")
             try:
                 _sync_guild_roles(guild)
             except Exception as e:
-                print(f"[roles] sync {guild.name} échoué : {e}")
+                print(f"[roles] sync {guild.name} failed: {e}")
             try:
                 _sync_guild_members(guild)
             except Exception as e:
-                print(f"[members] sync {guild.name} échoué : {e}")
-        print(f"👀 {len(USER_REACTIONS)} réaction(s) chargée(s) sur {len(bot.guilds)} serveur(s)")
+                print(f"[members] sync {guild.name} failed: {e}")
+        print(f"👀 {len(USER_REACTIONS)} reaction(s) loaded across {len(bot.guilds)} server(s)")
         if not reload_reactions.is_running():
             reload_reactions.start()
         if not process_bot_commands.is_running():
@@ -110,13 +112,13 @@ def setup_runtime(bot, deps):
             card_render_bake_loop.start()
         if not auto_boss_loop.is_running():
             auto_boss_loop.start()
-        # Reprise des combats de boss orphelins (task asyncio morte au restart)
+        # Resume orphan boss fights (asyncio task killed by the restart)
         try:
             from services.card_boss import resume_active_bosses
             await resume_active_bosses(bot)
         except Exception as e:
             print(f"[boss] resume err: {e!r}")
-        # CS2 queue sweep (filet de securite si on_voice_state_update manque un event)
+        # CS2 queue sweep (safety net if on_voice_state_update misses an event)
         cs2_loop = globals().get("cs2_queue_sweep_loop")
         if cs2_loop is not None and not cs2_loop.is_running():
             cs2_loop.start()
@@ -128,41 +130,41 @@ def setup_runtime(bot, deps):
         # gateway at boot if the saved channel state is stale.
         if MUSIC_RESUME and os.getenv("MUSIC_RESUME_ON_BOOT", "0") == "1":
             await MUSIC_RESUME()
-        # Sync entitlements existants (achats faits avant que le bot soit en ligne)
+        # Sync existing entitlements (purchases made before the bot came online)
         try:
             count = 0
             async for ent in bot.entitlements(exclude_ended=True):
                 upsert_entitlement(_entitlement_to_dict(ent))
                 count += 1
-            print(f"[entitlement] sync boot : {count} actif(s) charge(s)")
+            print(f"[entitlement] boot sync: {count} active entitlement(s) loaded")
         except Exception as e:
-            print(f"[entitlement] sync boot error : {e!r}")
-        # Purge les commandes per-guild orphelines (duplication possible si
-        # une ancienne version syncait global + per-guild sans copy_global_to,
-        # ce qui faisait fire chaque handler 2 fois).
+            print(f"[entitlement] boot sync error: {e!r}")
+        # Purge orphan per-guild commands (duplicates are possible if an older
+        # version synced global + per-guild without copy_global_to, which made
+        # every handler fire twice).
         for guild in bot.guilds:
             try:
                 bot.tree.clear_commands(guild=guild)
                 await bot.tree.sync(guild=guild)
             except Exception as e:
-                print(f"[sync] clear guild {guild.name} fail : {e}")
+                print(f"[sync] clear guild {guild.name} failed: {e}")
         await bot.tree.sync()
-        print("✅ Slash commands synchronisées globalement")
+        print("✅ Slash commands synced globally")
 
-        # Enregistre les commandes custom (per-guild slash commands) apres
-        # le sync global, sinon le clear ci-dessus les efface.
+        # Register custom commands (per-guild slash commands) AFTER the global
+        # sync, otherwise the clear above wipes them.
         from commandes.custom_cmd import sync_custom_commands_for_guild
         for guild in bot.guilds:
             try:
                 n = await sync_custom_commands_for_guild(bot, guild.id)
                 if n:
-                    print(f"[custom_cmd] {guild.name}: {n} commandes custom enregistrées")
+                    print(f"[custom_cmd] {guild.name}: {n} custom command(s) registered")
             except Exception as e:
-                print(f"[custom_cmd] sync boot {guild.name} fail : {e}")
+                print(f"[custom_cmd] boot sync {guild.name} failed: {e}")
 
     def _sync_guild_roles(guild):
-        """Pousse les roles d'une guild dans la table guild_roles (cache pour
-        les pickers du dashboard)."""
+        """Push a guild's roles into the guild_roles table (cache used by the
+        dashboard pickers)."""
         rows = []
         for r in guild.roles:
             rows.append({
@@ -188,7 +190,7 @@ def setup_runtime(bot, deps):
                 "joined_at":  m.joined_at,
             })
         replace_guild_members(guild.id, members)
-        # Sync roles de chaque member (sans @everyone)
+        # Sync each member's roles (without @everyone)
         for m in guild.members:
             try:
                 role_ids = [str(r.id) for r in m.roles if r.name != "@everyone"]
@@ -197,7 +199,7 @@ def setup_runtime(bot, deps):
                 pass
 
     def _sync_guild_channels(guild):
-        """Pousse les salons d'un guild dans la table guild_channels."""
+        """Push a guild's channels into the guild_channels table."""
         rows = []
         for ch in guild.channels:
             if isinstance(ch, discord.CategoryChannel):
@@ -227,21 +229,21 @@ def setup_runtime(bot, deps):
                      member_count=guild.member_count or 0,
                      owner_id=guild.owner_id)
         _sync_guild_channels(guild)
-        # Sync global uniquement (per-guild sync sans copy_global_to creait
-        # un double jeu de commandes -> handlers fire 2 fois)
+        # Global sync only (a per-guild sync without copy_global_to created a
+        # duplicate command set -> handlers fired twice)
         try:
             await bot.tree.sync()
         except Exception:
             pass
 
-        # ===== ONBOARDING DM : 1 message consolide a l'inviteur + 1 a l'owner =====
-        # Refonte juin 2026 : moins de wall-of-text, plus de hierarchie visuelle,
-        # boutons URL directs vers dashboard / commandes / support.
+        # ===== ONBOARDING DM: 1 consolidated message to the inviter + 1 to the owner =====
+        # June 2026 rework: less wall-of-text, stronger visual hierarchy,
+        # direct URL buttons to dashboard / commands / support.
         DASHBOARD_URL = "https://dashboard.tookbot.click"
         LANDING_URL   = "https://tookbot.click"
         SUPPORT_URL   = "https://discord.gg/hx4KEFSGJA"
 
-        # Recherche de l'inviter via audit log (fallback owner)
+        # Look up the inviter through the audit log (fallback: owner)
         inviter = None
         try:
             async for entry in guild.audit_logs(limit=8, action=discord.AuditLogAction.bot_add):
@@ -253,64 +255,53 @@ def setup_runtime(bot, deps):
         if inviter is None:
             inviter = guild.owner
 
+        lang = guild_locale(guild.id) or "en"
+        dash_label = DASHBOARD_URL.replace("https://", "")
+
         def _build_invite_view():
             v = discord.ui.View(timeout=None)
-            v.add_item(discord.ui.Button(label="Ouvrir le dashboard", style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
-            v.add_item(discord.ui.Button(label="Voir toutes les commandes", style=discord.ButtonStyle.link, url=f"{LANDING_URL}/commandes.html", emoji="📚"))
-            v.add_item(discord.ui.Button(label="Serveur support", style=discord.ButtonStyle.link, url=SUPPORT_URL, emoji="💬"))
+            v.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_dashboard", lang), style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
+            v.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_commands", lang), style=discord.ButtonStyle.link, url=f"{LANDING_URL}/commandes.html", emoji="📚"))
+            v.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_support", lang), style=discord.ButtonStyle.link, url=SUPPORT_URL, emoji="💬"))
             return v
 
         if inviter is not None and not inviter.bot:
             embed = discord.Embed(
-                title=f"👋 Bienvenue sur TookBot — {guild.name}",
-                description=(
-                    f"Salut **{inviter.display_name}**, merci de m'avoir invité.\n"
-                    "Tout est pret a tourner. Voici ce qu'il te reste a faire."
-                ),
+                title=t("runtime.onboarding.inviter_title", lang, guild=guild.name),
+                description=t("runtime.onboarding.inviter_desc", lang,
+                              user=inviter.display_name),
                 color=0xB9F23A,
             )
             embed.add_field(
-                name="⚙️ 1 — Lance le setup obligatoire",
-                value=(
-                    "Tape `/setup` sur le serveur (admin requis).\n"
-                    "Tu choisiras les 4 salons : **Bienvenue**, **Logs**, **Alertes**, **Admin/Modo**.\n"
-                    "Sans ca, certaines features ne savent pas ou poster."
-                ),
+                name=t("runtime.onboarding.step1_name", lang),
+                value=t("runtime.onboarding.step1_value", lang),
                 inline=False,
             )
             embed.add_field(
-                name="🎛️ 2 — Configure depuis le dashboard",
-                value=(
-                    f"[Ouvre {DASHBOARD_URL.replace('https://', '')}]({DASHBOARD_URL}) "
-                    "pour ajuster XP, message de bienvenue, fonctionnalites, "
-                    "permissions modos, custom commands, alertes Twitch/YouTube/Reddit, etc."
-                ),
+                name=t("runtime.onboarding.step2_name", lang),
+                value=t("runtime.onboarding.step2_value", lang,
+                        dashboard_label=dash_label, dashboard_url=DASHBOARD_URL),
                 inline=False,
             )
             embed.add_field(
-                name="🚀 3 — Decouvre les commandes",
-                value=(
-                    "`/commandes` pour la liste, `/duel info` pour les duels PvP, "
-                    "`/play` pour la musique, `/niveau` pour ton XP."
-                ),
+                name=t("runtime.onboarding.step3_name", lang),
+                value=t("runtime.onboarding.step3_value", lang),
                 inline=False,
             )
             embed.add_field(
-                name="💡 A savoir",
-                value=(
-                    "Le **systeme XP** est **active par defaut**. Pour le couper : "
-                    "`/xp off` ou via le dashboard (XP acquise conservee)."
-                ),
+                name=t("runtime.onboarding.tip_name", lang),
+                value=t("runtime.onboarding.tip_value", lang),
                 inline=False,
             )
-            embed.set_footer(text=f"{guild.name} • {guild.member_count or 0} membre(s)")
+            embed.set_footer(text=t("runtime.onboarding.inviter_footer", lang,
+                                    guild=guild.name, members=guild.member_count or 0))
             if guild.icon:
                 embed.set_thumbnail(url=str(guild.icon.url))
 
             try:
                 await inviter.send(embed=embed, view=_build_invite_view())
             except (discord.Forbidden, discord.HTTPException):
-                # Fallback : poste dans system_channel ou 1er salon writable
+                # Fallback: post in system_channel or the first writable channel
                 try:
                     target = None
                     if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
@@ -325,43 +316,32 @@ def setup_runtime(bot, deps):
                 except Exception:
                     pass
 
-        # DM OWNER (different de l'inviter) : focus permissions modos
+        # OWNER DM (when different from the inviter): focus on moderator permissions
         server_owner = guild.owner
         if server_owner and not server_owner.bot and (
             inviter is None or server_owner.id != inviter.id
         ):
             embed_owner = discord.Embed(
-                title="🔐 Action requise — Permissions modos",
-                description=(
-                    f"Salut **{server_owner.display_name}**, TookBot est sur **{guild.name}**.\n"
-                    "Une seule action obligatoire pour toi en tant que proprio :"
-                ),
+                title=t("runtime.onboarding.owner_title", lang),
+                description=t("runtime.onboarding.owner_desc", lang,
+                              user=server_owner.display_name, guild=guild.name),
                 color=0xB9F23A,
             )
             embed_owner.add_field(
-                name="⚠️ Par defaut, les modos ont acces a tout",
-                value=(
-                    "Tant que tu n'as pas configure leurs droits feature par feature :\n"
-                    "• ils ne peuvent **utiliser aucune commande de moderation**\n"
-                    "• ils ne peuvent **acceder a aucune page** du dashboard "
-                    "(sauf leur Premium/Pass perso)"
-                ),
+                name=t("runtime.onboarding.owner_warn_name", lang),
+                value=t("runtime.onboarding.owner_warn_value", lang),
                 inline=False,
             )
             embed_owner.add_field(
-                name="🎯 Comment configurer",
-                value=(
-                    f"**Dashboard** : ouvre [{DASHBOARD_URL.replace('https://', '')}]({DASHBOARD_URL}) "
-                    "et un popup t'aide a la 1re connexion.\n"
-                    "**Discord** : `/setup` pour choisir le role modo, "
-                    "puis un salon prive temporaire te laisse cocher les droits."
-                ),
+                name=t("runtime.onboarding.owner_how_name", lang),
+                value=t("runtime.onboarding.owner_how_value", lang,
+                        dashboard_label=dash_label, dashboard_url=DASHBOARD_URL),
                 inline=False,
             )
-            embed_owner.set_footer(text="Tu peux modifier ces droits a tout moment")
+            embed_owner.set_footer(text=t("runtime.onboarding.owner_footer", lang))
 
             owner_view = discord.ui.View(timeout=None)
-            owner_view.add_item(discord.ui.Button(label="Configurer dashboard", style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
+            owner_view.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_configure_dashboard", lang), style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
 
             try:
                 await server_owner.send(embed=embed_owner, view=owner_view)
@@ -399,7 +379,7 @@ def setup_runtime(bot, deps):
         try:
             _sync_guild_roles(role.guild)
         except Exception as e:
-            print(f"[roles] sync on create : {e}")
+            print(f"[roles] sync on create: {e}")
 
 
     @bot.event
@@ -407,7 +387,7 @@ def setup_runtime(bot, deps):
         try:
             _sync_guild_roles(after.guild)
         except Exception as e:
-            print(f"[roles] sync on update : {e}")
+            print(f"[roles] sync on update: {e}")
 
 
     @bot.event
@@ -415,15 +395,15 @@ def setup_runtime(bot, deps):
         try:
             _sync_guild_roles(role.guild)
         except Exception as e:
-            print(f"[roles] sync on delete : {e}")
+            print(f"[roles] sync on delete: {e}")
 
 
-    # ===== LOGS — capture des events =====
+    # ===== LOGS - event capture =====
     @bot.event
     async def on_app_command_completion(interaction: discord.Interaction, command):
         if not interaction.guild:
             return
-        # Reconstruire la liste d'arguments lisibles
+        # Rebuild a readable argument list
         args_str = ""
         try:
             opts = (interaction.data or {}).get("options") or []
@@ -456,7 +436,8 @@ def setup_runtime(bot, deps):
             message.guild.id, "action_message_delete",
             user_id=message.author.id, username=str(message.author),
             channel_id=message.channel.id, channel_name=getattr(message.channel, "name", None),
-            content=message.content or "(message vide ou attachement seul)",
+            content=message.content or t("runtime.log.empty_message",
+                                        guild_locale(message.guild.id) or "en"),
         )
 
     @bot.event
@@ -464,7 +445,7 @@ def setup_runtime(bot, deps):
         if not after.guild or after.author.bot:
             return
         if (before.content or "") == (after.content or ""):
-            return  # juste un embed/preview qui se met a jour
+            return  # just an embed/preview refreshing itself
         add_log(
             after.guild.id, "action_message_edit",
             user_id=after.author.id, username=str(after.author),
@@ -477,7 +458,7 @@ def setup_runtime(bot, deps):
     async def on_voice_state_update(member, before, after):
         if not member.guild:
             return
-        # 1) Log voice changes (join/leave/move) — utile pour analytics
+        # 1) Log voice changes (join/leave/move) - useful for analytics
         if before.channel != after.channel:
             if before.channel is None and after.channel is not None:
                 add_log(member.guild.id, "action_voice_join",
@@ -493,14 +474,14 @@ def setup_runtime(bot, deps):
                         channel_id=after.channel.id, channel_name=after.channel.name,
                         meta={"from": before.channel.name, "to": after.channel.name})
 
-        # 2) CS2 voice hook (cleanup voice channels CS2 vides)
+        # 2) CS2 voice hook (cleanup of empty CS2 voice channels)
         try:
             from commandes.cs2 import on_voice_state_update as _cs2_voice
             await _cs2_voice(member, before, after, bot)
         except Exception as e:
             print(f"[cs2/voice-hook] {type(e).__name__}: {e}")
 
-        # 3) Tempvoice (lobby -> creation salon perso + cleanup vide)
+        # 3) Tempvoice (lobby -> create a personal channel + cleanup when empty)
         try:
             from commandes.tempvoice import tempvoice_on_voice_state_update as _tv_voice
             await _tv_voice(member, before, after, bot)
@@ -513,7 +494,9 @@ def setup_runtime(bot, deps):
             return
         add_log(member.guild.id, "action_member_leave",
                 user_id=member.id, username=str(member),
-                content=f"a quitté **{member.guild.name}**")
+                content=t("runtime.log.member_leave",
+                          guild_locale(member.guild.id) or "en",
+                          guild=member.guild.name))
         try:
             remove_member(member.guild.id, member.id)
         except Exception:
@@ -534,7 +517,7 @@ def setup_runtime(bot, deps):
                           is_bot=after.bot, joined_at=after.joined_at)
         except Exception:
             pass
-        # Sync roles si change
+        # Sync roles when they changed
         try:
             before_ids = {str(r.id) for r in (before.roles or [])}
             after_ids  = {str(r.id) for r in (after.roles or [])}
@@ -544,10 +527,10 @@ def setup_runtime(bot, deps):
         except Exception:
             pass
 
-        # Detection role soutien (VIP / Super VIP) -> message de remerciement
+        # Supporter role detection (VIP / Super VIP) -> thank-you message
         try:
             support_guild_id = os.getenv("SUPPORT_GUILD_ID", "1502322150822908115")
-            # Salon : reglage dashboard prioritaire, sinon env, sinon defaut
+            # Channel: dashboard setting first, then env, then default
             soutien_chan_id = (get_setting("soutien_channel_id", "") or "").strip() \
                 or os.getenv("SOUTIEN_CHANNEL_ID", "1510450694195511436")
 
@@ -556,7 +539,7 @@ def setup_runtime(bot, deps):
                 after_roles  = {r.id: r for r in (after.roles or [])}
                 gained_ids = set(after_roles.keys()) - before_ids_r
 
-                # Roles declencheurs : IDs configures (dashboard) prioritaires, sinon noms par defaut
+                # Trigger roles: configured IDs (dashboard) first, otherwise default names
                 cfg_ids_csv = (get_setting("soutien_role_ids", "") or "").strip()
                 trigger_ids = {int(x) for x in cfg_ids_csv.split(",") if x.strip().isdigit()}
 
@@ -568,7 +551,7 @@ def setup_runtime(bot, deps):
                             matched_role = role
                             break
                     else:
-                        # Fallback par nom (defaut)
+                        # Fallback by name (default)
                         if role.name in {"💎 VIP", "🧡 Super VIP"}:
                             matched_role = role
                             break
@@ -578,7 +561,8 @@ def setup_runtime(bot, deps):
                     if chan:
                         import datetime as _dt2
                         template = get_setting("soutien_message", "") \
-                            or "<user> A décidé de filer un coup de main ! Merci pour ton soutien !"
+                            or t("runtime.soutien.default_message",
+                                 guild_locale(after.guild.id) or "en")
                         msg = (template
                                .replace("<user>", f"<@{after.id}>")
                                .replace("<username>", after.display_name)
@@ -590,7 +574,7 @@ def setup_runtime(bot, deps):
                             allowed_mentions=discord.AllowedMentions(users=True, everyone=False, roles=False),
                         )
                     else:
-                        print(f"[soutien] salon {soutien_chan_id} introuvable (bot pas dans le serveur ou mauvais ID)")
+                        print(f"[soutien] channel {soutien_chan_id} not found (bot not in the server or wrong ID)")
         except Exception as _e:
             print(f"[soutien] notif err: {_e!r}")
 
@@ -600,9 +584,9 @@ def setup_runtime(bot, deps):
         USER_REACTIONS.update(get_all_reactions_index())
 
     _PLATFORM_DEFAULT_MSG = {
-        "youtube": "📺 **{author}** a publié une nouvelle vidéo : **{title}**\n{url}",
-        "reddit":  "🟠 Nouveau post de **{target}** : **{title}**\n{url}",
-        "twitch":  "🔴 **{target}** est en LIVE — *{title}*\n🎮 {game} · 👀 {viewers} viewers\n{url}",
+        "youtube": "📺 **{author}** published a new video: **{title}**\n{url}",
+        "reddit":  "🟠 New post from **{target}**: **{title}**\n{url}",
+        "twitch":  "🔴 **{target}** is LIVE - *{title}*\n🎮 {game} · 👀 {viewers} viewers\n{url}",
     }
 
     _PLATFORM_COLOR = {
@@ -618,9 +602,10 @@ def setup_runtime(bot, deps):
 
 
     def _build_social_embed(platform: str, target_label: str, item: dict,
-                            custom_template: str | None) -> tuple[str | None, discord.Embed]:
-        """Construit (content, embed) selon plateforme. Si l'user a defini un
-        message custom, on l'utilise comme content au-dessus de l'embed (ping-friendly)."""
+                            custom_template: str | None,
+                            lang: str = "en") -> tuple[str | None, discord.Embed]:
+        """Build (content, embed) per platform. If the user set a custom message,
+        it is used as the content above the embed (ping-friendly)."""
         title = (item.get("title") or "").strip()
         url   = item.get("url") or ""
         author = item.get("author") or target_label
@@ -639,13 +624,15 @@ def setup_runtime(bot, deps):
         embed = discord.Embed(color=color, url=url or None)
 
         if platform == "twitch":
-            embed.title = title or f"{target_label} est en live !"
+            embed.title = title or t("runtime.social.twitch_title", lang, target=target_label)
             embed.url = url
-            embed.description = f"🔴 **{target_label}** est en LIVE !"
+            embed.description = t("runtime.social.twitch_desc", lang, target=target_label)
             if item.get("game"):
-                embed.add_field(name="🎮 Jeu", value=str(item["game"]), inline=True)
+                embed.add_field(name=t("runtime.social.twitch_game", lang),
+                                value=str(item["game"]), inline=True)
             if item.get("viewers") is not None:
-                embed.add_field(name="👀 Viewers", value=f"{item['viewers']:,}".replace(",", " "), inline=True)
+                embed.add_field(name=t("runtime.social.twitch_viewers", lang),
+                                value=f"{item['viewers']:,}".replace(",", " "), inline=True)
             thumb = item.get("thumb")
             if thumb:
                 embed.set_image(url=thumb)
@@ -654,10 +641,10 @@ def setup_runtime(bot, deps):
                              icon_url=_PLATFORM_ICON["twitch"])
 
         elif platform == "youtube":
-            embed.title = title or "Nouvelle vidéo"
+            embed.title = title or t("runtime.social.youtube_title", lang)
             embed.url = url
-            embed.description = f"📺 **{author}** a publié une nouvelle vidéo."
-            # Miniature YouTube depuis videoId
+            embed.description = t("runtime.social.youtube_desc", lang, author=author)
+            # YouTube thumbnail from the videoId
             vid = item.get("id")
             if vid:
                 embed.set_image(url=f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg")
@@ -665,16 +652,16 @@ def setup_runtime(bot, deps):
                              url=url, icon_url=_PLATFORM_ICON["youtube"])
 
         elif platform == "reddit":
-            embed.title = title or "Nouveau post Reddit"
+            embed.title = title or t("runtime.social.reddit_title", lang)
             embed.url = url
-            embed.description = f"🟠 Nouveau post de **{target_label}**."
+            embed.description = t("runtime.social.reddit_desc", lang, target=target_label)
             embed.set_author(name=f"{target_label} · Reddit",
                              url=url, icon_url=_PLATFORM_ICON["reddit"])
 
         else:
-            embed.title = title or "Nouveau contenu"
+            embed.title = title or t("runtime.social.generic_title", lang)
             embed.url = url
-            embed.description = f"Nouveau contenu de **{target_label}**."
+            embed.description = t("runtime.social.generic_desc", lang, target=target_label)
 
         embed.timestamp = _dt.datetime.now(_dt.timezone.utc)
         return content, embed
@@ -682,8 +669,8 @@ def setup_runtime(bot, deps):
 
     @tasks.loop(minutes=5)
     async def social_alerts_poll():
-        """Poll toutes les alertes sociales actives. Compare avec last_seen_id ;
-        poste les nouveautes dans le salon configure."""
+        """Poll every active social alert. Compare with last_seen_id and post
+        anything new in the configured channel."""
         try:
             alerts = social_alerts_list(enabled_only=True)
         except Exception as e:
@@ -705,15 +692,15 @@ def setup_runtime(bot, deps):
                 # Always touch last_check_at so dashboard reflects the poll happened
                 social_alert_touch_check(alert["id"])
                 if not new_items:
-                    # Premiere fois -> ecrit le marqueur pour le prochain poll
+                    # First run -> write the marker for the next poll
                     if not alert.get("last_seen_id") and alert["platform"] != "twitch":
-                        # Tente une lecture pour seed last_seen_id
+                        # Try a read to seed last_seen_id
                         seed = await social.check_platform(
                             alert["platform"], alert["target_id"], "__seed__",
                         )
-                        # check_platform avec last_seen_id non vide retourne [] vu qu'il
-                        # cherche le marqueur. On prend la 1ere video courante via
-                        # un seed manuel : recharge la page brute
+                        # check_platform with a non-empty last_seen_id returns [] since it
+                        # looks for the marker. We grab the current first video through a
+                        # manual seed: reload the raw page
                         if alert["platform"] == "youtube":
                             latest = await _social_latest_youtube_id(alert["target_id"])
                             if latest:
@@ -730,25 +717,27 @@ def setup_runtime(bot, deps):
                 if not channel:
                     continue
 
-                template = alert.get("message_template")  # peut etre None
+                template = alert.get("message_template")  # may be None
                 target_label = alert.get("target_label") or alert["target_id"]
+                alert_lang = guild_locale(getattr(channel, "guild", None)
+                                          and channel.guild.id) or "en"
                 for item in new_items:
                     if item.get("_silent"):
-                        # Twitch passe offline : on update juste le marqueur
+                        # Twitch went offline: only update the marker
                         social_alert_update_seen(alert["id"], item["id"])
                         continue
 
                     content, embed = _build_social_embed(
-                        alert["platform"], target_label, item, template,
+                        alert["platform"], target_label, item, template, alert_lang,
                     )
                     sent_ok = False
                     try:
                         await channel.send(content=content, embed=embed)
                         sent_ok = True
                     except discord.Forbidden:
-                        print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']} — re-tente au prochain poll")
+                        print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']} - will retry on next poll")
                     except Exception as e:
-                        print(f"[social] send err alert={alert['id']}: {e!r} — re-tente au prochain poll")
+                        print(f"[social] send err alert={alert['id']}: {e!r} - will retry on next poll")
                     if sent_ok:
                         social_alert_update_seen(alert["id"], item["id"])
             except Exception as e:
@@ -761,7 +750,7 @@ def setup_runtime(bot, deps):
         items = await social.check_youtube(target_id, "__nope__")
         if items:
             return items[0]["id"]
-        # Fallback : refait la requete brute pour recuperer la 1ere entry
+        # Fallback: redo the raw request to grab the first entry
         try:
             s = await social._get_session()
             url = social.YOUTUBE_FEED_URL.format(cid=target_id)
@@ -791,15 +780,15 @@ def setup_runtime(bot, deps):
 
     @tasks.loop(hours=6)
     async def pass_rotation_loop():
-        """Rotation Battle Pass (toutes les 6h) :
-        - Genere les BG saisonniers du mois courant si absents
-        - A partir du 25 du mois, pre-genere ceux du mois suivant
-        - Cree la saison du mois courant via get_or_create_current_season()
-          (qui seed pass_rewards + sabres auto)
+        """Battle Pass rotation (every 6h):
+        - Generate the seasonal backgrounds of the current month if missing
+        - From the 25th of the month, pre-generate next month's ones
+        - Create the current month season through get_or_create_current_season()
+          (which seeds pass_rewards + sabers automatically)
         """
         import datetime as _dt
         import os as _os, subprocess as _sp, sys as _sys
-        # Root repo : tasks/runtime.py -> tasks/ -> repo root
+        # Repo root: tasks/runtime.py -> tasks/ -> repo root
         _REPO_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
         _BG_SEASONAL_ROOT = _os.path.join(_REPO_ROOT, "assets", "niveau_bg", "seasonal")
         _BG_SCRIPT = _os.path.join(_REPO_ROOT, "scripts", "generate_seasonal_backgrounds.py")
@@ -822,13 +811,13 @@ def setup_runtime(bot, deps):
                       f"  stdout: {res.stdout[-400:]}\n  stderr: {res.stderr[-400:]}")
 
         try:
-            # Saison courante (creee si manquante, seed auto)
+            # Current season (created if missing, auto seeded)
             season = get_or_create_current_season()
             mk = season["month_key"]
 
             _ensure_bgs(mk, "current month")
 
-            # A partir du 25 du mois, pre-genere ceux du mois suivant
+            # From the 25th of the month, pre-generate next month's ones
             now = _dt.datetime.utcnow()
             if now.day >= 25:
                 if now.month == 12:
@@ -847,13 +836,13 @@ def setup_runtime(bot, deps):
 
     @tasks.loop(hours=24)
     async def daily_logs_purge():
-        """Purge quotidienne: > 90 jours OU > 5000 logs par guild. Recupere espace disque via VACUUM."""
+        """Daily purge: > 90 days OR > 5000 logs per guild. Reclaims disk space with VACUUM."""
         try:
             keep = max(100, int(get_setting("log_keep_per_guild") or "5000"))
             age  = max(7,   int(get_setting("log_retention_days")  or "90"))
             res = prune_logs_global(keep_per_guild=keep, max_age_days=age)
             if res["by_age"] or res["by_count"]:
-                print(f"[purge] logs : -{res['by_age']} (age) -{res['by_count']} (count) + VACUUM")
+                print(f"[purge] logs: -{res['by_age']} (age) -{res['by_count']} (count) + VACUUM")
         except Exception as e:
             print(f"[purge] error: {e}")
             BOT_STATE["last_error"]    = f"purge: {e}"
@@ -867,8 +856,10 @@ def setup_runtime(bot, deps):
     async def on_member_join(member):
         add_log(member.guild.id, "action_member_join",
                 user_id=member.id, username=str(member),
-                content=f"a rejoint **{member.guild.name}**")
-        # Automod : raid protection (compte joins/minute)
+                content=t("runtime.log.member_join",
+                          guild_locale(member.guild.id) or "en",
+                          guild=member.guild.name))
+        # Automod: raid protection (counts joins per minute)
         try:
             from services.automod import automod_on_member_join
             await automod_on_member_join(member, bot)
@@ -881,7 +872,7 @@ def setup_runtime(bot, deps):
                           is_bot=member.bot, joined_at=member.joined_at)
         except Exception:
             pass
-        # Init roles (vide au join sauf si rôles auto-attribués par la guild)
+        # Init roles (empty on join unless the guild auto-assigns roles)
         try:
             from database import member_roles_set
             role_ids = [str(r.id) for r in (member.roles or []) if r.name != "@everyone"]
@@ -891,46 +882,48 @@ def setup_runtime(bot, deps):
 
         data = get_welcome(member.guild.id)
         if not data:
-            print(f"[welcome] pas de config pour guild={member.guild.id}")
+            print(f"[welcome] no config for guild={member.guild.id}")
             return
         channel = bot.get_channel(data["channel_id"])
         if not channel:
-            # Fallback 1 : fetch direct si pas en cache
+            # Fallback 1: direct fetch when not cached
             try:
                 channel = await bot.fetch_channel(int(data["channel_id"]))
             except Exception as e:
-                print(f"[welcome] salon {data['channel_id']} introuvable guild={member.guild.id}: {e}")
+                print(f"[welcome] channel {data['channel_id']} not found guild={member.guild.id}: {e}")
                 channel = None
         if not channel:
-            # Fallback 2 : salon configure via /setup (welcome) si la table welcome
-            # pointe vers un salon supprime. Auto-repare la table.
+            # Fallback 2: channel configured through /setup (welcome) when the welcome
+            # table points to a deleted channel. Auto-repairs the table.
             channel = _resolve_setup_channel(member.guild, "welcome")
             if channel:
                 try:
                     from database import set_welcome
                     set_welcome(member.guild.id, channel.id, data.get("message"))
-                    print(f"[welcome] table reparee -> salon /setup {channel.id} guild={member.guild.id}")
+                    print(f"[welcome] table repaired -> /setup channel {channel.id} guild={member.guild.id}")
                 except Exception as e:
                     print(f"[welcome] repair table err: {e}")
             else:
-                print(f"[welcome] aucun salon valide (table morte + pas de /setup) guild={member.guild.id}")
+                print(f"[welcome] no valid channel (dead table + no /setup) guild={member.guild.id}")
                 return
         template = data.get("message") or guild_setting_get(str(member.guild.id), "welcome_template", DEFAULT_WELCOME_MESSAGE)
         try:
             send_kwargs = build_welcome_send_kwargs(template, member)
         except Exception as e:
             print(f"[welcome] build kwargs err: {e}")
-            send_kwargs = {"content": f"Bienvenue {member.mention} !"}
+            send_kwargs = {"content": t("runtime.welcome.fallback",
+                                        guild_locale(member.guild.id) or "en",
+                                        user=member.mention)}
         try:
             await channel.send(**send_kwargs)
-            print(f"[welcome] envoye guild={member.guild.id} salon={data['channel_id']} user={member.id}")
+            print(f"[welcome] sent guild={member.guild.id} channel={data['channel_id']} user={member.id}")
         except Exception as e:
-            print(f"[welcome] ECHEC send guild={member.guild.id} salon={data['channel_id']}: {type(e).__name__}: {e}")
+            print(f"[welcome] SEND FAILED guild={member.guild.id} channel={data['channel_id']}: {type(e).__name__}: {e}")
         return
     # ===== MONETIZATION : entitlements Discord =====
 
     def _entitlement_to_dict(ent) -> dict:
-        """Convertit un objet Entitlement (discord.py) en dict propre pour la DB."""
+        """Convert an Entitlement object (discord.py) into a clean dict for the DB."""
         try:
             d = ent.to_dict()  # discord.py 2.4+
             if isinstance(d, dict):
@@ -952,9 +945,9 @@ def setup_runtime(bot, deps):
     # ========== REACTION ROLES ==========
 
     def _format_emoji_key(payload_emoji) -> str:
-        """Convertit un emoji de RawReactionActionEvent en string canonique :
-        - Unicode emoji  -> caractere brut (ex: '🟢')
-        - Custom emoji   -> '<:name:id>' ou '<a:name:id>' si anime
+        """Convert a RawReactionActionEvent emoji into a canonical string:
+        - Unicode emoji  -> raw character (e.g. '🟢')
+        - Custom emoji   -> '<:name:id>' or '<a:name:id>' when animated
         """
         e = payload_emoji
         if e.id:
@@ -967,7 +960,7 @@ def setup_runtime(bot, deps):
     _VOTE_EMOJIS = ("🔼", "🔽")
 
     async def _recount_suggestion_votes(payload):
-        """Recompte 🔼/🔽 sous un message de suggestion et stocke le ratio en DB."""
+        """Recount 🔼/🔽 under a suggestion message and store the ratio in the DB."""
         try:
             if payload.channel_id != _SUGGEST_CHANNEL_ID:
                 return
@@ -984,7 +977,7 @@ def setup_runtime(bot, deps):
             up = down = 0
             for r in msg.reactions:
                 if str(r.emoji) == "🔼":
-                    up = max(0, r.count - 1)   # retire la reaction du bot
+                    up = max(0, r.count - 1)   # drop the bot's own reaction
                 elif str(r.emoji) == "🔽":
                     down = max(0, r.count - 1)
             card_suggestion_set_votes(sugg["id"], up, down)
@@ -1010,7 +1003,7 @@ def setup_runtime(bot, deps):
         if not role:
             return
         try:
-            # Mode 'unique' : on retire les autres roles du meme group_key avant
+            # 'unique' mode: remove the other roles of the same group_key first
             if mapping.get("mode") == "unique" and mapping.get("group_key"):
                 others = db_rr_list_unique(payload.guild_id, payload.message_id, mapping["group_key"])
                 for o in others:
@@ -1019,7 +1012,7 @@ def setup_runtime(bot, deps):
                     other_role = guild.get_role(int(o["role_id"]))
                     if other_role and other_role in member.roles:
                         await member.remove_roles(other_role, reason="ReactionRole unique group")
-                    # Retire aussi sa reaction sur le msg
+                    # Also remove their reaction from the message
                     try:
                         channel = guild.get_channel(payload.channel_id)
                         msg = await channel.fetch_message(payload.message_id)
@@ -1029,7 +1022,7 @@ def setup_runtime(bot, deps):
             if role not in member.roles:
                 await member.add_roles(role, reason=f"ReactionRole {emoji_key}")
         except discord.Forbidden:
-            print(f"[rolereaction] Forbidden : pas la perm pour role {role.id} sur {guild.id}")
+            print(f"[rolereaction] Forbidden: missing permission for role {role.id} on {guild.id}")
         except Exception as e:
             print(f"[rolereaction] add error: {e!r}")
 
@@ -1061,15 +1054,15 @@ def setup_runtime(bot, deps):
             if role in member.roles:
                 await member.remove_roles(role, reason=f"ReactionRole - {emoji_key}")
         except discord.Forbidden:
-            print(f"[rolereaction] Forbidden : pas la perm pour role {role.id} sur {guild.id}")
+            print(f"[rolereaction] Forbidden: missing permission for role {role.id} on {guild.id}")
         except Exception as e:
             print(f"[rolereaction] remove error: {e!r}")
 
 
     @bot.event
     async def on_interaction(interaction: discord.Interaction):
-        # Gere uniquement les boutons rolereaction (custom_id "rr:<role_id>").
-        # Les autres interactions (slash, autres composants) sont gerees ailleurs.
+        # Handles rolereaction buttons only (custom_id "rr:<role_id>").
+        # Other interactions (slash commands, other components) are handled elsewhere.
         if interaction.type != discord.InteractionType.component:
             return
         cid = (interaction.data or {}).get("custom_id", "")
@@ -1087,16 +1080,17 @@ def setup_runtime(bot, deps):
             return
         role = guild.get_role(role_id)
         if not role:
-            await interaction.response.send_message("Rôle introuvable.", ephemeral=True)
+            await interaction.response.send_message(
+                ti(interaction, "runtime.rolebutton.role_not_found"), ephemeral=True)
             return
-        # Recupere le mapping pour mode/group
+        # Fetch the mapping for mode/group
         rows = db_rr_list(guild.id, interaction.message.id)
         mapping = next((r for r in rows if str(r["role_id"]) == str(role_id)), None)
         mode = mapping.get("mode") if mapping else "toggle"
         group_key = mapping.get("group_key") if mapping else None
         try:
             if mode == "unique" and group_key:
-                # Retire les autres roles du groupe
+                # Remove the other roles of the group
                 others = db_rr_list_unique(guild.id, interaction.message.id, group_key)
                 for o in others:
                     if str(o["role_id"]) == str(role_id):
@@ -1107,45 +1101,49 @@ def setup_runtime(bot, deps):
                 if role not in member.roles:
                     await member.add_roles(role, reason="RoleButton unique")
                     await interaction.response.send_message(
-                        f"✅ Rôle {role.mention} attribué.", ephemeral=True)
+                        ti(interaction, "runtime.rolebutton.granted", role=role.mention),
+                        ephemeral=True)
                 else:
                     await interaction.response.send_message(
-                        f"Tu as déjà {role.mention}.", ephemeral=True)
+                        ti(interaction, "runtime.rolebutton.already_owned", role=role.mention),
+                        ephemeral=True)
             elif mode == "add_only":
                 if role not in member.roles:
                     await member.add_roles(role, reason="RoleButton add_only")
                     await interaction.response.send_message(
-                        f"✅ Rôle {role.mention} attribué.", ephemeral=True)
+                        ti(interaction, "runtime.rolebutton.granted", role=role.mention),
+                        ephemeral=True)
                 else:
                     await interaction.response.send_message(
-                        f"Tu as déjà {role.mention}.", ephemeral=True)
+                        ti(interaction, "runtime.rolebutton.already_owned", role=role.mention),
+                        ephemeral=True)
             else:
                 # toggle
                 if role in member.roles:
                     await member.remove_roles(role, reason="RoleButton toggle off")
                     await interaction.response.send_message(
-                        f"➖ Rôle {role.mention} retiré.", ephemeral=True)
+                        ti(interaction, "runtime.rolebutton.removed", role=role.mention),
+                        ephemeral=True)
                 else:
                     await member.add_roles(role, reason="RoleButton toggle on")
                     await interaction.response.send_message(
-                        f"✅ Rôle {role.mention} attribué.", ephemeral=True)
+                        ti(interaction, "runtime.rolebutton.granted", role=role.mention),
+                        ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message(
-                "❌ Je n'ai pas pu attribuer ce rôle.\n"
-                "Il me faut la permission **Gérer les rôles** (Manage Roles) et mon propre rôle doit être "
-                "**au-dessus** du rôle à attribuer dans la hiérarchie des rôles du serveur.",
-                ephemeral=True)
+                ti(interaction, "runtime.rolebutton.no_perm"), ephemeral=True)
         except Exception as e:
             print(f"[rolebutton] error: {e!r}")
             try:
-                await interaction.response.send_message("❌ Erreur.", ephemeral=True)
+                await interaction.response.send_message(
+                    ti(interaction, "runtime.rolebutton.error"), ephemeral=True)
             except Exception:
                 pass
 
 
     @bot.event
     async def on_app_command_completion(interaction: discord.Interaction, command: app_commands.Command):
-        """Slash command terminee avec succes -> +1 use_commands quete Pass."""
+        """Slash command completed successfully -> +1 use_commands Pass quest."""
         try:
             if interaction.user and not interaction.user.bot:
                 _track_pass_quest(interaction.user.id, "use_commands", 1)
@@ -1184,8 +1182,8 @@ def setup_runtime(bot, deps):
             print(f"[entitlement] delete error: {e!r}")
 
 
-    # Anti-double-dispatch : Discord peut re-deliver MESSAGE_CREATE apres reconnect
-    # ou si le gateway timeout. Cache les message_id deja traites (max 2048, LRU naive).
+    # Anti double dispatch: Discord can re-deliver MESSAGE_CREATE after a reconnect
+    # or a gateway timeout. Caches already handled message_ids (max 2048, naive LRU).
     _MSG_SEEN = _col.OrderedDict()
     _MSG_SEEN_MAX = 2048
 
@@ -1202,13 +1200,13 @@ def setup_runtime(bot, deps):
             if len(_MSG_SEEN) > _MSG_SEEN_MAX:
                 _MSG_SEEN.popitem(last=False)
         if message.guild is None:
-            # DM (user -> bot) : on ne stocke plus rien (raison vie privee).
+            # DM (user -> bot): nothing is stored anymore (privacy reasons).
             await bot.process_commands(message)
             return
         guild_id_str = str(message.guild.id)
 
-        # Salon support cartes : seul l'owner du bot peut ecrire. Les autres
-        # passent par /cardsuggest et /cardmodify (slash). On supprime le reste.
+        # Card support channel: only the bot owner can write there. Everyone else
+        # goes through /cardsuggest and /cardmodify (slash). The rest is deleted.
         if message.channel and getattr(message.channel, "id", None) == 1513592894265757716:
             try:
                 if not await bot.is_owner(message.author):
@@ -1217,7 +1215,7 @@ def setup_runtime(bot, deps):
             except Exception:
                 pass
 
-        # Card events : claim par captcha texte
+        # Card events: claim through a text captcha
         try:
             from services.card_events import handle_message_claim
             if await handle_message_claim(bot, message):
@@ -1225,15 +1223,15 @@ def setup_runtime(bot, deps):
         except Exception as e:
             print(f"[card_event on_message] err: {e!r}")
 
-        # Automod : filtres TookBot+ (mots interdits, invites, spam mentions)
+        # Automod: TookBot+ filters (banned words, invites, mention spam)
         try:
             from services.automod import automod_on_message
             await automod_on_message(message, bot)
         except Exception as e:
             print(f"[automod/on_message] {type(e).__name__}: {e}")
 
-        # ===== IA Groq : mention du bot + author dans allowlist =====
-        # Restreint au serveur de support uniquement (pas ailleurs).
+        # ===== Groq AI: bot mention + author in the allowlist =====
+        # Restricted to the support server only (nowhere else).
         _ai_support_guild = os.getenv("SUPPORT_GUILD_ID", "1502322150822908115")
         _ai_on_support = bool(message.guild and _ai_support_guild
                                and str(message.guild.id) == str(_ai_support_guild))
@@ -1247,11 +1245,13 @@ def setup_runtime(bot, deps):
                 bot_owner_id = (DISCORD_OWNER_ID or "")
                 if uid in allowed_ids or (bot_owner_id and uid == str(bot_owner_id)):
                     if not get_groq_api_key():
-                        await message.reply("⚠️ IA pas configurée (clé Groq manquante).",
-                                            mention_author=False)
+                        await message.reply(
+                            t("runtime.ai.not_configured",
+                              guild_locale(message.guild.id) or "en"),
+                            mention_author=False)
                     else:
-                        # Strip la mention du bot ; remplace les autres mentions par
-                        # @PseudoAffiche pour que le modele sache de qui on parle.
+                        # Strip the bot mention; replace the other mentions with
+                        # @DisplayName so the model knows who is being talked about.
                         prompt = message.content
                         mention_map = {}   # display_name.lower() -> Member
                         for m in message.mentions:
@@ -1264,10 +1264,12 @@ def setup_runtime(bot, deps):
                                 mention_map[nm.lower()] = m
                         prompt = prompt.strip()
                         if not prompt:
-                            await message.reply("Tu m'as ping mais sans question 🤔",
-                                                mention_author=False)
+                            await message.reply(
+                                t("runtime.ai.no_question",
+                                  guild_locale(message.guild.id) or "en"),
+                                mention_author=False)
                         else:
-                            # Memoire conversation par salon, reset apres 1h d'inactivite
+                            # Per-channel conversation memory, reset after 1h idle
                             now_ai = _time.time()
                             chan_id = message.channel.id
                             mem = _AI_MEMORY.get(chan_id)
@@ -1276,28 +1278,28 @@ def setup_runtime(bot, deps):
                                 _AI_MEMORY[chan_id] = mem
                             mem["ts"] = now_ai
 
-                            # Construit le system prompt + liste des personnes mentionnables.
-                            # IMPORTANT : plusieurs personnes parlent dans le meme salon.
-                            # On prefixe chaque message user par son auteur pour que le
-                            # modele ne confonde pas les locuteurs.
+                            # Build the system prompt + list of mentionable people.
+                            # IMPORTANT: several people talk in the same channel. Each
+                            # user message is prefixed with its author so the model does
+                            # not mix up the speakers.
                             author_name = message.author.display_name
                             sys_prompt = get_setting("ai_system_prompt", "") or ""
                             sys_prompt += (
-                                "\n\nPlusieurs personnes differentes peuvent te parler dans ce salon. "
-                                "Chaque message utilisateur est prefixe par le nom de son auteur sous la "
-                                "forme 'Nom: message'. Ne confonds jamais les differents interlocuteurs : "
-                                "traite-les comme des personnes distinctes."
+                                "\n\nSeveral different people can talk to you in this channel. "
+                                "Every user message is prefixed with its author name in the "
+                                "form 'Name: message'. Never mix up the speakers: treat them "
+                                "as distinct people."
                             )
                             if mention_map:
                                 who = ", ".join(sorted({m.display_name for m in mention_map.values()}))
                                 sys_prompt += (
-                                    f"\n\nPersonnes mentionnees dans ce salon : {who}. "
-                                    f"Pour mentionner quelqu'un dans ta reponse, ecris son pseudo "
-                                    f"precede de @ (exemple : @{next(iter(mention_map.values())).display_name})."
+                                    f"\n\nPeople mentioned in this channel: {who}. "
+                                    f"To mention someone in your reply, write their name "
+                                    f"prefixed with @ (example: @{next(iter(mention_map.values())).display_name})."
                                 )
 
-                                # Injecte le profil Discord des membres mentionnes
-                                # (l'IA peut donc decrire qui est qui).
+                                # Inject the Discord profile of the mentioned members
+                                # (so the AI can describe who is who).
                                 profiles = []
                                 for member in mention_map.values():
                                     created = getattr(member, "created_at", None)
@@ -1305,41 +1307,41 @@ def setup_runtime(bot, deps):
                                     roles = [r.name for r in getattr(member, "roles", []) if r.name != "@everyone"]
                                     status = str(getattr(member, "status", "?"))
                                     activity = getattr(member, "activity", None)
-                                    activity_str = (f" — Activite: {activity.name}"
+                                    activity_str = (f" - Activity: {activity.name}"
                                                     if activity and getattr(activity, "name", None) else "")
                                     avatar_url = (member.display_avatar.url
                                                   if getattr(member, "display_avatar", None) else "?")
                                     profiles.append(
                                         f"- @{member.display_name} (id {member.id})"
-                                        f" | Pseudo Discord: {member.name}"
-                                        f" | Compte cree le: {created.strftime('%Y-%m-%d') if created else '?'}"
-                                        f" | A rejoint le serveur le: {joined.strftime('%Y-%m-%d') if joined else '?'}"
-                                        f" | Statut: {status}{activity_str}"
-                                        f" | Roles: {', '.join(roles) if roles else 'aucun'}"
+                                        f" | Discord username: {member.name}"
+                                        f" | Account created on: {created.strftime('%Y-%m-%d') if created else '?'}"
+                                        f" | Joined the server on: {joined.strftime('%Y-%m-%d') if joined else '?'}"
+                                        f" | Status: {status}{activity_str}"
+                                        f" | Roles: {', '.join(roles) if roles else 'none'}"
                                         f" | Avatar: {avatar_url}"
                                     )
-                                sys_prompt += "\n\nProfils Discord des personnes mentionnees :\n" + "\n".join(profiles)
+                                sys_prompt += "\n\nDiscord profiles of the mentioned people:\n" + "\n".join(profiles)
 
-                                # Profil de l'auteur lui-meme (utile pour repondre perso)
+                                # Profile of the author themselves (useful for personal replies)
                                 a = message.author
                                 a_created = getattr(a, "created_at", None)
                                 a_joined = getattr(a, "joined_at", None)
                                 a_roles = [r.name for r in getattr(a, "roles", []) if r.name != "@everyone"]
                                 sys_prompt += (
-                                    f"\n\nProfil de l'auteur du message courant : "
+                                    f"\n\nProfile of the author of the current message: "
                                     f"@{a.display_name} (id {a.id}), "
-                                    f"compte cree {a_created.strftime('%Y-%m-%d') if a_created else '?'}, "
-                                    f"a rejoint le serveur {a_joined.strftime('%Y-%m-%d') if a_joined else '?'}, "
-                                    f"roles: {', '.join(a_roles) if a_roles else 'aucun'}."
+                                    f"account created {a_created.strftime('%Y-%m-%d') if a_created else '?'}, "
+                                    f"joined the server {a_joined.strftime('%Y-%m-%d') if a_joined else '?'}, "
+                                    f"roles: {', '.join(a_roles) if a_roles else 'none'}."
                                 )
 
-                            # --- Detection images / GIFs en attachment ---
+                            # --- Detect images / GIFs in attachments ---
                             image_urls = []
                             for att in (message.attachments or []):
                                 ct = (att.content_type or "").lower()
                                 if ct.startswith("image/"):
                                     image_urls.append(att.url)
-                            # Discord embeds aussi (gifs Tenor/Giphy par exemple)
+                            # Discord embeds too (Tenor/Giphy gifs for instance)
                             for emb in (message.embeds or []):
                                 img = getattr(emb, "image", None)
                                 if img and getattr(img, "url", None):
@@ -1349,33 +1351,33 @@ def setup_runtime(bot, deps):
                                     image_urls.append(thumb.url)
                             image_urls = image_urls[:5]  # cap
 
-                            # Si image presente, switch sur un modele vision Groq
+                            # When an image is present, switch to a Groq vision model
                             base_model = get_setting("ai_model", "llama-3.3-70b-versatile")
                             vision_model = get_setting("ai_vision_model",
                                                        "meta-llama/llama-4-scout-17b-16e-instruct")
                             if image_urls:
                                 used_model = vision_model
                                 sys_prompt += (
-                                    "\n\nL'utilisateur a joint une ou plusieurs images/GIFs."
-                                    " Decris-les precisement et tiens-en compte dans ta reponse."
+                                    "\n\nThe user attached one or more images/GIFs."
+                                    " Describe them precisely and take them into account in your reply."
                                 )
-                                # Vision Groq ne supporte pas system + history texte parfois ;
-                                # on simplifie en envoyant juste le prompt + images, sans history.
+                                # Groq vision sometimes does not support system + text history;
+                                # we simplify by sending only the prompt + images, without history.
                                 history_to_send = []
                             else:
                                 used_model = base_model
                                 history_to_send = list(mem["history"])
 
-                            # Auteur passe en system prompt comme contexte, PAS en prefixe
-                            # du message (sinon l'IA repete le pseudo au debut de sa reponse).
+                            # The author goes into the system prompt as context, NOT as a
+                            # message prefix (otherwise the AI repeats the name in its reply).
                             sys_prompt += (
-                                f"\n\nMessage courant envoye par l'utilisateur '{author_name}'."
-                                " Reponds-lui directement, ne commence JAMAIS ta reponse par son pseudo"
-                                " (ni '{author_name}:' ni '@{author_name}'). Discord affiche deja un reply."
-                                "\n\nSI on te demande de transmettre un message a un autre membre"
-                                " (genre 'dis a @X que...', 'demande a @Y de...'), parle DIRECTEMENT a cette"
-                                " personne avec sa mention @X, sans repeter la demande a l'auteur ('Wesh frr"
-                                " dis a @X...' = INTERDIT). Tu t'adresses a la cible, pas a l'envoyeur."
+                                f"\n\nCurrent message sent by the user '{author_name}'."
+                                " Reply to them directly, NEVER start your reply with their name"
+                                " (neither '{author_name}:' nor '@{author_name}'). Discord already shows a reply."
+                                "\n\nIF you are asked to pass a message to another member"
+                                " (like 'tell @X that...', 'ask @Y to...'), talk DIRECTLY to that"
+                                " person with their @X mention, without repeating the request to the author"
+                                " ('Hey bro tell @X...' = FORBIDDEN). You address the target, not the sender."
                             )
                             prompt_for_model = prompt
                             try:
@@ -1390,13 +1392,13 @@ def setup_runtime(bot, deps):
                                     )
                                 txt = res["text"] if isinstance(res, dict) else str(res)
 
-                                # Memorise l'echange (user prefixe de l'auteur)
+                                # Remember the exchange (user message prefixed with the author)
                                 mem["history"].append({"role": "user", "content": prompt_for_model})
                                 mem["history"].append({"role": "assistant", "content": txt})
                                 if len(mem["history"]) > _AI_MEMORY_MAX_MSGS:
                                     mem["history"] = mem["history"][-_AI_MEMORY_MAX_MSGS:]
 
-                                # Convertit les @Pseudo de la reponse en vraies mentions Discord
+                                # Turn @DisplayName in the reply into real Discord mentions
                                 if mention_map:
                                     for nm in sorted(mention_map.keys(), key=len, reverse=True):
                                         member = mention_map[nm]
@@ -1409,9 +1411,9 @@ def setup_runtime(bot, deps):
                                     everyone=False, roles=False, users=True, replied_user=False,
                                 )
 
-                                # Mode vocal : si active, on synthese la reponse en MP3.
-                                # Provider configurable : "edge" (gratuit, robotique) ou
-                                # "elevenlabs" (top qualite, 10k chars/mo free, fallback edge si quota epuise).
+                                # Voice mode: when enabled, the reply is synthesized to MP3.
+                                # Configurable provider: "edge" (free, robotic) or
+                                # "elevenlabs" (top quality, 10k chars/mo free, edge fallback when out of quota).
                                 voice_sent = False
                                 if get_setting("ai_voice_enabled", "0") == "1":
                                     try:
@@ -1429,7 +1431,7 @@ def setup_runtime(bot, deps):
                                         )
                                         audio_file = discord.File(
                                             _io.BytesIO(audio_bytes),
-                                            filename=f"reponse-tookbot-{used}.mp3",
+                                            filename=f"tookbot-reply-{used}.mp3",
                                         )
                                         await message.reply(
                                             file=audio_file,
@@ -1438,12 +1440,12 @@ def setup_runtime(bot, deps):
                                         )
                                         voice_sent = True
                                     except Exception as _te:
-                                        print(f"[ai] TTS fail -> fallback texte: {_te!r}")
+                                        print(f"[ai] TTS fail -> text fallback: {_te!r}")
 
                                 if not voice_sent:
-                                    # Si la reponse mentionne un autre user que l'auteur
-                                    # (cas : "dis a @SENSIBY de..."), on poste un message
-                                    # standalone au lieu d'un reply qui ping l'auteur inutilement.
+                                    # If the reply mentions someone other than the author
+                                    # (case: "tell @SENSIBY to..."), post a standalone message
+                                    # instead of a reply that needlessly pings the author.
                                     target_other = False
                                     if mention_map:
                                         for member in mention_map.values():
@@ -1472,24 +1474,27 @@ def setup_runtime(bot, deps):
                                     print(f"[ai] usage log err: {_ue!r}")
                             except Exception as e:
                                 print(f"[ai] groq err: {e!r}")
-                                await message.reply(f"❌ Erreur IA : `{type(e).__name__}`",
-                                                    mention_author=False)
-                    # Stop ici : pas de XP / commands sur ce message
+                                await message.reply(
+                                    t("runtime.ai.error",
+                                      guild_locale(message.guild.id) or "en",
+                                      error=type(e).__name__),
+                                    mention_author=False)
+                    # Stop here: no XP / commands for this message
                     return
             except Exception as _e:
                 print(f"[ai] hook err: {_e!r}")
 
-        # Réactions automatiques per-guild
+        # Per-guild automatic reactions
         key = (guild_id_str, message.author.id)
         if key in USER_REACTIONS:
             try:
                 await message.add_reaction(USER_REACTIONS[key])
             except discord.HTTPException as e:
-                print(f"❌ Erreur réaction : {e}")
+                print(f"❌ Reaction error: {e}")
 
-        # ===== XP gain (refonte clean juin 2026) =====
-        # Une seule helper canonique : add_xp() qui upsert + retourne level diff.
-        # Pas de double lecture/ecriture. Cooldown anti-spam par (guild, user).
+        # ===== XP gain (clean rework, June 2026) =====
+        # A single canonical helper: add_xp() upserts and returns the level diff.
+        # No double read/write. Anti-spam cooldown per (guild, user).
         if (not message.author.bot
                 and guild_setting_get(guild_id_str, "xp_enabled", "1") == "1"):
             try:
@@ -1511,7 +1516,7 @@ def setup_runtime(bot, deps):
                 xp_min, xp_max = 1, 5
             gain = random.randint(xp_min, xp_max)
 
-            # Boost XP Pass (multiplicateur)
+            # Pass XP boost (multiplier)
             try:
                 boost = get_active_xp_boost_multiplier(message.author.id)
                 if boost and boost > 1.0:
@@ -1549,7 +1554,7 @@ def setup_runtime(bot, deps):
                                 background=bg,
                             )
                         except Exception as e:
-                            print(f"[levelup premium render] {e!r} — fallback")
+                            print(f"[levelup premium render] {e!r} - fallback")
                             image = await generate_levelup_card(message.author, new_level, percent)
                     else:
                         image = await generate_levelup_card(message.author, new_level, percent)
@@ -1562,17 +1567,17 @@ def setup_runtime(bot, deps):
         await bot.process_commands(message)
 
 
-    # ===== ANTI-SPAM SLASH COMMANDS =====
-    # Limite : max N commandes par user dans une fenetre glissante
-    # (_col deja importe au top du module)
+    # ===== SLASH COMMAND ANTI-SPAM =====
+    # Limit: max N commands per user within a sliding window
+    # (_col is already imported at the top of the module)
     _USER_CMD_TIMES = _col.defaultdict(list)  # user_id -> [timestamp, ...]
-    _RATE_LIMIT_N      = 12       # 12 commandes
-    _RATE_LIMIT_WINDOW = 30.0     # par 30 secondes
+    _RATE_LIMIT_N      = 12       # 12 commands
+    _RATE_LIMIT_WINDOW = 30.0     # per 30 seconds
 
     def _is_rate_limited(user_id):
         now = _time.time()
         bucket = _USER_CMD_TIMES[user_id]
-        # purge entries hors fenetre
+        # drop entries outside the window
         cutoff = now - _RATE_LIMIT_WINDOW
         while bucket and bucket[0] < cutoff:
             bucket.pop(0)
@@ -1581,17 +1586,17 @@ def setup_runtime(bot, deps):
         bucket.append(now)
         return False, 0.0
 
-    # Capture l'interaction_check deja en place (feature/boost/mod-perm guard
-    # assigne dans bot.py) pour le chainer apres le rate-limit.
+    # Capture the interaction_check already in place (feature/boost/mod-perm guard
+    # assigned in bot.py) so it can be chained after the rate limit.
     _prev_interaction_check = bot.tree.interaction_check
 
     async def _global_rate_limit(interaction: discord.Interaction) -> bool:
-        """Rate-limit anti-spam PUIS chaine vers le guard feature/boost/mod-perm."""
-        # Autocomplete : jamais rate-limite/gate (chaque frappe = une interaction ;
-        # on ne peut pas y repondre par message -> "Echec des options de chargement").
+        """Anti-spam rate limit THEN chain to the feature/boost/mod-perm guard."""
+        # Autocomplete: never rate-limited/gated (every keystroke is an interaction;
+        # it cannot be answered with a message -> "Failed to load options").
         if interaction.type == discord.InteractionType.autocomplete:
             return True
-        # Bypass rate-limit pour le proprietaire du bot
+        # Bypass the rate limit for the bot owner
         is_bot_owner = False
         try:
             is_bot_owner = await bot.is_owner(interaction.user)
@@ -1602,13 +1607,14 @@ def setup_runtime(bot, deps):
             if limited:
                 try:
                     await interaction.response.send_message(
-                        f"⏱️ Tu envoies des commandes trop vite. Réessaie dans **{int(retry) + 1}s**.",
+                        ti(interaction, "runtime.ratelimit.too_fast",
+                           seconds=int(retry) + 1),
                         ephemeral=True,
                     )
                 except Exception:
                     pass
                 return False
-        # Chaine vers le guard feature/boost/mod-perm
+        # Chain to the feature/boost/mod-perm guard
         if callable(_prev_interaction_check):
             try:
                 return await _prev_interaction_check(interaction)
@@ -1617,10 +1623,10 @@ def setup_runtime(bot, deps):
                 return True
         return True
 
-    # Hook global : rate-limit + guard chaines sur l'arbre des slash commands
+    # Global hook: rate limit + guard chained on the slash command tree
     bot.tree.interaction_check = _global_rate_limit
 
-    # Reminders : fire chaque minute les rappels dus
+    # Reminders: fire the due reminders every minute
     @tasks.loop(seconds=30)
     async def reminders_dispatch():
         import datetime as _dtmod
@@ -1632,20 +1638,22 @@ def setup_runtime(bot, deps):
                 try:
                     ch = bot.get_channel(int(r["channel_id"]))
                     if ch is None:
-                        # Channel introuvable, marque fired pour pas re-tenter
+                        # Channel not found, mark as fired so we do not retry
                         reminder_mark_fired(r["id"])
                         continue
+                    rem_lang = guild_locale(getattr(getattr(ch, "guild", None), "id", None)) or "en"
                     embed = discord.Embed(
-                        title="⏰ Rappel",
+                        title=t("runtime.reminder.title", rem_lang),
                         description=r["text"],
                         color=0xB9F23A,
                     )
-                    embed.set_footer(text=f"Rappel #{r['id']} cree le {r['created_at']}")
+                    embed.set_footer(text=t("runtime.reminder.footer", rem_lang,
+                                            id=r["id"], created_at=r["created_at"]))
                     await ch.send(content=f"<@{r['user_id']}>", embed=embed)
                     reminder_mark_fired(r["id"])
                 except Exception as e:
                     print(f"[reminders] fire err id={r.get('id')}: {type(e).__name__}: {e}")
-                    # Marque fired pour eviter spam
+                    # Mark as fired to avoid spam
                     try:
                         reminder_mark_fired(r["id"])
                     except Exception:
@@ -1658,19 +1666,19 @@ def setup_runtime(bot, deps):
         await bot.wait_until_ready()
 
 
-    # Cleanup TookBot+ expire : detecte les grants tookbot_plus expires
-    # (trial fini, abo termine et non renouvele) puis :
+    # Expired TookBot+ cleanup: detects expired tookbot_plus grants
+    # (trial over, subscription ended and not renewed) then:
     # - DELETE custom_commands WHERE created_by = user
-    # - Pour chaque guild_bot_profile applied_by user : revert profile
-    #   via Discord PATCH + DELETE row DB
-    # - DELETE le grant expire (marqueur de cleanup fait)
+    # - For every guild_bot_profile applied_by user: revert the profile
+    #   through a Discord PATCH + DELETE the DB row
+    # - DELETE the expired grant (marker that the cleanup was done)
     @tasks.loop(minutes=2)
     async def tookbot_plus_expiry_cleanup():
         try:
             from database import get_db, guild_bot_profile_clear
             from services.bot_personalizer import patch_server_profile
             conn = get_db(); c = conn.cursor()
-            # Grants expires non encore nettoyes
+            # Expired grants not cleaned up yet
             expired = c.execute(
                 """SELECT user_id, expires_at, note FROM premium_grants
                    WHERE feature = 'tookbot_plus'
@@ -1683,15 +1691,15 @@ def setup_runtime(bot, deps):
             token = os.getenv("DISCORD_TOKEN", "")
             for row in expired:
                 uid = row["user_id"]
-                # Custom commands : delete toutes celles creees par ce user
+                # Custom commands: delete every one created by this user
                 try:
                     nb = c.execute(
                         "DELETE FROM custom_commands WHERE created_by = ?", (uid,),
                     ).rowcount
-                    print(f"[tookbot_plus expiry] user={uid} custom_commands supprimees: {nb}")
+                    print(f"[tookbot_plus expiry] user={uid} custom_commands deleted: {nb}")
                 except Exception as e:
                     print(f"[tookbot_plus expiry] custom_commands del err uid={uid}: {e!r}")
-                # Bot profiles : revert chaque guild ou ce user avait applique
+                # Bot profiles: revert every guild where this user had applied one
                 profiles = c.execute(
                     "SELECT guild_id FROM guild_bot_profile WHERE applied_by = ?", (uid,),
                 ).fetchall()
@@ -1710,24 +1718,24 @@ def setup_runtime(bot, deps):
                         guild_bot_profile_clear(g_id)
                     except Exception:
                         pass
-                # Notification dashboard pour informer le user
+                # Dashboard notification to inform the user
                 try:
                     from database import dash_notif_add
                     note = row["note"] or ""
                     if note.startswith("trial"):
                         dash_notif_add(uid, "trial_expire",
-                                       title="Ton essai TookBot+ est termine",
-                                       message="Tes commandes custom + customization bot ont ete retirees. Passe a TookBot+ pour les recuperer.",
+                                       title=t("runtime.plus_expiry.trial_title", "en"),
+                                       message=t("runtime.plus_expiry.trial_message", "en"),
                                        link_url="/subscription")
                     else:
                         dash_notif_add(uid, "trial_expire",
-                                       title="Ton abonnement TookBot+ a expire",
-                                       message="Tes features TookBot+ ont ete desactivees. Renouvelle pour les recuperer.",
+                                       title=t("runtime.plus_expiry.sub_title", "en"),
+                                       message=t("runtime.plus_expiry.sub_message", "en"),
                                        link_url="/subscription")
                 except Exception:
                     pass
-                # Supprime le grant expire (marqueur de cleanup fait).
-                # premium_settings.trial_used_at reste -> bloque un nouveau trial.
+                # Delete the expired grant (marker that the cleanup was done).
+                # premium_settings.trial_used_at stays -> blocks a new trial.
                 try:
                     c.execute(
                         "DELETE FROM premium_grants WHERE user_id = ? AND feature = 'tookbot_plus' AND expires_at <= datetime('now')",
@@ -1745,10 +1753,10 @@ def setup_runtime(bot, deps):
         await bot.wait_until_ready()
 
 
-    # Auto-disconnect voice si idle > 60s (pas de musique jouee ni en pause).
-    # Evite que le bot reste indefiniment dans un vocal apres fin de queue.
+    # Auto-disconnect from voice when idle > 60s (nothing playing nor paused).
+    # Keeps the bot from sitting in a voice channel forever after the queue ends.
     _VOICE_IDLE_SINCE: dict = {}
-    _VOICE_IDLE_TIMEOUT = 60  # secondes
+    _VOICE_IDLE_TIMEOUT = 60  # seconds
 
     @tasks.loop(seconds=20)
     async def voice_idle_disconnect():
@@ -1783,10 +1791,11 @@ def setup_runtime(bot, deps):
     async def rotate_presence():
         """Cycle Discord Activity through 4 messages."""
         statuses = [
-            (discord.ActivityType.listening, "/play 🎵"),
-            (discord.ActivityType.playing,   "/commandes pour la liste"),
-            (discord.ActivityType.watching,  f"{len(bot.guilds)} serveur(s)"),
-            (discord.ActivityType.playing,   "tookbot.click"),
+            (discord.ActivityType.listening, t("runtime.presence.music", "en")),
+            (discord.ActivityType.playing,   t("runtime.presence.commands", "en")),
+            (discord.ActivityType.watching,  t("runtime.presence.servers", "en",
+                                               count=len(bot.guilds))),
+            (discord.ActivityType.playing,   t("runtime.presence.website", "en")),
         ]
         idx = (rotate_presence.current_loop or 0) % len(statuses)
         a_type, a_name = statuses[idx]
@@ -1813,7 +1822,7 @@ def setup_runtime(bot, deps):
 
     @tasks.loop(minutes=10)
     async def anti_spam_cleanup():
-        """Purge les buckets vides toutes les 10 min (sinon dict grossit indefiniment)."""
+        """Purge empty buckets every 10 min (otherwise the dict grows forever)."""
         now = _time.time()
         cutoff = now - _RATE_LIMIT_WINDOW
         to_del = [uid for uid, ts in _USER_CMD_TIMES.items() if not ts or ts[-1] < cutoff]
@@ -1826,8 +1835,8 @@ def setup_runtime(bot, deps):
 
 
     # ===== TOP.GG STATS POSTER =====
-    # POST guild count toutes les 30 min sur https://top.gg/api/bots/<id>/stats
-    # Necessite TOPGG_TOKEN dans env. Silent si pas configure.
+    # POST the guild count every 30 min to https://top.gg/api/bots/<id>/stats
+    # Requires TOPGG_TOKEN in env. Silent when not configured.
     @tasks.loop(minutes=30)
     async def topgg_stats_poster():
         import os as _os
@@ -1867,22 +1876,22 @@ def setup_runtime(bot, deps):
         await bot.wait_until_ready()
 
     def _auto_boss_tier(level):
-        # Tier calibre sur le niveau MOYEN des guildes de cartes du serveur (force
-        # typique, pas le seul whale ; les PV/ATK sont rescales sur l'equipe presente).
+        # Tier calibrated on the AVERAGE level of the server's card guilds (typical
+        # strength, not just the whale; HP/ATK are rescaled on the present team).
         if level <= 5:    t = 1
         elif level <= 10: t = 2
         elif level <= 16: t = 3
         elif level <= 23: t = 4
         else:             t = 5
         import random as _r
-        if _r.random() < 0.08:   # ~8% : un boss un cran au-dessus, meilleur loot
+        if _r.random() < 0.08:   # ~8%: a boss one tier above, better loot
             t = min(5, t + 1)
         return t
 
     @tasks.loop(minutes=20)
     async def auto_boss_loop():
-        """Apparition automatique de boss : 1 par serveur eligible toutes les ~19-24h.
-        Eligible = salon cartes configure, serveur > N jours, >= N membres humains."""
+        """Automatic boss spawn: 1 per eligible server every ~19-24h.
+        Eligible = card channel configured, server older than N days, >= N human members."""
         try:
             import time as _t, random as _r, datetime as _dt
             from database import (get_setting, guild_card_config_get, card_boss_guild_has_active,
@@ -1901,7 +1910,7 @@ def setup_runtime(bot, deps):
                     cfg = guild_card_config_get(guild.id) or {}
                     ch_id = cfg.get("channel_id")
                     if not ch_id:
-                        continue   # pas de salon cartes -> pas d'opt-in
+                        continue   # no card channel -> no opt-in
                     age = _dt.datetime.now(_dt.timezone.utc) - guild.created_at
                     if age < _dt.timedelta(days=min_days):
                         continue
@@ -1910,7 +1919,7 @@ def setup_runtime(bot, deps):
                     if card_boss_guild_has_active(guild.id):
                         continue
                     nxt = boss_auto_get_next(guild.id)
-                    if nxt is None:   # premiere planif : programme dans la fenetre, pas tout de suite
+                    if nxt is None:   # first schedule: plan inside the window, not right away
                         boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
                         continue
                     if now < nxt:
@@ -1921,15 +1930,15 @@ def setup_runtime(bot, deps):
                         continue
                     uids = [str(m.id) for m in guild.members if not m.bot]
                     tier = _auto_boss_tier(avg_guild_level_for_users(uids))
-                    # Avatar secret (le plus dur) verrouille tant que la puissance de
-                    # combat REELLE moyenne du serveur n'atteint pas le seuil : sinon
-                    # cap a mythic. Le tier reste pilote par le niveau des guildes.
+                    # Secret avatar (the hardest) stays locked until the server's REAL
+                    # average combat power reaches the threshold: otherwise capped at
+                    # mythic. The tier is still driven by the guild levels.
                     secret_min = int(get_setting("auto_boss_secret_min_avg_power", "12000000") or 12000000)
                     avg_pow = avg_combat_power_for_users(uids)
                     mr = None if avg_pow >= secret_min else "mythic"
                     bid = await spawn_boss(bot, guild.id, int(ch_id), tier=tier, max_rarity=mr)
                     if bid:
-                        print(f"[auto_boss] spawn guild={guild.id} tier={tier} avg_pow={avg_pow} secret={'oui' if mr is None else 'non(cap mythic)'}")
+                        print(f"[auto_boss] spawn guild={guild.id} tier={tier} avg_pow={avg_pow} secret={'yes' if mr is None else 'no(capped mythic)'}")
                     boss_auto_set_next(guild.id, now + _r.uniform(ih, ax) * 3600)
                 except Exception as e:
                     print(f"[auto_boss] guild {getattr(guild, 'id', None)} err: {e!r}")
@@ -1942,15 +1951,15 @@ def setup_runtime(bot, deps):
 
     @tasks.loop(hours=24)
     async def card_render_bake_loop():
-        """Reparation anti-liens-morts : bake les renders locaux manquants
-        (cartes ajoutees par import/suggestion dont l'image est encore externe)."""
+        """Dead-link repair: bake the missing local renders
+        (cards added by import/suggestion whose image is still external)."""
         try:
             import asyncio as _aio
             from services.cards_overlay import bake_all_cards
             pub = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/") or None
             stats = await _aio.to_thread(bake_all_cards, False, pub, 8)
             if stats.get("updated"):
-                print(f"[card_render_bake] {stats['updated']} render(s) bakes")
+                print(f"[card_render_bake] {stats['updated']} render(s) baked")
         except Exception as e:
             print(f"[card_render_bake] err: {e!r}")
 
@@ -1977,8 +1986,8 @@ def setup_runtime(bot, deps):
 
     @bot.tree.error
     async def _slash_cmd_error(interaction: discord.Interaction, error):
-        """Handler global app_commands. Exigence top.gg : messages d'erreur
-        clairs labellisant precisement les permissions/roles manquants."""
+        """Global app_commands handler. top.gg requirement: clear error messages
+        that name the missing permissions/roles precisely."""
         import traceback
         from discord import app_commands as _ac
         tb_str = "".join(traceback.format_exception(type(error), error, error.__traceback__))
@@ -1989,35 +1998,32 @@ def setup_runtime(bot, deps):
         msg = None
         if isinstance(error, _ac.MissingPermissions):
             perms = ", ".join(p.replace("_", " ").title() for p in error.missing_permissions)
-            msg = (f"❌ **Permissions utilisateur manquantes.**\n"
-                    f"Tu as besoin de : **{perms}** pour utiliser cette commande.")
+            msg = ti(interaction, "runtime.slash_error.user_missing_perms", perms=perms)
         elif isinstance(error, _ac.BotMissingPermissions):
             perms = ", ".join(p.replace("_", " ").title() for p in error.missing_permissions)
-            msg = (f"❌ **Permissions du bot manquantes.**\n"
-                    f"Le bot a besoin de : **{perms}**. "
-                    f"Un administrateur doit ajouter ces permissions au role du bot.")
+            msg = ti(interaction, "runtime.slash_error.bot_missing_perms", perms=perms)
         elif isinstance(error, _ac.CommandOnCooldown):
-            msg = f"⏰ Cooldown actif. Reessaie dans {int(error.retry_after)}s."
+            msg = ti(interaction, "runtime.slash_error.cooldown",
+                     seconds=int(error.retry_after))
         elif isinstance(error, _ac.MissingRole):
-            msg = f"❌ Tu dois avoir le role <@&{error.missing_role}> pour utiliser cette commande."
+            msg = ti(interaction, "runtime.slash_error.missing_role",
+                     role_id=error.missing_role)
         elif isinstance(error, _ac.NoPrivateMessage):
-            msg = "❌ Cette commande n'est pas utilisable en messages prives."
+            msg = ti(interaction, "runtime.slash_error.no_private_message")
         elif isinstance(error, _ac.CheckFailure):
-            msg = "❌ Tu n'as pas le droit d'utiliser cette commande dans ce contexte."
+            msg = ti(interaction, "runtime.slash_error.check_failure")
         elif isinstance(error, _ac.CommandInvokeError):
             inner = error.original
             if isinstance(inner, discord.Forbidden):
-                msg = ("❌ **Le bot n'a pas la permission d'effectuer cette action.**\n"
-                        "Verifie que le bot a les permissions necessaires sur ce salon "
-                        "(ex: **Gerer les salons**, **Gerer les roles**, **Envoyer des messages**, "
-                        "**Embed Links**). Contacte un administrateur du serveur.")
+                msg = ti(interaction, "runtime.slash_error.forbidden")
             elif isinstance(inner, discord.NotFound):
-                msg = "❌ Ressource introuvable (salon, role ou message supprime ?)."
+                msg = ti(interaction, "runtime.slash_error.not_found")
             else:
-                msg = (f"❌ Erreur interne : `{type(inner).__name__}`. "
-                        f"Si le probleme persiste, contacte le support du bot.")
+                msg = ti(interaction, "runtime.slash_error.internal",
+                         error=type(inner).__name__)
         else:
-            msg = f"❌ Erreur : `{type(error).__name__}`."
+            msg = ti(interaction, "runtime.slash_error.generic",
+                     error=type(error).__name__)
 
         try:
             if interaction.response.is_done():
@@ -2028,7 +2034,7 @@ def setup_runtime(bot, deps):
             pass
 
 
-    # ===== WORKER : commandes web -> bot (polling 1.5s) =====
+    # ===== WORKER: web commands -> bot (polling every 1.5s) =====
     @tasks.loop(seconds=1.5)
     async def process_bot_commands():
         pending = bot_command_fetch_pending(limit=10)
@@ -2047,10 +2053,10 @@ def setup_runtime(bot, deps):
         name = cmd["cmd"]
         payload = cmd.get("payload") or {}
 
-        # NOTE : la commande "dm_send" (envoi de DM via dashboard) a ete
-        # retiree volontairement (raison vie privee).
+        # NOTE: the "dm_send" command (sending a DM from the dashboard) was
+        # removed on purpose (privacy reasons).
 
-        # Handlers enregistres par les cogs (ex: cards.py "post_trade")
+        # Handlers registered by the cogs (e.g. cards.py "post_trade")
         from services.bot_command_hooks import get as _get_hook
         _hook = _get_hook(name)
         if _hook:
@@ -2059,16 +2065,16 @@ def setup_runtime(bot, deps):
 
         guild = bot.get_guild(int(gid))
         if not guild:
-            raise RuntimeError(f"guild {gid} introuvable (bot pas dans ce serveur ?)")
+            raise RuntimeError(f"guild {gid} not found (is the bot in that server?)")
         vc = guild.voice_client
 
         if name == "music_play":
             # payload: {query, voice_channel_id (optional)}
             if not _ensure_opus():
-                raise RuntimeError("libopus pas chargee sur le serveur")
+                raise RuntimeError("libopus is not loaded on the server")
             query = payload.get("query")
             if not query:
-                raise ValueError("query manquant")
+                raise ValueError("missing query")
             if not vc:
                 ch_id = payload.get("voice_channel_id")
                 if ch_id:
@@ -2077,14 +2083,14 @@ def setup_runtime(bot, deps):
                         vc = await channel.connect()
                         music_state_set(gid, voice_channel_id=str(channel.id), voice_channel_name=channel.name)
                     else:
-                        raise ValueError("salon vocal introuvable")
+                        raise ValueError("voice channel not found")
                 else:
                     vchan = next((c for c in guild.voice_channels), None)
                     if not vchan:
-                        raise ValueError("aucun salon vocal disponible")
+                        raise ValueError("no voice channel available")
                     vc = await vchan.connect()
                     music_state_set(gid, voice_channel_id=str(vchan.id), voice_channel_name=vchan.name)
-            # Detection multi-source : playlist YouTube, Spotify, ou track unique
+            # Multi-source detection: YouTube playlist, Spotify, or single track
             q_low = (query or "").lower()
             is_yt_playlist = ("youtube.com/playlist" in q_low or
                               ("list=" in q_low and ("youtube.com" in q_low or "youtu.be" in q_low)))
@@ -2153,10 +2159,10 @@ def setup_runtime(bot, deps):
         elif name == "music_join":
             ch_id = payload.get("voice_channel_id")
             if not ch_id:
-                raise ValueError("voice_channel_id manquant")
+                raise ValueError("missing voice_channel_id")
             channel = guild.get_channel(int(ch_id))
             if not channel:
-                raise ValueError("salon vocal introuvable")
+                raise ValueError("voice channel not found")
             if vc:
                 await vc.move_to(channel)
             else:
@@ -2183,13 +2189,13 @@ def setup_runtime(bot, deps):
                 vol = max(0, min(200, int(payload.get("volume", 100))))
             except (TypeError, ValueError):
                 vol = 100
-            # Persist via guild_setting (read au prochain play)
+            # Persisted through guild_setting (read on the next play)
             try:
                 from database import guild_setting_set
                 guild_setting_set(gid, "music_volume", str(vol / 100.0))
             except Exception:
                 pass
-            # Applique en live si voice client + PCMVolumeTransformer source
+            # Applied live when there is a voice client + a PCMVolumeTransformer source
             if vc and vc.source and hasattr(vc.source, "volume"):
                 try:
                     vc.source.volume = vol / 100.0
@@ -2204,19 +2210,19 @@ def setup_runtime(bot, deps):
                 pos = 1
             q = music_queue_list(gid) or []
             if pos > len(q):
-                raise ValueError(f"position {pos} hors limites")
+                raise ValueError(f"position {pos} out of range")
             target = q[pos - 1]
             music_queue_move_to_front(gid, target["id"])
             if vc and vc.is_playing():
-                vc.stop()  # play_next pop la nouvelle tete
+                vc.stop()  # play_next pops the new head of the queue
 
         elif name == "music_join":
             ch_id = payload.get("voice_channel_id")
             if not ch_id:
-                raise ValueError("voice_channel_id requis")
+                raise ValueError("voice_channel_id is required")
             channel = guild.get_channel(int(ch_id))
             if not isinstance(channel, discord.VoiceChannel):
-                raise ValueError("salon vocal introuvable")
+                raise ValueError("voice channel not found")
             from commandes.music_voice import connect_to_voice
             await connect_to_voice(bot, guild, channel)
             music_state_set(gid, voice_channel_id=str(channel.id),
@@ -2224,22 +2230,22 @@ def setup_runtime(bot, deps):
 
         elif name in ("mod_kick", "mod_ban", "mod_timeout", "mod_unban"):
             target_id = payload.get("user_id")
-            reason    = (payload.get("reason") or "Action depuis le dashboard").strip()
+            reason    = (payload.get("reason") or "Action from the dashboard").strip()
             if not target_id:
-                raise ValueError("user_id requis")
+                raise ValueError("user_id is required")
             if name == "mod_unban":
                 try:
                     user = await bot.fetch_user(int(target_id))
                     await guild.unban(user, reason=reason)
                 except discord.NotFound:
-                    raise RuntimeError("user non banni ou inconnu")
+                    raise RuntimeError("user is not banned or is unknown")
                 return
             member = guild.get_member(int(target_id))
             if not member:
                 try:
                     member = await guild.fetch_member(int(target_id))
                 except Exception:
-                    raise RuntimeError("membre introuvable sur ce serveur")
+                    raise RuntimeError("member not found in this server")
             duration_sec = None
             if name == "mod_kick":
                 await member.kick(reason=reason)
@@ -2256,12 +2262,12 @@ def setup_runtime(bot, deps):
                 duration_sec = duration_min * 60
             else:
                 action_type = None
-            # Log côté bot (logs generaux)
+            # Bot-side log (general logs)
             add_log(guild.id, f"action_{name}",
                     user_id=target_id, username=str(member) if 'member' in dir() and member else target_id,
                     content=reason,
                     meta={"by": "dashboard"})
-            # Enregistre la sanction dans mod_actions (historique modlogs)
+            # Store the sanction in mod_actions (modlogs history)
             if action_type:
                 try:
                     from database import mod_action_add as _mod_add, mod_action_get as _mod_get, mod_config_get as _mod_cfg
@@ -2271,7 +2277,7 @@ def setup_runtime(bot, deps):
                         moderator_id=payload.get("moderator_id"),
                         duration_sec=duration_sec,
                     )
-                    # Post dans le salon modlog si configure
+                    # Post in the modlog channel when configured
                     cfg = _mod_cfg(guild.id)
                     ch_id = cfg.get("modlog_channel_id")
                     if ch_id:
@@ -2296,7 +2302,7 @@ def setup_runtime(bot, deps):
                 return
             ch = guild.get_channel(int(gw["channel_id"]))
             if not ch:
-                raise RuntimeError("salon giveaway introuvable")
+                raise RuntimeError("giveaway channel not found")
             embed = make_giveaway_embed(gw, participants_count=0)
             msg = await ch.send(embed=embed, view=GiveawayJoinView())
             _gw_setmsg(gid_, msg.id)
@@ -2315,7 +2321,8 @@ def setup_runtime(bot, deps):
             try:
                 msg = await ch.fetch_message(int(gw["message_id"]))
                 emb = msg.embeds[0] if msg.embeds else discord.Embed()
-                emb.title = f"❌ Giveaway annulé · {gw['prize']}"
+                emb.title = t("runtime.giveaway.cancelled_title",
+                              guild_locale(guild.id) or "en", prize=gw["prize"])
                 emb.color = 0xE74C3C
                 view = GiveawayJoinView()
                 for child in view.children:
@@ -2332,7 +2339,7 @@ def setup_runtime(bot, deps):
             return
 
         elif name == "mod_warn_followup":
-            # Le warn est deja en DB, ici on DM le membre + post modlog + auto-timeout si seuil
+            # The warn is already in the DB; here we DM the member + post the modlog + auto-timeout on threshold
             from database import (mod_action_get as _mod_get, mod_config_get as _mod_cfg,
                                   mod_action_count_active as _mod_count,
                                   mod_action_add as _mod_add)
@@ -2350,6 +2357,7 @@ def setup_runtime(bot, deps):
                 except Exception:
                     member = None
             active = _mod_count(guild.id, uid, "warn")
+            warn_lang = guild_locale(guild.id) or "en"
             # Modlog embed
             try:
                 from commandes.moderation_pro import _build_action_embed as _bea
@@ -2359,17 +2367,20 @@ def setup_runtime(bot, deps):
                 if ch_id:
                     ch = guild.get_channel(int(ch_id))
                     if ch:
-                        embed.set_footer(text=f"Warns actifs : {active}")
+                        embed.set_footer(text=t("runtime.modwarn.modlog_footer",
+                                                warn_lang, count=active))
                         try: await ch.send(embed=embed)
                         except Exception: pass
             except Exception as _e:
                 print(f"[mod/dashboard-warn] modlog err: {type(_e).__name__}")
-            # DM utilisateur
+            # DM the user
             if member:
                 try:
                     dm = discord.Embed(
-                        title=f"⚠️ Avertissement reçu sur **{guild.name}**",
-                        description=f"**Raison :** {reason or 'sans raison'}\n\nTu as **{active}** warn(s) actif(s).",
+                        title=t("runtime.modwarn.dm_title", warn_lang, guild=guild.name),
+                        description=t("runtime.modwarn.dm_desc", warn_lang,
+                                      reason=reason or t("runtime.modwarn.no_reason", warn_lang),
+                                      count=active),
                         color=0xF1C40F,
                     )
                     await member.send(embed=dm)
@@ -2382,9 +2393,12 @@ def setup_runtime(bot, deps):
                     duration_sec = int(cfg.get("autotimeout_duration") or 600)
                     try:
                         until = discord.utils.utcnow() + _dt.timedelta(seconds=duration_sec)
-                        await member.timeout(until, reason=f"Auto-timeout : {active} warns (seuil {threshold})")
+                        await member.timeout(until, reason=t(
+                            "runtime.modwarn.autotimeout_reason", warn_lang,
+                            count=active, threshold=threshold))
                         _mod_add(guild.id, uid, "timeout",
-                                 reason=f"Auto-timeout après {active} warns",
+                                 reason=t("runtime.modwarn.autotimeout_log_reason",
+                                          warn_lang, count=active),
                                  moderator_id=mod_id,
                                  duration_sec=duration_sec)
                     except Exception as _e:
@@ -2401,12 +2415,12 @@ def setup_runtime(bot, deps):
             except (TypeError, ValueError):
                 duration_h = 24
             if not ch_id or not question or len(options) < 2:
-                raise ValueError("payload poll invalide")
+                raise ValueError("invalid poll payload")
             channel = guild.get_channel(int(ch_id))
             if not channel:
-                raise ValueError("salon introuvable")
+                raise ValueError("channel not found")
             if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-                raise ValueError("le salon n'est pas textuel")
+                raise ValueError("the channel is not a text channel")
             poll = discord.Poll(question=question, duration=_dt.timedelta(hours=duration_h))
             for opt in options[:10]:
                 poll.add_answer(text=opt[:55])
@@ -2419,14 +2433,14 @@ def setup_runtime(bot, deps):
             content = (payload.get("content") or "").strip()
             embed_data = payload.get("embed")
             if not ch_id:
-                raise ValueError("channel_id requis")
+                raise ValueError("channel_id is required")
             if not content and not embed_data:
-                raise ValueError("content ou embed requis")
+                raise ValueError("content or embed is required")
             channel = guild.get_channel(int(ch_id))
             if not channel:
-                raise ValueError("salon introuvable")
+                raise ValueError("channel not found")
             if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-                raise ValueError("le salon n'est pas textuel")
+                raise ValueError("the channel is not a text channel")
             if len(content) > 2000:
                 content = content[:1997] + "..."
 
@@ -2476,51 +2490,53 @@ def setup_runtime(bot, deps):
 
         elif name == "rolereaction_post":
             # payload: {channel_id, titre, description, mode, delivery, style, mappings:[{emoji_key, role_id, label}]}
+            rr_lang  = guild_locale(guild.id) or "en"
             ch_id    = payload.get("channel_id")
-            titre    = (payload.get("titre") or "Choisis ton rôle").strip()
+            titre    = (payload.get("titre")
+                        or t("runtime.rolereaction.default_title", rr_lang)).strip()
             descp    = (payload.get("description") or "").strip()
             mode     = payload.get("mode") or "toggle"
             delivery = payload.get("delivery") or "reaction"
             style    = payload.get("style") or "embed"
             mapps    = payload.get("mappings") or []
-            # Normalise les emojis recus du web : strip zero-width + reroute
+            # Normalize emojis coming from the web: strip zero-width + reroute
             for m in mapps:
                 ek = m.get("emoji_key", "")
                 ek_clean = _parse_emoji_input(ek, guild) if (guild and ek) else (ek or "").strip()
                 if ek_clean:
                     m["emoji_key"] = ek_clean
             if not ch_id:
-                raise ValueError("channel_id requis")
+                raise ValueError("channel_id is required")
             if mode not in ("toggle", "add_only", "unique"):
-                raise ValueError("mode invalide")
+                raise ValueError("invalid mode")
             if delivery not in ("reaction", "button"):
-                raise ValueError("delivery invalide")
+                raise ValueError("invalid delivery")
             if style not in ("embed", "text"):
-                raise ValueError("style invalide")
+                raise ValueError("invalid style")
             if not mapps:
-                raise ValueError("au moins 1 mapping requis")
+                raise ValueError("at least 1 mapping is required")
             channel = guild.get_channel(int(ch_id))
             if not channel or not isinstance(channel, (discord.TextChannel, discord.Thread)):
-                raise ValueError("salon textuel introuvable")
+                raise ValueError("text channel not found")
 
             use_buttons = delivery == "button"
 
-            # Verif hierarchie sur tous les roles
+            # Hierarchy check on every role
             me = guild.me
             too_high = []
             for m in mapps:
                 r = guild.get_role(int(m["role_id"]))
                 if not r:
-                    raise ValueError(f"Rôle {m['role_id']} introuvable. Resync nécessaire.")
+                    raise ValueError(f"Role {m['role_id']} not found. A resync is required.")
                 if r >= me.top_role:
                     too_high.append(r.name)
             if too_high:
                 names = ", ".join(f"@{n}" for n in too_high)
                 raise ValueError(
-                    f"Hiérarchie : le bot ne peut pas attribuer ces rôles car ils sont "
-                    f"au-dessus du sien : {names}. "
-                    f"Solution : va dans Paramètres du serveur → Rôles et glisse "
-                    f"le rôle du bot AU-DESSUS de ces rôles."
+                    f"Hierarchy: the bot cannot grant these roles because they are "
+                    f"above its own: {names}. "
+                    f"Fix: go to Server Settings > Roles and drag the bot role "
+                    f"ABOVE those roles."
                 )
 
             color_int = 0xC8F050
@@ -2532,10 +2548,11 @@ def setup_runtime(bot, deps):
                 except Exception:
                     pass
 
-            footer = ("Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
+            footer = (t("runtime.rolereaction.footer_unique", rr_lang)
                       if mode == "unique"
-                      else ("Clique un bouton pour recevoir le rôle correspondant."
-                            if use_buttons else "Réagis pour recevoir le rôle correspondant."))
+                      else (t("runtime.rolereaction.footer_button", rr_lang)
+                            if use_buttons
+                            else t("runtime.rolereaction.footer_reaction", rr_lang)))
 
             def _line(m):
                 ek = m.get("emoji_key") or ""
@@ -2551,7 +2568,7 @@ def setup_runtime(bot, deps):
             if style == "embed":
                 embed = discord.Embed(title=titre, description=descp, color=color_int)
                 if not use_buttons:
-                    embed.add_field(name="Réactions disponibles",
+                    embed.add_field(name=t("runtime.rolereaction.field_reactions", rr_lang),
                                     value="\n".join(_line(m) for m in mapps), inline=False)
                 embed.set_footer(text=footer)
             else:
@@ -2565,7 +2582,7 @@ def setup_runtime(bot, deps):
                 parts.append(f"_{footer}_")
                 content = "\n\n".join(p for p in parts if p)
 
-            # ----- View boutons -----
+            # ----- Button view -----
             view = None
             if use_buttons:
                 view = discord.ui.View(timeout=None)
@@ -2577,7 +2594,8 @@ def setup_runtime(bot, deps):
                     except Exception:
                         emoji_obj = None
                     r = guild.get_role(int(m["role_id"]))
-                    lbl = (m.get("label") or (r.name if r else "Rôle"))[:80]
+                    lbl = (m.get("label") or (r.name if r else
+                           t("runtime.rolereaction.default_role_label", rr_lang)))[:80]
                     view.add_item(discord.ui.Button(
                         label=lbl, emoji=emoji_obj,
                         style=discord.ButtonStyle.secondary,
@@ -2606,7 +2624,7 @@ def setup_runtime(bot, deps):
                             last_err = e
                     if last_err:
                         raise last_err
-                    raise RuntimeError("aucune variante d'emoji testee")
+                    raise RuntimeError("no emoji variant was tried")
 
                 for m in mapps:
                     ek = m["emoji_key"]
@@ -2619,7 +2637,7 @@ def setup_runtime(bot, deps):
 
             group_key = f"msg_{msg.id}" if mode == "unique" else None
             for idx, m in enumerate(mapps):
-                # En mode boutons sans emoji, cle synthetique pour respecter le PK
+                # In button mode without an emoji, synthetic key to satisfy the PK
                 ek = m.get("emoji_key") or f"btn_{m['role_id']}"
                 db_rr_add(
                     guild.id, msg.id, channel.id, ek, m["role_id"],
@@ -2630,59 +2648,45 @@ def setup_runtime(bot, deps):
             if failed_dispatch:
                 details = "; ".join(f"{ek}: {er}" for ek, er in failed_dispatch)
                 raise RuntimeError(
-                    f"Message posté (id {msg.id}), mais {len(failed_dispatch)} réaction(s) "
-                    f"n'ont pas pu être ajoutées : {details}."
+                    f"Message posted (id {msg.id}), but {len(failed_dispatch)} reaction(s) "
+                    f"could not be added: {details}."
                 )
             return
 
         elif name == "custom_cmd_sync":
-            # Resync les commandes custom slash de la guild (apres save/delete depuis dashboard)
+            # Resync the guild's custom slash commands (after a save/delete from the dashboard)
             from commandes.custom_cmd import sync_custom_commands_for_guild
             n = await sync_custom_commands_for_guild(bot, gid)
-            print(f"[custom_cmd] resync {gid}: {n} commandes")
+            print(f"[custom_cmd] resync {gid}: {n} command(s)")
 
         elif name == "guild_boost_activated_notify":
-            # payload: {user_id} — notifie dans le salon admin que Guild Boost + a ete active
+            # payload: {user_id} - notifies the admin channel that Guild Boost + was activated
             channel = _resolve_setup_channel(guild, "admin")
             if not channel:
-                print(f"[gb-notify] {gid}: aucun salon writable trouve, skip")
+                print(f"[gb-notify] {gid}: no writable channel found, skipping")
                 return
+            gb_lang = guild_locale(guild.id) or "en"
             uid = payload.get("user_id")
-            mention = f"<@{uid}>" if uid else "Un membre"
+            mention = (f"<@{uid}>" if uid
+                       else t("runtime.guildboost.member_fallback", gb_lang))
             embed = discord.Embed(
-                title="🛡️ Guild Boost + activé sur ce serveur",
-                description=(
-                    f"{mention} vient d'activer **Guild Boost +** sur ce serveur. "
-                    "Les fonctionnalités suivantes sont maintenant **débloquées** :\n\n"
-                    "**⚙️ Commandes custom** — `/<nom>` directes\n"
-                    "Crée tes commandes depuis le dashboard : "
-                    "`dashboard.tookbot.click/custom-commands`\n\n"
-                    "**🔔 Alertes Twitch / YouTube / Reddit**\n"
-                    "Configure les alertes par salon avec : `/socialalert add`\n"
-                    "Salon par défaut : celui configuré via `/setup` (Alertes).\n\n"
-                    "**🎟️ Système de tickets**\n"
-                    "Crée un panneau de tickets avec : `/ticket`\n"
-                    "Gestion complète : claim, transcripts, modlog dédié.\n\n"
-                    "**📜 Logs étendus**\n"
-                    "Consulte l'historique du serveur sur le dashboard : "
-                    "`dashboard.tookbot.click/logs`\n\n"
-                    "💡 *Pour gérer/désactiver une fonctionnalité : "
-                    "`dashboard.tookbot.click/features`*"
-                ),
+                title=t("runtime.guildboost.title", gb_lang),
+                description=t("runtime.guildboost.description", gb_lang, mention=mention),
                 color=0xB9F23A,
             )
-            embed.set_footer(text="Guild Boost + — Merci de soutenir TookBot !")
+            embed.set_footer(text=t("runtime.guildboost.footer", gb_lang))
             try:
                 await channel.send(embed=embed)
             except Exception as e:
-                print(f"[gb-notify] envoi fail {gid}: {e}")
+                print(f"[gb-notify] send failed {gid}: {e}")
 
         elif name == "kofi_donation_notify":
             # payload: {donor_name, amount, currency, message, is_subscription, tier_name}
-            # Notifie le salon #owner. L'attribution du role VIP/Super VIP est
-            # geree directement par Ko-fi ; le message de remerciement dans #soutien
-            # est declenche par on_member_update quand le role est ajoute.
-            donor = payload.get("donor_name") or "Anonyme"
+            # Notifies the #owner channel. The VIP/Super VIP role assignment is
+            # handled directly by Ko-fi; the thank-you message in #soutien is
+            # triggered by on_member_update when the role is added.
+            kofi_lang = guild_locale(gid) or "en"
+            donor = payload.get("donor_name") or t("runtime.kofi.anonymous", kofi_lang)
             amount = float(payload.get("amount") or 0)
             currency = payload.get("currency") or "EUR"
             don_msg = (payload.get("message") or "").strip()
@@ -2696,17 +2700,20 @@ def setup_runtime(bot, deps):
                 except (TypeError, ValueError):
                     owner_chan = None
             if owner_chan:
-                kind = "abonnement mensuel" if is_sub else "don"
-                desc = f"**{donor}** vient de faire un {kind} de **{amount:.2f} {currency}** sur Ko-fi."
+                kind = t("runtime.kofi.kind_subscription", kofi_lang) if is_sub \
+                    else t("runtime.kofi.kind_donation", kofi_lang)
+                desc = t("runtime.kofi.description", kofi_lang, donor=donor, kind=kind,
+                         amount=f"{amount:.2f}", currency=currency)
                 if don_msg:
                     desc += f"\n\n> {don_msg[:500]}"
-                emb = discord.Embed(title="💚 Nouveau don Ko-fi", description=desc, color=0xB9F23A)
+                emb = discord.Embed(title=t("runtime.kofi.title", kofi_lang),
+                                    description=desc, color=0xB9F23A)
                 try:
                     await owner_chan.send(embed=emb)
                 except Exception as e:
-                    print(f"[kofi] owner notif fail: {e}")
+                    print(f"[kofi] owner notif failed: {e}")
             else:
-                print("[kofi] OWNER_NOTIFY_CHANNEL_ID non configure ou introuvable")
+                print("[kofi] OWNER_NOTIFY_CHANNEL_ID not configured or not found")
 
         elif name == "card_event_drop":
             from services.card_events import trigger_event_drop
@@ -2715,13 +2722,13 @@ def setup_runtime(bot, deps):
             exact_rarity = bool(payload.get("exact_rarity"))
             card_id = payload.get("card_id") or None
             if not channel_id:
-                raise ValueError("channel_id requis")
+                raise ValueError("channel_id is required")
             result = await trigger_event_drop(
                 bot, int(gid), int(channel_id),
                 min_rarity=min_rarity, exact_rarity=exact_rarity,
                 card_id=card_id, triggered_by="manual")
             if not result:
-                raise RuntimeError("drop echoue (carte ou salon introuvable)")
+                raise RuntimeError("drop failed (card or channel not found)")
             return
 
         elif name == "list_guild_channels":
@@ -2737,7 +2744,7 @@ def setup_runtime(bot, deps):
                         })
                 except Exception:
                     pass
-            # Stocke dans guild_channels_cache (table de cache)
+            # Store in guild_channels_cache (cache table)
             from database import get_db
             conn = get_db(); c = conn.cursor()
             c.execute("CREATE TABLE IF NOT EXISTS guild_channels_cache ("
@@ -2763,16 +2770,16 @@ def setup_runtime(bot, deps):
             element = (payload.get("element") or "").strip() or None
             rarity = (payload.get("rarity") or "").strip().lower() or None
             if not channel_id:
-                raise ValueError("channel_id requis")
+                raise ValueError("channel_id is required")
             bid = await spawn_boss(bot, int(gid), int(channel_id), tier=tier,
                                    element=element, rarity=rarity)
             if not bid:
-                raise RuntimeError("spawn echoue (salon introuvable ou pas de cartes)")
+                raise RuntimeError("spawn failed (channel not found or no cards)")
             return
 
         elif name == "suggestion_resolved":
-            # Reaction validé/refusé sous le message de suggestion (salon support)
-            # + DM au demandeur en cas de refus (message transfere + raison).
+            # Approved/rejected reaction under the suggestion message (support channel)
+            # + DM to the requester on rejection (forwarded message + reason).
             channel_id = payload.get("channel_id")
             message_id = payload.get("message_id")
             status = payload.get("status")
@@ -2797,11 +2804,12 @@ def setup_runtime(bot, deps):
                     print(f"[suggestion_resolved] react err: {e}")
             if status == "rejected" and suggester_id and payload.get("dm", True):
                 try:
+                    sug_lang = guild_locale(gid) or "en"
                     user = bot.get_user(int(suggester_id)) or await bot.fetch_user(int(suggester_id))
                     if user:
-                        txt = "❌ **Ta suggestion de carte a été refusée.**"
+                        txt = t("runtime.suggestion.rejected_one", sug_lang)
                         if reason:
-                            txt += f"\n**Raison :** {reason}"
+                            txt += t("runtime.suggestion.reason_line", sug_lang, reason=reason)
                         embeds = msg.embeds[:1] if (msg and msg.embeds) else []
                         await user.send(content=txt, embeds=embeds)
                 except Exception as e:
@@ -2809,57 +2817,60 @@ def setup_runtime(bot, deps):
             return
 
         elif name == "suggestion_bulk_dm":
-            # Un seul DM quand plusieurs suggestions d'un meme demandeur sont refusees.
+            # A single DM when several suggestions from the same requester are rejected.
             suggester_id = payload.get("suggester_id")
             count = int(payload.get("count") or 0)
             reason = payload.get("reason")
             if not suggester_id or count <= 0:
                 return
             try:
+                bulk_lang = guild_locale(gid) or "en"
                 user = bot.get_user(int(suggester_id)) or await bot.fetch_user(int(suggester_id))
                 if user:
                     if count == 1:
-                        txt = "❌ **Ta suggestion de carte a été refusée.**"
+                        txt = t("runtime.suggestion.rejected_one", bulk_lang)
                     else:
-                        txt = f"❌ **{count} de tes suggestions de cartes ont été refusées.**"
+                        txt = t("runtime.suggestion.rejected_many", bulk_lang, count=count)
                     if reason:
-                        txt += f"\n**Raison :** {reason}"
+                        txt += t("runtime.suggestion.reason_line", bulk_lang, reason=reason)
                     await user.send(content=txt)
             except Exception as e:
                 print(f"[suggestion_bulk_dm] DM err: {e}")
             return
 
         elif name == "fake_drop":
-            # Drop normal (image + code) mais marque fake_troll : au claim, le bot
-            # se moque et ne donne RIEN (cf handle_message_claim).
+            # Normal drop (image + code) but flagged fake_troll: on claim the bot
+            # mocks the user and gives NOTHING (see handle_message_claim).
             from services.card_events import trigger_event_drop
             channel_id = payload.get("channel_id")
             card_id = payload.get("card_id")
             if not channel_id or not card_id:
-                raise ValueError("channel_id + card_id requis")
+                raise ValueError("channel_id + card_id are required")
             result = await trigger_event_drop(
                 bot, int(gid), int(channel_id),
                 card_id=int(card_id), triggered_by="fake_troll")
             if not result:
-                raise RuntimeError("fake drop echoue (salon/carte introuvable)")
+                raise RuntimeError("fake drop failed (channel/card not found)")
             return
 
         elif name == "simulate_roll":
-            # Faux roll de test : poste le format /roll + ping les wishers, SANS
-            # ajouter la carte a une collection (test pur des notifs wishlist).
+            # Fake test roll: posts the /roll layout + pings the wishers, WITHOUT
+            # adding the card to a collection (pure wishlist notification test).
             from commandes.cards import build_roll_embed
             from database import card_get, wishlist_users_for_card
             channel_id = payload.get("channel_id")
             card_id = payload.get("card_id")
             if not channel_id or not card_id:
-                raise ValueError("channel_id + card_id requis")
+                raise ValueError("channel_id + card_id are required")
             card = card_get(int(card_id))
             if not card:
-                raise RuntimeError("carte introuvable")
+                raise RuntimeError("card not found")
             channel = guild.get_channel(int(channel_id))
             if not channel:
-                raise RuntimeError("salon introuvable")
-            embed, img_file, view = build_roll_embed(bot, card, "Roll simulé (test)")
+                raise RuntimeError("channel not found")
+            sim_lang = guild_locale(guild.id) or "en"
+            embed, img_file, view = build_roll_embed(
+                bot, card, t("runtime.simulate_roll.label", sim_lang))
             if img_file:
                 await channel.send(embed=embed, file=img_file, view=view)
             else:
@@ -2869,13 +2880,12 @@ def setup_runtime(bot, deps):
                 mentions = [m.mention for m in
                             (guild.get_member(int(w)) for w in wishers[:50]) if m]
                 if mentions:
-                    await channel.send(
-                        f"🔔 ||{' '.join(mentions)}|| — une simulation vient de poster "
-                        f"**{card['name']}** de votre wishlist ! "
-                        f"Proposez un échange avec `/cardtrade`.")
+                    await channel.send(t(
+                        "runtime.simulate_roll.wishlist_ping", sim_lang,
+                        mentions=" ".join(mentions), card=card["name"]))
             except Exception as e:
                 print(f"[simulate_roll wish] {e}")
             return
 
         else:
-            raise ValueError(f"commande inconnue: {name}")
+            raise ValueError(f"unknown command: {name}")

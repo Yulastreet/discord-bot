@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'mod_config' %}
 
-{% block title %}Permissions modérateurs · TookBot{% endblock %}
-{% block crumb %}Permissions modérateurs{% endblock %}
+{% block title %}{{ t('web_features.mod_config.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.mod_config.title') }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -63,19 +63,18 @@
 {% block content %}
 <div class="col gap-7">
   <div>
-    <h1>🔐 Permissions modérateurs</h1>
+    <h1>🔐 {{ t('web_features.mod_config.title') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Tu es le <strong>propriétaire</strong> de ce serveur. Choisis ici quel rôle correspond
-      aux modérateurs et quelles fonctionnalités ils peuvent utiliser (slash commands + dashboard).
-      Sans config, les modos n'ont accès à <strong>rien</strong> côté serveur.
+      {{ t('web_features.mod_config.intro_1') }} <strong>{{ t('web_features.mod_config.intro_owner') }}</strong> {{ t('web_features.mod_config.intro_2') }}
+      {{ t('web_features.mod_config.intro_3') }} <strong>{{ t('web_features.mod_config.intro_nothing') }}</strong> {{ t('web_features.mod_config.intro_4') }}
     </p>
   </div>
 
   <div class="mc-card mc-section">
-    <h2>Rôle modérateur</h2>
-    <p class="help">Sélectionne le rôle Discord qui désigne les modérateurs de ce serveur.</p>
+    <h2>{{ t('web_features.mod_config.mod_role_title') }}</h2>
+    <p class="help">{{ t('web_features.mod_config.mod_role_help') }}</p>
     <select id="modRoleSelect" style="min-width:260px;">
-      <option value="">— Aucun rôle (mods désactivés) —</option>
+      <option value="">{{ t('web_features.mod_config.no_role') }}</option>
       {% for r in roles %}
         <option value="{{ r.role_id }}" {{ 'selected' if settings.get('mod_role_id') == r.role_id }}>
           @{{ r.name }}
@@ -85,8 +84,8 @@
   </div>
 
   <div class="mc-card mc-section">
-    <h2>Permissions accordées</h2>
-    <p class="help">Coche les fonctionnalités que les modérateurs peuvent utiliser. Toutes les actions non cochées restent réservées à toi (proprio du serveur).</p>
+    <h2>{{ t('web_features.mod_config.perms_title') }}</h2>
+    <p class="help">{{ t('web_features.mod_config.perms_help') }}</p>
     <div class="perm-grid">
       {% for key, label, desc, kind in perms_registry %}
         {% set is_on = settings.get('mod_perm_' ~ key, '0') == '1' %}
@@ -108,15 +107,15 @@
   <div class="save-bar">
     <div class="left">
       {% if settings.get('mod_access_configured') == '1' %}
-        <span style="color:oklch(0.86 0.20 130);">✓ Configuration enregistrée</span>
+        <span style="color:oklch(0.86 0.20 130);">✓ {{ t('web_features.mod_config.saved') }}</span>
       {% else %}
-        <span style="color:#f88;">⚠️ Configuration non enregistrée — les modos sont bloqués tant que tu n'enregistres pas</span>
+        <span style="color:#f88;">⚠️ {{ t('web_features.mod_config.not_saved') }}</span>
       {% endif %}
     </div>
     <div class="row gap-3">
-      <button class="btn btn-ghost" type="button" onclick="resetAll()">Tout désactiver</button>
+      <button class="btn btn-ghost" type="button" onclick="resetAll()">{{ t('web_features.mod_config.disable_all') }}</button>
       <button class="btn btn-primary" type="button" onclick="saveAll()">
-        <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+        <svg class="ic"><use href="#i-check"/></svg> {{ t('web_features.mod_config.save') }}
       </button>
     </div>
   </div>
@@ -139,16 +138,16 @@ async function saveAll() {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);
-    if (window.toast) window.toast('Configuration enregistrée ✓');
+    if (window.toast) window.toast('Configuration saved ✓');
     setTimeout(() => location.reload(), 600);
   } catch (e) {
-    if (window.toast) window.toast('Erreur : ' + e.message, 'error');
+    if (window.toast) window.toast('Error: ' + e.message, 'error');
   }
 }
 window.saveAll = saveAll;
 
 function resetAll() {
-  if (!confirm('Désactiver toutes les permissions des modérateurs ?')) return;
+  if (!confirm('Disable all moderator permissions?')) return;
   document.querySelectorAll('input[type="checkbox"][data-perm]').forEach(el => {
     el.checked = false;
     const row = el.closest('.perm-row');

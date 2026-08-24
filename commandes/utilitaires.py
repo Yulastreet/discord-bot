@@ -2,29 +2,30 @@ import os
 import discord
 from discord import app_commands
 
+from services.i18n import t, ti, locale_of
+
 
 def setup_utility_commands(bot):
-    @bot.tree.command(name="ping", description="Voir la latence du bot")
+    @bot.tree.command(name="ping", description="Check the bot latency")
     async def ping(interaction: discord.Interaction):
-        latence = round(bot.latency * 1000)
-        await interaction.response.send_message(f"Pong ! Latence : **{latence}ms**")
+        latency = round(bot.latency * 1000)
+        await interaction.response.send_message(
+            ti(interaction, "utils.ping.result", latency=latency))
 
-    @bot.tree.command(name="vote", description="Voter pour TookBot sur top.gg")
+    @bot.tree.command(name="vote", description="Vote for TookBot on top.gg")
     async def vote(interaction: discord.Interaction):
         bot_id = (os.getenv("DISCORD_BOT_ID") or "").strip()
         if not bot_id and bot.user:
             bot_id = str(bot.user.id)
         url = f"https://top.gg/bot/{bot_id}/vote" if bot_id else "https://top.gg/"
         embed = discord.Embed(
-            title="❤️ Vote pour TookBot",
-            description=(f"Soutiens le bot en votant sur top.gg.\n\n"
-                          f"[**Cliquer pour voter**]({url})\n\n"
-                          f"Vote toutes les 12h. Aucune obligation, c'est gratuit."),
+            title=ti(interaction, "utils.vote.title"),
+            description=ti(interaction, "utils.vote.description", url=url),
             color=0xff3d57,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @bot.tree.command(name="invite", description="Lien pour inviter TookBot sur ton serveur")
+    @bot.tree.command(name="invite", description="Link to invite TookBot to your server")
     async def invite(interaction: discord.Interaction):
         bot_id = (os.getenv("DISCORD_BOT_ID") or "").strip()
         if not bot_id and bot.user:
@@ -38,375 +39,127 @@ def setup_utility_commands(bot):
         url = (f"https://discord.com/oauth2/authorize?client_id={bot_id}"
                 f"&permissions={perms}&scope=bot+applications.commands")
         embed = discord.Embed(
-            title="➕ Inviter TookBot",
-            description=(f"[**Ajouter TookBot a ton serveur**]({url})\n\n"
-                          f"Les permissions demandees correspondent precisement "
-                          f"aux fonctionnalites du bot. Tu peux les ajuster apres "
-                          f"l'invitation depuis les parametres du serveur."),
+            title=ti(interaction, "utils.invite.title"),
+            description=ti(interaction, "utils.invite.description", url=url),
             color=0x5865F2,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @bot.tree.command(name="userinfo", description="Infos sur un membre")
-    @app_commands.describe(membre="Le membre dont tu veux voir les infos")
-    async def userinfo(interaction: discord.Interaction, membre: discord.Member = None):
-        membre = membre or interaction.user
-        embed = discord.Embed(title=f"Infos de {membre.name}", color=membre.color)
-        embed.set_thumbnail(url=membre.display_avatar.url)
-        embed.add_field(name="Nom", value=membre.name)
-        embed.add_field(name="ID", value=membre.id)
-        embed.add_field(name="Compte cree le", value=membre.created_at.strftime("%d/%m/%Y"))
-        embed.add_field(name="A rejoint le", value=membre.joined_at.strftime("%d/%m/%Y"))
-        embed.add_field(name="Role principal", value=membre.top_role.mention)
+    @bot.tree.command(name="userinfo", description="Info about a member")
+    @app_commands.describe(member="The member you want info about")
+    async def userinfo(interaction: discord.Interaction, member: discord.Member = None):
+        member = member or interaction.user
+        embed = discord.Embed(
+            title=ti(interaction, "utils.userinfo.title", name=member.name),
+            color=member.color,
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        embed.add_field(name=ti(interaction, "utils.userinfo.field_name"), value=member.name)
+        embed.add_field(name=ti(interaction, "utils.userinfo.field_id"), value=member.id)
+        embed.add_field(name=ti(interaction, "utils.userinfo.field_created"),
+                        value=member.created_at.strftime("%d/%m/%Y"))
+        embed.add_field(name=ti(interaction, "utils.userinfo.field_joined"),
+                        value=member.joined_at.strftime("%d/%m/%Y"))
+        embed.add_field(name=ti(interaction, "utils.userinfo.field_top_role"),
+                        value=member.top_role.mention)
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="serverinfo", description="Infos sur le serveur")
+    @bot.tree.command(name="serverinfo", description="Info about the server")
     async def serverinfo(interaction: discord.Interaction):
-        serveur = interaction.guild
-        embed = discord.Embed(title=f"Infos de {serveur.name}", color=discord.Color.blue())
-        embed.set_thumbnail(url=serveur.icon.url if serveur.icon else None)
-        embed.add_field(name="ID", value=f"`{serveur.id}`", inline=False)
-        embed.add_field(name="Proprietaire", value=serveur.owner)
-        embed.add_field(name="Membres", value=serveur.member_count)
-        embed.add_field(name="Cree le", value=serveur.created_at.strftime("%d/%m/%Y"))
-        embed.add_field(name="Salons", value=len(serveur.channels))
-        embed.add_field(name="Roles", value=len(serveur.roles))
+        guild = interaction.guild
+        embed = discord.Embed(
+            title=ti(interaction, "utils.serverinfo.title", name=guild.name),
+            color=discord.Color.blue(),
+        )
+        embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        embed.add_field(name=ti(interaction, "utils.serverinfo.field_id"),
+                        value=f"`{guild.id}`", inline=False)
+        embed.add_field(name=ti(interaction, "utils.serverinfo.field_owner"), value=guild.owner)
+        embed.add_field(name=ti(interaction, "utils.serverinfo.field_members"),
+                        value=guild.member_count)
+        embed.add_field(name=ti(interaction, "utils.serverinfo.field_created"),
+                        value=guild.created_at.strftime("%d/%m/%Y"))
+        embed.add_field(name=ti(interaction, "utils.serverinfo.field_channels"),
+                        value=len(guild.channels))
+        embed.add_field(name=ti(interaction, "utils.serverinfo.field_roles"), value=len(guild.roles))
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="avatar", description="Afficher l'avatar d'un membre")
-    @app_commands.describe(membre="Le membre dont tu veux voir l'avatar")
-    async def avatar(interaction: discord.Interaction, membre: discord.Member = None):
-        membre = membre or interaction.user
-        embed = discord.Embed(title=f"Avatar de {membre.name}", color=discord.Color.blue())
-        embed.set_image(url=membre.display_avatar.url)
+    @bot.tree.command(name="avatar", description="Show a member's avatar")
+    @app_commands.describe(member="The member whose avatar you want to see")
+    async def avatar(interaction: discord.Interaction, member: discord.Member = None):
+        member = member or interaction.user
+        embed = discord.Embed(
+            title=ti(interaction, "utils.avatar.title", name=member.name),
+            color=discord.Color.blue(),
+        )
+        embed.set_image(url=member.display_avatar.url)
         await interaction.response.send_message(embed=embed)
 
-    @bot.tree.command(name="commandes", description="Recevoir la liste des commandes en MP (navigation par boutons)")
-    async def commandes(interaction: discord.Interaction):
-        pages = _build_command_pages()
-        view  = CommandesPaginatorView(pages, owner_id=interaction.user.id)
+    @bot.tree.command(name="commands", description="Get the command list in DM (button navigation)")
+    async def commands_cmd(interaction: discord.Interaction):
+        loc   = locale_of(interaction)
+        pages = _build_command_pages(loc)
+        view  = CommandsPaginatorView(pages, owner_id=interaction.user.id, locale=loc)
         try:
             await interaction.user.send(embed=pages[0], view=view)
             await interaction.response.send_message(
-                "📩 La liste des commandes vient de t'être envoyée en message privé !",
+                ti(interaction, "utils.help.dm_sent"),
                 ephemeral=True,
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                "❌ Impossible de t'envoyer un MP : tu as désactivé les MP de ce serveur.\n"
-                "Active-les dans **Paramètres utilisateur → Confidentialité** puis relance la commande.",
+                ti(interaction, "utils.help.dm_blocked"),
                 ephemeral=True,
             )
         except Exception as e:
-            print(f"[commandes] DM send err: {type(e).__name__}: {e}")
+            print(f"[commands] DM send err: {type(e).__name__}: {e}")
             await interaction.response.send_message(
-                "❌ Erreur d'envoi. Réessaie plus tard.", ephemeral=True,
+                ti(interaction, "utils.help.send_error"), ephemeral=True,
             )
 
 
 _PAGE_COLOR = 0x3498DB
 
+# (page key, [field key prefix, ...]) -> drives the embed build below.
+_PAGE_LAYOUT = [
+    ("p1", ["moderation", "tempvoice", "tools"]),
+    ("p2", ["fun", "xp", "duel", "music"]),
+    ("p3", ["cs", "utils"]),
+    ("p4", ["collection", "essences", "fusion", "events"]),
+    ("p5", ["profile", "wishlist", "trade", "combat", "setup"]),
+    ("p6", ["base", "members", "xp"]),
+]
 
-def _build_command_pages() -> list:
-    """Construit la liste d'embeds (3 pages denses)."""
+
+def _build_command_pages(locale: str) -> list:
+    """Build the list of help embeds (6 dense pages)."""
     pages = []
-
-    # Page 1 : Modération + Outils serveur
-    p1 = discord.Embed(
-        title="📋 Commandes · 🛡️ Modération & 🧰 Outils serveur",
-        color=_PAGE_COLOR,
-    )
-    p1.add_field(
-        name="🛡️ Modération",
-        value=(
-            "**/clear `<n>`** — supprime les N derniers messages\n"
-            "**/kick `<membre>` `[raison]`** — expulse un membre\n"
-            "**/ban `<membre>` `[raison]`** — bannit un membre\n"
-            "**/poll** — ouvre un builder (question + 2-10 options + duree 1-168h, sondage natif Discord)\n"
-            "**/setwelcome `[salon]`** — builder message de bienvenue\n"
-            "**/warn `<membre>` `<raison>`** — avertit + auto-timeout si seuil\n"
-            "**/modlogs `<membre>`** — historique des sanctions\n"
-            "**/clearwarns `<membre>` `[raison]`** — révoque tous warns\n"
-            "**/note `<membre>` `<texte>`** — note interne mod (pas de DM)\n"
-            "**Automod** (TookBot+) — filtres mots interdits, anti-pub, anti-spam mentions, anti-raid configurables depuis le dashboard"
-        ),
-        inline=False,
-    )
-    p1.add_field(
-        name="🔊 Salons vocaux temporaires",
-        value=(
-            "**/tempvoice setup `<lobby>` `[categorie]` `[nom_par_defaut]`** — admin : configure le salon lobby\n"
-            "**/tempvoice info** — admin : voir la config actuelle\n"
-            "**/tempvoice disable** — admin : desactive la feature\n"
-            "**/voc rename `<nom>`** — renomme ton salon temp\n"
-            "**/voc limit `<nombre>`** — limite le nombre de membres\n"
-            "**/voc lock / unlock** — verrouille / re-ouvre le salon\n"
-            "**/voc kick `<membre>`** — vire un membre du salon\n"
-            "**/voc transfer `<membre>`** — transfere la propriete"
-        ),
-        inline=False,
-    )
-    p1.add_field(
-        name="🧰 Outils serveur",
-        value=(
-            "**/reaction_add / remove / list** — réactions auto sur membre\n"
-            "**/rolereaction create** — builder rôles-réactions\n"
-            "**/socialalert add / list / remove** — alertes Twitch/YT/Reddit\n"
-            "**/ticket** — builder panneau de tickets\n"
-            "**/giveaway create / list / reroll / cancel** — tirages au sort\n"
-            "**/cmd `<nom>`** — exécute une commande custom (TookBot+, builder dashboard)\n"
-            "**Analytics serveur** — page dashboard avec stats live, heatmap, top commandes / top users"
-        ),
-        inline=False,
-    )
-    pages.append(p1)
-
-    # Page 2 : Fun + XP + Duel + Musique
-    p2 = discord.Embed(
-        title="📋 Commandes · 🎉 Fun · ⭐ XP · ⚔️ Duel · 🎵 Musique",
-        color=_PAGE_COLOR,
-    )
-    p2.add_field(
-        name="🎉 Fun",
-        value=(
-            "**/8ball** **/dé** **/coinflip** **/blague** **/ship** **/choix** "
-            "**/random** **/qui** **/clap** **/rate** **/citation** **/zgeg**"
-        ),
-        inline=False,
-    )
-    p2.add_field(
-        name="⭐ Niveaux & XP",
-        value=(
-            "**/niveau `[membre]`** — affiche niveau + XP\n"
-            "**/leaderboard** — top 10 XP du serveur"
-        ),
-        inline=False,
-    )
-    p2.add_field(
-        name="⚔️ Duel",
-        value=(
-            "**/duel fight `<adversaire>` `[nerf]`** — défi sabres laser (mindgame défense)\n"
-            "**/duel info** — guide complet du système\n"
-            "**/profil `[membre]`** — profil duel\n"
-            "**/statpoint `<stat>`** — attribuer un point\n"
-            "**/sabre** — menu sabres (équipé / collection / boutique)\n"
-            "**/historique `[membre]`** — historique duels"
-        ),
-        inline=False,
-    )
-    p2.add_field(
-        name="🎵 Musique",
-        value=(
-            "**/join** **/leave** — rejoindre / quitter ton vocal\n"
-            "**/play `<titre|lien>`** — YouTube, SoundCloud, Bandcamp, Spotify (track/album/playlist)\n"
-            "**/search `<query>`** — choisir parmi 5 resultats YouTube\n"
-            "**/queue** **/nowplaying** — file complete / piste en cours\n"
-            "**/skip `[position]`** **/remove `<position>`** — passer / retirer une piste\n"
-            "**/volume `<0-200>`** **/pause** **/resume** **/stop**\n"
-            "**/musicstats `[periode]`** — top tracks et top auditeurs"
-        ),
-        inline=False,
-    )
-    pages.append(p2)
-
-    # Page 3 : CS2 + Utilitaires
-    p3 = discord.Embed(
-        title="📋 Commandes · 🎮 Counter-Strike 2 & 🔧 Utilitaires",
-        color=_PAGE_COLOR,
-    )
-    p3.add_field(
-        name="🎮 Counter-Strike 2",
-        value=(
-            "**/cs link `<plateforme>` `<id>`** — lie compte Steam ou Faceit\n"
-            "**/cs unlink `<plateforme>`** — retire un lien\n"
-            "**/cs stats `[membre]`** — stats Steam / Faceit\n"
-            "**/cs setrank `<elo>`** — déclare ton Premier ELO + rank role\n"
-            "**/cs rankrole on|off** — admin : auto-attribution rank role\n"
-            "**/cs price `<arme>` `<skin>` `[usure]` `[stattrak]`** — prix Steam + Skinport\n"
-            "**/cs inventory `[membre|steamid]`** — inventaire CS2 + valeur €\n"
-            "**/cs queue** — voice channel temporaire 5 slots\n"
-            "**/cs map** — ban/pick maps entre membres du vocal\n"
-            "**/cs loadout** — loadout aléatoire"
-        ),
-        inline=False,
-    )
-    p3.add_field(
-        name="🔧 Utilitaires",
-        value=(
-            "**/avatar `[membre]`** — avatar d'un membre\n"
-            "**/userinfo `[membre]`** — infos détaillées membre\n"
-            "**/serverinfo** — infos serveur\n"
-            "**/ping** — latence du bot\n"
-            "**/tweet `<message_id>`** — image carte style tweet du message\n"
-            "**/remind** — builder rappel (date, message, salon)\n"
-            "**/reminders** — liste tes rappels actifs\n"
-            "**/unremind `<id>`** — annule un rappel\n"
-            "**/vote** — vote TookBot sur top.gg\n"
-            "**/invite** — lien invitation officiel\n"
-            "**/commandes** — réaffiche cette aide en MP"
-        ),
-        inline=False,
-    )
-    pages.append(p3)
-
-    # Page 4 : Cartes — collection & économie
-    p4 = discord.Embed(
-        title="📋 Commandes · 🃏 Cartes — collection & économie",
-        color=_PAGE_COLOR,
-    )
-    p4.add_field(
-        name="🃏 Collection",
-        value=(
-            "**/roll `[univers]`** — tire 1 carte aléatoire. Cooldown **1h par serveur** "
-            "(timer indépendant par serveur). Donne des Essences ✨ selon la rareté\n"
-            "**/cardcollec `[membre]` `[rareté]`** — ta collection (✨ = cosmétique, ⭐ = fusion)\n"
-            "**/card `<nom>`** — détails d'une carte (autocomplete sur 19k+)\n"
-            "**/show `<carte>`** — montre une de tes cartes avec sa bordure + étoiles"
-        ),
-        inline=False,
-    )
-    p4.add_field(
-        name="✨ Essences (monnaie)",
-        value=(
-            "**/essences `[membre]`** — ton solde d'Essences ✨\n"
-            "**/daily** — récompense quotidienne (TookCoins + Essences, streak)\n"
-            "**/cardshop** — boutique : achète cartes & cosmétiques avec tes Essences\n"
-            "**/cardrecycle `<carte>` `[qté]`** — recycle tes doublons en Essences"
-        ),
-        inline=False,
-    )
-    p4.add_field(
-        name="⭐ Fusion & cosmétiques",
-        value=(
-            "**/cardfuse `<carte>`** — fusionne des doublons pour ajouter une étoile (max 5). "
-            "La carte fusionnée devient non-échangeable\n"
-            "**/cardup `<rareté>`** — sacrifie des doublons de cartes 5⭐ pour 1 carte aléatoire "
-            "de la rareté au-dessus\n"
-            "**/cardcustom `<carte>` `<bordure>`** — applique une bordure (consommée)\n"
-            "**/cardinventory `[membre]`** — tes cosmétiques en stock"
-        ),
-        inline=False,
-    )
-    p4.add_field(
-        name="🎪 Events",
-        value=(
-            "**/eventfight** — combat d'event : envoie ta meilleure carte selon l'élément du jour "
-            "(3/jour) pour des jetons d'event\n"
-            "**/eventshop** — dépense tes jetons d'event (rolls, bonus essences, skins)"
-        ),
-        inline=False,
-    )
-    pages.append(p4)
-
-    # Page 5 : Cartes — social, profil, classements
-    p5 = discord.Embed(
-        title="📋 Commandes · 🃏 Cartes — social & profil",
-        color=_PAGE_COLOR,
-    )
-    p5.add_field(
-        name="🪪 Profil & classements",
-        value=(
-            "**/cardprofile `[membre]`** — profil de cartes (stats, puissance de combat, image de tes 3 cartes vedettes)\n"
-            "**/cardprofile `custom:true`** — éditeur : choisis tes 3 cartes vedettes + ta couleur de profil\n"
-            "**/cardtop `<catégorie>`** — classements globaux (valeur, mythiques, essences, fusions, chance)"
-        ),
-        inline=False,
-    )
-    p5.add_field(
-        name="💖 Wishlist",
-        value=(
-            "**/cardwish `<carte>`** — ajoute/retire de ta wishlist (3 max, **6 sur le support**). "
-            "Tu es ping quand quelqu'un la tire\n"
-            "**/cardwishlist `[membre]`** — voir une wishlist (boutons 🗑 pour retirer)"
-        ),
-        inline=False,
-    )
-    p5.add_field(
-        name="🔄 Échange & suggestions",
-        value=(
-            "**/cardtrade `<joueur>`** — échange multi-cartes (Accepter / Refuser / Contre-offre)\n"
-            "**/cardsuggest** — propose un perso à ajouter (vote 🔼/🔽 de la commu)\n"
-            "**/cardmodify `<carte>`** — propose une modif d'une carte existante (rareté, univers, image...)"
-        ),
-        inline=False,
-    )
-    p5.add_field(
-        name="⚔️ Combat & boss",
-        value=(
-            "Tes cartes ont une **puissance de combat** (PV + ATK ×2, bonus par fusion), "
-            "visible sur **/cardprofile**.\n"
-            "**Boss de raid** — apparaissent dans le salon cartes : tout le monde tape pour "
-            "infliger des dégâts, loot partagé entre les participants à la victoire. "
-            "Difficulté selon la rareté des avatars du groupe."
-        ),
-        inline=False,
-    )
-    p5.add_field(
-        name="⚙️ Setup serveur (admin)",
-        value=(
-            "**/cardsetup `<salon>` `[role]`** — salon des cartes + rôle ping sur drop/boss\n"
-            "**/cardsetup_disable** — retire la restriction\n"
-            "**/cardhelp** — guide complet du système de cartes"
-        ),
-        inline=False,
-    )
-    pages.append(p5)
-
-    # Page 6 : Guildes (clubs cross-serveur)
-    p6 = discord.Embed(
-        title="📋 Commandes · 🛡️ Guildes (clubs)",
-        color=_PAGE_COLOR,
-    )
-    p6.add_field(
-        name="🛡️ Guilde — base",
-        value=(
-            "Les guildes sont des **clubs cross-serveur** (jusqu'à 30 membres) qui montent en "
-            "niveau (max 60) et débloquent des **bonus passifs** pour tous leurs membres.\n"
-            "**/guild create `<nom>` `[tag]`** — crée une guilde (coûte des essences ✨)\n"
-            "**/guild info `[nom]`** — fiche d'une guilde (la tienne par défaut)\n"
-            "**/guildprofile `[nom]`** — profil riche : niveau, puissance totale, membres, banque, boutique\n"
-            "**/guild top** — classement des guildes"
-        ),
-        inline=False,
-    )
-    p6.add_field(
-        name="👥 Membres",
-        value=(
-            "**/guild invite `<membre>`** — inviter (Maître / Officier)\n"
-            "**/guild accept `<nom>`** — rejoindre une guilde qui t'a invité\n"
-            "**/guild leave** — quitter ta guilde\n"
-            "**/guild kick `<membre>`** — exclure (Maître / Officier)\n"
-            "**/guild promote / demote `<membre>`** — gérer les officiers (Maître)\n"
-            "**/guild transfer `<membre>`** — transférer la maîtrise (Maître)\n"
-            "**/guild disband** — dissoudre la guilde (Maître)"
-        ),
-        inline=False,
-    )
-    p6.add_field(
-        name="✨ XP, banque & bonus",
-        value=(
-            "La guilde gagne de l'**XP** quand ses membres roll, gagnent un boss, tournent la "
-            "roue, fusionnent ou donnent à la banque.\n"
-            "**/guild donate `<montant>`** — alimente la banque (débloquée à un palier)\n"
-            "Bonus par paliers : **% essences**, **% XP**, **cooldown roll réduit** (jusqu'à "
-            "−10 min), **+1 roll/h au niv 60**, **+ slots wishlist**, **% loot boss**, "
-            "banque, boutique de guilde et couleurs de profil (déblocage tous les 5 niveaux)."
-        ),
-        inline=False,
-    )
-    pages.append(p6)
+    for page_key, field_keys in _PAGE_LAYOUT:
+        embed = discord.Embed(
+            title=t(f"utils.help.{page_key}.title", locale),
+            color=_PAGE_COLOR,
+        )
+        for fk in field_keys:
+            embed.add_field(
+                name=t(f"utils.help.{page_key}.{fk}_name", locale),
+                value=t(f"utils.help.{page_key}.{fk}_value", locale),
+                inline=False,
+            )
+        pages.append(embed)
 
     for i, e in enumerate(pages, start=1):
-        e.set_footer(text=f"Page {i}/{len(pages)} · Tip : tape / pour voir l'autocomplete Discord.")
+        e.set_footer(text=t("utils.help.footer", locale, n=i, total=len(pages)))
     return pages
 
 
-class CommandesPaginatorView(discord.ui.View):
-    def __init__(self, pages: list, owner_id: int):
+class CommandsPaginatorView(discord.ui.View):
+    def __init__(self, pages: list, owner_id: int, locale: str = "en"):
         super().__init__(timeout=180)
         self.pages    = pages
         self.idx      = 0
         self.owner_id = owner_id
+        self.locale   = locale
+        self.close_btn.label = t("utils.help.btn_close", locale)
         self._refresh_state()
 
     def _refresh_state(self):
@@ -423,7 +176,7 @@ class CommandesPaginatorView(discord.ui.View):
         if interaction.user.id != self.owner_id:
             try:
                 await interaction.response.send_message(
-                    "❌ Ce menu n'est pas pour toi. Fais `/commandes` toi-même.",
+                    ti(interaction, "utils.help.not_yours"),
                     ephemeral=True,
                 )
             except Exception:
@@ -442,7 +195,7 @@ class CommandesPaginatorView(discord.ui.View):
 
     @discord.ui.button(label="1 / 3", style=discord.ButtonStyle.secondary, custom_id="cmds:counter", disabled=True)
     async def counter_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        pass  # disabled, juste pour l'affichage
+        pass  # disabled, display only
 
     @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, custom_id="cmds:next")
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -453,13 +206,13 @@ class CommandesPaginatorView(discord.ui.View):
         self._refresh_state()
         await interaction.response.edit_message(embed=self.pages[self.idx], view=self)
 
-    @discord.ui.button(label="✖ Fermer", style=discord.ButtonStyle.danger, custom_id="cmds:close")
+    @discord.ui.button(label="✖ Close", style=discord.ButtonStyle.danger, custom_id="cmds:close")
     async def close_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._guard(interaction):
             return
         try:
             await interaction.response.edit_message(
-                content="_Menu fermé._", embed=None, view=None,
+                content=ti(interaction, "utils.help.closed"), embed=None, view=None,
             )
         except Exception:
             pass

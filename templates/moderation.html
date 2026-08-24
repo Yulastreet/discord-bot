@@ -1,98 +1,97 @@
 {% extends "_base.html" %}
 {% set active_nav = 'moderation' %}
 
-{% block title %}Modération · Bot Console{% endblock %}
-{% block crumb %}Modération{% endblock %}
+{% block title %}{{ t('web_features.moderation.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.moderation.title') }}{% endblock %}
 
 {% block content %}
 
 <div class="col gap-7">
   <div>
-    <h1>Modération</h1>
+    <h1>{{ t('web_features.moderation.title') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Kick, ban, timeout des membres du serveur. Le bot doit avoir les permissions
-      Discord correspondantes pour que l'action passe.
+      {{ t('web_features.moderation.intro') }}
     </p>
   </div>
 
   <div class="card">
     <div class="grid grid-2 gap-3">
       <div class="field">
-        <label>Membre</label>
+        <label>{{ t('web_features.moderation.member') }}</label>
         <div class="input-search">
           <svg class="ic"><use href="#i-search"/></svg>
-          <input type="text" id="memberSearch" placeholder="Pseudo ou ID Discord..." autocomplete="off">
+          <input type="text" id="memberSearch" placeholder="{{ t('web_features.moderation.member_search_placeholder') }}" autocomplete="off">
         </div>
         <div id="memberList" class="member-list"></div>
       </div>
       <div class="col gap-3">
         <div class="field">
-          <label>Membre sélectionné</label>
+          <label>{{ t('web_features.moderation.selected_member') }}</label>
           <div id="selectedMember" class="card-dark" style="background:var(--bg-2);padding:14px;border-radius:var(--r-2);min-height:60px;display:flex;align-items:center;color:var(--text-3);font-size:var(--t-sm);">
-            Aucun membre sélectionné.
+            {{ t('web_features.moderation.no_member_selected') }}
           </div>
         </div>
         <div class="field">
-          <label>Raison (optionnelle)</label>
-          <input type="text" id="reason" placeholder="Spam excessif...">
+          <label>{{ t('web_features.moderation.reason') }}</label>
+          <input type="text" id="reason" placeholder="{{ t('web_features.moderation.reason_placeholder') }}">
         </div>
         <div class="field" id="timeoutFields" style="display:none;">
-          <label>Durée du timeout (minutes)</label>
+          <label>{{ t('web_features.moderation.timeout_duration') }}</label>
           <input type="number" id="durationMinutes" value="10" min="1" max="40320">
-          <small class="faint" style="font-size:11px;">Max 28 jours = 40320 min.</small>
+          <small class="faint" style="font-size:11px;">{{ t('web_features.moderation.timeout_max') }}</small>
         </div>
         <div class="field" id="banFields" style="display:none;">
-          <label>Supprimer messages des dernières X heures</label>
+          <label>{{ t('web_features.moderation.delete_messages') }}</label>
           <select id="deleteHours">
-            <option value="0">Aucun</option>
-            <option value="3600">1 heure</option>
-            <option value="21600">6 heures</option>
-            <option value="86400">1 jour</option>
-            <option value="604800">7 jours (max)</option>
+            <option value="0">{{ t('web_features.moderation.delete_none') }}</option>
+            <option value="3600">{{ t('web_features.moderation.delete_1h') }}</option>
+            <option value="21600">{{ t('web_features.moderation.delete_6h') }}</option>
+            <option value="86400">{{ t('web_features.moderation.delete_1d') }}</option>
+            <option value="604800">{{ t('web_features.moderation.delete_7d') }}</option>
           </select>
         </div>
       </div>
     </div>
 
     <div class="row mt-6 gap-2">
-      <button class="btn btn-warning"   id="btnWarn"    onclick="exec('warn')">      ⚠️ Warn</button>
-      <button class="btn btn-secondary" id="btnKick"    onclick="exec('kick')">      <svg class="ic"><use href="#i-foot"/></svg> Kick</button>
-      <button class="btn btn-secondary" id="btnTimeout" onclick="exec('timeout')">   <svg class="ic"><use href="#i-clock"/></svg> Timeout</button>
-      <button class="btn btn-danger"    id="btnBan"     onclick="exec('ban')">       <svg class="ic"><use href="#i-ban"/></svg> Ban</button>
-      <button class="btn btn-ghost"     id="btnUnban"   onclick="exec('unban')">     Unban (par ID)</button>
+      <button class="btn btn-warning"   id="btnWarn"    onclick="exec('warn')">      ⚠️ {{ t('web_features.moderation.warn') }}</button>
+      <button class="btn btn-secondary" id="btnKick"    onclick="exec('kick')">      <svg class="ic"><use href="#i-foot"/></svg> {{ t('web_features.moderation.kick') }}</button>
+      <button class="btn btn-secondary" id="btnTimeout" onclick="exec('timeout')">   <svg class="ic"><use href="#i-clock"/></svg> {{ t('web_features.moderation.timeout') }}</button>
+      <button class="btn btn-danger"    id="btnBan"     onclick="exec('ban')">       <svg class="ic"><use href="#i-ban"/></svg> {{ t('web_features.moderation.ban') }}</button>
+      <button class="btn btn-ghost"     id="btnUnban"   onclick="exec('unban')">     {{ t('web_features.moderation.unban_by_id') }}</button>
     </div>
   </div>
 
   <div class="card" id="modlogCard">
     <div class="row gap-3" style="justify-content:space-between;align-items:center;">
-      <h2 style="margin:0;">📋 Historique des sanctions</h2>
-      <div id="warnsBadge" class="muted" style="font-size:13px;">_Sélectionne un membre._</div>
+      <h2 style="margin:0;">📋 {{ t('web_features.moderation.history_title') }}</h2>
+      <div id="warnsBadge" class="muted" style="font-size:13px;">_{{ t('web_features.moderation.select_member_hint') }}_</div>
     </div>
     <div id="actionsList" class="mt-4">
-      <div class="muted" style="font-size:13px;">_Aucun membre sélectionné._</div>
+      <div class="muted" style="font-size:13px;">_{{ t('web_features.moderation.no_member_selected') }}_</div>
     </div>
   </div>
 
   <div class="card" id="modConfigCard">
-    <h2 style="margin:0 0 6px;">⚙️ Configuration modération</h2>
+    <h2 style="margin:0 0 6px;">⚙️ {{ t('web_features.moderation.config_title') }}</h2>
     <p class="muted" style="font-size:13px;margin-bottom:14px;">
-      Seuil d'avertissements avant timeout auto, durée du timeout auto, et salon où poster les sanctions.
+      {{ t('web_features.moderation.config_help') }}
     </p>
     <div class="grid grid-2 gap-3">
       <div class="field">
-        <label>Seuil auto-timeout (0 = désactivé)</label>
+        <label>{{ t('web_features.moderation.auto_threshold') }}</label>
         <input type="number" id="cfgThreshold" min="0" max="20" value="0">
       </div>
       <div class="field">
-        <label>Durée auto-timeout (minutes)</label>
+        <label>{{ t('web_features.moderation.auto_duration') }}</label>
         <input type="number" id="cfgDuration" min="1" max="40320" value="10">
       </div>
     </div>
     <div class="field">
-      <label>Salon modlog (sanctions postées ici)</label>
-      <select id="cfgModlogChannel"><option value="">— aucun —</option></select>
+      <label>{{ t('web_features.moderation.modlog_channel') }}</label>
+      <select id="cfgModlogChannel"><option value="">{{ t('web_features.moderation.none_option') }}</option></select>
     </div>
-    <button class="btn btn-primary" onclick="saveConfig()">💾 Enregistrer config</button>
+    <button class="btn btn-primary" onclick="saveConfig()">💾 {{ t('web_features.moderation.save_config') }}</button>
   </div>
 
 </div>
@@ -170,7 +169,7 @@ async function loadMembers(q='') {
 function renderMembers(rows) {
   const el = document.getElementById('memberList');
   if (!rows.length) {
-    el.innerHTML = '<div style="padding:var(--s-5);text-align:center;color:var(--text-3);font-size:var(--t-sm);">Aucun membre.</div>';
+    el.innerHTML = '<div style="padding:var(--s-5);text-align:center;color:var(--text-3);font-size:var(--t-sm);">No members.</div>';
     return;
   }
   el.innerHTML = rows.map(m => {
@@ -180,7 +179,7 @@ function renderMembers(rows) {
       : `<div class="av">${escapeHtml((m.username || '?').slice(0,1).toUpperCase())}</div>`;
     return `<div class="member-row ${sel}" onclick='selectMember(${JSON.stringify(m).replace(/'/g, "&#39;")})'>
       ${av}
-      <div class="nm">${escapeHtml(m.username || '(inconnu)')}</div>
+      <div class="nm">${escapeHtml(m.username || '(unknown)')}</div>
       <div class="uid">${m.user_id}</div>
     </div>`;
   }).join('');
@@ -194,7 +193,7 @@ function selectMember(m) {
     : `<div style="width:32px;height:32px;border-radius:50%;background:var(--bg-3);display:grid;place-items:center;font-weight:700;color:var(--accent);">${escapeHtml((m.username||'?').slice(0,1).toUpperCase())}</div>`;
   el.style.color = 'var(--text)';
   el.innerHTML = `<div class="row gap-3" style="margin:0;">${av}
-    <div><div style="font-weight:600;">${escapeHtml(m.username || '(inconnu)')}</div>
+    <div><div style="font-weight:600;">${escapeHtml(m.username || '(unknown)')}</div>
     <div class="faint" style="font-family:var(--font-mono);font-size:11px;">${m.user_id}</div></div></div>`;
 }
 window.selectMember = selectMember;
@@ -204,15 +203,15 @@ document.getElementById('memberSearch').addEventListener('input', debounce(e => 
 async function exec(action) {
   let user_id;
   if (action === 'unban') {
-    user_id = (prompt('ID Discord du membre à débannir :') || '').trim();
+    user_id = (prompt('Discord ID of the member to unban:') || '').trim();
     if (!user_id) return;
   } else {
-    if (!SELECTED) { toast('Sélectionne un membre dans la liste.', 'error'); return; }
+    if (!SELECTED) { toast('Select a member from the list.', 'error'); return; }
     user_id = SELECTED.user_id;
   }
   const reason = document.getElementById('reason').value.trim();
   const labels = { warn: 'warn', kick: 'kick', ban: 'BAN', timeout: 'timeout', unban: 'unban' };
-  if (!confirm(`Confirmer : ${labels[action].toUpperCase()} pour ${SELECTED ? SELECTED.username : user_id} ?\nRaison : ${reason || '(aucune)'}`)) return;
+  if (!confirm(`Confirm: ${labels[action].toUpperCase()} for ${SELECTED ? SELECTED.username : user_id}?\nReason: ${reason || '(none)'}`)) return;
 
   const payload = { user_id, reason };
   if (action === 'timeout') payload.duration_minutes = parseInt(document.getElementById('durationMinutes').value || '10', 10);
@@ -226,10 +225,10 @@ async function exec(action) {
     });
     const data = await res.json();
     if (data.success) {
-      const tag = action === 'warn' ? `Warn enregistré (#${data.action_id}, ${data.active_warns} actifs)` : `Action ${action} envoyée. (~1.5s)`;
+      const tag = action === 'warn' ? `Warn recorded (#${data.action_id}, ${data.active_warns} active)` : `Action ${action} sent. (~1.5s)`;
       toast(tag);
       if (SELECTED) loadModlogs(SELECTED.user_id);
-    } else toast(data.error || 'Erreur', 'error');
+    } else toast(data.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.exec = exec;
@@ -238,14 +237,14 @@ window.exec = exec;
 async function loadModlogs(user_id) {
   const list  = document.getElementById('actionsList');
   const badge = document.getElementById('warnsBadge');
-  list.innerHTML = '<div class="muted" style="font-size:13px;">Chargement...</div>';
+  list.innerHTML = '<div class="muted" style="font-size:13px;">Loading...</div>';
   try {
     const r = await fetch('/api/moderation/modlogs?user_id=' + encodeURIComponent(user_id));
     const d = await r.json();
     const actions = d.actions || [];
-    badge.innerHTML = `🟡 <strong>${d.active_warns ?? 0}</strong> warn(s) actif(s) · ${actions.length} sanction(s) totales`;
+    badge.innerHTML = `🟡 <strong>${d.active_warns ?? 0}</strong> active warn(s) · ${actions.length} total action(s)`;
     if (!actions.length) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;padding:10px;">_Aucune sanction enregistrée._</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;padding:10px;">_No actions recorded._</div>';
       return;
     }
     list.innerHTML = actions.map(a => {
@@ -255,53 +254,53 @@ async function loadModlogs(user_id) {
       const date  = (a.created_at || '').split('.')[0];
       const mod   = a.moderator_id ? `<@${a.moderator_id}>` : '?';
       const dur   = a.duration_sec ? ` · ${Math.round(a.duration_sec/60)} min` : '';
-      const reasonHtml = escapeHtml(a.reason || '_sans raison_');
-      const revoked = a.revoked_at ? `<div class="meta">❎ révoqué ${(a.revoked_at||'').split('.')[0]} par ${a.revoked_by ? '@'+a.revoked_by : '?'}</div>` : '';
+      const reasonHtml = escapeHtml(a.reason || '_no reason_');
+      const revoked = a.revoked_at ? `<div class="meta">❎ revoked ${(a.revoked_at||'').split('.')[0]} by ${a.revoked_by ? '@'+a.revoked_by : '?'}</div>` : '';
       const revokeBtn = (!a.revoked_at && a.action_type === 'warn')
-        ? `<button class="btn btn-ghost" onclick="revokeAction(${a.id})" style="font-size:11px;padding:4px 8px;">Révoquer</button>`
+        ? `<button class="btn btn-ghost" onclick="revokeAction(${a.id})" style="font-size:11px;padding:4px 8px;">Revoke</button>`
         : '';
       return `<div class="${cls}">
         <span class="${pill}">${lbl}</span>
         <span class="meta">${date}${dur}</span>
-        <div class="reason">${reasonHtml}${revoked}<div class="meta">par ${mod} · #${a.id}</div></div>
+        <div class="reason">${reasonHtml}${revoked}<div class="meta">by ${mod} · #${a.id}</div></div>
         <div>${revokeBtn}</div>
       </div>`;
     }).join('');
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Error: ${e.message}</div>`;
   }
 }
 
 async function revokeAction(action_id) {
-  const reason = prompt('Raison de révocation (optionnel) :') || '';
+  const reason = prompt('Revocation reason (optional):') || '';
   const r = await fetch('/api/moderation/revoke', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ action_id, reason }),
   });
   if (r.ok) {
-    toast('Sanction révoquée');
+    toast('Action revoked');
     if (SELECTED) loadModlogs(SELECTED.user_id);
-  } else toast('Erreur', 'error');
+  } else toast('Error', 'error');
 }
 window.revokeAction = revokeAction;
 
-// Hook : quand on selectionne un membre on charge ses modlogs
+// Hook: when a member is selected, load their modlogs
 const _origSelect = window.selectMember;
 window.selectMember = function(m) {
   _origSelect(m);
   loadModlogs(m.user_id);
 };
 
-// ─── Config moderation ─────────────────────────────────────────────────────
+// ─── Moderation config ─────────────────────────────────────────────────────
 async function loadModConfig() {
-  // Charge channels pour le selector modlog
+  // Load channels for the modlog selector
   try {
     const cr = await fetch('/api/channels?type=text');
     if (cr.ok) {
       const cd = await cr.json();
       const sel = document.getElementById('cfgModlogChannel');
-      sel.innerHTML = '<option value="">— aucun —</option>' +
+      sel.innerHTML = '<option value="">— none —</option>' +
         (cd.channels || []).map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
     }
   } catch (_) {}
@@ -323,8 +322,8 @@ async function saveConfig() {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(payload),
   });
-  if (r.ok) toast('✅ Config enregistrée');
-  else toast('Erreur', 'error');
+  if (r.ok) toast('✅ Config saved');
+  else toast('Error', 'error');
 }
 window.saveConfig = saveConfig;
 
@@ -333,7 +332,7 @@ loadModConfig();
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeAttr(s) { return String(s).replaceAll('"', '&quot;'); }
 
-// Toggle champs selon action survolée (UX hint)
+// Toggle fields based on the hovered action (UX hint)
 document.getElementById('btnTimeout').addEventListener('mouseenter', () => document.getElementById('timeoutFields').style.display = '');
 document.getElementById('btnBan').addEventListener('mouseenter', () => document.getElementById('banFields').style.display = '');
 

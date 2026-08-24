@@ -2,40 +2,40 @@
 {% from "_charts.html" import sparkline, heatmap as heatmap_chart, bar_h %}
 {% set active_nav = 'general' %}
 
-{% block title %}Vue d'ensemble · Bot Console{% endblock %}
-{% block crumb %}Vue d'ensemble{% endblock %}
+{% block title %}{{ t('web_core.nav.overview') }} · Bot Console{% endblock %}
+{% block crumb %}{{ t('web_core.nav.overview') }}{% endblock %}
 
 {% block content %}
 
 <section class="hero">
   <div class="hero-glow" id="heroGlow"></div>
   <div class="parallax-layer" id="heroParallax">
-    <span class="eyebrow">Cross-serveur</span>
-    <h1>Tous les serveurs, en un coup d'œil.</h1>
-    <p class="hero-sub">Agrégats globaux et répartition par serveur. Pour modifier des données, choisis un serveur dans la liste plus bas.</p>
+    <span class="eyebrow">{{ t('web_core.general.eyebrow') }}</span>
+    <h1>{{ t('web_core.general.title') }}</h1>
+    <p class="hero-sub">{{ t('web_core.general.subtitle') }}</p>
   </div>
 </section>
 
 <section class="grid grid-4 mb-6">
   <div class="stat">
-    <div class="stat-label">Serveurs actifs</div>
+    <div class="stat-label">{{ t('web_core.general.stat_servers') }}</div>
     <div class="stat-value">{{ by_guild|length }}</div>
-    <div class="stat-sub">Bot connecté</div>
+    <div class="stat-sub">{{ t('web_core.general.stat_servers_sub') }}</div>
   </div>
   <div class="stat">
-    <div class="stat-label">Comptes traçés</div>
+    <div class="stat-label">{{ t('web_core.general.stat_accounts') }}</div>
     <div class="stat-value">{{ "{:,}".format(stats.total_users).replace(',', ' ') }}</div>
-    <div class="stat-sub">Tous serveurs confondus</div>
+    <div class="stat-sub">{{ t('web_core.general.stat_accounts_sub') }}</div>
   </div>
   <div class="stat">
-    <div class="stat-label">XP cumulé</div>
+    <div class="stat-label">{{ t('web_core.general.stat_xp') }}</div>
     <div class="stat-value">{{ "{:,}".format(stats.total_xp).replace(',', ' ') }}</div>
-    <div class="stat-sub">Messagerie</div>
+    <div class="stat-sub">{{ t('web_core.general.stat_xp_sub') }}</div>
   </div>
   <div class="stat">
-    <div class="stat-label">Niveau moyen</div>
+    <div class="stat-label">{{ t('web_core.general.stat_avg_level') }}</div>
     <div class="stat-value">{{ "%.1f"|format(stats.avg_level) }}</div>
-    <div class="stat-sub">Sur l'ensemble</div>
+    <div class="stat-sub">{{ t('web_core.general.stat_avg_level_sub') }}</div>
   </div>
 </section>
 
@@ -43,10 +43,10 @@
 <section class="card mb-6">
   <div class="card-row mb-4">
     <div>
-      <h2>Activité globale — 14 derniers jours</h2>
-      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Tous serveurs confondus.</p>
+      <h2>{{ t('web_core.general.activity_title') }}</h2>
+      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">{{ t('web_core.general.activity_sub') }}</p>
     </div>
-    <span class="badge">total : {{ activity|sum(attribute='count') }}</span>
+    <span class="badge">{{ t('web_core.general.total_badge', count=activity|sum(attribute='count')) }}</span>
   </div>
   {{ sparkline(activity, w=900, h=120) }}
   <div class="row between mt-2 faint" style="font-size:11px;font-family:var(--font-mono);">
@@ -59,15 +59,15 @@
 <div class="grid grid-2 gap-5 mb-6">
   {% if heatmap %}
   <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">Heatmap d'activité</h2>
-    <p class="muted" style="font-size:var(--t-sm);margin-bottom: var(--s-4);">4 dernières semaines, par jour × heure.</p>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_core.general.heatmap_title') }}</h2>
+    <p class="muted" style="font-size:var(--t-sm);margin-bottom: var(--s-4);">{{ t('web_core.general.heatmap_sub') }}</p>
     {{ heatmap_chart(heatmap, cell_size=12) }}
   </div>
   {% endif %}
 
   {% if top_cmds %}
   <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">Top commandes (30 j)</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_core.general.top_commands') }}</h2>
     {{ bar_h(top_cmds, label_key='cmd', value_key='n', max_items=10) }}
   </div>
   {% endif %}
@@ -77,15 +77,15 @@
 <section class="card mb-6">
   <div class="card-row mb-4">
     <div>
-      <h2>Top 10 cross-serveur</h2>
-      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">Agrégé par utilisateur (XP cumulé toutes guildes).</p>
+      <h2>{{ t('web_core.general.top10_title') }}</h2>
+      <p class="muted" style="font-size:var(--t-sm);margin-top:4px;">{{ t('web_core.general.top10_sub') }}</p>
     </div>
   </div>
   {% set top_xp = stats.top10[0].xp if stats.top10 and stats.top10[0].xp else 1 %}
   <div class="bar-list">
     {% for u in stats.top10 %}
     <div class="bar-row">
-      <span class="bar-label">{{ u.username or '(sans nom)' }}</span>
+      <span class="bar-label">{{ u.username or t('web_core.general.no_name') }}</span>
       <div class="bar-track"><div class="bar-fill" style="width: {{ (u.xp / top_xp * 100) if top_xp else 0 }}%"></div></div>
       <span class="bar-value">{{ "{:,}".format(u.xp).replace(',', ' ') }}</span>
     </div>
@@ -96,20 +96,20 @@
 
 <section class="card padless">
   <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-    <h2>Serveurs</h2>
-    <span class="badge">{{ by_guild|length }} actifs</span>
+    <h2>{{ t('web_core.general.servers') }}</h2>
+    <span class="badge">{{ t('web_core.general.active_count', count=by_guild|length) }}</span>
   </div>
 
   {% if by_guild %}
   <table class="tbl">
     <thead>
       <tr>
-        <th>Serveur</th>
-        <th class="num">Membres</th>
-        <th class="num">Comptes</th>
-        <th class="num">XP cumulé</th>
-        <th class="num">Niv. moyen</th>
-        <th class="num">Réactions</th>
+        <th>{{ t('web_core.general.th_server') }}</th>
+        <th class="num">{{ t('web_core.general.th_members') }}</th>
+        <th class="num">{{ t('web_core.general.th_accounts') }}</th>
+        <th class="num">{{ t('web_core.general.th_xp') }}</th>
+        <th class="num">{{ t('web_core.general.th_avg_level') }}</th>
+        <th class="num">{{ t('web_core.general.th_reactions') }}</th>
         <th style="width: 110px;"></th>
       </tr>
     </thead>
@@ -131,14 +131,14 @@
         <td class="num">{{ "{:,}".format(gd.xp).replace(',', ' ') }}</td>
         <td class="num">{{ "%.1f"|format(gd.avg_level) }}</td>
         <td class="num">{{ gd.reactions }}</td>
-        <td><span class="badge badge-accent" onclick="event.stopPropagation(); selectGuild('{{ gd.guild_id }}')" style="cursor:pointer;">Ouvrir →</span></td>
+        <td><span class="badge badge-accent" onclick="event.stopPropagation(); selectGuild('{{ gd.guild_id }}')" style="cursor:pointer;">{{ t('web_core.general.open') }} →</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
   <div style="padding: var(--s-9); text-align: center; color: var(--text-2);">
-    <p>Aucun serveur Discord actif.</p>
+    <p>{{ t('web_core.general.no_servers') }}</p>
   </div>
   {% endif %}
 </section>

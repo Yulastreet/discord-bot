@@ -2,18 +2,18 @@
 {% set active_nav = 'status' %}
 
 {% block title %}Status · Bot Console{% endblock %}
-{% block crumb %}Status système{% endblock %}
+{% block crumb %}{{ t('web_core.status.crumb') }}{% endblock %}
 {% block actions %}
-  <button class="btn btn-secondary btn-sm" onclick="refresh()">Rafraîchir</button>
+  <button class="btn btn-secondary btn-sm" onclick="refresh()">{{ t('web_core.common.refresh') }}</button>
 {% endblock %}
 
 {% block content %}
 
 <div class="col gap-7">
   <div>
-    <h1>Santé du bot</h1>
+    <h1>{{ t('web_core.status.heading') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Uptime, latence Discord, taille de la DB, dernières erreurs, tentatives de connexion.
+      {{ t('web_core.status.subtitle') }}
     </p>
   </div>
 
@@ -21,36 +21,36 @@
 
   <div class="grid grid-4">
     <div class="stat">
-      <div class="stat-label">Statut bot</div>
+      <div class="stat-label">{{ t('web_core.status.bot_status') }}</div>
       <div class="stat-value" id="botStatus">—</div>
       <div class="stat-sub" id="botStatusSub">—</div>
     </div>
     <div class="stat">
-      <div class="stat-label">Uptime</div>
+      <div class="stat-label">{{ t('web_core.status.uptime') }}</div>
       <div class="stat-value" id="uptime">—</div>
-      <div class="stat-sub">Depuis le dernier boot</div>
+      <div class="stat-sub">{{ t('web_core.status.since_boot') }}</div>
     </div>
     <div class="stat">
-      <div class="stat-label">Latence Discord</div>
+      <div class="stat-label">{{ t('web_core.status.latency') }}</div>
       <div class="stat-value" id="latency">—</div>
-      <div class="stat-sub">Heartbeat WebSocket</div>
+      <div class="stat-sub">{{ t('web_core.status.heartbeat_ws') }}</div>
     </div>
     <div class="stat">
-      <div class="stat-label">Serveurs / vocaux</div>
+      <div class="stat-label">{{ t('web_core.status.servers_voice') }}</div>
       <div class="stat-value" id="guildCounts">—</div>
-      <div class="stat-sub">Connectés en ce moment</div>
+      <div class="stat-sub">{{ t('web_core.status.connected_now') }}</div>
     </div>
   </div>
 
   <div class="grid grid-2 gap-5">
     <div class="card">
-      <h2>Versions</h2>
+      <h2>{{ t('web_core.status.versions') }}</h2>
       <div id="versions" class="mt-2"></div>
     </div>
     <div class="card">
       <div class="card-row mb-3">
-        <h2>Base de données</h2>
-        <button class="btn btn-secondary btn-sm" id="backupBtn" onclick="createBackup()">Créer une backup</button>
+        <h2>{{ t('web_core.status.database') }}</h2>
+        <button class="btn btn-secondary btn-sm" id="backupBtn" onclick="createBackup()">{{ t('web_core.status.create_backup') }}</button>
       </div>
       <div id="dbInfo" class="mt-2"></div>
       <div id="backupStatus" class="muted mt-3" style="font-size:var(--t-xs);">—</div>
@@ -66,7 +66,7 @@
   </div>
 
   <div class="card">
-    <h2>🎵 Moteur musique</h2>
+    <h2>🎵 {{ t('web_core.status.music_engine') }}</h2>
     <div class="muted" style="font-size:var(--t-xs);margin-top:4px;">
       yt-dlp + ffmpeg + Cloudflare WARP (SOCKS5) + bgutil-pot HTTP (PoToken) + Privoxy (HTTP→SOCKS5 bridge)
     </div>
@@ -75,7 +75,7 @@
 
   <div class="card">
     <div class="card-row mb-4">
-      <h2>Dernière erreur bot</h2>
+      <h2>{{ t('web_core.status.last_error') }}</h2>
       <span class="badge" id="lastErrorTime">—</span>
     </div>
     <pre id="lastError" class="term" style="max-height: 200px; overflow-y: auto;">—</pre>
@@ -83,7 +83,7 @@
 
   <div class="card padless">
     <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-      <h2>Tentatives de connexion (20 dernières)</h2>
+      <h2>{{ t('web_core.status.login_attempts') }}</h2>
       <span class="badge" id="loginCount">0</span>
     </div>
     <div id="loginLog"></div>
@@ -157,7 +157,7 @@ function fmtUptime(seconds) {
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-  if (d > 0) return `${d}j ${h}h ${m}m`;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
@@ -172,10 +172,10 @@ function fmtBytes(b) {
 function fmtTimeAgo(ts) {
   if (!ts) return '—';
   const diff = (Date.now()/1000 - ts);
-  if (diff < 60)    return `il y a ${Math.floor(diff)}s`;
-  if (diff < 3600)  return `il y a ${Math.floor(diff/60)}m`;
-  if (diff < 86400) return `il y a ${Math.floor(diff/3600)}h`;
-  return new Date(ts*1000).toLocaleString('fr-FR');
+  if (diff < 60)    return `${Math.floor(diff)}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return new Date(ts*1000).toLocaleString('en-GB');
 }
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -205,7 +205,7 @@ async function refresh() {
     const data = await res.json();
     render(data);
   } catch (e) {
-    document.getElementById('botStatus').textContent = 'Erreur';
+    document.getElementById('botStatus').textContent = 'Error';
   }
 }
 
@@ -213,15 +213,15 @@ async function createBackup() {
   const btn = document.getElementById('backupBtn');
   const status = document.getElementById('backupStatus');
   btn.disabled = true;
-  status.textContent = 'Création de la backup...';
+  status.textContent = 'Creating backup...';
   try {
     const res = await fetch('/api/status/db-backup', { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.status);
-    status.textContent = `Backup créée : ${data.file} · ${fmtBytes(data.size_bytes)} · ${new Date(data.created_at * 1000).toLocaleString('fr-FR')} · ancienne backup écrasée`;
+    status.textContent = `Backup created: ${data.file} · ${fmtBytes(data.size_bytes)} · ${new Date(data.created_at * 1000).toLocaleString('en-GB')} · previous backup overwritten`;
     await refresh();
   } catch (e) {
-    status.textContent = `Erreur backup : ${e.message}`;
+    status.textContent = `Backup error: ${e.message}`;
   } finally {
     btn.disabled = false;
   }
@@ -239,15 +239,15 @@ function render(d) {
   const statusEl = document.getElementById('botStatus');
   const alertEl = document.getElementById('crashAlert');
   if (crashed) {
-    statusEl.textContent = 'Crash probable';
+    statusEl.textContent = 'Likely crashed';
     statusEl.style.color = 'var(--danger)';
-    document.getElementById('botStatusSub').textContent = bot.updated_at ? `Heartbeat ${fmtTimeAgo(bot.updated_at)}` : 'bot_state.json absent — bot pas démarré ?';
+    document.getElementById('botStatusSub').textContent = bot.updated_at ? `Heartbeat ${fmtTimeAgo(bot.updated_at)}` : 'bot_state.json missing — is the bot running?';
     alertEl.style.display = '';
     alertEl.textContent = bot.updated_at
-      ? `Alerte : le bot ne met plus son heartbeat à jour depuis ${fmtTimeAgo(bot.updated_at)}. Vérifie pm2/logs.`
-      : 'Alerte : aucun heartbeat bot trouvé. Le bot est probablement arrêté ou bot_state.json est absent.';
+      ? `Alert: the bot has not updated its heartbeat for ${fmtTimeAgo(bot.updated_at)}. Check pm2/logs.`
+      : 'Alert: no bot heartbeat found. The bot is probably stopped or bot_state.json is missing.';
     if ('Notification' in window && Notification.permission === 'granted' && !window.__botCrashNotified) {
-      new Notification('TookBot : crash probable', { body: alertEl.textContent });
+      new Notification('TookBot: likely crashed', { body: alertEl.textContent });
       window.__botCrashNotified = true;
     }
   } else if (stale) {
@@ -256,9 +256,9 @@ function render(d) {
     document.getElementById('botStatusSub').textContent = `Heartbeat ${fmtTimeAgo(bot.updated_at)}`;
     alertEl.style.display = 'none';
   } else {
-    statusEl.textContent = 'En ligne';
+    statusEl.textContent = 'Online';
     statusEl.style.color = 'var(--accent)';
-    document.getElementById('botStatusSub').textContent = `MAJ ${fmtTimeAgo(bot.updated_at)}`;
+    document.getElementById('botStatusSub').textContent = `Updated ${fmtTimeAgo(bot.updated_at)}`;
     alertEl.style.display = 'none';
     window.__botCrashNotified = false;
   }
@@ -282,34 +282,34 @@ function render(d) {
   v.innerHTML = `
     <div class="kv-row"><span class="kv-key">discord.py</span><span class="kv-val">${bot.discordpy_version || '—'}</span></div>
     <div class="kv-row"><span class="kv-key">yt-dlp</span><span class="kv-val">${bot.ytdlp_version || '—'}</span></div>
-    <div class="kv-row"><span class="kv-key">PID bot</span><span class="kv-val">${bot.pid ?? '—'}</span></div>
+    <div class="kv-row"><span class="kv-key">Bot PID</span><span class="kv-val">${bot.pid ?? '—'}</span></div>
   `;
 
   // DB
   const counts = (d.db && d.db.counts) || {};
   const dbi = document.getElementById('dbInfo');
   dbi.innerHTML = `
-    <div class="kv-row"><span class="kv-key">Taille fichier</span><span class="kv-val">${fmtBytes(d.db?.size_bytes)}</span></div>
-    <div class="kv-row"><span class="kv-key">Chemin</span><span class="kv-val">${d.db?.path || '—'}</span></div>
-    <div class="kv-row"><span class="kv-key">Modifiée</span><span class="kv-val">${d.db?.modified_at ? new Date(d.db.modified_at * 1000).toLocaleString('fr-FR') : '—'}</span></div>
+    <div class="kv-row"><span class="kv-key">File size</span><span class="kv-val">${fmtBytes(d.db?.size_bytes)}</span></div>
+    <div class="kv-row"><span class="kv-key">Path</span><span class="kv-val">${d.db?.path || '—'}</span></div>
+    <div class="kv-row"><span class="kv-key">Modified</span><span class="kv-val">${d.db?.modified_at ? new Date(d.db.modified_at * 1000).toLocaleString('en-GB') : '—'}</span></div>
     ${Object.entries(counts).map(([k,v]) => `<div class="kv-row"><span class="kv-key">${k}</span><span class="kv-val">${v ?? '—'}</span></div>`).join('')}
   `;
   const backup = d.db?.backup;
   document.getElementById('backupStatus').textContent = backup
-    ? `Dernière backup : ${backup.file} · ${fmtBytes(backup.size_bytes)} · ${new Date(backup.created_at * 1000).toLocaleString('fr-FR')}`
-    : 'Aucune backup locale créée depuis le dashboard.';
+    ? `Last backup: ${backup.file} · ${fmtBytes(backup.size_bytes)} · ${new Date(backup.created_at * 1000).toLocaleString('en-GB')}`
+    : 'No local backup created from the dashboard yet.';
 
   // System
   const sys = d.system || {};
   const si = document.getElementById('systemInfo');
   if (!sys.available) {
-    si.innerHTML = `<div class="kv-row"><span class="kv-key">Monitoring</span><span class="kv-val">${sys.error || 'indisponible'}</span></div>`;
+    si.innerHTML = `<div class="kv-row"><span class="kv-key">Monitoring</span><span class="kv-val">${sys.error || 'unavailable'}</span></div>`;
   } else {
     si.innerHTML = `
       ${metricRow('CPU', `${Number(sys.cpu_percent || 0).toFixed(1)}%`, sys.cpu_percent)}
       ${metricRow('RAM', `${fmtBytes(sys.ram?.used)} / ${fmtBytes(sys.ram?.total)} · ${Number(sys.ram?.percent || 0).toFixed(1)}%`, sys.ram?.percent)}
-      ${metricRow('Disque', `${fmtBytes(sys.disk?.used)} / ${fmtBytes(sys.disk?.total)} · ${Number(sys.disk?.percent || 0).toFixed(1)}%`, sys.disk?.percent)}
-      <div class="kv-row"><span class="kv-key">Uptime VPS</span><span class="kv-val">${sys.boot_time ? fmtUptime(now - sys.boot_time) : '—'}</span></div>
+      ${metricRow('Disk', `${fmtBytes(sys.disk?.used)} / ${fmtBytes(sys.disk?.total)} · ${Number(sys.disk?.percent || 0).toFixed(1)}%`, sys.disk?.percent)}
+      <div class="kv-row"><span class="kv-key">VPS uptime</span><span class="kv-val">${sys.boot_time ? fmtUptime(now - sys.boot_time) : '—'}</span></div>
     `;
   }
 
@@ -322,12 +322,12 @@ function render(d) {
   const dot  = ok => `<span style="color:${ok ? '#3fb950' : '#f85149'};">●</span>`;
   const musicWarnings = (mus.warnings || []).map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('');
   mEl.innerHTML = `
-    <div class="kv-row"><span class="kv-key">yt-dlp</span><span class="kv-val">${mus.yt_dlp_version ? escapeHtml(mus.yt_dlp_version) : '<span style="color:#f85149;">non installé</span>'}</span></div>
-    <div class="kv-row"><span class="kv-key">ffmpeg</span><span class="kv-val">${mus.ffmpeg ? escapeHtml(mus.ffmpeg) : '<span style="color:#f85149;">absent du PATH</span>'}</span></div>
-    <div class="kv-row"><span class="kv-key">Cloudflare WARP</span><span class="kv-val">${dot(warp.connected)} ${escapeHtml(warp.status_text || (warp.installed === false ? 'non installé' : '—'))}</span></div>
+    <div class="kv-row"><span class="kv-key">yt-dlp</span><span class="kv-val">${mus.yt_dlp_version ? escapeHtml(mus.yt_dlp_version) : '<span style="color:#f85149;">not installed</span>'}</span></div>
+    <div class="kv-row"><span class="kv-key">ffmpeg</span><span class="kv-val">${mus.ffmpeg ? escapeHtml(mus.ffmpeg) : '<span style="color:#f85149;">missing from PATH</span>'}</span></div>
+    <div class="kv-row"><span class="kv-key">Cloudflare WARP</span><span class="kv-val">${dot(warp.connected)} ${escapeHtml(warp.status_text || (warp.installed === false ? 'not installed' : '—'))}</span></div>
     <div class="kv-row"><span class="kv-key">YT proxy (yt-dlp)</span><span class="kv-val">${escapeHtml(mus.yt_proxy || '—')}</span></div>
     <div class="kv-row"><span class="kv-key">bgutil-pot HTTP</span><span class="kv-val">${dot(bgu.ok)} ${escapeHtml(bgu.url || '—')}${bgu.status ? ` · HTTP ${escapeHtml(String(bgu.status))}` : ''}${bgu.version ? ` · ${escapeHtml(bgu.version)}` : ''}${bgu.error ? ` · <span style="color:#f85149;">${escapeHtml(bgu.error)}</span>` : ''}</span></div>
-    <div class="kv-row"><span class="kv-key">Privoxy (ffmpeg bridge)</span><span class="kv-val">${dot(prx.ok)} ${escapeHtml(prx.url || '—')}${prx.exit_ip ? ` · sortie IP ${escapeHtml(prx.exit_ip)}` : ''}${prx.error ? ` · <span style="color:#f85149;">${escapeHtml(prx.error)}</span>` : ''}</span></div>
+    <div class="kv-row"><span class="kv-key">Privoxy (ffmpeg bridge)</span><span class="kv-val">${dot(prx.ok)} ${escapeHtml(prx.url || '—')}${prx.exit_ip ? ` · exit IP ${escapeHtml(prx.exit_ip)}` : ''}${prx.error ? ` · <span style="color:#f85149;">${escapeHtml(prx.error)}</span>` : ''}</span></div>
     ${musicWarnings ? `<div class="warn-list">${musicWarnings}</div>` : ''}
   `;
 
@@ -336,7 +336,7 @@ function render(d) {
     document.getElementById('lastError').textContent = bot.last_error;
     document.getElementById('lastErrorTime').textContent = fmtTimeAgo(bot.last_error_at);
   } else {
-    document.getElementById('lastError').textContent = 'Aucune erreur enregistrée. ✓';
+    document.getElementById('lastError').textContent = 'No errors recorded. ✓';
     document.getElementById('lastErrorTime').textContent = '—';
   }
 
@@ -345,7 +345,7 @@ function render(d) {
   document.getElementById('loginCount').textContent = log.length;
   const lEl = document.getElementById('loginLog');
   if (!log.length) {
-    lEl.innerHTML = '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">Aucune tentative récente.</div>';
+    lEl.innerHTML = '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">No recent attempts.</div>';
   } else {
     lEl.innerHTML = log.map(r => `
       <div class="login-row">

@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'my_guild' %}
 
-{% block title %}Ma Guilde · TookBot{% endblock %}
-{% block crumb %}Ma Guilde{% endblock %}
+{% block title %}{{ t('web_cards.my_guild.title') }} · TookBot{% endblock %}
+{% block crumb %}{{ t('web_cards.my_guild.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -62,17 +62,17 @@
 </style>
 
 <div class="mg-wrap" id="mgRoot">
-  <div class="mg-empty">Chargement…</div>
+  <div class="mg-empty">{{ t('web_cards.my_guild.loading') }}</div>
 </div>
 
 <script>
 const GCOLORS = { lime:'#b9f23a', rouge:'#ff4d4d', bleu:'#4c8dff', vert:'#4ade80', jaune:'#f2d23a',
   violet:'#a86dff', rose:'#ff5fa2', orange:'#ffa726', cyan:'#22d3ee', blanc:'#e8e8e8' };
-const ROLE = { master:'👑 Maître', officer:'🔧 Officier', member:'▫️ Membre' };
+const ROLE = { master:'👑 Master', officer:'🔧 Officer', member:'▫️ Member' };
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function fmt(n){return (n||0).toLocaleString('fr-FR');}
+function fmt(n){return (n||0).toLocaleString('en-US');}
 function powerDigits(n){ return String(Math.max(0,Math.round(n))).split('').map(d=>`<img src="/static/power_digits/${d}.png" alt="${d}">`).join(''); }
-function fmtDate(s){ if(!s) return '—'; const d=new Date(s.replace(' ','T')); return isNaN(d)?esc(s):d.toLocaleDateString('fr-FR'); }
+function fmtDate(s){ if(!s) return '—'; const d=new Date(s.replace(' ','T')); return isNaN(d)?esc(s):d.toLocaleDateString('en-US'); }
 
 let DATA = null;
 
@@ -81,8 +81,8 @@ async function load(){
   let d; try { d = await r.json(); } catch(e){ d = {in_guild:false}; }
   DATA = d;
   const root = document.getElementById('mgRoot');
-  if(d.auth === false){ root.innerHTML = '<div class="mg-empty">Connecte-toi pour voir ta guilde.</div>'; return; }
-  if(!d.in_guild){ root.innerHTML = '<div class="mg-empty">Tu n\'es dans aucune guilde.<br>Rejoins-en une avec <code>/guild apply</code> ou crée la tienne avec <code>/guild create</code>.</div>'; return; }
+  if(d.auth === false){ root.innerHTML = '<div class="mg-empty">Log in to see your guild.</div>'; return; }
+  if(!d.in_guild){ root.innerHTML = '<div class="mg-empty">You are not in a guild.<br>Join one with <code>/guild apply</code> or create yours with <code>/guild create</code>.</div>'; return; }
   render(d);
 }
 
@@ -92,7 +92,7 @@ function questBlock(q, showContrib){
   const reward = `+${fmt(q.xp)} XP` + (q.bank ? ` · +${fmt(q.bank)} ✨` : '');
   let contrib = '';
   if(showContrib && q.contrib && q.contrib.length){
-    contrib = `<div class="mg-q-contrib">Top : ` + q.contrib.slice(0,3).map(c=>`${esc(c.user||c.user_id)} (${fmt(c.contrib)})`).join(' · ') + `</div>`;
+    contrib = `<div class="mg-q-contrib">Top: ` + q.contrib.slice(0,3).map(c=>`${esc(c.user||c.user_id)} (${fmt(c.contrib)})`).join(' · ') + `</div>`;
   }
   return `<div class="mg-q">
     <div class="mg-q-top"><span>${q.done?'✅':'⬜'} ${esc(q.label)}</span><span>${fmt(prog)}/${fmt(q.target)}</span></div>
@@ -114,10 +114,10 @@ function render(d){
       <div class="mg-name">${esc(g.name)} ${g.tag?`<span class="mg-tag">${esc(g.tag)}</span>`:''}
         <span class="mg-role-badge">· ${ROLE[d.role]||d.role}</span></div>
       <div class="mg-bar"><i style="width:${maxed?100:Math.min(100,Math.round(100*(g.xp_into||0)/(g.xp_span||1)))}%"></i></div>
-      <div class="mg-meta">Niveau <b>${g.level}</b>${maxed?' (MAX)':''} · ${fmt(g.xp)} XP · 💰 ${fmt(g.bank)} ✨ · 👥 ${d.members.length} membres</div>
+      <div class="mg-meta">Level <b>${g.level}</b>${maxed?' (MAX)':''} · ${fmt(g.xp)} XP · 💰 ${fmt(g.bank)} ✨ · 👥 ${d.members.length} members</div>
     </div>
     <div class="mg-power">
-      <div class="lbl">⚡ Puissance totale</div>
+      <div class="lbl">⚡ Total power</div>
       <div class="digits">${powerDigits(g.power)}</div>
     </div>
   </div>`;
@@ -125,37 +125,37 @@ function render(d){
   html += `<div class="mg-grid">`;
 
   // daily quests (own)
-  html += `<div class="mg-card"><h3>📜 Mes quêtes du jour</h3>` +
+  html += `<div class="mg-card"><h3>📜 My daily quests</h3>` +
     (d.daily||[]).map(q=>questBlock(q,false)).join('') + `</div>`;
 
   // weekly quests (collective)
-  html += `<div class="mg-card"><h3>📅 Quêtes hebdomadaires de guilde</h3>` +
+  html += `<div class="mg-card"><h3>📅 Weekly guild quests</h3>` +
     (d.weekly||[]).map(q=>questBlock(q, canManage)).join('') + `</div>`;
 
   html += `</div>`; // end grid
 
   // members
-  html += `<div class="mg-card"><h3>👥 Membres (${d.members.length})</h3>` +
+  html += `<div class="mg-card"><h3>👥 Members (${d.members.length})</h3>` +
     d.members.map(m=>{
       const av = m.avatar ? `<img class="mg-m-av" src="${esc(m.avatar)}">` : `<div class="mg-m-av"></div>`;
-      const joined = (canManage && m.joined_at) ? ` · inscrit le ${fmtDate(m.joined_at)}` : '';
+      const joined = (canManage && m.joined_at) ? ` · joined on ${fmtDate(m.joined_at)}` : '';
       const click = m.user_id ? `onclick="location.href='/cards/collection/${m.user_id}'" style="cursor:pointer"` : '';
       return `<div class="mg-m" ${click}>${av}
         <div class="mg-m-name">${esc(m.user)}<div class="mg-m-sub">${ROLE[m.role]||m.role}${joined}</div></div>
-        <div class="mg-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)} 📖${canManage?`<div class="mg-m-sub">${fmt(m.xp_contributed)} XP donnés</div>`:''}</div>
+        <div class="mg-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)} 📖${canManage?`<div class="mg-m-sub">${fmt(m.xp_contributed)} XP given</div>`:''}</div>
       </div>`;
     }).join('') + `</div>`;
 
   // applications (managers)
   if(canManage){
-    html += `<div class="mg-card"><h3>📨 Candidatures (${d.applications.length})</h3>`;
-    if(!d.applications.length){ html += `<div class="mg-m-sub">Aucune candidature en attente.</div>`; }
+    html += `<div class="mg-card"><h3>📨 Applications (${d.applications.length})</h3>`;
+    if(!d.applications.length){ html += `<div class="mg-m-sub">No pending applications.</div>`; }
     else {
       html += d.applications.map(a=>{
         const av = a.avatar ? `<img class="mg-m-av" src="${esc(a.avatar)}">` : `<div class="mg-m-av"></div>`;
         return `<div class="mg-app" data-uid="${a.user_id}">${av}
-          <div class="mg-m-name">${esc(a.user)}<div class="mg-m-sub">candidaté le ${fmtDate(a.created_at)}</div></div>
-          <button class="btn btn-primary" onclick="appAct('${a.user_id}',true)">✅ Accepter</button>
+          <div class="mg-m-name">${esc(a.user)}<div class="mg-m-sub">applied on ${fmtDate(a.created_at)}</div></div>
+          <button class="btn btn-primary" onclick="appAct('${a.user_id}',true)">✅ Accept</button>
           <button class="btn btn-danger" onclick="appAct('${a.user_id}',false)">❌</button>
         </div>`;
       }).join('');
@@ -164,19 +164,19 @@ function render(d){
   }
 
   // config / prereqs (master only display)
-  html += `<div class="mg-card"><h3>🚪 Accès & prérequis</h3>
+  html += `<div class="mg-card"><h3>🚪 Access &amp; requirements</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <span class="mg-chip">Entrée : <b>${g.open_join?'libre':'sur candidature'}</b></span>
-      <span class="mg-chip">⚡ Puissance min : <b>${fmt(g.min_power)}</b></span>
-      <span class="mg-chip">🎴 Cartes min : <b>${fmt(g.min_cards)}</b></span>
+      <span class="mg-chip">Entry: <b>${g.open_join?'open':'by application'}</b></span>
+      <span class="mg-chip">⚡ Min power: <b>${fmt(g.min_power)}</b></span>
+      <span class="mg-chip">🎴 Min cards: <b>${fmt(g.min_cards)}</b></span>
     </div>
-    ${isMaster?'<div class="mg-m-sub" style="margin-top:8px;">Modifiable via <code>/guildprofile</code> → Guilde customisation → Prérequis &amp; accès.</div>':''}
+    ${isMaster?'<div class="mg-m-sub" style="margin-top:8px;">Editable from <code>/guildprofile</code> → Guild customisation → Requirements &amp; access.</div>':''}
   </div>`;
 
   // historique XP gagnée (qui / comment / combien)
   const log = d.xp_log || [];
-  html += `<div class="mg-card"><h3>📈 Historique d'XP gagnée</h3>`;
-  if(!log.length){ html += `<div class="mg-m-sub">Aucune XP enregistrée pour le moment.</div>`; }
+  html += `<div class="mg-card"><h3>📈 Earned XP history</h3>`;
+  if(!log.length){ html += `<div class="mg-m-sub">No XP recorded yet.</div>`; }
   else {
     html += log.map(e=>{
       const s = xpSource(e.source);
@@ -198,26 +198,26 @@ function render(d){
 
 function xpSource(src){
   src = String(src||'action');
-  if(src.startsWith('quete hebdo')) return {ico:'📅', lbl:'Quête hebdo : '+esc(src.split(':').slice(1).join(':')||'')};
-  if(src.startsWith('quete')) return {ico:'📜', lbl:'Quête : '+esc(src.split(':').slice(1).join(':')||'')};
+  if(src.startsWith('quete hebdo')) return {ico:'📅', lbl:'Weekly quest: '+esc(src.split(':').slice(1).join(':')||'')};
+  if(src.startsWith('quete')) return {ico:'📜', lbl:'Quest: '+esc(src.split(':').slice(1).join(':')||'')};
   const map = {
     'roll':{ico:'🎲',lbl:'Roll'},
     'fusion':{ico:'✨',lbl:'Fusion'},
-    'fusion (all)':{ico:'✨',lbl:'Fusion en masse'},
-    'roue':{ico:'🎡',lbl:'Roue'},
-    "don d'essences":{ico:'💰',lbl:"Don d'essences"},
+    'fusion (all)':{ico:'✨',lbl:'Mass fusion'},
+    'roue':{ico:'🎡',lbl:'Wheel'},
+    "don d'essences":{ico:'💰',lbl:'Essence donation'},
   };
   return map[src] || {ico:'⭐', lbl:esc(src)};
 }
 function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s.replace(' ','T')+(s.includes('Z')?'':'Z'));
-  return isNaN(d)?esc(s):d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+  return isNaN(d)?esc(s):d.toLocaleString('en-US',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 
 async function appAct(uid, accept){
-  if(!accept && !confirm('Refuser cette candidature ?')) return;
+  if(!accept && !confirm('Reject this application?')) return;
   const r = await fetch(`/api/public/guilds/mine/application/${uid}`, { method: accept?'POST':'DELETE' });
   const d = await r.json();
   if(d.ok){ load(); }
-  else alert(d.error || 'Erreur');
+  else alert(d.error || 'Error');
 }
 window.appAct = appAct;
 load();

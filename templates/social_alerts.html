@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="social_alerts">{% endblock %}
-{% block title %}Alertes Twitch / YouTube · TookBot{% endblock %}
-{% block crumb %}Alertes Twitch / YouTube{% endblock %}
+{% block title %}{{ t('web_features.social_alerts.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.social_alerts.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -56,51 +56,50 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 </style>
 
-<h1 style="margin:0 0 8px;">🔔 Alertes Twitch / YouTube / Reddit</h1>
+<h1 style="margin:0 0 8px;">🔔 {{ t('web_features.social_alerts.title') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:24px;">
-  Le bot poste un message dans le salon de ton choix dès qu'un créateur passe en live (Twitch),
-  publie une nouvelle vidéo (YouTube) ou poste sur Reddit. Vérifié toutes les 5 minutes.
+  {{ t('web_features.social_alerts.subtitle') }}
 </p>
 
 <div class="sa-builder">
-  <h2>➕ Nouvelle alerte</h2>
+  <h2>➕ {{ t('web_features.social_alerts.new_alert') }}</h2>
   <div class="row-2col">
     <div class="field">
-      <label>Plateforme</label>
+      <label>{{ t('web_features.social_alerts.platform') }}</label>
       <select id="saPlatform">
-        <option value="twitch">🟣 Twitch (passage en live)</option>
-        <option value="youtube">🔴 YouTube (nouvelle vidéo)</option>
-        <option value="reddit">🟠 Reddit (nouveau post)</option>
+        <option value="twitch">🟣 {{ t('web_features.social_alerts.platform_twitch') }}</option>
+        <option value="youtube">🔴 {{ t('web_features.social_alerts.platform_youtube') }}</option>
+        <option value="reddit">🟠 {{ t('web_features.social_alerts.platform_reddit') }}</option>
       </select>
     </div>
     <div class="field">
-      <label>Salon Discord</label>
+      <label>{{ t('web_features.social_alerts.discord_channel') }}</label>
       <select id="saChannel"></select>
     </div>
   </div>
 
   <div class="field">
-    <label>Lien de la chaîne / profil</label>
+    <label>{{ t('web_features.social_alerts.channel_link') }}</label>
     <input id="saTarget" type="url" placeholder="https://twitch.tv/pokimane">
     <span id="saExample" class="muted" style="font-size:11px;margin-top:4px;">
-      Colle l'URL complète de la chaîne — le bot extrait l'identifiant automatiquement.
+      {{ t('web_features.social_alerts.link_help') }}
     </span>
   </div>
 
   <div class="field">
-    <label>Message custom (optionnel — placeholders : {target} {title} {url} {author} {game} {viewers})</label>
-    <textarea id="saMessage" placeholder="Laisse vide pour utiliser le message par défaut."></textarea>
+    <label>{{ t('web_features.social_alerts.custom_message') }} {target} {title} {url} {author} {game} {viewers})</label>
+    <textarea id="saMessage" placeholder="{{ t('web_features.social_alerts.message_placeholder') }}"></textarea>
   </div>
 
   <div class="actions">
-    <button id="saAddBtn" class="btn btn-primary" type="button">✅ Créer l'alerte</button>
+    <button id="saAddBtn" class="btn btn-primary" type="button">✅ {{ t('web_features.social_alerts.create_alert') }}</button>
     <span id="saHint" class="muted" style="font-size:12px;"></span>
   </div>
 </div>
 
-<h2 style="margin: 24px 0 12px;">📋 Alertes actives</h2>
+<h2 style="margin: 24px 0 12px;">📋 {{ t('web_features.social_alerts.active_alerts') }}</h2>
 <div id="saList" class="sa-list">
-  <div class="muted" style="font-size:13px;">Chargement…</div>
+  <div class="muted" style="font-size:13px;">{{ t('web_features.social_alerts.loading') }}</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -129,7 +128,7 @@ async function loadChannels() {
   const d = await r.json();
   CHANNELS = d.channels || [];
   document.getElementById('saChannel').innerHTML =
-    '<option value="">— sélectionne —</option>' +
+    '<option value="">— select —</option>' +
     CHANNELS.map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
 }
 
@@ -138,12 +137,12 @@ document.getElementById('saAddBtn').addEventListener('click', async () => {
   const channel_id = document.getElementById('saChannel').value;
   const target_id  = document.getElementById('saTarget').value.trim();
   const message    = document.getElementById('saMessage').value.trim() || null;
-  if (!channel_id) { showToast('Sélectionne un salon', false); return; }
-  if (!target_id)  { showToast('Saisis un pseudo / ID', false); return; }
+  if (!channel_id) { showToast('Select a channel', false); return; }
+  if (!target_id)  { showToast('Enter a username / ID', false); return; }
 
   const btn = document.getElementById('saAddBtn');
   btn.disabled = true;
-  document.getElementById('saHint').textContent = '⏳ Création…';
+  document.getElementById('saHint').textContent = '⏳ Creating…';
   try {
     const r = await fetch('/api/social-alerts', {
       method: 'POST',
@@ -152,14 +151,14 @@ document.getElementById('saAddBtn').addEventListener('click', async () => {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);
-    showToast('✅ Alerte créée');
+    showToast('✅ Alert created');
     document.getElementById('saTarget').value = '';
     document.getElementById('saMessage').value = '';
-    document.getElementById('saHint').textContent = `id #${d.id} · 1er check d'ici ~5 min`;
+    document.getElementById('saHint').textContent = `id #${d.id} · first check in ~5 min`;
     loadList();
     setTimeout(() => { document.getElementById('saHint').textContent = ''; }, 4000);
   } catch (e) {
-    showToast('Erreur : ' + e.message, false);
+    showToast('Error: ' + e.message, false);
     document.getElementById('saHint').textContent = '';
   } finally {
     btn.disabled = false;
@@ -180,7 +179,7 @@ async function loadList() {
     const d = await r.json();
     const alerts = d.alerts || [];
     if (alerts.length === 0) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucune alerte configurée._</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_No alert configured._</div>';
       return;
     }
     list.innerHTML = alerts.map(a => {
@@ -190,12 +189,12 @@ async function loadList() {
         <div class="sa-icon ${info.cls}">${info.icon}</div>
         <div class="sa-meta">
           <div class="sa-title">${info.label} · <code>${escapeHtml(a.target_label || a.target_id)}</code></div>
-          <div class="sa-sub">→ <#${a.channel_id}> · <code>id #${a.id}</code> · ${a.last_check_at ? 'last: ' + a.last_check_at : 'pas encore checkée'}</div>
+          <div class="sa-sub">→ <#${a.channel_id}> · <code>id #${a.id}</code> · ${a.last_check_at ? 'last: ' + a.last_check_at : 'not checked yet'}</div>
         </div>
         <div class="sa-actions-inline">
-          <button class="btn btn-secondary reset-btn" data-id="${a.id}" type="button" title="Force une re-detection au prochain poll">🔄 Reset</button>
+          <button class="btn btn-secondary reset-btn" data-id="${a.id}" type="button" title="Force a re-detection on the next poll">🔄 Reset</button>
           <button class="btn btn-secondary toggle-btn" data-id="${a.id}" data-enabled="${enabled ? 1 : 0}" type="button">
-            ${enabled ? '⏸️ Pause' : '▶️ Activer'}
+            ${enabled ? '⏸️ Pause' : '▶️ Enable'}
           </button>
           <button class="btn btn-secondary del-btn" data-id="${a.id}" type="button">🗑️</button>
         </div>
@@ -204,18 +203,18 @@ async function loadList() {
 
     list.querySelectorAll('.del-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Supprimer cette alerte ?')) return;
+        if (!confirm('Delete this alert?')) return;
         const r = await fetch(`/api/social-alerts/${btn.dataset.id}`, { method: 'DELETE' });
-        if (r.ok) { showToast('Alerte supprimée'); loadList(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast('Alert deleted'); loadList(); }
+        else showToast('Error', false);
       });
     });
     list.querySelectorAll('.reset-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Reset cette alerte ? Le bot la traitera comme nouvelle au prochain poll (≤5 min).')) return;
+        if (!confirm('Reset this alert? The bot will treat it as new on the next poll (≤5 min).')) return;
         const r = await fetch(`/api/social-alerts/${btn.dataset.id}/reset`, { method: 'POST' });
-        if (r.ok) { showToast('Reset OK — re-check dans ≤5 min'); loadList(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast('Reset OK — re-check within ≤5 min'); loadList(); }
+        else showToast('Error', false);
       });
     });
     list.querySelectorAll('.toggle-btn').forEach(btn => {
@@ -226,12 +225,12 @@ async function loadList() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ enabled: newState }),
         });
-        if (r.ok) { showToast(newState ? 'Activée' : 'Mise en pause'); loadList(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast(newState ? 'Enabled' : 'Paused'); loadList(); }
+        else showToast('Error', false);
       });
     });
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur de chargement : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Loading error: ${e.message}</div>`;
   }
 }
 
@@ -241,9 +240,9 @@ const PLAT_PLACEHOLDER = {
   reddit:  'https://reddit.com/r/france',
 };
 const PLAT_EXAMPLE = {
-  twitch:  "Format accepté : https://twitch.tv/&lt;pseudo&gt; ou pseudo seul.",
-  youtube: "Format accepté : https://youtube.com/@handle, /channel/UC..., /c/nom ou /user/nom.",
-  reddit:  "Format accepté : https://reddit.com/r/&lt;sub&gt; ou /user/&lt;u&gt;.",
+  twitch:  "Accepted format: https://twitch.tv/&lt;username&gt; or just the username.",
+  youtube: "Accepted format: https://youtube.com/@handle, /channel/UC..., /c/name or /user/name.",
+  reddit:  "Accepted format: https://reddit.com/r/&lt;sub&gt; or /user/&lt;u&gt;.",
 };
 function syncPlatformHelp() {
   const p = document.getElementById('saPlatform').value;

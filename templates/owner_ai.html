@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'owner_ai' %}
 
-{% block title %}IA · TookBot{% endblock %}
-{% block crumb %}IA (Groq){% endblock %}
+{% block title %}{{ t('web_premium.owner_ai.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_ai.crumb') }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -35,37 +35,36 @@
 {% block content %}
 <div class="col gap-6">
   <div>
-    <h1>🧠 Configuration IA (Groq)</h1>
+    <h1>🧠 {{ t('web_premium.owner_ai.title') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Activer / désactiver la réponse IA quand des utilisateurs <strong>mentionnent le bot</strong>.
-      Seul l'owner du bot a accès à cette page. La config est globale (s'applique à tous les serveurs).
+      {{ t('web_premium.owner_ai.intro') }}
     </p>
   </div>
 
   {% if ai_stats %}
   <div class="ai-card">
-    <h2>📊 Consommation</h2>
-    <div class="sub">Tokens consommés via l'API Groq. <a href="/owner/analytics" style="color: oklch(0.86 0.20 130);">Détails →</a></div>
+    <h2>📊 {{ t('web_premium.owner_ai.usage') }}</h2>
+    <div class="sub">{{ t('web_premium.owner_ai.usage_sub') }} <a href="/owner/analytics" style="color: oklch(0.86 0.20 130);">{{ t('web_premium.owner_ai.details_link') }}</a></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:6px;">
       <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">24h</div>
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">{{ t('web_premium.owner_ai.range_24h') }}</div>
         <div style="font-size:22px;font-weight:800;color:oklch(0.86 0.20 130);font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.h24.tokens).replace(",", " ") }}</div>
-        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.h24.calls }} appel(s)</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ t('web_premium.owner_ai.calls', n=ai_stats.h24.calls) }}</div>
       </div>
       <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">7 jours</div>
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">{{ t('web_premium.owner_ai.range_7d') }}</div>
         <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.d7.tokens).replace(",", " ") }}</div>
-        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.d7.calls }} appel(s)</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ t('web_premium.owner_ai.calls', n=ai_stats.d7.calls) }}</div>
       </div>
       <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">30 jours</div>
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">{{ t('web_premium.owner_ai.range_30d') }}</div>
         <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.d30.tokens).replace(",", " ") }}</div>
-        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.d30.calls }} appel(s)</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ t('web_premium.owner_ai.calls', n=ai_stats.d30.calls) }}</div>
       </div>
       <div style="background:var(--bg-2);padding:12px 14px;border-radius:8px;">
-        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">Total</div>
+        <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;">{{ t('web_premium.owner_ai.range_total') }}</div>
         <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);">{{ "{:,}".format(ai_stats.total.tokens).replace(",", " ") }}</div>
-        <div style="font-size:11px;color:var(--text-2);">{{ ai_stats.total.calls }} appel(s)</div>
+        <div style="font-size:11px;color:var(--text-2);">{{ t('web_premium.owner_ai.calls', n=ai_stats.total.calls) }}</div>
       </div>
     </div>
   </div>
@@ -73,11 +72,11 @@
 
   {% if not api_key_present %}
   <div class="ai-card" style="border-color: #c66;">
-    <h2>⚠️ Clé API manquante</h2>
+    <h2>⚠️ {{ t('web_premium.owner_ai.missing_key_title') }}</h2>
     <p class="sub" style="color: #f88;">
-      <code>GROQ_API_KEY</code> n'est pas définie dans le <code>.env</code> du VPS.
-      Obtiens une clé gratuite sur <a href="https://console.groq.com" target="_blank">console.groq.com</a>,
-      ajoute <code>GROQ_API_KEY=...</code> au fichier <code>.env</code> et redémarre le bot.
+      <code>GROQ_API_KEY</code> {{ t('web_premium.owner_ai.missing_key_1') }} <code>.env</code> {{ t('web_premium.owner_ai.missing_key_2') }}
+      {{ t('web_premium.owner_ai.missing_key_3') }} <a href="https://console.groq.com" target="_blank">console.groq.com</a>,
+      {{ t('web_premium.owner_ai.missing_key_4') }} <code>GROQ_API_KEY=...</code> {{ t('web_premium.owner_ai.missing_key_5') }} <code>.env</code> {{ t('web_premium.owner_ai.missing_key_6') }}
     </p>
   </div>
   {% endif %}
@@ -85,182 +84,178 @@
   <div class="ai-card">
     <div class="row between" style="align-items:center;gap:12px;flex-wrap:wrap;">
       <div>
-        <h2>État</h2>
-        <div class="sub">L'IA répond aux mentions seulement si activée.</div>
+        <h2>{{ t('web_premium.owner_ai.status') }}</h2>
+        <div class="sub">{{ t('web_premium.owner_ai.status_sub') }}</div>
       </div>
       <div>
         <span id="aiStatusPill" class="pill {{ 'on' if ai_enabled else 'off' }}">
-          {{ '★ Activée' if ai_enabled else 'Désactivée' }}
+          {{ t('web_premium.owner_ai.state_on') if ai_enabled else t('web_premium.owner_ai.state_off') }}
         </span>
         <select id="ai_enabled" style="margin-left:10px;">
-          <option value="1" {{ 'selected' if ai_enabled }}>Activer</option>
-          <option value="0" {{ '' if ai_enabled else 'selected' }}>Désactiver</option>
+          <option value="1" {{ 'selected' if ai_enabled }}>{{ t('web_premium.owner_ai.enable') }}</option>
+          <option value="0" {{ '' if ai_enabled else 'selected' }}>{{ t('web_premium.owner_ai.disable') }}</option>
         </select>
       </div>
     </div>
   </div>
 
   <div class="ai-card">
-    <h2>Modèle</h2>
-    <div class="sub">Modèles Groq dispo (tous gratuits). Llama 3.3 70B = meilleure qualité.</div>
+    <h2>{{ t('web_premium.owner_ai.model') }}</h2>
+    <div class="sub">{{ t('web_premium.owner_ai.model_sub') }}</div>
     <select id="ai_model" style="min-width:320px;">
-      <option value="llama-3.3-70b-versatile" {{ 'selected' if ai_model == 'llama-3.3-70b-versatile' }}>llama-3.3-70b-versatile (recommandé)</option>
-      <option value="llama-3.1-8b-instant" {{ 'selected' if ai_model == 'llama-3.1-8b-instant' }}>llama-3.1-8b-instant (rapide)</option>
+      <option value="llama-3.3-70b-versatile" {{ 'selected' if ai_model == 'llama-3.3-70b-versatile' }}>llama-3.3-70b-versatile ({{ t('web_premium.owner_ai.opt_recommended') }})</option>
+      <option value="llama-3.1-8b-instant" {{ 'selected' if ai_model == 'llama-3.1-8b-instant' }}>llama-3.1-8b-instant ({{ t('web_premium.owner_ai.opt_fast') }})</option>
       <option value="gemma2-9b-it" {{ 'selected' if ai_model == 'gemma2-9b-it' }}>gemma2-9b-it</option>
       <option value="mixtral-8x7b-32768" {{ 'selected' if ai_model == 'mixtral-8x7b-32768' }}>mixtral-8x7b-32768</option>
     </select>
     <div style="margin-top:12px;">
-      <label class="muted" style="font-size:12px;">Max tokens</label>
+      <label class="muted" style="font-size:12px;">{{ t('web_premium.owner_ai.max_tokens') }}</label>
       <input type="number" id="ai_max_tokens" min="50" max="2000" value="{{ ai_max_tokens }}" style="width:120px;">
     </div>
   </div>
 
   <div class="ai-card">
-    <h2>System prompt (persona)</h2>
-    <div class="sub">Définit la personnalité et le comportement par défaut du bot. Max 4000 caractères.</div>
+    <h2>{{ t('web_premium.owner_ai.system_prompt') }}</h2>
+    <div class="sub">{{ t('web_premium.owner_ai.system_prompt_sub') }}</div>
     <textarea id="ai_system_prompt" rows="6"
               style="width:100%;font-family:var(--font-mono);font-size:13px;">{{ ai_system_prompt }}</textarea>
   </div>
 
   <div class="ai-card">
-    <h2>Utilisateurs autorisés</h2>
+    <h2>{{ t('web_premium.owner_ai.allowed_users') }}</h2>
     <div class="sub">
-      Ces user IDs Discord peuvent invoquer l'IA en mentionnant le bot, sur n'importe quel serveur.
-      Tu (owner) es toujours autorisé automatiquement.
+      {{ t('web_premium.owner_ai.allowed_users_sub') }}
     </div>
     <div class="row gap-2" style="align-items:center;">
-      <input type="text" id="newId" placeholder="ID Discord (clic droit sur un user → Copier l'ID)"
+      <input type="text" id="newId" placeholder="{{ t('web_premium.owner_ai.discord_id_placeholder') }}"
              style="flex:1;font-family:var(--font-mono);font-size:13px;">
-      <button class="btn btn-secondary" type="button" onclick="addId()">Ajouter</button>
+      <button class="btn btn-secondary" type="button" onclick="addId()">{{ t('web_premium.owner_ai.add') }}</button>
     </div>
     <div id="idList" class="id-list"></div>
   </div>
 
   <div class="ai-card">
-    <h2>🎙️ Mode vocal</h2>
+    <h2>🎙️ {{ t('web_premium.owner_ai.voice_mode') }}</h2>
     <div class="sub">
-      Quand activé, l'IA répond avec un message vocal (MP3) au lieu de texte. Le texte est
-      nettoyé (mentions, URLs, markdown) avant synthèse.
+      {{ t('web_premium.owner_ai.voice_mode_sub') }}
       {% if not tts_available %}
-      <br><strong style="color:#ff6b6b;">⚠️ La lib edge-tts n'est pas installée sur le VPS — fais
-      <code>pip install edge-tts</code> puis restart le bot.</strong>
+      <br><strong style="color:#ff6b6b;">⚠️ {{ t('web_premium.owner_ai.edge_tts_missing_1') }}
+      <code>pip install edge-tts</code> {{ t('web_premium.owner_ai.edge_tts_missing_2') }}</strong>
       {% endif %}
     </div>
 
     <div class="row gap-3" style="margin-top:10px;align-items:center;flex-wrap:wrap;">
       <label class="row gap-2" style="align-items:center;">
-        <span style="font-weight:600;">Réponse en :</span>
+        <span style="font-weight:600;">{{ t('web_premium.owner_ai.reply_as') }}</span>
         <select id="ai_voice_enabled" style="min-width:160px;">
-          <option value="0" {{ 'selected' if not ai_voice_enabled }}>📝 Texte</option>
-          <option value="1" {{ 'selected' if ai_voice_enabled }}>🎙️ Vocal (MP3)</option>
+          <option value="0" {{ 'selected' if not ai_voice_enabled }}>📝 {{ t('web_premium.owner_ai.reply_text') }}</option>
+          <option value="1" {{ 'selected' if ai_voice_enabled }}>🎙️ {{ t('web_premium.owner_ai.reply_voice') }}</option>
         </select>
       </label>
       <label class="row gap-2" style="align-items:center;">
-        <span style="font-weight:600;">Moteur TTS :</span>
+        <span style="font-weight:600;">{{ t('web_premium.owner_ai.tts_engine') }}</span>
         <select id="ai_voice_provider" style="min-width:240px;" onchange="toggleVoiceProvider()">
           <option value="edge" {{ 'selected' if ai_voice_provider == 'edge' }}>
-            Edge (Microsoft, gratuit, robotique)
+            {{ t('web_premium.owner_ai.provider_edge') }}
           </option>
           <option value="elevenlabs" {{ 'selected' if ai_voice_provider == 'elevenlabs' }}>
-            ElevenLabs (réaliste, 10k chars/mois gratuit)
+            {{ t('web_premium.owner_ai.provider_elevenlabs') }}
           </option>
         </select>
       </label>
     </div>
 
-    <!-- Bloc voix Edge -->
+    <!-- Edge voice block -->
     <div id="edgeVoiceBlock" style="margin-top:14px;">
       <label class="row gap-2" style="align-items:center;">
-        <span style="font-weight:600;">Voix Edge :</span>
+        <span style="font-weight:600;">{{ t('web_premium.owner_ai.edge_voice') }}</span>
         <select id="ai_voice_name" style="min-width:280px;">
           <option value="fr-FR-DeniseNeural" {{ 'selected' if ai_voice_name == 'fr-FR-DeniseNeural' }}>
-            Denise — femme, naturelle (FR)
+            {{ t('web_premium.owner_ai.voice_denise') }}
           </option>
           <option value="fr-FR-HenriNeural" {{ 'selected' if ai_voice_name == 'fr-FR-HenriNeural' }}>
-            Henri — homme, posée (FR)
+            {{ t('web_premium.owner_ai.voice_henri') }}
           </option>
           <option value="fr-FR-EloiseNeural" {{ 'selected' if ai_voice_name == 'fr-FR-EloiseNeural' }}>
-            Eloïse — jeune femme, énergique (FR)
+            {{ t('web_premium.owner_ai.voice_eloise') }}
           </option>
           <option value="fr-FR-VivienneMultilingualNeural" {{ 'selected' if ai_voice_name == 'fr-FR-VivienneMultilingualNeural' }}>
-            Vivienne — multilingue
+            {{ t('web_premium.owner_ai.voice_vivienne') }}
           </option>
         </select>
       </label>
     </div>
 
-    <!-- Bloc voix ElevenLabs -->
+    <!-- ElevenLabs voice block -->
     <div id="elevenVoiceBlock" style="margin-top:14px;">
       {% if not elevenlabs_key_present %}
       <div style="background:#3a1e1e;border:1px solid #ff6b6b;padding:10px;border-radius:8px;font-size:13px;color:#ffb3b3;margin-bottom:10px;">
-        ⚠️ <strong>ELEVENLABS_API_KEY non configuré dans .env</strong> sur le VPS.<br>
-        1. Crée un compte sur <a href="https://elevenlabs.io" target="_blank" style="color:#ffd0d0;text-decoration:underline;">elevenlabs.io</a> (free tier 10k chars/mois)<br>
-        2. Profile → API Keys → copie la clé<br>
-        3. <code>nano ~/discord-bot/.env</code> → ajoute <code>ELEVENLABS_API_KEY=ta_cle</code><br>
+        ⚠️ <strong>{{ t('web_premium.owner_ai.eleven_key_missing') }}</strong><br>
+        {{ t('web_premium.owner_ai.eleven_step_1') }} <a href="https://elevenlabs.io" target="_blank" style="color:#ffd0d0;text-decoration:underline;">elevenlabs.io</a> {{ t('web_premium.owner_ai.eleven_step_1_end') }}<br>
+        {{ t('web_premium.owner_ai.eleven_step_2') }}<br>
+        3. <code>nano ~/discord-bot/.env</code> → {{ t('web_premium.owner_ai.eleven_step_3') }} <code>ELEVENLABS_API_KEY=your_key</code><br>
         4. <code>pm2 restart all --update-env</code>
       </div>
       {% endif %}
       <div class="row gap-3" style="align-items:center;flex-wrap:wrap;">
         <label class="row gap-2" style="align-items:center;">
-          <span style="font-weight:600;">Voix premade :</span>
+          <span style="font-weight:600;">{{ t('web_premium.owner_ai.premade_voice') }}</span>
           <select id="ai_elevenlabs_voice_select" style="min-width:260px;" onchange="onEdgePresetChange()">
-            <option value="">— Custom (voir champ ci-dessous) —</option>
-            <option value="XB0fDUnXU5powFXDhCwa">Charlotte — femme, calme (multi)</option>
-            <option value="EXAVITQu4vr4xnSDxMaL">Sarah — femme, claire (multi)</option>
-            <option value="9BWtsMINqrJLrRacOk9x">Aria — femme, expressive</option>
-            <option value="pFZP5JQG7iQjIQuC4Bku">Lily — jeune femme, douce</option>
-            <option value="IKne3meq5aSn9XLyUdCD">Charlie — homme, naturel (multi)</option>
-            <option value="nPczCjzI2devNBz1zQrb">Brian — homme, posé</option>
-            <option value="TX3LPaxmHKxFdv7VOQHJ">Liam — jeune homme</option>
-            <option value="onwK4e9ZLuTAKqWW03F9">Daniel — homme, britannique posé</option>
+            <option value="">{{ t('web_premium.owner_ai.voice_custom_opt') }}</option>
+            <option value="XB0fDUnXU5powFXDhCwa">{{ t('web_premium.owner_ai.voice_charlotte') }}</option>
+            <option value="EXAVITQu4vr4xnSDxMaL">{{ t('web_premium.owner_ai.voice_sarah') }}</option>
+            <option value="9BWtsMINqrJLrRacOk9x">{{ t('web_premium.owner_ai.voice_aria') }}</option>
+            <option value="pFZP5JQG7iQjIQuC4Bku">{{ t('web_premium.owner_ai.voice_lily') }}</option>
+            <option value="IKne3meq5aSn9XLyUdCD">{{ t('web_premium.owner_ai.voice_charlie') }}</option>
+            <option value="nPczCjzI2devNBz1zQrb">{{ t('web_premium.owner_ai.voice_brian') }}</option>
+            <option value="TX3LPaxmHKxFdv7VOQHJ">{{ t('web_premium.owner_ai.voice_liam') }}</option>
+            <option value="onwK4e9ZLuTAKqWW03F9">{{ t('web_premium.owner_ai.voice_daniel') }}</option>
           </select>
         </label>
         <label class="row gap-2" style="align-items:center;">
-          <span style="font-weight:600;">Modèle :</span>
+          <span style="font-weight:600;">{{ t('web_premium.owner_ai.model_label') }}</span>
           <select id="ai_elevenlabs_model" style="min-width:220px;">
             <option value="eleven_multilingual_v2" {{ 'selected' if ai_elevenlabs_model == 'eleven_multilingual_v2' }}>
-              multilingual_v2 (qualité)
+              multilingual_v2 ({{ t('web_premium.owner_ai.opt_quality') }})
             </option>
             <option value="eleven_turbo_v2_5" {{ 'selected' if ai_elevenlabs_model == 'eleven_turbo_v2_5' }}>
-              turbo_v2_5 (rapide)
+              turbo_v2_5 ({{ t('web_premium.owner_ai.opt_fast') }})
             </option>
             <option value="eleven_flash_v2_5" {{ 'selected' if ai_elevenlabs_model == 'eleven_flash_v2_5' }}>
-              flash_v2_5 (le + rapide)
+              flash_v2_5 ({{ t('web_premium.owner_ai.opt_fastest') }})
             </option>
           </select>
         </label>
         {% if elevenlabs_key_present %}
-        <button class="btn btn-secondary" type="button" onclick="loadElevenQuota()">📊 Voir quota</button>
+        <button class="btn btn-secondary" type="button" onclick="loadElevenQuota()">📊 {{ t('web_premium.owner_ai.view_quota') }}</button>
         <span id="elevenQuotaInfo" class="muted" style="font-size:12px;"></span>
         {% endif %}
       </div>
 
       <div style="margin-top:14px;">
         <label style="display:block;">
-          <span style="font-weight:600;">Voice ID (custom) :</span>
+          <span style="font-weight:600;">{{ t('web_premium.owner_ai.voice_id_custom') }}</span>
           <input type="text" id="ai_elevenlabs_voice_id" value="{{ ai_elevenlabs_voice_id }}"
-                 placeholder="ex: SX7tQp9c... (de la Voice Library ou ton VoiceLab)"
+                 placeholder="{{ t('web_premium.owner_ai.voice_id_placeholder') }}"
                  style="width:100%;font-family:var(--font-mono);font-size:13px;margin-top:4px;">
         </label>
         <div class="sub" style="margin-top:6px;font-size:12px;">
-          Pour les vraies voix FR natives (ex: Jonathan), va sur la
+          {{ t('web_premium.owner_ai.voice_lib_1') }}
           <a href="https://elevenlabs.io/app/voice-library" target="_blank" style="text-decoration:underline;">Voice Library</a>,
-          filtre <code>Language: French</code>, ajoute la voix à ton VoiceLab (bouton "Add"),
-          puis colle son <strong>Voice ID</strong> ici. Les voix premade ci-dessus mettent
-          juste ce champ à jour quand tu en sélectionnes une.
+          {{ t('web_premium.owner_ai.voice_lib_2') }} <code>Language: French</code>{{ t('web_premium.owner_ai.voice_lib_3') }}
+          <strong>Voice ID</strong> {{ t('web_premium.owner_ai.voice_lib_4') }}
         </div>
       </div>
     </div>
 
     <div class="sub" style="margin-top:10px;">
-      Note : limite ~600 caractères par message vocal pour garder l'audio court. Si la synthèse
-      échoue (quota ElevenLabs épuisé, clé invalide, etc.), le bot retombe automatiquement sur Edge TTS.
+      {{ t('web_premium.owner_ai.voice_note') }}
     </div>
   </div>
 
   <div class="row end gap-3">
     <button class="btn btn-primary" onclick="saveAI()">
-      <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+      <svg class="ic"><use href="#i-check"/></svg> {{ t('web_premium.common.save') }}
     </button>
   </div>
 </div>
@@ -274,13 +269,13 @@ function renderIds() {
   const wrap = document.getElementById('idList');
   wrap.innerHTML = '';
   if (ALLOWED_IDS.length === 0) {
-    wrap.innerHTML = '<span class="muted" style="font-size:12px;">Aucun user en plus de toi (owner).</span>';
+    wrap.innerHTML = '<span class="muted" style="font-size:12px;">No user besides you (owner).</span>';
     return;
   }
   for (const id of ALLOWED_IDS) {
     const chip = document.createElement('span');
     chip.className = 'id-chip';
-    chip.innerHTML = `${id}<span class="x" title="Retirer">×</span>`;
+    chip.innerHTML = `${id}<span class="x" title="Remove">×</span>`;
     chip.querySelector('.x').addEventListener('click', () => {
       ALLOWED_IDS = ALLOWED_IDS.filter(x => x !== id);
       renderIds();
@@ -292,7 +287,7 @@ function addId() {
   const inp = document.getElementById('newId');
   const v = (inp.value || '').trim();
   if (!/^\d{15,25}$/.test(v)) {
-    if (window.toast) window.toast('ID Discord invalide (chiffres seulement)', 'error');
+    if (window.toast) window.toast('Invalid Discord ID (digits only)', 'error');
     return;
   }
   if (!ALLOWED_IDS.includes(v)) ALLOWED_IDS.push(v);
@@ -322,10 +317,10 @@ async function saveAI() {
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
-    if (window.toast) window.toast('Config IA enregistrée ✓');
+    if (window.toast) window.toast('AI config saved ✓');
     setTimeout(() => location.reload(), 500);
   } catch (e) {
-    if (window.toast) window.toast('Erreur : ' + e.message, 'error');
+    if (window.toast) window.toast('Error: ' + e.message, 'error');
   }
 }
 window.saveAI = saveAI;
@@ -337,7 +332,7 @@ function toggleVoiceProvider() {
 }
 window.toggleVoiceProvider = toggleVoiceProvider;
 
-// Quand on choisit un preset, on copie son ID dans l'input custom
+// When a preset is picked, copy its ID into the custom input
 function onEdgePresetChange() {
   const sel = document.getElementById('ai_elevenlabs_voice_select').value;
   if (sel) document.getElementById('ai_elevenlabs_voice_id').value = sel;
@@ -346,17 +341,17 @@ window.onEdgePresetChange = onEdgePresetChange;
 
 async function loadElevenQuota() {
   const info = document.getElementById('elevenQuotaInfo');
-  info.textContent = 'Chargement...';
+  info.textContent = 'Loading...';
   try {
     const r = await fetch('/api/owner/elevenlabs-quota');
     const d = await r.json();
     if (!d.quota) {
-      info.textContent = '⚠️ impossible de récupérer le quota (clé KO ?)';
+      info.textContent = '⚠️ could not fetch the quota (bad key?)';
       return;
     }
-    info.textContent = `Utilisé : ${d.quota.used.toLocaleString('fr-FR')} / ${d.quota.limit.toLocaleString('fr-FR')} (${d.quota.remaining.toLocaleString('fr-FR')} restants)`;
+    info.textContent = `Used: ${d.quota.used.toLocaleString('en-US')} / ${d.quota.limit.toLocaleString('en-US')} (${d.quota.remaining.toLocaleString('en-US')} left)`;
   } catch (e) {
-    info.textContent = '⚠️ erreur : ' + e.message;
+    info.textContent = '⚠️ error: ' + e.message;
   }
 }
 window.loadElevenQuota = loadElevenQuota;

@@ -1,7 +1,9 @@
-"""Echange de cartes (dashboard) : builder avec 2 classeurs, selecteur de membres,
-selection des cartes et creation du trade. L'envoi serveur / la page de vue / les
-contre-offres arrivent dans les phases suivantes."""
+"""Card trading (dashboard): builder with 2 binders, member picker, card selection
+and trade creation. Server posting / the view page / counter-offers land in the
+following phases."""
 from flask import render_template, jsonify, request, session
+
+from services.i18n import t
 
 
 def register_cards_trade_routes(app, deps):
@@ -49,7 +51,7 @@ def register_cards_trade_routes(app, deps):
                 (str(user_id), str(trade.get("guild_id") or ""))).fetchone()
             conn.close()
             return {"id": str(user_id),
-                    "name": (r["username"] if r and r["username"] else "Joueur"),
+                    "name": (r["username"] if r and r["username"] else t("api.cards_trade.player_fallback")),
                     "avatar": (r["avatar_url"] if r else "")}
 
         sender = _who(trade["sender_id"])
@@ -84,7 +86,7 @@ def register_cards_trade_routes(app, deps):
         gid = (request.args.get("guild_id") or "").strip()
         q = (request.args.get("q") or "").strip().lower()
         if not gid:
-            return jsonify({"error": "guild_id requis"}), 400
+            return jsonify({"error": t("api.cards_trade.guild_id_required")}), 400
         from database import get_db
         conn = get_db(); c = conn.cursor()
         where = ("guild_id = ? AND COALESCE(is_bot,0)=0 AND user_id != ? "
@@ -97,7 +99,7 @@ def register_cards_trade_routes(app, deps):
             f"SELECT user_id, username, avatar_url FROM guild_members WHERE {where} "
             f"ORDER BY username COLLATE NOCASE LIMIT 60", params).fetchall()
         conn.close()
-        return jsonify({"members": [{"user_id": r["user_id"], "name": r["username"] or "Joueur",
+        return jsonify({"members": [{"user_id": r["user_id"], "name": r["username"] or t("api.cards_trade.player_fallback"),
                                      "avatar": r["avatar_url"]} for r in rows]})
 
     @app.route("/api/cards/trade/create", methods=["POST"])
@@ -112,15 +114,15 @@ def register_cards_trade_routes(app, deps):
         offer = [int(x) for x in (data.get("offer") or []) if str(x).isdigit()]
         req = [int(x) for x in (data.get("request") or []) if str(x).isdigit()]
         if not receiver or receiver == uid:
-            return jsonify({"error": "Choisis un autre joueur."}), 400
+            return jsonify({"error": t("api.cards_trade.pick_another_player")}), 400
         if not offer and not req:
-            return jsonify({"error": "Sélectionne au moins une carte."}), 400
-        # securite : l'offrant ne propose que des cartes qu'il possede, et ne demande
-        # que des cartes que la cible possede.
+            return jsonify({"error": t("api.cards_trade.pick_at_least_one_card")}), 400
+        # Safety: the sender can only offer cards they own, and can only request
+        # cards the target actually owns.
         offer = [cid for cid in offer if user_card_count_owned(uid, cid) > 0]
         req = [cid for cid in req if user_card_count_owned(receiver, cid) > 0]
         if not offer and not req:
-            return jsonify({"error": "Cartes invalides (possession)."}), 400
+            return jsonify({"error": t("api.cards_trade.invalid_cards_ownership")}), 400
         tid = card_trade_create(uid, receiver, gid, None,
                                 [(cid, 1) for cid in offer], [(cid, 1) for cid in req])
         return jsonify({"ok": True, "trade_id": tid,
@@ -128,7 +130,7 @@ def register_cards_trade_routes(app, deps):
 
     @app.route("/api/cards/trade/preset", methods=["GET"])
     def api_cards_trade_preset():
-        """Cartes d'un trade existant -> pre-selection du builder (contre-offre)."""
+        """Cards of an existing trade -> builder pre-selection (counter-offer)."""
         uid = _uid()
         if not uid:
             return jsonify({"error": "login"}), 401
@@ -136,7 +138,7 @@ def register_cards_trade_routes(app, deps):
         tid = int(request.args.get("trade_id") or 0)
         trade = card_trade_get(tid)
         if not trade:
-            return jsonify({"error": "introuvable"}), 404
+            return jsonify({"error": t("api.cards_trade.trade_not_found")}), 404
         offer = [it["card_id"] for it in card_trade_items(tid, side="offer")]
         req = [it["card_id"] for it in card_trade_items(tid, side="request")]
         return jsonify({"offer": offer, "request": req,
@@ -145,7 +147,7 @@ def register_cards_trade_routes(app, deps):
 
     @app.route("/api/cards/trade/send", methods=["POST"])
     def api_cards_trade_send():
-        """Poste l'embed du trade dans le salon cartes du serveur via le bot."""
+        """Post the trade embed in the guild's cards channel through the bot."""
         uid = _uid()
         if not uid:
             return jsonify({"error": "login"}), 401
@@ -154,11 +156,11 @@ def register_cards_trade_routes(app, deps):
         tid = int(data.get("trade_id") or 0)
         trade = card_trade_get(tid)
         if not trade:
-            return jsonify({"error": "Trade introuvable."}), 404
+            return jsonify({"error": t("api.cards_trade.trade_not_found")}), 404
         if uid not in (str(trade["sender_id"]), str(trade["receiver_id"])):
-            return jsonify({"error": "Tu n'es pas concerné par ce trade."}), 403
+            return jsonify({"error": t("api.cards_trade.not_a_participant")}), 403
         gid = trade.get("guild_id")
         if not gid:
-            return jsonify({"error": "Aucun serveur associé à ce trade."}), 400
+            return jsonify({"error": t("api.cards_trade.no_guild_linked")}), 400
         bot_command_enqueue(gid, "post_trade", {"trade_id": tid})
         return jsonify({"ok": True})

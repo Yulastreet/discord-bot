@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'owner_guild_settings' %}
 
-{% block title %}Guild Settings · Owner{% endblock %}
-{% block crumb %}Guild Settings{% endblock %}
+{% block title %}{{ t('web_premium.owner_guild_settings.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_guild_settings.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -31,12 +31,12 @@
 
 <div class="gs-wrap">
   <div class="gs-list">
-    <input id="gsSearch" class="input gs-search" placeholder="🔍 Rechercher (nom / tag)…" oninput="gsLoadList()">
-    <div id="gsGuilds"><div class="gs-empty" style="padding:20px;">Chargement…</div></div>
+    <input id="gsSearch" class="input gs-search" placeholder="{{ t('web_premium.owner_guild_settings.search_placeholder') }}" oninput="gsLoadList()">
+    <div id="gsGuilds"><div class="gs-empty" style="padding:20px;">{{ t('web_premium.common.loading') }}</div></div>
   </div>
 
   <div class="gs-editor" id="gsEditor">
-    <div class="gs-empty">← Sélectionne une guilde à éditer.</div>
+    <div class="gs-empty">{{ t('web_premium.owner_guild_settings.pick_guild') }}</div>
   </div>
 </div>
 
@@ -51,12 +51,12 @@ async function gsLoadList(){
   const d = await r.json();
   _gsList = d.items || [];
   const el = document.getElementById('gsGuilds');
-  if(!_gsList.length){ el.innerHTML = '<div class="gs-empty" style="padding:20px;">Aucune guilde.</div>'; return; }
+  if(!_gsList.length){ el.innerHTML = '<div class="gs-empty" style="padding:20px;">No guild.</div>'; return; }
   el.innerHTML = _gsList.map(g => `
     <div class="gs-g ${_gsCur===g.id?'active':''}" data-id="${g.id}" onclick="gsOpen(${g.id})">
       <div class="gs-g-main">
         <div class="gs-g-name">${esc(g.name)}${g.tag?` [${esc(g.tag)}]`:''}</div>
-        <div class="gs-g-sub">${g.members} membre(s) · 💰 ${(g.bank||0).toLocaleString('fr')} ✨</div>
+        <div class="gs-g-sub">${g.members} member(s) · 💰 ${(g.bank||0).toLocaleString('en')} ✨</div>
       </div>
       <div class="gs-g-lvl">${g.level}</div>
     </div>`).join('');
@@ -66,57 +66,57 @@ async function gsOpen(gid){
   _gsCur = gid;
   document.querySelectorAll('.gs-g').forEach(e=>e.classList.toggle('active', +e.dataset.id===gid));
   const ed = document.getElementById('gsEditor');
-  ed.innerHTML = '<div class="gs-empty">Chargement…</div>';
+  ed.innerHTML = '<div class="gs-empty">Loading…</div>';
   const r = await fetch('/api/owner/guilds/'+gid);
   const d = await r.json();
   if(d.error){ ed.innerHTML = '<div class="gs-empty">'+esc(d.error)+'</div>'; return; }
   const g = d.guild, ms = d.members || [];
-  const colOpts = COLORS.map(c=>`<option value="${c}" ${(g.color||'')===c?'selected':''}>${c||'(défaut)'}</option>`).join('');
+  const colOpts = COLORS.map(c=>`<option value="${c}" ${(g.color||'')===c?'selected':''}>${c||'(default)'}</option>`).join('');
   ed.innerHTML = `
     <div class="row between" style="align-items:center;margin-bottom:14px;">
       <h2 style="margin:0;">🛡️ ${esc(g.name)} <span class="muted" style="font-size:13px;">#${g.id}</span></h2>
       <span id="gsHint" class="muted"></span>
     </div>
     <div class="gs-grid">
-      <div class="gs-f"><label>Nom</label><input id="f_name" class="input" value="${esc(g.name)}"></div>
+      <div class="gs-f"><label>Name</label><input id="f_name" class="input" value="${esc(g.name)}"></div>
       <div class="gs-f"><label>Tag</label><input id="f_tag" class="input" value="${esc(g.tag||'')}" maxlength="8"></div>
-      <div class="gs-f"><label>Niveau</label><input id="f_level" type="number" min="0" class="input" value="${g.level||0}"></div>
+      <div class="gs-f"><label>Level</label><input id="f_level" type="number" min="0" class="input" value="${g.level||0}"></div>
       <div class="gs-f"><label>XP</label><input id="f_xp" type="number" min="0" class="input" value="${g.xp||0}"></div>
-      <div class="gs-f"><label>Banque ✨</label><input id="f_bank" type="number" min="0" class="input" value="${g.bank||0}"></div>
-      <div class="gs-f"><label>Couleur embed</label><select id="f_color" class="input">${colOpts}</select></div>
-      <div class="gs-f"><label>Emblème (emoji)</label><input id="f_emblem" class="input" value="${esc(g.emblem||'')}" maxlength="8"></div>
+      <div class="gs-f"><label>Bank ✨</label><input id="f_bank" type="number" min="0" class="input" value="${g.bank||0}"></div>
+      <div class="gs-f"><label>Embed color</label><select id="f_color" class="input">${colOpts}</select></div>
+      <div class="gs-f"><label>Emblem (emoji)</label><input id="f_emblem" class="input" value="${esc(g.emblem||'')}" maxlength="8"></div>
       <div class="gs-f"><label>Owner ID</label><input id="f_owner" class="input" value="${esc(g.owner_id||'')}"></div>
-      <div class="gs-f"><label>Puissance min</label><input id="f_minpw" type="number" min="0" class="input" value="${g.min_power||0}"></div>
-      <div class="gs-f"><label>Cartes min</label><input id="f_mincards" type="number" min="0" class="input" value="${g.min_level||0}"></div>
-      <div class="gs-f"><label>Entrée libre</label><select id="f_open" class="input"><option value="0" ${!g.open_join?'selected':''}>Sur candidature</option><option value="1" ${g.open_join?'selected':''}>Libre</option></select></div>
+      <div class="gs-f"><label>Min power</label><input id="f_minpw" type="number" min="0" class="input" value="${g.min_power||0}"></div>
+      <div class="gs-f"><label>Min cards</label><input id="f_mincards" type="number" min="0" class="input" value="${g.min_level||0}"></div>
+      <div class="gs-f"><label>Open join</label><select id="f_open" class="input"><option value="0" ${!g.open_join?'selected':''}>Application required</option><option value="1" ${g.open_join?'selected':''}>Open</option></select></div>
     </div>
     <div class="row gap-2" style="flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="gsSave(${g.id})">💾 Enregistrer</button>
-      <button class="btn btn-secondary" onclick="gsResetRename(${g.id})">⟳ Reset cooldown renommage</button>
+      <button class="btn btn-primary" onclick="gsSave(${g.id})">💾 Save</button>
+      <button class="btn btn-secondary" onclick="gsResetRename(${g.id})">⟳ Reset rename cooldown</button>
     </div>
 
-    <h3 style="margin:18px 0 6px;font-size:15px;">📅 Quêtes hebdomadaires</h3>
+    <h3 style="margin:18px 0 6px;font-size:15px;">📅 Weekly quests</h3>
     <div>${(d.weekly||[]).map(gsQuestRow).join('') || '<div class="muted">—</div>'}</div>
 
-    <h3 style="margin:18px 0 6px;font-size:15px;">📨 Candidatures (${(d.applications||[]).length})</h3>
-    <div>${(d.applications||[]).map(a=>gsAppRow(g.id, a)).join('') || '<div class="muted">Aucune candidature.</div>'}</div>
+    <h3 style="margin:18px 0 6px;font-size:15px;">📨 Applications (${(d.applications||[]).length})</h3>
+    <div>${(d.applications||[]).map(a=>gsAppRow(g.id, a)).join('') || '<div class="muted">No application.</div>'}</div>
 
-    <h3 style="margin:18px 0 6px;font-size:15px;">👥 Membres (${ms.length})</h3>
-    <div>${ms.map(m=>gsMemberRow(g.id, m)).join('') || '<div class="muted">Aucun membre.</div>'}</div>
+    <h3 style="margin:18px 0 6px;font-size:15px;">👥 Members (${ms.length})</h3>
+    <div>${ms.map(m=>gsMemberRow(g.id, m)).join('') || '<div class="muted">No member.</div>'}</div>
   `;
 }
 
-function gsFmtDate(s){ if(!s) return '—'; const d=new Date(String(s).replace(' ','T')); return isNaN(d)?esc(s):d.toLocaleDateString('fr'); }
+function gsFmtDate(s){ if(!s) return '—'; const d=new Date(String(s).replace(' ','T')); return isNaN(d)?esc(s):d.toLocaleDateString('en'); }
 
 function gsQuestRow(q){
   const prog = Math.min(q.progress, q.target);
   const pct = Math.min(100, Math.round(100*prog/q.target));
-  const top = (q.contrib||[]).slice(0,5).map(c=>`${esc(c.user||c.user_id)} (${(c.contrib||0).toLocaleString('fr')})`).join(' · ');
+  const top = (q.contrib||[]).slice(0,5).map(c=>`${esc(c.user||c.user_id)} (${(c.contrib||0).toLocaleString('en')})`).join(' · ');
   return `<div style="padding:8px 0;border-top:1px solid var(--border);">
     <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;">
-      <span>${q.done?'✅':'⬜'} ${esc(q.label)}</span><span>${prog.toLocaleString('fr')}/${(q.target||0).toLocaleString('fr')}</span></div>
+      <span>${q.done?'✅':'⬜'} ${esc(q.label)}</span><span>${prog.toLocaleString('en')}/${(q.target||0).toLocaleString('en')}</span></div>
     <div style="height:6px;border-radius:6px;background:var(--bg-2);overflow:hidden;margin-top:5px;"><i style="display:block;height:100%;width:${pct}%;background:${q.done?'#4ade80':'#b9f23a'};"></i></div>
-    ${top?`<div class="muted" style="font-size:11px;margin-top:4px;">Top : ${top}</div>`:''}
+    ${top?`<div class="muted" style="font-size:11px;margin-top:4px;">Top: ${top}</div>`:''}
   </div>`;
 }
 
@@ -125,18 +125,18 @@ function gsAppRow(gid, a){
   return `<div class="gs-mem">
     ${av}
     <div class="gs-mem-name">${esc(a.user)} <span class="muted" style="font-size:11px;">${a.user_id}</span><br>
-      <span class="muted" style="font-size:11px;">candidaté le ${gsFmtDate(a.created_at)}</span></div>
-    <button class="btn btn-primary" style="padding:4px 8px;" onclick="gsApp(${gid},'${a.user_id}',true)">✅ Accepter</button>
+      <span class="muted" style="font-size:11px;">applied on ${gsFmtDate(a.created_at)}</span></div>
+    <button class="btn btn-primary" style="padding:4px 8px;" onclick="gsApp(${gid},'${a.user_id}',true)">✅ Accept</button>
     <button class="btn btn-danger" style="padding:4px 8px;" onclick="gsApp(${gid},'${a.user_id}',false)">❌</button>
   </div>`;
 }
 
 async function gsApp(gid, uid, accept){
-  if(!accept && !confirm('Refuser cette candidature ?')) return;
+  if(!accept && !confirm('Reject this application?')) return;
   const r = await fetch(`/api/owner/guilds/${gid}/application/${uid}`, {method: accept?'POST':'DELETE'});
   const d = await r.json();
   if(d.ok){ gsOpen(gid); gsLoadList(); }
-  else document.getElementById('gsHint').textContent = '❌ '+(d.error||'Erreur');
+  else document.getElementById('gsHint').textContent = '❌ '+(d.error||'Error');
 }
 window.gsApp = gsApp;
 
@@ -146,9 +146,9 @@ function gsMemberRow(gid, m){
   return `<div class="gs-mem">
     ${av}
     <div class="gs-mem-name">${esc(m.user)} <span class="muted" style="font-size:11px;">${m.user_id}</span><br>
-      <span class="muted" style="font-size:11px;">⚡ ${(m.power||0).toLocaleString('fr')} · 🎴 ${m.cards||0} · ${(m.xp_contributed||0).toLocaleString('fr')} XP · inscrit le ${gsFmtDate(m.joined_at)}</span></div>
+      <span class="muted" style="font-size:11px;">⚡ ${(m.power||0).toLocaleString('en')} · 🎴 ${m.cards||0} · ${(m.xp_contributed||0).toLocaleString('en')} XP · joined on ${gsFmtDate(m.joined_at)}</span></div>
     <select class="input" onchange="gsSetRole(${gid},'${m.user_id}',this.value)">${roles}</select>
-    <button class="btn btn-danger" style="padding:4px 8px;" onclick="gsKick(${gid},'${m.user_id}')">Exclure</button>
+    <button class="btn btn-danger" style="padding:4px 8px;" onclick="gsKick(${gid},'${m.user_id}')">Kick</button>
   </div>`;
 }
 
@@ -166,27 +166,27 @@ async function gsSave(gid){
     min_level: +document.getElementById('f_mincards').value,
     open_join: document.getElementById('f_open').value === '1',
   };
-  const h = document.getElementById('gsHint'); h.textContent = 'Sauvegarde…';
+  const h = document.getElementById('gsHint'); h.textContent = 'Saving…';
   const r = await fetch('/api/owner/guilds/'+gid, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   const d = await r.json();
-  h.textContent = d.ok ? '✅ Enregistré.' : ('❌ '+(d.error||'Erreur'));
+  h.textContent = d.ok ? '✅ Saved.' : ('❌ '+(d.error||'Error'));
   if(d.ok) gsLoadList();
 }
 
 async function gsResetRename(gid){
   const r = await fetch('/api/owner/guilds/'+gid, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({reset_rename:true})});
   const d = await r.json();
-  document.getElementById('gsHint').textContent = d.ok ? '✅ Cooldown renommage reset.' : '❌ Erreur';
+  document.getElementById('gsHint').textContent = d.ok ? '✅ Rename cooldown reset.' : '❌ Error';
 }
 
 async function gsSetRole(gid, uid, role){
   const r = await fetch(`/api/owner/guilds/${gid}/member/${uid}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role})});
   const d = await r.json();
-  document.getElementById('gsHint').textContent = d.ok ? '✅ Rôle mis à jour.' : ('❌ '+(d.error||'Erreur'));
+  document.getElementById('gsHint').textContent = d.ok ? '✅ Role updated.' : ('❌ '+(d.error||'Error'));
 }
 
 async function gsKick(gid, uid){
-  if(!confirm('Exclure ce membre de la guilde ?')) return;
+  if(!confirm('Kick this member from the guild?')) return;
   const r = await fetch(`/api/owner/guilds/${gid}/member/${uid}`, {method:'DELETE'});
   const d = await r.json();
   if(d.ok){ gsOpen(gid); gsLoadList(); }

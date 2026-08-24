@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="tickets">{% endblock %}
-{% block title %}Tickets · TookBot{% endblock %}
-{% block crumb %}Tickets{% endblock %}
+{% block title %}{{ t('web_features.tickets.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.tickets.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -45,28 +45,27 @@
   .pill-deleted { background: oklch(0.65 0.20 25 / .2); color: oklch(0.78 0.18 25); }
 </style>
 
-<h1 style="margin:0 0 8px;">🎫 Tickets</h1>
+<h1 style="margin:0 0 8px;">🎫 {{ t('web_features.tickets.title') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:20px;">
-  Gestion des tickets de support style MEE6. Crée des panneaux avec un bouton « Ouvrir un ticket »
-  qui génère un salon privé entre l'utilisateur et ton équipe support.
+  {{ t('web_features.tickets.subtitle') }}
 </p>
 
 <div class="help-card">
-  <strong>📌 Comment créer un panneau ?</strong><br>
+  <strong>📌 {{ t('web_features.tickets.how_to_title') }}</strong><br>
   <span style="font-size:13px;color:var(--text-muted);">
-    Va sur Discord et lance <code>/ticket setup salon:#support titre:"Support" support_role:@Support catégorie:Catégorie-Tickets</code>
-    — le panneau sera posté avec un bouton et apparaîtra ici.
+    {{ t('web_features.tickets.how_to_run') }} <code>/ticket setup channel:#support title:"Support" support_role:@Support category:Tickets-Category</code>
+    {{ t('web_features.tickets.how_to_after') }}
   </span>
 </div>
 
-<h2 style="margin: 24px 0 10px;">📋 Panneaux configurés</h2>
+<h2 style="margin: 24px 0 10px;">📋 {{ t('web_features.tickets.panels_title') }}</h2>
 <div id="panelList">
-  <div class="muted" style="font-size:13px;">Chargement…</div>
+  <div class="muted" style="font-size:13px;">{{ t('web_features.tickets.loading') }}</div>
 </div>
 
-<h2 style="margin: 32px 0 10px;">🎫 Tickets ouverts</h2>
+<h2 style="margin: 32px 0 10px;">🎫 {{ t('web_features.tickets.open_tickets_title') }}</h2>
 <div id="ticketList">
-  <div class="muted" style="font-size:13px;">Chargement…</div>
+  <div class="muted" style="font-size:13px;">{{ t('web_features.tickets.loading') }}</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -94,18 +93,18 @@ async function loadPanels() {
     const d = await r.json();
     const panels = d.panels || [];
     if (panels.length === 0) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;">Aucun panneau configuré. Lance <code>/ticket setup</code> dans Discord.</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;">No panel configured. Run <code>/ticket setup</code> in Discord.</div>';
       return;
     }
     list.innerHTML = panels.map(p => `
       <div class="tk-panel-card">
         <div class="tk-icon">${escapeHtml(p.button_emoji || '🎫')}</div>
         <div class="tk-meta">
-          <div class="tk-title">${escapeHtml(p.panel_title || 'Sans titre')}</div>
+          <div class="tk-title">${escapeHtml(p.panel_title || 'Untitled')}</div>
           <div class="tk-sub">
             <#${p.channel_id}> · <code>id #${p.id}</code>
-            ${p.support_role_id ? '· support : <@&' + p.support_role_id + '>' : ''}
-            ${p.category_id ? '· catégorie : <#' + p.category_id + '>' : ''}
+            ${p.support_role_id ? '· support: <@&' + p.support_role_id + '>' : ''}
+            ${p.category_id ? '· category: <#' + p.category_id + '>' : ''}
           </div>
         </div>
         <div class="tk-actions">
@@ -114,14 +113,14 @@ async function loadPanels() {
       </div>`).join('');
     list.querySelectorAll('.del-panel').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Supprimer ce panneau ? (le message Discord ne sera pas supprimé automatiquement)')) return;
+        if (!confirm('Delete this panel? (the Discord message will not be deleted automatically)')) return;
         const r = await fetch(`/api/tickets/panels/${btn.dataset.id}`, { method: 'DELETE' });
-        if (r.ok) { showToast('Panneau supprimé'); loadPanels(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast('Panel deleted'); loadPanels(); }
+        else showToast('Error', false);
       });
     });
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Error: ${e.message}</div>`;
   }
 }
 
@@ -133,7 +132,7 @@ async function loadTickets() {
     const d = await r.json();
     const tickets = d.tickets || [];
     if (tickets.length === 0) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;">Aucun ticket ouvert.</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;">No open ticket.</div>';
       return;
     }
     list.innerHTML = tickets.map(t => `
@@ -142,25 +141,25 @@ async function loadTickets() {
         <div class="tk-meta">
           <div class="tk-title">Ticket #${t.id} · <#${t.channel_id}></div>
           <div class="tk-sub">
-            ouvert par <@${t.opener_id}>
-            ${t.claimed_by ? '· réclamé par <@' + t.claimed_by + '>' : ''}
+            opened by <@${t.opener_id}>
+            ${t.claimed_by ? '· claimed by <@' + t.claimed_by + '>' : ''}
             · <span class="pill pill-${t.status}">${t.status}</span>
           </div>
         </div>
         <div class="tk-actions">
-          <button class="btn btn-secondary close-tk" data-id="${t.id}" type="button">🔒 Fermer</button>
+          <button class="btn btn-secondary close-tk" data-id="${t.id}" type="button">🔒 Close</button>
         </div>
       </div>`).join('');
     list.querySelectorAll('.close-tk').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Fermer ce ticket côté DB ? (le salon Discord reste, le membre ne pourra plus écrire au prochain restart bot)')) return;
+        if (!confirm('Close this ticket in the DB? (the Discord channel stays, the member will no longer be able to write after the next bot restart)')) return;
         const r = await fetch(`/api/tickets/${btn.dataset.id}/close`, { method: 'POST' });
-        if (r.ok) { showToast('Ticket marqué fermé'); loadTickets(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast('Ticket marked as closed'); loadTickets(); }
+        else showToast('Error', false);
       });
     });
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Error: ${e.message}</div>`;
   }
 }
 

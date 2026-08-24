@@ -1,0 +1,396 @@
+{
+  "rarity": {
+    "c": "Common",
+    "uc": "Uncommon",
+    "r": "Rare",
+    "sr": "Super Rare",
+    "ssr": "Super Super Rare"
+  },
+  "sabres": {
+    "bleu": {
+      "name": "Blue Lightsaber",
+      "description": "The blade of the Peacekeepers.",
+      "special_name": "Force Shield",
+      "special_description": "Absorbs 100% of the opponent's next hit."
+    },
+    "vert": {
+      "name": "Green Lightsaber",
+      "description": "The blade of the Jedi Consulars.",
+      "special_name": "Force Balance",
+      "special_description": "Recovers 50% of the damage dealt as HP."
+    },
+    "rouge": {
+      "name": "Red Lightsaber",
+      "description": "The blade of the Sith.",
+      "special_name": "Sith Rage",
+      "special_description": "Doubles the damage of your next hit."
+    },
+    "blanc": {
+      "name": "White Lightsaber",
+      "description": "A unique blade found by Ahsoka.",
+      "special_name": "Dualist",
+      "special_description": "Strikes twice in a row (2 hits)."
+    },
+    "violet": {
+      "name": "Purple Lightsaber",
+      "description": "Mace Windu's balanced blade.",
+      "special_name": "Force Vortex",
+      "special_description": "Cancels the opponent's parry and deals full damage."
+    },
+    "orange": {
+      "name": "Orange Lightsaber",
+      "description": "Depa Billaba's warm blade.",
+      "special_name": "Charged Strike",
+      "special_description": "Deals 50% extra damage."
+    },
+    "jaune": {
+      "name": "Yellow Lightsaber",
+      "description": "The blade of the Jedi Temple Guards.",
+      "special_name": "Absolute Precision",
+      "special_description": "The next 2 attacks ignore defense."
+    },
+    "cyan": {
+      "name": "Cyan Lightsaber",
+      "description": "A technologically advanced blade.",
+      "special_name": "Energy Overload",
+      "special_description": "Deals 75% extra damage and ignores defense."
+    },
+    "rose": {
+      "name": "Pink Lightsaber",
+      "description": "A rare and powerful blade.",
+      "special_name": "Force Drain",
+      "special_description": "Recovers 75% of the damage dealt as HP."
+    },
+    "noir": {
+      "name": "Black Lightsaber",
+      "description": "The legendary Darksaber.",
+      "special_name": "Absolute Domination",
+      "special_description": "Stuns the opponent for 1 turn (they can only defend)."
+    },
+    "argent": {
+      "name": "Silver Lightsaber",
+      "description": "A legendary blade forged among the stars.",
+      "special_name": "Perfect Reflection",
+      "special_description": "Reflects 100% of the damage from the opponent's next hit."
+    },
+    "arc_en_ciel": {
+      "name": "Rainbow Lightsaber",
+      "description": "The mightiest blade of all, with boundless power.",
+      "special_name": "Supreme Power",
+      "special_description": "Stacks every effect: 100% damage + ignores defense + 100% lifesteal."
+    },
+    "obsidienne": {
+      "name": "Obsidian Lightsaber",
+      "description": "A blade forged in absolute nothingness.",
+      "special_name": "Void Strike",
+      "special_description": "Deals at least 50% of the target's max HP + full drain. Goes through shields and reflection."
+    },
+    "celeste": {
+      "name": "Celestial Lightsaber",
+      "description": "A blade woven into the fabric of the stars.",
+      "special_name": "Stellar Burst",
+      "special_description": "Deals 250% raw damage (still stopped by parry and reflection)."
+    }
+  },
+  "combat": {
+    "dodge": "💨 Dodged!",
+    "read_penalty": "📉 Read penalty: -20% damage!",
+    "critical": "💥 Critical hit!",
+    "minigame_buff": "⚡ +30% damage (mini-game)!",
+    "special_triggered": "✨ **{special}** unleashed!",
+    "ultimate": "👑 Absolute damage + full heal!",
+    "void_strike": "🕳️ Void Strike: {damage} damage + full drain!",
+    "stellar_burst": "✨ Stellar Burst: 250% damage!",
+    "rage": "😡 Rage unleashed: damage doubled!",
+    "overcharge": "⚡ Overcharge: +50% damage!",
+    "shield_absorb": "🛡️ The shield soaked up the damage!",
+    "reflect": "🪞 Damage reflected back at the attacker!",
+    "lifesteal": "⚖️ Lifesteal: +{heal} HP!",
+    "drain": "💗 Drain: +{heal} HP!"
+  },
+  "resolve": {
+    "parry_reflect": "🔄 Parry from **{defender}** → **{damage}** damage sent back to **{attacker}** (bonuses included)!",
+    "defense_reduced": "🔰 **{defender}** cuts it down to **{damage}** damage!",
+    "attack_hit": "⚔️ **{attacker}** deals **{damage}** damage!",
+    "low_blow_break": "💥 **{attacker}** shatters the parry! **{damage}** critical damage!",
+    "low_blow_hit": "👊 **{attacker}** lands a low blow: **{damage}** damage.",
+    "parry_vs_special": "🔄 Parry vs special: **{reflected}** damage sent back to **{attacker}**, **{taken}** taken by **{defender}**.",
+    "special_hit": "💥 **{damage}** damage!"
+  },
+  "zones": {
+    "left_arm": "💪 Left arm",
+    "right_arm": "💪 Right arm",
+    "left_leg": "🦵 Left leg",
+    "right_leg": "🦵 Right leg",
+    "locked_confirm": "🔒 Zone locked: **{zone}**",
+    "timeout_note": "_30s to pick — otherwise **left arm** by default._",
+    "defense_title": "🛡️ Special Defense engaged!",
+    "defense_prompt": "**{player}**, which part of your body are you shielding?",
+    "attack_title": "⚔️ Your opponent is reading your defense!",
+    "attack_prompt": "**{player}**, which part are you striking?",
+    "defense_locked_title": "🛡️✨ Special Defense locked in",
+    "defense_locked_desc": "**{player}** locked their defense zone.\nOver to the opponent…",
+    "attack_locked_title": "⚔️ Attack locked in",
+    "attack_locked_desc": "**{player}** locked their attack zone.\nReveal incoming…"
+  },
+  "actions": {
+    "attaque": "⚔️ Attack",
+    "parade": "🛡️ Parry",
+    "defense": "🔰 Defense",
+    "coup_bas": "👊 Low Blow",
+    "speciale": "✨ Special",
+    "parade_cooldown": "🛡️ Cooldown ({turns})",
+    "speciale_used": "✨ Used",
+    "defense_special": "🛡️✨ Special Defense",
+    "defense_countdown": "🔰 Defense (special in {turns})"
+  },
+  "turn": {
+    "title": "⚔️ Turn {turn} — Pick your action!",
+    "blind_pick": "Both duelists pick their action in turn, without seeing what the other picked.",
+    "footer_phase1": "⌛ {active} is picking... · ⏳ {waiting} waiting — 30 seconds!",
+    "footer_phase2": "✅ {waiting} has picked! · ⌛ {active} is picking... — 30 seconds!",
+    "resolving": "⚙️ Resolving...",
+    "parry_ready": "🛡️ Parry ready",
+    "parry_cooldown": "🛡️ Cooldown ({turns})",
+    "special_ready": "✨ **{special}** — _{description}_",
+    "special_spent": "✨ ~~Special spent~~",
+    "next_button": "Next turn ⚔️",
+    "next_clicked": "⏩ Next — {player}",
+    "next_not_duelist": "❌ Only the duelists can move on to the next turn.",
+    "result_title": "⚔️ Turn {turn} — Result",
+    "result_footer": "📖 Read the recap then hit Next turn to carry on."
+  },
+  "fight": {
+    "not_your_turn": "❌ Not your turn.",
+    "nerf_tag": " 〔NERF MODE〕",
+    "dice_title": "🎲 Initiative roll",
+    "dice_desc": "**{player1}** {emoji1}  vs  **{player2}** {emoji2}\n\n_Rolling the dice..._",
+    "initiative_title": "🎲 Initiative",
+    "initiative_desc": "🎲 **{player1}**: `{dice1}`\n🎲 **{player2}**: `{dice2}`\n\n➡️ **{first}** takes the initiative and plays first!",
+    "start_title": "⚔️ LIGHTSABER DUEL{nerf}",
+    "start_desc": "{mention1} ({emoji1} {saber1}) VS {mention2} ({emoji2} {saber2})\n\n⚡ **{first}** goes first.",
+    "start_nerf_note": "\n\n⚖️ *Level stats and assigned points ignored — even ground!*",
+    "resume_title": "⚔️ The fight resumes!",
+    "resume_footer": "📖 Read the mini-game recap then hit Next turn.",
+    "picks": "**{player1}** → {action1}\n**{player2}** → {action2}\n\n",
+    "parry_up": "🛡️ **{player}** raises a parry!",
+    "special_defense_up": "🛡️✨ **{player}** goes into **special defense** (read locked in)!",
+    "defense_up": "🔰 **{player}** takes a defensive stance (-60% damage)!",
+    "zone_match": "🛡️✨ **{defender}** read **{attacker}** perfectly ({zone}) — damage cancelled!\n📉 **{attacker}** takes **-20% attack** for 2 turns.\n",
+    "zone_miss": "🛡️ **{defender}** ({defense_zone}) misreads **{attacker}** ({attack_zone}) → standard defense.\n",
+    "log_entry": "**Turn {turn}**\n{recap}HP: {player1} {hp1}/{max1} · {player2} {hp2}/{max2}",
+    "draw": "⚖️ **DRAW!**",
+    "winner": "🏆 **{player} WINS!**",
+    "winner_on_points": "⏱️ Time's up! **{player} wins on points!**",
+    "coins_gain": "\n\n🪙 +{amount} TookCoins",
+    "xp_gain": "\n⚔️ +{xp_win} combat XP ({winner}) | +{xp_lose} XP ({loser})",
+    "level_up": "\n⬆️ **{player}** reaches **Combat level {level}**! (+1 stat point to spend)",
+    "end_title": "⚔️ DUEL OVER"
+  },
+  "log": {
+    "button": "📜 Fight log",
+    "empty": "No action recorded.",
+    "title": "📜 Fight log",
+    "page_footer": "Page 1/{total}"
+  },
+  "invite": {
+    "self": "❌ You can't challenge yourself!",
+    "bot": "❌ You can't challenge a bot!",
+    "not_for_you": "❌ This invite isn't for you!",
+    "accept": "✅ Accept",
+    "decline": "❌ Decline",
+    "title": "⚔️ DUEL CHALLENGE!",
+    "desc": "{challenger} challenges {opponent} to a duel!\n\n{challenger_name}: {emoji1} **{saber1}** ({rarity_emoji1} {rarity1})\n{opponent_name}: {emoji2} **{saber2}** ({rarity_emoji2} {rarity2})",
+    "nerf_note": "\n\n⚖️ **NERF MODE** — levels and assigned stats ignored!",
+    "footer": "{player} has 30 seconds to accept or decline!",
+    "timeout": "⏱️ {player} never answered. Duel cancelled.",
+    "declined": "❌ {player} turned down the duel.",
+    "accepted": "✅ {player} accepts! The fight begins!"
+  },
+  "minigames": {
+    "reward": {
+      "hp": "🩹 **+{amount} HP** restored!",
+      "special_recharged": "✨ **Special recharged!**",
+      "special_already": "✨ Special already up → 🩹 **+{amount} HP** instead!",
+      "damage_buff": "⚡ **+30% damage for 2 turns!**",
+      "parry_and_hp": "🔄 **Parry recharged** + 🩹 **+{amount} HP**!",
+      "unknown": "❓ Unknown reward."
+    },
+    "names": {
+      "rps": "🪨 Rock Paper Scissors",
+      "reflex": "⚡ Reflex Duel",
+      "guess": "🔢 Number Guess",
+      "dice": "🎲 Dice Duel",
+      "quickmath": "🧮 Quick Math"
+    },
+    "announce_title": "🎮 MINI-GAME on turn {turn}!",
+    "announce_desc": "The fight breaks off!\n\n**{game}** starts in a moment...",
+    "waiting_first": "⌛ {player} is picking... — 20 seconds!",
+    "waiting_second": "✅ {player1} has picked! ⌛ {player2} — 20 seconds!",
+    "winner": "🏆 **{player} wins!** {reward}",
+    "draw": "⚖️ **DRAW!** Nobody gets a reward.",
+    "rps": {
+      "pierre": "Rock",
+      "feuille": "Paper",
+      "ciseaux": "Scissors",
+      "title": "🎮 MINI-GAME: Rock Paper Scissors!",
+      "desc": "The fight stops! Settle it with Rock Paper Scissors.\nThe winner recovers **80 HP**!",
+      "result_title": "🎮 RPS — {player1}: {choice1}  VS  {player2}: {choice2}"
+    },
+    "reflex": {
+      "title": "⚡ MINI-GAME: Reflex Duel!",
+      "desc": "Reward: **Special recharged** (or +50 HP if it is already up)\n\nGet ready... **{count}...**",
+      "go_title": "⚡ NOW!",
+      "go_desc": "🟢 Hit **STRIKE!** as fast as you can!",
+      "button": "⚡ STRIKE!",
+      "winner": "⚡ **{player}** struck first! {reward}",
+      "nobody": "😴 Nobody reacted in time... No reward.",
+      "result_title": "⚡ Result — Reflex Duel"
+    },
+    "guess": {
+      "title": "🔢 MINI-GAME: The Guess!",
+      "desc": "Guess the **secret number between 1 and 10**!\nClosest guess wins **+30% damage for 2 turns**!",
+      "reveal": "🎯 Secret number: **{number}**\n{player1}: **{guess1}** (off by {gap1})  ·  {player2}: **{guess2}** (off by {gap2})\n\n",
+      "perfect_draw": "⚖️ **PERFECT DRAW!** Nobody gets a reward.",
+      "result_title": "🔢 Result — The Guess"
+    },
+    "dice": {
+      "title": "🎲 MINI-GAME: Dice Duel!",
+      "desc": "Roll your **3 dice**! Highest total wins **+60 HP**!\nYou can both roll at the same time!",
+      "button": "🎲 {player} — Roll!",
+      "rolled": "✅ {player}: {dice} = {total}",
+      "line": "🎲 **{player}**: `{dice}` = **{total}**\n",
+      "result_title": "🎲 Result — Dice Duel"
+    },
+    "quickmath": {
+      "question": "What is **{expr}**?",
+      "title": "🧮 MINI-GAME: Quick Math!",
+      "desc": "{question}\n\nFirst to hit the right answer wins:\n**Parry recharged + 40 HP**!",
+      "footer": "⏱️ 15 seconds!",
+      "winner": "🧮 Answer: **{answer}**\n🏆 **{player}** got there first! {reward}",
+      "timeout": "🧮 Answer: **{answer}**\n⏰ Out of time! Nobody wins.",
+      "result_title": "🧮 Result — Quick Math"
+    }
+  },
+  "profile": {
+    "title": "⚔️ {name}'s duel profile",
+    "pass_title": "🏷️ *« {title} »*",
+    "tookcoins": "💰 TookCoins",
+    "wins": "🏆 Wins",
+    "losses": "💀 Losses",
+    "ratio": "📊 Ratio",
+    "equipped_saber": "⚔️ Equipped saber",
+    "collection": "🗂️ Collection",
+    "collection_value": "**{count}** saber(s)",
+    "max_level": "Max level reached!",
+    "points_to_spend": " *(⚠️ {points} point(s) to spend!)*",
+    "combat_level": "⚔️ Combat level: {level}{points}",
+    "stats_block": "⚔️ **Strength {strength}** → +{attack} attack\n💨 **Agility {agility}** → +{dodge}% dodge\n🛡️ **Defense {defense}** → +{def_bonus} defense\n❤️ **Endurance {endurance}** → +{hp} max HP\n🍀 **Luck {luck}** → +{crit}% crit",
+    "stats_title": "📈 Combat statistics"
+  },
+  "statpoint": {
+    "none_available": "❌ You have no stat point to spend! Win duels to gain combat levels.",
+    "failed": "❌ Something went wrong while spending the point.",
+    "label_force": "⚔️ Strength",
+    "label_agilite": "💨 Agility",
+    "label_defense": "🛡️ Defense",
+    "label_endurance": "❤️ Endurance",
+    "label_chance": "🍀 Luck",
+    "effect_force": "+5 attack",
+    "effect_agilite": "+4% dodge chance",
+    "effect_defense": "+3 defense",
+    "effect_endurance": "+25 max HP",
+    "effect_chance": "+5% crit chance",
+    "title": "📈 Stat upgraded!",
+    "desc": "**{stat}** raised by one point!\nEffect: _{effect}_\n\nYou have **{remaining}** point(s) left to spend."
+  },
+  "collection": {
+    "title": "🗡️ {name}'s collection",
+    "line": "{emoji} **{name}** {rarity_emoji} {rarity}{equipped}",
+    "equipped_tag": " ← **equipped**",
+    "empty": "No saber."
+  },
+  "history": {
+    "empty": "❌ No duel on record for {member}!",
+    "title": "📜 {name}'s duel history",
+    "win": "✅ Win",
+    "loss": "❌ Loss",
+    "unknown_opponent": "Unknown ({id})",
+    "line": "{result} vs **{opponent}** — {coins} 🪙 | {date}\n"
+  },
+  "saber": {
+    "rarity_field": "Rarity",
+    "tookcoins_field": "TookCoins",
+    "owned_field": "Sabers owned",
+    "owned_value": "{count} saber(s)",
+    "special_field": "✨ Special ability",
+    "special_value": "**{name}**\n_{description}_",
+    "equipped_footer": "🗡️ Equipped saber · use the buttons to open Collection or Shop",
+    "seasonal_locked": "🔒 You must first own a standard **{rarity}** saber (from the shop) before you can equip this seasonal skin.",
+    "nav_equipped": "⚔️ Equipped saber",
+    "nav_collection": "🗂️ Collection",
+    "nav_shop": "🛒 Shop",
+    "menu_not_yours": "❌ This menu isn't yours. Run `/saber` to open your own.",
+    "collection_equipped_line": "⚔️  **Equipped saber:**  {emoji}  **{name}**  ·  {rarity_emoji} {rarity}",
+    "collection_equipped_none": "⚔️  **Equipped saber:**  _none_",
+    "collection_totals": "🪙  **{coins}** TookCoins  ·  📦  **{count}** saber(s) in total",
+    "rarity_header": "{emoji}  ·  **{label}**  ·  {count} saber(s)",
+    "status_equipped": "🟢 **EQUIPPED**",
+    "status_locked": "🔒 *Locked*",
+    "status_owned": "▫️ *Owned*",
+    "collection_empty": "_No saber in your collection yet._",
+    "collection_title": "🗂️  {name}'s collection",
+    "collection_footer": "Pick a saber in the menu below to equip it  ·  🔒 seasonal saber locked",
+    "equip_placeholder": "🗡️ Equip a saber from your collection...",
+    "equip_option_desc": "{lock}{rarity} · {special}",
+    "equipped_confirm": "✅ {emoji} **{name}** equipped!",
+    "shop_balance": "🪙  **Balance:** {coins} TookCoins",
+    "shop_rarity_header": "{emoji}  ·  **{label}**",
+    "shop_free": "🎁  **FREE**",
+    "shop_price": "💰  **{price}** TookCoins",
+    "shop_not_affordable": "  ·  *not enough funds*",
+    "shop_already_owned": "✅ **ALREADY OWNED**",
+    "shop_title": "🛒  Lightsaber shop",
+    "shop_footer": "Pick a saber in the menu below to buy it",
+    "buy_placeholder": "💰 Buy a saber...",
+    "buy_free": "FREE",
+    "buy_price": "{price} TookCoins",
+    "buy_option_desc": "{rarity} · {price}",
+    "not_found": "❌ Saber not found.",
+    "already_owned": "❌ You already own **{name}**.",
+    "not_enough_coins": "❌ Not enough TookCoins. You need 🪙 {price} (you have 🪙 {coins}).",
+    "bought": "✅ You bought **{name}** {emoji}!\n✨ Special: **{special}** — _{description}_"
+  },
+  "info": {
+    "dm_forbidden": "❌ I could not send you a DM. Turn on your direct messages then try again.",
+    "dm_failed": "❌ Could not send the guide by DM right now.",
+    "dm_sent": "📩 I sent you the duel guide in DM.",
+    "overview_title": "TookBot duel guide",
+    "overview_desc": "The duel system is built as a turn-based fight inspired by old-school JRPGs, think early Final Fantasy or Dragon Quest. RNG is part of the deal: damage rolls inside a range, but progression, stats, sabers and turn choices are there to offset that luck.",
+    "philosophy_title": "Philosophy",
+    "philosophy_value": "Early on, a big damage roll can feel brutal. The higher your combat level, the wider your damage range gets, but it grows slower than your stat gains. The goal is to keep the JRPG DNA while leaving more and more room for preparation and good decisions.",
+    "progression_title": "Progression",
+    "progression_value": "Winning a duel grants more combat XP and TookCoins, but losing still pays out. Levels grant stat points, and TookCoins buy new sabers. The `/duel fight nerf:True` mode gives a more balanced fight by ignoring levels and spent stats.",
+    "actions_title": "Combat actions",
+    "actions_desc": "Every turn, both duelists choose an action without seeing what the other picked.",
+    "attack_title": "Attack",
+    "attack_value": "Simple and reliable: deals damage based on your stats, your saber, any running bonuses and RNG.",
+    "parry_title": "Parry",
+    "parry_value": "A defensive move on cooldown. If your opponent attacks, the parry can throw the damage right back. It hits hard, so timing is everything.",
+    "defense_title": "Defense",
+    "defense_value": "Lets you stall: if your opponent attacks, damage drops hard (-60%). Handy while waiting on a parry, a special or a mini-game.",
+    "special_defense_title": "Special Defense (mindgame)",
+    "special_defense_value": "Ready every **4 turns**. When it is up, the Defense button turns into **🛡️✨ Special Defense**. You pick a body zone to shield (left/right arm, left/right leg) **in secret**. If your opponent attacks or throws a low blow, they must pick a zone to hit (blind too).\n• **Match** (same zone) → damage **cancelled** + opponent takes **-20% atk** for 2 turns.\n• **Miss** → standard defense applies (-60% damage).\nDoes not trigger against parry/defense/special.",
+    "low_blow_title": "Low blow",
+    "low_blow_value": "If your opponent is parrying, the low blow shatters the parry and deals critical damage. If they are not parrying, it hurts less than a normal attack. A risky read.",
+    "special_title": "Special",
+    "special_value": "Every saber has its own special. It hits hard but it is limited: some mini-games can recharge it.",
+    "bonuses_title": "Mini-games, buffs and penalties",
+    "bonuses_desc": "Mini-games pop up at random during a fight. They add a layer of risk-taking: the winner walks away with an edge that can flip the pace of the duel.",
+    "rewards_title": "Current rewards",
+    "rewards_value": "- Recover 80 HP\n- Special recharged\n- +30% damage for 2 turns\n- Recover 60 HP\n- Parry recharged + a small HP top-up",
+    "why_luck_title": "Why so much luck?",
+    "why_luck_value": "The system owns its randomness to recapture the tension of old JRPGs. The idea is not that every turn is perfectly predictable, but that progression, sabers, cooldowns and mini-games hand you ways to take back control.",
+    "footer": "Handy commands: /duel fight, /duel info, /profile, /statpoint, /saber, /history"
+  }
+}

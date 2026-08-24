@@ -5,46 +5,58 @@ from discord import app_commands
 import asyncio
 import random
 from database import get_historique, get_combat_xp_progress, get_xp_pour_prochain_niveau, get_user_cosmetic
-from duel.sabres import get_sabre, get_tous_les_sabres, RARETES
+from services.i18n import DEFAULT_LOCALE, locale_of, t, ti
+from duel.sabres import (get_sabre, get_tous_les_sabres, RARETES, rarete_label,
+                         sabre_nom, sabre_description, sabre_speciale_nom,
+                         sabre_speciale_description)
 from duel.combat import calculer_stats, calculer_degats, barre_hp
 from duel.minigames import run_minigame
 
 
-# Fichiers images uploades comme attachments Discord (referencement via attachment://)
+# Image files uploaded as Discord attachments (referenced through attachment://)
 DEFENDER_IMAGE_PATH = "assets/duel_defender.png"
 ATTACKER_IMAGE_PATH = "assets/duel_attacker.png"
 DEFENDER_IMAGE_NAME = "duel_defender.png"
 ATTACKER_IMAGE_NAME = "duel_attacker.png"
 
-ZONE_LABELS = {
-    "bras_g":   "💪 Bras gauche",
-    "bras_d":   "💪 Bras droit",
-    "jambe_g":  "🦵 Jambe gauche",
-    "jambe_d":  "🦵 Jambe droite",
+# Internal zone codes (custom_id + combat state) -> i18n key suffix.
+# The codes themselves are never translated.
+ZONE_KEYS = {
+    "bras_g":   "left_arm",
+    "bras_d":   "right_arm",
+    "jambe_g":  "left_leg",
+    "jambe_d":  "right_leg",
 }
 
 
+def zone_label(code, locale=DEFAULT_LOCALE):
+    """Translated label of a body zone."""
+    return t(f"duel.zones.{ZONE_KEYS.get(code, 'left_arm')}", locale)
+
+
 class ZoneSelectView(discord.ui.View):
-    """Vue attachee au message principal du duel pour choisir une zone."""
-    def __init__(self, joueur_id: int, event: asyncio.Event, choix_ref: dict, mode: str = "defense"):
+    """View attached to the main duel message to pick a zone."""
+    def __init__(self, joueur_id: int, event: asyncio.Event, choix_ref: dict, mode: str = "defense",
+                 locale: str = DEFAULT_LOCALE):
         super().__init__(timeout=30)
         self.joueur_id = joueur_id
         self.event     = event
         self.choix_ref = choix_ref
+        self.locale    = locale
 
-        for code, label in ZONE_LABELS.items():
+        for code in ZONE_KEYS:
             row = 0 if code.startswith("bras") else 1
             style = (discord.ButtonStyle.primary if mode == "defense"
                      else discord.ButtonStyle.danger)
-            btn = discord.ui.Button(label=label, style=style, row=row,
+            btn = discord.ui.Button(label=zone_label(code, locale), style=style, row=row,
                                     custom_id=f"zone_{mode}_{joueur_id}_{code}")
 
             async def cb(interaction: discord.Interaction, c=code):
-                # Seul le joueur concerne peut cliquer
+                # Only the player concerned may click
                 if interaction.user.id != self.joueur_id:
                     try:
                         await interaction.response.send_message(
-                            "❌ Pas ton tour.", ephemeral=True,
+                            ti(interaction, "duel.fight.not_your_turn"), ephemeral=True,
                         )
                     except Exception:
                         pass
@@ -56,10 +68,11 @@ class ZoneSelectView(discord.ui.View):
                         pass
                     return
                 self.choix_ref["zone"] = c
-                # Confirmation privee revele la zone uniquement au clicker
+                # Private confirmation reveals the zone to the clicker only
                 try:
                     await interaction.response.send_message(
-                        f"🔒 Zone verrouillée : **{ZONE_LABELS[c]}**", ephemeral=True,
+                        ti(interaction, "duel.zones.locked_confirm",
+                           zone=zone_label(c, self.locale)), ephemeral=True,
                     )
                 except Exception:
                     try:
@@ -72,26 +85,30 @@ class ZoneSelectView(discord.ui.View):
             self.add_item(btn)
 
 
-def make_zone_embed(mode: str, joueur) -> discord.Embed:
-    """Embed du menu de zone, image referencee via attachment://."""
+def make_zone_embed(mode: str, joueur, locale=DEFAULT_LOCALE) -> discord.Embed:
+    """Zone menu embed, image referenced through attachment://."""
     if mode == "defense":
-        title  = "🛡️ Défense Spéciale activée !"
-        prompt = f"**{joueur.display_name}**, quelle partie de ton corps protèges-tu ?"
+        title  = t("duel.zones.defense_title", locale)
+        prompt = t("duel.zones.defense_prompt", locale, player=joueur.display_name)
         img    = DEFENDER_IMAGE_NAME
         color  = 0x4FB3FF
     else:
-        title  = "⚔️ L'adversaire lit ta défense !"
-        prompt = f"**{joueur.display_name}**, quelle partie attaques-tu ?"
+        title  = t("duel.zones.attack_title", locale)
+        prompt = t("duel.zones.attack_prompt", locale, player=joueur.display_name)
         img    = ATTACKER_IMAGE_NAME
         color  = 0xFF4444
 
-    embed = discord.Embed(title=title, description=prompt + "\n\n_30s pour choisir — sinon **bras gauche** par défaut._", color=color)
+    embed = discord.Embed(
+        title=title,
+        description=prompt + "\n\n" + t("duel.zones.timeout_note", locale),
+        color=color,
+    )
     embed.set_image(url=f"attachment://{img}")
     return embed
 
 
 def _zone_attachment(mode: str) -> "discord.File | None":
-    """Retourne le discord.File a attacher pour l'image du mode."""
+    """Return the discord.File to attach for the mode image."""
     import os as _os
     path = DEFENDER_IMAGE_PATH if mode == "defense" else ATTACKER_IMAGE_PATH
     name = DEFENDER_IMAGE_NAME if mode == "defense" else ATTACKER_IMAGE_NAME
@@ -100,15 +117,15 @@ def _zone_attachment(mode: str) -> "discord.File | None":
     return None
 
 
-async def _resolve_defense_zone_on_msg(msg, joueur, stats):
-    """Affiche le menu zone defense sur msg principal, attend le pick (ou timeout).
+async def _resolve_defense_zone_on_msg(msg, joueur, stats, locale=DEFAULT_LOCALE):
+    """Show the defense zone menu on the main msg, wait for the pick (or timeout).
     Set defense_zone, defense_speciale_active, defense_speciale_cooldown.
     Reset pending_def_zone."""
     stats["pending_def_zone"] = False
     zone_event = asyncio.Event()
     zone_ref   = {}
-    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="defense")
-    embed = make_zone_embed("defense", joueur)
+    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="defense", locale=locale)
+    embed = make_zone_embed("defense", joueur, locale)
     file_ = _zone_attachment("defense")
     try:
         if file_:
@@ -116,7 +133,7 @@ async def _resolve_defense_zone_on_msg(msg, joueur, stats):
         else:
             await msg.edit(embed=embed, view=zone_view, attachments=[])
     except Exception:
-        # Echec edit -> fallback defense classique
+        # Edit failed -> fall back on the standard defense
         stats["defense_active"] = True
         return
     try:
@@ -126,10 +143,10 @@ async def _resolve_defense_zone_on_msg(msg, joueur, stats):
     stats["defense_zone"]              = zone_ref["zone"]
     stats["defense_speciale_active"]   = True
     stats["defense_speciale_cooldown"] = 4
-    # Update msg vers un visuel neutre "verrouille" en attendant la suite
+    # Update msg with a neutral "locked" visual while waiting for the rest
     locked_embed = discord.Embed(
-        title="🛡️✨ Défense Spéciale verrouillée",
-        description=f"**{joueur.display_name}** a verrouillé sa zone de défense.\nÀ l'adversaire de jouer…",
+        title=t("duel.zones.defense_locked_title", locale),
+        description=t("duel.zones.defense_locked_desc", locale, player=joueur.display_name),
         color=0x4FB3FF,
     )
     try:
@@ -139,13 +156,13 @@ async def _resolve_defense_zone_on_msg(msg, joueur, stats):
     await asyncio.sleep(1)
 
 
-async def _resolve_attack_zone_on_msg(msg, joueur, stats):
-    """Affiche le menu zone attaque sur msg principal, attend le pick (ou timeout).
+async def _resolve_attack_zone_on_msg(msg, joueur, stats, locale=DEFAULT_LOCALE):
+    """Show the attack zone menu on the main msg, wait for the pick (or timeout).
     Set attaque_zone."""
     zone_event = asyncio.Event()
     zone_ref   = {}
-    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="attaque")
-    embed = make_zone_embed("attaque", joueur)
+    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="attaque", locale=locale)
+    embed = make_zone_embed("attaque", joueur, locale)
     file_ = _zone_attachment("attaque")
     try:
         if file_:

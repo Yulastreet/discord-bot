@@ -1,0 +1,431 @@
+{
+  "music": {
+    "trouble": "⚠️ **This feature is having some trouble right now.**\nWe're on it! Try again in a few minutes, or try another video.",
+    "not_in_voice": "❌ You must be in a voice channel!",
+    "position_min": "❌ Position must be 1 or higher.",
+    "queue_empty": "❌ The queue is empty.",
+    "position_out_of_range": "❌ Position {position} is out of range (queue = {total} track(s)).",
+    "join": {
+      "connected": "✅ Connected to **{channel}**!"
+    },
+    "play": {
+      "spotify_resolving": "🎧 Resolving Spotify...",
+      "spotify_unavailable": "⚠️ Spotify is not configured (missing API keys) or the URL is invalid.\nYou can already play SoundCloud, YouTube and Bandcamp with a direct link.",
+      "spotify_no_track": "❌ No track found in this Spotify resource.",
+      "spotify_first_missing": "❌ The first Spotify track could not be found on YouTube.",
+      "spotify_cap_note": "\n⚠️ Spotify limit: only the **first 100** tracks were added (the public API caps playlists at 100 without OAuth).",
+      "spotify_added": "🎧 **{count}** track(s) added from Spotify: **{title}**",
+      "playlist_loading": "🔍 Loading the playlist...",
+      "playlist_empty": "❌ Playlist empty or unreachable.",
+      "playlist_added": "📋 **{count}** tracks added from **{title}**",
+      "searching": "🔍 Searching for **{query}**...",
+      "added": "✅ Added to the queue: **{title}**"
+    },
+    "nowplaying": {
+      "nothing": "🔇 Nothing is playing right now.",
+      "duration": "Duration",
+      "voice_channel": "Voice channel",
+      "up_next": "🎶 Up next ({count} in queue)",
+      "more": "\n_… +{count} more_",
+      "footer": "TookBot · /queue for the full queue · /skip to skip"
+    },
+    "skip": {
+      "done": "⏭️ Track skipped!",
+      "nothing_playing": "❌ Nothing is playing!",
+      "overflow_note": " (position {position} was past the queue of {total}, queue cleared)",
+      "done_count": "⏭️ **{count}** track(s) skipped{note}"
+    },
+    "queue": {
+      "title": "🎵 Queue ({total} track(s))",
+      "empty_line": "*empty*",
+      "footer": "Page {page}/{total_pages} • /jump position:N to play a specific track",
+      "empty": "📭 The queue is empty!",
+      "previous_button": "◀ Previous",
+      "next_button": "Next ▶"
+    },
+    "jump": {
+      "reorder_error": "❌ Could not reorder the queue.",
+      "track_not_found": "❌ Track not found.",
+      "done": "⏯️ Jumping to **{title}** (the other tracks are kept)."
+    },
+    "volume": {
+      "out_of_range": "❌ Volume must be between 0 and 200.",
+      "applied_live": " (applied live)",
+      "next_track": " (from the next track)",
+      "set": "🔊 Volume: **{level}%**{suffix}"
+    },
+    "remove": {
+      "done": "🗑️ Removed from the queue: **{title}** (position {position})"
+    },
+    "search": {
+      "title": "Search: {query}",
+      "description": "Choose the platform to search on.\nThe bot will offer 5 results when you click.",
+      "preview": "Preview (top YouTube)",
+      "footer": "60s to pick a platform",
+      "not_author": "❌ Only the author can choose.",
+      "bandcamp_no_native": "Bandcamp has no native search in yt-dlp. Paste a bandcamp.com URL straight into `/play`.",
+      "failed": "The {platform} search failed, try again.",
+      "no_result": "❌ No {platform} result for `{query}`.",
+      "select_placeholder": "Pick a {platform} track...",
+      "menu_not_yours": "❌ This menu is not yours.",
+      "left_voice": "❌ You are no longer in a voice channel.",
+      "added": "✅ Added: **{title}**",
+      "results_title": "{platform} results for: {query}",
+      "untitled": "(untitled)",
+      "unknown_uploader": "Unknown",
+      "duration_only": "duration: {duration}",
+      "timeout": "⌛ Platform choice expired (60s). Run `/search` again."
+    },
+    "pause": {
+      "nothing_playing": "❌ Nothing is playing.",
+      "done": "⏸️ Music paused."
+    },
+    "resume": {
+      "nothing_paused": "❌ No music is paused.",
+      "done": "▶️ Playback resumed."
+    },
+    "stats": {
+      "bad_period": "❌ Period must be between 1 and 365 days.",
+      "no_data": "📊 No music played in the last {days} days.",
+      "title": "📊 Music stats ({days}d)",
+      "plays": "Plays",
+      "unique_tracks": "Unique tracks",
+      "listeners": "Listeners",
+      "total_time": "Total time",
+      "by_source": "By source",
+      "top_tracks": "🎵 Top tracks",
+      "top_listeners": "👤 Top listeners"
+    },
+    "stop": {
+      "done": "⏹️ Music stopped and queue cleared!"
+    },
+    "leave": {
+      "done": "👋 Left the voice channel!",
+      "not_connected": "❌ I am not in a voice channel!"
+    }
+  },
+
+  "cs": {
+    "err": {
+      "steam_id_invalid_title": "Invalid or unknown Steam ID",
+      "steam_id_invalid_link": "Accepted formats:\n• Custom URL: `https://steamcommunity.com/id/yuminiteru/`\n• Numeric URL: `https://steamcommunity.com/profiles/76561198xxxxxxxxx`\n• Custom name only: `yuminiteru`\n• SteamID64 only: `76561198xxxxxxxxx` (17 digits)\n\nTip: you can paste your Steam profile URL directly.",
+      "steam_id_invalid_short": "Accepted formats: URL `https://steamcommunity.com/id/<name>/`, URL `/profiles/<id>`, name only, or SteamID64 (17 digits).",
+      "steam_profile_not_found_title": "Steam profile not found",
+      "steam_profile_not_found_desc": "Steam returned no profile for this ID. Check that the ID is correct and that the profile has not been deleted.",
+      "faceit_nick_invalid_title": "Invalid Faceit nickname",
+      "faceit_nick_invalid_desc": "The nickname must be 2-30 alphanumeric characters (underscore and dash allowed).",
+      "faceit_not_found_title": "Faceit user not found",
+      "faceit_not_found_desc": "No Faceit player found for the nickname `{nickname}`. Check the spelling (case sensitive).",
+      "ambiguous_params_title": "Ambiguous parameters",
+      "ambiguous_params_desc": "Pick **either** `member` **or** `steamid`, not both.",
+      "no_account_title": "No linked account",
+      "no_account_desc": "**{name}** has no linked CS2 account.\nRun `/cs link` to link an account.",
+      "no_usable_profile_title": "No usable profile",
+      "no_usable_profile_desc": "The stored profile is empty. Run `/cs link` again.",
+      "no_steam_linked_title": "No Steam account linked",
+      "no_steam_linked_desc": "**{name}** has not linked a Steam account. Run `/cs link` with platform `Steam`.",
+      "dm_not_supported_title": "Not available in DMs",
+      "dm_not_supported_desc": "Run this command in a server.",
+      "permission_denied_title": "Permission denied",
+      "permission_denied_desc": "You need the **Manage Roles** permission.",
+      "missing_permission_title": "Missing permission",
+      "missing_permission_desc": "The bot needs the **Manage Channels** permission to create a voice channel.",
+      "generic_title": "Error",
+      "voice_create_failed": "Could not create the voice channel. Try again later.",
+      "unknown_weapon_title": "Unknown weapon",
+      "unknown_weapon_desc": "`{weapon}` is not in the recognised list.\nType in the field to see suggestions (AK-47, AWP, ★ Karambit, ...).",
+      "invalid_skin_title": "Invalid skin",
+      "invalid_skin_desc": "The skin name must be 2-60 characters long."
+    },
+    "link": {
+      "steam_success_title": "✅ Steam linked",
+      "steam_success_desc": "Steam account **{persona}** linked to your Discord.\n`steamID64`: `{steam_id}`\n\nYou can now use `/cs stats` and `/cs inventory`.",
+      "faceit_success_title": "✅ Faceit linked",
+      "faceit_success_desc": "Faceit account **{nickname}** linked to your Discord.\nCS2 Faceit level: **{level}**"
+    },
+    "unlink": {
+      "success_title": "✅ Link removed",
+      "success_desc": "**{platform}** link removed."
+    },
+    "stats": {
+      "steam_title": "🎯 Steam stats — {persona}",
+      "profile_private": "⚠️ **Profile or CS2 game details are private.**\nTurn on CS2 stat sharing: Steam → Profile → Edit Profile → **Privacy Settings** → *Game details* + *My profile* → **Public**.",
+      "steam_unavailable": "⚠️ Could not fetch the stats (Steam API unavailable). Try again later.",
+      "steam_profile_title": "🎯 Steam profile · {persona}",
+      "unknown_player": "Unknown",
+      "performance": "⚔️ Performance",
+      "performance_value": "**Kills**: `{kills}`\n**Deaths**: `{deaths}`\n**K/D**: `{kd}`\n**MVPs**: `{mvps}`",
+      "accuracy": "🎯 Accuracy",
+      "accuracy_value": "**Headshots**: `{hs}`\n**HS%**: `{hs_pct}%`\n{hs_bar}\n**Accuracy**: `{acc_pct}%`\n{acc_bar}",
+      "matches": "🏆 Matches",
+      "matches_value": "**Played**: `{played}`\n**Won**: `{won}`\n**Win Rate**: `{wr}%`\n{wr_bar}",
+      "rounds": "💣 Rounds & bombs",
+      "rounds_value": "**Rounds**: `{rounds}`\n**Round wins**: `{wins}`\n**Bombs planted**: `{planted}`\n**Bombs defused**: `{defused}`",
+      "economy": "💰 Economy & playtime",
+      "economy_value": "**Money earned**: `{money} $`\n**CS2 hours (2 weeks)**: `{hours_2w} h`\n**CS2 hours total**: `{hours_total} h`",
+      "steam_footer": "steamID64: {steam_id} · data from the Steam Web API",
+      "faceit_title": "🎯 Faceit — {nickname}",
+      "faceit_unavailable": "⚠️ Faceit stats unavailable for this player.",
+      "faceit_profile_title": "🎯 Faceit profile · {nickname}",
+      "lifetime": "📊 Lifetime",
+      "lifetime_value": "**Matches**: `{matches}`\n**Wins**: `{wins}`\n**Win Rate**: `{wr}%`\n{wr_bar}",
+      "combat": "⚔️ Combat",
+      "combat_value": "**K/D ratio**: `{kd}`\n**HS%**: `{hs_pct}%`\n{hs_bar}\n**Win streak (best)**: `{best_streak}`\n**Win streak (current)**: `{current_streak}`",
+      "top_maps": "🗺️ Top maps",
+      "faceit_footer": "Data from the Faceit Open API",
+      "choose_profile_title": "🎯 Stats — {name}",
+      "choose_profile_desc": "You have both profiles linked, choose which one to show:"
+    },
+    "price": {
+      "not_found_title": "Skin not found",
+      "not_found_desc": "No result on Steam Market, Skinport or CSFloat for `{name}`.\n\nLikely cause: this weapon/skin/wear combination does not exist.",
+      "not_found_all_desc": "No price on Steam, Skinport or CSFloat for **{name}**.\n\nCheck the skin spelling (case sensitive, e.g. `Redline`, `Hyper Beast`).\nSome older skins do not exist in every wear.",
+      "steam_field": "🟦 Steam Market",
+      "steam_value": "**Lowest**: `{lowest}`\n**24h median**: `{median}`\n**Volume**: `{volume}`",
+      "skinport_field": "🟧 Skinport",
+      "skinport_value": "**Lowest**: `{lowest} €`\n{extra}[View on Skinport](https://skinport.com/market?search={encoded})",
+      "skinport_suggested": "Suggested: `{price} €`",
+      "listings": "Listings: `{count}`",
+      "csfloat_field": "🟪 CSFloat",
+      "csfloat_value": "**Lowest**: `{eur} €` _({usd} $)_\n{extra}[View on CSFloat](https://csfloat.com/search?market_hash_name={encoded})",
+      "no_listing": "_No active listing._",
+      "footer": "🟦 Steam · 🟧 Skinport · 🟪 CSFloat",
+      "all_wears_desc": "**Price per wear level:**\n```\n{table}\n```",
+      "all_wears_footer": "🟦 Steam · 🟧 Skinport · 🟪 CSFloat · lowest prices",
+      "table_wear": "Wear",
+      "autocomplete_pick_weapon": "⚠️ Pick a weapon first",
+      "autocomplete_no_result": "(no result — check the spelling)",
+      "autocomplete_no_skin": "(no skin found)"
+    },
+    "inventory": {
+      "unavailable_title": "Inventory unavailable",
+      "unavailable_desc": "The CS2 inventory of **{name}** is not publicly accessible.\n\n**Go to** https://steamcommunity.com/my/edit/settings **and set these 3 settings to `Public`:**\n1️⃣ **My profile**\n2️⃣ **Game details** *(often missed — required for CS2!)*\n3️⃣ **Inventory**\n\nOther possible causes: Steam rate-limit (retry in 2-5 min) or a VAC/trade ban.\n\n_Direct test: https://steamcommunity.com/profiles/{steam_id}/inventory/#730_",
+      "title": "📦 CS2 inventory · {name}",
+      "empty": "_Empty inventory, or no CS2 item._",
+      "no_cs2_item": "_No CS2 item found in the inventory._",
+      "summary": "**Total items**: `{total}` ({unique} unique)\n**Sellable now**: `{sellable}`{cooldown}\n**Priced items**: `{priced}` {missing}\n**Estimated total value**: **{value} €**\n{note}",
+      "cooldown_part": " · **On cooldown** 🔒 `{count}`",
+      "missing_part": "(~{count} with no price found)",
+      "partial_note": "_Partial valuation: {count} items skipped on Steam (rate-limit)._\n",
+      "top_items": "💎 Top 10 items",
+      "footer": "🟪 CSFloat · 🟧 Skinport · 🟦 Steam · 🔒 cooldown · lowest prices"
+    },
+    "setrank": {
+      "saved_title": "🎖️ Rank updated",
+      "saved_desc": "Premier rating saved: **{elo}** — tier **{tier}**.",
+      "role_applied": "\n✅ Role **{role}** applied."
+    },
+    "rankrole": {
+      "title": "🎖️ Rank role config",
+      "desc": "Automatic rank role assignment is now **{state}** on this server.\nConfigure the role of each tier in the dashboard (Counter-Strike 2 page).",
+      "state_on": "enabled",
+      "state_off": "disabled"
+    },
+    "queue": {
+      "channel_name": "🎮 Premier Queue · {name}",
+      "created_title": "🎮 Premier queue created",
+      "created_desc": "Voice channel **{channel}** created (5 slots).\nIt will be deleted automatically once it is empty."
+    },
+    "map": {
+      "not_in_voice_title": "Not in a voice channel",
+      "not_in_voice_desc": "You must be in a voice channel to start a ban/pick. The voters are the members of your voice channel.",
+      "not_enough_voters_title": "Not enough voters",
+      "not_enough_voters_desc": "At least 2 people must be in the voice channel to run a ban/pick.",
+      "timeout_title": "Time is up",
+      "timeout_desc": "The ban-pick expired. Run the command again.",
+      "not_your_turn": "❌ It is **{name}**'s turn to ban.",
+      "title": "🗺️ Ban/Pick — Counter-Strike 2",
+      "description": "**Your turn, {mention}!**\nClick the map you want to **ban**.\n\n**Voters**: {voters}",
+      "bans": "Bans",
+      "ban_line": "❌ **{map}** banned by *{name}*",
+      "remaining": "Remaining maps",
+      "footer": "240s to finish the ban-pick. The last map standing gets played.",
+      "final_title": "🏆 Map picked: **{map}**",
+      "final_desc": "Have fun! 🎮\n\n**Ban recap:**\n{recap}",
+      "final_ban_line": "❌ {map} banned by *{name}*"
+    },
+    "loadout": {
+      "title": "🎒 Your random loadout",
+      "description": "A fantasy CS2 setup — buying it for real is up to you 😉",
+      "slot_pistol": "Pistol",
+      "slot_rifle": "Rifle",
+      "slot_sniper": "Sniper",
+      "slot_smg": "SMG",
+      "slot_heavy": "Heavy",
+      "knife": "🔪 Knife",
+      "gloves": "🧤 Gloves",
+      "footer": "Fictional skins — purely random"
+    }
+  },
+
+  "lol": {
+    "unranked": "_Unranked._",
+    "rank_line": "**{rank}** · `{lp} LP`\n`{wins}W` `{losses}L` · WR {wr}",
+    "mastery_line": "**{champion}** · Lvl `{level}` · `{points}` pts",
+    "err": {
+      "invalid_format_title": "Invalid format",
+      "invalid_format_desc": "Expected Riot ID: `Name#TAG` (e.g. `Tookyn#EUW`).",
+      "invalid_format_link_desc": "Expected format: `Name#TAG` (e.g. `Tookyn#EUW`).\nThe tag is 2 to 5 characters, no spaces.",
+      "riot_id_not_found_title": "Riot ID not found",
+      "riot_id_not_found_desc": "`{riot_id}` was not found on **{region}**.",
+      "riot_id_not_found_link_desc": "`{riot_id}` was not found on the **{region}** region.\n\nCheck the spelling and the region.",
+      "no_account_title": "No linked account",
+      "no_account_desc": "**{name}** has no linked LoL account.\nUse `/lol link Name#TAG`, or pass `riot_id:Name#TAG` directly.",
+      "no_account_simple_desc": "**{name}** has not linked a LoL account.",
+      "no_account_link_first_desc": "**{name}** has not linked a LoL account.\nUse `/lol link` first.",
+      "ambiguous_params_title": "Ambiguous parameters",
+      "ambiguous_params_desc": "Pick **either** `member` **or** `riot_id`, not both.",
+      "dm_not_supported_title": "Not available in DMs",
+      "dm_not_supported_desc": "Run this command in a server.",
+      "permission_denied_title": "Permission denied",
+      "permission_denied_desc": "You need the **Manage Roles** permission.",
+      "missing_permission_title": "Missing permission",
+      "missing_permission_desc": "The bot needs the **Manage Channels** permission to create a voice channel.",
+      "generic_title": "Error",
+      "voice_create_failed": "Could not create the voice channel. Try again later.",
+      "champion_not_found_title": "Champion not found",
+      "champion_not_found_desc": "No champion named `{champion}` was found.\nCheck the spelling (e.g. `Lee Sin`, `Kai'Sa`, `Wukong`).",
+      "champion_not_found_simple": "`{champion}` was not found.",
+      "champion_not_found_skin": "`{champion}` was not found.\nExamples: `Jinx`, `Lee Sin`, `Kai'Sa`, `K'Sante`.",
+      "owner_only_title": "Owner only",
+      "owner_only_desc": "This command is restricted to the bot owner.",
+      "owner_only_short": "Owner only."
+    },
+    "link": {
+      "success_title": "✅ LoL account linked",
+      "success_desc": "**{riot_id}** on **{region}**.\nSummoner level: **{level}**.\n\nType `/lol stats` to see your full profile."
+    },
+    "unlink": {
+      "none_title": "No linked account",
+      "none_desc": "You have no linked LoL account to remove.",
+      "success_title": "✅ LoL account unlinked",
+      "success_desc": "The link was removed. You can run `/lol link` again whenever you want."
+    },
+    "stats": {
+      "subtitle": "**{region}** · Level **{level}**",
+      "top_masteries": "✨ Top masteries",
+      "footer": "Riot ID: {riot_id} · Data from the Riot Games API"
+    },
+    "rank": {
+      "title": "🏆 Rank — {name}",
+      "subtitle": "**{riot_id}** ({region})",
+      "role_footer": "✅ Role \"{role}\" applied automatically."
+    },
+    "rankrole": {
+      "title": "🏆 LoL rank role",
+      "desc": "Automatic rank role assignment is now **{state}** on this server.\nConfigure the role of each tier in the dashboard (League of Legends page, coming in batch 2).",
+      "state_on": "enabled",
+      "state_off": "disabled"
+    },
+    "history": {
+      "no_match_title": "📭 No match",
+      "no_match_desc": "No recent Solo/Duo game for **{name}**.",
+      "no_data_title": "📭 Data unavailable",
+      "no_data_desc": "The matches exist but their details could not be fetched (rate-limit or API down).",
+      "title": "🎮 Solo/Duo history — {name}",
+      "summary": "**{riot_id}** ({region})\n**{wins}W** / **{losses}L** · Winrate **{wr}%**\n\n{lines}",
+      "line": "{tag} **{champion}** · `{k}/{d}/{a}` ({kda}) · `{cs} CS` · `{time}`",
+      "footer": "🟢 win · 🔴 loss · KDA = (kills+assists)/deaths"
+    },
+    "live": {
+      "not_in_game_title": "💤 Not in game",
+      "not_in_game_desc": "**{name}** is not in a game right now.",
+      "title": "🔴 In game — {name}",
+      "subtitle": "**{riot_id}** ({region})\n**{queue}** · Map `{map_id}` · Time: `{time}`",
+      "blue_team": "🔵 Blue team {you}",
+      "red_team": "🔴 Red team {you}",
+      "you": "(you)",
+      "player_line": "**{champion}** · `{riot_id}`"
+    },
+    "mastery": {
+      "none_title": "📭 No mastery",
+      "none_champion_desc": "**{name}** has never played **{champion}** (or Riot data has not propagated yet).",
+      "none_desc": "No mastery data available.",
+      "champion_title": "✨ Mastery — {champion}",
+      "champion_desc": "**{name}** · {riot_id}\n\nLevel: **{level}**\nPoints: **{points}**",
+      "top_title": "✨ Top 10 masteries — {name}",
+      "top_desc": "**{riot_id}**\n\n{lines}"
+    },
+    "queue": {
+      "channel_name": "⚔️ LoL Queue · {name}",
+      "created_title": "⚔️ LoL queue created",
+      "created_desc": "Voice channel **{channel}** created (5 slots).\nIt will be deleted automatically once it is empty."
+    },
+    "skin": {
+      "no_data_title": "📭 No skin data",
+      "no_data_desc": "No skin data available for **{champion}**.",
+      "list_title": "🎨 Skins — {champion}",
+      "list_line": "• **{name}** — `{cost}`",
+      "list_footer": "Total: {count} skins. Use `/lol skin {champion} <name>` for the details.",
+      "not_found_title": "Skin not found",
+      "not_found_desc": "No skin named `{skin}` for **{champion}**.\nUse `/lol skin {champion}` (without the 2nd parameter) to see the list.",
+      "detail_desc": "Champion: **{champion}**\nPrice: **{cost}**",
+      "release": "Release",
+      "rarity": "Rarity",
+      "footer": "Data: Data Dragon + Meraki Analytics"
+    },
+    "build": {
+      "not_your_menu": "❌ This menu belongs to whoever ran `/lol build`.",
+      "default_name": "Build {n}",
+      "btn_items": "Items",
+      "btn_runes": "Runes",
+      "btn_skills": "Skills + Spells",
+      "subtitle": "**{champion}** {role} · Source: [{source}]({source_url})",
+      "wr_line": "\n🏆 WR {wr}% over {matches} games",
+      "items_title": "🧱 Items — {build}",
+      "items_phase": "📦 {phase}",
+      "items_footer": "Items + summoner spells. {source}.",
+      "runes_title": "🌿 Runes — {build}",
+      "no_runes": "No rune data.",
+      "keystone_line": "⭐ **{rune}** (Keystone)",
+      "rune_line": "• {rune}",
+      "primary_tree": "🟦 {tree} (primary)",
+      "secondary_tree": "🟣 {tree} (secondary)",
+      "stat_shards": "💠 Stat Shards",
+      "shard_line": "{slot}: **{rune}**",
+      "runes_footer": "Full rune page. {source}.",
+      "skills_title": "⚔️ Skills + Spells — {build}",
+      "skill_order": "📈 Skill order (per level)",
+      "skill_order_value": "`Lvl   {levels}`\n`Skill {skills}`",
+      "max_priority": "🎯 Level-up priority",
+      "summoner_spells": "✨ Summoner spells",
+      "skills_footer": "Skill order + spells. {source}.",
+      "unavailable_title": "📊 Build — {champion} {role}",
+      "unavailable_desc": "⚠️ Build sources are temporarily unavailable.\nCheck them directly:\n• [OP.GG]({opgg})\n• [U.GG]({ugg})\n• [DPM]({dpm})\n• [Mobalytics]({moba})"
+    },
+    "scout": {
+      "stopped_title": "⏹ Session stopped",
+      "stopped_desc": "Session `{slug}` stopped. The link stays readable.",
+      "not_found_title": "Not found",
+      "not_found_desc": "No active session with this slug, or you are not its owner.",
+      "none_title": "📭 No session",
+      "none_desc": "You have no scout session yet. Use `/lol scout create`.",
+      "list_title": "📋 Scout sessions",
+      "list_active": "🟢 `{slug}` · {platform} · <t:{ts}:R>\n   {url}",
+      "list_stopped": "⏹ `{slug}` · {platform} · <t:{ts}:R> *(link expired)*",
+      "modal_title": "🔍 Clash scout: enter 5 Riot IDs",
+      "modal_top": "TOP — Name#TAG",
+      "modal_jungle": "JUNGLE — Name#TAG",
+      "modal_mid": "MID — Name#TAG",
+      "modal_adc": "ADC — Name#TAG",
+      "modal_support": "SUPPORT — Name#TAG",
+      "created_title": "✅ Scout session created",
+      "created_desc": "**Region**: {region}\n**Slug**: `{slug}`\n\n🔗 **Link to share with your 5-stack**:\n{url}\n\nRun `/lol scout stop {slug}` to end the session.",
+      "lookup_error": "Lookup error: {error}",
+      "bad_riot_id": "Invalid Riot ID format (Name#TAG expected).",
+      "bad_riot_id_parts": "Invalid format: `{riot_id}`.",
+      "bad_riot_id_limits": "❌ Invalid format: `{riot_id}` (limits: name<=32, tag<=8).",
+      "bad_riot_id_msg": "❌ Invalid Riot ID format (Name#TAG expected).",
+      "not_found": "`{riot_id}` not found on {region}.",
+      "not_found_msg": "❌ `{riot_id}` not found on {region}.",
+      "rank_line_html": "<strong style='color:#caff37'>{rank}</strong> · {lp} LP · {wins}W/{losses}L ({wr}% WR)",
+      "unranked_html": "<span style='color:#99a288'>Unranked in Solo/Duo</span>",
+      "rank_line": "**{rank}** · {lp} LP · {wins}W/{losses}L ({wr}% WR)",
+      "unranked": "_Unranked in Solo/Duo_",
+      "no_mastery": "_No mastery data_",
+      "no_recent_games": "_No recent games_",
+      "not_enough_games": "_Not enough games (3+ required)_",
+      "summary": "Level **{level}**\n🏆 {rank_line}\n🔥 **Recent picks**: {recent}\n💀 **Ban worthy** (WR over 3+ games): {bans}\n✨ Mastery: {mastery}"
+    }
+  }
+}

@@ -1,51 +1,50 @@
 {% extends "_base.html" %}
 {% set active_nav = 'bottalk' %}
 
-{% block title %}BotTalk · Bot Console{% endblock %}
-{% block crumb %}BotTalk{% endblock %}
+{% block title %}{{ t('web_features.bottalk.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.bottalk.title') }}{% endblock %}
 
 {% block content %}
 
 <div class="col gap-7">
 
   <div>
-    <h1>BotTalk</h1>
+    <h1>{{ t('web_features.bottalk.title') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Publie un message <strong>sous l'identité du bot</strong>. Mode simple
-      (markdown Discord) ou mode embed (titre, image, fields, footer...).
+      {{ t('web_features.bottalk.subtitle_pre') }} <strong>{{ t('web_features.bottalk.subtitle_strong') }}</strong>. {{ t('web_features.bottalk.subtitle_post') }}
     </p>
   </div>
 
   <div class="card">
     <div class="field mb-4">
-      <label>Salon de destination</label>
-      <select id="channelSelect"><option value="">Charger les salons...</option></select>
+      <label>{{ t('web_features.bottalk.channel_label') }}</label>
+      <select id="channelSelect"><option value="">{{ t('web_features.bottalk.channel_loading') }}</option></select>
     </div>
 
     <div class="tabs" role="tablist">
-      <button class="tab-btn active" data-mode="simple">Message simple</button>
-      <button class="tab-btn"        data-mode="embed">Embed builder</button>
+      <button class="tab-btn active" data-mode="simple">{{ t('web_features.bottalk.tab_simple') }}</button>
+      <button class="tab-btn"        data-mode="embed">{{ t('web_features.bottalk.tab_embed') }}</button>
     </div>
 
     <!-- ============ MODE SIMPLE ============ -->
     <div class="tab-content active" id="modeSimple">
       <div class="bt-toolbar" role="toolbar">
-        <button class="bt-tool" type="button" data-fmt="bold"      title="Gras (Ctrl+B)">    <svg class="ic"><use href="#i-bold"/></svg></button>
-        <button class="bt-tool" type="button" data-fmt="italic"    title="Italique (Ctrl+I)"><svg class="ic"><use href="#i-italic"/></svg></button>
-        <button class="bt-tool" type="button" data-fmt="underline" title="Souligné (Ctrl+U)"><svg class="ic"><use href="#i-underline"/></svg></button>
-        <button class="bt-tool" type="button" data-fmt="strike"    title="Barré">             <svg class="ic"><use href="#i-strike"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="bold"      title="{{ t('web_features.bottalk.fmt_bold') }}">    <svg class="ic"><use href="#i-bold"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="italic"    title="{{ t('web_features.bottalk.fmt_italic') }}"><svg class="ic"><use href="#i-italic"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="underline" title="{{ t('web_features.bottalk.fmt_underline') }}"><svg class="ic"><use href="#i-underline"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="strike"    title="{{ t('web_features.bottalk.fmt_strike') }}">             <svg class="ic"><use href="#i-strike"/></svg></button>
         <span class="bt-sep"></span>
-        <button class="bt-tool" type="button" data-fmt="code"      title="Code en ligne">    <svg class="ic"><use href="#i-code"/></svg></button>
-        <button class="bt-tool" type="button" data-fmt="codeblock" title="Bloc de code">    <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;">{ }</span></button>
-        <button class="bt-tool" type="button" data-fmt="quote"     title="Citation">         <svg class="ic"><use href="#i-quote"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="code"      title="{{ t('web_features.bottalk.fmt_code') }}">    <svg class="ic"><use href="#i-code"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="codeblock" title="{{ t('web_features.bottalk.fmt_codeblock') }}">    <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;">{ }</span></button>
+        <button class="bt-tool" type="button" data-fmt="quote"     title="{{ t('web_features.bottalk.fmt_quote') }}">         <svg class="ic"><use href="#i-quote"/></svg></button>
         <span class="bt-sep"></span>
-        <button class="bt-tool" type="button" data-fmt="spoiler"   title="Spoiler">          <svg class="ic"><use href="#i-eye"/></svg></button>
+        <button class="bt-tool" type="button" data-fmt="spoiler"   title="{{ t('web_features.bottalk.fmt_spoiler') }}">          <svg class="ic"><use href="#i-eye"/></svg></button>
         <span class="bt-sep"></span>
-        <button class="bt-tool" type="button" data-fmt="h1"        title="H1">               <span style="font-weight:700;font-size:13px;">H1</span></button>
-        <button class="bt-tool" type="button" data-fmt="h2"        title="H2">               <span style="font-weight:700;font-size:13px;">H2</span></button>
-        <button class="bt-tool" type="button" data-fmt="bullet"    title="Liste à puces">    <span style="font-size:14px;">•</span></button>
+        <button class="bt-tool" type="button" data-fmt="h1"        title="{{ t('web_features.bottalk.fmt_h1') }}">               <span style="font-weight:700;font-size:13px;">{{ t('web_features.bottalk.fmt_h1') }}</span></button>
+        <button class="bt-tool" type="button" data-fmt="h2"        title="{{ t('web_features.bottalk.fmt_h2') }}">               <span style="font-weight:700;font-size:13px;">{{ t('web_features.bottalk.fmt_h2') }}</span></button>
+        <button class="bt-tool" type="button" data-fmt="bullet"    title="{{ t('web_features.bottalk.fmt_bullet') }}">    <span style="font-size:14px;">•</span></button>
       </div>
-      <textarea id="content" rows="8" placeholder="Message simple. La syntaxe Markdown Discord sera rendue côté Discord."></textarea>
+      <textarea id="content" rows="8" placeholder="{{ t('web_features.bottalk.simple_placeholder') }}"></textarea>
       <div class="row between mt-2">
         <span class="faint" style="font-size: var(--t-xs);" id="charCount">0 / 2000</span>
         <span class="faint" style="font-size: var(--t-xs);">
@@ -57,87 +56,87 @@
     <!-- ============ MODE EMBED ============ -->
     <div class="tab-content" id="modeEmbed">
       <p class="muted mb-4" style="font-size: var(--t-sm);">
-        Tous les champs sont optionnels. Au moins un titre, une description ou un field doivent être remplis.
+        {{ t('web_features.bottalk.embed_hint') }}
       </p>
 
       <div class="grid grid-2 gap-3">
         <div class="field">
-          <label>Titre</label>
-          <input type="text" id="e_title" placeholder="Annonce importante" maxlength="256">
+          <label>{{ t('web_features.bottalk.label_title') }}</label>
+          <input type="text" id="e_title" placeholder="{{ t('web_features.bottalk.title_placeholder') }}" maxlength="256">
         </div>
         <div class="field">
-          <label>URL du titre (clic)</label>
+          <label>{{ t('web_features.bottalk.label_title_url') }}</label>
           <input type="text" id="e_url" placeholder="https://...">
         </div>
         <div class="field">
-          <label>Couleur (hex)</label>
+          <label>{{ t('web_features.bottalk.label_color') }}</label>
           <div class="row gap-2">
             <input type="color" id="e_color_picker" value="#C4F23E" style="width:48px;height:38px;padding:2px;cursor:pointer;">
             <input type="text" id="e_color" value="#C4F23E" style="flex:1;font-family:var(--font-mono);">
           </div>
         </div>
         <div class="field">
-          <label><input type="checkbox" id="e_timestamp"> Timestamp (maintenant)</label>
+          <label><input type="checkbox" id="e_timestamp"> {{ t('web_features.bottalk.label_timestamp') }}</label>
         </div>
         <div class="field" style="grid-column: 1 / -1;">
-          <label>Description</label>
-          <textarea id="e_description" rows="4" maxlength="4096" placeholder="Description (markdown supporté)..."></textarea>
+          <label>{{ t('web_features.bottalk.label_description') }}</label>
+          <textarea id="e_description" rows="4" maxlength="4096" placeholder="{{ t('web_features.bottalk.description_placeholder') }}"></textarea>
         </div>
         <div class="field">
-          <label>Image (URL, en bas)</label>
+          <label>{{ t('web_features.bottalk.label_image') }}</label>
           <input type="text" id="e_image" placeholder="https://...">
         </div>
         <div class="field">
-          <label>Thumbnail (URL, coin haut-droit)</label>
+          <label>{{ t('web_features.bottalk.label_thumbnail') }}</label>
           <input type="text" id="e_thumbnail" placeholder="https://...">
         </div>
       </div>
 
       <div class="divider"></div>
 
-      <h3 style="margin-bottom: var(--s-3);">Auteur</h3>
+      <h3 style="margin-bottom: var(--s-3);">{{ t('web_features.bottalk.author_title') }}</h3>
       <div class="grid grid-2 gap-3">
-        <div class="field"><label>Nom</label><input type="text" id="e_author_name" maxlength="256"></div>
-        <div class="field"><label>URL (clic)</label><input type="text" id="e_author_url"></div>
-        <div class="field" style="grid-column: 1 / -1;"><label>Icône (URL)</label><input type="text" id="e_author_icon" placeholder="https://..."></div>
+        <div class="field"><label>{{ t('web_features.bottalk.label_name') }}</label><input type="text" id="e_author_name" maxlength="256"></div>
+        <div class="field"><label>{{ t('web_features.bottalk.label_url_click') }}</label><input type="text" id="e_author_url"></div>
+        <div class="field" style="grid-column: 1 / -1;"><label>{{ t('web_features.bottalk.label_icon') }}</label><input type="text" id="e_author_icon" placeholder="https://..."></div>
       </div>
 
       <div class="divider"></div>
 
-      <h3 style="margin-bottom: var(--s-3);">Footer</h3>
+      <h3 style="margin-bottom: var(--s-3);">{{ t('web_features.bottalk.footer_title') }}</h3>
       <div class="grid grid-2 gap-3">
-        <div class="field"><label>Texte</label><input type="text" id="e_footer_text" maxlength="2048"></div>
-        <div class="field"><label>Icône (URL)</label><input type="text" id="e_footer_icon" placeholder="https://..."></div>
+        <div class="field"><label>{{ t('web_features.bottalk.label_text') }}</label><input type="text" id="e_footer_text" maxlength="2048"></div>
+        <div class="field"><label>{{ t('web_features.bottalk.label_icon') }}</label><input type="text" id="e_footer_icon" placeholder="https://..."></div>
       </div>
 
       <div class="divider"></div>
 
       <div class="row between mb-4">
-        <h3>Fields ({{ '0' }})</h3>
+        <h3>{{ t('web_features.bottalk.fields_title', count='0') }}</h3>
         <button class="btn btn-secondary btn-sm" type="button" onclick="addField()">
-          <svg class="ic"><use href="#i-plus"/></svg> Ajouter un field
+          <svg class="ic"><use href="#i-plus"/></svg> {{ t('web_features.bottalk.add_field') }}
         </button>
       </div>
       <div id="fieldsContainer" class="col gap-3"></div>
 
       <div class="field mt-6">
-        <label>Contenu hors-embed (optionnel — message au-dessus de l'embed)</label>
-        <textarea id="e_content" rows="2" maxlength="2000" placeholder="@here ou message normal..."></textarea>
+        <label>{{ t('web_features.bottalk.label_outside_content') }}</label>
+        <textarea id="e_content" rows="2" maxlength="2000" placeholder="{{ t('web_features.bottalk.outside_content_placeholder') }}"></textarea>
       </div>
     </div>
 
-    <!-- ============ APERÇU + ENVOI ============ -->
+    <!-- ============ PREVIEW + SEND ============ -->
     <div class="row between mt-6" style="align-items:flex-end;">
       <div class="col gap-2" style="flex:1;">
-        <span class="eyebrow">Aperçu</span>
+        <span class="eyebrow">{{ t('web_features.bottalk.preview') }}</span>
         <div id="preview" class="bt-preview"></div>
       </div>
     </div>
 
     <div class="row mt-6 end gap-2">
-      <button class="btn btn-ghost" onclick="resetAll()">Vider</button>
+      <button class="btn btn-ghost" onclick="resetAll()">{{ t('web_features.bottalk.clear') }}</button>
       <button class="btn btn-primary" onclick="sendMessage()">
-        <svg class="ic"><use href="#i-send"/></svg> Envoyer en tant que bot
+        <svg class="ic"><use href="#i-send"/></svg> {{ t('web_features.bottalk.send') }}
       </button>
     </div>
   </div>
@@ -197,7 +196,7 @@
   .bt-preview .spoiler { background: oklch(0.36 0.005 60); color: oklch(0.36 0.005 60); padding: 0 4px; border-radius: 3px; cursor: pointer; }
   .bt-preview .spoiler:hover { color: var(--text); }
 
-  /* Embed preview Discord-fidèle */
+  /* Discord-faithful embed preview */
   .embed-prev {
     border-left: 4px solid var(--accent);
     background: oklch(0.24 0.005 260);
@@ -271,17 +270,17 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-// ─── Charger les salons ──────────────────────────────────
+// ─── Load channels ───────────────────────────────────────
 async function loadChannels() {
   try {
     const res = await fetch('/api/channels?type=text');
     const data = await res.json();
     const sel = document.getElementById('channelSelect');
     const channels = data.channels || [];
-    if (!channels.length) { sel.innerHTML = '<option value="">Aucun salon textuel disponible</option>'; return; }
-    sel.innerHTML = '<option value="">— Choisir un salon —</option>'
+    if (!channels.length) { sel.innerHTML = '<option value="">No text channel available</option>'; return; }
+    sel.innerHTML = '<option value="">— Choose a channel —</option>'
       + channels.map(c => `<option value="${c.channel_id}">#${c.name}</option>`).join('');
-  } catch (e) { document.getElementById('channelSelect').innerHTML = '<option value="">Erreur</option>'; }
+  } catch (e) { document.getElementById('channelSelect').innerHTML = '<option value="">Error</option>'; }
 }
 loadChannels();
 
@@ -367,10 +366,10 @@ function renderFields() {
   const c = document.getElementById('fieldsContainer');
   c.innerHTML = FIELDS.map((f, i) => `
     <div class="field-row">
-      <div><label>Nom</label><input type="text" maxlength="256" value="${escapeAttr(f.name)}" oninput="updateField(${i}, 'name', this.value)"></div>
-      <div><label>Valeur</label><input type="text" maxlength="1024" value="${escapeAttr(f.value)}" oninput="updateField(${i}, 'value', this.value)"></div>
+      <div><label>Name</label><input type="text" maxlength="256" value="${escapeAttr(f.name)}" oninput="updateField(${i}, 'name', this.value)"></div>
+      <div><label>Value</label><input type="text" maxlength="1024" value="${escapeAttr(f.value)}" oninput="updateField(${i}, 'value', this.value)"></div>
       <label class="inline-tag"><input type="checkbox" ${f.inline ? 'checked' : ''} onchange="updateField(${i}, 'inline', this.checked)">Inline</label>
-      <button class="field-rm" type="button" onclick="removeField(${i})" title="Retirer"><svg class="ic"><use href="#i-trash"/></svg></button>
+      <button class="field-rm" type="button" onclick="removeField(${i})" title="Remove"><svg class="ic"><use href="#i-trash"/></svg></button>
     </div>`).join('');
 }
 window.addField = addField;
@@ -380,7 +379,7 @@ window.updateField = updateField;
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeAttr(s) { return String(s == null ? '' : s).replaceAll('"', '&quot;'); }
 
-// ─── Aperçu Discord-fidèle ──────────────────────────────
+// ─── Discord-faithful preview ─────────────────────────
 function renderDiscordMd(src) {
   if (!src) return '';
   let s = escapeHtml(src);
@@ -442,7 +441,7 @@ function renderEmbedPreview(emb) {
   if (emb.image) img = `<div class="ep-image"><img src="${escapeAttr(emb.image)}" alt=""></div>`;
   let footer = '';
   if (emb.footer_text || emb.timestamp) {
-    const ts = emb.timestamp ? new Date().toLocaleString('fr-FR') : '';
+    const ts = emb.timestamp ? new Date().toLocaleString('en-US') : '';
     footer = `<div class="ep-footer">
        ${emb.footer_icon ? `<img src="${escapeAttr(emb.footer_icon)}" alt="">` : ''}
        ${escapeHtml(emb.footer_text || '')} ${emb.footer_text && ts ? '·' : ''} ${ts}
@@ -460,7 +459,7 @@ function updatePreview() {
   const preview = document.getElementById('preview');
   if (MODE === 'simple') {
     const v = ta.value;
-    if (!v) { preview.innerHTML = '<span class="empty">L\'aperçu apparaîtra ici.</span>'; }
+    if (!v) { preview.innerHTML = '<span class="empty">The preview will appear here.</span>'; }
     else    { preview.innerHTML = renderDiscordMd(v); }
     const len = v.length;
     charCount.textContent = `${len} / 2000`;
@@ -470,7 +469,7 @@ function updatePreview() {
     const content = document.getElementById('e_content').value.trim();
     const hasEmb = emb.title || emb.description || (emb.fields && emb.fields.length) || emb.image || emb.author_name || emb.footer_text;
     if (!hasEmb && !content) {
-      preview.innerHTML = '<span class="empty">Remplis au moins un champ d\'embed ou un message au-dessus.</span>';
+      preview.innerHTML = '<span class="empty">Fill in at least one embed field or a message above.</span>';
       return;
     }
     let h = '';
@@ -483,22 +482,22 @@ function updatePreview() {
 ta.addEventListener('input', updatePreview);
 updatePreview();
 
-// ─── Envoi ───────────────────────────────────────────────
+// ─── Send ────────────────────────────────────────────────
 async function sendMessage() {
   const channel_id = document.getElementById('channelSelect').value;
-  if (!channel_id) { toast('Choisis un salon.', 'error'); return; }
+  if (!channel_id) { toast('Pick a channel.', 'error'); return; }
 
   let payload = { channel_id };
   if (MODE === 'simple') {
     const content = ta.value.trim();
-    if (!content) { toast('Message vide.', 'error'); return; }
-    if (content.length > 2000) { toast('Message > 2000 caractères.', 'error'); return; }
+    if (!content) { toast('Message is empty.', 'error'); return; }
+    if (content.length > 2000) { toast('Message is over 2000 characters.', 'error'); return; }
     payload.content = content;
   } else {
     const emb = buildEmbedData();
     const content = document.getElementById('e_content').value.trim();
     const hasEmb = emb.title || emb.description || (emb.fields && emb.fields.length) || emb.image || emb.author_name || emb.footer_text;
-    if (!hasEmb && !content) { toast('Embed et content vides.', 'error'); return; }
+    if (!hasEmb && !content) { toast('Embed and content are both empty.', 'error'); return; }
     payload.content = content;
     if (hasEmb) payload.embed = emb;
   }
@@ -510,14 +509,14 @@ async function sendMessage() {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.success) toast('Message envoyé. (~1.5s)');
-    else toast(data.error || 'Erreur', 'error');
+    if (data.success) toast('Message sent. (~1.5s)');
+    else toast(data.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.sendMessage = sendMessage;
 
 function resetAll() {
-  if (!confirm('Tout vider ?')) return;
+  if (!confirm('Clear everything?')) return;
   ta.value = '';
   ['e_title','e_url','e_description','e_image','e_thumbnail','e_author_name','e_author_url','e_author_icon','e_footer_text','e_footer_icon','e_content'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('e_color').value = '#C4F23E';

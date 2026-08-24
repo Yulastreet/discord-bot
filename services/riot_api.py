@@ -20,8 +20,8 @@ from typing import Optional
 import aiohttp
 from urllib.parse import quote
 
-# curl_cffi : optional dep, mimic TLS Chrome pour bypass Cloudflare
-# Si pas installe, on tombe sur aiohttp (souvent bloque par Cloudflare).
+# curl_cffi: optional dep, mimics Chrome TLS to bypass Cloudflare.
+# If not installed we fall back to aiohttp (often blocked by Cloudflare).
 try:
     from curl_cffi import requests as _curl_requests  # type: ignore
     _HAS_CURL_CFFI = True
@@ -82,14 +82,14 @@ TIER_COLOR = {
 }
 
 def tier_emblem_url(tier: str) -> str:
-    """Community Dragon hoste les emblems ranked. URL stable."""
+    """Community Dragon hosts the ranked emblems. Stable URL."""
     t = (tier or "UNRANKED").upper()
     if t == "UNRANKED":
         return "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-iron.png"
     return f"https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-{t.lower()}.png"
 
 
-# Cache local des emblems croppes et redimensionnes
+# Local cache of the cropped + resized emblems
 import os as _os
 _EMBLEM_CACHE_DIR = _os.path.join(
     _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
@@ -97,9 +97,10 @@ _EMBLEM_CACHE_DIR = _os.path.join(
 )
 
 async def tier_emblem_file_path(tier: str) -> Optional[str]:
-    """Retourne le path local d'un emblem cropped+redim (256x256).
-    Telecharge depuis CommunityDragon a la premiere demande, puis cache.
-    Renvoie None si echec (fallback : set_thumbnail avec URL distante)."""
+    """Return the local path of a cropped + resized emblem (256x256).
+
+    Downloaded from CommunityDragon on first use, then cached.
+    Returns None on failure (fallback: set_thumbnail with the remote URL)."""
     t = (tier or "UNRANKED").upper()
     if t == "UNRANKED":
         return None
@@ -107,7 +108,7 @@ async def tier_emblem_file_path(tier: str) -> Optional[str]:
     target = _os.path.join(_EMBLEM_CACHE_DIR, f"{t.lower()}.png")
     if _os.path.exists(target) and _os.path.getsize(target) > 0:
         return target
-    # Telecharge + crop bbox + resize
+    # Download + crop bbox + resize
     s = await _get_session()
     try:
         async with s.get(tier_emblem_url(t)) as resp:
@@ -120,7 +121,7 @@ async def tier_emblem_file_path(tier: str) -> Optional[str]:
         bbox = im.getbbox()
         if bbox:
             im = im.crop(bbox)
-        # Resize a 256x256 (max display thumbnail Discord ~80x80, image ~400)
+        # Resize to 256x256 (Discord thumbnail displays ~80x80, image ~400)
         im.thumbnail((256, 256), Image.LANCZOS)
         im.save(target, format="PNG", optimize=True)
         print(f"[riot/emblem] cached {t} -> {target} size={im.size}")
@@ -131,13 +132,12 @@ async def tier_emblem_file_path(tier: str) -> Optional[str]:
 
 
 async def _fetch_html_cffi(url: str, timeout: int = 15) -> Optional[str]:
-    """Fetch HTML via curl_cffi (impersonate Chrome TLS) pour bypasser
-    Cloudflare/anti-bot des sites comme OP.GG / Mobalytics / U.GG.
-    Renvoie None si echec ou lib non installee."""
+    """Fetch HTML through curl_cffi (impersonating Chrome TLS) to bypass the
+    Cloudflare/anti-bot layer of sites like OP.GG / Mobalytics / U.GG.
+    Returns None on failure or when the lib is not installed."""
     if not _HAS_CURL_CFFI or _curl_requests is None:
         return None
-    # curl_cffi est sync, on l'execute dans un thread pour ne pas bloquer
-    # l'event loop.
+    # curl_cffi is sync, run it in a thread so the event loop is not blocked.
     try:
         return await asyncio.to_thread(
             lambda: _curl_requests.get(
@@ -153,10 +153,10 @@ async def _fetch_html_cffi(url: str, timeout: int = 15) -> Optional[str]:
 
 
 async def _get_session() -> aiohttp.ClientSession:
-    """Session aiohttp loop-aware : aiohttp.ClientSession est attache a un
-    event loop specifique. Si on appelle depuis un autre loop (ex: Flask
-    sync + asyncio.run), la session existante est inutilisable.
-    On detecte le mismatch et on recreate."""
+    """Loop-aware aiohttp session: aiohttp.ClientSession is bound to one
+    specific event loop. When called from another loop (e.g. sync Flask +
+    asyncio.run) the existing session is unusable, so we detect the mismatch
+    and recreate it."""
     global _SESSION
     try:
         current_loop = asyncio.get_running_loop()
@@ -166,7 +166,7 @@ async def _get_session() -> aiohttp.ClientSession:
         sess_loop = getattr(_SESSION, "_loop", None)
         if not _SESSION.closed and sess_loop is current_loop:
             return _SESSION
-        # Session inutilisable (closed ou autre loop) -> on drop
+        # Unusable session (closed, or bound to another loop) -> drop it
         _SESSION = None
     _SESSION = aiohttp.ClientSession(
         timeout=aiohttp.ClientTimeout(total=15, connect=8),
@@ -184,16 +184,17 @@ def regional_route(platform: str) -> str:
 
 
 class RiotPuuidStaleError(Exception):
-    """Levee quand Riot retourne 'Exception decrypting <puuid>' = puuid chiffre
-    avec une autre cle API. Le caller doit refresh le puuid via Account API."""
+    """Raised when Riot returns 'Exception decrypting <puuid>', meaning the
+    puuid was encrypted with another API key. The caller must refresh the
+    puuid through the Account API."""
     pass
 
 
 async def _get(host_prefix: str, path: str) -> Optional[dict]:
-    """GET helper qui ajoute la cle et logge non-200."""
+    """GET helper that adds the API key and logs non-200 responses."""
     key = _key()
     if not key:
-        print("[riot] missing RIOT_API_KEY — verifie .env + pm2 --update-env")
+        print("[riot] missing RIOT_API_KEY - check .env + pm2 --update-env")
         return None
     url = f"https://{host_prefix}.api.riotgames.com{path}"
     headers = {"X-Riot-Token": key, "Accept": "application/json"}
@@ -204,16 +205,16 @@ async def _get(host_prefix: str, path: str) -> Optional[dict]:
             if resp.status == 404:
                 return None
             if resp.status == 401:
-                print(f"[riot] 401 unauthorized — cle invalide ou expiree (dev key 24h)")
+                print("[riot] 401 unauthorized - invalid or expired key (dev keys last 24h)")
                 return None
             if resp.status == 403:
-                print(f"[riot] 403 forbidden — cle revoquee ou endpoint hors scope")
+                print("[riot] 403 forbidden - key revoked or endpoint out of scope")
                 return None
             if resp.status == 429:
-                print(f"[riot] 429 rate-limited — retry after {resp.headers.get('Retry-After')}")
+                print(f"[riot] 429 rate-limited - retry after {resp.headers.get('Retry-After')}")
                 return None
             if resp.status == 400 and "decrypting" in body.lower():
-                # puuid chiffre avec une autre cle (changement de cle API)
+                # puuid encrypted with another key (API key was rotated)
                 raise RiotPuuidStaleError(path)
             if resp.status >= 500:
                 print(f"[riot] {resp.status} upstream error path={path}")
@@ -232,9 +233,9 @@ async def _get(host_prefix: str, path: str) -> Optional[dict]:
 
 # ===== Account API (regional) =====
 async def account_by_riot_id(platform: str, game_name: str, tag_line: str) -> Optional[dict]:
-    """Resoud Riot ID 'name#tag' -> {puuid, gameName, tagLine}.
-    URL-encode les params : pseudos peuvent contenir espaces et caracteres
-    Unicode (accents, etc.)."""
+    """Resolve a Riot ID 'name#tag' -> {puuid, gameName, tagLine}.
+
+    Params are URL-encoded: names may contain spaces and Unicode characters."""
     regional = regional_route(platform)
     return await _get(regional,
                        f"/riot/account/v1/accounts/by-riot-id/{quote(game_name, safe='')}/{quote(tag_line, safe='')}")
@@ -247,16 +248,16 @@ async def account_by_puuid(platform: str, puuid: str) -> Optional[dict]:
 
 # ===== Summoner API (platform) =====
 async def summoner_by_puuid(platform: str, puuid: str) -> Optional[dict]:
-    """Renvoie {id (summonerId), accountId, puuid, profileIconId, summonerLevel}."""
+    """Return {id (summonerId), accountId, puuid, profileIconId, summonerLevel}."""
     return await _get(platform.lower(),
                        f"/lol/summoner/v4/summoners/by-puuid/{puuid}")
 
 
 # ===== League API (platform) =====
 async def league_entries_by_summoner(platform: str, summoner_id: str) -> Optional[list[dict]]:
-    """Renvoie liste de LeagueEntryDTO pour ce summoner :
+    """Return the list of LeagueEntryDTO for this summoner:
     {queueType, tier, rank, leaguePoints, wins, losses, ...}
-    queueType : 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' | 'RANKED_FLEX_TT'..."""
+    queueType: 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' | 'RANKED_FLEX_TT'..."""
     data = await _get(platform.lower(),
                        f"/lol/league/v4/entries/by-summoner/{summoner_id}")
     if isinstance(data, list):
@@ -265,7 +266,7 @@ async def league_entries_by_summoner(platform: str, summoner_id: str) -> Optiona
 
 
 async def league_entries_by_puuid(platform: str, puuid: str) -> Optional[list[dict]]:
-    """Variante by-puuid (plus fiable, endpoint moderne)."""
+    """by-puuid variant (more reliable, modern endpoint)."""
     data = await _get(platform.lower(),
                        f"/lol/league/v4/entries/by-puuid/{puuid}")
     if isinstance(data, list):
@@ -276,7 +277,7 @@ async def league_entries_by_puuid(platform: str, puuid: str) -> Optional[list[di
 # ===== Match API (regional) =====
 async def match_ids_by_puuid(platform: str, puuid: str,
                               count: int = 10, queue: Optional[int] = None) -> Optional[list[str]]:
-    """N derniers matchIds. queue : 420=SoloQ, 440=Flex, 450=ARAM, 400=Normals."""
+    """Last N matchIds. queue: 420=SoloQ, 440=Flex, 450=ARAM, 400=Normals."""
     regional = regional_route(platform)
     qstr = f"&queue={int(queue)}" if queue else ""
     path = f"/lol/match/v5/matches/by-puuid/{puuid}/ids?count={int(count)}{qstr}"
@@ -291,16 +292,17 @@ _MATCH_CACHE_MAX = 5000
 
 
 async def match_details(platform: str, match_id: str) -> Optional[dict]:
-    """Detail complet d'un match : metadata + info (participants, teams, etc.).
-    Cache in-memory : un match termine est immutable cote Riot, on evite
-    de refetch ce qui rend les stats /lol scout deterministes."""
+    """Full match detail: metadata + info (participants, teams, etc.).
+
+    In-memory cache: a finished match is immutable on Riot's side, so skipping
+    the refetch also makes the /lol scout stats deterministic."""
     cached = _MATCH_CACHE.get(match_id)
     if cached:
         return cached
     regional = regional_route(platform)
     data = await _get(regional, f"/lol/match/v5/matches/{match_id}")
     if data and isinstance(data, dict):
-        # FIFO eviction si trop gros
+        # FIFO eviction when the cache grows too big
         if len(_MATCH_CACHE) >= _MATCH_CACHE_MAX:
             try:
                 _MATCH_CACHE.pop(next(iter(_MATCH_CACHE)))
@@ -312,14 +314,14 @@ async def match_details(platform: str, match_id: str) -> Optional[dict]:
 
 # ===== Spectator API (platform) =====
 async def active_game_by_puuid(platform: str, puuid: str) -> Optional[dict]:
-    """Renvoie le current game si user en partie, None si pas en jeu."""
+    """Return the current game if the user is playing, None otherwise."""
     return await _get(platform.lower(),
                        f"/lol/spectator/v5/active-games/by-summoner/{puuid}")
 
 
 # ===== Champion Mastery extra =====
 async def mastery_all(platform: str, puuid: str) -> Optional[list[dict]]:
-    """Toutes les maitrises (sorted par points desc cote API)."""
+    """All masteries (already sorted by points desc by the API)."""
     data = await _get(platform.lower(),
                        f"/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}")
     if isinstance(data, list):
@@ -328,12 +330,12 @@ async def mastery_all(platform: str, puuid: str) -> Optional[list[dict]]:
 
 
 async def mastery_by_champion(platform: str, puuid: str, champion_id: int) -> Optional[dict]:
-    """Maitrise sur un champion specifique."""
+    """Mastery on one specific champion."""
     return await _get(platform.lower(),
                        f"/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/by-champion/{int(champion_id)}")
 
 
-# Mapping queue id -> label affichage (pour history / live)
+# Queue id -> display label (used by history / live)
 QUEUE_LABELS = {
     400: "Normal Draft",
     420: "Solo/Duo",
@@ -354,14 +356,15 @@ def queue_label(queue_id: Optional[int]) -> str:
     return QUEUE_LABELS.get(int(queue_id or 0), f"Queue #{queue_id}")
 
 
-# ===== Meraki Analytics : prix skins + metadonnees champion =====
+# ===== Meraki Analytics: skin prices + champion metadata =====
 _MERAKI_CACHE: dict = {}
 _MERAKI_TTL_SEC = 21600  # 6h
 
 
 async def meraki_champion(slug_or_name: str) -> Optional[dict]:
-    """Renvoie le JSON champion Meraki Analytics (contient prix skins,
-    historique, etc.). Cache 6h par slug."""
+    """Return the Meraki Analytics champion JSON (skin prices, history, ...).
+
+    Cached 6h per slug."""
     slug = (slug_or_name or "").strip().lower().replace(" ", "").replace("'", "")
     if not slug:
         return None
@@ -412,7 +415,7 @@ async def _dd_items_refresh():
         print(f"[riot/dd-items] err: {type(e).__name__}: {e}")
 
 
-# ===== Runes Reforged cache (resolution id -> nom + icon) =====
+# ===== Runes Reforged cache (id -> name + icon) =====
 _DD_RUNES_CACHE = {"version": None, "by_id": {}, "fetched": 0.0}
 
 
@@ -477,13 +480,13 @@ async def item_name(item_id: int) -> str:
     return f"Item #{item_id}"
 
 
-# Summoner spells (small static map, ne change presque jamais)
+# Summoner spells (small static map, almost never changes)
 SUMMONER_SPELL_NAMES = {
     1:  "Cleanse", 3: "Exhaust", 4: "Flash", 6: "Ghost",
     7:  "Heal",    11: "Smite",  12: "Teleport", 13: "Clarity",
     14: "Ignite",  21: "Barrier", 32: "Snowball",
 }
-# id Riot -> nom asset Data Dragon (pour icon)
+# Riot id -> Data Dragon asset name (for the icon)
 SUMMONER_SPELL_ASSETS = {
     1:  "SummonerBoost",  3: "SummonerExhaust", 4: "SummonerFlash",  6: "SummonerHaste",
     7:  "SummonerHeal",  11: "SummonerSmite",  12: "SummonerTeleport", 13: "SummonerMana",
@@ -491,12 +494,12 @@ SUMMONER_SPELL_ASSETS = {
 }
 
 
-# ===== Composite image : icones items + sorts en une seule PNG =====
+# ===== Composite image: item + spell icons in a single PNG =====
 async def compose_build_image(item_ids: list[int], spell_ids: list[int]) -> Optional[bytes]:
-    """Telecharge icones DataDragon, compose une image horizontale :
-    Row 1 : items (64x64 chacun)
-    Row 2 : summoner spells (48x48 chacun)
-    Renvoie bytes PNG ou None si echec."""
+    """Download the Data Dragon icons and compose a horizontal image:
+    Row 1: items (64x64 each)
+    Row 2: summoner spells (48x48 each)
+    Returns PNG bytes, or None on failure."""
     if not item_ids and not spell_ids:
         return None
     await _dd_refresh()
@@ -520,7 +523,7 @@ async def compose_build_image(item_ids: list[int], spell_ids: list[int]) -> Opti
         except Exception:
             return None
 
-    # Telecharge tous les assets en parallele
+    # Download every asset in parallel
     item_tasks = [_fetch(f"https://ddragon.leagueoflegends.com/cdn/{ver}/img/item/{i}.png") for i in item_ids]
     spell_tasks = []
     for sid in spell_ids:
@@ -578,21 +581,22 @@ async def compose_build_image(item_ids: list[int], spell_ids: list[int]) -> Opti
     return out.getvalue()
 
 
-# ===== Data Dragon recommended builds (officiel Riot, toujours dispo) =====
+# ===== Data Dragon recommended builds (official Riot, always available) =====
 _DD_CHAMP_DETAIL_CACHE: dict = {}
 
 
 async def ddragon_recommended(slug: str) -> Optional[list[dict]]:
-    """Renvoie les builds 'recommended' officiels Riot pour ce champion.
-    Format : liste de {name, items_by_phase, source_url, summoner_spells=[],
+    """Return Riot's official 'recommended' builds for this champion.
+
+    Format: list of {name, items_by_phase, source_url, summoner_spells=[],
     keystone_id=None, primary_rune_tree=None, secondary_rune_tree=None,
-    skill_order=''}. Toujours dispo (CDN public, pas d'anti-bot)."""
+    skill_order=''}. Always available (public CDN, no anti-bot)."""
     await _dd_refresh()
     ver = _DD_CACHE.get("version")
     if not ver:
         return None
-    # Le slug pour DD est le 'id' (PascalCase), pas le 'slug' lowercase
-    # On a stocke 'slug' (PascalCase original) dans _DD_CACHE deja
+    # The Data Dragon slug is the 'id' (PascalCase), not the lowercase slug.
+    # _DD_CACHE already stores 'slug' as the original PascalCase value.
     asset_id = None
     for cid, info in _DD_CACHE["champions"].items():
         if info["slug"].lower() == slug.lower() or info["name"].lower() == slug.lower():
@@ -622,7 +626,7 @@ async def ddragon_recommended(slug: str) -> Optional[list[dict]]:
     if not rec:
         return None
 
-    # Filtre les builds Summoner's Rift (map=any ou map=SR) et mode classique
+    # Keep only Summoner's Rift builds (map=any or map=SR) in classic mode
     builds_out = []
     for r in rec:
         rmap = (r.get("map") or "").lower()
@@ -658,8 +662,8 @@ async def ddragon_recommended(slug: str) -> Optional[list[dict]]:
     return builds_out or None
 
 
-# ===== Build scrapers (multi-source : Mobalytics, OP.GG, U.GG, DPM) =====
-# Mobalytics : labels des types de build
+# ===== Build scrapers (multi-source: Mobalytics, OP.GG, U.GG, DPM) =====
+# Mobalytics: build type labels
 MOBA_BUILD_LABELS = {
     "MOST_POPULAR":     "Most Popular",
     "HIGHEST_WIN_RATE": "Highest WR",
@@ -670,27 +674,29 @@ MOBA_BUILD_LABELS = {
     "PRO":              "Pro Build",
 }
 
-# Skill order : 1=Q, 2=W, 3=E, 4=R
+# Skill order: 1=Q, 2=W, 3=E, 4=R
 SKILL_LETTERS = {1: "Q", 2: "W", 3: "E", 4: "R"}
 
-# Stat shards (5001-5013). IDs ne changent presque jamais.
+# Stat shards (5001-5013). Official in-game names; the IDs almost never change.
+# Game content names, same category as SUMMONER_SPELL_NAMES / RUNE_KEYSTONES.
 STAT_SHARDS = {
-    5001: "+15-90 HP (au niv.)",
-    5002: "+6 Armure",
-    5003: "+8 RM",
-    5005: "+10% Vitesse d'Attaque",
-    5007: "+8 Hate",
-    5008: "+9 Force Adaptative",
-    5010: "+1% Vitesse",
+    5001: "+15-90 HP (by level)",
+    5002: "+6 Armor",
+    5003: "+8 Magic Resist",
+    5005: "+10% Attack Speed",
+    5007: "+8 Ability Haste",
+    5008: "+9 Adaptive Force",
+    5010: "+1% Move Speed",
     5011: "+65 HP",
-    5013: "+10% Tenacite + Reduc. Ralenti.",
+    5013: "+10% Tenacity and Slow Resist",
 }
 
 
 async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Optional[list[dict]]:
-    """Scrape Mobalytics, renvoie une LISTE de builds avec donnees completes.
-    Chaque build : {name, type, items_by_phase, summoner_spells, perk_ids (9),
-    primary_style, sub_style, skill_order (lettres), skill_max_order, wr,
+    """Scrape Mobalytics and return a LIST of builds with full data.
+
+    Each build: {name, type, items_by_phase, summoner_spells, perk_ids (9),
+    primary_style, sub_style, skill_order (letters), skill_max_order, wr,
     matches, source_url}."""
     slug_clean = (slug or "").strip().lower().replace(" ", "").replace("'", "").replace(".", "")
     if not slug_clean:
@@ -699,7 +705,7 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
     if role:
         url += f"?role={role.lower()}"
 
-    # Tente d'abord curl_cffi (TLS Chrome -> passe Cloudflare). Fallback aiohttp.
+    # Try curl_cffi first (Chrome TLS -> gets past Cloudflare), fall back to aiohttp.
     html = await _fetch_html_cffi(url)
     if not html or len(html) < 5000:
         headers = {
@@ -724,10 +730,10 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
 
     import re as _re
 
-    # Mobalytics expose chaque build via cache key Apollo :
+    # Mobalytics exposes each build through an Apollo cache key:
     # "LolChampionBuild:{\"id\":...,\"type\":...}":{...data...}
-    # Le meme pattern apparait dans __ref. On cherche tout puis on filtre :
-    # garde uniquement ceux suivis par ":{\"__typename\":\"LolChampionBuild\""
+    # The same pattern shows up in __ref, so we collect everything, then keep
+    # only the ones followed by ":{\"__typename\":\"LolChampionBuild\"."
     raw_positions = []
     idx = 0
     needle = '"LolChampionBuild:{'
@@ -738,11 +744,11 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
         raw_positions.append(pos)
         idx = pos + 1
 
-    # Filtre : ne garde que les positions suivies d'un data block
+    # Keep only the positions that are followed by a data block
     build_starts = []
     data_marker = '":{"__typename":"LolChampionBuild"'
     for pos in raw_positions:
-        # Cherche la fin de la cle (jusqu'a 400 chars apres)
+        # Look for the end of the key (up to 400 chars further)
         slice_end = pos + 400
         if data_marker in html[pos:slice_end]:
             build_starts.append(pos)
@@ -760,18 +766,18 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
     for i in range(len(build_starts) - 1):
         chunk = html[build_starts[i]:build_starts[i + 1]]
 
-        # Type (label du build)
+        # Type (build label)
         t = _re.search(r'"type":"([A-Z_]+)"', chunk)
         btype = t.group(1) if t else f"BUILD_{i + 1}"
 
-        # Items par phase
+        # Items per phase
         phases = []
         for m in _re.finditer(r'"__typename":"LolChampionBuildItemsList","type":"([^"]+)","items":\[([^\]]*)\]', chunk):
             ptype = m.group(1)
             ids = [int(x) for x in _re.findall(r'\d+', m.group(2))]
             phases.append({"type": ptype, "items": ids})
 
-        # Runes : perks.IDs (9 ids), perks.style, perks.subStyle
+        # Runes: perks.IDs (9 ids), perks.style, perks.subStyle
         perk_ids = []
         primary_style = None
         sub_style = None
@@ -784,25 +790,25 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
             except Exception:
                 pass
 
-        # Summoner spells : "spells":[4,14]
+        # Summoner spells: "spells":[4,14]
         spells = []
         sp = _re.search(r'"spells":\[(\d+),(\d+)\]', chunk)
         if sp:
             spells = [int(sp.group(1)), int(sp.group(2))]
 
-        # Skill order : "skillOrder":[3,1,2,2,...]
+        # Skill order: "skillOrder":[3,1,2,2,...]
         skill_order = []
         so = _re.search(r'"skillOrder":\[([^\]]+)\]', chunk)
         if so:
             skill_order = [int(x) for x in _re.findall(r'\d+', so.group(1))]
 
-        # Skill max order : "skillMaxOrder":[2,1,3]
+        # Skill max order: "skillMaxOrder":[2,1,3]
         skill_max = []
         sm = _re.search(r'"skillMaxOrder":\[([^\]]+)\]', chunk)
         if sm:
             skill_max = [int(x) for x in _re.findall(r'\d+', sm.group(1))]
 
-        # Stats : matchCount + wins
+        # Stats: matchCount + wins
         wins = None
         matches = None
         wr = None
@@ -816,7 +822,7 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
             except Exception:
                 pass
 
-        # Ne garde que si on a au moins items_by_phase
+        # Keep the build only when it has at least items_by_phase
         if not phases:
             continue
 
@@ -825,7 +831,7 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
             "name":             MOBA_BUILD_LABELS.get(btype, btype.replace("_", " ").title()),
             "items_by_phase":   phases,
             "summoner_spells":  spells,
-            "perk_ids":         perk_ids,         # 9 ids : keystone + 3 primary + 2 secondary + 3 shards
+            "perk_ids":         perk_ids,         # 9 ids: keystone + 3 primary + 2 secondary + 3 shards
             "primary_style":    primary_style,    # 8000..8400
             "sub_style":        sub_style,
             "keystone_id":      perk_ids[0] if perk_ids else None,
@@ -838,7 +844,7 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
             "source_url":       url,
         })
 
-    # Dedup : meme type apparait parfois plusieurs fois, on garde 1er
+    # Dedup: the same type sometimes shows up twice, keep the first one
     seen = set()
     unique = []
     for b in builds:
@@ -852,14 +858,14 @@ async def mobalytics_builds_all(slug: str, role: Optional[str] = None) -> Option
 
 
 async def mobalytics_build(slug: str, role: Optional[str] = None) -> Optional[dict]:
-    """Compat : renvoie le premier build seulement."""
+    """Compat helper: return the first build only."""
     builds = await mobalytics_builds_all(slug, role)
     if not builds:
         return None
     return builds[0]
 
 
-# Mapping rune tree ID -> nom (Riot Communities Dragon)
+# Rune tree ID -> name (Riot Community Dragon)
 RUNE_TREES = {
     8000: "Precision",
     8100: "Domination",
@@ -868,7 +874,7 @@ RUNE_TREES = {
     8400: "Resolve",
 }
 
-# Keystone runes principales (id -> name)
+# Main keystone runes (id -> name)
 RUNE_KEYSTONES = {
     8005: "Press the Attack", 8008: "Lethal Tempo", 8021: "Fleet Footwork", 8010: "Conqueror",
     8112: "Electrocute", 8124: "Predator", 8128: "Dark Harvest", 9923: "Hail of Blades",
@@ -879,16 +885,17 @@ RUNE_KEYSTONES = {
 
 
 async def opgg_build(slug: str, role: str) -> Optional[dict]:
-    """Scrape OP.GG pour suggestions de build. Tente d'extraire __NEXT_DATA__ JSON.
-    Retourne dict avec core_items, runes, summoner_spells, skill_order,
-    winrate, pickrate, ou None si echec."""
+    """Scrape OP.GG for build suggestions by extracting the __NEXT_DATA__ JSON.
+
+    Returns a dict with core_items, runes, summoner_spells, skill_order,
+    winrate, pickrate, or None on failure."""
     slug = (slug or "").strip().lower().replace(" ", "").replace("'", "")
     role = (role or "").strip().lower()
     if role not in ("top", "jungle", "mid", "adc", "support"):
         return None
     url = f"https://www.op.gg/lol/champions/{slug}/build/{role}"
 
-    # Tente curl_cffi en priorite (passe Cloudflare). Fallback aiohttp.
+    # Try curl_cffi first (gets past Cloudflare), fall back to aiohttp.
     html = await _fetch_html_cffi(url)
     if not html or len(html) < 5000:
         headers = {
@@ -910,7 +917,7 @@ async def opgg_build(slug: str, role: str) -> Optional[dict]:
         print(f"[riot/opgg] empty html url={url}")
         return None
 
-    # Cherche le bloc __NEXT_DATA__
+    # Look for the __NEXT_DATA__ block
     marker = '<script id="__NEXT_DATA__" type="application/json">'
     idx = html.find(marker)
     if idx == -1:
@@ -927,12 +934,12 @@ async def opgg_build(slug: str, role: str) -> Optional[dict]:
         print(f"[riot/opgg] json parse err: {type(e).__name__}")
         return None
 
-    # Naviguer dans props.pageProps pour trouver les builds. Structure variable,
-    # on extrait au mieux. Renvoie un dict minimal + URL OP.GG en fallback.
+    # Walk props.pageProps looking for the builds. The structure varies, so we
+    # extract what we can and return a minimal dict + the OP.GG URL as fallback.
     try:
         page_props = (next_data.get("props") or {}).get("pageProps") or {}
         data = page_props.get("data") or page_props
-        # Garde l'URL pour fallback
+        # Keep the URL for the fallback
         return {
             "url": url,
             "raw_keys": list(data.keys()) if isinstance(data, dict) else None,
@@ -944,8 +951,9 @@ async def opgg_build(slug: str, role: str) -> Optional[dict]:
 
 # ===== Champion Mastery API (platform) =====
 async def mastery_top(platform: str, puuid: str, count: int = 3) -> Optional[list[dict]]:
-    """Top N masteries du joueur.
-    Renvoie liste : {championId, championLevel, championPoints, ...}"""
+    """Player's top N masteries.
+
+    Returns a list of {championId, championLevel, championPoints, ...}"""
     data = await _get(platform.lower(),
                        f"/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/top?count={int(count)}")
     if isinstance(data, list):
@@ -953,7 +961,7 @@ async def mastery_top(platform: str, puuid: str, count: int = 3) -> Optional[lis
     return None
 
 
-# ===== Data Dragon : champion id -> name (statique, cache 24h) =====
+# ===== Data Dragon: champion id -> name (static, cached 24h) =====
 _DD_CACHE = {"version": None, "champions": {}, "fetched": 0.0}
 _DD_TTL_SEC = 86400
 
@@ -987,7 +995,7 @@ async def _dd_refresh():
 
 
 async def champion_name(champion_id: int) -> str:
-    """Resoud championId -> nom affichage. Fallback : 'Champ #<id>'."""
+    """Resolve championId -> display name. Fallback: 'Champ #<id>'."""
     await _dd_refresh()
     c = _DD_CACHE["champions"].get(int(champion_id))
     if c:
@@ -1004,8 +1012,8 @@ async def champion_icon_url(champion_id: int) -> Optional[str]:
     return f"https://ddragon.leagueoflegends.com/cdn/{ver}/img/champion/{c['slug']}.png"
 
 
-def rank_label_fr(tier: str, rank: str) -> str:
-    """'GOLD' + 'IV' -> 'Gold IV'."""
+def rank_label(tier: str, rank: str) -> str:
+    """'GOLD' + 'IV' -> 'Gold IV'. Riot tier/division names are kept as-is."""
     t = (tier or "UNRANKED").title()
     r = (rank or "").upper()
     if t == "Unranked":

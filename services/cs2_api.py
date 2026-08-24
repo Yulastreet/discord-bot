@@ -1,11 +1,11 @@
-"""HTTP clients pour CS2 : Steam Web API, Steam Market, Steam Inventory,
-Faceit Data API, et taux de change USD->EUR.
+"""HTTP clients for CS2: Steam Web API, Steam Market, Steam Inventory,
+Faceit Data API, and the USD->EUR exchange rate.
 
-Toutes les clés sont lues depuis l'environnement à chaque appel (pas de
-capture à l'import) pour eviter les soucis si dotenv charge tard.
+Every key is read from the environment on each call (never captured at import
+time) to avoid issues when dotenv loads late.
 
-Aucune cle ne fuite dans les logs : les exceptions et messages d'erreur
-n'incluent jamais la cle.
+No key ever leaks into the logs: exceptions and error messages never include
+the key.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _USER_AGENT = "TookBot-CS2/1.0 (+https://tookbot.click)"
 _SESSION: Optional[aiohttp.ClientSession] = None
 _LOCK = asyncio.Lock()
 
-# Cache taux de change (refresh 1h)
+# Exchange rate cache (refreshed every hour)
 _RATE_CACHE = {"rate": 0.92, "fetched": 0.0}
 
 
@@ -61,7 +61,7 @@ PREMIER_TIERS = [
 
 
 def premier_tier(elo: int) -> tuple[Optional[str], Optional[str], Optional[int]]:
-    """Retourne (code, label, color) pour un elo Premier. None si elo invalide."""
+    """Return (code, label, color) for a Premier elo. None if the elo is invalid."""
     if elo is None or elo < 0:
         return None, None, None
     for lo, hi, code, label, color in PREMIER_TIERS:
@@ -71,15 +71,15 @@ def premier_tier(elo: int) -> tuple[Optional[str], Optional[str], Optional[int]]
 
 
 STEAMID64_RE = re.compile(r"^7656119[0-9]{10}$")
-# Tolere n'importe quel path apres /profiles/<id> ou /id/<vanity> (ex: /inventory/, /home, etc.)
+# Tolerates any path after /profiles/<id> or /id/<vanity> (e.g. /inventory/, /home, etc.)
 STEAM_URL_RE = re.compile(r"^https?://(?:www\.)?steamcommunity\.com/(?:profiles/(\d+)|id/([\w.\-]+))(?:/.*)?$")
 VANITY_RE    = re.compile(r"^[\w.\-]{2,32}$")
 
 
 async def steam_resolve(input_str: str) -> Optional[str]:
-    """Resolve toute entree utilisateur en SteamID64 (17 chiffres).
-    Accepte : SteamID64, URL profils/<id>, URL id/<vanity>, vanity seul.
-    None si invalide ou vanity introuvable.
+    """Resolve any user input to a SteamID64 (17 digits).
+    Accepts: SteamID64, profiles/<id> URL, id/<vanity> URL, bare vanity.
+    None if invalid or if the vanity cannot be found.
     """
     s = (input_str or "").strip()
     if not s:
@@ -99,7 +99,7 @@ async def steam_resolve(input_str: str) -> Optional[str]:
 async def _steam_resolve_vanity(vanity: str) -> Optional[str]:
     key = _steam_key()
     if not key:
-        print("[cs2/steam] vanity resolve : STEAM_API_KEY absente — verifie .env + pm2 --update-env")
+        print("[cs2/steam] vanity resolve: STEAM_API_KEY missing - check .env + pm2 --update-env")
         return None
     url = ("https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/"
            f"?key={key}&vanityurl={quote_plus(vanity)}")
@@ -124,7 +124,7 @@ async def _steam_resolve_vanity(vanity: str) -> Optional[str]:
 
 
 async def steam_player_summary(steam_id: str) -> Optional[dict]:
-    """Renvoie info publique (persona, avatar, country, visibility)."""
+    """Return public info (persona, avatar, country, visibility)."""
     key = _steam_key()
     if not key:
         return None
@@ -144,8 +144,8 @@ async def steam_player_summary(steam_id: str) -> Optional[dict]:
 
 
 async def steam_cs2_stats(steam_id: str) -> Optional[dict]:
-    """Stats CS2/CSGO. Retourne dict {stat_name: value} ou {'_private': True}
-    si profil/jeu privé, None si erreur."""
+    """CS2/CSGO stats. Returns a dict {stat_name: value} or {'_private': True}
+    when the profile/game is private, None on error."""
     key = _steam_key()
     if not key:
         return None
@@ -157,7 +157,7 @@ async def steam_cs2_stats(steam_id: str) -> Optional[dict]:
             if resp.status in (401, 403):
                 return {"_private": True}
             if resp.status == 400:
-                # Souvent : profil prive ou steamid invalide
+                # Often: private profile or invalid steamid
                 return {"_private": True}
             if resp.status != 200:
                 return None
@@ -170,7 +170,7 @@ async def steam_cs2_stats(steam_id: str) -> Optional[dict]:
 
 
 async def steam_owned_cs2(steam_id: str) -> Optional[dict]:
-    """Renvoie le dict du jeu CS2 (730) parmi owned games (heures jouees, etc)."""
+    """Return the CS2 (730) game dict from owned games (hours played, etc)."""
     key = _steam_key()
     if not key:
         return None
@@ -191,14 +191,14 @@ async def steam_owned_cs2(steam_id: str) -> Optional[dict]:
     return None
 
 
-_INV_PAGE_SIZE = 75       # Limite Steam (count > 75 = 400+null)
-_INV_MAX_PAGES = 30       # Hard cap = 30 * 75 = 2250 items max par lookup
+_INV_PAGE_SIZE = 75       # Steam limit (count > 75 = 400+null)
+_INV_MAX_PAGES = 30       # Hard cap = 30 * 75 = 2250 items max per lookup
 
 
 async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
-    """Inventaire CS2 public, pagine. Retourne :
-      - None  : prive OU erreur (cf logs)
-      - []    : public mais vide
+    """Public CS2 inventory, paginated. Returns:
+      - None  : private OR error (see logs)
+      - []    : public but empty
       - list  : items (max 30 pages = 2250 items)
     """
     headers = {
@@ -235,7 +235,7 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
 
             if body is None:
                 if pages_fetched == 0:
-                    # 1ere page echoue -> on classe selon le code
+                    # First page failed -> classify by status code
                     if last_status == 400 and last_body.strip() in ("", "null"):
                         print(f"[cs2/steam] inv private (400 null) steam_id={steam_id}")
                     elif last_status in (401, 403):
@@ -246,7 +246,7 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
                         print(f"[cs2/steam] inv failed steam_id={steam_id} last_status={last_status}")
                     return None
                 else:
-                    # Page suivante echoue -> on retourne ce qu'on a deja
+                    # Next page failed -> return what we already have
                     print(f"[cs2/steam] inv pagination stopped after {pages_fetched} pages (status={last_status})")
                     break
 
@@ -288,7 +288,7 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
             if not more or not last_assetid_new or last_assetid_new == last_assetid:
                 break
             last_assetid = str(last_assetid_new)
-            # Petit delai entre pages pour ne pas trigger Steam rate-limit
+            # Small delay between pages so we don't trigger Steam rate limiting
             await asyncio.sleep(0.5)
 
     if not aggregated_items and not desc_global:
@@ -298,8 +298,8 @@ async def steam_inventory(steam_id: str) -> Optional[list[dict]]:
 
 
 async def steam_market_search(query: str, count: int = 30, appid: int = 730) -> Optional[list[str]]:
-    """Recherche live sur Steam Market. Retourne liste de market_hash_name
-    correspondant a la query (ex: 'AK-47 Redline' -> tous les AK-47 Redline)."""
+    """Live search on the Steam Market. Returns a list of market_hash_name
+    matching the query (e.g. 'AK-47 Redline' -> every AK-47 Redline)."""
     q = (query or "").strip()
     if not q:
         return None
@@ -321,7 +321,7 @@ async def steam_market_search(query: str, count: int = 30, appid: int = 730) -> 
 
 
 async def steam_market_price(market_hash_name: str, currency: int = 3) -> Optional[dict]:
-    """Prix Steam Market. currency 3 = EUR. None si non trouvé."""
+    """Steam Market price. currency 3 = EUR. None when not found."""
     name = (market_hash_name or "").strip()
     if not name:
         return None
@@ -345,25 +345,25 @@ async def steam_market_price(market_hash_name: str, currency: int = 3) -> Option
     return None
 
 
-# Skinport : alternative marketplace gratuite, pas d'auth, prix EUR directs.
-# Endpoint bulk : retourne TOUS les items en un seul appel (~5-8 MB).
-# On cache localement pour eviter de spammer.
+# Skinport: free alternative marketplace, no auth, direct EUR prices.
+# Bulk endpoint: returns ALL items in a single call (~5-8 MB).
+# Cached locally so we don't spam it.
 
 _SKINPORT_CACHE = {"items": {}, "fetched_at": 0.0}
 _SKINPORT_LOCK = asyncio.Lock()
 
 
 async def _skinport_refresh_if_needed():
-    """Recharge le JSON aggrégé csgotrader.app (contient les prix Skinport,
-    Steam, Buff, CSMoney...). On utilise Skinport pour le 'starting_at'.
-    Cache 1h. csgotrader sert un CDN static donc pas de Cloudflare bot-check."""
+    """Reload the aggregated csgotrader.app JSON (contains Skinport, Steam,
+    Buff, CSMoney... prices). Skinport is used for 'starting_at'.
+    Cached 1h. csgotrader serves a static CDN so no Cloudflare bot check."""
     now = time.time()
     if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 3600):
         return
     async with _SKINPORT_LOCK:
         if _SKINPORT_CACHE["items"] and (now - _SKINPORT_CACHE["fetched_at"] < 3600):
             return
-        # Plusieurs sources possibles, on essaie dans l'ordre
+        # Several possible sources, tried in order
         urls = [
             "https://prices.csgotrader.app/latest/skinport.json",
             "https://prices.csgotrader.app/latest/prices_v6.json",
@@ -404,11 +404,11 @@ async def _skinport_refresh_if_needed():
         print(f"[cs2/skinport] all sources failed")
 
 
-# Taux EUR -> USD pour les sources qui publient en USD (la plupart sauf Skinport)
+# EUR -> USD rate for the sources that publish in USD (most of them except Skinport)
 async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
-    """Cherche le prix Skinport via le bundle csgotrader. Retourne {price_eur,
-    suggested_price, quantity}. Le JSON contient un sous-dict 'skinport' par
-    skin avec 'starting_at' (USD) et 'suggested_price' (USD). On convertit en EUR."""
+    """Look up the Skinport price through the csgotrader bundle. Returns
+    {price_eur, suggested_price, quantity}. The JSON holds a 'skinport' sub-dict
+    per skin with 'starting_at' (USD) and 'suggested_price' (USD), converted to EUR."""
     name = (market_hash_name or "").strip()
     if not name:
         return None
@@ -422,8 +422,8 @@ async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
         sample = [k for k in items if name.lower()[:15] in k.lower()][:3]
         print(f"[cs2/skinport] lookup name={name!r} not_found near={sample!r}")
         return None
-    # Format 1 (aggregated prices_v6) : item = {"skinport": {...}, "steam": {...}}
-    # Format 2 (per-source skinport.json) : item = {"starting_at": ..., "suggested_price": ...}
+    # Format 1 (aggregated prices_v6): item = {"skinport": {...}, "steam": {...}}
+    # Format 2 (per-source skinport.json): item = {"starting_at": ..., "suggested_price": ...}
     sp = item.get("skinport") if isinstance(item.get("skinport"), dict) else item
     starting_usd  = sp.get("starting_at") if isinstance(sp, dict) else None
     suggested_usd = sp.get("suggested_price") if isinstance(sp, dict) else None
@@ -438,11 +438,11 @@ async def skinport_lowest_price(market_hash_name: str) -> Optional[dict]:
 
 
 async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
-    """Cherche le listing CSFloat le moins cher pour ce skin.
-    Endpoint : GET /api/v1/listings?type=buy_now&market_hash_name=...
-    Auth via env CSFLOAT_API_KEY (header Authorization: <key>). Sans cle
-    certains skins renvoient 'logged_in required' / prix caches.
-    Prix en cents USD -> on convertit en EUR."""
+    """Look up the cheapest CSFloat listing for this skin.
+    Endpoint: GET /api/v1/listings?type=buy_now&market_hash_name=...
+    Auth through the CSFLOAT_API_KEY env var (Authorization: <key> header).
+    Without a key some skins return 'logged_in required' / hidden prices.
+    Price in USD cents -> converted to EUR."""
     name = (market_hash_name or "").strip()
     if not name:
         return None
@@ -469,7 +469,7 @@ async def csfloat_lowest_price(market_hash_name: str) -> Optional[dict]:
             except Exception:
                 print(f"[cs2/csfloat] non-JSON body for {name!r}: {body[:200]!r}")
                 return None
-            # CSFloat renvoie soit {"data": [...], "cursor": ...} soit liste directe
+            # CSFloat returns either {"data": [...], "cursor": ...} or a plain list
             if isinstance(data, list):
                 listings = data
             else:
@@ -499,7 +499,7 @@ def _parse_price_eur(price_str: Optional[str]) -> Optional[float]:
         return None
     s = price_str.replace("€", "").replace("\xa0", " ").strip()
     s = s.replace(" ", "")
-    # Format europeen : 1.234,56 -> 1234.56
+    # European format: 1.234,56 -> 1234.56
     if "," in s and "." in s:
         s = s.replace(".", "").replace(",", ".")
     elif "," in s:
@@ -550,7 +550,7 @@ async def faceit_player_stats(player_id: str, game: str = "cs2") -> Optional[dic
 
 
 async def usd_to_eur_rate() -> float:
-    """Taux courant, cache 1h, fallback 0.92."""
+    """Current rate, cached 1h, fallback 0.92."""
     now = time.time()
     if now - _RATE_CACHE["fetched"] < 3600 and _RATE_CACHE["rate"]:
         return _RATE_CACHE["rate"]

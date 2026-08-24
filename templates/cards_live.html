@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'cards_live' %}
 
-{% block title %}Obtention temps réel · TookBot{% endblock %}
-{% block crumb %}Obtention temps réel{% endblock %}
+{% block title %}{{ t('web_cards.live.title') }} · TookBot{% endblock %}
+{% block crumb %}{{ t('web_cards.live.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -36,11 +36,11 @@
 <div class="live-wrap">
   <div class="live-head">
     <span class="live-dot"></span>
-    <h2 style="margin:0;">Obtention en direct</h2>
-    <span class="muted" style="font-size:12px;">tous serveurs confondus</span>
+    <h2 style="margin:0;">{{ t('web_cards.live.heading') }}</h2>
+    <span class="muted" style="font-size:12px;">{{ t('web_cards.live.all_servers') }}</span>
   </div>
   <div id="liveFeed" class="live-feed">
-    <div class="live-empty">Chargement…</div>
+    <div class="live-empty">{{ t('web_cards.live.loading') }}</div>
   </div>
 </div>
 
@@ -64,7 +64,7 @@
       ${av}
       <span class="live-rdot bg-${rk}"></span>
       <span><span class="live-user">@${esc(it.user)}</span>
-      <span class="live-got"> a obtenu </span>
+      <span class="live-got"> got </span>
       <span class="live-card">${esc(it.name)}</span>
       <span class="live-rar rar-${rk}"> ${esc(RAR[rk]||rk)}</span></span>
     </div>`;
@@ -94,7 +94,7 @@
       const items = d.items || [];
       if (initial){
         const feed = document.getElementById('liveFeed');
-        if (!items.length){ feed.innerHTML = '<div class="live-empty">Aucune carte obtenue pour le moment.</div>'; return; }
+        if (!items.length){ feed.innerHTML = '<div class="live-empty">No cards obtained yet.</div>'; return; }
         feed.innerHTML = '';
         items.sort((a,b)=>a.id-b.id);
         for (const it of items){ seen.add(it.id); if(it.id>lastId) lastId=it.id; feed.insertAdjacentHTML('afterbegin', rowHtml(it)); }

@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = 'subscription' %}
-{% block title %}Abonnement · Bot Console{% endblock %}
-{% block crumb %}Abonnement{% endblock %}
+{% block title %}{{ t('web_premium.subscription.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.subscription.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -25,7 +25,7 @@
   .sub-current-row .plan-price { font-size: 26px; font-weight: 800; color: var(--text); }
   .sub-current-row.is-premium { border-color: rgba(255, 167, 38, .35); background: linear-gradient(135deg, rgba(255, 167, 38, .08), rgba(255, 167, 38, .02)); }
 
-  /* ===== Section upgrade : layout vertical, hero prix au centre ===== */
+  /* ===== Upgrade section: vertical layout, price hero centered ===== */
   .sub-upgrade {
     background: radial-gradient(circle at 50% -10%, rgba(255,167,38,.10), transparent 60%), var(--bg-1);
     border: 1px solid var(--border);
@@ -58,7 +58,7 @@
     font-size: 14px; max-width: 460px; margin-inline: auto;
   }
 
-  /* Tabs periodes */
+  /* Billing period tabs */
   .sub-billing-tabs {
     display: flex; justify-content: center; gap: 12px;
     margin: 24px auto 0; flex-wrap: wrap;
@@ -100,7 +100,7 @@
   }
   .sub-billing-tab.active .tab-period { color: #ffa726; }
 
-  /* Prix bloc principal : centre, gros total + petit par mois */
+  /* Main price block: centered, big total + small per-month */
   .sub-price-hero {
     text-align: center;
     padding: 32px 28px 24px;
@@ -121,9 +121,9 @@
   }
   .sub-price-permonth strong { color: var(--text-2); }
 
-  /* Features list horizontale */
+  /* Horizontal features list */
   .sub-features-block { padding: 8px 28px 28px; }
-  /* Eyebrow "Inclus dans TookBot+" : texte centre avec lignes glow lateral */
+  /* Eyebrow "Included in TookBot+": centered text with lateral glow lines */
   .sub-features-title {
     position: relative;
     text-align: center;
@@ -148,7 +148,7 @@
   .sub-features {
     display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px;
   }
-  /* Si nombre impair de cards : dernière card prend toute la largeur et centre son contenu */
+  /* If odd number of cards: last card spans full width and centers its content */
   .sub-features .sub-feature:last-child:nth-child(odd) {
     grid-column: 1 / -1;
     max-width: calc(50% - 10px);
@@ -197,39 +197,39 @@
 </style>
 
 <div class="sub-hero">
-  <h1>Ton abonnement</h1>
-  <p>Soutiens TookBot et débloque les features premium réservées aux abonnés TookBot+.</p>
+  <h1>{{ t('web_premium.subscription.title') }}</h1>
+  <p>{{ t('web_premium.subscription.subtitle') }}</p>
 </div>
 
 {% if is_tookbot_plus %}
 <div class="sub-current">
-  <h2>Ton plan actuel</h2>
+  <h2>{{ t('web_premium.subscription.current_plan') }}</h2>
   <div class="sub-current-row is-premium">
     <div>
       <div class="plan-name">
         TookBot+ <span style="color:#ffa726;">✦</span>
-        {% if trial_active %}<span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:oklch(0.86 0.20 130 / 0.18);color:oklch(0.86 0.20 130);margin-left:8px;vertical-align:middle;">ESSAI GRATUIT</span>{% endif %}
+        {% if trial_active %}<span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:oklch(0.86 0.20 130 / 0.18);color:oklch(0.86 0.20 130);margin-left:8px;vertical-align:middle;">{{ t('web_premium.subscription.free_trial_badge') }}</span>{% endif %}
       </div>
       <div class="plan-desc">
         {% if trial_active %}
-          Essai 7 jours en cours. Apres expiration tu reviens au plan gratuit (sauf si tu passes a TookBot+ avant).
+          {{ t('web_premium.subscription.trial_running') }}
         {% else %}
-          Toutes les features premium débloquées. Merci pour ton soutien !
+          {{ t('web_premium.subscription.all_features_unlocked') }}
         {% endif %}
       </div>
     </div>
-    <div class="plan-price" style="color:#ffa726;">Actif</div>
+    <div class="plan-price" style="color:#ffa726;">{{ t('web_premium.subscription.active') }}</div>
   </div>
 
   {% if trial_active and trial_expires_at %}
   <div id="trialBanner" data-expires="{{ trial_expires_at }}"
        style="margin-top:14px;padding:16px 18px;border:1px solid oklch(0.86 0.20 130 / 0.45);border-radius:14px;background:oklch(0.86 0.20 130 / 0.08);display:flex;flex-wrap:wrap;align-items:center;gap:18px;justify-content:space-between;">
     <div>
-      <div style="font-size:13px;color:var(--text-2);">Expire le</div>
+      <div style="font-size:13px;color:var(--text-2);">{{ t('web_premium.subscription.expires_on') }}</div>
       <div id="trialExpiresHuman" style="font-weight:700;font-size:15px;color:var(--text);">{{ trial_expires_at }}</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:13px;color:var(--text-2);">Temps restant</div>
+      <div style="font-size:13px;color:var(--text-2);">{{ t('web_premium.subscription.time_left') }}</div>
       <div id="trialCountdown" style="font-weight:800;font-size:18px;color:oklch(0.86 0.20 130);font-family:var(--font-mono);">--</div>
     </div>
   </div>
@@ -239,21 +239,21 @@
       const cd  = document.getElementById('trialCountdown');
       const hum = document.getElementById('trialExpiresHuman');
       if (!el || !cd) return;
-      // Le serveur renvoie un timestamp UTC sans Z; on le convertit.
+      // The server returns a UTC timestamp without Z; convert it.
       const raw = el.dataset.expires; // 'YYYY-MM-DD HH:MM:SS'
       const iso = raw.replace(' ', 'T') + 'Z';
       const target = new Date(iso).getTime();
-      // Format human FR
+      // Human readable format
       try {
         const d = new Date(iso);
-        hum.textContent = d.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+        hum.textContent = d.toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
       } catch (_) {}
       function tick() {
         const ms = target - Date.now();
         if (ms <= 0) {
-          cd.textContent = 'Expire';
+          cd.textContent = 'Expired';
           cd.style.color = '#e74c3c';
-          // Auto-reload pour refleter expiration
+          // Auto-reload to reflect expiration
           setTimeout(() => window.location.reload(), 2000);
           return;
         }
@@ -262,7 +262,7 @@
         const h = Math.floor((s % 86400) / 3600);
         const m = Math.floor((s % 3600) / 60);
         const sec = s % 60;
-        cd.textContent = `${d}j ${h.toString().padStart(2,'0')}h ${m.toString().padStart(2,'0')}m ${sec.toString().padStart(2,'0')}s`;
+        cd.textContent = `${d}d ${h.toString().padStart(2,'0')}h ${m.toString().padStart(2,'0')}m ${sec.toString().padStart(2,'0')}s`;
       }
       tick();
       setInterval(tick, 1000);
@@ -272,24 +272,24 @@
 
   <div style="display:flex;justify-content:flex-end;margin-top:14px;gap:10px;flex-wrap:wrap;">
     {% if trial_active %}
-    <a class="btn btn-primary" href="#subUpgrade">Convertir en abonnement payant</a>
+    <a class="btn btn-primary" href="#subUpgrade">{{ t('web_premium.subscription.convert_to_paid') }}</a>
     {% else %}
-    <button class="btn btn-secondary" id="subPortalBtn" type="button">Gérer mon abonnement (Stripe)</button>
+    <button class="btn btn-secondary" id="subPortalBtn" type="button">{{ t('web_premium.subscription.manage_subscription') }}</button>
     {% endif %}
   </div>
   <script>
     (function(){
       const _portalBtn = document.getElementById('subPortalBtn');
-      if (!_portalBtn) return; // bouton absent (cas trial), pas de handler a wire
+      if (!_portalBtn) return; // button absent (trial case), no handler to wire
       _portalBtn.addEventListener('click', async () => {
         const btn = document.getElementById('subPortalBtn');
-      btn.disabled = true; btn.textContent = 'Chargement...';
+      btn.disabled = true; btn.textContent = 'Loading...';
       try {
         const r = await fetch('/api/subscribe/portal', { method: 'POST' });
         const d = await r.json();
         if (d.url) window.location.href = d.url;
-        else { alert(d.error || 'Erreur'); btn.disabled = false; btn.textContent = 'Gérer mon abonnement (Stripe)'; }
-      } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = 'Gérer mon abonnement (Stripe)'; }
+        else { alert(d.error || 'Error'); btn.disabled = false; btn.textContent = 'Manage my subscription (Stripe)'; }
+      } catch (e) { alert(e.message); btn.disabled = false; btn.textContent = 'Manage my subscription (Stripe)'; }
       });
     })();
   </script>
@@ -300,23 +300,23 @@
 <div class="sub-upgrade" id="subUpgrade">
 
   <div class="sub-upgrade-top">
-    <h2 class="sub-upgrade-title">Passer à <strong>TookBot+</strong></h2>
-    <p class="sub-upgrade-lead">Débloque le Bot Customization et les commandes custom de ton serveur. Annulable à tout moment.</p>
+    <h2 class="sub-upgrade-title">{{ t('web_premium.subscription.upgrade_to') }} <strong>TookBot+</strong></h2>
+    <p class="sub-upgrade-lead">{{ t('web_premium.subscription.upgrade_lead') }}</p>
 
     <div class="sub-billing-tabs" role="tablist">
       <button class="sub-billing-tab"        data-period="1"  data-permonth="4.39">
-        <span class="tab-period">1 mois</span>
+        <span class="tab-period">{{ t('web_premium.subscription.months', n=1) }}</span>
       </button>
       <button class="sub-billing-tab active" data-period="3"  data-permonth="3.99">
-        <span class="tab-period">3 mois</span>
+        <span class="tab-period">{{ t('web_premium.subscription.months', n=3) }}</span>
         <span class="tab-saving">-9 %</span>
       </button>
       <button class="sub-billing-tab"        data-period="6"  data-permonth="3.49">
-        <span class="tab-period">6 mois</span>
+        <span class="tab-period">{{ t('web_premium.subscription.months', n=6) }}</span>
         <span class="tab-saving">-20 %</span>
       </button>
       <button class="sub-billing-tab"        data-period="12" data-permonth="2.99">
-        <span class="tab-period">12 mois</span>
+        <span class="tab-period">{{ t('web_premium.subscription.months', n=12) }}</span>
         <span class="tab-saving">-32 %</span>
       </button>
     </div>
@@ -326,39 +326,39 @@
     <div class="sub-price-total">
       <span id="subPriceTotal">11,97</span><span class="sub-price-cur"> €</span>
     </div>
-    <div class="sub-price-billed"   id="subPriceBilled">facturé tous les 3 mois</div>
-    <div class="sub-price-permonth" id="subPricePerMonth">soit <strong>3,99 €</strong> par mois</div>
+    <div class="sub-price-billed"   id="subPriceBilled">{{ t('web_premium.subscription.billed_every_n_months', n=3) }}</div>
+    <div class="sub-price-permonth" id="subPricePerMonth">{{ t('web_premium.subscription.thats') }} <strong>3,99 €</strong> {{ t('web_premium.subscription.per_month') }}</div>
   </div>
 
   <div class="sub-features-block">
-    <div class="sub-features-title"><span>★ Inclus dans TookBot+</span></div>
+    <div class="sub-features-title"><span>★ {{ t('web_premium.subscription.included_in') }}</span></div>
     <div class="sub-features">
       <div class="sub-feature">
         <span class="ico">🎨</span>
         <div>
-          <div class="feat-title">Bot Customization</div>
-          <div class="feat-sub">Nickname, avatar et bannière custom du bot par serveur.</div>
+          <div class="feat-title">{{ t('web_premium.subscription.feat_customization') }}</div>
+          <div class="feat-sub">{{ t('web_premium.subscription.feat_customization_sub') }}</div>
         </div>
       </div>
       <div class="sub-feature">
         <span class="ico">⚙️</span>
         <div>
-          <div class="feat-title">Commandes custom</div>
-          <div class="feat-sub">Crée tes propres slash commands avec texte ou embed riche.</div>
+          <div class="feat-title">{{ t('web_premium.subscription.feat_custom_commands') }}</div>
+          <div class="feat-sub">{{ t('web_premium.subscription.feat_custom_commands_sub') }}</div>
         </div>
       </div>
       <div class="sub-feature">
         <span class="ico">🛡️</span>
         <div>
-          <div class="feat-title">Modération automatique</div>
-          <div class="feat-sub">Filtres mots interdits, anti-pub, anti-spam mentions, anti-raid. Config dashboard.</div>
+          <div class="feat-title">{{ t('web_premium.subscription.feat_automod') }}</div>
+          <div class="feat-sub">{{ t('web_premium.subscription.feat_automod_sub') }}</div>
         </div>
       </div>
       <div class="sub-feature">
         <span class="ico">💚</span>
         <div>
-          <div class="feat-title">Soutien direct</div>
-          <div class="feat-sub">Tu finances l'hébergement et le développement solo.</div>
+          <div class="feat-title">{{ t('web_premium.subscription.feat_support') }}</div>
+          <div class="feat-sub">{{ t('web_premium.subscription.feat_support_sub') }}</div>
         </div>
       </div>
     </div>
@@ -366,20 +366,20 @@
 
   <div class="sub-cta-block">
     <button class="sub-cta" id="subCta">
-      Passer à TookBot+ · <strong id="subCtaPrice">11,97 €</strong>
+      {{ t('web_premium.subscription.cta_upgrade') }} · <strong id="subCtaPrice">11,97 €</strong>
     </button>
-    <p class="sub-foot-note">Paiement sécurisé via Stripe. Annulable à tout moment depuis le portail client.</p>
+    <p class="sub-foot-note">{{ t('web_premium.subscription.stripe_note') }}</p>
   </div>
 </div>
 
 {% if trial_eligible %}
 <div class="sub-trial-card" style="margin-top:40px;padding:24px 28px;border:1px dashed oklch(0.86 0.20 130 / 0.55);border-radius:18px;background:oklch(0.86 0.20 130 / 0.06);text-align:center;">
-  <div style="font-weight:800;font-size:18px;margin-bottom:6px;color:var(--text);">Pas encore convaincu ?</div>
+  <div style="font-weight:800;font-size:18px;margin-bottom:6px;color:var(--text);">{{ t('web_premium.subscription.not_convinced') }}</div>
   <div style="font-size:14px;color:var(--text-2);margin-bottom:16px;max-width:520px;margin-left:auto;margin-right:auto;">
-    Essaye TookBot+ <strong>7 jours gratuits</strong>. Aucune carte bancaire requise. Un seul essai par compte.
+    {{ t('web_premium.subscription.trial_pitch_1') }} <strong>{{ t('web_premium.subscription.trial_pitch_strong') }}</strong>. {{ t('web_premium.subscription.trial_pitch_2') }}
   </div>
   <button class="btn btn-secondary" id="trialBtn" type="button" style="min-width:240px;">
-    ✦ Demarrer mon essai 7 jours
+    ✦ {{ t('web_premium.subscription.start_trial') }}
   </button>
   <div id="trialMsg" style="margin-top:12px;font-size:13px;color:var(--text-2);"></div>
 </div>
@@ -387,7 +387,7 @@
   document.getElementById('trialBtn').addEventListener('click', async () => {
     const btn = document.getElementById('trialBtn');
     const msg = document.getElementById('trialMsg');
-    btn.disabled = true; btn.textContent = 'Activation...';
+    btn.disabled = true; btn.textContent = 'Activating...';
     try {
       const r = await fetch('/api/subscription/start-trial', { method: 'POST' });
       const d = await r.json();
@@ -397,30 +397,30 @@
         btn.textContent = 'Active ✓';
         setTimeout(() => window.location.reload(), 1800);
       } else {
-        msg.textContent = d.message || d.error || 'Erreur.';
+        msg.textContent = d.message || d.error || 'Error.';
         msg.style.color = '#e74c3c';
         btn.disabled = false;
-        btn.textContent = '✦ Demarrer mon essai 7 jours';
+        btn.textContent = '✦ Start my 7-day trial';
       }
     } catch (e) {
       msg.textContent = e.message;
       msg.style.color = '#e74c3c';
       btn.disabled = false;
-      btn.textContent = '✦ Demarrer mon essai 7 jours';
+      btn.textContent = '✦ Start my 7-day trial';
     }
   });
 </script>
 {% endif %}
 
 <div class="sub-key-card" style="margin-top:40px;padding:24px 28px;border:1px solid var(--border);border-radius:18px;background:var(--bg-1);text-align:center;">
-  <div style="font-weight:800;font-size:18px;margin-bottom:6px;color:var(--text);">🔑 J'ai une clé d'activation</div>
+  <div style="font-weight:800;font-size:18px;margin-bottom:6px;color:var(--text);">🔑 {{ t('web_premium.subscription.have_key') }}</div>
   <div style="font-size:14px;color:var(--text-2);margin-bottom:16px;max-width:520px;margin-left:auto;margin-right:auto;">
-    Entre une clé d'activation TookBot+ pour débloquer l'abonnement pendant la durée associée à la clé.
+    {{ t('web_premium.subscription.key_help') }}
   </div>
   <div style="display:flex;gap:10px;max-width:480px;margin:0 auto;flex-wrap:wrap;justify-content:center;">
     <input id="keyInput" type="text" placeholder="TBP-XXXXX-XXXXX-XXXXX" autocomplete="off" maxlength="32"
       style="flex:1;min-width:220px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-2);color:var(--text);font-family:var(--font-mono);letter-spacing:1px;text-transform:uppercase;">
-    <button class="btn btn-primary" id="keyBtn" type="button" style="min-width:140px;">Activer</button>
+    <button class="btn btn-primary" id="keyBtn" type="button" style="min-width:140px;">{{ t('web_premium.subscription.activate') }}</button>
   </div>
   <div id="keyMsg" style="margin-top:12px;font-size:13px;color:var(--text-2);"></div>
 </div>
@@ -430,14 +430,14 @@
     if(!btn) return;
     async function redeem(){
       const code=(inp.value||'').trim();
-      if(!code){ msg.textContent='Entre une clé.'; msg.style.color='#e74c3c'; return; }
-      btn.disabled=true; btn.textContent='Activation...';
+      if(!code){ msg.textContent='Enter a key.'; msg.style.color='#e74c3c'; return; }
+      btn.disabled=true; btn.textContent='Activating...';
       try{
         const r=await fetch('/api/subscription/redeem-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
         const d=await r.json();
-        if(d.ok){ msg.textContent=d.message||'Activé !'; msg.style.color='#2ecc71'; btn.textContent='Activé ✓'; setTimeout(()=>window.location.reload(),1800); }
-        else { msg.textContent=d.message||d.error||'Erreur.'; msg.style.color='#e74c3c'; btn.disabled=false; btn.textContent='Activer'; }
-      }catch(e){ msg.textContent=e.message; msg.style.color='#e74c3c'; btn.disabled=false; btn.textContent='Activer'; }
+        if(d.ok){ msg.textContent=d.message||'Activated!'; msg.style.color='#2ecc71'; btn.textContent='Activated ✓'; setTimeout(()=>window.location.reload(),1800); }
+        else { msg.textContent=d.message||d.error||'Error.'; msg.style.color='#e74c3c'; btn.disabled=false; btn.textContent='Activate'; }
+      }catch(e){ msg.textContent=e.message; msg.style.color='#e74c3c'; btn.disabled=false; btn.textContent='Activate'; }
     }
     btn.addEventListener('click',redeem);
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); redeem(); } });
@@ -456,7 +456,7 @@
   if (!tabs.length) return;
 
   function fmtEur(v) {
-    // Format francais : virgule decimale, espace insecable + €
+    // French price format: decimal comma, non-breaking space + €
     return v.toFixed(2).replace('.', ',');
   }
   function render(tab) {
@@ -466,11 +466,11 @@
     if (elTotal) elTotal.textContent = fmtEur(total);
     if (elBilled) {
       elBilled.textContent = months === 1
-        ? 'facturé mensuellement'
-        : `facturé tous les ${months} mois`;
+        ? 'billed monthly'
+        : `billed every ${months} months`;
     }
     if (elPerMonth) {
-      elPerMonth.innerHTML = `soit <strong>${fmtEur(perM)} €</strong> par mois`;
+      elPerMonth.innerHTML = `that's <strong>${fmtEur(perM)} €</strong> per month`;
     }
     if (ctaPrice) ctaPrice.textContent = fmtEur(total) + ' €';
   }
@@ -488,7 +488,7 @@
     const tab = document.querySelector('.sub-billing-tab.active');
     const months = tab ? parseInt(tab.dataset.period, 10) : 1;
     const original = cta.innerHTML;
-    cta.disabled = true; cta.innerHTML = 'Redirection Stripe...';
+    cta.disabled = true; cta.innerHTML = 'Redirecting to Stripe...';
     try {
       const r = await fetch('/api/subscribe/checkout', {
         method: 'POST',
@@ -499,26 +499,26 @@
       if (d.url) {
         window.location.href = d.url;
       } else {
-        alert('Erreur : ' + (d.error || 'unknown'));
+        alert('Error: ' + (d.error || 'unknown'));
         cta.disabled = false; cta.innerHTML = original;
       }
     } catch (e) {
-      alert('Erreur réseau : ' + e.message);
+      alert('Network error: ' + e.message);
       cta.disabled = false; cta.innerHTML = original;
     }
   });
 
-  // Bannieres ?paid=1 ou ?canceled=1 apres retour Stripe
+  // ?paid=1 or ?canceled=1 banners after returning from Stripe
   const params = new URLSearchParams(window.location.search);
   if (params.get('paid') === '1') {
     const banner = document.createElement('div');
     banner.style.cssText = 'background:linear-gradient(180deg,#23a55a,#198642);color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:18px;font-weight:700;text-align:center;';
-    banner.textContent = '✓ Paiement confirmé. TookBot+ sera actif dans quelques secondes.';
+    banner.textContent = '✓ Payment confirmed. TookBot+ will be active in a few seconds.';
     document.querySelector('main')?.prepend(banner);
   } else if (params.get('canceled') === '1') {
     const banner = document.createElement('div');
     banner.style.cssText = 'background:var(--bg-2);color:var(--text-2);padding:14px 20px;border-radius:12px;margin-bottom:18px;text-align:center;border:1px solid var(--border);';
-    banner.textContent = 'Paiement annulé. Tu peux réessayer quand tu veux.';
+    banner.textContent = 'Payment canceled. You can try again whenever you want.';
     document.querySelector('main')?.prepend(banner);
   }
 })();

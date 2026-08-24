@@ -1,6 +1,8 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
 from web_profile import build_user_profile_payload
 
+from services.i18n import t
+
 def register_dashboard_routes(app, deps):
     globals().update(deps)
     @app.route("/general")
@@ -8,7 +10,7 @@ def register_dashboard_routes(app, deps):
         stats = get_global_xp_stats()
         guilds = list_guilds(active_only=True)
         db = get_db()
-        # Stats par serveur
+        # Per-guild stats
         by_guild = []
         for gd in guilds:
             row = db.execute("""SELECT COUNT(*) AS n, COALESCE(SUM(xp), 0) AS xp, COALESCE(AVG(level), 0) AS lvl
@@ -21,7 +23,7 @@ def register_dashboard_routes(app, deps):
             })
         db.close()
         by_guild.sort(key=lambda r: r["xp"], reverse=True)
-        # Activité 14 jours cross-server
+        # 14-day cross-server activity
         activity = get_activity_by_day(guild_id=None, days=14)
         heatmap  = get_activity_heatmap(guild_id=None, weeks=4)
         top_cmds = get_top_commands(guild_id=None, days=30, limit=10)
@@ -37,7 +39,7 @@ def register_dashboard_routes(app, deps):
         users = [dict(r) for r in db.execute(
             "SELECT * FROM users WHERE guild_id = ? ORDER BY xp DESC", (g_id,)).fetchall()]
         db.close()
-        # Progression dans le niveau courant (fraction 0-1) pour la barre du classement
+        # Progress inside the current level (0-1 fraction) for the leaderboard bar
         _e = get_xp_curve_exponent(g_id)
         for u in users:
             lvl = int(u.get("level") or 0)
@@ -51,8 +53,8 @@ def register_dashboard_routes(app, deps):
         heatmap    = get_activity_heatmap(guild_id=g_id, weeks=4)
         top_cmds   = get_top_commands(guild_id=g_id, days=30, limit=8)
         top_active = get_top_active_users(guild_id=g_id, days=30, limit=10)
-        # Vraies tendances : on tire 16 jours, la mini-sparkline = 8 derniers jours,
-        # le delta = semaine courante (8j) vs semaine precedente (8j).
+        # Real trends: pull 16 days, the mini sparkline = last 8 days,
+        # the delta = current week (8d) vs previous week (8d).
         _cnt = lambda serie: [row["count"] for row in serie]
         def _delta(series16):
             prev = sum(series16[:8]); cur = sum(series16[8:])
@@ -104,7 +106,7 @@ def register_dashboard_routes(app, deps):
 
     @app.route("/api/search-global")
     def api_search_global():
-        """Recherche cross-serveur (owner uniquement). Agrege par user_id, somme XP."""
+        """Cross-server search (owner only). Aggregates by user_id, sums XP."""
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         query = request.args.get("q", "").strip().lower()
@@ -154,7 +156,7 @@ def register_dashboard_routes(app, deps):
         payload = build_user_profile_payload(db, user_id, guild_id=g_id, is_owner=_is_owner_session())
         if not payload:
             db.close()
-            return jsonify({"error": "Utilisateur non trouvé"}), 404
+            return jsonify({"error": t("api.dashboard.user_not_found")}), 404
         db.close()
         return jsonify(payload)
         user = db.execute(
@@ -162,9 +164,9 @@ def register_dashboard_routes(app, deps):
             (g_id, str(user_id))).fetchone()
         if not user:
             db.close()
-            return jsonify({"error": "Utilisateur non trouvé sur ce serveur"}), 404
+            return jsonify({"error": t("api.dashboard.user_not_found_in_guild")}), 404
 
-        # Activité 14 derniers jours
+        # Activity over the last 14 days
         rows = db.execute("""SELECT DATE(ts) AS day, COUNT(*) AS n
                              FROM logs WHERE guild_id = ? AND user_id = ?
                                AND ts >= datetime('now', '-14 days')
@@ -178,7 +180,7 @@ def register_dashboard_routes(app, deps):
             ds = d.isoformat()
             activity.append({"date": ds, "count": by_day.get(ds, 0)})
 
-        # Channels favoris (par count messages edit/delete + voice join + commandes)
+        # Favourite channels (by count of message edit/delete + voice join + commands)
         chans = db.execute("""SELECT channel_id, MAX(channel_name) AS name, COUNT(*) AS n
                               FROM logs WHERE guild_id = ? AND user_id = ? AND channel_id IS NOT NULL
                                 AND ts >= datetime('now', '-30 days')
@@ -186,14 +188,14 @@ def register_dashboard_routes(app, deps):
                            (g_id, str(user_id))).fetchall()
         fav_channels = [dict(r) for r in chans]
 
-        # Compte par type d'event
+        # Count per event type
         by_type = db.execute("""SELECT type, COUNT(*) AS n FROM logs
                                 WHERE guild_id = ? AND user_id = ? AND ts >= datetime('now', '-30 days')
                                 GROUP BY type ORDER BY n DESC""",
                              (g_id, str(user_id))).fetchall()
         types = [dict(r) for r in by_type]
 
-        # Profil duel global s'il existe
+        # Global duel profile if it exists
         duel = db.execute("SELECT * FROM duel_profil WHERE user_id = ?", (str(user_id),)).fetchone()
         duel_data = dict(duel) if duel else None
 

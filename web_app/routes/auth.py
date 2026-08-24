@@ -1,5 +1,7 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
 
+from services.i18n import t
+
 def register_auth_routes(app, deps):
     globals().update(deps)
     @app.route("/", methods=["GET", "POST"])
@@ -7,17 +9,17 @@ def register_auth_routes(app, deps):
         ip = _client_ip()
         password_fallback = bool(PASSWORD) and not OAUTH_ENABLED
         if request.method == "POST":
-            # Le password n'est accepte qu'en fallback (OAuth desactive)
+            # The password is only accepted as a fallback (OAuth disabled)
             if not password_fallback:
                 return render_template("login.html",
                                        oauth_enabled=OAUTH_ENABLED,
                                        password_fallback=False,
-                                       error="Login password désactivé. Utilise Discord."), 400
+                                       error=t("api.auth.password_login_disabled")), 400
             ok, retry_in = _check_login_rate(ip)
             if not ok:
                 return render_template("login.html",
                     oauth_enabled=OAUTH_ENABLED, password_fallback=password_fallback,
-                    error=f"Trop de tentatives. Réessaie dans {retry_in // 60}m {retry_in % 60}s.",
+                    error=t("api.auth.too_many_attempts", minutes=retry_in // 60, seconds=retry_in % 60),
                 ), 429
             submitted = request.form.get("password") or ""
             if PASSWORD and secrets.compare_digest(submitted, PASSWORD):
@@ -25,7 +27,7 @@ def register_auth_routes(app, deps):
                 session["logged_in"]    = True
                 session["login_ts"]     = time.time()
                 session["login_ip"]     = ip
-                # Mode password : tu es owner par defaut (single-user fallback)
+                # Password mode: you are the owner by default (single-user fallback)
                 session["discord"] = {
                     "user_id":              "password-user",
                     "username":             "Admin (password)",
@@ -39,7 +41,7 @@ def register_auth_routes(app, deps):
             _record_login(ip, False)
             return render_template("login.html",
                 oauth_enabled=OAUTH_ENABLED, password_fallback=password_fallback,
-                error="Mot de passe incorrect")
+                error=t("api.auth.wrong_password"))
         if session.get("logged_in"):
             return redirect("/dashboard" if session.get("guild_id") else "/select-guild")
         return render_template("login.html", oauth_enabled=OAUTH_ENABLED, password_fallback=password_fallback)
@@ -62,7 +64,7 @@ def register_auth_routes(app, deps):
     @app.route("/oauth/login")
     def oauth_login():
         if not OAUTH_ENABLED:
-            return "OAuth Discord non configuré.", 500
+            return t("api.auth.oauth_not_configured"), 500
         state = secrets.token_urlsafe(32)
         session["oauth_state"] = state
         params = {
@@ -79,16 +81,16 @@ def register_auth_routes(app, deps):
     @app.route("/oauth/callback")
     def oauth_callback():
         if not OAUTH_ENABLED:
-            return "OAuth non configuré.", 500
+            return t("api.auth.oauth_not_configured_short"), 500
         err = request.args.get("error")
         if err:
-            return render_template("login.html", error=f"Discord OAuth refusé : {err}"), 400
+            return render_template("login.html", error=t("api.auth.oauth_denied", error=err)), 400
         code  = request.args.get("code")
         state = request.args.get("state")
         if not code or not state or state != session.get("oauth_state"):
-            return render_template("login.html", error="État OAuth invalide. Réessaie."), 400
+            return render_template("login.html", error=t("api.auth.invalid_oauth_state")), 400
 
-        # 1. Échange code contre access_token
+        # 1. Exchange the code for an access_token
         try:
             r = _requests.post(DISCORD_TOKEN, data={
                 "client_id":     DISCORD_CLIENT_ID,
@@ -100,11 +102,11 @@ def register_auth_routes(app, deps):
             r.raise_for_status()
             token_data = r.json()
         except Exception as e:
-            return render_template("login.html", error=f"Échange code -> token échoué : {e}"), 500
+            return render_template("login.html", error=t("api.auth.token_exchange_failed", error=e)), 500
 
         access_token = token_data.get("access_token")
         if not access_token:
-            return render_template("login.html", error="Pas d'access token reçu."), 500
+            return render_template("login.html", error=t("api.auth.no_access_token")), 500
 
         # 2. Fetch user
         try:
@@ -115,15 +117,15 @@ def register_auth_routes(app, deps):
                                         headers={"Authorization": f"Bearer {access_token}"},
                                         timeout=10).json()
         except Exception as e:
-            return render_template("login.html", error=f"Fetch user/guilds échoué : {e}"), 500
+            return render_template("login.html", error=t("api.auth.fetch_user_failed", error=e)), 500
 
         if not isinstance(u, dict) or not u.get("id"):
-            return render_template("login.html", error="Réponse Discord invalide."), 500
+            return render_template("login.html", error=t("api.auth.invalid_discord_response")), 500
 
         user_id  = str(u["id"])
         is_owner = bool(DISCORD_OWNER_ID) and user_id == DISCORD_OWNER_ID
 
-        # 3. Filtrer les guilds : intersection avec celles ou le bot est present + check perms admin/manage_guild
+        # 3. Filter guilds: intersection with those where the bot is present + admin/manage_guild perms check
         bot_guild_ids = {gd["guild_id"] for gd in list_guilds(active_only=True)}
         accessible = []
         for gd in (guilds_user or []):
@@ -148,7 +150,7 @@ def register_auth_routes(app, deps):
                     "is_server_owner":  bool(gd.get("owner")),
                 })
 
-        # Guildes que l'user gere mais SANS le bot -> liste "Ajouter TookBot".
+        # Guilds the user manages but WITHOUT the bot -> "Add TookBot" list.
         invitable = []
         for gd in (guilds_user or []):
             gid = str(gd.get("id") or "")
@@ -168,9 +170,9 @@ def register_auth_routes(app, deps):
                 })
         invitable = invitable[:60]
 
-        # On autorise tous les utilisateurs Discord a se connecter (acces page /premium,
-        # gestion de leurs achats, etc.). Sans guild commune mod/admin, ils ne verront
-        # juste pas le dashboard de moderation — geres par le middleware d'acces.
+        # Any Discord user is allowed to log in (access to the /premium page,
+        # managing their purchases, etc.). Without a shared mod/admin guild they
+        # simply won't see the moderation dashboard - handled by the access middleware.
         avatar_url = None
         if u.get("avatar"):
             avatar_url = f"https://cdn.discordapp.com/avatars/{user_id}/{u['avatar']}.png?size=128"
@@ -194,11 +196,11 @@ def register_auth_routes(app, deps):
         }
         session.pop("oauth_state", None)
         _record_login(_client_ip(), True, username=session["discord"]["username"])
-        # Retour direct vers la page demandee avant le login (ex: combat live)
+        # Go straight back to the page requested before login (e.g. live combat)
         nxt = session.pop("post_login_redirect", None)
         if nxt and isinstance(nxt, str) and nxt.startswith("/"):
             return redirect(nxt)
-        # Owner / mod -> selection de guild ; user "regular" -> page premium directement.
+        # Owner / mod -> guild selection; "regular" user -> premium page directly.
         if is_owner or accessible:
             return redirect("/select-guild")
         return redirect("/premium")
@@ -228,9 +230,9 @@ def register_auth_routes(app, deps):
         data = request.json or {}
         g_id = data.get("guild_id")
         if not g_id:
-            return jsonify({"error": "guild_id requis"}), 400
+            return jsonify({"error": t("api.auth.guild_id_required")}), 400
         if not any(gd["guild_id"] == g_id for gd in g.guilds):
-            return jsonify({"error": "Serveur inconnu ou non autorisé"}), 403
+            return jsonify({"error": t("api.auth.unknown_or_forbidden_guild")}), 403
         session["guild_id"] = g_id
         return jsonify({"success": True})
 

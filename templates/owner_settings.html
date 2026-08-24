@@ -1,6 +1,6 @@
 {% extends "_base.html" %}
-{% block title %}Paramètres owner · TookBot{% endblock %}
-{% block crumb %}Paramètres owner{% endblock %}
+{% block title %}{{ t('web_premium.owner_settings.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_settings.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -31,9 +31,9 @@
   .danger { color: oklch(0.7 0.18 25); }
 </style>
 
-<h1 style="margin-bottom: 6px;">Paramètres owner</h1>
+<h1 style="margin-bottom: 6px;">{{ t('web_premium.owner_settings.title') }}</h1>
 <p class="muted" style="font-size:14px;max-width:60ch;margin-bottom:24px;">
-  Cette section n'est visible que par toi. Réglages avancés réservés au propriétaire du bot.
+  {{ t('web_premium.owner_settings.intro') }}
 </p>
 
 <style>
@@ -60,11 +60,11 @@
 
 <div class="own-grid">
   <div class="own-card">
-    <h2>Background /niveau personnalisé</h2>
+    <h2>{{ t('web_premium.owner_settings.custom_bg_title') }}</h2>
     <div class="sub">
-      Upload une image pour remplacer ton background <code>/niveau</code>.
-      Format : PNG / JPG / WEBP, max 10 Mo. L'image sera redimensionnée à
-      {{ NIVEAU_CARD_W or 1024 }}×{{ NIVEAU_CARD_H or 320 }} (ratio 3.2:1 idéal).
+      {{ t('web_premium.owner_settings.custom_bg_sub_1') }} <code>/niveau</code>.
+      {{ t('web_premium.owner_settings.custom_bg_sub_2') }}
+      {{ NIVEAU_CARD_W or 1024 }}×{{ NIVEAU_CARD_H or 320 }} {{ t('web_premium.owner_settings.custom_bg_sub_3') }}
     </div>
 
     <div id="previewWrap">
@@ -72,28 +72,26 @@
         <div class="preview-bg" id="previewBg"
              style="background-image:url('/api/premium/niveau/preview.png?bg=owner:{{ owner_id }}&t={{ range(1,9999)|random }}')"></div>
       {% else %}
-        <div class="preview-bg" id="previewBg">Aucun background personnalisé</div>
+        <div class="preview-bg" id="previewBg">{{ t('web_premium.owner_settings.no_custom_bg') }}</div>
       {% endif %}
     </div>
 
     <div class="upload-row">
       <input type="file" id="bgFile" accept="image/png,image/jpeg,image/webp">
-      <button id="bgUploadBtn" class="btn btn-primary" type="button" disabled>Uploader</button>
+      <button id="bgUploadBtn" class="btn btn-primary" type="button" disabled>{{ t('web_premium.owner_settings.upload') }}</button>
       <button id="bgDeleteBtn" class="btn btn-secondary" type="button"
-              {% if not has_custom %}disabled{% endif %}>Supprimer</button>
+              {% if not has_custom %}disabled{% endif %}>{{ t('web_premium.common.delete') }}</button>
       <span id="bgHint" class="hint" style="margin-left:auto;"></span>
     </div>
     <div class="hint">
-      Une fois uploadé, va sur <a href="/premium">/premium</a> et choisis ton background « owner:moi ».
-      Il n'apparaît que pour toi dans la grille.
+      {{ t('web_premium.owner_settings.after_upload_1') }} <a href="/premium">/premium</a> {{ t('web_premium.owner_settings.after_upload_2') }}
     </div>
   </div>
 
   <div class="own-card">
-    <h2>Console live (logs pm2)</h2>
+    <h2>{{ t('web_premium.owner_settings.live_console') }}</h2>
     <div class="sub">
-      Tail en direct des logs <code>pm2</code> du bot et du web. Polling 2s.
-      Auto-scroll si tu es déjà en bas. Pause avec le bouton.
+      {{ t('web_premium.owner_settings.live_console_sub_1') }} <code>pm2</code> {{ t('web_premium.owner_settings.live_console_sub_2') }}
     </div>
     <div class="row gap-2" style="margin:10px 0;flex-wrap:wrap;align-items:center;">
       <select id="logProc"   class="input" style="width:130px;">
@@ -104,9 +102,9 @@
         <option value="out">stdout</option>
         <option value="err">stderr</option>
       </select>
-      <button id="logPauseBtn" class="btn btn-secondary" type="button">⏸️ Pause</button>
-      <button id="logClearBtn" class="btn btn-secondary" type="button">Vider</button>
-      <button id="logScrollBtn" class="btn btn-secondary" type="button">↓ Bas</button>
+      <button id="logPauseBtn" class="btn btn-secondary" type="button">⏸️ {{ t('web_premium.owner_settings.pause') }}</button>
+      <button id="logClearBtn" class="btn btn-secondary" type="button">{{ t('web_premium.owner_settings.clear') }}</button>
+      <button id="logScrollBtn" class="btn btn-secondary" type="button">↓ {{ t('web_premium.owner_settings.bottom') }}</button>
       <span id="logStatus" class="muted" style="font-size:12px;margin-left:auto;"></span>
     </div>
     <pre id="logView"
@@ -117,40 +115,38 @@
   </div>
 
   <div class="own-card">
-    <h2>Sabres saisonniers (Battle Pass)</h2>
+    <h2>{{ t('web_premium.owner_settings.seasonal_sabers') }}</h2>
     <div class="sub">
-      Tous les sabres cosmétiques générés à chaque saison du Pass. IDs au format
-      <code>season_&lt;YYYY-MM&gt;_&lt;rareté&gt;</code>. Stats égales aux sabres f2p
-      de même rareté (anti-P2W).
+      {{ t('web_premium.owner_settings.seasonal_sabers_sub_1') }}
+      <code>season_&lt;YYYY-MM&gt;_&lt;rarity&gt;</code>. {{ t('web_premium.owner_settings.seasonal_sabers_sub_2') }}
     </div>
     <div id="sabreGrid" class="sabre-grid">
-      <div class="muted" style="font-size:13px;">Chargement…</div>
+      <div class="muted" style="font-size:13px;">{{ t('web_premium.common.loading') }}</div>
     </div>
   </div>
 
   <div class="own-card">
-    <h2>Rétention des logs</h2>
+    <h2>{{ t('web_premium.owner_settings.log_retention') }}</h2>
     <div class="sub">
-      Purge quotidienne automatique de la table <code>logs</code>.
-      Conserve les N derniers logs par serveur et supprime les entrées plus vieilles que X jours.
+      {{ t('web_premium.owner_settings.log_retention_sub_1') }} <code>logs</code> {{ t('web_premium.owner_settings.log_retention_sub_2') }}
     </div>
     <div class="grid grid-2" style="gap:16px;margin-top:4px;">
       <div class="field">
-        <label>Logs conservés par serveur</label>
+        <label>{{ t('web_premium.owner_settings.logs_kept_per_server') }}</label>
         <input type="number" id="log_keep_per_guild" min="100"
                value="{{ log_settings.get('log_keep_per_guild', log_defaults.get('log_keep_per_guild', '5000')) }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ log_defaults.get('log_keep_per_guild', '5000') }}</small>
+        <small class="faint" style="font-size:11px;">{{ t('web_premium.owner_settings.default_label') }} {{ log_defaults.get('log_keep_per_guild', '5000') }}</small>
       </div>
       <div class="field">
-        <label>Âge maximum des logs (jours)</label>
+        <label>{{ t('web_premium.owner_settings.max_log_age') }}</label>
         <input type="number" id="log_retention_days" min="7"
                value="{{ log_settings.get('log_retention_days', log_defaults.get('log_retention_days', '90')) }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ log_defaults.get('log_retention_days', '90') }} jours</small>
+        <small class="faint" style="font-size:11px;">{{ t('web_premium.owner_settings.default_label') }} {{ log_defaults.get('log_retention_days', '90') }} {{ t('web_premium.owner_settings.days') }}</small>
       </div>
     </div>
     <div style="margin-top:16px;">
       <button class="btn btn-primary btn-sm" type="button" onclick="saveLogSettings()">
-        <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+        <svg class="ic"><use href="#i-check"/></svg> {{ t('web_premium.common.save') }}
       </button>
       <span id="logSettingsStatus" style="margin-left:12px;font-size:12px;color:var(--text-2);"></span>
     </div>
@@ -162,7 +158,7 @@ async function saveLogSettings() {
   const keep = document.getElementById('log_keep_per_guild')?.value;
   const age  = document.getElementById('log_retention_days')?.value;
   const status = document.getElementById('logSettingsStatus');
-  if (status) status.textContent = 'Sauvegarde...';
+  if (status) status.textContent = 'Saving...';
   try {
     const r = await fetch('/api/owner/log-settings', {
       method: 'POST',
@@ -172,9 +168,9 @@ async function saveLogSettings() {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);
     if (status) status.textContent = '';
-    if (window.toast) window.toast('Rétention des logs enregistrée.');
+    if (window.toast) window.toast('Log retention saved.');
   } catch(e) {
-    if (status) status.textContent = 'Erreur : ' + e.message;
+    if (status) status.textContent = 'Error: ' + e.message;
   }
 }
 window.saveLogSettings = saveLogSettings;
@@ -205,7 +201,7 @@ window.saveLogSettings = saveLogSettings;
     if (paused) return;
     const key = `${proc.value}:${stream.value}`;
     if (key !== lastKey) {
-      // changement de stream -> reset
+      // stream change -> reset
       offset = 0;
       view.textContent = '';
       lastKey = key;
@@ -215,14 +211,14 @@ window.saveLogSettings = saveLogSettings;
       if (!r.ok) throw new Error(r.status);
       const d = await r.json();
       if (d.missing) {
-        status.textContent = 'fichier absent : ' + (d.path || '?');
+        status.textContent = 'file missing: ' + (d.path || '?');
         return;
       }
       if (typeof d.offset === 'number') offset = d.offset;
       if (d.text) {
         const stickToBottom = isAtBottom();
         view.textContent += d.text;
-        // Cap pour ne pas exploser le DOM (~ 200KB)
+        // Cap so we don't blow up the DOM (~ 200KB)
         if (view.textContent.length > 200000) {
           view.textContent = view.textContent.slice(-160000);
         }
@@ -230,7 +226,7 @@ window.saveLogSettings = saveLogSettings;
         status.textContent = `last update: ${new Date().toLocaleTimeString()}`;
       }
     } catch (e) {
-      status.textContent = 'erreur : ' + e.message;
+      status.textContent = 'error: ' + e.message;
     }
   }
 
@@ -245,7 +241,7 @@ window.saveLogSettings = saveLogSettings;
 
   pause.addEventListener('click', () => {
     paused = !paused;
-    pause.textContent = paused ? '▶️ Reprendre' : '⏸️ Pause';
+    pause.textContent = paused ? '▶️ Resume' : '⏸️ Pause';
     if (!paused) tick();
   });
   clear.addEventListener('click', () => { view.textContent = ''; });
@@ -255,13 +251,13 @@ window.saveLogSettings = saveLogSettings;
 
   startTimer();
 
-  // ===== SABRES SAISONNIERS =====
+  // ===== SEASONAL SABERS =====
   fetch('/api/owner/seasonal-sabres')
     .then(r => r.ok ? r.json() : null)
     .then(d => {
       const grid = document.getElementById('sabreGrid');
       if (!d || !d.sabres || d.sabres.length === 0) {
-        grid.innerHTML = '<div class="muted" style="font-size:13px;">Aucun sabre saisonnier généré pour le moment. Une nouvelle saison crée 3 sabres (rare / épique / légendaire) automatiquement.</div>';
+        grid.innerHTML = '<div class="muted" style="font-size:13px;">No seasonal saber generated yet. A new season automatically creates 3 sabers (rare / epic / legendary).</div>';
         return;
       }
       grid.innerHTML = d.sabres.map(s => `
@@ -274,7 +270,7 @@ window.saveLogSettings = saveLogSettings;
           <div class="id">${s.id}</div>
           <div class="edit-row">
             <input class="input" id="sabre-name-${cssId(s.id)}" maxlength="80" value="${escapeAttr(s.nom)}">
-            <button class="btn btn-secondary btn-sm" type="button" onclick="saveSeasonalSabreName('${s.id}')">Sauver</button>
+            <button class="btn btn-secondary btn-sm" type="button" onclick="saveSeasonalSabreName('${s.id}')">Save</button>
           </div>
           <div class="save-state" id="sabre-state-${cssId(s.id)}"></div>
           <div class="spec">${s.speciale_emoji || ''} <strong>${escapeHtml(s.speciale_nom || '—')}</strong> · ${escapeHtml(s.speciale_description || '')}</div>
@@ -286,8 +282,8 @@ window.saveLogSettings = saveLogSettings;
     const input = document.getElementById('sabre-name-' + cssId(sabreId));
     const state = document.getElementById('sabre-state-' + cssId(sabreId));
     const nom = (input?.value || '').trim();
-    if (!nom) { state.textContent = 'Nom requis.'; return; }
-    state.textContent = 'Sauvegarde...';
+    if (!nom) { state.textContent = 'Name required.'; return; }
+    state.textContent = 'Saving...';
     try {
       const r = await fetch('/api/owner/seasonal-sabres/' + encodeURIComponent(sabreId), {
         method: 'POST',
@@ -296,12 +292,12 @@ window.saveLogSettings = saveLogSettings;
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || r.status);
-      state.textContent = 'Sauvegardé.';
+      state.textContent = 'Saved.';
       const label = input.closest('.sabre-card')?.querySelector('.nom');
       if (label) label.textContent = nom;
       setTimeout(() => state.textContent = '', 2000);
     } catch (e) {
-      state.textContent = 'Erreur : ' + e.message;
+      state.textContent = 'Error: ' + e.message;
     }
   };
 
@@ -334,15 +330,15 @@ window.saveLogSettings = saveLogSettings;
   uploadBtn.addEventListener('click', async () => {
     if (!fileInput.files.length) return;
     uploadBtn.disabled = true;
-    hint.textContent = 'Upload…';
+    hint.textContent = 'Uploading…';
     const fd = new FormData();
     fd.append('file', fileInput.files[0]);
     try {
       const r = await fetch('/api/owner/niveau-bg', { method: 'POST', body: fd });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || r.status);
-      hint.textContent = '✓ Uploadé';
-      // Refresh preview avec cache-buster
+      hint.textContent = '✓ Uploaded';
+      // Refresh preview with a cache-buster
       previewBg.style.backgroundImage =
         `url('/api/premium/niveau/preview.png?bg=owner:${ownerId}&t=${Date.now()}')`;
       previewBg.textContent = '';
@@ -357,15 +353,15 @@ window.saveLogSettings = saveLogSettings;
   });
 
   deleteBtn.addEventListener('click', async () => {
-    if (!confirm('Supprimer ton background personnalisé ?')) return;
+    if (!confirm('Delete your custom background?')) return;
     deleteBtn.disabled = true;
-    hint.textContent = 'Suppression…';
+    hint.textContent = 'Deleting…';
     try {
       const r = await fetch('/api/owner/niveau-bg', { method: 'DELETE' });
       if (!r.ok) throw new Error(r.status);
       previewBg.style.backgroundImage = 'none';
-      previewBg.textContent = 'Aucun background personnalisé';
-      hint.textContent = '✓ Supprimé';
+      previewBg.textContent = 'No custom background';
+      hint.textContent = '✓ Deleted';
       setTimeout(() => hint.textContent = '', 2000);
     } catch (e) {
       hint.textContent = '✗ ' + e.message;

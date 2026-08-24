@@ -1,11 +1,11 @@
-"""Rendu d'une image style 'tweet X' a partir d'un message Discord.
+"""Renders an 'X tweet' style image from a Discord message.
 
-Compose une image rectangulaire :
-- Header : avatar rond + display_name + @username + verified tick
-- Corps : texte du message entre guillemets, font serif elegante
-- Footer : timestamp formate (16:42 · 4 juin 2026 · X)
+Composes a rectangular image:
+- Header: round avatar + display_name + @username + verified tick
+- Body: message text between quotes, elegant serif font
+- Footer: formatted timestamp (16:42 · 4 Jun 2026 · X)
 
-Retourne BytesIO PNG pour discord.File.
+Returns a PNG BytesIO for discord.File.
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ import aiohttp
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
-# Dimensions du tweet card. Largeur fixe, hauteur calculee dynamiquement
-# selon la longueur du texte (max 8 lignes wrap, sinon truncate).
+# Tweet card dimensions. Fixed width, height computed dynamically from the
+# text length (wraps to 8 lines max, then truncates).
 TW_W = 800
 TW_PAD = 32
 TW_AVATAR = 80
@@ -106,7 +106,7 @@ def _placeholder_avatar(size: int) -> Image.Image:
 
 
 def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int, draw: ImageDraw.ImageDraw) -> list[str]:
-    """Wrap mot par mot en respectant la largeur max."""
+    """Wrap word by word while respecting the max width."""
     words = text.split()
     lines: list[str] = []
     cur = ""
@@ -117,7 +117,7 @@ def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int, draw: ImageD
         else:
             if cur:
                 lines.append(cur)
-            # Le mot lui-meme est plus large : split brutal
+            # The word itself is wider: hard split
             if draw.textlength(w, font=font) > max_w:
                 tmp = ""
                 for ch in w:
@@ -135,28 +135,28 @@ def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int, draw: ImageD
 
 def _draw_action_icon(draw: ImageDraw.ImageDraw, kind: str, x: int, y: int,
                        size: int = 18, color=(113, 118, 123)):
-    """Dessine une icone d'action X (reply/retweet/like/views/share) en
-    primitives PIL pour un rendu net (pas de dependance pilmoji)."""
+    """Draw an X action icon (reply/retweet/like/views/share) with PIL
+    primitives for a crisp render (no pilmoji dependency)."""
     s = size
     if kind == "reply":
-        # Bulle de chat arrondie + petite queue
+        # Rounded chat bubble + small tail
         draw.rounded_rectangle((x, y, x + s, y + int(s * 0.78)),
                                 radius=int(s * 0.28), outline=color, width=2)
-        # Petit triangle queue bas-gauche
+        # Small bottom-left tail triangle
         draw.polygon([
             (x + 4, y + int(s * 0.78)),
             (x + 10, y + int(s * 0.78)),
             (x + 4, y + s),
         ], fill=color)
     elif kind == "retweet":
-        # 2 fleches en boucle stylisees (rect arrondi outline + 2 chevrons)
-        # Trace simple : 2 polygones triangles + lignes
+        # 2 stylized looping arrows (rounded rect outline + 2 chevrons)
+        # Simple drawing: 2 triangle polygons + lines
         draw.line([(x + 2, y + 4), (x + s - 2, y + 4)], fill=color, width=2)
         draw.polygon([(x + s - 6, y), (x + s, y + 4), (x + s - 6, y + 8)], fill=color)
         draw.line([(x + s - 2, y + s - 4), (x + 2, y + s - 4)], fill=color, width=2)
         draw.polygon([(x + 6, y + s - 8), (x, y + s - 4), (x + 6, y + s)], fill=color)
     elif kind == "like":
-        # Coeur outline simple via 2 cercles + triangle
+        # Simple heart outline from 2 circles + a triangle
         r = int(s * 0.28)
         draw.ellipse((x, y + 2, x + r * 2, y + r * 2 + 2), outline=color, width=2)
         draw.ellipse((x + r * 2 - 1, y + 2, x + r * 4 - 1, y + r * 2 + 2),
@@ -167,7 +167,7 @@ def _draw_action_icon(draw: ImageDraw.ImageDraw, kind: str, x: int, y: int,
             (x + s // 2, y + s),
         ], outline=color, width=2)
     elif kind == "views":
-        # Bar chart 3 barres
+        # Bar chart, 3 bars
         bw = max(2, s // 6)
         for i, h in enumerate([0.4, 0.7, 1.0]):
             bh = int(s * h)
@@ -175,10 +175,10 @@ def _draw_action_icon(draw: ImageDraw.ImageDraw, kind: str, x: int, y: int,
             by = y + (s - bh)
             draw.rectangle((bx, by, bx + bw, y + s), fill=color)
     elif kind == "share":
-        # Fleche montant qui sort d'une boite (style upload)
-        # Boite
+        # Arrow rising out of a box (upload style)
+        # Box
         draw.rectangle((x, y + s // 2, x + s, y + s), outline=color, width=2)
-        # Fleche
+        # Arrow
         draw.line((x + s // 2, y + 2, x + s // 2, y + s - 4), fill=color, width=2)
         draw.polygon([
             (x + s // 2 - 4, y + 6),
@@ -188,9 +188,9 @@ def _draw_action_icon(draw: ImageDraw.ImageDraw, kind: str, x: int, y: int,
 
 
 def _draw_verified_tick(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int = 9):
-    """Petit badge bleu rond avec check blanc."""
+    """Small round blue badge with a white check."""
     draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=VERIFIED)
-    # Check stylise
+    # Stylized check
     pts = [(cx - r * 0.45, cy + r * 0.05),
            (cx - r * 0.10, cy + r * 0.40),
            (cx + r * 0.45, cy - r * 0.30)]
@@ -208,11 +208,11 @@ async def render_tweet_card(
     counts: Optional[dict] = None,
     image_url: Optional[str] = None,
 ) -> io.BytesIO:
-    """Rend le tweet card -> BytesIO PNG.
+    """Render the tweet card -> PNG BytesIO.
 
-    `timestamp_str` : deja formate (ex '16:42 · 4 juin 2026').
-    `counts` : dict optionnel {reply, retweet, like, views} pour les actions.
-    `image_url` : URL d'une image jointe au message a embed sous le texte.
+    `timestamp_str`: already formatted (e.g. '16:42 · 4 Jun 2026').
+    `counts`: optional dict {reply, retweet, like, views} for the actions.
+    `image_url`: URL of an image attached to the message, embedded under the text.
     """
     raw_avatar = await _fetch_bytes(avatar_url) if avatar_url else None
     raw_image = await _fetch_bytes(image_url) if image_url else None
@@ -235,19 +235,19 @@ def _fmt_count(n: int) -> str:
 
 def _render_tweet_sync(display_name, username, raw_avatar, text,
                        timestamp_str, verified, counts, raw_image=None) -> io.BytesIO:
-    # Pre-calcul des wraps pour determiner la hauteur
+    # Pre-compute the wraps to determine the height
     f_name = _font(22, bold=True)
     f_user = _font(18, bold=False)
     f_body = _font(26, bold=False)
     f_meta = _font(15, bold=False)
 
-    # Crepe temp draw pour calculs textlength
+    # Temporary draw surface for textlength computations
     tmp = Image.new("RGB", (TW_W, 400), BG)
     td = ImageDraw.Draw(tmp)
 
     body_text = f'"{text}"' if text else '" "'
     body_lines = _wrap_text(body_text, f_body, TW_W - TW_PAD * 2, td)
-    # Limite a 10 lignes (truncate)
+    # Limit to 10 lines (truncate)
     if len(body_lines) > 10:
         body_lines = body_lines[:10]
         body_lines[-1] = body_lines[-1].rstrip() + "..."
@@ -255,11 +255,11 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
     line_h = 36
     header_h = TW_PAD + TW_AVATAR + 20
     body_h = len(body_lines) * line_h + 20
-    # Footer = timestamp ligne + separator + row d'actions
+    # Footer = timestamp line + separator + actions row
     footer_h = 28 + 18 + 38 + TW_PAD
 
-    # Image embed : resize a largeur = TW_W - 2*TW_PAD, garde ratio,
-    # cap hauteur a 500px (sinon trop grand pour un tweet card).
+    # Embedded image: resized to width = TW_W - 2*TW_PAD, keeps the ratio,
+    # height capped at 500px (otherwise too big for a tweet card).
     img_block_h = 0
     img_resized = None
     if raw_image:
@@ -269,11 +269,11 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
             ratio = target_w / img.width
             new_h = int(img.height * ratio)
             if new_h > 500:
-                # Cap : on garde le ratio mais on shrink en hauteur
+                # Cap: keep the ratio but shrink the height
                 new_h = 500
                 target_w = int(img.width * (new_h / img.height))
             img_resized = img.resize((target_w, new_h), Image.LANCZOS)
-            img_block_h = new_h + 16  # marge avant
+            img_block_h = new_h + 16  # margin before
         except Exception as _e:
             img_resized = None
             img_block_h = 0
@@ -283,7 +283,7 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
     base = Image.new("RGB", (TW_W, total_h), BG)
     draw = ImageDraw.Draw(base)
 
-    # === Header : avatar + name/user ===
+    # === Header: avatar + name/user ===
     avatar_img = None
     if raw_avatar:
         try:
@@ -311,11 +311,11 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
         draw.text((TW_PAD, body_y), line, font=f_body, fill=TEXT)
         body_y += line_h
 
-    # === Image embed (apres body) ===
+    # === Embedded image (after body) ===
     if img_resized is not None:
         img_y = header_h + body_h - 4
         img_x = TW_PAD
-        # Coins arrondis : applique un mask
+        # Rounded corners: apply a mask
         mask = Image.new("L", img_resized.size, 0)
         ImageDraw.Draw(mask).rounded_rectangle(
             (0, 0, img_resized.size[0], img_resized.size[1]),
@@ -323,7 +323,7 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
         )
         base.paste(img_resized.convert("RGB"), (img_x, img_y), mask)
 
-    # === Footer : timestamp ===
+    # === Footer: timestamp ===
     tsy = header_h + body_h + img_block_h + 4
     draw.text((TW_PAD, tsy),
               f"{timestamp_str} · TookBot",
@@ -334,14 +334,14 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
     draw.line((TW_PAD, sep_y, TW_W - TW_PAD, sep_y),
               fill=(38, 51, 64), width=1)
 
-    # === Row d'actions : reply / retweet / like / views / share ===
+    # === Actions row: reply / retweet / like / views / share ===
     icon_y = sep_y + 16
     action_specs = [
         ("reply",   counts.get("reply", 0)),
         ("retweet", counts.get("retweet", 0)),
         ("like",    counts.get("like", 0)),
         ("views",   counts.get("views", 0)),
-        ("share",   None),  # pas de count pour share
+        ("share",   None),  # no count for share
     ]
     n_actions = len(action_specs)
     icon_zone_w = TW_W - TW_PAD * 2
@@ -353,13 +353,13 @@ def _render_tweet_sync(display_name, username, raw_avatar, text,
         icon_x = col_cx - 30
         _draw_action_icon(draw, kind, icon_x, icon_y,
                            size=icon_size, color=TEXT_MUTED)
-        # Count a droite de l'icone
+        # Count to the right of the icon
         if n:
             label = _fmt_count(int(n))
             draw.text((icon_x + icon_size + 8, icon_y + 2),
                       label, font=f_count, fill=TEXT_MUTED)
 
-    # Mini logo X (haut a droite)
+    # Mini X logo (top right)
     x_size = 24
     x_x = TW_W - TW_PAD - x_size
     x_y = TW_PAD + 6

@@ -1,47 +1,47 @@
 {% extends "_base.html" %}
 {% set active_nav = 'settings' %}
 
-{% block title %}Réglages serveur · Bot Console{% endblock %}
-{% block crumb %}Réglages serveur{% endblock %}
+{% block title %}{{ t('web_core.settings.crumb') }} · Bot Console{% endblock %}
+{% block crumb %}{{ t('web_core.settings.crumb') }}{% endblock %}
 
 {% block content %}
 
 <div class="col gap-7">
   <div>
-    <h1>Réglages serveur</h1>
+    <h1>{{ t('web_core.settings.heading') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Configuration propre à ce serveur. Les modifications s'appliquent immédiatement sans redémarrer le bot.
+      {{ t('web_core.settings.subtitle') }}
     </p>
   </div>
 
   <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">XP messages</h2>
-    <p class="muted mb-4" style="font-size:var(--t-sm);">XP gagné aléatoirement à chaque message hors-bot sur ce serveur.</p>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_core.settings.xp_title') }}</h2>
+    <p class="muted mb-4" style="font-size:var(--t-sm);">{{ t('web_core.settings.xp_sub') }}</p>
     <div class="grid grid-2">
       <div class="field">
-        <label>XP minimum par message</label>
+        <label>{{ t('web_core.settings.xp_min') }}</label>
         <input type="number" id="xp_min" min="0" value="{{ settings.get('xp_min', defaults.get('xp_min', '1')) }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_min', '1') }}</small>
+        <small class="faint" style="font-size:11px;">{{ t('web_core.settings.default_value', value=defaults.get('xp_min', '1')) }}</small>
       </div>
       <div class="field">
-        <label>XP maximum par message</label>
+        <label>{{ t('web_core.settings.xp_max') }}</label>
         <input type="number" id="xp_max" min="0" value="{{ settings.get('xp_max', defaults.get('xp_max', '5')) }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_max', '5') }}</small>
+        <small class="faint" style="font-size:11px;">{{ t('web_core.settings.default_value', value=defaults.get('xp_max', '5')) }}</small>
       </div>
       <div class="field">
-        <label>Cooldown XP (secondes, 0 = aucun)</label>
+        <label>{{ t('web_core.settings.xp_cooldown') }}</label>
         <input type="number" id="xp_cooldown_seconds" min="0" value="{{ settings.get('xp_cooldown_seconds', defaults.get('xp_cooldown_seconds', '30')) }}">
-        <small class="faint" style="font-size:11px;">Défaut : {{ defaults.get('xp_cooldown_seconds', '30') }} s.</small>
+        <small class="faint" style="font-size:11px;">{{ t('web_core.settings.default_value_seconds', value=defaults.get('xp_cooldown_seconds', '30')) }}</small>
       </div>
     </div>
 
     <div style="margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--border);">
       <label style="display:block; font-weight:600; margin-bottom: var(--s-2);">
-        Courbe de difficulté (montée de niveau)
+        {{ t('web_core.settings.curve_label') }}
       </label>
       <p class="muted" style="font-size:var(--t-sm); margin-bottom: var(--s-3);">
-        Formule : <code>XP requise pour niveau L = L^exposant</code>.
-        Bas = montée facile (vite niveau 10). Haut = montée dure (chaque niveau coûte beaucoup plus).
+        {{ t('web_core.settings.curve_formula') | safe }}
+        {{ t('web_core.settings.curve_hint') }}
       </p>
       <div class="row gap-3" style="align-items: center;">
         <input type="range" id="xp_curve_exponent" min="2" max="8" step="0.1"
@@ -60,16 +60,16 @@
                        border:1px solid var(--border);"></canvas>
       </div>
       <div id="xpCurveTable" class="muted" style="font-size:12px; margin-top:var(--s-2); font-family:var(--font-mono);">
-        — Ajuste la courbe pour voir les exemples —
+        {{ t('web_core.settings.curve_placeholder') }}
       </div>
     </div>
   </div>
 
   <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">Message de bienvenue</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_core.settings.welcome_title') }}</h2>
     <p class="muted mb-4" style="font-size:var(--t-sm);">
-      Template par défaut utilisé si aucun message spécifique n'a été configuré via <code>/setwelcome</code>.<br>
-      Variables : <code>{user}</code> (mention), <code>{username}</code>, <code>{guild}</code>, <code>{count}</code> (nb membres).
+      {{ t('web_core.settings.welcome_sub') | safe }}<br>
+      {{ t('web_core.settings.welcome_vars') | safe }}
     </p>
     <div class="field">
       <textarea id="welcome_template" rows="4" style="font-family:var(--font-mono);font-size:13px;">{{ settings.get('welcome_template', defaults.get('welcome_template', '')) }}</textarea>
@@ -77,39 +77,38 @@
   </div>
 
   <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">Présentations</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_core.settings.presentations_title') }}</h2>
     <p class="muted mb-4" style="font-size:var(--t-sm);">
-      Active la commande <code>/presentation create</code> et choisis le salon où les présentations sont postées.
-      La commande ne fonctionne que dans ce salon.
+      {{ t('web_core.settings.presentations_sub') | safe }}
     </p>
     <div class="grid grid-2">
       <div class="field">
-        <label>Activer les présentations</label>
+        <label>{{ t('web_core.settings.presentations_enable') }}</label>
         <select id="presentation_enabled">
-          <option value="1">⭐ Activé</option>
-          <option value="0">⏸ Désactivé</option>
+          <option value="1">⭐ {{ t('web_core.common.enabled') }}</option>
+          <option value="0">⏸ {{ t('web_core.common.disabled') }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Salon des présentations</label>
-        <select id="presentation_channel_id"><option value="">— Choisir un salon —</option></select>
+        <label>{{ t('web_core.settings.presentations_channel') }}</label>
+        <select id="presentation_channel_id"><option value="">{{ t('web_core.settings.pick_channel') }}</option></select>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <h2>🃏 Cartes à collectionner</h2>
+    <h2>🃏 {{ t('web_core.settings.cards_title') }}</h2>
     <p class="muted" style="font-size:var(--t-sm);margin-bottom:12px;">
-      Salon où les commandes cartes (`/roll`, `/cardcollec`…) sont autorisées. Vide = autorisées partout. Équivalent de `/cardsetup`.
+      {{ t('web_core.settings.cards_sub') }}
     </p>
     <div class="grid grid-2">
       <div class="field">
-        <label>Salon des cartes</label>
-        <select id="cards_channel_id"><option value="">— Aucun (partout) —</option></select>
+        <label>{{ t('web_core.settings.cards_channel') }}</label>
+        <select id="cards_channel_id"><option value="">{{ t('web_core.settings.cards_channel_none') }}</option></select>
       </div>
       <div class="field" style="display:flex;align-items:flex-end;">
         <button class="btn btn-primary" onclick="saveCardsChannel()">
-          <svg class="ic"><use href="#i-check"/></svg> Enregistrer le salon cartes
+          <svg class="ic"><use href="#i-check"/></svg> {{ t('web_core.settings.save_cards_channel') }}
         </button>
       </div>
     </div>
@@ -117,9 +116,9 @@
   </div>
 
   <div class="row end gap-3">
-    <button class="btn btn-ghost" onclick="resetDefaults()">Restaurer les défauts</button>
+    <button class="btn btn-ghost" onclick="resetDefaults()">{{ t('web_core.settings.restore_defaults') }}</button>
     <button class="btn btn-primary" onclick="saveSettings()">
-      <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+      <svg class="ic"><use href="#i-check"/></svg> {{ t('web_core.common.save') }}
     </button>
   </div>
 </div>
@@ -184,9 +183,9 @@ async function saveCardsChannel() {
     });
     const d = await res.json();
     if (d.success) {
-      const msg = d.channel_id ? 'Salon cartes défini.' : 'Restriction retirée (cartes autorisées partout).';
+      const msg = d.channel_id ? 'Cards channel set.' : 'Restriction removed (cards allowed everywhere).';
       toast(msg); if (hint) hint.textContent = '✅ ' + msg;
-    } else toast(d.error || 'Erreur', 'error');
+    } else toast(d.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.saveCardsChannel = saveCardsChannel;
@@ -204,14 +203,14 @@ async function saveSettings() {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.success) toast('Réglages enregistrés (' + data.updated.length + ' modifié' + (data.updated.length > 1 ? 's' : '') + ').');
-    else toast(data.error || 'Erreur', 'error');
+    if (data.success) toast('Settings saved (' + data.updated.length + ' change' + (data.updated.length > 1 ? 's' : '') + ').');
+    else toast(data.error || 'Error', 'error');
   } catch (e) { toast(e.message, 'error'); }
 }
 window.saveSettings = saveSettings;
 
 function resetDefaults() {
-  if (!confirm('Restaurer les valeurs par défaut ?')) return;
+  if (!confirm('Restore default values?')) return;
   for (const f of FIELDS) {
     const el = document.getElementById(f);
     if (el && f in DEFAULTS) el.value = DEFAULTS[f];
@@ -220,7 +219,7 @@ function resetDefaults() {
   const rangeEl = document.getElementById('xp_curve_exponent');
   if (numEl && rangeEl) numEl.value = rangeEl.value;
   updateCurvePreview();
-  toast('Valeurs restaurées — clique Enregistrer pour appliquer.');
+  toast('Defaults restored — click Save to apply.');
 }
 window.resetDefaults = resetDefaults;
 
@@ -238,7 +237,7 @@ function syncCurveNum() {
 window.syncCurveNum = syncCurveNum;
 
 function fmtXp(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' Md';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' B';
   if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
   if (n >= 1e3) return (n / 1e3).toFixed(1) + ' k';
   return String(Math.round(n));
@@ -257,16 +256,16 @@ function updateCurvePreview() {
     const levels = [5, 10, 20, 30, 50];
     const parts = levels.map(L => {
       const xp = Math.pow(L, e);
-      return `niveau ${L} = ${fmtXp(xp)} XP`;
+      return `level ${L} = ${fmtXp(xp)} XP`;
     });
     let qual;
-    if (e <= 2.5) qual = 'très facile';
-    else if (e <= 3.5) qual = 'facile';
-    else if (e <= 4.5) qual = 'modéré';
-    else if (e <= 5.5) qual = 'normal (défaut)';
-    else if (e <= 6.5) qual = 'difficile';
-    else qual = 'très difficile';
-    tableEl.innerHTML = `<strong>Exposant ${e.toFixed(1)} (${qual})</strong> · ` + parts.join(' · ');
+    if (e <= 2.5) qual = 'very easy';
+    else if (e <= 3.5) qual = 'easy';
+    else if (e <= 4.5) qual = 'moderate';
+    else if (e <= 5.5) qual = 'normal (default)';
+    else if (e <= 6.5) qual = 'hard';
+    else qual = 'very hard';
+    tableEl.innerHTML = `<strong>Exponent ${e.toFixed(1)} (${qual})</strong> · ` + parts.join(' · ');
   }
 
   // Canvas : courbe XP cumulée pour niveaux 0..50

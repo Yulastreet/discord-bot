@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'analytics' %}
 
-{% block title %}Analytics serveur · Bot Console{% endblock %}
-{% block crumb %}Analytics serveur{% endblock %}
+{% block title %}{{ t('web_features.analytics.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.analytics.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -111,125 +111,124 @@
 
 <div class="col gap-7">
   <div>
-    <h1>Analytics serveur</h1>
+    <h1>{{ t('web_features.analytics.title') }}</h1>
     <p class="muted mt-2" style="font-size: var(--t-sm); max-width: 60ch;">
-      Statistiques en temps réel sur l'activité de ce serveur.
-      Les données sont calculées à partir des logs depuis le moment où TookBot a été invité.
+      {{ t('web_features.analytics.subtitle') }}
     </p>
   </div>
 
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-label">Activité aujourd'hui</div>
+      <div class="stat-label">{{ t('web_features.analytics.stat_today') }}</div>
       <div class="stat-value" id="statToday">—</div>
       <div class="stat-delta" id="statTodayDelta"></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Activité 7 jours</div>
+      <div class="stat-label">{{ t('web_features.analytics.stat_7d') }}</div>
       <div class="stat-value" id="stat7d">—</div>
-      <div class="stat-delta">événements totaux</div>
+      <div class="stat-delta">{{ t('web_features.analytics.total_events') }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Activité 30 jours</div>
+      <div class="stat-label">{{ t('web_features.analytics.stat_30d') }}</div>
       <div class="stat-value" id="stat30d">—</div>
-      <div class="stat-delta">événements totaux</div>
+      <div class="stat-delta">{{ t('web_features.analytics.total_events') }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Utilisateurs actifs (7j)</div>
+      <div class="stat-label">{{ t('web_features.analytics.stat_active_users') }}</div>
       <div class="stat-value" id="statUsers">—</div>
-      <div class="stat-delta">distincts</div>
+      <div class="stat-delta">{{ t('web_features.analytics.distinct') }}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Membres rejoint (7j)</div>
+      <div class="stat-label">{{ t('web_features.analytics.stat_joins') }}</div>
       <div class="stat-value" id="statJoins">—</div>
       <div class="stat-delta" id="statJoinsDelta"></div>
     </div>
   </div>
 
   <div class="chart-card">
-    <h2>Activité par jour</h2>
-    <div class="sub">Événements (commandes + messages + actions) sur la période sélectionnée.</div>
+    <h2>{{ t('web_features.analytics.chart_daily_title') }}</h2>
+    <div class="sub">{{ t('web_features.analytics.chart_daily_sub') }}</div>
     <div class="range-tabs">
-      <button class="range-tab" data-range="7">7 j</button>
-      <button class="range-tab active" data-range="30">30 j</button>
-      <button class="range-tab" data-range="90">90 j</button>
+      <button class="range-tab" data-range="7">{{ t('web_features.analytics.range_7d') }}</button>
+      <button class="range-tab active" data-range="30">{{ t('web_features.analytics.range_30d') }}</button>
+      <button class="range-tab" data-range="90">{{ t('web_features.analytics.range_90d') }}</button>
     </div>
     <canvas id="msgChart"></canvas>
   </div>
 
   <div class="chart-card">
-    <h2>Croissance membres</h2>
-    <div class="sub">Joins, leaves et solde cumulé sur la période. Compté depuis l'installation du bot.</div>
+    <h2>{{ t('web_features.analytics.chart_growth_title') }}</h2>
+    <div class="sub">{{ t('web_features.analytics.chart_growth_sub') }}</div>
     <canvas id="growthChart"></canvas>
   </div>
 
   <div class="chart-card">
-    <h2>Heatmap d'activité</h2>
-    <div class="sub">Activité moyenne par heure et jour de la semaine (4 dernières semaines). Plus c'est vert vif, plus il y a d'activité.</div>
+    <h2>{{ t('web_features.analytics.heatmap_title') }}</h2>
+    <div class="sub">{{ t('web_features.analytics.heatmap_sub') }}</div>
     <div class="heatmap-wrap"><div class="heatmap" id="heatmap"></div></div>
   </div>
 
   <div class="two-col">
     <div class="chart-card">
-      <h2>Top commandes (30j)</h2>
-      <div class="sub">Commandes slash les plus utilisées sur ce serveur.</div>
-      <ul class="top-list" id="topCommands"><li class="muted">Chargement…</li></ul>
+      <h2>{{ t('web_features.analytics.top_commands_title') }}</h2>
+      <div class="sub">{{ t('web_features.analytics.top_commands_sub') }}</div>
+      <ul class="top-list" id="topCommands"><li class="muted">{{ t('web_features.analytics.loading') }}</li></ul>
     </div>
     <div class="chart-card">
-      <h2>Top utilisateurs actifs (30j)</h2>
-      <div class="sub">Membres avec le plus d'événements loggés.</div>
-      <ul class="top-list" id="topUsers"><li class="muted">Chargement…</li></ul>
+      <h2>{{ t('web_features.analytics.top_users_title') }}</h2>
+      <div class="sub">{{ t('web_features.analytics.top_users_sub') }}</div>
+      <ul class="top-list" id="topUsers"><li class="muted">{{ t('web_features.analytics.loading') }}</li></ul>
     </div>
   </div>
 
   <!-- ====== Insights TookBot+ Premium ====== -->
   <div class="chart-card" id="premiumInsights" style="position:relative;">
     <h2>
-      ✦ Insights TookBot+
+      {{ t('web_features.analytics.insights_title') }}
       {% if is_tookbot_plus %}
-      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:oklch(0.86 0.20 130 / 0.18);color:oklch(0.86 0.20 130);margin-left:8px;vertical-align:middle;">ACTIF</span>
+      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:oklch(0.86 0.20 130 / 0.18);color:oklch(0.86 0.20 130);margin-left:8px;vertical-align:middle;">{{ t('web_features.analytics.badge_active') }}</span>
       {% else %}
-      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,166,38,.18);color:#ffa726;margin-left:8px;vertical-align:middle;">PREMIUM</span>
+      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,166,38,.18);color:#ffa726;margin-left:8px;vertical-align:middle;">{{ t('web_features.analytics.badge_premium') }}</span>
       {% endif %}
     </h2>
-    <div class="sub">Exports CSV des données brutes + rétention par cohort hebdomadaire.</div>
+    <div class="sub">{{ t('web_features.analytics.insights_sub') }}</div>
 
     <!-- Exports CSV -->
     <div class="row gap-3" style="margin: var(--s-4) 0;flex-wrap:wrap;">
       <a class="btn btn-secondary {% if not is_tookbot_plus %}disabled{% endif %}"
          href="{% if is_tookbot_plus %}/api/analytics/export/events.csv?days=90{% else %}#{% endif %}"
          download>
-        ⬇ Events 90j (CSV)
+        {{ t('web_features.analytics.export_events') }}
       </a>
       <a class="btn btn-secondary {% if not is_tookbot_plus %}disabled{% endif %}"
          href="{% if is_tookbot_plus %}/api/analytics/export/top-commands.csv?days=90{% else %}#{% endif %}"
          download>
-        ⬇ Top commandes 90j
+        {{ t('web_features.analytics.export_top_commands') }}
       </a>
       <a class="btn btn-secondary {% if not is_tookbot_plus %}disabled{% endif %}"
          href="{% if is_tookbot_plus %}/api/analytics/export/top-users.csv?days=90{% else %}#{% endif %}"
          download>
-        ⬇ Top users 90j
+        {{ t('web_features.analytics.export_top_users') }}
       </a>
     </div>
 
     <!-- Cohort retention table -->
-    <h3 style="margin-top: var(--s-5);font-size:14px;font-weight:700;">Rétention par cohort (12 dernières semaines)</h3>
-    <div class="sub">% des membres encore actifs N semaines après leur arrivée.</div>
+    <h3 style="margin-top: var(--s-5);font-size:14px;font-weight:700;">{{ t('web_features.analytics.cohort_title') }}</h3>
+    <div class="sub">{{ t('web_features.analytics.cohort_sub') }}</div>
     <div id="cohortTable" style="margin-top: var(--s-3);overflow-x:auto;font-size:12px;">
-      <div class="muted" style="padding:24px;text-align:center;">{% if is_tookbot_plus %}Chargement…{% else %}Premium requis.{% endif %}</div>
+      <div class="muted" style="padding:24px;text-align:center;">{% if is_tookbot_plus %}{{ t('web_features.analytics.loading') }}{% else %}{{ t('web_features.analytics.premium_required') }}{% endif %}</div>
     </div>
 
     {% if not is_tookbot_plus %}
-    <!-- Paywall overlay (semi-transparent, n'empeche pas de voir la structure) -->
+    <!-- Paywall overlay (semi-transparent, keeps the structure visible) -->
     <div style="position:absolute;inset:0;backdrop-filter:blur(2px);background:rgba(0,0,0,.45);border-radius:var(--r-3);display:grid;place-items:center;text-align:center;padding:24px;">
       <div>
         <div style="font-size:28px;margin-bottom:8px;">✦</div>
-        <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Feature TookBot+ uniquement</div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:8px;">{{ t('web_features.analytics.paywall_title') }}</div>
         <div class="muted" style="font-size:13px;max-width:380px;margin:0 auto 14px;">
-          Exports CSV et cohort retention sont réservés aux abonnés TookBot+.
+          {{ t('web_features.analytics.paywall_text') }}
         </div>
-        <a class="btn btn-primary" href="/subscription">Voir les offres</a>
+        <a class="btn btn-primary" href="/subscription">{{ t('web_features.analytics.paywall_cta') }}</a>
       </div>
     </div>
     {% endif %}
@@ -246,7 +245,7 @@ const RED         = 'oklch(0.72 0.22 25)';
 const TXT_MUTED   = 'oklch(0.62 0.02 240)';
 
 function fmtNum(n) {
-  return Number(n || 0).toLocaleString('fr-FR');
+  return Number(n || 0).toLocaleString('en-US');
 }
 
 async function loadOverview() {
@@ -265,7 +264,7 @@ async function loadOverview() {
     if (yest > 0) {
       const pct = ((today - yest) / yest * 100);
       const sign = pct >= 0 ? '+' : '';
-      deltaEl.textContent = `${sign}${pct.toFixed(0)} % vs hier`;
+      deltaEl.textContent = `${sign}${pct.toFixed(0)}% vs yesterday`;
       deltaEl.className = 'stat-delta ' + (pct >= 0 ? 'up' : 'down');
     } else {
       deltaEl.textContent = '—';
@@ -273,7 +272,7 @@ async function loadOverview() {
     // delta joins vs leaves
     const joinsDelta = document.getElementById('statJoinsDelta');
     const net = (d.new_members_7d || 0) - (d.left_members_7d || 0);
-    joinsDelta.textContent = `solde net : ${net >= 0 ? '+' : ''}${net}`;
+    joinsDelta.textContent = `net: ${net >= 0 ? '+' : ''}${net}`;
     joinsDelta.className = 'stat-delta ' + (net >= 0 ? 'up' : 'down');
   } catch (e) {
     console.error('overview err', e);
@@ -294,7 +293,7 @@ async function loadMsgChart(days = 30) {
       data: {
         labels,
         datasets: [{
-          label: 'Activité',
+          label: 'Activity',
           data,
           borderColor: ACCENT,
           backgroundColor: ACCENT_FILL,
@@ -325,7 +324,7 @@ async function loadGrowthChart(days = 30) {
     const d = await r.json();
     const labels = d.series.map(p => p.date.slice(5));
     const joins  = d.series.map(p => p.joins);
-    const leaves = d.series.map(p => -p.leaves); // negatif pour visualiser dessous
+    const leaves = d.series.map(p => -p.leaves); // negative so it renders below the axis
     const net    = d.series.map(p => p.net_cumulative);
     const ctx = document.getElementById('growthChart').getContext('2d');
     if (growthChart) growthChart.destroy();
@@ -335,7 +334,7 @@ async function loadGrowthChart(days = 30) {
         datasets: [
           { type: 'bar', label: 'Joins',  data: joins,  backgroundColor: ACCENT, borderRadius: 3 },
           { type: 'bar', label: 'Leaves', data: leaves, backgroundColor: RED,    borderRadius: 3 },
-          { type: 'line', label: 'Net cumulé', data: net,
+          { type: 'line', label: 'Net cumulative', data: net,
             borderColor: '#ffd166', backgroundColor: 'rgba(255,209,102,0.2)',
             borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1' },
         ],
@@ -361,7 +360,7 @@ async function loadHeatmap() {
     const mat = d.matrix; // 7 (0=Mon) x 24
     let max = 1;
     for (const row of mat) for (const v of row) if (v > max) max = v;
-    const days = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     const wrap = document.getElementById('heatmap');
     let html = '<div class="label"></div>';
     for (let h = 0; h < 24; h++) html += `<div class="label">${h}h</div>`;
@@ -370,7 +369,7 @@ async function loadHeatmap() {
       for (let h = 0; h < 24; h++) {
         const v = mat[i][h];
         const a = v === 0 ? 0.04 : (0.1 + 0.85 * (v / max));
-        html += `<div class="cell" style="background:oklch(0.86 0.20 130 / ${a.toFixed(2)});" title="${days[i]} ${h}h : ${v}"></div>`;
+        html += `<div class="cell" style="background:oklch(0.86 0.20 130 / ${a.toFixed(2)});" title="${days[i]} ${h}h: ${v}"></div>`;
       }
     }
     wrap.innerHTML = html;
@@ -383,7 +382,7 @@ async function loadTopCommands() {
     const d = await r.json();
     const ul = document.getElementById('topCommands');
     if (!d.rows || !d.rows.length) {
-      ul.innerHTML = '<li class="muted">Aucune commande utilisée sur 30j.</li>';
+      ul.innerHTML = '<li class="muted">No commands used in the last 30 days.</li>';
       return;
     }
     ul.innerHTML = d.rows.map((r, i) => `
@@ -402,7 +401,7 @@ async function loadTopUsers() {
     const d = await r.json();
     const ul = document.getElementById('topUsers');
     if (!d.rows || !d.rows.length) {
-      ul.innerHTML = '<li class="muted">Aucun utilisateur actif sur 30j.</li>';
+      ul.innerHTML = '<li class="muted">No active users in the last 30 days.</li>';
       return;
     }
     ul.innerHTML = d.rows.map((r, i) => `
@@ -415,7 +414,7 @@ async function loadTopUsers() {
   } catch (e) { console.error('top users err', e); }
 }
 
-// Range tabs pour le chart msg/day
+// Range tabs for the msg/day chart
 document.querySelectorAll('.range-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.range-tab').forEach(o => o.classList.remove('active'));
@@ -432,13 +431,13 @@ async function loadCohortRetention() {
   try {
     const r = await fetch('/api/analytics/cohort-retention?weeks=12');
     if (r.status === 402) {
-      tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Premium requis.</div>';
+      tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Premium required.</div>';
       return;
     }
     const d = await r.json();
     const cohorts = d.cohorts || [];
     if (!cohorts.length) {
-      tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Pas assez de données de join pour calculer la rétention.</div>';
+      tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Not enough join data to compute retention.</div>';
       return;
     }
     // Determine max number of week offsets
@@ -468,7 +467,7 @@ async function loadCohortRetention() {
     html += '</tbody></table>';
     tbl.innerHTML = html;
   } catch (e) {
-    tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Erreur : ' + e.message + '</div>';
+    tbl.innerHTML = '<div class="muted" style="padding:24px;text-align:center;">Error: ' + e.message + '</div>';
   }
 }
 

@@ -25,39 +25,39 @@
   <div>
     <h1>🎨 Cards Cosmetics</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:64ch;">
-      Tous les cosmétiques (bordures). Donne ou retire des copies à un joueur par son ID Discord.
-      Une bordure en stock s'applique via <code>/cardcustom</code> (consommée à l'usage).
+      {{ t('web_cards.owner_cosmetics.intro_1') }}
+      {{ t('web_cards.owner_cosmetics.intro_2') }} <code>/cardcustom</code> {{ t('web_cards.owner_cosmetics.intro_3') }}
     </p>
   </div>
 
   <!-- Give / Remove -->
   <div class="cm-section cm-give">
-    <h3>🎁 Donner / Retirer</h3>
+    <h3>{{ t('web_cards.owner_cosmetics.give_remove') }}</h3>
     <div class="row">
-      <label>User ID Discord
-        <input id="cmUser" type="text" placeholder="ex: 123456789012345678" style="min-width:240px;">
+      <label>{{ t('web_cards.owner_cosmetics.user_id') }}
+        <input id="cmUser" type="text" placeholder="{{ t('web_cards.owner_cosmetics.user_id_ph') }}" style="min-width:240px;">
       </label>
-      <label>Bordure
+      <label>{{ t('web_cards.owner_cosmetics.border') }}
         <select id="cmBorder"></select>
       </label>
-      <label>Quantité
+      <label>{{ t('web_cards.owner_cosmetics.qty') }}
         <input id="cmQty" type="number" value="1" min="1" max="100" style="width:90px;">
       </label>
-      <button class="btn btn-primary" onclick="cmGive()">🎁 Donner</button>
-      <button class="btn btn-danger" onclick="cmRemove(false)">➖ Retirer</button>
-      <button class="btn btn-secondary" onclick="cmRemove(true)">🗑 Tout retirer</button>
+      <button class="btn btn-primary" onclick="cmGive()">{{ t('web_cards.owner_cosmetics.btn_give') }}</button>
+      <button class="btn btn-danger" onclick="cmRemove(false)">{{ t('web_cards.owner_cosmetics.btn_remove') }}</button>
+      <button class="btn btn-secondary" onclick="cmRemove(true)">{{ t('web_cards.owner_cosmetics.btn_remove_all') }}</button>
     </div>
     <span id="cmHint" class="muted" style="font-size:12px;"></span>
     <div style="margin-top:10px;">
-      <button class="btn btn-secondary" onclick="cmLoadUser()" style="font-size:12px;padding:5px 10px;">👁 Voir l'inventaire de cet user</button>
+      <button class="btn btn-secondary" onclick="cmLoadUser()" style="font-size:12px;padding:5px 10px;">{{ t('web_cards.owner_cosmetics.view_inv') }}</button>
       <div id="cmUserInv" class="userinv" style="margin-top:8px;"></div>
     </div>
   </div>
 
   <!-- Catalogue -->
   <div class="cm-section">
-    <h3>🖼 Catalogue cosmétiques</h3>
-    <div id="cmGrid" class="cm-grid"><div class="muted">Chargement…</div></div>
+    <h3>{{ t('web_cards.owner_cosmetics.catalog') }}</h3>
+    <div id="cmGrid" class="cm-grid"><div class="muted">{{ t('web_cards.owner_cosmetics.loading') }}</div></div>
   </div>
 </div>
 {% endblock %}
@@ -79,7 +79,7 @@ async function loadCosmetics(){
       <img src="${b.preview_url}" onerror="this.style.display='none'">
       <div class="nm">${esc(b.name)}</div>
       <div class="k">key: <code>${esc(b.border_key)}</code></div>
-      <div class="k">📦 ${b.stock_total} en stock · 🃏 ${b.equipped_total} équipées</div>
+      <div class="k">📦 ${b.stock_total} in stock · 🃏 ${b.equipped_total} equipped</div>
     </div>`).join('');
 }
 
@@ -90,11 +90,11 @@ async function cmGive(){
     qty: parseInt(document.getElementById('cmQty').value,10)||1,
   };
   const hint = document.getElementById('cmHint');
-  if(!payload.user_id){ hint.textContent='User ID requis.'; return; }
+  if(!payload.user_id){ hint.textContent='User ID required.'; return; }
   hint.textContent='…';
   const r = await fetch('/api/owner/cosmetics/give', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d = await r.json();
-  hint.textContent = d.ok ? `✅ ${d.given} copie(s) donnée(s).` : ('❌ '+(d.error||'?'));
+  hint.textContent = d.ok ? `✅ ${d.given} copy/copies given.` : ('❌ '+(d.error||'?'));
   if(d.ok){ loadCosmetics(); cmLoadUser(); }
 }
 window.cmGive=cmGive;
@@ -107,12 +107,12 @@ async function cmRemove(all){
     all: !!all,
   };
   const hint = document.getElementById('cmHint');
-  if(!payload.user_id){ hint.textContent='User ID requis.'; return; }
-  if(all && !confirm('Retirer TOUTES les copies de cette bordure à cet user ?')) return;
+  if(!payload.user_id){ hint.textContent='User ID required.'; return; }
+  if(all && !confirm('Remove ALL copies of this border from this user?')) return;
   hint.textContent='…';
   const r = await fetch('/api/owner/cosmetics/remove', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d = await r.json();
-  hint.textContent = d.ok ? '✅ Retiré.' : ('❌ '+(d.error||'?'));
+  hint.textContent = d.ok ? '✅ Removed.' : ('❌ '+(d.error||'?'));
   if(d.ok){ loadCosmetics(); cmLoadUser(); }
 }
 window.cmRemove=cmRemove;
@@ -125,8 +125,8 @@ async function cmLoadUser(){
   const d = await r.json();
   const inv = d.inventory || [];
   const eq = d.equipped || [];
-  let html = '<b>Stock :</b> ' + (inv.length ? inv.map(b=>`<span class="tag">${esc(b.name)} ×${b.qty}</span>`).join('') : '<span class="muted">vide</span>');
-  html += '<br><b>Équipées :</b> ' + (eq.length ? eq.map(e=>`<span class="tag">${esc(e.border_name||e.border_key)} → ${esc(e.card_name||('#'+e.card_id))}</span>`).join('') : '<span class="muted">aucune</span>');
+  let html = '<b>Stock:</b> ' + (inv.length ? inv.map(b=>`<span class="tag">${esc(b.name)} ×${b.qty}</span>`).join('') : '<span class="muted">empty</span>');
+  html += '<br><b>Equipped:</b> ' + (eq.length ? eq.map(e=>`<span class="tag">${esc(e.border_name||e.border_key)} → ${esc(e.card_name||('#'+e.card_id))}</span>`).join('') : '<span class="muted">none</span>');
   box.innerHTML = html;
 }
 window.cmLoadUser=cmLoadUser;

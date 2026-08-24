@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="{{ current_locale() }}" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/static/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicon-180.png">
-  <title>Choisir un serveur · TookBot</title>
+  <title>{{ t('web_core.select_guild.page_title') }} · TookBot</title>
   <script>
     (function(){
       try {
@@ -155,34 +155,34 @@
       <div><b>TookBot</b><span>Bot Console</span></div>
     </div>
     <a href="/general" class="btn btn-primary">
-      <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
+      <svg class="ic"><use href="#i-globe"/></svg> {{ t('web_core.nav.overview') }}
     </a>
     {% if discord_user and discord_user.avatar %}
     <div class="me"><img src="{{ discord_user.avatar }}" alt="">{{ discord_user.username }}</div>
     {% endif %}
-    <a href="/logout" class="btn btn-ghost">Déconnexion</a>
+    <a href="/logout" class="btn btn-ghost">{{ t('web_core.nav.logout') }}</a>
   </nav>
 
   <div class="wrap">
     <div class="page-head">
-      <h1>Choisis un serveur</h1>
-      <p>Le tableau de bord est cadré sur un serveur Discord à la fois (sauf la vue d'ensemble cross-serveur).</p>
+      <h1>{{ t('web_core.select_guild.heading') }}</h1>
+      <p>{{ t('web_core.select_guild.subtitle') }}</p>
     </div>
 
     {% if guilds or invitable %}
     <div class="toolbar">
       <label class="tb-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="q" type="search" placeholder="Rechercher un serveur…" oninput="filterGuilds()" autocomplete="off">
+        <input id="q" type="search" placeholder="{{ t('web_core.select_guild.search_placeholder') }}" oninput="filterGuilds()" autocomplete="off">
       </label>
     </div>
     {% endif %}
 
     {# ===== Serveurs avec le bot -> acces direct dashboard ===== #}
     <div class="section-title">
-      🟢 Serveurs avec TookBot
+      🟢 {{ t('web_core.select_guild.with_bot') }}
       <span class="badge" id="cnt-active">{{ guilds|length }}</span>
-      <span class="hint">— clique pour ouvrir le dashboard</span>
+      <span class="hint">{{ t('web_core.select_guild.with_bot_hint') }}</span>
     </div>
     {% if guilds %}
     <form method="POST" id="pickerForm">
@@ -193,10 +193,10 @@
           {% if gd.icon_url %}<img class="gc-icon" src="{{ gd.icon_url }}" alt="">
           {% else %}<div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>{% endif %}
           <div class="gc-info">
-            <span class="gc-name">{{ gd.name or 'Serveur' }}</span>
+            <span class="gc-name">{{ gd.name or t('web_core.select_guild.server') }}</span>
             <span class="gc-meta">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              {{ gd.member_count }} membres
+              {{ t('web_core.select_guild.members', count=gd.member_count) }}
               {% if gd.owner_name %} · 👑 {{ gd.owner_name }}{% endif %}
             </span>
             <span class="gc-id">{{ gd.guild_id }}</span>
@@ -207,15 +207,15 @@
       </div>
     </form>
     {% else %}
-    <div class="empty">Le bot n'est sur aucun de tes serveurs gérables. Ajoute-le ci-dessous.</div>
+    <div class="empty">{{ t('web_core.select_guild.none_with_bot') }}</div>
     {% endif %}
 
     {# ===== Serveurs sans le bot -> bouton ajouter ===== #}
     {% if invitable %}
     <div class="section-title">
-      ➕ Ajouter TookBot
+      ➕ {{ t('web_core.select_guild.add_bot') }}
       <span class="badge" id="cnt-invite">{{ invitable|length }}</span>
-      <span class="hint">— tes serveurs où le bot n'est pas encore</span>
+      <span class="hint">{{ t('web_core.select_guild.add_bot_hint') }}</span>
     </div>
     <div class="guild-grid" id="grid-invite">
       {% for gd in invitable %}
@@ -224,21 +224,21 @@
           {% if gd.icon_url %}<img class="gc-icon" src="{{ gd.icon_url }}" alt="">
           {% else %}<div class="gc-icon">{{ gd.name[0]|upper if gd.name else '?' }}</div>{% endif %}
           <div class="gc-info">
-            <span class="gc-name">{{ gd.name or 'Serveur' }}</span>
-            <span class="gc-meta">Non configuré</span>
+            <span class="gc-name">{{ gd.name or t('web_core.select_guild.server') }}</span>
+            <span class="gc-meta">{{ t('web_core.select_guild.not_configured') }}</span>
           </div>
         </div>
         <a class="btn-add" target="_blank" rel="noopener"
            href="https://discord.com/oauth2/authorize?client_id={{ client_id }}&permissions=1101952052310&scope=bot+applications.commands&guild_id={{ gd.guild_id }}&disable_guild_select=true">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-          Ajouter au serveur
+          {{ t('web_core.select_guild.add_to_server') }}
         </a>
       </div>
       {% endfor %}
     </div>
     {% endif %}
 
-    <div id="noresult" hidden>Aucun serveur ne correspond à ta recherche.</div>
+    <div id="noresult" hidden>{{ t('web_core.select_guild.no_match') }}</div>
   </div>
 
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">

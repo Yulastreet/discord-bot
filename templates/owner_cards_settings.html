@@ -18,25 +18,25 @@
 </style>
 
 <div class="cs-section">
-  <h3>⚙️ Réglages des cartes</h3>
-  <p class="sub">Paramètres globaux du système de cartes.</p>
+  <h3>{{ t('web_cards.owner_settings.title') }}</h3>
+  <p class="sub">{{ t('web_cards.owner_settings.sub') }}</p>
 
   <div class="cs-field">
-    <label>Âge minimum d'un serveur pour autoriser <code>/roll</code> (jours)
-      <span class="cs-hint">— anti-farm par serveurs jetables. 0 = désactivé.</span></label>
+    <label>{{ t('web_cards.owner_settings.min_age_1') }} <code>/roll</code> {{ t('web_cards.owner_settings.min_age_2') }}
+      <span class="cs-hint">{{ t('web_cards.owner_settings.min_age_hint') }}</span></label>
     <input id="csRollAge" type="number" min="0" max="3650" value="7" class="input">
-    <div class="cs-hint">Un serveur doit exister depuis ce nombre de jours (âge réel Discord) avant que ses membres puissent roll. Owner et serveur support toujours exemptés.</div>
+    <div class="cs-hint">{{ t('web_cards.owner_settings.min_age_help') }}</div>
     <div id="csEnvWarn" class="cs-warn" style="display:none;"></div>
   </div>
 
   <div class="cs-field">
-    <label>Nb max de serveurs "solo" par compte pour <code>/roll</code>
-      <span class="cs-hint">— serveur où le joueur est seul avec le bot. 0 = désactivé.</span></label>
+    <label>{{ t('web_cards.owner_settings.max_solo_1') }} <code>/roll</code>
+      <span class="cs-hint">{{ t('web_cards.owner_settings.max_solo_hint') }}</span></label>
     <input id="csMaxSolo" type="number" min="0" max="1000" value="2" class="input">
-    <div class="cs-hint">Un compte peut roll dans au maximum ce nombre de serveurs où il est seul avec le bot (que des bots à part lui). Au-delà, <code>/roll</code> est bloqué sur tout nouveau serveur solo. Anti faux-serveurs.</div>
+    <div class="cs-hint">{{ t('web_cards.owner_settings.max_solo_help_1') }} <code>/roll</code> {{ t('web_cards.owner_settings.max_solo_help_2') }}</div>
   </div>
 
-  <button class="btn btn-primary" onclick="csSave()">💾 Enregistrer</button>
+  <button class="btn btn-primary" onclick="csSave()">{{ t('web_cards.owner_settings.btn_save') }}</button>
   <div id="csResult" class="muted"></div>
 </div>
 
@@ -50,24 +50,24 @@ async function csLoad(){
     if (d.env_override != null && d.env_override !== '') {
       const w = document.getElementById('csEnvWarn');
       w.style.display = 'block';
-      w.textContent = `⚠️ La variable d'env ROLL_MIN_GUILD_AGE_DAYS=${d.env_override} est définie et a la priorité sur ce réglage.`;
+      w.textContent = `⚠️ The env variable ROLL_MIN_GUILD_AGE_DAYS=${d.env_override} is set and takes priority over this setting.`;
     }
-  } catch(e) { document.getElementById('csResult').textContent = 'Erreur de chargement : ' + e.message; }
+  } catch(e) { document.getElementById('csResult').textContent = 'Loading error: ' + e.message; }
 }
 async function csSave(){
   const days = parseInt(document.getElementById('csRollAge').value, 10);
   const solo = parseInt(document.getElementById('csMaxSolo').value, 10);
   const res = document.getElementById('csResult');
-  res.textContent = 'Enregistrement…';
+  res.textContent = 'Saving…';
   try {
     const r = await fetch('/api/owner/cards-settings', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({roll_min_guild_age_days: days, roll_max_solo_guilds: solo}),
     });
     const d = await r.json();
-    if (d.ok) res.innerHTML = `✅ Enregistré : âge min <b>${d.roll_min_guild_age_days}</b> j · max serveurs solo <b>${d.roll_max_solo_guilds}</b>.`;
-    else res.textContent = `❌ ${d.error || 'Erreur'}`;
-  } catch(e) { res.textContent = 'Erreur : ' + e.message; }
+    if (d.ok) res.innerHTML = `✅ Saved: min age <b>${d.roll_min_guild_age_days}</b> d · max solo servers <b>${d.roll_max_solo_guilds}</b>.`;
+    else res.textContent = `❌ ${d.error || 'Error'}`;
+  } catch(e) { res.textContent = 'Error: ' + e.message; }
 }
 window.csSave = csSave;
 csLoad();

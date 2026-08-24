@@ -9,25 +9,25 @@ def register_public_stats_routes(app, deps):
     globals().update(deps)
     @app.route("/api/public-stats", methods=["GET"])
     def api_public_stats():
-        """Stats publiques affichees sur la landing tookbot.click.
+        """Public stats displayed on the tookbot.click landing page.
 
-        Pas d'auth, CORS ouvert pour permettre le fetch cross-origin
-        (apex tookbot.click -> dashboard.tookbot.click). Cache server-side
-        1h pour limiter la charge DB.
+        No auth, open CORS so the cross-origin fetch works
+        (apex tookbot.click -> dashboard.tookbot.click). Server-side cache
+        of 1h to keep the DB load low.
         """
         now = _time.time()
         if _PUBLIC_STATS_CACHE["data"] and _PUBLIC_STATS_CACHE["expires"] > now:
             data = _PUBLIC_STATS_CACHE["data"]
         else:
             db = get_db()
-            # Serveurs actuels (active=1, bot encore present)
+            # Current guilds (active=1, bot still present)
             try:
                 guild_count = db.execute(
                     "SELECT COUNT(*) AS n FROM guilds WHERE active = 1"
                 ).fetchone()["n"]
             except Exception:
                 guild_count = db.execute("SELECT COUNT(*) AS n FROM guilds").fetchone()["n"]
-            # Membres servis = somme member_count des guilds actifs uniquement
+            # Members served = sum of member_count over active guilds only
             try:
                 sum_members = db.execute(
                     "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds WHERE active = 1"
@@ -36,7 +36,7 @@ def register_public_stats_routes(app, deps):
                 sum_members = db.execute(
                     "SELECT COALESCE(SUM(member_count), 0) AS n FROM guilds"
                 ).fetchone()["n"]
-            # Dedup via guild_members des guilds actifs uniquement
+            # Dedup through guild_members of active guilds only
             try:
                 dedup_count = db.execute(
                     "SELECT COUNT(DISTINCT gm.user_id) AS n FROM guild_members gm "
@@ -67,18 +67,18 @@ def register_public_stats_routes(app, deps):
 
     @app.route("/api/public-status", methods=["GET"])
     def api_public_status():
-        """Statut public TookBot (page /status.html).
+        """Public TookBot status (/status.html page).
 
-        Lit bot_state.json (ecrit par bot.py toutes les ~30s) + check rapide
-        moteur musique. Cache 30s. CORS ouvert.
+        Reads bot_state.json (written by bot.py every ~30s) + a quick music
+        engine check. 30s cache. Open CORS.
         """
         import os, json as _json2
         now = _time.time()
         if _PUBLIC_STATUS_CACHE["data"] and _PUBLIC_STATUS_CACHE["expires"] > now:
             data = _PUBLIC_STATUS_CACHE["data"]
         else:
-            # Bot state via bot_state.json. Tente plusieurs chemins car selon
-            # la maniere dont pm2 lance le process, cwd peut differer.
+            # Bot state through bot_state.json. Several paths are tried because
+            # cwd can differ depending on how pm2 starts the process.
             candidate_paths = [
                 "bot_state.json",  # cwd
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "bot_state.json"),
@@ -147,7 +147,7 @@ def register_public_stats_routes(app, deps):
             _PUBLIC_STATUS_CACHE["data"]    = data
             _PUBLIC_STATUS_CACHE["expires"] = now + _PUBLIC_STATUS_TTL_SEC
 
-            # Log uptime checks par component (best-effort, ne casse pas la reponse si echec)
+            # Log uptime checks per component (best-effort, a failure does not break the response)
             try:
                 from database import service_uptime_log
                 service_uptime_log("bot",          bot_online)
@@ -165,22 +165,22 @@ def register_public_stats_routes(app, deps):
 
     @app.route("/api/public-status/history", methods=["GET"])
     def api_public_status_history():
-        """Historique uptime par component pour les N dernieres heures (default 48).
+        """Uptime history per component for the last N hours (default 48).
 
-        Reponse : {hours, components: {bot: [...], dashboard: [...], music_engine: [...]}}
-        Chaque entry : {hour_offset, ok, oks, checks}. hour_offset 0 = heure courante,
-        -1 = il y a 1h, etc. Les heures sans data sont incluses avec ok=null.
+        Response: {hours, components: {bot: [...], dashboard: [...], music_engine: [...]}}
+        Each entry: {hour_offset, ok, oks, checks}. hour_offset 0 = current hour,
+        -1 = one hour ago, etc. Hours without data are included with ok=null.
         """
         import datetime as _dt2
         try:
             hours = int(request.args.get("hours", 48))
         except Exception:
             hours = 48
-        hours = max(1, min(168, hours))  # cap 1 semaine
+        hours = max(1, min(168, hours))  # cap at 1 week
 
         from database import service_uptime_history
 
-        # Build dict hour_bucket -> {ok, oks, checks} par component
+        # Build dict hour_bucket -> {ok, oks, checks} per component
         now_hour = _dt2.datetime.utcnow().replace(minute=0, second=0, microsecond=0)
         out = {"hours": hours, "components": {}}
         for comp in ("bot", "dashboard", "music_engine"):
@@ -207,7 +207,7 @@ def register_public_stats_routes(app, deps):
                         "oks":    0,
                         "checks": 0,
                     })
-            # Uptime % sur la fenetre (que sur les heures avec data)
+            # Uptime % over the window (only on hours that have data)
             with_data = [s for s in series if s["checks"] > 0]
             if with_data:
                 total_checks = sum(s["checks"] for s in with_data)

@@ -13,9 +13,9 @@
       <span class="role-tag {{ side }}">{{ role_key }}</span>
       <input class="riot-id-edit" data-role="{{ role_key }}" data-side="{{ side }}"
              value="{{ p.riot_id or '' }}"
-             placeholder="{% if side == 'ally' %}Ton Riot ID (Pseudo#TAG){% else %}Pseudo#TAG{% endif %}"
+             placeholder="{% if side == 'ally' %}{{ t('web_core.scout.your_riot_id') }}{% else %}{{ t('web_core.scout.riot_id') }}{% endif %}"
              maxlength="32"
-             title="Edite + Entrée pour fetch">
+             title="{{ t('web_core.scout.edit_hint') }}">
     </div>
     <div class="rank-mini" data-tier="{{ p.tier or 'UNRANKED' }}"></div>
   </div>
@@ -24,12 +24,12 @@
     {% if p.error %}
       <div class="stat-line" style="color: var(--danger);">⚠️ {{ p.error }}</div>
     {% elif is_empty %}
-      <div class="empty-pill">— Slot vide. Renseigne le Riot ID.</div>
+      <div class="empty-pill">{{ t('web_core.scout.empty_slot') }}</div>
     {% else %}
-      <div class="stat-line"><span class="lbl">Niveau</span> <strong>{{ p.level or '?' }}</strong></div>
+      <div class="stat-line"><span class="lbl">{{ t('web_core.scout.level') }}</span> <strong>{{ p.level or '?' }}</strong></div>
       <div class="stat-line">{{ p.rank_line | safe }}</div>
 
-      <div class="stat-line"><span class="lbl">🔥 Pick récent</span></div>
+      <div class="stat-line"><span class="lbl">🔥 {{ t('web_core.scout.recent_picks') }}</span></div>
       <div class="champ-row">
         {% for pick in p.recent or [] %}
           {% if pick.slug %}
@@ -45,13 +45,13 @@
       </div>
 
       {% if side == 'enemy' %}
-      <div class="stat-line"><span class="lbl">💀 À ban (WR 3+ games)</span></div>
+      <div class="stat-line"><span class="lbl">💀 {{ t('web_core.scout.to_ban') }}</span></div>
       <div class="champ-row">
         {% for ban in p.top_wr or [] %}
           {% if ban.slug %}
             <div class="champ-icon ban" data-slug="{{ ban.slug }}"
                  data-wr="{{ '%.0f'|format(ban.wr) }}%"
-                 title="{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}% sur {{ ban.total }}g"></div>
+                 title="{{ t('web_core.scout.ban_tooltip', champ=ban.champ, wr='%.0f'|format(ban.wr), total=ban.total) }}"></div>
           {% else %}
             <span class="empty-pill" style="color:#ff8888;">{{ ban.champ }} {{ '%.0f'|format(ban.wr) }}%</span>
           {% endif %}
@@ -61,7 +61,7 @@
       </div>
       {% endif %}
 
-      <div class="stat-line"><span class="lbl">✨ Mastery</span></div>
+      <div class="stat-line"><span class="lbl">✨ {{ t('web_core.scout.mastery') }}</span></div>
       <div class="champ-row">
         {% for m in p.mastery or [] %}
           {% if m.slug %}
@@ -79,7 +79,7 @@
     <div class="ready-wrap">
       <label class="ready-toggle{% if p.ready %} ready{% endif %}">
         <input type="checkbox" class="ready-check" data-role="{{ role_key }}" {% if p.ready %}checked{% endif %}>
-        <span>✅ Je suis prêt</span>
+        <span>✅ {{ t('web_core.scout.im_ready') }}</span>
       </label>
     </div>
     {% endif %}

@@ -133,16 +133,16 @@
 </style>
 
 <div class="col-wrap">
-  <div id="colLoading" class="col-empty">Chargement…</div>
+  <div id="colLoading" class="col-empty">{{ t('web_cards.collection.loading') }}</div>
 
   <div class="col-tools" id="colTools" style="display:none;">
     <div class="col-id" id="colId"></div>
     <div class="col-seg">
-      <button id="modeBinder" class="active" onclick="setMode('binder')">📖 Classeur</button>
-      <button id="modeSimple" onclick="setMode('simple')">▦ Vue simplifiée</button>
+      <button id="modeBinder" class="active" onclick="setMode('binder')">{{ t('web_cards.collection.mode_binder') }}</button>
+      <button id="modeSimple" onclick="setMode('simple')">{{ t('web_cards.collection.mode_simple') }}</button>
     </div>
     <span class="col-pageno" id="bPageNo">— / —</span>
-    <input id="colSearch" class="input" type="search" placeholder="🔍 Nom ou origine…" oninput="applyFilters()">
+    <input id="colSearch" class="input" type="search" placeholder="{{ t('web_cards.collection.search_ph') }}" oninput="applyFilters()">
     <select id="colPerPage" onchange="onPerPageChange()" style="display:none;">
       <option value="25">25 / page</option>
       <option value="50">50 / page</option>
@@ -151,17 +151,17 @@
       <option value="500">500 / page</option>
     </select>
     <select id="colSort" onchange="applyFilters()">
-      <option value="rarity">Tri : Rareté</option>
-      <option value="name">Tri : Nom</option>
-      <option value="stars">Tri : Étoiles</option>
-      <option value="origine">Tri : Origine</option>
-      <option value="univers">Tri : Univers</option>
+      <option value="rarity">{{ t('web_cards.collection.sort_rarity') }}</option>
+      <option value="name">{{ t('web_cards.collection.sort_name') }}</option>
+      <option value="stars">{{ t('web_cards.collection.sort_stars') }}</option>
+      <option value="origine">{{ t('web_cards.collection.sort_origin') }}</option>
+      <option value="univers">{{ t('web_cards.collection.sort_universe') }}</option>
     </select>
     <div class="col-share">
-      <button class="col-share-btn" onclick="toggleShare(event)">🔗 Partager</button>
+      <button class="col-share-btn" onclick="toggleShare(event)">{{ t('web_cards.collection.share') }}</button>
       <div class="col-share-menu" id="shareMenu">
-        <button onclick="shareCopy()">📋 Copier le lien</button>
-        <button onclick="shareSend()">📤 Envoyer…</button>
+        <button onclick="shareCopy()">{{ t('web_cards.collection.share_copy') }}</button>
+        <button onclick="shareSend()">{{ t('web_cards.collection.share_send') }}</button>
       </div>
     </div>
   </div>
@@ -196,7 +196,7 @@
     <div class="cz-detail">
       <div class="cz-name" id="czName"></div>
       <div class="cz-rows" id="czRows"></div>
-      <div class="cz-hint">Glisse la carte · clique en dehors pour fermer</div>
+      <div class="cz-hint">{{ t('web_cards.collection.zoom_hint') }}</div>
     </div>
   </div>
 </div>
@@ -220,7 +220,7 @@ let sPage = 0;       // page simplifiee
 let simplePer = 50;
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function fmt(n){return (n||0).toLocaleString('fr-FR');}
+function fmt(n){return (n||0).toLocaleString('en-US');}
 
 function cardCell(c){
   const rcol = RCOL[c.rarity] || '#3a3a3a';
@@ -240,12 +240,12 @@ function applyFilters(){
   const sort = document.getElementById('colSort').value;
   VIEW = ALL.filter(c => !q || (c.name||'').toLowerCase().includes(q) || (c.origine||'').toLowerCase().includes(q));
   VIEW.sort((a,b)=>{
-    if(sort==='name')    return a.name.localeCompare(b.name,'fr');
-    if(sort==='stars')   return (b.stars-a.stars) || a.name.localeCompare(b.name,'fr');
-    if(sort==='origine') return (a.origine||'').localeCompare(b.origine||'','fr') || a.name.localeCompare(b.name,'fr');
-    if(sort==='univers') return (a.univers||'').localeCompare(b.univers||'','fr') || a.name.localeCompare(b.name,'fr');
+    if(sort==='name')    return a.name.localeCompare(b.name,'en');
+    if(sort==='stars')   return (b.stars-a.stars) || a.name.localeCompare(b.name,'en');
+    if(sort==='origine') return (a.origine||'').localeCompare(b.origine||'','en') || a.name.localeCompare(b.name,'en');
+    if(sort==='univers') return (a.univers||'').localeCompare(b.univers||'','en') || a.name.localeCompare(b.name,'en');
     // rarity (defaut)
-    return (RRANK[b.rarity]||0)-(RRANK[a.rarity]||0) || a.name.localeCompare(b.name,'fr');
+    return (RRANK[b.rarity]||0)-(RRANK[a.rarity]||0) || a.name.localeCompare(b.name,'en');
   });
   bPage = 0; sPage = 0;
   if(mode==='binder') renderBinder(); else renderSimple();
@@ -257,7 +257,7 @@ function renderBinderPage(){
   const slice = VIEW.slice(start, start+BINDER_PER);
   const page = document.getElementById('binderPage');
   if(!slice.length){
-    page.innerHTML = '<div class="binder-empty">Aucune carte ici.</div>';
+    page.innerHTML = '<div class="binder-empty">No cards here.</div>';
   } else {
     // remplit toujours la page a 25 cases : pochettes vides pour les trous.
     let html = slice.map(cardCell).join('');
@@ -306,7 +306,7 @@ function binderTurn(dir){
 function renderSimple(){
   const start = sPage*simplePer;
   const slice = VIEW.slice(start, start+simplePer);
-  document.getElementById('simpleGrid').innerHTML = slice.length ? slice.map(cardCell).join('') : '<div class="col-empty">Aucune carte.</div>';
+  document.getElementById('simpleGrid').innerHTML = slice.length ? slice.map(cardCell).join('') : '<div class="col-empty">No cards.</div>';
   const total = Math.max(1, Math.ceil(VIEW.length/simplePer));
   document.getElementById('bPageNo').textContent = `${VIEW.length?sPage+1:0} / ${total}`;  // chip partage en haut
   document.getElementById('sPrev').disabled = sPage<=0;
@@ -337,7 +337,7 @@ function setMode(m){
 
 async function load(){
   const loading = document.getElementById('colLoading');
-  if(!TARGET_UID){ loading.textContent='Aucun utilisateur ciblé.'; return; }
+  if(!TARGET_UID){ loading.textContent='No target user.'; return; }
   try{
     const r = await fetch(`/api/public/collection/${TARGET_UID}`);
     const d = await r.json();
@@ -345,20 +345,20 @@ async function load(){
     const av = u.avatar ? `<img class="av" src="${esc(u.avatar)}" alt="">` : `<div class="av"></div>`;
     document.getElementById('colId').innerHTML =
       `${av}<div><div class="who">🃏 ${esc(u.name)}</div>
-        <div class="sub">${fmt(d.total)} cartes · ${fmt(d.unique)} uniques</div></div>`;
+        <div class="sub">${fmt(d.total)} cards · ${fmt(d.unique)} unique</div></div>`;
     ALL = d.cards || [];
     loading.style.display='none';
     if(!ALL.length){
       document.getElementById('colTools').style.display='flex';
       document.getElementById('binderView').style.display='none';
       document.getElementById('colEmpty').style.display='block';
-      document.getElementById('colEmpty').textContent='Ce joueur ne possède aucune carte.';
+      document.getElementById('colEmpty').textContent='This player owns no cards.';
       return;
     }
     document.getElementById('colTools').style.display='flex';
     applyFilters();
   }catch(e){
-    loading.textContent='Erreur de chargement.';
+    loading.textContent='Loading failed.';
   }
 }
 load();
@@ -381,23 +381,23 @@ function shareUrl(){ return `${location.origin}/cards/s/${TARGET_UID}`; }  // li
 async function shareCopy(){
   document.getElementById('shareMenu').classList.remove('open');
   const url = shareUrl();
-  try{ await navigator.clipboard.writeText(url); shareToast('Lien copié ✓'); }
-  catch(e){ window.prompt('Copie ce lien :', url); }
+  try{ await navigator.clipboard.writeText(url); shareToast('Link copied ✓'); }
+  catch(e){ window.prompt('Copy this link:', url); }
 }
 async function shareSend(){
   document.getElementById('shareMenu').classList.remove('open');
   const url = shareUrl();
-  const data = { title:'Collection TookBot', text:'Regarde cette collection de cartes TookBot !', url };
+  const data = { title:'TookBot Collection', text:'Check out this TookBot card collection!', url };
   if(navigator.share){ try{ await navigator.share(data); }catch(_){ } }
-  else { try{ await navigator.clipboard.writeText(url); }catch(_){ } shareToast('Partage non dispo ici — lien copié ✓'); }
+  else { try{ await navigator.clipboard.writeText(url); }catch(_){ } shareToast('Sharing not available here — link copied ✓'); }
 }
 window.toggleShare=toggleShare; window.shareCopy=shareCopy; window.shareSend=shareSend;
 
 /* ===== ZOOM CARTE ===== */
 const RAR_EMOJI  = { common:'⚪', rare:'🔵', epic:'🟣', legendary:'🟠', mythic:'🔴', secret:'🌈' };
-const RAR_LABEL  = { common:'Commune', rare:'Rare', epic:'Épique', legendary:'Légendaire', mythic:'Mythique', secret:'Secret' };
+const RAR_LABEL  = { common:'Common', rare:'Rare', epic:'Epic', legendary:'Legendary', mythic:'Mythic', secret:'Secret' };
 const ELEM_EMOJI = { eclat:'🔆', abysse:'🌊', fracture:'⛓', vif:'🩸', neant:'🕳' };
-const ELEM_LABEL = { eclat:'Éclat', abysse:'Abysse', fracture:'Fracture', vif:'Vif', neant:'Néant' };
+const ELEM_LABEL = { eclat:'Radiance', abysse:'Abyss', fracture:'Fracture', vif:'Vivid', neant:'Void' };
 
 const _dz = { down:false };
 function openCard(el){
@@ -412,11 +412,11 @@ function openCard(el){
   const elem = d.element || '';
   const stars = parseInt(d.stars,10) || 0;
   const rows = [];
-  if(d.origine) rows.push(`<div><span class="lbl">Origine :</span> ${esc(d.origine)}</div>`);
-  if(d.univers) rows.push(`<div><span class="lbl">Univers :</span> ${esc(d.univers)}</div>`);
-  if(elem) rows.push(`<div><span class="lbl">Élément :</span> ${ELEM_EMOJI[elem]||''} ${esc(ELEM_LABEL[elem]||elem)}</div>`);
-  if(rar) rows.push(`<div><span class="lbl">Rareté :</span> ${RAR_EMOJI[rar]||'⚪'} ${esc(RAR_LABEL[rar]||rar)}</div>`);
-  if(stars>0) rows.push(`<div><span class="lbl">Étoiles :</span> ${'⭐'.repeat(Math.min(5,stars))}</div>`);
+  if(d.origine) rows.push(`<div><span class="lbl">Origin:</span> ${esc(d.origine)}</div>`);
+  if(d.univers) rows.push(`<div><span class="lbl">Universe:</span> ${esc(d.univers)}</div>`);
+  if(elem) rows.push(`<div><span class="lbl">Element:</span> ${ELEM_EMOJI[elem]||''} ${esc(ELEM_LABEL[elem]||elem)}</div>`);
+  if(rar) rows.push(`<div><span class="lbl">Rarity:</span> ${RAR_EMOJI[rar]||'⚪'} ${esc(RAR_LABEL[rar]||rar)}</div>`);
+  if(stars>0) rows.push(`<div><span class="lbl">Stars:</span> ${'⭐'.repeat(Math.min(5,stars))}</div>`);
   document.getElementById('czRows').innerHTML = rows.join('');
   document.getElementById('cardZoom').classList.add('open');
 }

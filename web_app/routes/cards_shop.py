@@ -1,5 +1,7 @@
-"""Routes owner-only : Card Shop (config 6 slots) + bordures (placement)."""
+"""Owner-only routes: Card Shop (6-slot config) + borders (placement)."""
 from flask import render_template, request, jsonify
+
+from services.i18n import t
 
 
 def register_cards_shop_routes(app, deps):
@@ -19,7 +21,7 @@ def register_cards_shop_routes(app, deps):
         return render_template("owner_card_cosmetics.html",
                                  active_nav="owner_card_cosmetics")
 
-    # ===== COSMETICS (bordures) : liste + give/remove =====
+    # ===== COSMETICS (borders): list + give/remove =====
     @app.route("/api/owner/cosmetics", methods=["GET"])
     def api_owner_cosmetics():
         if not _is_owner_session():
@@ -28,7 +30,7 @@ def register_cards_shop_routes(app, deps):
         from services.card_render import render_border_preview_file
         import time as _t
         borders = borders_list()
-        # Stats : combien de copies en circulation + combien equipees
+        # Stats: how many copies are in circulation + how many are equipped
         conn = get_db(); c = conn.cursor()
         for b in borders:
             k = b["border_key"]
@@ -38,7 +40,7 @@ def register_cards_shop_routes(app, deps):
                                  (k,)).fetchone()["n"]
             b["stock_total"] = int(stock or 0)
             b["equipped_total"] = int(equipped or 0)
-            # Regenere la preview avec la config actuelle (evite cache obsolete)
+            # Regenerate the preview with the current config (avoids a stale cache)
             try:
                 render_border_preview_file(
                     k, b["filename"],
@@ -57,7 +59,7 @@ def register_cards_shop_routes(app, deps):
             return jsonify({"error": "owner only"}), 403
         from database import user_borders_list, get_db
         inv = user_borders_list(user_id)
-        # Bordures equipees (sur des cartes)
+        # Borders equipped (on cards)
         conn = get_db(); c = conn.cursor()
         rows = c.execute(
             "SELECT cc.card_id, cc.border_key, b.name AS border_name, ca.name AS card_name "
@@ -82,9 +84,9 @@ def register_cards_shop_routes(app, deps):
         except (ValueError, TypeError):
             qty = 1
         if not user_id or not border_key:
-            return jsonify({"error": "user_id + border_key requis"}), 400
+            return jsonify({"error": t("api.cards_shop.user_and_border_required")}), 400
         if not border_get(border_key):
-            return jsonify({"error": "bordure introuvable"}), 404
+            return jsonify({"error": t("api.cards_shop.border_not_found")}), 404
         user_border_add(user_id, border_key, qty=qty)
         return jsonify({"ok": True, "given": qty})
 
@@ -97,7 +99,7 @@ def register_cards_shop_routes(app, deps):
         user_id = str(data.get("user_id") or "").strip()
         border_key = str(data.get("border_key") or "").strip()
         if not user_id or not border_key:
-            return jsonify({"error": "user_id + border_key requis"}), 400
+            return jsonify({"error": t("api.cards_shop.user_and_border_required")}), 400
         if data.get("all"):
             user_border_remove(user_id, border_key, qty=None)
         else:
@@ -116,7 +118,7 @@ def register_cards_shop_routes(app, deps):
         from database import card_shop_get_slots, card_get, border_get
         from services.card_shop import suggested_price
         slots = card_shop_get_slots()
-        # Enrichit avec nom item + prix suggere
+        # Enrich with the item name + suggested price
         for s in slots:
             s["item_name"] = None
             s["item_rarity"] = None
@@ -147,19 +149,19 @@ def register_cards_shop_routes(app, deps):
         from services.card_shop import suggested_price
         data = request.json or {}
         fields = {}
-        # Type (vide autorise pour vider le slot)
+        # Type (empty allowed in order to clear the slot)
         it = (data.get("item_type") or "").strip().lower()
         fields["item_type"] = it if it in ("card", "border") else None
         # Reference item
         ref = str(data.get("item_ref") or "").strip()
-        # Carte : resout l'id par nom tapé si fourni (fiable sans clic autocomplete)
+        # Card: resolve the id from the typed name when supplied (reliable without an autocomplete click)
         if fields["item_type"] == "card":
             q = (data.get("item_query") or "").strip()
             if q:
                 card = card_get_by_name(q)
                 ref = str(card["id"]) if card else ref
         fields["item_ref"] = ref or None
-        # Si type/ref vide -> slot vidé : on desactive et reset
+        # If type/ref is empty -> slot cleared: disable and reset
         if not fields["item_type"] or not fields["item_ref"]:
             fields["item_type"] = None
             fields["item_ref"] = None
@@ -173,9 +175,9 @@ def register_cards_shop_routes(app, deps):
             if sp > 0:
                 price = sp
         fields["price"] = price
-        # Label (vide -> NULL)
+        # Label (empty -> NULL)
         fields["label"] = (data.get("label") or "").strip()[:60] or None
-        # Enabled (jamais actif si slot vide)
+        # Enabled (never active when the slot is empty)
         enabled = 1 if data.get("enabled") else 0
         if not fields["item_type"] or not fields["item_ref"]:
             enabled = 0
@@ -185,9 +187,9 @@ def register_cards_shop_routes(app, deps):
 
     @app.route("/api/owner/card-shop/shuffle", methods=["POST"])
     def api_owner_card_shop_shuffle():
-        """Genere une PROPOSITION de boutique (NE touche PAS la boutique live).
-        Garantit AU MOINS : 1 bordure + 1 carte legendary OU mythic. Prix = prix
-        suggere (convention actuelle). L'owner valide ensuite via /deploy-shuffle."""
+        """Build a shop PROPOSAL (does NOT touch the live shop).
+        Guarantees AT LEAST: 1 border + 1 legendary OR mythic card. Price = suggested
+        price (current convention). The owner then confirms via /deploy-shuffle."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import get_db, borders_list, card_get, border_get
@@ -204,7 +206,7 @@ def register_cards_shop_routes(app, deps):
         need = 6 - (1 if bkey else 0) - (1 if leg_id else 0)
         fillers = []
         if need > 0:
-            # secret jamais vendu en boutique -> exclu du shuffle
+            # secrets are never sold in the shop -> excluded from the shuffle
             fillers = c.execute(
                 "SELECT id FROM cards WHERE COALESCE(not_obtainable,0)=0 AND rarity != 'secret' "
                 "AND id != ? ORDER BY RANDOM() LIMIT ?", (leg_id if leg_id else -1, need)).fetchall()
@@ -236,7 +238,7 @@ def register_cards_shop_routes(app, deps):
 
     @app.route("/api/owner/card-shop/reprice", methods=["POST"])
     def api_owner_card_shop_reprice():
-        """Recalcule les prix des slots actuels selon le bareme (sans changer les items)."""
+        """Recompute the current slot prices with the price scale (without changing items)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import card_shop_get_slots, card_shop_set_slot
@@ -251,7 +253,7 @@ def register_cards_shop_routes(app, deps):
 
     @app.route("/api/owner/card-shop/deploy-shuffle", methods=["POST"])
     def api_owner_card_shop_deploy_shuffle():
-        """Applique une proposition validee a la boutique live (6 slots)."""
+        """Apply a confirmed proposal to the live shop (6 slots)."""
         if not _is_owner_session():
             return jsonify({"error": "owner only"}), 403
         from database import card_shop_set_slot
@@ -278,7 +280,7 @@ def register_cards_shop_routes(app, deps):
             card_shop_set_slot(slot, item_type=itype, item_ref=ref,
                                price=price, label=None, enabled=1)
             used.add(slot)
-        # vide les slots non utilises par la proposition
+        # clear the slots the proposal does not use
         for s in range(1, 7):
             if s not in used:
                 card_shop_set_slot(s, item_type=None, item_ref=None,
@@ -293,7 +295,7 @@ def register_cards_shop_routes(app, deps):
         import time as _t
         rel = build_shop_image(out_name="shop_preview.png")
         if not rel:
-            return jsonify({"error": "génération échouée (bg manquant ?)"}), 500
+            return jsonify({"error": t("api.cards_shop.render_failed_missing_bg")}), 500
         # cache-bust
         return jsonify({"ok": True, "url": f"{rel}?t={int(_t.time())}"})
 
@@ -343,7 +345,7 @@ def register_cards_shop_routes(app, deps):
         import time as _t
         b = border_get(border_key)
         if not b:
-            return jsonify({"error": "bordure introuvable"}), 404
+            return jsonify({"error": t("api.cards_shop.border_not_found")}), 404
         data = request.json or {}
         ox = data.get("offset_x", b.get("offset_x", 0))
         oy = data.get("offset_y", b.get("offset_y", 0))
@@ -359,5 +361,5 @@ def register_cards_shop_routes(app, deps):
             offset_x=int(ox), offset_y=int(oy), scale_pct=int(sc),
             card_scale_pct=int(csc), placeholder_card_id=placeholder)
         if not rel:
-            return jsonify({"error": "génération échouée"}), 500
+            return jsonify({"error": t("api.cards_shop.render_failed")}), 500
         return jsonify({"ok": True, "url": f"{rel}?t={int(_t.time())}"})

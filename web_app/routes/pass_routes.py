@@ -1,5 +1,7 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
 
+from services.i18n import t
+
 def register_pass_routes(app, deps):
     globals().update(deps)
     @app.route("/my-pass")
@@ -12,7 +14,7 @@ def register_pass_routes(app, deps):
 
     @app.route("/api/my/pass", methods=["GET"])
     def api_my_pass():
-        """Etat complet du Pass pour l'user connecte (lecture seule)."""
+        """Full Pass state for the logged-in user (read only)."""
         from seasonal_themes import bg_display_name as _bg_disp
         uid = _current_user_id()
         if not uid:
@@ -26,28 +28,29 @@ def register_pass_routes(app, deps):
         cosmetics_owned = list_user_owned_cosmetics(uid)
         cosmetics_active = get_user_cosmetic(uid)
 
-        # Enrichit chaque unlock avec un display_name themed (sinon le front
-        # affiche des IDs techniques type 'season_2026-06_R' ou 'liquid_chrome').
+        # Enrich every unlock with a themed display_name (otherwise the front-end
+        # shows technical IDs like 'season_2026-06_R' or 'liquid_chrome').
         db = get_db()
         sabre_rows = db.execute("SELECT id, nom FROM sabres").fetchall()
         sabre_names = {r["id"]: r["nom"] for r in sabre_rows}
         for u in unlocks:
             payload = u.get("payload") or {}
             disp = None
-            t = u.get("type")
-            if t == "bg":
+            utype = u.get("type")
+            if utype == "bg":
                 disp = _bg_disp(payload.get("bg_id") or "")
-            elif t == "sabre":
+            elif utype == "sabre":
                 disp = sabre_names.get(payload.get("sabre_id") or "", payload.get("sabre_id") or "")
-            elif t == "title":
+            elif utype == "title":
                 disp = payload.get("title") or ""
-            elif t == "emoji":
+            elif utype == "emoji":
                 disp = payload.get("emoji") or ""
-            elif t == "boost_xp":
-                disp = f"XP x{payload.get('multiplier')} pendant {payload.get('hours')}h"
+            elif utype == "boost_xp":
+                disp = t("api.pass.xp_boost_label",
+                         multiplier=payload.get("multiplier"), hours=payload.get("hours"))
             u["display_name"] = disp
 
-        # Roadmap des paliers (rewards definis pour la saison)
+        # Tier roadmap (rewards defined for the season)
         rows = db.execute(
             "SELECT tier, type, label FROM pass_rewards WHERE season_id = ? ORDER BY tier",
             (sid,),
@@ -68,19 +71,19 @@ def register_pass_routes(app, deps):
 
     @app.route("/api/my/cosmetic", methods=["POST"])
     def api_my_cosmetic_set():
-        """Selectionne un titre/emoji parmi ceux possedes via Pass."""
+        """Select a title/emoji among those owned through the Pass."""
         from database import set_premium_setting as _set_setting
         uid = _current_user_id()
         if not uid:
             return jsonify({"error": "not_logged_in"}), 401
         data = request.get_json(silent=True) or {}
         kind = data.get("kind")  # 'title' | 'emoji'
-        value = data.get("value")  # str ou None pour reset
+        value = data.get("value")  # str, or None to reset
 
         if kind not in ("title", "emoji"):
             return jsonify({"error": "bad_kind"}), 400
 
-        # Verif possession si valeur fournie
+        # Ownership check when a value is supplied
         if value:
             owned = list_user_owned_cosmetics(uid)
             pool = owned["titles"] if kind == "title" else owned["emojis"]
@@ -138,8 +141,8 @@ def register_pass_routes(app, deps):
 
     @app.route("/api/user/<user_id>/pass", methods=["PATCH"])
     def api_user_pass_set_xp(user_id):
-        """Reglage manuel de l'XP de saison (owner). Reset claimed_max_tier en
-        consequence pour ne pas garder un palier > xp_actuel."""
+        """Manual season XP adjustment (owner). Resets claimed_max_tier accordingly
+        so no claimed tier stays above the current XP."""
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         season = get_or_create_current_season()
@@ -152,7 +155,7 @@ def register_pass_routes(app, deps):
         except (TypeError, ValueError):
             return jsonify({"error": "bad_xp"}), 400
 
-        # Si on baisse l'XP, on reset claimed_max_tier sinon les paliers superieurs
+        # When lowering XP, reset claimed_max_tier, otherwise the higher tiers
         # restent debloques. Si on monte, on garde claimed_max_tier (autoclaim suit).
         db = get_db()
         c = db.cursor()
@@ -174,7 +177,7 @@ def register_pass_routes(app, deps):
         db.commit()
         db.close()
 
-        # Auto-claim des paliers franchis par cette modif
+        # Auto-claim the tiers crossed by this change
         delivered = []
         if new_xp > 0:
             try:
@@ -200,8 +203,8 @@ def register_pass_routes(app, deps):
 
     @app.route("/api/user/<user_id>/pass/quests", methods=["DELETE"])
     def api_user_pass_quests_reroll(user_id):
-        """Supprime les quetes de la periode courante -> seront re-tirees au prochain
-        appel de list_user_active_quests."""
+        """Delete the current period's quests -> they get re-rolled on the next
+        list_user_active_quests call."""
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         import datetime as _dt
@@ -226,7 +229,7 @@ def register_pass_routes(app, deps):
 
     @app.route("/api/user/<user_id>/premium", methods=["GET"])
     def api_user_premium_status(user_id):
-        """Statut premium d'un user vu par l'owner depuis le dashboard."""
+        """Premium status of a user, as seen by the owner from the dashboard."""
         if not _is_owner_session():
             return jsonify({"error": "owner_only"}), 403
         return jsonify({

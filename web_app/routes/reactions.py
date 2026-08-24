@@ -1,5 +1,7 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
 
+from services.i18n import t
+
 def register_reaction_routes(app, deps):
     globals().update(deps)
     @app.route("/reactions")
@@ -23,7 +25,7 @@ def register_reaction_routes(app, deps):
         user_id = str(data.get("user_id") or "")
         emoji = data.get("emoji")
         if not user_id or not emoji:
-            return jsonify({"error": "user_id et emoji requis"}), 400
+            return jsonify({"error": t("api.reactions.user_id_and_emoji_required")}), 400
         conn = get_db()
         conn.execute("""INSERT INTO reactions (guild_id, user_id, emoji) VALUES (?, ?, ?)
                         ON CONFLICT(guild_id, user_id) DO UPDATE SET emoji = excluded.emoji""",
@@ -38,7 +40,7 @@ def register_reaction_routes(app, deps):
         data = request.json or {}
         user_id = str(data.get("user_id") or "")
         if not user_id:
-            return jsonify({"error": "user_id requis"}), 400
+            return jsonify({"error": t("api.reactions.user_id_required")}), 400
         conn = get_db()
         conn.execute("DELETE FROM reactions WHERE guild_id = ? AND user_id = ?", (g_id, user_id))
         conn.commit()

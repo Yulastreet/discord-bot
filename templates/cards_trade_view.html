@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = 'cards_trade' %}
 {% block title %}Trade #{{ tid }} · TookBot{% endblock %}
-{% block crumb %}Échange #{{ tid }}{% endblock %}
+{% block crumb %}{{ t('web_cards.trade_view.crumb', id=tid) }}{% endblock %}
 
 {% block content %}
 <style>
@@ -34,7 +34,7 @@
 
 {% set rcol = {'common':'#9aa0a6','rare':'#4cb5f9','epic':'#b06bf2','legendary':'#f5a524','mythic':'#ff5470','secret':'#c084fc'} %}
 {% set st_color = {'pending':'#C8F050','accepted':'#4ade80','refused':'#ff3d57','cancelled':'#9aa0a6','countered':'#fbbf24'} %}
-{% set st_label = {'pending':'⏳ En attente','accepted':'✅ Acceptée','refused':'❌ Refusée','cancelled':'⊘ Annulée','countered':'🔄 Contre-offre'} %}
+{% set st_label = {'pending': t('web_cards.trade_view.status_pending'),'accepted': t('web_cards.trade_view.status_accepted'),'refused': t('web_cards.trade_view.status_refused'),'cancelled': t('web_cards.trade_view.status_cancelled'),'countered': t('web_cards.trade_view.status_countered')} %}
 {% set status = trade.status or 'pending' %}
 
 <div class="tv-wrap">
@@ -46,7 +46,7 @@
 
   <div class="tv-cols">
     <div class="tv-side">
-      <h3><img src="{{ sender.avatar or '' }}" alt=""> 📤 {{ sender.name }} propose</h3>
+      <h3><img src="{{ sender.avatar or '' }}" alt=""> 📤 {{ t('web_cards.trade_view.offers', name=sender.name) }}</h3>
       <div class="tv-grid">
         {% for it in offer %}
         <div class="tv-card" style="--rcol:{{ rcol.get(it.rarity,'#3a3a3a') }}">
@@ -55,13 +55,13 @@
           <div class="nm">{{ it.name }}</div>
         </div>
         {% else %}
-        <div class="tv-empty" style="grid-column:1/-1;">(rien)</div>
+        <div class="tv-empty" style="grid-column:1/-1;">{{ t('web_cards.trade_view.nothing') }}</div>
         {% endfor %}
       </div>
     </div>
 
     <div class="tv-side">
-      <h3><img src="{{ receiver.avatar or '' }}" alt=""> 📥 {{ receiver.name }} donnerait</h3>
+      <h3><img src="{{ receiver.avatar or '' }}" alt=""> 📥 {{ t('web_cards.trade_view.would_give', name=receiver.name) }}</h3>
       <div class="tv-grid">
         {% for it in request_items %}
         <div class="tv-card" style="--rcol:{{ rcol.get(it.rarity,'#3a3a3a') }}">
@@ -70,7 +70,7 @@
           <div class="nm">{{ it.name }}</div>
         </div>
         {% else %}
-        <div class="tv-empty" style="grid-column:1/-1;">(rien)</div>
+        <div class="tv-empty" style="grid-column:1/-1;">{{ t('web_cards.trade_view.nothing') }}</div>
         {% endfor %}
       </div>
     </div>
@@ -79,10 +79,10 @@
   <div class="tv-actions">
     {% if is_participant and status == 'pending' %}
       {% set other = receiver.id if me_id == sender.id else sender.id %}
-      <button class="tv-btn green" onclick="sendServer()">📤 Envoyer sur le serveur</button>
-      <a class="tv-btn grey" href="/cards/trade?with={{ other }}&guild={{ trade.guild_id or '' }}&from={{ tid }}">🔁 Contre-offrir / Modifier</a>
+      <button class="tv-btn green" onclick="sendServer()">{{ t('web_cards.trade_view.send_to_server') }}</button>
+      <a class="tv-btn grey" href="/cards/trade?with={{ other }}&guild={{ trade.guild_id or '' }}&from={{ tid }}">{{ t('web_cards.trade_view.counter') }}</a>
     {% endif %}
-    <a class="tv-btn grey" href="/cards/trade">✍️ Ouvrir le builder</a>
+    <a class="tv-btn grey" href="/cards/trade">{{ t('web_cards.trade_view.open_builder') }}</a>
   </div>
   <div class="tv-hint" id="tvHint"></div>
 </div>
@@ -91,13 +91,13 @@
 const TRADE_ID = {{ tid }};
 async function sendServer(){
   const hint = document.getElementById('tvHint');
-  hint.textContent = 'Envoi sur le serveur…';
+  hint.textContent = 'Sending to the server…';
   try{
     const r = await fetch('/api/cards/trade/send', {method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ trade_id:TRADE_ID })});
     const d = await r.json();
-    hint.textContent = d.ok ? '✅ Trade posté dans le salon cartes du serveur.' : '❌ '+(d.error||'Erreur');
-  }catch(e){ hint.textContent='Erreur réseau.'; }
+    hint.textContent = d.ok ? '✅ Trade posted in the server cards channel.' : '❌ '+(d.error||'Error');
+  }catch(e){ hint.textContent='Network error.'; }
 }
 window.sendServer = sendServer;
 </script>

@@ -1,23 +1,23 @@
 {% extends "_base.html" %}
 {% set active_nav = 'search' %}
 
-{% block title %}Rechercher · Bot Console{% endblock %}
-{% block crumb %}Rechercher{% endblock %}
+{% block title %}{{ t('web_core.search.crumb') }} · Bot Console{% endblock %}
+{% block crumb %}{{ t('web_core.search.crumb') }}{% endblock %}
 
 {% block content %}
 
 <div class="col gap-7">
   <div>
-    <h1>Rechercher un utilisateur</h1>
-    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">Tape un pseudo Discord ou un ID pour ouvrir le profil correspondant. La recherche est insensible à la casse.</p>
+    <h1>{{ t('web_core.search.heading') }}</h1>
+    <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">{{ t('web_core.search.subtitle') }}</p>
   </div>
 
   <div class="input-search" style="max-width: 640px;">
     <svg class="ic"><use href="#i-search"/></svg>
-    <input type="text" id="searchInput" placeholder="ex: alice, 12345678..." autocomplete="off" autofocus>
+    <input type="text" id="searchInput" placeholder="{{ t('web_core.search.placeholder') }}" autocomplete="off" autofocus>
   </div>
 
-  <div id="loading" class="hidden muted" style="font-size:var(--t-sm);">Recherche en cours...</div>
+  <div id="loading" class="hidden muted" style="font-size:var(--t-sm);">{{ t('web_core.search.loading') }}</div>
 
   <div id="results"></div>
 </div>
@@ -47,7 +47,7 @@
       .then(data => {
         document.getElementById('loading').classList.add('hidden');
         if (!data.users || data.users.length === 0) {
-          out.innerHTML = '<p class="muted" style="font-size:var(--t-sm);">Aucun utilisateur ne correspond.</p>';
+          out.innerHTML = '<p class="muted" style="font-size:var(--t-sm);">No user matches.</p>';
           return;
         }
         out.innerHTML = `
@@ -55,9 +55,9 @@
             <table class="tbl">
               <thead>
                 <tr>
-                  <th>Utilisateur</th>
+                  <th>User</th>
                   <th class="num">XP</th>
-                  <th class="num" style="width:90px;">Niveau</th>
+                  <th class="num" style="width:90px;">Level</th>
                   <th style="width:140px;">ID</th>
                 </tr>
               </thead>

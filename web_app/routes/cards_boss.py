@@ -2,6 +2,8 @@ import os as _os
 
 from flask import render_template, jsonify, request, send_file, session, redirect
 
+from services.i18n import t
+
 
 def register_cards_boss_routes(app, deps):
     def _session_uid():
@@ -84,9 +86,9 @@ def register_cards_boss_routes(app, deps):
     _PLAYERS_DIR = _os.path.join(_os.path.dirname(_RENDERS), "card_boss", "players")
 
     def _player_img(bid, uid, card_id):
-        """Rendu compose du joueur (art + bordure + etoiles), en cache.
-        Filename inclut card_id : si le joueur change de carte, on regenere.
-        Suffixe 'a' = version courante (busting du cache des anciens rendus)."""
+        """Composed player render (art + border + stars), cached.
+        The filename includes card_id: switching card regenerates it.
+        The 'a' suffix = current version (busts the cache of older renders)."""
         if not card_id:
             return None
         fname = f"{bid}_{uid}_{card_id}a.png"
@@ -96,8 +98,8 @@ def register_cards_boss_routes(app, deps):
             return rel
         try:
             from services.card_profile import _card_image_for
-            # skin alt autorise ; cote front, les cartes alt sont affichees sans
-            # cadre de wrapper (l'art alt est deja transparent, ex: Ashe Summer)
+            # alt skin allowed; on the front-end, alt cards are displayed without a
+            # wrapper frame (the alt art is already transparent, e.g. Ashe Summer)
             img = _card_image_for(uid, int(card_id), allow_alt=True)
             if img is None:
                 return _render_url(card_id, None)
@@ -107,14 +109,14 @@ def register_cards_boss_routes(app, deps):
         except Exception:
             return _render_url(card_id, None)
 
-    # Apres la fin du combat, on garde la page vivante ce temps (pour afficher les
-    # recompenses ~10s aux spectateurs en direct), puis le lien devient mort.
+    # After the fight ends the page stays alive for this long (so live spectators
+    # see the rewards for ~10s), then the link goes dead.
     _DEAD_GRACE = 25
 
     def _denied_page():
-        # Connecte mais pas participant : message clair + bouton dashboard (pas d'auto-redirect)
-        return ("""<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<title>Accès refusé</title>
+        # Logged in but not a participant: clear message + dashboard button (no auto-redirect)
+        return ("""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>""" + t("api.cards_boss.denied_title") + """</title>
 <style>html,body{height:100%;margin:0}body{display:grid;place-items:center;
 background:radial-gradient(circle at 50% 25%,#2a1438,#0a0610);color:#eadff5;
 font-family:system-ui,sans-serif;text-align:center}
@@ -122,9 +124,9 @@ font-family:system-ui,sans-serif;text-align:center}
 .s{color:#b09cc8;font-size:15px;margin-bottom:22px}
 .btn{display:inline-block;padding:11px 22px;border-radius:11px;background:var(--gold,#c9a24b);
 color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head>
-<body><div class="box"><div class="t">⛔ Tu ne fais pas partie de ce combat</div>
-<div class="s">Seuls les combattants ayant rejoint peuvent suivre le combat en direct.</div>
-<a class="btn" href="/dashboard">Retour au dashboard</a></div></body></html>""", 403)
+<body><div class="box"><div class="t">⛔ """ + t("api.cards_boss.denied_heading") + """</div>
+<div class="s">""" + t("api.cards_boss.denied_body") + """</div>
+<a class="btn" href="/dashboard">""" + t("api.cards_boss.denied_back") + """</a></div></body></html>""", 403)
 
     @app.route("/cards/boss/<int:bid>", methods=["GET"])
     def cards_boss_live(bid):
@@ -133,7 +135,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
         boss = card_boss_get(bid)
         if not boss:
             return render_template("404.html"), 404
-        # Reserve aux participants connectes (sinon login puis retour ici)
+        # Restricted to logged-in participants (otherwise login, then back here)
         uid = _session_uid()
         if not uid:
             session["post_login_redirect"] = request.path
@@ -141,7 +143,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
         is_owner = bool((session.get("discord") or {}).get("is_owner"))
         if not is_owner and not boss_participant_get(bid, uid):
             return _denied_page()
-        # Combat termine depuis plus que le delai de grace -> lien mort
+        # Fight finished longer ago than the grace delay -> dead link
         if boss.get("status") in ("defeated", "wiped", "expired"):
             conn = get_db(); c = conn.cursor()
             r = c.execute("SELECT MAX(ts) AS t FROM card_boss_event "
@@ -175,7 +177,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             _pw = combat_power(int(p.get("max_hp") or p.get("hp") or 0), int(p.get("atk") or 0))
             team_power += _pw
             if str(p["user_id"]).startswith("dummy_"):
-                # garde les dummies (tests) mais sans avatar reel
+                # keep the dummies (tests) but without a real avatar
                 pass
             players.append({
                 "uid": str(p["user_id"]),
@@ -219,7 +221,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             "now": _t.time(),
         })
 
-    # ── Edition depuis le dashboard (joueur connecte = participant) ──
+    # -- Editing from the dashboard (logged-in player = participant) --
     @app.route("/cards/boss/<int:bid>/me", methods=["GET"])
     def cards_boss_me(bid):
         from database import card_boss_get, boss_participant_get
@@ -250,7 +252,7 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
         if not boss:
             return jsonify({"error": "not found"}), 404
         if not boss_participant_get(bid, uid):
-            return jsonify({"error": "pas dans l'equipe"}), 403
+            return jsonify({"error": t("api.cards_boss.not_in_team")}), 403
         element = request.args.get("element") or None
         if element in (None, "", "all"):
             element = None
@@ -292,15 +294,15 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             return jsonify({"error": "login"}), 401
         boss = card_boss_get(bid)
         if not boss or boss.get("status") != "recruiting":
-            return jsonify({"error": "recrutement terminé"}), 400
+            return jsonify({"error": t("api.cards_boss.recruiting_closed")}), 400
         if not boss_participant_get(bid, uid):
-            return jsonify({"error": "pas dans l'équipe"}), 403
+            return jsonify({"error": t("api.cards_boss.not_in_team")}), 403
         cid = (request.json or {}).get("card_id")
         card = card_get(int(cid)) if cid else None
         if not card:
-            return jsonify({"error": "carte introuvable"}), 404
+            return jsonify({"error": t("api.cards_boss.card_not_found")}), 404
         if user_card_count_owned(uid, card["id"]) <= 0:
-            return jsonify({"error": "carte non possédée"}), 403
+            return jsonify({"error": t("api.cards_boss.card_not_owned")}), 403
         elem = card.get("element") or "eclat"
         stats = engaged_combat_stats(uid, card["id"])
         atk = int(stats["atk"] * _event_boss_dmg_mult(card, boss.get("guild_id")))
@@ -316,17 +318,17 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             return jsonify({"error": "login"}), 401
         boss = card_boss_get(bid)
         if not boss or boss.get("status") != "recruiting":
-            return jsonify({"error": "recrutement terminé"}), 400
+            return jsonify({"error": t("api.cards_boss.recruiting_closed")}), 400
         if not boss_participant_get(bid, uid):
-            return jsonify({"error": "pas dans l'équipe"}), 403
+            return jsonify({"error": t("api.cards_boss.not_in_team")}), 403
         val = (request.json or {}).get("aptitude") or "none"
         valid = {"berserker", "gardien", "soigneur", "duelliste", "executeur", "none"}
         if val not in valid:
-            return jsonify({"error": "aptitude invalide"}), 400
+            return jsonify({"error": t("api.cards_boss.invalid_aptitude")}), 400
         boss_participant_update(bid, uid, aptitude=("" if val == "none" else val))
         return jsonify({"ok": True})
 
-    # ── Chat live du combat ──
+    # -- Live fight chat --
     @app.route("/cards/boss/<int:bid>/chat", methods=["GET"])
     def cards_boss_chat_get(bid):
         from database import boss_chat_recent
@@ -347,10 +349,10 @@ color:#221700;font-weight:800;text-decoration:none;font-size:15px}</style></head
             return jsonify({"error": "not found"}), 404
         is_owner = bool((session.get("discord") or {}).get("is_owner"))
         if not is_owner and not boss_participant_get(bid, uid):
-            return jsonify({"error": "pas dans l'équipe"}), 403
+            return jsonify({"error": t("api.cards_boss.not_in_team")}), 403
         text = str((request.json or {}).get("text") or "").strip()[:300]
         if not text:
-            return jsonify({"error": "message vide"}), 400
-        name = (session.get("discord") or {}).get("username") or "Joueur"
+            return jsonify({"error": t("api.cards_boss.empty_message")}), 400
+        name = (session.get("discord") or {}).get("username") or t("api.cards_boss.player_fallback")
         cid = boss_chat_add(bid, uid, name, text)
         return jsonify({"ok": True, "id": cid})

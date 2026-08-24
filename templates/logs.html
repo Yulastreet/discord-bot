@@ -1,10 +1,10 @@
 {% extends "_base.html" %}
 {% set active_nav = 'logs' %}
 
-{% block title %}Logs · Bot Console{% endblock %}
-{% block crumb %}Logs{% endblock %}
+{% block title %}{{ t('web_features.logs.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.logs.crumb') }}{% endblock %}
 {% block actions %}
-  <button class="btn btn-secondary btn-sm" onclick="refresh()">Rafraîchir</button>
+  <button class="btn btn-secondary btn-sm" onclick="refresh()">{{ t('web_features.logs.refresh') }}</button>
 {% endblock %}
 
 {% block content %}
@@ -12,36 +12,36 @@
 <div class="col gap-7">
 
   <div>
-    <h1>Logs du serveur</h1>
+    <h1>{{ t('web_features.logs.heading') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Trace des slash commands exécutées et des actions des membres (vocal, suppression, édition, join/leave).
+      {{ t('web_features.logs.intro') }}
     </p>
   </div>
 
   <div class="card">
     <div class="grid grid-3" style="gap: var(--s-3);">
       <div class="field">
-        <label>Type</label>
+        <label>{{ t('web_features.logs.label_type') }}</label>
         <select id="filterType">
-          <option value="">Tous les logs</option>
-          <option value="commands">Commandes uniquement</option>
-          <option value="actions">Actions uniquement</option>
+          <option value="">{{ t('web_features.logs.type_all') }}</option>
+          <option value="commands">{{ t('web_features.logs.type_commands') }}</option>
+          <option value="actions">{{ t('web_features.logs.type_actions') }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Limite</label>
+        <label>{{ t('web_features.logs.label_limit') }}</label>
         <select id="filterLimit">
-          <option value="100">100 entrées</option>
-          <option value="200" selected>200 entrées</option>
-          <option value="500">500 entrées</option>
-          <option value="1000">1000 entrées</option>
+          <option value="100">{{ t('web_features.logs.limit_100') }}</option>
+          <option value="200" selected>{{ t('web_features.logs.limit_200') }}</option>
+          <option value="500">{{ t('web_features.logs.limit_500') }}</option>
+          <option value="1000">{{ t('web_features.logs.limit_1000') }}</option>
         </select>
       </div>
       <div class="field">
-        <label>Recherche</label>
+        <label>{{ t('web_features.logs.label_search') }}</label>
         <div class="input-search">
           <svg class="ic"><use href="#i-search"/></svg>
-          <input type="text" id="filterSearch" placeholder="Pseudo, salon, contenu...">
+          <input type="text" id="filterSearch" placeholder="{{ t('web_features.logs.ph_search') }}">
         </div>
       </div>
     </div>
@@ -156,7 +156,7 @@ async function refresh() {
     const data = await res.json();
     render(data.logs || [], type);
   } catch (e) {
-    document.getElementById('logsView').innerHTML = `<div class="empty-logs">Erreur : ${e.message}</div>`;
+    document.getElementById('logsView').innerHTML = `<div class="empty-logs">Error: ${e.message}</div>`;
   }
 }
 
@@ -205,7 +205,7 @@ function renderCommandsTerm(rows) {
       + highlightCommand(r.content || '')
       + `</span>`;
   });
-  return `<div class="term">` + (lines.length ? lines.join('\n') : '<span class="term-arrow">aucune commande...</span>') + `</div>`;
+  return `<div class="term">` + (lines.length ? lines.join('\n') : '<span class="term-arrow">no commands...</span>') + `</div>`;
 }
 
 function actionLine(r) {
@@ -218,30 +218,30 @@ function actionLine(r) {
 
   if (t === 'action_voice_join') {
     tagClass = 'join'; tagLabel = 'voice';
-    body = `${user} a rejoint le vocal ${ch}`;
+    body = `${user} joined voice ${ch}`;
   } else if (t === 'action_voice_leave') {
     tagClass = 'leave'; tagLabel = 'voice';
-    body = `${user} a quitté le vocal ${ch}`;
+    body = `${user} left voice ${ch}`;
   } else if (t === 'action_voice_move') {
     tagClass = 'move'; tagLabel = 'voice';
     let meta = {}; try { meta = r.meta ? JSON.parse(r.meta) : {}; } catch(_) {}
-    body = `${user} a changé de salon vocal : <code>#${escapeHtml(meta.from||'?')}</code> → <code>#${escapeHtml(meta.to||'?')}</code>`;
+    body = `${user} moved voice channel: <code>#${escapeHtml(meta.from||'?')}</code> → <code>#${escapeHtml(meta.to||'?')}</code>`;
   } else if (t === 'action_message_delete') {
     tagClass = 'delete'; tagLabel = 'msg';
-    body = `${user} a supprimé un message dans ${ch}`;
-    if (r.content) body += `<div class="ar-original"><span class="lbl">Contenu :</span>${escapeHtml(r.content)}</div>`;
+    body = `${user} deleted a message in ${ch}`;
+    if (r.content) body += `<div class="ar-original"><span class="lbl">Content:</span>${escapeHtml(r.content)}</div>`;
   } else if (t === 'action_message_edit') {
     tagClass = 'edit'; tagLabel = 'msg';
     let meta = {}; try { meta = r.meta ? JSON.parse(r.meta) : {}; } catch(_) {}
-    body = `${user} a édité un message dans ${ch}`;
-    if (meta.before) body += `<div class="ar-original"><span class="lbl">Avant :</span>${escapeHtml(meta.before)}</div>`;
-    if (r.content)   body += `<div class="ar-original"><span class="lbl">Après :</span>${escapeHtml(r.content)}</div>`;
+    body = `${user} edited a message in ${ch}`;
+    if (meta.before) body += `<div class="ar-original"><span class="lbl">Before:</span>${escapeHtml(meta.before)}</div>`;
+    if (r.content)   body += `<div class="ar-original"><span class="lbl">After:</span>${escapeHtml(r.content)}</div>`;
   } else if (t === 'action_member_join') {
     tagClass = 'mjoin'; tagLabel = 'member';
-    body = `${user} a rejoint le serveur`;
+    body = `${user} joined the server`;
   } else if (t === 'action_member_leave') {
     tagClass = 'mleave'; tagLabel = 'member';
-    body = `${user} a quitté le serveur`;
+    body = `${user} left the server`;
   } else {
     tagClass = ''; tagLabel = t.replace('action_', '');
     body = `${user} ${ch} ${escapeHtml(r.content || '')}`;
@@ -256,10 +256,10 @@ function actionLine(r) {
 function render(rows, typeFilter) {
   const view = document.getElementById('logsView');
   if (!rows.length) {
-    view.innerHTML = '<div class="empty-logs">Aucun log à afficher.</div>';
+    view.innerHTML = '<div class="empty-logs">No log to display.</div>';
     return;
   }
-  // Si filtre = commands → terminal full. Si actions → liste. Sinon mixte → mode actions avec commandes incluses.
+  // commands filter -> full terminal. actions -> list. Otherwise mixed -> actions mode with commands included.
   if (typeFilter === 'commands') {
     view.innerHTML = renderCommandsTerm(rows);
     return;
@@ -268,7 +268,7 @@ function render(rows, typeFilter) {
     view.innerHTML = '<div class="actions-list">' + rows.map(actionLine).join('') + '</div>';
     return;
   }
-  // Mixte : on rend tout en mode actions et on traite "command" comme un cas spécial
+  // Mixed: render everything in actions mode and treat "command" as a special case
   view.innerHTML = '<div class="actions-list">' + rows.map(r => {
     if (r.type === 'command') {
       const time = fmtTimeShort(r.ts);

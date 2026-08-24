@@ -1,19 +1,19 @@
 {% extends "_base.html" %}
 {% set active_nav = 'duels' %}
 
-{% block title %}Duels · Bot Console{% endblock %}
-{% block crumb %}Duels{% endblock %}
+{% block title %}{{ t('web_features.duels.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.duels.crumb') }}{% endblock %}
 {% block actions %}
   <button class="btn btn-secondary btn-sm" id="btnRefresh" onclick="loadUsers(document.getElementById('userSearch').value.trim()); loadSabres();">
-    Rafraîchir
+    {{ t('web_features.duels.refresh') }}
   </button>
 {% endblock %}
 
 {% block content %}
 
 <div class="tabs" role="tablist">
-  <button class="tab-btn active" data-tab="users">Utilisateurs</button>
-  <button class="tab-btn"        data-tab="shop">Boutique de sabres</button>
+  <button class="tab-btn active" data-tab="users">{{ t('web_features.duels.tab_users') }}</button>
+  <button class="tab-btn"        data-tab="shop">{{ t('web_features.duels.tab_shop') }}</button>
 </div>
 
 <!-- ============ TAB USERS ============ -->
@@ -24,7 +24,7 @@
       <div style="padding: var(--s-4); border-bottom: 1px solid var(--border);">
         <div class="input-search">
           <svg class="ic"><use href="#i-search"/></svg>
-          <input type="text" id="userSearch" placeholder="Rechercher pseudo, ID...">
+          <input type="text" id="userSearch" placeholder="{{ t('web_features.duels.search_ph') }}">
         </div>
       </div>
       <div id="userList" class="user-list" role="listbox"></div>
@@ -32,8 +32,8 @@
 
     <section id="userDetail" class="user-detail">
       <div class="empty-state">
-        <span class="eyebrow">Aucun joueur sélectionné</span>
-        <p>Choisis un joueur dans la liste pour voir et modifier son profil duel.</p>
+        <span class="eyebrow">{{ t('web_features.duels.empty_title') }}</span>
+        <p>{{ t('web_features.duels.empty_hint') }}</p>
       </div>
     </section>
 
@@ -44,11 +44,11 @@
 <div id="tab-shop" class="tab-content">
   <div class="row between mb-6" style="align-items:flex-end;">
     <div>
-      <h2>Boutique de sabres</h2>
-      <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">Modifie un sabre existant, ajoute-en un nouveau, ou retire-en un. La suppression nettoie automatiquement les collections concernées.</p>
+      <h2>{{ t('web_features.duels.tab_shop') }}</h2>
+      <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">{{ t('web_features.duels.shop_help') }}</p>
     </div>
     <button class="btn btn-primary" onclick="openSabreCreate()">
-      <svg class="ic"><use href="#i-plus"/></svg> Nouveau sabre
+      <svg class="ic"><use href="#i-plus"/></svg> {{ t('web_features.duels.new_saber') }}
     </button>
   </div>
 
@@ -59,8 +59,8 @@
 <div id="sabreModal" class="modal-overlay hidden" onclick="if(event.target === this) closeSabreModal()">
   <div class="modal" role="dialog" aria-modal="true">
     <div class="row between mb-6">
-      <h2 id="sabreModalTitle">Nouveau sabre</h2>
-      <button class="icon-btn" onclick="closeSabreModal()" aria-label="Fermer">
+      <h2 id="sabreModalTitle">{{ t('web_features.duels.new_saber') }}</h2>
+      <button class="icon-btn" onclick="closeSabreModal()" aria-label="{{ t('web_features.duels.close') }}">
         <svg class="ic"><use href="#i-x"/></svg>
       </button>
     </div>
@@ -69,19 +69,19 @@
 
     <div class="grid grid-2">
       <div class="field">
-        <label>ID (slug unique)</label>
-        <input type="text" id="sf_id" placeholder="ex: feu_eternel" class="mono">
+        <label>{{ t('web_features.duels.label_id') }}</label>
+        <input type="text" id="sf_id" placeholder="{{ t('web_features.duels.ph_id') }}" class="mono">
       </div>
       <div class="field">
-        <label>Nom</label>
+        <label>{{ t('web_features.duels.label_name') }}</label>
         <input type="text" id="sf_nom">
       </div>
       <div class="field">
-        <label>Emoji</label>
+        <label>{{ t('web_features.duels.label_emoji') }}</label>
         <input type="text" id="sf_emoji" placeholder="🔥">
       </div>
       <div class="field">
-        <label>Rareté</label>
+        <label>{{ t('web_features.duels.label_rarity') }}</label>
         <select id="sf_rarete">
           {% for code, info in raretes.items() %}
           <option value="{{ code }}">{{ info.label }} ({{ code }})</option>
@@ -89,53 +89,53 @@
         </select>
       </div>
       <div class="field">
-        <label>Prix (TookCoins)</label>
+        <label>{{ t('web_features.duels.label_price') }}</label>
         <input type="number" id="sf_prix" min="0" step="50">
       </div>
       <div class="field" style="grid-column: 1 / -1;">
-        <label>Description</label>
+        <label>{{ t('web_features.duels.label_description') }}</label>
         <textarea id="sf_description" rows="2"></textarea>
       </div>
     </div>
 
     <div class="divider"></div>
 
-    <h3 style="margin-bottom: var(--s-3);">Capacité spéciale</h3>
+    <h3 style="margin-bottom: var(--s-3);">{{ t('web_features.duels.special_title') }}</h3>
     <div class="grid grid-2">
       <div class="field">
-        <label>Nom</label>
+        <label>{{ t('web_features.duels.label_name') }}</label>
         <input type="text" id="sf_sp_nom">
       </div>
       <div class="field">
-        <label>Emoji</label>
+        <label>{{ t('web_features.duels.label_emoji') }}</label>
         <input type="text" id="sf_sp_emoji">
       </div>
       <div class="field" style="grid-column: 1 / -1;">
-        <label>Description</label>
+        <label>{{ t('web_features.duels.label_description') }}</label>
         <textarea id="sf_sp_description" rows="2"></textarea>
       </div>
       <div class="field" style="grid-column: 1 / -1;">
-        <label>Effet (code interne)</label>
+        <label>{{ t('web_features.duels.label_effect') }}</label>
         <select id="sf_sp_effet">
-          <option value="absorb_next">absorb_next — bouclier total prochain coup</option>
-          <option value="lifesteal_50">lifesteal_50 — vol de vie 50%</option>
-          <option value="lifesteal_75">lifesteal_75 — vol de vie 75%</option>
-          <option value="rage_next">rage_next — dégâts ×2 prochain coup</option>
-          <option value="double_attaque">double_attaque — 2 coups</option>
-          <option value="ignore_defense">ignore_defense — perce parade</option>
-          <option value="charged_attack">charged_attack — +50% dégâts</option>
-          <option value="precision_x2">precision_x2 — 2 coups perçants</option>
-          <option value="overcharge">overcharge — +75% perçant</option>
-          <option value="paralyze_next">paralyze_next — paralyse 1 tour</option>
-          <option value="reflect_100">reflect_100 — miroir 100%</option>
-          <option value="ultimate">ultimate — coup absolu</option>
+          <option value="absorb_next">absorb_next — {{ t('web_features.duels.effect_absorb_next') }}</option>
+          <option value="lifesteal_50">lifesteal_50 — {{ t('web_features.duels.effect_lifesteal_50') }}</option>
+          <option value="lifesteal_75">lifesteal_75 — {{ t('web_features.duels.effect_lifesteal_75') }}</option>
+          <option value="rage_next">rage_next — {{ t('web_features.duels.effect_rage_next') }}</option>
+          <option value="double_attaque">double_attaque — {{ t('web_features.duels.effect_double_attaque') }}</option>
+          <option value="ignore_defense">ignore_defense — {{ t('web_features.duels.effect_ignore_defense') }}</option>
+          <option value="charged_attack">charged_attack — {{ t('web_features.duels.effect_charged_attack') }}</option>
+          <option value="precision_x2">precision_x2 — {{ t('web_features.duels.effect_precision_x2') }}</option>
+          <option value="overcharge">overcharge — {{ t('web_features.duels.effect_overcharge') }}</option>
+          <option value="paralyze_next">paralyze_next — {{ t('web_features.duels.effect_paralyze_next') }}</option>
+          <option value="reflect_100">reflect_100 — {{ t('web_features.duels.effect_reflect_100') }}</option>
+          <option value="ultimate">ultimate — {{ t('web_features.duels.effect_ultimate') }}</option>
         </select>
       </div>
     </div>
 
     <div class="row end gap-2 mt-8">
-      <button class="btn btn-ghost" onclick="closeSabreModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveSabre()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeSabreModal()">{{ t('web_features.duels.cancel') }}</button>
+      <button class="btn btn-primary" onclick="saveSabre()">{{ t('web_features.duels.save') }}</button>
     </div>
   </div>
 </div>
@@ -290,12 +290,12 @@ async function loadUsers(query = '') {
 function renderUsers() {
   const list = document.getElementById('userList');
   if (ALL_USERS.length === 0) {
-    list.innerHTML = '<div style="padding: var(--s-7) var(--s-4); text-align: center; color: var(--text-3); font-size: var(--t-sm);">Aucun joueur trouvé.</div>';
+    list.innerHTML = '<div style="padding: var(--s-7) var(--s-4); text-align: center; color: var(--text-3); font-size: var(--t-sm);">No player found.</div>';
     return;
   }
   list.innerHTML = ALL_USERS.map(u => `
     <div class="user-row ${SELECTED_USER === u.user_id ? 'selected' : ''}" onclick="selectUser('${u.user_id}')">
-      <div class="uname">${u.username || '(sans nom)'}</div>
+      <div class="uname">${u.username || '(no name)'}</div>
       <div class="uinfo">
         <span>L${u.combat_level || 1}</span>
         <span>${fmtNum(u.tookcoins || 0)}c</span>
@@ -313,11 +313,11 @@ async function selectUser(uid) {
   SELECTED_USER = uid;
   renderUsers();
   const detail = document.getElementById('userDetail');
-  detail.innerHTML = '<div class="muted" style="padding: var(--s-7);">Chargement...</div>';
+  detail.innerHTML = '<div class="muted" style="padding: var(--s-7);">Loading...</div>';
 
   const res = await fetch('/api/duels/user/' + uid);
   if (!res.ok) {
-    detail.innerHTML = '<div class="empty-state"><p>Profil introuvable.</p></div>';
+    detail.innerHTML = '<div class="empty-state"><p>Profile not found.</p></div>';
     return;
   }
   renderUserDetail(await res.json());
@@ -328,14 +328,14 @@ function renderUserDetail(data) {
   const collection = data.collection || [];
   const histo = data.historique || [];
 
-  // Historique
+  // History
   const histoHtml = histo.length === 0
-    ? '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">Aucun duel.</div>'
+    ? '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">No duels.</div>'
     : histo.slice(0, 50).map(h => {
         const won = h.gagnant_id === p.user_id;
         const adv = (h.user_id_1 === p.user_id) ? h.user_id_2 : h.user_id_1;
         return `<div class="historique-row">
-          <span class="hr-result ${won ? 'hr-win' : 'hr-lose'}">${won ? 'Victoire' : 'Défaite'}</span>
+          <span class="hr-result ${won ? 'hr-win' : 'hr-lose'}">${won ? 'Win' : 'Loss'}</span>
           <span class="hr-vs">vs ${adv}</span>
           <span class="hr-coins">${won ? '+' : '-'}${fmtNum(won ? h.tookcoins_gagnant : (h.tookcoins_perdant || 0))}c</span>
         </div>`;
@@ -343,57 +343,57 @@ function renderUserDetail(data) {
 
   // Collection
   const collectionHtml = collection.length === 0
-    ? '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">Aucun sabre dans la collection.</div>'
+    ? '<div style="padding: var(--s-7); text-align: center; color: var(--text-3); font-size: var(--t-sm);">No saber in this collection.</div>'
     : '<div class="grid grid-2">' + collection.map(c => sabreCardHtml(ALL_SABRES[c.sabre_id], c.sabre_id, p.sabre_equipe === c.sabre_id, true)).join('') + '</div>';
 
-  // Sabres ajoutables
+  // Addable sabers
   const ownedIds = new Set(collection.map(c => c.sabre_id));
   const addable = Object.values(ALL_SABRES).filter(s => !ownedIds.has(s.id));
 
   document.getElementById('userDetail').innerHTML = `
     <div class="row between" style="align-items:flex-start;flex-wrap:wrap;gap:var(--s-4);">
       <div class="col gap-2">
-        <span class="eyebrow">Joueur</span>
-        <h1 style="font-size: var(--t-xl);">${p.username || '(sans nom)'}</h1>
+        <span class="eyebrow">Player</span>
+        <h1 style="font-size: var(--t-xl);">${p.username || '(no name)'}</h1>
         <span class="badge badge-mono">${p.user_id}</span>
       </div>
       <div class="col gap-2" style="text-align:right;">
-        <span class="eyebrow">Sabre équipé</span>
+        <span class="eyebrow">Equipped saber</span>
         ${equippedSabreSummary(p.sabre_equipe)}
       </div>
     </div>
 
     <div class="duel-stat-grid">
-      <div class="stat"><div class="stat-label">Niveau combat</div><div class="stat-value">${p.combat_level || 1}</div></div>
-      <div class="stat"><div class="stat-label">XP combat</div><div class="stat-value">${fmtNum(p.combat_xp || 0)}</div></div>
+      <div class="stat"><div class="stat-label">Combat level</div><div class="stat-value">${p.combat_level || 1}</div></div>
+      <div class="stat"><div class="stat-label">Combat XP</div><div class="stat-value">${fmtNum(p.combat_xp || 0)}</div></div>
       <div class="stat"><div class="stat-label">TookCoins</div><div class="stat-value">${fmtNum(p.tookcoins || 0)}</div></div>
-      <div class="stat"><div class="stat-label">Points stats</div><div class="stat-value">${p.stat_points || 0}</div></div>
-      <div class="stat"><div class="stat-label">Victoires</div><div class="stat-value">${p.victoires || 0}</div></div>
-      <div class="stat"><div class="stat-label">Défaites</div><div class="stat-value">${p.defaites || 0}</div></div>
-      <div class="stat"><div class="stat-label">Ratio V/D</div><div class="stat-value">${p.ratio}</div></div>
-      <div class="stat"><div class="stat-label">Lvl messages</div><div class="stat-value">${p.level || 1}</div></div>
+      <div class="stat"><div class="stat-label">Stat points</div><div class="stat-value">${p.stat_points || 0}</div></div>
+      <div class="stat"><div class="stat-label">Wins</div><div class="stat-value">${p.victoires || 0}</div></div>
+      <div class="stat"><div class="stat-label">Losses</div><div class="stat-value">${p.defaites || 0}</div></div>
+      <div class="stat"><div class="stat-label">W/L ratio</div><div class="stat-value">${p.ratio}</div></div>
+      <div class="stat"><div class="stat-label">Message lvl</div><div class="stat-value">${p.level || 1}</div></div>
     </div>
 
     <div class="card">
       <div class="card-row mb-4">
-        <h3>Modifier le profil</h3>
-        <button class="btn btn-primary btn-sm" onclick="saveUser()"><svg class="ic"><use href="#i-check"/></svg> Enregistrer</button>
+        <h3>Edit profile</h3>
+        <button class="btn btn-primary btn-sm" onclick="saveUser()"><svg class="ic"><use href="#i-check"/></svg> Save</button>
       </div>
       <div class="stat-edit-grid">
-        <div class="field"><label>Pseudo</label><input type="text" id="ed_username" value="${escapeAttr(p.username || '')}"></div>
-        <div class="field"><label>Niveau combat</label><input type="number" id="ed_combat_level" value="${p.combat_level || 1}"></div>
-        <div class="field"><label>XP combat</label><input type="number" id="ed_combat_xp" value="${p.combat_xp || 0}"></div>
+        <div class="field"><label>Username</label><input type="text" id="ed_username" value="${escapeAttr(p.username || '')}"></div>
+        <div class="field"><label>Combat level</label><input type="number" id="ed_combat_level" value="${p.combat_level || 1}"></div>
+        <div class="field"><label>Combat XP</label><input type="number" id="ed_combat_xp" value="${p.combat_xp || 0}"></div>
         <div class="field"><label>TookCoins</label><input type="number" id="ed_tookcoins" value="${p.tookcoins || 0}"></div>
-        <div class="field"><label>Victoires</label><input type="number" id="ed_victoires" value="${p.victoires || 0}"></div>
-        <div class="field"><label>Défaites</label><input type="number" id="ed_defaites" value="${p.defaites || 0}"></div>
-        <div class="field"><label>Points de stat</label><input type="number" id="ed_stat_points" value="${p.stat_points || 0}"></div>
-        <div class="field"><label>Force</label><input type="number" id="ed_stat_force" value="${p.stat_force || 0}"></div>
-        <div class="field"><label>Agilité</label><input type="number" id="ed_stat_agilite" value="${p.stat_agilite || 0}"></div>
-        <div class="field"><label>Défense</label><input type="number" id="ed_stat_defense" value="${p.stat_defense || 0}"></div>
-        <div class="field"><label>Endurance</label><input type="number" id="ed_stat_endurance" value="${p.stat_endurance || 0}"></div>
-        <div class="field"><label>Chance</label><input type="number" id="ed_stat_chance" value="${p.stat_chance || 0}"></div>
+        <div class="field"><label>Wins</label><input type="number" id="ed_victoires" value="${p.victoires || 0}"></div>
+        <div class="field"><label>Losses</label><input type="number" id="ed_defaites" value="${p.defaites || 0}"></div>
+        <div class="field"><label>Stat points</label><input type="number" id="ed_stat_points" value="${p.stat_points || 0}"></div>
+        <div class="field"><label>Strength</label><input type="number" id="ed_stat_force" value="${p.stat_force || 0}"></div>
+        <div class="field"><label>Agility</label><input type="number" id="ed_stat_agilite" value="${p.stat_agilite || 0}"></div>
+        <div class="field"><label>Defense</label><input type="number" id="ed_stat_defense" value="${p.stat_defense || 0}"></div>
+        <div class="field"><label>Stamina</label><input type="number" id="ed_stat_endurance" value="${p.stat_endurance || 0}"></div>
+        <div class="field"><label>Luck</label><input type="number" id="ed_stat_chance" value="${p.stat_chance || 0}"></div>
         <div class="field" style="grid-column: 1 / -1;">
-          <label>Sabre équipé</label>
+          <label>Equipped saber</label>
           <select id="ed_sabre_equipe">
             ${Object.values(ALL_SABRES).sort((a,b) => a.nom.localeCompare(b.nom)).map(s =>
               `<option value="${s.id}" ${s.id === p.sabre_equipe ? 'selected' : ''}>${s.emoji || ''} ${s.nom} · ${s.rarete}</option>`
@@ -405,13 +405,13 @@ function renderUserDetail(data) {
 
     <div class="card padless">
       <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-        <h3>Collection · ${collection.length} sabre${collection.length > 1 ? 's' : ''}</h3>
+        <h3>Collection · ${collection.length} saber${collection.length > 1 ? 's' : ''}</h3>
         ${addable.length > 0 ? `
           <div class="row gap-2">
             <select id="sabreAddSelect" style="min-width:240px;">
               ${addable.map(s => `<option value="${s.id}">${s.emoji || ''} ${s.nom} · ${s.rarete} · ${fmtNum(s.prix)}c</option>`).join('')}
             </select>
-            <button class="btn btn-secondary btn-sm" onclick="addSabreToUser()"><svg class="ic"><use href="#i-plus"/></svg> Ajouter</button>
+            <button class="btn btn-secondary btn-sm" onclick="addSabreToUser()"><svg class="ic"><use href="#i-plus"/></svg> Add</button>
           </div>
         ` : ''}
       </div>
@@ -420,7 +420,7 @@ function renderUserDetail(data) {
 
     <div class="card padless">
       <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-        <h3>Historique</h3>
+        <h3>History</h3>
         <span class="badge">${histo.length} duel${histo.length > 1 ? 's' : ''}</span>
       </div>
       ${histoHtml}
@@ -437,8 +437,8 @@ function equippedSabreSummary(id) {
 function sabreCardHtml(s, fallbackId, equipped, fromCollection) {
   if (!s) {
     return `<div class="sabre-card">
-      <div class="sc-head"><div><div class="sc-name">${fallbackId}</div><div class="sc-id muted">sabre supprimé du shop</div></div></div>
-      <div class="sc-actions"><button class="btn btn-danger btn-sm" onclick="removeSabreFromUser('${fallbackId}')"><svg class="ic"><use href="#i-trash"/></svg> Retirer</button></div>
+      <div class="sc-head"><div><div class="sc-name">${fallbackId}</div><div class="sc-id muted">saber removed from the shop</div></div></div>
+      <div class="sc-actions"><button class="btn btn-danger btn-sm" onclick="removeSabreFromUser('${fallbackId}')"><svg class="ic"><use href="#i-trash"/></svg> Remove</button></div>
     </div>`;
   }
   return `<div class="sabre-card ${equipped ? 'equipped' : ''}">
@@ -447,7 +447,7 @@ function sabreCardHtml(s, fallbackId, equipped, fromCollection) {
         <div class="sc-name">
           <span class="sc-emoji">${s.emoji || ''}</span>
           <span>${s.nom}</span>
-          ${equipped ? '<span class="equip-pill">équipé</span>' : ''}
+          ${equipped ? '<span class="equip-pill">equipped</span>' : ''}
         </div>
         <div class="sc-id">${s.id}</div>
       </div>
@@ -464,11 +464,11 @@ function sabreCardHtml(s, fallbackId, equipped, fromCollection) {
     </div>
     <div class="sc-actions">
       ${fromCollection ? `
-        ${!equipped ? `<button class="btn btn-secondary btn-sm" onclick="equipSabre('${s.id}')"><svg class="ic"><use href="#i-check"/></svg> Équiper</button>` : ''}
-        <button class="btn btn-ghost btn-sm" onclick="removeSabreFromUser('${s.id}')"><svg class="ic"><use href="#i-trash"/></svg> Retirer</button>
+        ${!equipped ? `<button class="btn btn-secondary btn-sm" onclick="equipSabre('${s.id}')"><svg class="ic"><use href="#i-check"/></svg> Equip</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="removeSabreFromUser('${s.id}')"><svg class="ic"><use href="#i-trash"/></svg> Remove</button>
       ` : `
-        <button class="btn btn-secondary btn-sm" onclick="openSabreEdit('${s.id}')"><svg class="ic"><use href="#i-edit"/></svg> Modifier</button>
-        <button class="btn btn-ghost btn-sm" onclick="deleteSabre('${s.id}')"><svg class="ic"><use href="#i-trash"/></svg> Supprimer</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSabreEdit('${s.id}')"><svg class="ic"><use href="#i-edit"/></svg> Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteSabre('${s.id}')"><svg class="ic"><use href="#i-trash"/></svg> Delete</button>
       `}
     </div>
   </div>`;
@@ -489,8 +489,8 @@ async function saveUser() {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload),
   });
   const d = await res.json();
-  if (d.success) { toast('Profil mis à jour.'); selectUser(SELECTED_USER); loadUsers(document.getElementById('userSearch').value.trim()); }
-  else toast(d.error || 'Erreur', 'error');
+  if (d.success) { toast('Profile updated.'); selectUser(SELECTED_USER); loadUsers(document.getElementById('userSearch').value.trim()); }
+  else toast(d.error || 'Error', 'error');
 }
 
 async function equipSabre(sabreId) {
@@ -499,8 +499,8 @@ async function equipSabre(sabreId) {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sabre_equipe: sabreId}),
   });
   const d = await res.json();
-  if (d.success) { toast('Sabre équipé.'); selectUser(SELECTED_USER); }
-  else toast(d.error || 'Erreur', 'error');
+  if (d.success) { toast('Saber equipped.'); selectUser(SELECTED_USER); }
+  else toast(d.error || 'Error', 'error');
 }
 
 async function addSabreToUser() {
@@ -511,22 +511,22 @@ async function addSabreToUser() {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sabre_id: sel.value}),
   });
   const d = await res.json();
-  if (d.success) { toast('Sabre ajouté.'); selectUser(SELECTED_USER); }
-  else toast(d.error || 'Erreur', 'error');
+  if (d.success) { toast('Saber added.'); selectUser(SELECTED_USER); }
+  else toast(d.error || 'Error', 'error');
 }
 
 async function removeSabreFromUser(sabreId) {
   if (!SELECTED_USER) return;
-  if (!confirm(`Retirer "${sabreId}" de la collection ?`)) return;
+  if (!confirm(`Remove "${sabreId}" from the collection?`)) return;
   const res = await fetch(`/api/duels/user/${SELECTED_USER}/sabres/remove`, {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sabre_id: sabreId}),
   });
   const d = await res.json();
-  if (d.success) { toast('Sabre retiré.'); selectUser(SELECTED_USER); }
-  else toast(d.error || 'Erreur', 'error');
+  if (d.success) { toast('Saber removed.'); selectUser(SELECTED_USER); }
+  else toast(d.error || 'Error', 'error');
 }
 
-// ─── Sabres shop ─────────────────────────────────────────
+// ─── Sabers shop ─────────────────────────────────────────
 async function loadSabres() {
   const res = await fetch('/api/sabres');
   const data = await res.json();
@@ -540,12 +540,12 @@ function renderSabres() {
   if (!grid) return;
   const order = ['C','UC','R','SR','SSR'];
   const list = Object.values(ALL_SABRES).sort((a,b) => order.indexOf(a.rarete) - order.indexOf(b.rarete) || a.prix - b.prix);
-  if (list.length === 0) { grid.innerHTML = '<p class="muted">Aucun sabre.</p>'; return; }
+  if (list.length === 0) { grid.innerHTML = '<p class="muted">No saber.</p>'; return; }
   grid.innerHTML = list.map(s => sabreCardHtml(s, s.id, false, false)).join('');
 }
 
 function openSabreCreate() {
-  document.getElementById('sabreModalTitle').textContent = 'Nouveau sabre';
+  document.getElementById('sabreModalTitle').textContent = 'New saber';
   document.getElementById('sabreOriginalId').value = '';
   document.getElementById('sf_id').disabled = false;
   ['sf_id','sf_nom','sf_emoji','sf_description','sf_sp_nom','sf_sp_description','sf_sp_emoji'].forEach(id => document.getElementById(id).value = '');
@@ -558,7 +558,7 @@ function openSabreCreate() {
 function openSabreEdit(id) {
   const s = ALL_SABRES[id];
   if (!s) return;
-  document.getElementById('sabreModalTitle').textContent = 'Modifier · ' + s.nom;
+  document.getElementById('sabreModalTitle').textContent = 'Edit · ' + s.nom;
   document.getElementById('sabreOriginalId').value = id;
   document.getElementById('sf_id').value = s.id;
   document.getElementById('sf_id').disabled = true;
@@ -590,20 +590,20 @@ async function saveSabre() {
     speciale_emoji:       document.getElementById('sf_sp_emoji').value,
     speciale_effet:       document.getElementById('sf_sp_effet').value,
   };
-  if (!payload.id || !payload.nom) { toast('ID et nom requis.', 'error'); return; }
+  if (!payload.id || !payload.nom) { toast('ID and name are required.', 'error'); return; }
   const url = isEdit ? `/api/sabres/${payload.id}/update` : '/api/sabres/create';
   const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
   const d = await res.json();
-  if (d.success) { toast(isEdit ? 'Sabre modifié.' : 'Sabre créé.'); closeSabreModal(); loadSabres(); }
-  else toast(d.error || 'Erreur', 'error');
+  if (d.success) { toast(isEdit ? 'Saber updated.' : 'Saber created.'); closeSabreModal(); loadSabres(); }
+  else toast(d.error || 'Error', 'error');
 }
 
 async function deleteSabre(id) {
-  if (!confirm(`Supprimer le sabre "${id}" ?\nLes collections concernées seront nettoyées.`)) return;
+  if (!confirm(`Delete saber "${id}"?\nAffected collections will be cleaned up.`)) return;
   const res = await fetch(`/api/sabres/${id}/delete`, {method: 'POST'});
   const d = await res.json();
-  if (d.success) { toast('Sabre supprimé.'); loadSabres(); }
-  else toast(d.error || 'Erreur', 'error');
+  if (d.success) { toast('Saber deleted.'); loadSabres(); }
+  else toast(d.error || 'Error', 'error');
 }
 
 // ─── Init ────────────────────────────────────────────────

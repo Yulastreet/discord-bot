@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="cs2">{% endblock %}
-{% block title %}Counter-Strike 2 · TookBot{% endblock %}
-{% block crumb %}Counter-Strike 2{% endblock %}
+{% block title %}{{ t('web_features.cs2.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.cs2.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -86,20 +86,19 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 </style>
 
-<h1 style="margin:0 0 6px;">🎮 Counter-Strike 2</h1>
+<h1 style="margin:0 0 6px;">🎮 {{ t('web_features.cs2.heading') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
-  Config rank-role automatique : assigne un rôle Discord selon le palier Premier déclaré
-  (`/cs setrank`) de chaque membre. Active la feature ci-dessous et mappe un rôle par palier.
+  {{ t('web_features.cs2.intro') }}
 </p>
 
 <div class="cs-card">
-  <h2>🎖️ Rank role automatique</h2>
-  <p class="help">Quand un membre fait <code>/cs setrank &lt;elo&gt;</code> dans Discord, le bot lui attribue le rôle correspondant à son palier Premier (CS Rating).</p>
+  <h2>🎖️ {{ t('web_features.cs2.rank_role_title') }}</h2>
+  <p class="help">{{ t('web_features.cs2.rank_role_help_before') }} <code>/cs setrank &lt;elo&gt;</code> {{ t('web_features.cs2.rank_role_help_after') }}</p>
 
   <div class="switch-row">
     <div>
-      <strong>Activer l'attribution auto</strong>
-      <div class="muted" style="font-size:12px;">Les rôles configurés ci-dessous seront appliqués/retirés selon l'ELO.</div>
+      <strong>{{ t('web_features.cs2.toggle_label') }}</strong>
+      <div class="muted" style="font-size:12px;">{{ t('web_features.cs2.toggle_help') }}</div>
     </div>
     <label class="switch">
       <input type="checkbox" id="csEnabled">
@@ -109,34 +108,34 @@
 </div>
 
 <div class="cs-card">
-  <h2>Mapping rôles ↔ paliers</h2>
-  <p class="help">Sélectionne le rôle Discord à appliquer pour chaque palier Premier.</p>
+  <h2>{{ t('web_features.cs2.mapping_title') }}</h2>
+  <p class="help">{{ t('web_features.cs2.mapping_help') }}</p>
 
   <div id="tierRows">
-    <div class="tier-row"><span class="tier-label tier-grey">⚪ Grey · 0-4999</span><select class="role-select" data-tier="role_grey"></select></div>
-    <div class="tier-row"><span class="tier-label tier-lightblue">🩵 Light Blue · 5000-9999</span><select class="role-select" data-tier="role_lightblue"></select></div>
-    <div class="tier-row"><span class="tier-label tier-blue">🔷 Blue · 10000-14999</span><select class="role-select" data-tier="role_blue"></select></div>
-    <div class="tier-row"><span class="tier-label tier-purple">🟣 Purple · 15000-19999</span><select class="role-select" data-tier="role_purple"></select></div>
-    <div class="tier-row"><span class="tier-label tier-pink">💖 Pink · 20000-24999</span><select class="role-select" data-tier="role_pink"></select></div>
-    <div class="tier-row"><span class="tier-label tier-red">🔴 Red · 25000-29999</span><select class="role-select" data-tier="role_red"></select></div>
-    <div class="tier-row"><span class="tier-label tier-gold">🟡 Gold · 30000+</span><select class="role-select" data-tier="role_gold"></select></div>
+    <div class="tier-row"><span class="tier-label tier-grey">⚪ {{ t('web_features.cs2.tier_grey') }}</span><select class="role-select" data-tier="role_grey"></select></div>
+    <div class="tier-row"><span class="tier-label tier-lightblue">🩵 {{ t('web_features.cs2.tier_lightblue') }}</span><select class="role-select" data-tier="role_lightblue"></select></div>
+    <div class="tier-row"><span class="tier-label tier-blue">🔷 {{ t('web_features.cs2.tier_blue') }}</span><select class="role-select" data-tier="role_blue"></select></div>
+    <div class="tier-row"><span class="tier-label tier-purple">🟣 {{ t('web_features.cs2.tier_purple') }}</span><select class="role-select" data-tier="role_purple"></select></div>
+    <div class="tier-row"><span class="tier-label tier-pink">💖 {{ t('web_features.cs2.tier_pink') }}</span><select class="role-select" data-tier="role_pink"></select></div>
+    <div class="tier-row"><span class="tier-label tier-red">🔴 {{ t('web_features.cs2.tier_red') }}</span><select class="role-select" data-tier="role_red"></select></div>
+    <div class="tier-row"><span class="tier-label tier-gold">🟡 {{ t('web_features.cs2.tier_gold') }}</span><select class="role-select" data-tier="role_gold"></select></div>
   </div>
 
-  <button class="btn btn-primary" id="saveBtn" type="button" style="margin-top:12px;">💾 Enregistrer</button>
+  <button class="btn btn-primary" id="saveBtn" type="button" style="margin-top:12px;">💾 {{ t('web_features.cs2.save') }}</button>
 </div>
 
 <div class="cs-card">
-  <h2>📚 Commandes disponibles dans Discord</h2>
+  <h2>📚 {{ t('web_features.cs2.commands_title') }}</h2>
   <ul style="font-size:13px;line-height:1.8;margin:0;padding-left:20px;">
-    <li><code>/cs link &lt;Steam|Faceit&gt; &lt;id&gt;</code> — lie un compte</li>
-    <li><code>/cs unlink &lt;Steam|Faceit|Tout&gt;</code> — retire un lien</li>
-    <li><code>/cs stats [@membre]</code> — affiche les stats (Steam / Faceit)</li>
-    <li><code>/cs setrank &lt;elo&gt;</code> — déclare son rating Premier</li>
-    <li><code>/cs price &lt;skin&gt;</code> — prix Steam Market</li>
-    <li><code>/cs inventory [@membre|&lt;steamid&gt;]</code> — inventaire + valeur €</li>
-    <li><code>/cs queue</code> — crée un voice channel temporaire (5 slots)</li>
-    <li><code>/cs map</code> — ban/pick maps tour-par-tour</li>
-    <li><code>/cs loadout</code> — loadout aléatoire</li>
+    <li><code>/cs link &lt;Steam|Faceit&gt; &lt;id&gt;</code> — {{ t('web_features.cs2.cmd_link') }}</li>
+    <li><code>/cs unlink &lt;Steam|Faceit|All&gt;</code> — {{ t('web_features.cs2.cmd_unlink') }}</li>
+    <li><code>/cs stats [@member]</code> — {{ t('web_features.cs2.cmd_stats') }}</li>
+    <li><code>/cs setrank &lt;elo&gt;</code> — {{ t('web_features.cs2.cmd_setrank') }}</li>
+    <li><code>/cs price &lt;skin&gt;</code> — {{ t('web_features.cs2.cmd_price') }}</li>
+    <li><code>/cs inventory [@member|&lt;steamid&gt;]</code> — {{ t('web_features.cs2.cmd_inventory') }}</li>
+    <li><code>/cs queue</code> — {{ t('web_features.cs2.cmd_queue') }}</li>
+    <li><code>/cs map</code> — {{ t('web_features.cs2.cmd_map') }}</li>
+    <li><code>/cs loadout</code> — {{ t('web_features.cs2.cmd_loadout') }}</li>
   </ul>
 </div>
 
@@ -170,7 +169,7 @@ async function loadConfig() {
   document.getElementById('csEnabled').checked = !!CONFIG.enabled;
   document.querySelectorAll('.role-select').forEach(sel => {
     const tier = sel.dataset.tier;
-    sel.innerHTML = '<option value="">— aucun —</option>' +
+    sel.innerHTML = '<option value="">— none —</option>' +
       ROLES.map(r => `<option value="${r.role_id}" ${String(r.role_id) === String(CONFIG[tier] || '') ? 'selected' : ''}>${r.name}</option>`).join('');
   });
 }
@@ -185,8 +184,8 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (r.ok) showToast('✅ Config enregistrée');
-  else showToast('Erreur', false);
+  if (r.ok) showToast('✅ Config saved');
+  else showToast('Error', false);
 });
 
 window.addEventListener('DOMContentLoaded', async () => {

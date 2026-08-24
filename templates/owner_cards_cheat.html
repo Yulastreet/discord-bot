@@ -19,22 +19,22 @@
 
 <div class="cc-section">
   <h3>🎲 Cards Cheat</h3>
-  <p class="sub">Roll <b>N cartes</b> dans une catégorie (ou toutes) → directement dans l'inventaire cible. N'apparaît <b>pas</b> dans Obtention temps réel.</p>
+  <p class="sub">{{ t('web_cards.owner_cheat.sub_1') }} <b>{{ t('web_cards.owner_cheat.sub_2') }}</b> {{ t('web_cards.owner_cheat.sub_3') }} <b>{{ t('web_cards.owner_cheat.sub_4') }}</b> {{ t('web_cards.owner_cheat.sub_5') }}</p>
 
   <div class="cc-field">
-    <label>ID utilisateur cible <span class="cc-hint">— vide = toi (owner)</span></label>
-    <input id="ccUserId" class="input" placeholder="ex : 250304844374605835" inputmode="numeric">
+    <label>{{ t('web_cards.owner_cheat.target_user') }} <span class="cc-hint">{{ t('web_cards.owner_cheat.target_user_hint') }}</span></label>
+    <input id="ccUserId" class="input" placeholder="{{ t('web_cards.owner_cheat.user_ph') }}" inputmode="numeric">
   </div>
 
   <div class="cc-field">
-    <label>Nombre de rolls</label>
+    <label>{{ t('web_cards.owner_cheat.roll_count') }}</label>
     <input id="ccCount" type="number" min="1" max="1000" value="10" class="input">
   </div>
 
   <div class="cc-field">
-    <label>Catégorie <span class="cc-hint">— vide = toutes catégories</span></label>
+    <label>{{ t('web_cards.owner_cheat.category') }} <span class="cc-hint">{{ t('web_cards.owner_cheat.category_hint') }}</span></label>
     <select id="ccUniverse" class="input">
-      <option value="">Toutes catégories (aléatoire global)</option>
+      <option value="">{{ t('web_cards.owner_cheat.all_categories') }}</option>
       {% for u in universes %}
       <option value="{{ u }}">{{ u }}</option>
       {% endfor %}
@@ -42,9 +42,9 @@
   </div>
 
   <div class="cc-field">
-    <label>Rareté <span class="cc-hint">— aléatoire = poids normaux du roll</span></label>
+    <label>{{ t('web_cards.owner_cheat.rarity') }} <span class="cc-hint">{{ t('web_cards.owner_cheat.rarity_hint') }}</span></label>
     <select id="ccRarity" class="input">
-      <option value="">🎲 Aléatoire (poids de roll)</option>
+      <option value="">{{ t('web_cards.owner_cheat.rarity_random') }}</option>
       <option value="common">⚪ Common</option>
       <option value="rare">🔵 Rare</option>
       <option value="epic">🟣 Epic</option>
@@ -54,31 +54,31 @@
     </select>
   </div>
 
-  <button class="btn btn-primary" onclick="ccRoll()">🎲 Roll dans l'inventaire cible</button>
+  <button class="btn btn-primary" onclick="ccRoll()">{{ t('web_cards.owner_cheat.btn_roll') }}</button>
   <div id="ccResult" class="muted"></div>
 </div>
 
 <div class="cc-section" style="margin-top:16px;">
-  <h3>🎯 Forcer le prochain /roll</h3>
-  <p class="sub">Choisis une carte : le <b>prochain</b> <code>/roll</code> de la cible donnera exactement celle-ci (une fois).</p>
+  <h3>{{ t('web_cards.owner_cheat.force_title') }}</h3>
+  <p class="sub">{{ t('web_cards.owner_cheat.force_sub_1') }} <b>{{ t('web_cards.owner_cheat.force_sub_2') }}</b> <code>/roll</code> {{ t('web_cards.owner_cheat.force_sub_3') }}</p>
 
   <div class="cc-field">
-    <label>ID utilisateur cible <span class="cc-hint">— vide = toi (owner)</span></label>
-    <input id="fcUserId" class="input" placeholder="ex : 250304844374605835" inputmode="numeric">
+    <label>{{ t('web_cards.owner_cheat.target_user') }} <span class="cc-hint">{{ t('web_cards.owner_cheat.target_user_hint') }}</span></label>
+    <input id="fcUserId" class="input" placeholder="{{ t('web_cards.owner_cheat.user_ph') }}" inputmode="numeric">
   </div>
 
   <div class="cc-field" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
     <div style="display:flex;flex-direction:column;gap:6px;">
-      <label>Carte</label>
-      <input id="fcSearch" class="input" placeholder="Nom ou univers… puis Entrée"
+      <label>{{ t('web_cards.owner_cheat.card') }}</label>
+      <input id="fcSearch" class="input" placeholder="{{ t('web_cards.owner_cheat.search_ph') }}"
              onkeydown="if(event.key==='Enter'){event.preventDefault();fcSearchGo();}">
     </div>
-    <button class="btn" onclick="fcSearchGo()">🔍 Chercher</button>
+    <button class="btn" onclick="fcSearchGo()">{{ t('web_cards.owner_cheat.btn_search') }}</button>
   </div>
   <div id="fcResults" style="margin-bottom:14px;display:none;">
     <select id="fcPick" class="input" onchange="fcPicked()"></select>
   </div>
-  <button class="btn btn-primary" id="fcBtn" onclick="fcForce()" disabled>🎯 Forcer le prochain roll</button>
+  <button class="btn btn-primary" id="fcBtn" onclick="fcForce()" disabled>{{ t('web_cards.owner_cheat.btn_force') }}</button>
   <div id="fcResult" class="muted" style="margin-top:14px;"></div>
 </div>
 
@@ -87,18 +87,18 @@ let _fcCardId = null;
 async function fcSearchGo() {
   const q = (document.getElementById('fcSearch').value || '').trim();
   const res = document.getElementById('fcResult');
-  if (!q) { res.textContent = 'Tape un nom de carte.'; return; }
-  res.textContent = 'Recherche…';
+  if (!q) { res.textContent = 'Type a card name.'; return; }
+  res.textContent = 'Searching…';
   try {
     const r = await fetch('/api/owner/cards?per_page=25&sort=name_asc&q=' + encodeURIComponent(q));
     const d = await r.json();
     const sel = document.getElementById('fcPick'), box = document.getElementById('fcResults');
     const items = d.items || [];
-    if (!items.length) { res.textContent = 'Aucune carte trouvée.'; box.style.display='none'; return; }
-    sel.innerHTML = '<option value="">— Choisir (' + items.length + ') —</option>' +
+    if (!items.length) { res.textContent = 'No card found.'; box.style.display='none'; return; }
+    sel.innerHTML = '<option value="">— Choose (' + items.length + ') —</option>' +
       items.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml((c.rarity||'').toUpperCase())} · ${escapeHtml(c.universe||'?')} · #${c.id}</option>`).join('');
     box.style.display = 'block'; res.textContent = '';
-  } catch (e) { res.textContent = 'Erreur : ' + e.message; }
+  } catch (e) { res.textContent = 'Error: ' + e.message; }
 }
 window.fcSearchGo = fcSearchGo;
 function fcPicked() {
@@ -110,7 +110,7 @@ window.fcPicked = fcPicked;
 async function fcForce() {
   if (!_fcCardId) return;
   const res = document.getElementById('fcResult');
-  res.textContent = 'En cours…';
+  res.textContent = 'Working…';
   const userId = (document.getElementById('fcUserId').value || '').trim();
   try {
     const r = await fetch('/api/owner/cards-cheat/force-next', {
@@ -119,12 +119,12 @@ async function fcForce() {
     });
     const d = await r.json();
     if (d.ok) {
-      const who = userId ? `du joueur <code>${escapeHtml(d.user_id)}</code>` : 'ton';
-      res.innerHTML = `✅ Le prochain <code>/roll</code> ${who} donnera <b>${escapeHtml(d.name)}</b>.`;
+      const who = userId ? `player <code>${escapeHtml(d.user_id)}</code>'s` : 'your';
+      res.innerHTML = `✅ The ${who} next <code>/roll</code> will give <b>${escapeHtml(d.name)}</b>.`;
     } else {
-      res.innerHTML = `❌ ${d.error || 'Erreur'}`;
+      res.innerHTML = `❌ ${d.error || 'Error'}`;
     }
-  } catch (e) { res.textContent = 'Erreur : ' + e.message; }
+  } catch (e) { res.textContent = 'Error: ' + e.message; }
 }
 window.fcForce = fcForce;
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -137,7 +137,7 @@ async function ccRoll() {
   const rarity = document.getElementById('ccRarity').value;
   const userId = (document.getElementById('ccUserId').value || '').trim();
   const res = document.getElementById('ccResult');
-  res.textContent = 'Roll en cours…';
+  res.textContent = 'Rolling…';
   try {
     const r = await fetch('/api/owner/cards-cheat/roll', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -149,12 +149,12 @@ async function ccRoll() {
       const emo = {secret:'🌈',mythic:'🔴',legendary:'🟠',epic:'🟣',rare:'🔵',common:'⚪'};
       let chips = order.filter(k => d.by_rarity[k])
         .map(k => `<span class="cc-rar">${emo[k]||''} ${k} × ${d.by_rarity[k]}</span>`).join('');
-      const who = userId ? `à l'inventaire de <code>${userId}</code>` : 'à ton inventaire';
-      res.innerHTML = `✅ <b>${d.added}</b> cartes ajoutées ${who}.<br>${chips}`;
+      const who = userId ? `to <code>${userId}</code>'s inventory` : 'to your inventory';
+      res.innerHTML = `✅ <b>${d.added}</b> cards added ${who}.<br>${chips}`;
     } else {
-      res.textContent = `❌ ${d.error || 'Erreur'}`;
+      res.textContent = `❌ ${d.error || 'Error'}`;
     }
-  } catch (e) { res.textContent = `Erreur : ${e.message}`; }
+  } catch (e) { res.textContent = `Error: ${e.message}`; }
 }
 window.ccRoll = ccRoll;
 </script>

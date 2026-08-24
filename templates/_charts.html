@@ -57,7 +57,7 @@
         }</script>
       {% else %}
         <text x="{{ w / 2 }}" y="{{ h / 2 }}" text-anchor="middle" dominant-baseline="middle"
-              fill="var(--text-3)" font-size="11" font-family="var(--font-mono)">aucune activité</text>
+              fill="var(--text-3)" font-size="11" font-family="var(--font-mono)">{{ t('web_core.charts.no_activity') }}</text>
       {% endif %}
     </svg>
     <div class="spark-tooltip" style="display:none;"></div>
@@ -67,7 +67,7 @@
 
 {% macro heatmap(matrix, cell_size=14, gap=2) %}
   {# matrix = 7 rows (Lun..Dim) x 24 cols (heures). cell_size = px par cellule. #}
-  {% set days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
+  {% set days = [t('web_core.charts.day_mon'), t('web_core.charts.day_tue'), t('web_core.charts.day_wed'), t('web_core.charts.day_thu'), t('web_core.charts.day_fri'), t('web_core.charts.day_sat'), t('web_core.charts.day_sun')] %}
   {% set max_v = namespace(v=0) %}
   {% for row in matrix %}{% for v in row %}{% if v > max_v.v %}{% set max_v.v = v %}{% endif %}{% endfor %}{% endfor %}
   <div class="heatmap-wrap">
@@ -82,9 +82,9 @@
         {% for h in range(24) %}
           {% set v = matrix[d][h] %}
           {% set intensity = (v / max_v.v) if max_v.v > 0 else 0 %}
-          <div class="hm-cell" data-dow="{{ d }}" data-hour="{{ h }}" data-count="{{ v }}" data-label="{{ days[d] }} {{ '%02d'|format(h) }}h"
+          <div class="hm-cell" data-dow="{{ d }}" data-hour="{{ h }}" data-count="{{ v }}" data-label="{{ t('web_core.charts.heatmap_label', day=days[d], hour='%02d'|format(h)) }}"
                style="opacity: {{ 0.08 + intensity * 0.92 if v > 0 else 0.05 }};{% if v > 0 %}cursor:pointer;{% endif %}"
-               title="{{ days[d] }} {{ '%02d'|format(h) }}h : {{ v }} évènement(s)"></div>
+               title="{{ t('web_core.charts.heatmap_cell', day=days[d], hour='%02d'|format(h), count=v) }}"></div>
         {% endfor %}
       {% endfor %}
     </div>

@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="giveaway">{% endblock %}
-{% block title %}Giveaways · TookBot{% endblock %}
-{% block crumb %}Giveaways{% endblock %}
+{% block title %}{{ t('web_features.giveaways.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.giveaways.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -38,47 +38,47 @@
   .pill-cancelled { background: oklch(0.65 0.20 25 / .2); color: oklch(0.78 0.18 25); padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 </style>
 
-<h1 style="margin:0 0 6px;">🎉 Giveaways</h1>
+<h1 style="margin:0 0 6px;">🎉 {{ t('web_features.giveaways.heading') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
-  Crée et gère les tirages au sort. Le bot poste un embed avec bouton « Participer » et tire automatiquement les gagnants à la fin du timer.
+  {{ t('web_features.giveaways.intro') }}
 </p>
 
 <div class="gw-card">
-  <h2>➕ Nouveau giveaway</h2>
+  <h2>➕ {{ t('web_features.giveaways.new_title') }}</h2>
   <div class="grid grid-2 gap-3">
     <div class="field">
-      <label>Récompense</label>
-      <input type="text" id="gwPrize" placeholder="ex: clé Steam, rôle VIP, 10€..." maxlength="200">
+      <label>{{ t('web_features.giveaways.label_prize') }}</label>
+      <input type="text" id="gwPrize" placeholder="{{ t('web_features.giveaways.ph_prize') }}" maxlength="200">
     </div>
     <div class="field">
-      <label>Nombre de gagnants</label>
+      <label>{{ t('web_features.giveaways.label_winners') }}</label>
       <input type="number" id="gwWinners" min="1" max="50" value="1">
     </div>
   </div>
   <div class="grid grid-2 gap-3">
     <div class="field">
-      <label>Durée</label>
+      <label>{{ t('web_features.giveaways.label_duration') }}</label>
       <div class="row gap-2" style="align-items:center;">
         <input type="number" id="gwDuration" min="1" value="1" style="max-width:100px;">
         <select id="gwUnit">
-          <option value="60">minutes</option>
-          <option value="3600" selected>heures</option>
-          <option value="86400">jours</option>
+          <option value="60">{{ t('web_features.giveaways.unit_minutes') }}</option>
+          <option value="3600" selected>{{ t('web_features.giveaways.unit_hours') }}</option>
+          <option value="86400">{{ t('web_features.giveaways.unit_days') }}</option>
         </select>
       </div>
     </div>
     <div class="field">
-      <label>Salon où poster</label>
-      <select id="gwChannel"><option value="">— sélectionne —</option></select>
+      <label>{{ t('web_features.giveaways.label_channel') }}</label>
+      <select id="gwChannel"><option value="">{{ t('web_features.giveaways.select_placeholder') }}</option></select>
     </div>
   </div>
-  <button class="btn btn-primary" onclick="createGiveaway()">🎉 Lancer le giveaway</button>
+  <button class="btn btn-primary" onclick="createGiveaway()">🎉 {{ t('web_features.giveaways.launch') }}</button>
 </div>
 
 <div class="gw-card">
-  <h2>📋 Giveaways</h2>
+  <h2>📋 {{ t('web_features.giveaways.heading') }}</h2>
   <div id="gwList" class="gw-list">
-    <div class="muted" style="font-size:13px;">Chargement…</div>
+    <div class="muted" style="font-size:13px;">{{ t('web_features.giveaways.loading') }}</div>
   </div>
 </div>
 
@@ -93,7 +93,7 @@ async function loadChannels() {
   if (!r.ok) return;
   const d = await r.json();
   const sel = document.getElementById('gwChannel');
-  sel.innerHTML = '<option value="">— sélectionne —</option>' +
+  sel.innerHTML = '<option value="">— select —</option>' +
     (d.channels || []).map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
 }
 
@@ -103,10 +103,10 @@ async function createGiveaway() {
   const dur      = parseInt(document.getElementById('gwDuration').value || '0', 10);
   const unit     = parseInt(document.getElementById('gwUnit').value, 10);
   const channel  = document.getElementById('gwChannel').value;
-  if (!prize) { toast('Saisis une récompense', 'error'); return; }
-  if (!channel) { toast('Choisis un salon', 'error'); return; }
+  if (!prize) { toast('Enter a prize', 'error'); return; }
+  if (!channel) { toast('Pick a channel', 'error'); return; }
   const duration_sec = dur * unit;
-  if (duration_sec < 30) { toast('Durée minimum : 30s', 'error'); return; }
+  if (duration_sec < 30) { toast('Minimum duration: 30s', 'error'); return; }
   const r = await fetch('/api/giveaways', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -114,10 +114,10 @@ async function createGiveaway() {
   });
   const d = await r.json().catch(() => ({}));
   if (r.ok) {
-    toast(`✅ Giveaway #${d.giveaway_id} lancé !`);
+    toast(`✅ Giveaway #${d.giveaway_id} launched!`);
     document.getElementById('gwPrize').value = '';
     setTimeout(loadList, 1500);
-  } else toast(d.error || 'Erreur', 'error');
+  } else toast(d.error || 'Error', 'error');
 }
 window.createGiveaway = createGiveaway;
 
@@ -133,20 +133,20 @@ async function loadList() {
     const d = await r.json();
     const rows = d.giveaways || [];
     if (!rows.length) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucun giveaway encore créé._</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_No giveaway created yet._</div>';
       return;
     }
     list.innerHTML = rows.map(g => {
       const cls = g.cancelled ? 'gw-row cancelled' : (g.ended ? 'gw-row ended' : 'gw-row');
       const pill = g.cancelled
-        ? '<span class="pill-cancelled">Annulé</span>'
-        : (g.ended ? '<span class="pill-ended">Terminé</span>' : '<span class="pill-active">Actif</span>');
+        ? '<span class="pill-cancelled">Cancelled</span>'
+        : (g.ended ? '<span class="pill-ended">Ended</span>' : '<span class="pill-active">Active</span>');
       const winners = g.winner_ids ? JSON.parse(g.winner_ids) : [];
       const winnersHtml = winners.length
-        ? `<div class="gw-meta-sub">🏆 Gagnants : ${winners.map(w => `<@${w}>`).join(', ')}</div>` : '';
+        ? `<div class="gw-meta-sub">🏆 Winners: ${winners.map(w => `<@${w}>`).join(', ')}</div>` : '';
       const actions = [];
       if (!g.ended && !g.cancelled) {
-        actions.push(`<button class="btn btn-secondary" onclick="cancelGw(${g.id})" style="font-size:12px;padding:4px 10px;">❌ Annuler</button>`);
+        actions.push(`<button class="btn btn-secondary" onclick="cancelGw(${g.id})" style="font-size:12px;padding:4px 10px;">❌ Cancel</button>`);
       } else if (g.ended && !g.cancelled) {
         actions.push(`<button class="btn btn-secondary" onclick="rerollGw(${g.id})" style="font-size:12px;padding:4px 10px;">🎲 Reroll</button>`);
       }
@@ -154,30 +154,30 @@ async function loadList() {
         <div class="gw-icon">🎉</div>
         <div>
           <div class="gw-meta-title">#${g.id} · ${escapeHtml(g.prize)} ${pill}</div>
-          <div class="gw-meta-sub">→ <#${g.channel_id}> · ${g.winners_count} gagnant(s) · ${g.entries_count || 0} participant(s) · fin ${fmtDate(g.ends_at)}</div>
+          <div class="gw-meta-sub">→ <#${g.channel_id}> · ${g.winners_count} winner(s) · ${g.entries_count || 0} entrant(s) · ends ${fmtDate(g.ends_at)}</div>
           ${winnersHtml}
         </div>
         <div class="row gap-2">${actions.join('')}</div>
       </div>`;
     }).join('');
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Error: ${e.message}</div>`;
   }
 }
 
 async function cancelGw(id) {
-  if (!confirm(`Annuler le giveaway #${id} ?`)) return;
+  if (!confirm(`Cancel giveaway #${id}?`)) return;
   const r = await fetch(`/api/giveaways/${id}/cancel`, { method: 'POST' });
-  if (r.ok) { toast('Giveaway annulé'); loadList(); }
-  else toast('Erreur', 'error');
+  if (r.ok) { toast('Giveaway cancelled'); loadList(); }
+  else toast('Error', 'error');
 }
 window.cancelGw = cancelGw;
 
 async function rerollGw(id) {
-  if (!confirm(`Reroll le giveaway #${id} ?`)) return;
+  if (!confirm(`Reroll giveaway #${id}?`)) return;
   const r = await fetch(`/api/giveaways/${id}/reroll`, { method: 'POST' });
-  if (r.ok) { toast('Reroll lancé — check le salon Discord'); loadList(); }
-  else toast('Erreur', 'error');
+  if (r.ok) { toast('Reroll started — check the Discord channel'); loadList(); }
+  else toast('Error', 'error');
 }
 window.rerollGw = rerollGw;
 

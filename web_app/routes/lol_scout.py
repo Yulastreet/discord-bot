@@ -1,4 +1,4 @@
-"""LoL Scout sessions : sharable web links pour scouting Clash."""
+"""LoL Scout sessions: shareable web links for Clash scouting."""
 from flask import render_template, request, jsonify, abort, redirect, url_for, session, Response, stream_with_context
 import secrets
 import threading
@@ -34,8 +34,8 @@ def register_lol_scout_routes(app, deps):
     )
     import json as _json
 
-    # Page publique : session de scout via slug.
-    # Une fois la session stoppee, le lien n'est plus accessible (404).
+    # Public page: scout session addressed by slug.
+    # Once the session is stopped the link is no longer reachable (404).
     @app.route("/scout/<slug>")
     def lol_scout_page(slug):
         sess = lol_scout_session_get(slug)
@@ -45,7 +45,7 @@ def register_lol_scout_routes(app, deps):
             raw = _json.loads(sess["scout_data"] or "{}")
         except Exception:
             raw = {}
-        # Backward compat : ancienne forme = liste de 5 enemies seulement
+        # Backward compat: the old shape was a list of 5 enemies only
         if isinstance(raw, list):
             enemies = raw
             allies = []
@@ -53,8 +53,8 @@ def register_lol_scout_routes(app, deps):
             enemies = raw.get("enemies") or []
             allies = raw.get("allies") or []
 
-        # Si allies manque ou vide, on genere 5 slots vides (pour que
-        # les amis puissent renseigner leur Riot ID via la web UI).
+        # When allies is missing or empty, generate 5 empty slots (so friends
+        # can fill in their Riot ID through the web UI).
         ROLE_EMOJI = {"TOP": "🛡️", "JUNGLE": "🌲", "MID": "⚡",
                        "ADC": "🏹", "SUPPORT": "🛡️"}
         if not allies:
@@ -62,7 +62,7 @@ def register_lol_scout_routes(app, deps):
                 {"role": f"{ROLE_EMOJI[r]} {r}", "riot_id": "", "side": "ally"}
                 for r in ("TOP", "JUNGLE", "MID", "ADC", "SUPPORT")
             ]
-        # Side tag par defaut sur enemies (pour les sessions tres anciennes)
+        # Default side tag on enemies (for very old sessions)
         for e in enemies:
             if "side" not in e:
                 e["side"] = "enemy"
@@ -71,8 +71,8 @@ def register_lol_scout_routes(app, deps):
         except Exception:
             riot_ids = {}
 
-        # Top bans : agrege top_wr de tous les enemies, sort par WR desc,
-        # top 10. Inclut le pseudo du joueur pour contexte.
+        # Top bans: aggregate top_wr across every enemy, sort by WR desc,
+        # keep the top 10. Includes the player name for context.
         top_bans = []
         for p in enemies:
             for ban in (p.get("top_wr") or []):
@@ -203,8 +203,8 @@ def register_lol_scout_routes(app, deps):
             return jsonify({"error": "riot_id_required"}), 400
         platform = sess["platform"]
 
-        # Re-scout via Riot API : on cree un loop dedie + on cleanup
-        # la session aiohttp a la fin.
+        # Re-scout through the Riot API: a dedicated loop is created and the
+        # aiohttp session is cleaned up at the end.
         _ra._SESSION = None
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -263,8 +263,8 @@ def register_lol_scout_routes(app, deps):
             target_list.append(new_entry)
 
         scout_data = {"enemies": enemies, "allies": allies}
-        # On garde riot_ids des enemies dans le dict top-level pour
-        # compat /lol scout list dans Discord. Les allies sont dans le
+        # The enemies' riot_ids stay in the top-level dict for
+        # /lol scout list compat in Discord. Allies live in the
         # scout_data uniquement.
         if side == "enemy":
             riot_ids[role] = raw_id
@@ -285,7 +285,7 @@ def register_lol_scout_routes(app, deps):
         return jsonify({"ok": True, "data": new_entry})
 
 
-    # ===== Toggle ready d'un ally =====
+    # ===== Toggle an ally's ready state =====
     @app.route("/api/scout/<slug>/ready", methods=["POST"])
     def api_scout_ready(slug):
         from database import get_db
@@ -320,7 +320,7 @@ def register_lol_scout_routes(app, deps):
         return jsonify({"ok": True})
 
 
-    # ===== Emblems tier servis depuis le cache local (croppe, ~256x256) =====
+    # ===== Tier emblems served from the local cache (cropped, ~256x256) =====
     @app.route("/assets/lol-emblem/<tier>")
     def lol_emblem_serve(tier):
         import asyncio as _asyncio
@@ -388,13 +388,13 @@ def register_lol_scout_routes(app, deps):
         resp.headers["X-Accel-Buffering"] = "no"  # disable nginx buffer
         return resp
 
-    # Owner-only page : liste sessions + stop
+    # Owner-only page: session list + stop
     @app.route("/owner/lol-scout")
     def owner_lol_scout_page():
         if not _is_owner_session():
             abort(403)
         sessions = lol_scout_sessions_list(limit=100)
-        # Enrich avec un peu de data
+        # Enrich with a bit of data
         for s in sessions:
             try:
                 ids = _json.loads(s["riot_ids"] or "{}")

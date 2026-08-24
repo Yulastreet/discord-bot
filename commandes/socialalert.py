@@ -1,60 +1,61 @@
 import discord
 from discord import app_commands
 
+from services.i18n import ti
+
 def setup_socialalert_commands(bot, deps):
     globals().update(deps)
-    # ===== SOCIAL ALERTS (commande slash) =====
+    # ===== SOCIAL ALERTS (slash command) =====
 
     socialalert_group = app_commands.Group(
         name="socialalert",
-        description="Alertes Twitch / YouTube / Reddit (admin/modo uniquement)",
+        description="Twitch / YouTube / Reddit alerts (admin/mod only)",
         default_permissions=discord.Permissions(manage_guild=True),
     )
 
 
-    @socialalert_group.command(name="add", description="Créer une alerte sociale (live, vidéo, post)")
+    @socialalert_group.command(name="add", description="Create a social alert (live, video, post)")
     @app_commands.describe(
-        plateforme="twitch / youtube / reddit",
-        pseudo="Pseudo Twitch / @handle YouTube ou ID UCxxx / username Reddit (ou r/sub)",
-        salon="Salon Discord où poster les alertes",
-        message="Message custom (placeholders : {target}, {title}, {url}, {author}, {game}, {viewers})",
+        platform="twitch / youtube / reddit",
+        username="Twitch username / YouTube @handle or UCxxx ID / Reddit username (or r/sub)",
+        channel="Discord channel where the alerts are posted",
+        message="Custom message (placeholders: {target}, {title}, {url}, {author}, {game}, {viewers})",
     )
-    @app_commands.choices(plateforme=[
-        app_commands.Choice(name="Twitch (live)",                value="twitch"),
-        app_commands.Choice(name="YouTube (nouvelle vidéo)",     value="youtube"),
-        app_commands.Choice(name="Reddit (nouveau post)",        value="reddit"),
+    @app_commands.choices(platform=[
+        app_commands.Choice(name="Twitch (live)",         value="twitch"),
+        app_commands.Choice(name="YouTube (new video)",   value="youtube"),
+        app_commands.Choice(name="Reddit (new post)",     value="reddit"),
     ])
     @app_commands.checks.has_permissions(manage_guild=True)
     async def sa_add(
         interaction: discord.Interaction,
-        plateforme: app_commands.Choice[str],
-        pseudo: str,
-        salon: discord.TextChannel,
+        platform: app_commands.Choice[str],
+        username: str,
+        channel: discord.TextChannel,
         message: str = None,
     ):
         await interaction.response.defer(ephemeral=True)
-        pseudo = pseudo.strip()
-        plat = plateforme.value
-        label = pseudo
-        target_id = pseudo
+        username = username.strip()
+        plat = platform.value
+        label = username
+        target_id = username
 
-        # Resolution YouTube @handle -> UC...
-        if plat == "youtube" and not pseudo.startswith("UC"):
-            resolved = await social.youtube_resolve_handle(pseudo)
+        # YouTube @handle -> UC... resolution
+        if plat == "youtube" and not username.startswith("UC"):
+            resolved = await social.youtube_resolve_handle(username)
             if not resolved:
                 await interaction.followup.send(
-                    f"❌ Impossible de résoudre `{pseudo}` vers un channel ID YouTube. "
-                    f"Essaie avec l'ID UCxxx directement.", ephemeral=True,
+                    ti(interaction, "server.socialalert.youtube_unresolved", username=username),
+                    ephemeral=True,
                 )
                 return
             target_id = resolved
-            label = pseudo  # garde le @handle pour affichage
+            label = username  # keep the @handle for display
 
-        # Twitch sans creds = bloque
+        # Twitch without credentials = blocked
         if plat == "twitch" and not (os.getenv("TWITCH_CLIENT_ID") and os.getenv("TWITCH_CLIENT_SECRET")):
             await interaction.followup.send(
-                "❌ Les alertes Twitch nécessitent `TWITCH_CLIENT_ID` et `TWITCH_CLIENT_SECRET` "
-                "dans le `.env` du bot. Crée une app sur https://dev.twitch.tv/console/apps",
+                ti(interaction, "server.socialalert.twitch_no_creds"),
                 ephemeral=True,
             )
             return
@@ -62,23 +63,23 @@ def setup_socialalert_commands(bot, deps):
         aid = social_alert_create(
             guild_id=interaction.guild.id,
             platform=plat, target_id=target_id, target_label=label,
-            channel_id=salon.id, message_template=message,
+            channel_id=channel.id, message_template=message,
             created_by=interaction.user.id,
         )
         await interaction.followup.send(
-            f"✅ Alerte **{plat}** créée (id `{aid}`) pour **{label}** dans {salon.mention}. "
-            f"Premier check d'ici ~5 min.",
+            ti(interaction, "server.socialalert.created",
+               platform=plat, alert_id=aid, target=label, channel=channel.mention),
             ephemeral=True,
         )
 
 
-    @socialalert_group.command(name="list", description="Lister les alertes sociales actives")
+    @socialalert_group.command(name="list", description="List the active social alerts")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def sa_list(interaction: discord.Interaction):
         rows = social_alerts_list(guild_id=interaction.guild.id)
         if not rows:
             await interaction.response.send_message(
-                "_Aucune alerte sociale configurée sur ce serveur._", ephemeral=True,
+                ti(interaction, "server.socialalert.none"), ephemeral=True,
             )
             return
         PLAT_EMOJI = {"twitch": "🟣", "youtube": "🔴", "reddit": "🟠"}
@@ -91,27 +92,27 @@ def setup_socialalert_commands(bot, deps):
                 f"`{r['target_label'] or r['target_id']}` → <#{r['channel_id']}>"
             )
         embed = discord.Embed(
-            title="🔔 Alertes sociales",
+            title=ti(interaction, "server.socialalert.list_title"),
             description="\n".join(parts),
             color=0xC8F050,
         )
         if len(rows) > 25:
-            embed.set_footer(text=f"…et {len(rows)-25} autre(s)")
+            embed.set_footer(text=ti(interaction, "server.socialalert.list_more", count=len(rows) - 25))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-    @socialalert_group.command(name="remove", description="Supprimer une alerte sociale")
-    @app_commands.describe(alerte_id="ID de l'alerte (visible avec /socialalert list)")
+    @socialalert_group.command(name="remove", description="Delete a social alert")
+    @app_commands.describe(alert_id="Alert ID (shown by /socialalert list)")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def sa_remove(interaction: discord.Interaction, alerte_id: int):
-        n = social_alert_delete(alerte_id, guild_id=interaction.guild.id)
+    async def sa_remove(interaction: discord.Interaction, alert_id: int):
+        n = social_alert_delete(alert_id, guild_id=interaction.guild.id)
         if n:
             await interaction.response.send_message(
-                f"🗑️ Alerte `#{alerte_id}` supprimée.", ephemeral=True,
+                ti(interaction, "server.socialalert.removed", alert_id=alert_id), ephemeral=True,
             )
         else:
             await interaction.response.send_message(
-                f"❌ Alerte `#{alerte_id}` introuvable sur ce serveur.", ephemeral=True,
+                ti(interaction, "server.socialalert.not_found", alert_id=alert_id), ephemeral=True,
             )
 
 

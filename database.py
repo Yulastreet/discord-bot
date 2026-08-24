@@ -3,15 +3,17 @@ import sqlite3
 import datetime as _dt
 from typing import Optional
 
-# DB file configurable via env DB_PATH (dev = bot_database_dev.db par defaut)
+from services.i18n import t
+
+# DB file configurable via env DB_PATH (dev = bot_database_dev.db by default)
 DB_FILE = os.getenv("DB_PATH") or "bot_database.db"
 
 
 def get_db():
     conn = sqlite3.connect(DB_FILE, timeout=10)
     conn.row_factory = sqlite3.Row
-    # WAL : lecteurs ne bloquent plus pendant une ecriture (autocomplete, etc.)
-    # busy_timeout : attend au lieu de lever 'database is locked' immediatement.
+    # WAL: readers no longer block during a write (autocomplete, etc.)
+    # busy_timeout: wait instead of raising 'database is locked' immediately.
     try:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")
@@ -31,8 +33,8 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
 
-    # ===== MIGRATION users : passage au PK composite (guild_id, user_id) =====
-    # Détection : si la table existe sans colonne guild_id, drop+recreate.
+    # ===== MIGRATION users: switch to composite PK (guild_id, user_id) =====
+    # Detection: if the table exists without a guild_id column, drop+recreate.
     users_cols = _table_columns(c, "users")
     if users_cols and "guild_id" not in users_cols:
         print("[MIGRATION] users: schema v1 detecte, wipe + reschema (guild_id, user_id).")
@@ -58,7 +60,7 @@ def init_db():
         PRIMARY KEY (guild_id, user_id)
     )''')
 
-    # ===== Table guilds (registre des serveurs Discord vu par le bot) =====
+    # ===== guilds table (registry of Discord servers seen by the bot) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guilds (
         guild_id     TEXT PRIMARY KEY,
         name         TEXT,
@@ -68,7 +70,7 @@ def init_db():
         last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         active       INTEGER DEFAULT 1
     )''')
-    # Migration : ajoute owner_id si table existait deja sans cette colonne.
+    # Migration: add owner_id if the table already existed without that column.
     if "owner_id" not in _table_columns(c, "guilds"):
         try:
             c.execute("ALTER TABLE guilds ADD COLUMN owner_id TEXT")
@@ -134,7 +136,7 @@ def init_db():
     )''')
 
     # ===== Cards collection (Mudae-like) =====
-    # Catalogue global de cartes pop culture (Anime, Manga, Jeu video, Star
+    # Global catalog of pop culture cards (Anime, Manga, Video game, Star
     # Wars, Hazbin Hotel, Amazing Digital Circus, etc.). Rarites :
     # common / rare / epic / legendary / mythic.
     c.execute('''CREATE TABLE IF NOT EXISTS cards (
@@ -148,22 +150,22 @@ def init_db():
         created_at  TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_cards_rarity ON cards(rarity)")
-    # Migration : source_image_url (URL originale avant overlay)
+    # Migration: source_image_url (original URL before the overlay)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN source_image_url TEXT")
     except Exception:
         pass
-    # Migration : not_tradeable flag sur user_cards
+    # Migration: not_tradeable flag on user_cards
     try:
         c.execute("ALTER TABLE user_cards ADD COLUMN not_tradeable INTEGER DEFAULT 0")
     except Exception:
         pass
-    # Migration : from_cheat (owner cheat) -> exclu du feed Obtention temps reel
+    # Migration: from_cheat (owner cheat) -> excluded from the live drop feed
     try:
         c.execute("ALTER TABLE user_cards ADD COLUMN from_cheat INTEGER DEFAULT 0")
     except Exception:
         pass
-    # Migration : couleur de profil (cardprofile) + emblem de guilde
+    # Migration: profile color (cardprofile) + guild emblem
     try:
         c.execute("ALTER TABLE card_profile ADD COLUMN color TEXT")
     except Exception:
@@ -183,13 +185,13 @@ def init_db():
             c.execute(f"ALTER TABLE card_guild ADD COLUMN {_gcol} {_gddl}")
         except Exception:
             pass
-    # Migration : not_obtainable flag sur cards (cache du catalogue + roll)
+    # Migration: not_obtainable flag on cards (hidden from catalog + roll)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN not_obtainable INTEGER DEFAULT 0")
     except Exception:
         pass
-    # Migration : event_key -> carte rattachee a un event global. La carte reste
-    # TOUJOURS obtenable ; pendant l'event correspondant son drop est juste boste.
+    # Migration: event_key -> card tied to a global event. The card stays
+    # ALWAYS obtainable; during the matching event its drop rate is just boosted.
     try:
         c.execute("ALTER TABLE cards ADD COLUMN event_key TEXT")
     except Exception:
@@ -199,17 +201,17 @@ def init_db():
         c.execute("ALTER TABLE cards ADD COLUMN alt_image_url TEXT")
     except Exception:
         pass
-    # Migration : flavor_subtitle (sous-titre affiche sous le nom)
+    # Migration: flavor_subtitle (subtitle displayed under the name)
     try:
         c.execute("ALTER TABLE cards ADD COLUMN flavor_subtitle TEXT")
     except Exception:
         pass
-    # Migration : element (aleatoire par carte) pour le systeme de combat
+    # Migration: element (random per card) for the combat system
     try:
         c.execute("ALTER TABLE cards ADD COLUMN element TEXT")
     except Exception:
         pass
-    # Backfill : assigne un element aleatoire aux cartes qui n'en ont pas (one-shot)
+    # Backfill: assign a random element to cards that have none (one-shot)
     try:
         c.execute(
             "UPDATE cards SET element = CASE ABS(RANDOM()) % 5 "
@@ -218,38 +220,38 @@ def init_db():
             "WHERE element IS NULL OR element = ''")
     except Exception:
         pass
-    # Migration : winning_emoji sur card_event_log
+    # Migration: winning_emoji on card_event_log
     try:
         c.execute("ALTER TABLE card_event_log ADD COLUMN winning_emoji TEXT")
     except Exception:
         pass
-    # Migration : claim_code (captcha texte)
+    # Migration: claim_code (text captcha)
     try:
         c.execute("ALTER TABLE card_event_log ADD COLUMN claim_code TEXT")
     except Exception:
         pass
-    # Migration : role a ping sur drop event / boss (fans de la feature cartes)
+    # Migration: role to ping on event drop / boss (cards feature fans)
     try:
         c.execute("ALTER TABLE guild_card_config ADD COLUMN ping_role_id TEXT")
     except Exception:
         pass
-    # Migration : card_scale_pct sur borders (echelle de la carte dans le cadre)
+    # Migration: card_scale_pct on borders (card scale inside the frame)
     try:
         c.execute("ALTER TABLE borders ADD COLUMN card_scale_pct INTEGER DEFAULT 100")
     except Exception:
         pass
-    # Migration : qty sur user_borders (bordures consommables, copies en stock)
+    # Migration: qty on user_borders (consumable borders, copies in stock)
     try:
         c.execute("ALTER TABLE user_borders ADD COLUMN qty INTEGER DEFAULT 1")
     except Exception:
         pass
-    # Migration : fusion_level sur card_customizations (prestige etoiles 0-5)
+    # Migration: fusion_level on card_customizations (star prestige 0-5)
     try:
         c.execute("ALTER TABLE card_customizations ADD COLUMN fusion_level INTEGER DEFAULT 0")
     except Exception:
         pass
 
-    # Possessions : un user peut posseder plusieurs copies d'une meme carte.
+    # Ownership: a user can own several copies of the same card.
     c.execute('''CREATE TABLE IF NOT EXISTS user_cards (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id     TEXT NOT NULL,
@@ -269,7 +271,7 @@ def init_db():
         updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Suggestions de cartes par communaute (owner approve via dashboard)
+    # Card suggestions from the community (owner approves via dashboard)
     c.execute('''CREATE TABLE IF NOT EXISTS card_suggestions (
         id             INTEGER PRIMARY KEY AUTOINCREMENT,
         suggester_id   TEXT NOT NULL,
@@ -289,7 +291,7 @@ def init_db():
         created_card_id INTEGER
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_sugg_status ON card_suggestions(status)")
-    # Migration : type de suggestion + target pour edits + proposed_rarity
+    # Migration: suggestion type + target for edits + proposed_rarity
     for col, ddl in (
         ("suggestion_type", "TEXT DEFAULT 'new'"),
         ("target_card_id", "INTEGER"),
@@ -304,7 +306,7 @@ def init_db():
         except Exception:
             pass
 
-    # Cards Events : drops aleatoires de cartes dans un salon, premiere reaction wins
+    # Cards Events: random card drops in a channel, first reaction wins
     c.execute('''CREATE TABLE IF NOT EXISTS card_event_config (
         guild_id           TEXT PRIMARY KEY,
         channel_id         TEXT,
@@ -330,14 +332,14 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_event_msg ON card_event_log(message_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_event_status ON card_event_log(status)")
 
-    # ===== Economie Essences : monnaie globale par user =====
+    # ===== Essence economy: global per-user currency =====
     c.execute('''CREATE TABLE IF NOT EXISTS user_currency (
         user_id   TEXT PRIMARY KEY,
         essences  INTEGER DEFAULT 0,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # ===== Bordures : catalogue + config placement (owner) =====
+    # ===== Borders: catalog + placement config (owner) =====
     c.execute('''CREATE TABLE IF NOT EXISTS borders (
         border_key  TEXT PRIMARY KEY,
         name        TEXT NOT NULL,
@@ -350,7 +352,7 @@ def init_db():
         updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Cosmetiques possedes par user (bordures pour l'instant)
+    # Cosmetics owned per user (borders for now)
     c.execute('''CREATE TABLE IF NOT EXISTS user_borders (
         user_id     TEXT NOT NULL,
         border_key  TEXT NOT NULL,
@@ -358,7 +360,7 @@ def init_db():
         PRIMARY KEY (user_id, border_key)
     )''')
 
-    # Bordure appliquee par un user sur une carte donnee
+    # Border applied by a user on a given card
     c.execute('''CREATE TABLE IF NOT EXISTS card_customizations (
         user_id     TEXT NOT NULL,
         card_id     INTEGER NOT NULL,
@@ -367,7 +369,7 @@ def init_db():
         PRIMARY KEY (user_id, card_id)
     )''')
 
-    # ===== Combat de boss coopératif =====
+    # ===== Cooperative boss fight =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_boss (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id    TEXT,
@@ -418,18 +420,18 @@ def init_db():
         c.execute("ALTER TABLE card_boss_participant ADD COLUMN taken INTEGER DEFAULT 0")
     except Exception:
         pass
-    # taken_raw = degats BRUTS encaisses (avant reduction Gardien) -> note tank
+    # taken_raw = RAW damage taken (before the Guardian reduction) -> tank grade
     try:
         c.execute("ALTER TABLE card_boss_participant ADD COLUMN taken_raw INTEGER DEFAULT 0")
     except Exception:
         pass
-    # died = 1 si le joueur est tombe a 0 PV pendant le combat -> plafonne la note a C
+    # died = 1 if the player dropped to 0 HP during the fight -> caps the grade at C
     try:
         c.execute("ALTER TABLE card_boss_participant ADD COLUMN died INTEGER DEFAULT 0")
     except Exception:
         pass
-    # Flux d'evenements de combat (pour le live dashboard : party_hit, boss_aoe,
-    # boss_smash, enrage, heal, end...). Le front les rejoue en animations.
+    # Combat event stream (for the live dashboard: party_hit, boss_aoe,
+    # boss_smash, enrage, heal, end...). The front-end replays them as animations.
     c.execute('''CREATE TABLE IF NOT EXISTS card_boss_event (
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
         boss_id   INTEGER NOT NULL,
@@ -438,12 +440,12 @@ def init_db():
         ts        REAL DEFAULT 0
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_card_boss_event ON card_boss_event(boss_id, id)")
-    # Planning des boss automatiques : prochaine apparition par serveur Discord.
+    # Automatic boss schedule: next spawn per Discord server.
     c.execute('''CREATE TABLE IF NOT EXISTS boss_auto_schedule (
         guild_id TEXT PRIMARY KEY,
         next_at  REAL
     )''')
-    # Chat live du combat de boss (dashboard).
+    # Live chat of the boss fight (dashboard).
     c.execute('''CREATE TABLE IF NOT EXISTS card_boss_chat (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
         boss_id  INTEGER NOT NULL,
@@ -462,13 +464,13 @@ def init_db():
         rolled_at REAL NOT NULL
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_roll_events_uig ON roll_events(user_id, guild_id, rolled_at)")
-    # Compteur a vie du nombre de rolls effectues (roll_events est purge a 2h)
+    # Lifetime counter of rolls performed (roll_events is purged after 2h)
     c.execute('''CREATE TABLE IF NOT EXISTS card_roll_total (
         user_id TEXT PRIMARY KEY,
         total   INTEGER DEFAULT 0
     )''')
-    # Anti-abus : serveurs "solo" (user seul avec le bot) ou un user a deja roll.
-    # Cap le nb de tels serveurs par compte -> coupe le farm par faux serveurs.
+    # Anti-abuse: "solo" servers (user alone with the bot) where a user already rolled.
+    # Caps the number of such servers per account -> kills farming via fake servers.
     c.execute('''CREATE TABLE IF NOT EXISTS card_roll_solo_guild (
         user_id    TEXT NOT NULL,
         guild_id   TEXT NOT NULL,
@@ -484,7 +486,7 @@ def init_db():
     except Exception:
         pass
 
-    # ===== Card Wishlist : cartes desirees par user =====
+    # ===== Card Wishlist: cards wanted by a user =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_wishlist (
         user_id   TEXT NOT NULL,
         card_id   INTEGER NOT NULL,
@@ -493,7 +495,7 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_card ON card_wishlist(card_id)")
 
-    # ===== Card Profile : 3 cartes vedettes par user =====
+    # ===== Card Profile: 3 showcase cards per user =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_profile (
         user_id   TEXT PRIMARY KEY,
         left_id   INTEGER,
@@ -502,7 +504,7 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # ===== Card Shop : 6 slots configurables par owner =====
+    # ===== Card Shop: 6 slots configurable by the owner =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_shop_slots (
         slot        INTEGER PRIMARY KEY,
         item_type   TEXT,
@@ -513,22 +515,22 @@ def init_db():
         enabled     INTEGER DEFAULT 0,
         updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-    # Seed slots 1-6 si absent
+    # Seed slots 1-6 if missing
     for _slot in range(1, 7):
         c.execute("INSERT OR IGNORE INTO card_shop_slots (slot, enabled) VALUES (?, 0)", (_slot,))
-    # Seed bordures par defaut (5 fournies)
+    # Seed default borders (5 provided)
     _default_borders = [
-        ("gold",  "Bordure Or",     "gold_border.png",  1),
-        ("leaf",  "Bordure Feuille", "leaf_border.png",  2),
-        ("frost", "Bordure Givre",   "frost_border.png", 3),
-        ("hell",  "Bordure Enfer",   "hell_border.png",  4),
-        ("void",  "Bordure Néant",   "void_border.png",  5),
+        ("gold",  t("data.border.gold"),  "gold_border.png",  1),
+        ("leaf",  t("data.border.leaf"),  "leaf_border.png",  2),
+        ("frost", t("data.border.frost"), "frost_border.png", 3),
+        ("hell",  t("data.border.hell"),  "hell_border.png",  4),
+        ("void",  t("data.border.void"),  "void_border.png",  5),
     ]
     for _bk, _bn, _bf, _so in _default_borders:
         c.execute("INSERT OR IGNORE INTO borders (border_key, name, filename, sort_order) "
                    "VALUES (?, ?, ?, ?)", (_bk, _bn, _bf, _so))
 
-    # Trades de cartes entre joueurs (multi-cartes, non-equivalent)
+    # Card trades between players (multi-card, non-equivalent)
     c.execute('''CREATE TABLE IF NOT EXISTS card_trades (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         sender_id    TEXT NOT NULL,
@@ -551,7 +553,7 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_trade_items_trade ON card_trade_items(trade_id)")
 
-    # ===== GUILDES de joueurs (clubs cross-serveur) =====
+    # ===== PLAYER GUILDS (cross-server clubs) =====
     c.execute('''CREATE TABLE IF NOT EXISTS card_guild (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         name         TEXT NOT NULL,
@@ -584,14 +586,14 @@ def init_db():
         user_id  TEXT PRIMARY KEY,
         left_at  TEXT
     )''')
-    # Candidatures a une guilde
+    # Applications to a guild
     c.execute('''CREATE TABLE IF NOT EXISTS card_guild_application (
         guild_id   INTEGER NOT NULL,
         user_id    TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (guild_id, user_id)
     )''')
-    # Quetes quotidiennes (perso, par membre) et hebdomadaires (collectives, par guilde)
+    # Daily quests (personal, per member) and weekly quests (collective, per guild)
     c.execute('''CREATE TABLE IF NOT EXISTS guild_quest_daily (
         user_id   TEXT NOT NULL,
         guild_id  INTEGER NOT NULL,
@@ -617,7 +619,7 @@ def init_db():
         contrib   INTEGER DEFAULT 0,
         PRIMARY KEY (guild_id, week, quest_key, user_id)
     )''')
-    # Historique XP de guilde : qui a gagne combien, par quelle action.
+    # Guild XP history: who earned how much, through which action.
     c.execute('''CREATE TABLE IF NOT EXISTS card_guild_xp_log (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id   INTEGER NOT NULL,
@@ -628,7 +630,7 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_cguild_xplog ON card_guild_xp_log(guild_id, id DESC)")
 
-    # Cooldown roll par (user, guild) - 1h par serveur
+    # Roll cooldown per (user, guild) - 1h per server
     c.execute('''CREATE TABLE IF NOT EXISTS user_guild_roll_cooldown (
         user_id        TEXT NOT NULL,
         guild_id       TEXT NOT NULL,
@@ -636,7 +638,7 @@ def init_db():
         PRIMARY KEY (user_id, guild_id)
     )''')
 
-    # Config per-guild : salon obligatoire pour utiliser /roll et /collection
+    # Per-guild config: channel required to use /roll and /collection
     c.execute('''CREATE TABLE IF NOT EXISTS guild_card_config (
         guild_id     TEXT PRIMARY KEY,
         channel_id   TEXT,
@@ -645,7 +647,7 @@ def init_db():
     )''')
 
     # ===== Dashboard notifications : cloche header =====
-    # Stockes par user_id. Type : 'automod_alert', 'entitlement', 'milestone',
+    # Stored per user_id. Type: 'automod_alert', 'entitlement', 'milestone',
     # 'trial_expire', 'raid_alert', 'system'.
     c.execute('''CREATE TABLE IF NOT EXISTS dashboard_notifications (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -660,7 +662,7 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_dash_notif_user ON dashboard_notifications(user_id, read_at)")
 
-    # ===== Reminders : /remind <duree> <texte> =====
+    # ===== Reminders: /remind <duration> <text> =====
     c.execute('''CREATE TABLE IF NOT EXISTS reminders (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id    TEXT NOT NULL,
@@ -673,10 +675,10 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(due_at, fired)")
 
-    # ===== Tempvoice : salons vocaux temporaires =====
-    # Config par guild : lobby_channel_id = vocal "Creer ton salon" que les
-    # users rejoignent pour declencher la creation ; category_id = categorie
-    # ou poser le salon cree (null = meme categorie que le lobby).
+    # ===== Tempvoice: temporary voice channels =====
+    # Per-guild config: lobby_channel_id = the "Create your channel" voice
+    # channel users join to trigger creation; category_id = category where the
+    # created channel is placed (null = same category as the lobby).
     c.execute('''CREATE TABLE IF NOT EXISTS tempvoice_config (
         guild_id          TEXT PRIMARY KEY,
         lobby_channel_id  TEXT NOT NULL,
@@ -685,8 +687,8 @@ def init_db():
         updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Salons tempvoice actifs : track les channels crees pour qu'on sache qui
-    # est owner + cleanup au boot si bot pas la lors du dernier "vide".
+    # Active tempvoice channels: tracks created channels so we know who the
+    # owner is + cleanup at boot if the bot was offline on the last "empty".
     c.execute('''CREATE TABLE IF NOT EXISTS tempvoice_active (
         channel_id   TEXT PRIMARY KEY,
         guild_id     TEXT NOT NULL,
@@ -696,7 +698,7 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_tempvoice_guild ON tempvoice_active(guild_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_tempvoice_owner ON tempvoice_active(owner_id)")
 
-    # ===== Bot personalizer : profil bot custom par serveur =====
+    # ===== Bot personalizer: custom bot profile per server =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_bot_profile (
         guild_id      TEXT PRIMARY KEY,
         nick          TEXT,
@@ -709,7 +711,7 @@ def init_db():
         applied_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
-    # Migration : ajoute colonnes status/activity si table existait deja
+    # Migration: add status/activity columns if the table already existed
     _bp_cols = _table_columns(c, "guild_bot_profile")
     for _col in ("status", "activity_type", "activity_text", "applied_by"):
         if _col not in _bp_cols:
@@ -732,7 +734,7 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_stripe_sub_customer ON stripe_subscriptions(stripe_customer_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_stripe_sub_status   ON stripe_subscriptions(status)")
 
-    # ===== Uptime checks (page /status.html, barres heure par heure) =====
+    # ===== Uptime checks (page /status.html, hour-by-hour bars) =====
     c.execute('''CREATE TABLE IF NOT EXISTS service_uptime_check (
         component   TEXT NOT NULL,
         hour_bucket TEXT NOT NULL,
@@ -744,7 +746,7 @@ def init_db():
     )''')
     c.execute("CREATE INDEX IF NOT EXISTS idx_uptime_component_ts ON service_uptime_check(component, hour_bucket DESC)")
 
-    # ===== Table bot_commands (queue web -> bot, polling 1.5s) =====
+    # ===== bot_commands table (web -> bot queue, 1.5s polling) =====
     c.execute('''CREATE TABLE IF NOT EXISTS bot_commands (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id     TEXT NOT NULL,
@@ -756,7 +758,7 @@ def init_db():
         processed_at TIMESTAMP
     )''')
 
-    # ===== Table logs (commandes + actions par serveur) =====
+    # ===== logs table (commands + actions per server) =====
     c.execute('''CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id     TEXT NOT NULL,
@@ -772,7 +774,7 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_logs_guild_ts   ON logs(guild_id, ts DESC)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_logs_guild_type ON logs(guild_id, type, ts DESC)")
 
-    # ===== Table guild_channels (cache des salons par serveur) =====
+    # ===== guild_channels table (channel cache per server) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_channels (
         guild_id   TEXT NOT NULL,
         channel_id TEXT NOT NULL,
@@ -783,7 +785,7 @@ def init_db():
         PRIMARY KEY (guild_id, channel_id)
     )''')
 
-    # ===== Table settings (config dynamique) =====
+    # ===== settings table (dynamic config) =====
     c.execute('''CREATE TABLE IF NOT EXISTS settings (
         key   TEXT PRIMARY KEY,
         value TEXT,
@@ -806,9 +808,9 @@ def init_db():
         updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Codes promo (owner cree, users redeem via /redeem CODE)
+    # Promo codes (owner creates them, users redeem via /redeem CODE)
     # reward_type : 'tookcoins' | 'pass_xp' | 'premium_grant_days'
-    # reward_value : int (montant TC, XP, ou jours selon type)
+    # reward_value: int (TC amount, XP, or days depending on type)
     c.execute('''CREATE TABLE IF NOT EXISTS promo_codes (
         code         TEXT PRIMARY KEY,
         reward_type  TEXT NOT NULL,
@@ -845,7 +847,7 @@ def init_db():
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Scout sessions : link partageable avec data scout des 5 adversaires
+    # Scout sessions: shareable link with scout data of the 5 opponents
     c.execute('''CREATE TABLE IF NOT EXISTS lol_scout_sessions (
         slug         TEXT PRIMARY KEY,
         owner_id     TEXT NOT NULL,
@@ -882,7 +884,7 @@ def init_db():
         ts           TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # ===== Table guild_members (cache members par serveur) =====
+    # ===== guild_members table (member cache per server) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_members (
         guild_id    TEXT NOT NULL,
         user_id     TEXT NOT NULL,
@@ -894,7 +896,7 @@ def init_db():
         PRIMARY KEY (guild_id, user_id)
     )''')
 
-    # Roles d'un member (pour gating mod perms cote dashboard/bot)
+    # Roles of a member (for mod perms gating on dashboard/bot side)
     c.execute('''CREATE TABLE IF NOT EXISTS member_roles (
         guild_id TEXT NOT NULL,
         user_id  TEXT NOT NULL,
@@ -904,7 +906,7 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_member_roles_user ON member_roles(guild_id, user_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_member_roles_role ON member_roles(guild_id, role_id)')
 
-    # ===== Table dm_messages (DM entre users et le bot, global cross-guild) =====
+    # ===== dm_messages table (DMs between users and the bot, global cross-guild) =====
     c.execute('''CREATE TABLE IF NOT EXISTS dm_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id     TEXT NOT NULL,
@@ -919,7 +921,7 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_dm_user_ts ON dm_messages(user_id, ts DESC)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_dm_unread  ON dm_messages(direction, read_at)")
 
-    # Table welcome
+    # welcome table
     c.execute('''CREATE TABLE IF NOT EXISTS welcome (
         guild_id TEXT PRIMARY KEY,
         channel_id INTEGER,
@@ -930,7 +932,7 @@ def init_db():
     except Exception:
         pass
 
-    # Table profil duel
+    # Duel profile table
     c.execute('''CREATE TABLE IF NOT EXISTS duel_profil (
         user_id TEXT PRIMARY KEY,
         username TEXT,
@@ -942,7 +944,7 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Table collection de sabres
+    # Lightsaber collection table
     c.execute('''CREATE TABLE IF NOT EXISTS duel_collection (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT,
@@ -952,7 +954,7 @@ def init_db():
         FOREIGN KEY(user_id) REFERENCES duel_profil(user_id)
     )''')
 
-    # Table historique des duels
+    # Duel history table
     c.execute('''CREATE TABLE IF NOT EXISTS duel_historique (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id_1 TEXT,
@@ -966,7 +968,7 @@ def init_db():
         FOREIGN KEY(gagnant_id) REFERENCES duel_profil(user_id)
     )''')
 
-    # Table sabres (modifiable via dashboard web)
+    # sabres table (editable through the web dashboard)
     c.execute('''CREATE TABLE IF NOT EXISTS sabres (
         id TEXT PRIMARY KEY,
         nom TEXT NOT NULL,
@@ -980,7 +982,7 @@ def init_db():
         speciale_effet TEXT
     )''')
 
-    # Migration : nouvelles colonnes système de combat
+    # Migration: new combat system columns
     nouvelles_colonnes = [
         ("combat_xp",      "INTEGER DEFAULT 0"),
         ("combat_level",   "INTEGER DEFAULT 1"),
@@ -995,9 +997,9 @@ def init_db():
         try:
             c.execute(f"ALTER TABLE duel_profil ADD COLUMN {col} {definition}")
         except Exception:
-            pass  # Colonne déjà existante
+            pass  # Column already exists
 
-    # ===== Cache des roles par guild (pour pickers dashboard) =====
+    # ===== Role cache per guild (for dashboard pickers) =====
     c.execute('''CREATE TABLE IF NOT EXISTS guild_roles (
         guild_id    TEXT NOT NULL,
         role_id     TEXT NOT NULL,
@@ -1012,7 +1014,7 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_groles_guild ON guild_roles(guild_id)')
 
     # ===== TICKETS =====
-    # Panneau "Ouvrir un ticket" : message avec bouton dans un salon public.
+    # "Open a ticket" panel: message with a button in a public channel.
     c.execute('''CREATE TABLE IF NOT EXISTS ticket_panels (
         id                 INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id           TEXT NOT NULL,
@@ -1033,7 +1035,7 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_tp_guild ON ticket_panels(guild_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_tp_msg   ON ticket_panels(message_id)')
 
-    # Tickets ouverts par les membres
+    # Tickets opened by members
     c.execute('''CREATE TABLE IF NOT EXISTS tickets (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id    TEXT NOT NULL,
@@ -1051,8 +1053,8 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_tk_status ON tickets(status)')
 
     # ===== SOCIAL ALERTS =====
-    # Notifie un salon Discord quand un createur publie sur une plateforme.
-    # platform : 'twitch' (live) | 'youtube' (nouvelle video) | 'reddit' (nouveau post)
+    # Notifies a Discord channel when a creator posts on a platform.
+    # platform: 'twitch' (live) | 'youtube' (new video) | 'reddit' (new post)
     # target_id : pseudo Twitch / channel_id YouTube (UCxxxx) / username Reddit
     # last_seen_id : video_id youtube / post_id reddit / 'live'/'offline' twitch
     c.execute('''CREATE TABLE IF NOT EXISTS social_alerts (
@@ -1073,9 +1075,9 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_sa_enabled  ON social_alerts(enabled)')
 
     # ===== REACTION ROLES =====
-    # Mapping (guild, message, emoji) -> role. mode='toggle' = ajout/retrait
-    # standard, 'add_only' = retire pas le role quand l'user enleve la reaction,
-    # 'unique' = au sein d'un meme group_key, un seul role actif (radio).
+    # Mapping (guild, message, emoji) -> role. mode='toggle' = standard add/remove,
+    # standard, 'add_only' = does not remove the role when the user removes the reaction,
+    # 'unique' = within the same group_key, only one active role (radio).
     c.execute('''CREATE TABLE IF NOT EXISTS reaction_roles (
         guild_id    TEXT NOT NULL,
         message_id  TEXT NOT NULL,
@@ -1091,8 +1093,8 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_message ON reaction_roles(message_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_rr_guild   ON reaction_roles(guild_id)')
 
-    # Migration : colonnes label + position pour reaction_roles avances
-    # + delivery (reaction|button) et style (embed|text) du message
+    # Migration: label + position columns for advanced reaction_roles
+    # + delivery (reaction|button) and style (embed|text) of the message
     for col, ddl in [
         ("label",    "TEXT"),
         ("position", "INTEGER DEFAULT 0"),
@@ -1175,7 +1177,7 @@ def init_db():
         updated_at            TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # ===== CS2 : profils lies (steam / faceit / premier elo declare) =====
+    # ===== CS2: linked profiles (steam / faceit / declared premier elo) =====
     c.execute('''CREATE TABLE IF NOT EXISTS cs_profiles (
         discord_id  TEXT PRIMARY KEY,
         steam_id    TEXT,
@@ -1185,7 +1187,7 @@ def init_db():
         linked_at   TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at  TEXT
     )''')
-    # Config rank-role par guild (active ou non, plus l'ID de role par palier)
+    # Rank-role config per guild (enabled or not, plus the role ID per tier)
     c.execute('''CREATE TABLE IF NOT EXISTS cs_rank_config (
         guild_id       TEXT PRIMARY KEY,
         enabled        INTEGER DEFAULT 0,
@@ -1198,14 +1200,14 @@ def init_db():
         role_gold      TEXT,
         updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
-    # Lobbies queue Premier (voice channels temporaires). Auto-delete quand vide.
+    # Premier queue lobbies (temporary voice channels). Auto-deleted when empty.
     c.execute('''CREATE TABLE IF NOT EXISTS cs_queue_lobbies (
         channel_id TEXT PRIMARY KEY,
         guild_id   TEXT NOT NULL,
         creator_id TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
-    # Cache leger (skin prices, stats) pour reduire les hits API
+    # Light cache (skin prices, stats) to reduce API hits
     c.execute('''CREATE TABLE IF NOT EXISTS cs_cache (
         cache_key  TEXT PRIMARY KEY,
         data       TEXT,
@@ -1213,9 +1215,9 @@ def init_db():
     )''')
 
     # ===== MONETIZATION (Discord SKU / entitlements) =====
-    # Stocke chaque entitlement Discord recu (achat utilisateur).
-    # Pour SKU "durable" (achat unique), starts_at est rempli, ends_at NULL et deleted=0
-    # signifient un premium permanent. Pour "subscription", ends_at borne la periode active.
+    # Stores every Discord entitlement received (user purchase).
+    # For a "durable" SKU (one-time purchase), starts_at is filled, ends_at NULL and deleted=0
+    # mean permanent premium. For "subscription", ends_at bounds the active period.
     c.execute('''CREATE TABLE IF NOT EXISTS entitlements (
         entitlement_id TEXT PRIMARY KEY,
         user_id        TEXT NOT NULL,
@@ -1230,13 +1232,13 @@ def init_db():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id)')
 
-    # Reglages premium par utilisateur (carte /niveau personnalisee, etc.).
+    # Premium settings per user (custom /niveau card, etc.).
     c.execute('''CREATE TABLE IF NOT EXISTS premium_settings (
         user_id           TEXT PRIMARY KEY,
         niveau_background TEXT DEFAULT 'default',
         updated_at        TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
-    # Migration : nouvelles colonnes cosmetiques Pass + flag trial TookBot+
+    # Migration: new Pass cosmetic columns + TookBot+ trial flag
     for col, ddl in [
         ("pass_selected_title", "TEXT DEFAULT NULL"),
         ("pass_selected_emoji", "TEXT DEFAULT NULL"),
@@ -1247,7 +1249,7 @@ def init_db():
         except Exception:
             pass
 
-    # Grants premium manuels (owner offre la feature gratuitement, comptes test, etc.).
+    # Manual premium grants (owner gives the feature for free, test accounts, etc.).
     # feature='all' = pack complet, 'pass' = Battle Pass, 'guild_boost' = Guild Boost +, etc.
     c.execute('''CREATE TABLE IF NOT EXISTS premium_grants (
         user_id    TEXT NOT NULL,
@@ -1257,15 +1259,15 @@ def init_db():
         note       TEXT,
         PRIMARY KEY (user_id, feature)
     )''')
-    # Migration : expires_at pour les grants temporaires (trial 7j etc.)
+    # Migration: expires_at for temporary grants (7-day trial, etc.)
     try:
         c.execute("ALTER TABLE premium_grants ADD COLUMN expires_at TEXT DEFAULT NULL")
     except Exception:
         pass
 
-    # Cles d'activation TookBot+ : generees par l'owner (page codes promo), a
-    # usage unique, redeemables sur la page /subscription. Chaque cle accorde
-    # TookBot+ pour `duration_days` jours a partir de la redemption.
+    # TookBot+ activation keys: generated by the owner (promo codes page),
+    # single use, redeemable on the /subscription page. Each key grants
+    # TookBot+ for `duration_days` days starting from redemption.
     c.execute('''CREATE TABLE IF NOT EXISTS tookbot_plus_keys (
         code          TEXT PRIMARY KEY,
         duration_days INTEGER NOT NULL,
@@ -1278,17 +1280,17 @@ def init_db():
         redeemed_avatar   TEXT DEFAULT NULL,
         revoked_at        TEXT DEFAULT NULL
     )''')
-    # Migrations pour les tables tookbot_plus_keys deja creees sans ces colonnes
+    # Migrations for tookbot_plus_keys tables already created without these columns
     for _col in ("redeemed_username TEXT", "redeemed_avatar TEXT", "revoked_at TEXT"):
         try:
             c.execute(f"ALTER TABLE tookbot_plus_keys ADD COLUMN {_col} DEFAULT NULL")
         except Exception:
             pass
 
-    # Assignations Guild Boost + : un user assigne son achat/grant a une (ou
-    # plusieurs si owner) guild. PK composite pour permettre l'owner d'avoir
-    # plusieurs assignations ; pour les autres users on supprime les anciennes
-    # rows avant insert (1 user = 1 assignation max).
+    # Guild Boost + assignments: a user assigns their purchase/grant to one (or
+    # several if owner) guild. Composite PK so the owner can have several
+    # assignments; for other users we delete the previous ones
+    # rows before insert (1 user = 1 assignment max).
     c.execute('''CREATE TABLE IF NOT EXISTS guild_boost (
         user_id     TEXT NOT NULL,
         guild_id    TEXT NOT NULL,
@@ -1297,7 +1299,7 @@ def init_db():
     )''')
 
     # ===== BATTLE PASS =====
-    # Une saison = 1 mois calendaire. month_key au format 'YYYY-MM'.
+    # A season = 1 calendar month. month_key in 'YYYY-MM' format.
     c.execute('''CREATE TABLE IF NOT EXISTS pass_seasons (
         season_id   INTEGER PRIMARY KEY AUTOINCREMENT,
         month_key   TEXT UNIQUE NOT NULL,
@@ -1307,18 +1309,18 @@ def init_db():
         created_at  TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Definition des recompenses par palier (1..30) et par saison.
+    # Reward definition per tier (1..30) and per season.
     c.execute('''CREATE TABLE IF NOT EXISTS pass_rewards (
         season_id   INTEGER NOT NULL,
         tier        INTEGER NOT NULL,
         type        TEXT NOT NULL,            -- 'bg' | 'sabre' | 'title' | 'emoji' | 'boost_xp' | 'tookcoins'
-        payload     TEXT,                     -- JSON: {bg_id} ou {sabre_id} ou {title} etc.
+        payload     TEXT,                     -- JSON: {bg_id} or {sabre_id} or {title} etc.
         label       TEXT,
         PRIMARY KEY (season_id, tier),
         FOREIGN KEY (season_id) REFERENCES pass_seasons(season_id) ON DELETE CASCADE
     )''')
 
-    # Pool de templates de quetes ; on tire dedans au reset daily/weekly.
+    # Pool of quest templates; we draw from it on daily/weekly reset.
     c.execute('''CREATE TABLE IF NOT EXISTS pass_quest_templates (
         template_id INTEGER PRIMARY KEY AUTOINCREMENT,
         type        TEXT NOT NULL,            -- 'send_messages' | 'play_duels' | 'earn_xp' | 'use_commands'
@@ -1328,22 +1330,22 @@ def init_db():
         xp_reward   INTEGER NOT NULL DEFAULT 50
     )''')
 
-    # Quetes actives d'un user pour la periode courante.
+    # Active quests of a user for the current period.
     c.execute('''CREATE TABLE IF NOT EXISTS pass_user_quests (
         user_id      TEXT NOT NULL,
         period       TEXT NOT NULL,           -- 'daily' | 'weekly'
-        slot         INTEGER NOT NULL,        -- 0..N pour distinguer plusieurs quetes meme periode
+        slot         INTEGER NOT NULL,        -- 0..N to distinguish several quests in the same period
         template_id  INTEGER,
         type         TEXT NOT NULL,
         target       INTEGER NOT NULL,
         progress     INTEGER NOT NULL DEFAULT 0,
-        period_start TEXT NOT NULL,           -- ISO date debut periode (YYYY-MM-DD pour daily, YYYY-Www pour weekly)
+        period_start TEXT NOT NULL,           -- ISO period start date (YYYY-MM-DD for daily, YYYY-Www for weekly)
         claimed      INTEGER NOT NULL DEFAULT 0,
         xp_reward    INTEGER NOT NULL DEFAULT 50,
         PRIMARY KEY (user_id, period, slot, period_start)
     )''')
 
-    # Progression du user dans la saison (XP du Pass != XP message).
+    # User progression in the season (Pass XP != message XP).
     c.execute('''CREATE TABLE IF NOT EXISTS pass_progress (
         user_id          TEXT NOT NULL,
         season_id        INTEGER NOT NULL,
@@ -1353,8 +1355,8 @@ def init_db():
         PRIMARY KEY (user_id, season_id)
     )''')
 
-    # Recompenses debloquees par un user. expires_at NULL = permanent
-    # (sabres, titres). Sinon date d'expiration (BG saisonniers = fin du mois suivant).
+    # Rewards unlocked by a user. expires_at NULL = permanent
+    # (sabers, titles). Otherwise expiry date (seasonal BGs = end of next month).
     c.execute('''CREATE TABLE IF NOT EXISTS pass_unlocks (
         unlock_id    INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id      TEXT NOT NULL,
@@ -1369,17 +1371,17 @@ def init_db():
     conn.commit()
     conn.close()
 
-    # Seed de la table sabres si vide (depuis duel_sabres.SABRES_DEFAULT)
+    # Seed the sabres table if empty (from duel_sabres.SABRES_DEFAULT)
     seed_sabres_si_vide()
-    # Migration : ajoute les nouveaux sabres f2p SSR (obsidienne, celeste)
-    # apparus apres le seed initial des DB existantes.
+    # Migration: add the new f2p SSR sabers (obsidienne, celeste)
+    # introduced after the initial seed of existing DBs.
     ensure_extra_default_sabres()
     seed_pass_quest_templates_si_vide()
-    # Migration : nettoie d'abord les sabres saisonniers casses (raretes invalides)
+    # Migration: first clean up broken seasonal sabers (invalid rarities)
     cleanup_legacy_seasonal_sabres()
-    # Re-seed sabres saisonniers + pass_rewards pour saisons existantes
+    # Re-seed seasonal sabers + pass_rewards for existing seasons
     _migrate_pass_rewards_and_sabres()
-    # Seed initial cards si table vide
+    # Initial cards seed if the table is empty
     try:
         from services.cards_seed import seed_initial_cards
         seed_initial_cards()
@@ -1388,7 +1390,7 @@ def init_db():
     print("[OK] Base de donnees initialisee !")
 
 
-# ===== DUEL - SABRES (DB) =====
+# ===== DUEL - SABERS (DB) =====
 def _row_to_sabre(row):
     if not row:
         return None
@@ -1472,7 +1474,7 @@ def db_update_sabre(sabre_id, data):
     return changed
 
 def db_delete_sabre(sabre_id):
-    """Supprime un sabre. Nettoie aussi les collections et reset les sabres équipés."""
+    """Delete a saber. Also cleans up collections and resets equipped sabers."""
     conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM duel_collection WHERE sabre_id = ?", (sabre_id,))
@@ -1484,7 +1486,7 @@ def db_delete_sabre(sabre_id):
     return deleted
 
 def seed_sabres_si_vide():
-    """Importe les sabres par défaut depuis duel_sabres.SABRES_DEFAULT si la table est vide."""
+    """Import the default sabers from duel_sabres.SABRES_DEFAULT if the table is empty."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT COUNT(*) as n FROM sabres")
@@ -1512,9 +1514,9 @@ def seed_sabres_si_vide():
 
 
 def ensure_extra_default_sabres():
-    """Migration : pour les DB existantes qui datent d'avant l'ajout de nouveaux
-    sabres f2p au pool SSR (obsidienne, celeste). INSERT OR IGNORE pour ne
-    rien ecraser de modifie."""
+    """Migration: for existing DBs created before the new f2p sabers were
+    added to the SSR pool (obsidienne, celeste). INSERT OR IGNORE so nothing
+    already modified gets overwritten."""
     try:
         from duel.sabres import SABRES_DEFAULT
     except ImportError:
@@ -1543,7 +1545,7 @@ def ensure_extra_default_sabres():
 
 # ===== DUEL - ADMIN (web dashboard) =====
 def admin_update_duel_profil(user_id, data):
-    """Met à jour les champs autorisés du profil duel via le dashboard."""
+    """Update the allowed fields of the duel profile via the dashboard."""
     autorises = ["username", "level", "tookcoins", "victoires", "defaites",
                  "sabre_equipe", "combat_xp", "combat_level", "stat_points",
                  "stat_force", "stat_agilite", "stat_defense", "stat_endurance", "stat_chance"]
@@ -1568,7 +1570,7 @@ def admin_update_duel_profil(user_id, data):
     return changed
 
 def admin_get_full_duel_user(user_id):
-    """Retourne profil + collection + historique pour le dashboard."""
+    """Return profile + collection + history for the dashboard."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM duel_profil WHERE user_id = ?", (str(user_id),))
@@ -1595,7 +1597,7 @@ def admin_supprimer_sabre_collection(user_id, sabre_id):
     c.execute("DELETE FROM duel_collection WHERE user_id = ? AND sabre_id = ?",
               (str(user_id), sabre_id))
     deleted = c.rowcount > 0
-    # Si c'était son sabre équipé, reset à bleu
+    # If it was their equipped saber, reset to blue
     c.execute("UPDATE duel_profil SET sabre_equipe = 'bleu' WHERE user_id = ? AND sabre_equipe = ?",
               (str(user_id), sabre_id))
     conn.commit()
@@ -1612,10 +1614,10 @@ def admin_lister_duel_users():
     return rows
 
 
-# ===== XP MESSAGES (per-guild) — refonte clean 2026-06 =====
-# Formule canonique : xp_for_level(L) = L^E ; get_level(xp) = floor(xp^(1/E))
-# E = exposant de la courbe, configurable par serveur via 'xp_curve_exponent'
-# (defaut 5.0). Plage utile 2.0 a 8.0.
+# ===== MESSAGE XP (per-guild) - clean rework 2026-06 =====
+# Canonical formula: xp_for_level(L) = L^E ; get_level(xp) = floor(xp^(1/E))
+# E = curve exponent, configurable per server via 'xp_curve_exponent'
+# (default 5.0). Useful range 2.0 to 8.0.
 
 _DEFAULT_XP_EXPONENT = 5.0
 _XP_EXP_MIN = 2.0
@@ -1623,7 +1625,7 @@ _XP_EXP_MAX = 8.0
 
 
 def get_xp_curve_exponent(guild_id=None) -> float:
-    """Lit l'exposant de courbe XP pour ce serveur. Clamp [2.0, 8.0]."""
+    """Read the XP curve exponent for this server. Clamped to [2.0, 8.0]."""
     if guild_id is None:
         return _DEFAULT_XP_EXPONENT
     try:
@@ -1656,7 +1658,7 @@ def get_xp(guild_id, user_id) -> int:
     return int(r["xp"]) if r else 0
 
 def set_xp(guild_id, user_id, xp, username=None):
-    """Upsert canonical : recalcule level depuis xp via courbe du serveur."""
+    """Canonical upsert: recomputes level from xp using the server curve."""
     xp = max(0, int(xp or 0))
     level = get_level(xp, guild_id)
     conn = get_db(); c = conn.cursor()
@@ -1670,7 +1672,7 @@ def set_xp(guild_id, user_id, xp, username=None):
     conn.commit(); conn.close()
 
 def add_xp(guild_id, user_id, delta, username=None) -> tuple:
-    """Increment XP. Retourne (new_xp, old_level, new_level, leveled_up)."""
+    """Increment XP. Returns (new_xp, old_level, new_level, leveled_up)."""
     cur = get_xp(guild_id, user_id)
     old_level = get_level(cur, guild_id)
     new_xp = max(0, cur + int(delta or 0))
@@ -1679,7 +1681,7 @@ def add_xp(guild_id, user_id, delta, username=None) -> tuple:
     return (new_xp, old_level, new_level, new_level > old_level)
 
 def get_progress(xp, guild_id=None) -> tuple:
-    """Retourne (level, xp_in_level, xp_needed_in_level, percent_0_100)."""
+    """Return (level, xp_in_level, xp_needed_in_level, percent_0_100)."""
     xp = int(xp or 0)
     level = get_level(xp, guild_id)
     start = xp_for_level(level, guild_id)
@@ -1706,24 +1708,24 @@ def get_all_users_for_guild(guild_id):
     conn.close()
     return rows
 
-# ===== XP MESSAGES (cross-guild aggregates pour Dashboard general) =====
+# ===== MESSAGE XP (cross-guild aggregates for the general Dashboard) =====
 def get_global_xp_stats():
-    """Aggregats cross-guild dedoublonnes par user_id (un meme user dans plusieurs serveurs compte une fois)."""
+    """Cross-guild aggregates deduplicated by user_id (the same user in several servers counts once)."""
     conn = get_db()
     c = conn.cursor()
-    # Total comptes uniques (un user_id distinct = 1 personne, peu importe combien de serveurs)
+    # Total unique accounts (a distinct user_id = 1 person, no matter how many servers)
     c.execute("SELECT COUNT(DISTINCT user_id) AS n FROM users")
     total_users = c.fetchone()["n"]
-    # XP cumule = somme totale (un user actif sur 3 serveurs cumule reellement plus d'XP)
+    # Cumulative XP = full sum (a user active on 3 servers really does accumulate more XP)
     c.execute("SELECT COALESCE(SUM(xp), 0) AS total_xp FROM users")
     total_xp = c.fetchone()["total_xp"]
-    # Niveau moyen calcule sur les XP agreges par user, pas par ligne
+    # Average level computed on XP aggregated per user, not per row
     c.execute("""SELECT AVG(lvl_per_user) AS avg_level FROM (
                    SELECT user_id, MAX(level) AS lvl_per_user
                    FROM users GROUP BY user_id
                  )""")
     avg_level = c.fetchone()["avg_level"] or 0
-    # Top 10 dedoublonne : on agrege par user_id (somme XP, max niveau, dernier username vu)
+    # Deduplicated top 10: aggregate by user_id (XP sum, max level, last username seen)
     c.execute("""SELECT user_id,
                         MAX(username) AS username,
                         SUM(xp)       AS xp,
@@ -1745,7 +1747,7 @@ def get_global_xp_stats():
 
 # ===== REACTIONS (per-guild) =====
 def get_all_reactions(guild_id):
-    """Retourne {user_id: emoji} pour un serveur."""
+    """Return {user_id: emoji} for a server."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT user_id, emoji FROM reactions WHERE guild_id = ?", (str(guild_id),))
@@ -1754,7 +1756,7 @@ def get_all_reactions(guild_id):
     return {int(r["user_id"]): r["emoji"] for r in rows}
 
 def get_all_reactions_index():
-    """Retourne {(guild_id, user_id): emoji} pour le bot (chargement initial)."""
+    """Return {(guild_id, user_id): emoji} for the bot (initial load)."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT guild_id, user_id, emoji FROM reactions")
@@ -1830,7 +1832,7 @@ def get_guild(guild_id):
     return dict(row) if row else None
 
 
-# ===== MUSIQUE — queue & state (DB = source de verite) =====
+# ===== MUSIC - queue & state (DB = source of truth) =====
 def music_queue_add(guild_id, title, url, source_url=None, duration=None, thumbnail=None, requested_by=None):
     """Append a track at end of queue. Returns track id."""
     conn = get_db()
@@ -1888,11 +1890,11 @@ def music_queue_remove(guild_id, track_id):
 
 
 def music_queue_move_to_front(guild_id, track_id):
-    """Deplace une track a la position 1 (sera la prochaine jouee).
-    Decale les autres positions de +1. Retourne True si OK."""
+    """Move a track to position 1 (it will be the next one played).
+    Shifts the other positions by +1. Returns True if OK."""
     conn = get_db()
     c = conn.cursor()
-    # Verifie que la track existe et appartient a la guild
+    # Check that the track exists and belongs to the guild
     row = c.execute(
         "SELECT id FROM music_queue WHERE guild_id = ? AND id = ?",
         (str(guild_id), int(track_id)),
@@ -1900,12 +1902,12 @@ def music_queue_move_to_front(guild_id, track_id):
     if not row:
         conn.close()
         return False
-    # Min position actuelle (sera notre nouvelle pos cible - 1)
+    # Current min position (will be our new target pos - 1)
     min_pos = c.execute(
         "SELECT MIN(position) AS p FROM music_queue WHERE guild_id = ?",
         (str(guild_id),),
     ).fetchone()["p"] or 1
-    # Pose la track a (min_pos - 1) -> sera sortie en 1er
+    # Put the track at (min_pos - 1) -> it will come out first
     c.execute(
         "UPDATE music_queue SET position = ? WHERE id = ?",
         (min_pos - 1, int(track_id)),
@@ -1957,7 +1959,7 @@ def music_state_disconnect(guild_id):
 def stripe_subscription_upsert(discord_user_id, *, stripe_customer_id=None,
                                 stripe_subscription_id=None, plan_months=None,
                                 status=None, current_period_end=None):
-    """UPSERT par discord_user_id. Champs None ignores (preserve existing)."""
+    """UPSERT by discord_user_id. None fields are ignored (preserve existing)."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO stripe_subscriptions (discord_user_id) VALUES (?)",
               (str(discord_user_id),))
@@ -2012,7 +2014,7 @@ def automod_config_get(guild_id):
 
 
 def automod_config_set(guild_id, **fields):
-    """UPSERT config automod. Accepte un sous-ensemble des champs."""
+    """UPSERT automod config. Accepts a subset of the fields."""
     allowed = {
         "enabled", "banned_words_enabled", "banned_words",
         "discord_invites_enabled", "mention_spam_enabled", "mention_spam_threshold",
@@ -2039,21 +2041,22 @@ CARD_RARITY_WEIGHTS = {
     "epic":      15,
     "legendary": 4,
     "mythic":    1,
-    "secret":    0,   # poids 0 = jamais roll auto, owner-give uniquement
+    "secret":    0,   # weight 0 = never auto-rolled, owner-give only
 }
 
-# Elements (combat). Cycle simple : chaque element bat le SUIVANT et perd contre
-# le PRECEDENT (une seule faiblesse). Ordre = eclat>abysse>fracture>vif>neant>eclat.
+# Elements (combat). Simple cycle: each element beats the NEXT one and loses to
+# the PREVIOUS one (a single weakness). Order = eclat>abysse>fracture>vif>neant>eclat.
 CARD_ELEMENTS = ["eclat", "abysse", "fracture", "vif", "neant"]
 CARD_ELEMENT_LABELS = {
-    "eclat": "Éclat", "abysse": "Abysse", "fracture": "Fracture",
-    "vif": "Vif", "neant": "Néant",
+    "eclat": t("data.element.eclat"), "abysse": t("data.element.abysse"),
+    "fracture": t("data.element.fracture"),
+    "vif": t("data.element.vif"), "neant": t("data.element.neant"),
 }
-# Emoji unicode fallback (en attendant les emojis custom du support)
+# Unicode emoji fallback (until the custom support-server emojis are available)
 CARD_ELEMENT_EMOJI = {
     "eclat": "🔆", "abysse": "🌊", "fracture": "⛓", "vif": "🩸", "neant": "🕳",
 }
-# Nom de l'emoji custom support (cherche par nom, sinon fallback unicode)
+# Name of the custom support emoji (looked up by name, else unicode fallback)
 CARD_ELEMENT_EMOJI_NAME = {
     "eclat": "elem_eclat", "abysse": "elem_abysse", "fracture": "elem_fracture",
     "vif": "elem_vif", "neant": "elem_neant",
@@ -2061,9 +2064,9 @@ CARD_ELEMENT_EMOJI_NAME = {
 
 
 def element_matchup(attacker: str, defender: str) -> float:
-    """Cercle simple : chaque element bat le SUIVANT (+25%) et perd contre le
-    PRECEDENT (-20%). Une seule faiblesse par element. Neutre sinon.
-    Cycle : eclat > abysse > fracture > vif > neant > eclat."""
+    """Simple circle: each element beats the NEXT one (+25%) and loses to the
+    PREVIOUS one (-20%). A single weakness per element. Neutral otherwise.
+    Cycle: eclat > abysse > fracture > vif > neant > eclat."""
     try:
         ia = CARD_ELEMENTS.index(attacker)
         idd = CARD_ELEMENTS.index(defender)
@@ -2115,7 +2118,7 @@ def card_list_all(limit=1000, rarity=None, search=None, offset=0):
 
 
 def card_count_filtered(rarity=None, search=None):
-    """Total rows matching same filtres que card_list_all."""
+    """Total rows matching the same filters as card_list_all."""
     conn = get_db(); c = conn.cursor()
     where = ["1=1"]
     params: list = []
@@ -2166,21 +2169,26 @@ def card_count_total():
 _ROLL_WEIGHTS = {k: v for k, v in CARD_RARITY_WEIGHTS.items() if v > 0}
 
 
-# ===== EVENTS GLOBAUX (saisonniers ou ponctuels, owner-controles) =====
-# cle -> {name, emoji}. Une carte avec cards.event_key = <cle> reste TOUJOURS
-# obtenable ; pendant l'event correspondant son taux de drop est boste (sauf
-# pour un user qui possede deja la carte en 5 etoiles -> taux normal pour lui).
+# ===== GLOBAL EVENTS (seasonal or one-off, owner-controlled) =====
+# key -> {name, emoji}. A card with cards.event_key = <key> stays ALWAYS
+# obtainable; during the matching event its drop rate is boosted (except
+# for a user who already owns the card at 5 stars -> normal rate for them).
 GLOBAL_EVENTS = {
-    "summer":    {"name": "Summer",    "emoji": "☀️", "coin": "Noix de Coco", "coin_emoji": "🥥"},
-    "halloween": {"name": "Halloween", "emoji": "🎃", "coin": "Bonbons",      "coin_emoji": "🍬"},
-    "noel":      {"name": "Noël",      "emoji": "🎄", "coin": "Flocons",      "coin_emoji": "❄️"},
-    "winter":    {"name": "Hiver",     "emoji": "❄️", "coin": "Glaçons",      "coin_emoji": "🧊"},
-    "valentine": {"name": "Saint-Valentin", "emoji": "💖", "coin": "Cœurs",   "coin_emoji": "💝"},
+    "summer":    {"name": t("data.global_event.summer.name"),    "emoji": "☀️",
+                  "coin": t("data.global_event.summer.coin"),    "coin_emoji": "🥥"},
+    "halloween": {"name": t("data.global_event.halloween.name"), "emoji": "🎃",
+                  "coin": t("data.global_event.halloween.coin"), "coin_emoji": "🍬"},
+    "noel":      {"name": t("data.global_event.noel.name"),      "emoji": "🎄",
+                  "coin": t("data.global_event.noel.coin"),      "coin_emoji": "❄️"},
+    "winter":    {"name": t("data.global_event.winter.name"),    "emoji": "❄️",
+                  "coin": t("data.global_event.winter.coin"),    "coin_emoji": "🧊"},
+    "valentine": {"name": t("data.global_event.valentine.name"), "emoji": "💖",
+                  "coin": t("data.global_event.valentine.coin"), "coin_emoji": "💝"},
 }
 
 
 def global_event_get() -> dict:
-    """Etat de l'event global actif. {key, name, emoji, active, drop_boost}."""
+    """State of the active global event. {key, name, emoji, active, drop_boost}."""
     key = (get_setting("global_event_key", "") or "").strip()
     try:
         boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
@@ -2194,11 +2202,12 @@ def global_event_get() -> dict:
     return {"key": key, "active": bool(key), "drop_boost": boost,
             "rarity_boost": rar_boost,
             "name": meta.get("name", ""), "emoji": meta.get("emoji", ""),
-            "coin": meta.get("coin", "Jetons"), "coin_emoji": meta.get("coin_emoji", "🎟️")}
+            "coin": meta.get("coin", t("data.global_event.coin_default")),
+            "coin_emoji": meta.get("coin_emoji", "🎟️")}
 
 
 def global_event_set(key: str, drop_boost=None, rarity_boost=None):
-    """Active/desactive l'event global. key vide ou invalide = aucun event."""
+    """Enable/disable the global event. Empty or invalid key = no event."""
     key = (key or "").strip()
     if key and key not in GLOBAL_EVENTS:
         key = ""
@@ -2216,14 +2225,14 @@ def global_event_set(key: str, drop_boost=None, rarity_boost=None):
 
 
 def global_event_test_guilds() -> set:
-    """Serveurs de test : si non vide, l'event n'est actif QUE sur ces serveurs."""
+    """Test servers: if not empty, the event is active ONLY on those servers."""
     raw = get_setting("global_event_test_guilds", "") or ""
     return {g.strip() for g in raw.replace(",", " ").split() if g.strip()}
 
 
 def global_event_for_guild(guild_id) -> dict:
-    """Event actif POUR ce serveur (gere le mode test). active=False si l'event est
-    en mode test et que ce serveur n'est pas dans la liste."""
+    """Event active FOR this server (handles test mode). active=False if the event
+    is in test mode and this server is not in the list."""
     ev = global_event_get()
     if not ev.get("active"):
         return ev
@@ -2234,7 +2243,7 @@ def global_event_for_guild(guild_id) -> dict:
 
 
 def global_event_card_counts() -> dict:
-    """Nb de cartes taguees par event (pour le dashboard)."""
+    """Number of cards tagged per event (for the dashboard)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute("SELECT event_key, COUNT(*) AS n FROM cards "
                      "WHERE event_key IS NOT NULL AND event_key != '' "
@@ -2243,17 +2252,17 @@ def global_event_card_counts() -> dict:
     return {r["event_key"]: int(r["n"]) for r in rows}
 
 
-# ===== MONNAIE & ECONOMIE D'EVENT (jetons, combat, boutique) =====
-EVENT_DAILY_COINS        = 5     # jetons donnes par /daily pendant un event
-EVENT_FIGHT_MAX_PER_DAY  = 3     # combats event par jour
-EVENT_FIGHT_WIN_COINS    = 4     # jetons par combat gagne
-EVENT_FIGHT_ADV_BONUS    = 2     # bonus si avantage elementaire
-# Boutique : ~20 jetons/jour (5 daily + 3x5 combat) -> 6 skins a 50 = 300 = ~15j.
-EVENT_SHOP_SKIN_COST     = 50    # cout d'un skin alt (tous le meme prix)
-EVENT_SHOP_ROLL_COST     = 8     # cout d'1 roll offert
-EVENT_SHOP_GOLDEN_COST   = 20    # cout d'1 golden roll (legendaire garanti)
-EVENT_SHOP_ESS10_COST    = 15    # cout du bonus essences pour 1 jour (cumulatif)
-EVENT_SHOP_ESS10_PCT     = 5     # +5% essences/jour par achat
+# ===== EVENT CURRENCY & ECONOMY (tokens, fights, shop) =====
+EVENT_DAILY_COINS        = 5     # tokens given by /daily during an event
+EVENT_FIGHT_MAX_PER_DAY  = 3     # event fights per day
+EVENT_FIGHT_WIN_COINS    = 4     # tokens per fight won
+EVENT_FIGHT_ADV_BONUS    = 2     # bonus if elemental advantage
+# Shop: ~20 tokens/day (5 daily + 3x5 fights) -> 6 skins at 50 = 300 = ~15 days.
+EVENT_SHOP_SKIN_COST     = 50    # cost of an alt skin (all the same price)
+EVENT_SHOP_ROLL_COST     = 8     # cost of 1 free roll
+EVENT_SHOP_GOLDEN_COST   = 20    # cost of 1 golden roll (guaranteed legendary)
+EVENT_SHOP_ESS10_COST    = 15    # cost of the essence bonus for 1 day (cumulative)
+EVENT_SHOP_ESS10_PCT     = 5     # +5% essences/day per purchase
 
 
 def _ensure_event_econ_tables():
@@ -2271,7 +2280,7 @@ def _ensure_event_econ_tables():
         used      INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, event_key, day)
     )''')
-    # Skins alt debloques par user (achat boutique event).
+    # Alt skins unlocked per user (event shop purchase).
     c.execute('''CREATE TABLE IF NOT EXISTS event_skin (
         user_id    TEXT NOT NULL,
         card_id    INTEGER NOT NULL,
@@ -2282,7 +2291,7 @@ def _ensure_event_econ_tables():
 
 
 def card_alt_set(card_id, alt_url):
-    """Owner : definit l'URL du skin alt d'une carte (ou None pour retirer)."""
+    """Owner: set the alt skin URL of a card (or None to remove it)."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE cards SET alt_image_url = ? WHERE id = ?",
               (alt_url or None, int(card_id)))
@@ -2299,7 +2308,7 @@ def event_skin_has(user_id, card_id) -> bool:
 
 
 def event_skin_owned_set(user_id) -> set:
-    """Set des card_id dont ce user a debloque le skin alt."""
+    """Set of card_ids for which this user unlocked the alt skin."""
     _ensure_event_econ_tables()
     conn = get_db(); c = conn.cursor()
     rows = c.execute("SELECT card_id FROM event_skin WHERE user_id = ?",
@@ -2317,8 +2326,8 @@ def event_skin_grant(user_id, card_id):
 
 
 def event_shop_skins(user_id, event_key) -> list:
-    """Toutes les cartes event AVEC un skin alt. Achetable meme sans posseder la
-    carte (les arts ne sont obtenables que pendant l'event, les cartes restent)."""
+    """All event cards WITH an alt skin. Buyable even without owning the
+    card (the arts are only obtainable during the event, the cards remain)."""
     _ensure_event_econ_tables()
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
@@ -2364,7 +2373,7 @@ def event_coins_set(user_id, event_key, n):
 
 
 def event_coins_spend(user_id, event_key, n) -> bool:
-    """Depense n jetons si solde suffisant. Retourne True si ok."""
+    """Spend n tokens if the balance is enough. Returns True if ok."""
     _ensure_event_econ_tables()
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE event_wallet SET coins = coins - ? "
@@ -2376,7 +2385,7 @@ def event_coins_spend(user_id, event_key, n) -> bool:
 
 
 def event_fight_used(user_id, event_key) -> int:
-    """Combats event deja faits aujourd'hui (heure Paris)."""
+    """Event fights already done today (Paris time)."""
     _ensure_event_econ_tables()
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT used FROM event_fight_daily "
@@ -2397,7 +2406,7 @@ def event_fight_inc(user_id, event_key):
 
 
 def essence_bonus_add(user_id, pct) -> int:
-    """Ajoute (cumulatif) un bonus % d'essences pour la journee. Retourne le total."""
+    """Add (cumulative) an essence % bonus for the day. Returns the total."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO essence_bonus_daily (user_id, day, pct) VALUES (?, ?, ?) "
@@ -2411,20 +2420,20 @@ def essence_bonus_add(user_id, pct) -> int:
 
 
 def card_roll_random(universe: str | None = None, user_id=None, guild_id=None):
-    """Pioche une carte selon les poids de rarete.
-    Si universe fourni : filtre uniquement cette categorie.
-    Event global actif : (1) BOOST GENERAL des rares (epic/legendary/mythic plus
-    frequents) ET (2) les cartes taguees a l'event ont un drop boste -- sauf pour
-    un user qui possede deja la carte en 5 etoiles. Le boost ne s'applique que sur
-    les serveurs de test si l'event est en mode test.
-    Retourne None si la table cards (ou la categorie) est vide."""
-    # Event actif pour ce contexte (mode test gere)
+    """Draw a card according to the rarity weights.
+    If universe is provided: filter on that category only.
+    Active global event: (1) GENERAL BOOST of rares (epic/legendary/mythic more
+    frequent) AND (2) cards tagged to the event get a boosted drop -- except for
+    a user who already owns the card at 5 stars. The boost only applies on test
+    servers if the event is in test mode.
+    Returns None if the cards table (or the category) is empty."""
+    # Event active for this context (test mode handled)
     ev = (get_setting("global_event_key", "") or "").strip()
     if ev:
         _tg = global_event_test_guilds()
         if _tg and str(guild_id) not in _tg:
             ev = ""
-    # Poids de rarete (+ boost general des rares pendant l'event)
+    # Rarity weights (+ general boost of rares during the event)
     weights = dict(_ROLL_WEIGHTS)
     if ev:
         try:
@@ -2455,8 +2464,8 @@ def card_roll_random(universe: str | None = None, user_id=None, guild_id=None):
     if not rows:
         conn.close()
         return None
-    # Boost event par CARTE : pondere les cartes taguees a l'event (sauf celles que
-    # CE user a deja maxees a 5 etoiles -> taux normal pour lui). ev deja calcule.
+    # Per-CARD event boost: weights the cards tagged to the event (except those
+    # THIS user already maxed at 5 stars -> normal rate for them). ev already computed.
     if ev:
         try:
             boost = float(get_setting("global_event_drop_boost", "2.0") or 2.0)
@@ -2487,7 +2496,7 @@ def user_card_add(user_id, card_id):
 
 
 def user_card_add_cheat(user_id, card_id):
-    """Ajout owner-cheat : flag from_cheat=1 -> n'apparait pas dans le feed."""
+    """Owner-cheat add: from_cheat=1 flag -> does not show up in the feed."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_cards (user_id, card_id, from_cheat) VALUES (?, ?, 1)",
               (str(user_id), int(card_id)))
@@ -2497,7 +2506,7 @@ def user_card_add_cheat(user_id, card_id):
 
 
 def forced_roll_set(user_id, card_id):
-    """Owner cheat : force la carte du PROCHAIN /roll de cet user."""
+    """Owner cheat: force the card of this user's NEXT /roll."""
     conn = get_db(); c = conn.cursor()
     c.execute("CREATE TABLE IF NOT EXISTS forced_roll (user_id TEXT PRIMARY KEY, card_id INTEGER)")
     c.execute("INSERT INTO forced_roll (user_id, card_id) VALUES (?, ?) "
@@ -2507,7 +2516,7 @@ def forced_roll_set(user_id, card_id):
 
 
 def forced_roll_get(user_id):
-    """Retourne la carte forcee SANS la consommer (None si aucune)."""
+    """Return the forced card WITHOUT consuming it (None if there is none)."""
     conn = get_db(); c = conn.cursor()
     try:
         r = c.execute("SELECT card_id FROM forced_roll WHERE user_id = ?",
@@ -2519,7 +2528,7 @@ def forced_roll_get(user_id):
 
 
 def forced_roll_clear(user_id):
-    """Consomme/efface la carte forcee."""
+    """Consume/clear the forced card."""
     conn = get_db(); c = conn.cursor()
     try:
         c.execute("DELETE FROM forced_roll WHERE user_id = ?", (str(user_id),))
@@ -2530,7 +2539,7 @@ def forced_roll_clear(user_id):
 
 
 def forced_roll_pop(user_id):
-    """Retourne et CONSOMME la carte forcee (None si aucune)."""
+    """Return and CONSUME the forced card (None if there is none)."""
     cid = forced_roll_get(user_id)
     if cid is not None:
         forced_roll_clear(user_id)
@@ -2538,7 +2547,7 @@ def forced_roll_pop(user_id):
 
 
 def user_card_add_with_flag(user_id, card_id, not_tradeable=False):
-    """Comme user_card_add mais avec flag not_tradeable."""
+    """Same as user_card_add but with the not_tradeable flag."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_cards (user_id, card_id, not_tradeable) VALUES (?, ?, ?)",
               (str(user_id), int(card_id), 1 if not_tradeable else 0))
@@ -2548,8 +2557,8 @@ def user_card_add_with_flag(user_id, card_id, not_tradeable=False):
 
 
 def user_card_list(user_id, rarity=None, categorie=None):
-    """Toutes les copies du user, jointes a la carte. ORDER BY rarete desc.
-    categorie : filtre optionnel matchant l'univers OU l'origine (subtitle), insensible casse."""
+    """All the user's copies, joined with the card. ORDER BY rarity desc.
+    categorie: optional filter matching the universe OR the origin (subtitle), case-insensitive."""
     conn = get_db(); c = conn.cursor()
     where = "uc.user_id = ?"
     params = [str(user_id)]
@@ -2559,7 +2568,7 @@ def user_card_list(user_id, rarity=None, categorie=None):
     if categorie:
         where += " AND (LOWER(c.universe) = LOWER(?) OR LOWER(c.subtitle) = LOWER(?))"
         params.append(categorie); params.append(categorie)
-    # Ordre par rarite (mythic d'abord), puis par card name
+    # Order by rarity (mythic first), then by card name
     rarity_order = ("CASE c.rarity "
                     "WHEN 'mythic' THEN 0 "
                     "WHEN 'legendary' THEN 1 "
@@ -2576,7 +2585,7 @@ def user_card_list(user_id, rarity=None, categorie=None):
 
 
 def card_owners_count(card_id):
-    """Nombre de users distincts possedant cette carte."""
+    """Number of distinct users owning this card."""
     conn = get_db(); c = conn.cursor()
     n = c.execute("SELECT COUNT(DISTINCT user_id) AS n FROM user_cards WHERE card_id = ?",
                    (int(card_id),)).fetchone()["n"]
@@ -2585,7 +2594,7 @@ def card_owners_count(card_id):
 
 
 def card_owners_list(card_id, limit=50):
-    """Liste des possesseurs avec count. Ordre desc par count."""
+    """List of owners with their count. Descending order by count."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT user_id, COUNT(*) AS qty FROM user_cards "
@@ -2627,7 +2636,7 @@ def card_suggestion_add(suggester_id, suggester_name, guild_id, channel_id,
 
 
 def card_suggestion_set_forward(sid, message_id):
-    """Stocke l'id du message forwarde dans le salon support (pour reagir dessus)."""
+    """Store the id of the message forwarded to the support channel (to react on it)."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_suggestions SET forward_message_id = ? WHERE id = ?",
               (str(message_id) if message_id else None, int(sid)))
@@ -2690,8 +2699,8 @@ def card_suggestion_count_pending():
 
 
 def user_card_count_owned(user_id, card_id, only_tradeable: bool = False):
-    """Combien de copies user possede de cette carte.
-    only_tradeable=True : exclut les not_tradeable (pour verif trade)."""
+    """How many copies the user owns of this card.
+    only_tradeable=True: excludes the not_tradeable ones (for trade checks)."""
     conn = get_db(); c = conn.cursor()
     if only_tradeable:
         n = c.execute("SELECT COUNT(*) AS n FROM user_cards "
@@ -2706,8 +2715,8 @@ def user_card_count_owned(user_id, card_id, only_tradeable: bool = False):
 
 
 def user_card_transfer_one(from_user, to_user, card_id):
-    """Transfert UNE copie d'une carte tradeable. Skip les not_tradeable.
-    Retourne True si OK, False si from_user n'en a pas de tradeable."""
+    """Transfer ONE copy of a tradeable card. Skips the not_tradeable ones.
+    Returns True if OK, False if from_user has no tradeable copy."""
     conn = get_db(); c = conn.cursor()
     row = c.execute("SELECT id FROM user_cards "
                      "WHERE user_id = ? AND card_id = ? "
@@ -2771,7 +2780,7 @@ def card_event_log_create(guild_id, channel_id, card_id, message_id=None,
 
 
 def card_event_log_delete(event_id):
-    """Supprime un event (ex : echec d'envoi du message -> pas de ghost)."""
+    """Delete an event (e.g. message send failed -> no ghost)."""
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM card_event_log WHERE id = ?", (int(event_id),))
     conn.commit(); conn.close()
@@ -2794,7 +2803,7 @@ def card_event_log_update_message(event_id, message_id, winning_emoji=None,
 
 
 def card_event_log_get_pending_in_channel(channel_id):
-    """Liste events pending dans un salon (pour captcha matching)."""
+    """List pending events in a channel (for captcha matching)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT * FROM card_event_log WHERE channel_id = ? AND status = 'pending' "
@@ -2813,7 +2822,7 @@ def card_event_log_get_by_message(message_id):
 
 
 def card_event_log_claim(event_id, user_id):
-    """Atomic claim. Retourne True si OK, False si deja claimed."""
+    """Atomic claim. Returns True if OK, False if already claimed."""
     conn = get_db(); c = conn.cursor()
     c.execute('''UPDATE card_event_log
                  SET status = 'claimed', claimer_id = ?, claimed_at = CURRENT_TIMESTAMP
@@ -2834,8 +2843,8 @@ def card_event_log_recent(limit=50):
     return [dict(r) for r in rows]
 
 
-# ===== ECONOMIE ESSENCES =====
-# Essences gagnees par /roll selon rarete carte obtenue. Doublon = x2.
+# ===== ESSENCE ECONOMY =====
+# Essences earned per /roll depending on the card rarity. Duplicate = x2.
 ESSENCE_REWARDS = {
     "common":    12,
     "rare":      28,
@@ -2855,7 +2864,7 @@ def currency_get(user_id) -> int:
 
 
 def currency_add(user_id, amount: int) -> int:
-    """Ajoute (ou retire si negatif) des essences. Retourne nouveau solde."""
+    """Add (or remove if negative) essences. Returns the new balance."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_currency (user_id, essences) VALUES (?, ?) "
               "ON CONFLICT(user_id) DO UPDATE SET essences = essences + excluded.essences, "
@@ -2868,7 +2877,7 @@ def currency_add(user_id, amount: int) -> int:
 
 
 def currency_spend(user_id, amount: int) -> bool:
-    """Debite si solde suffisant. Retourne True si OK, False sinon. Atomic."""
+    """Debit if the balance is enough. Returns True if OK, False otherwise. Atomic."""
     amount = int(amount)
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE user_currency SET essences = essences - ?, updated_at = CURRENT_TIMESTAMP "
@@ -2879,11 +2888,11 @@ def currency_spend(user_id, amount: int) -> bool:
     return ok
 
 
-# ===== ROUE DE LA CHANCE QUOTIDIENNE =====
-# Recompenses : bonus % d'essences pour la journee (essence_bonus_daily) OU
-# rolls offerts (via roll_give_user). 1 spin / jour / utilisateur.
+# ===== DAILY WHEEL OF FORTUNE =====
+# Rewards: essence % bonus for the day (essence_bonus_daily) OR
+# free rolls (via roll_give_user). 1 spin / day / user.
 def _today_str():
-    """Date du jour en heure FRANCAISE (reset roue a minuit Europe/Paris)."""
+    """Today's date in FRENCH time (wheel resets at midnight Europe/Paris)."""
     import datetime as _dt
     try:
         from zoneinfo import ZoneInfo
@@ -2920,7 +2929,7 @@ def _ensure_wheel_tables():
         claimed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, day)
     )''')
-    # Journal des gains de la roue (append-only, alimente le feed "en direct")
+    # Wheel winnings log (append-only, feeds the "live" feed)
     c.execute('''CREATE TABLE IF NOT EXISTS wheel_wins (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id      TEXT NOT NULL,
@@ -2932,7 +2941,7 @@ def _ensure_wheel_tables():
 
 
 def wheel_win_log(user_id, reward_type, reward_value):
-    """Ajoute un gain au journal (feed en direct)."""
+    """Add a win to the log (live feed)."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO wheel_wins (user_id, reward_type, reward_value) VALUES (?, ?, ?)",
@@ -2950,7 +2959,7 @@ def wheel_wins_recent(limit=40):
 
 
 def wheel_wins_reset() -> int:
-    """Owner : vide le journal des gains de la roue. Retourne le nb supprime."""
+    """Owner: clear the wheel winnings log. Returns the number deleted."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM wheel_wins")
@@ -2960,7 +2969,7 @@ def wheel_wins_reset() -> int:
 
 
 def daily_roll_claimed_today(user_id) -> bool:
-    """True si le user a deja recupere son roll quotidien gratuit aujourd'hui (FR)."""
+    """True if the user already claimed their free daily roll today (FR)."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT 1 FROM daily_roll_claims WHERE user_id = ? AND day = ?",
@@ -2970,7 +2979,7 @@ def daily_roll_claimed_today(user_id) -> bool:
 
 
 def daily_roll_grant(user_id) -> bool:
-    """Octroie 1 roll gratuit du jour. False si deja recupere aujourd'hui."""
+    """Grant 1 free roll for the day. False if already claimed today."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     try:
@@ -2986,7 +2995,7 @@ def daily_roll_grant(user_id) -> bool:
 
 
 def daily_booster_claimed_today(user_id) -> bool:
-    """True si le user a deja ouvert son booster quotidien gratuit aujourd'hui (FR)."""
+    """True if the user already opened their free daily booster today (FR)."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT 1 FROM daily_booster_claims WHERE user_id = ? AND day = ?",
@@ -2996,7 +3005,7 @@ def daily_booster_claimed_today(user_id) -> bool:
 
 
 def daily_booster_ever_claimed(user_id) -> bool:
-    """True si le user a deja ouvert au moins un booster (n'importe quel jour)."""
+    """True if the user already opened at least one booster (any day)."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT 1 FROM daily_booster_claims WHERE user_id = ? LIMIT 1",
@@ -3006,8 +3015,8 @@ def daily_booster_ever_claimed(user_id) -> bool:
 
 
 def daily_booster_claim(user_id) -> bool:
-    """Marque le booster quotidien comme recupere. False si deja fait aujourd'hui.
-    (L'octroi des cartes est gere par l'appelant.)"""
+    """Mark the daily booster as claimed. False if already done today.
+    (Granting the cards is handled by the caller.)"""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     try:
@@ -3021,7 +3030,7 @@ def daily_booster_claim(user_id) -> bool:
 
 
 def wheel_claim_today(user_id):
-    """Retourne le spin du jour (dict) ou None si pas encore tourne."""
+    """Return today's spin (dict) or None if not spun yet."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT * FROM wheel_daily WHERE user_id = ? AND day = ?",
@@ -3031,7 +3040,7 @@ def wheel_claim_today(user_id):
 
 
 def wheel_record(user_id, reward_type, reward_value) -> bool:
-    """Enregistre le spin du jour. False si deja tourne aujourd'hui."""
+    """Record today's spin. False if already spun today."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     try:
@@ -3046,8 +3055,8 @@ def wheel_record(user_id, reward_type, reward_value) -> bool:
 
 
 def wheel_reset_all() -> int:
-    """Owner : reset la roue du jour pour TOUT LE MONDE (chacun peut re-tourner).
-    Retourne le nb de spins effaces."""
+    """Owner: reset today's wheel for EVERYONE (everyone can spin again).
+    Returns the number of spins cleared."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM wheel_daily WHERE day = ?", (_today_str(),))
@@ -3057,7 +3066,7 @@ def wheel_reset_all() -> int:
 
 
 def essence_bonus_get(user_id) -> int:
-    """Bonus % d'essences actif aujourd'hui pour ce user (0 si aucun)."""
+    """Essence % bonus active today for this user (0 if none)."""
     _ensure_wheel_tables()
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT pct FROM essence_bonus_daily WHERE user_id = ? AND day = ?",
@@ -3076,7 +3085,7 @@ def essence_bonus_set(user_id, pct):
 
 
 def essence_reward_add(user_id, base_amount) -> int:
-    """Ajoute des essences en appliquant le bonus % du jour. Retourne le gain reel."""
+    """Add essences applying today's % bonus. Returns the actual gain."""
     base = int(base_amount)
     pct = essence_bonus_get(user_id)
     gain = base + (base * pct) // 100
@@ -3084,7 +3093,7 @@ def essence_reward_add(user_id, base_amount) -> int:
     return gain
 
 
-# ===== BORDURES =====
+# ===== BORDERS =====
 def borders_list(enabled_only=False):
     conn = get_db(); c = conn.cursor()
     where = "WHERE enabled = 1" if enabled_only else ""
@@ -3120,7 +3129,7 @@ def border_set_config(border_key, offset_x=None, offset_y=None, scale_pct=None,
 
 
 def user_border_add(user_id, border_key, qty=1):
-    """Ajoute qty copies en inventaire (incremente si deja present)."""
+    """Add qty copies to the inventory (increments if already present)."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_borders (user_id, border_key, qty) VALUES (?, ?, ?) "
               "ON CONFLICT(user_id, border_key) DO UPDATE SET qty = qty + excluded.qty",
@@ -3137,12 +3146,12 @@ def user_border_qty(user_id, border_key) -> int:
 
 
 def user_border_has(user_id, border_key) -> bool:
-    """True si au moins 1 copie en stock."""
+    """True if at least 1 copy is in stock."""
     return user_border_qty(user_id, border_key) > 0
 
 
 def user_border_consume(user_id, border_key) -> bool:
-    """Retire 1 copie du stock. True si OK, False si stock vide. Atomic."""
+    """Remove 1 copy from stock. True if OK, False if the stock is empty. Atomic."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE user_borders SET qty = qty - 1 "
               "WHERE user_id = ? AND border_key = ? AND qty >= 1",
@@ -3156,7 +3165,7 @@ def user_border_consume(user_id, border_key) -> bool:
 
 
 def user_border_remove(user_id, border_key, qty=1):
-    """Owner : retire qty copies (ou tout si qty None)."""
+    """Owner: remove qty copies (or all of them if qty is None)."""
     conn = get_db(); c = conn.cursor()
     if qty is None:
         c.execute("DELETE FROM user_borders WHERE user_id = ? AND border_key = ?",
@@ -3170,7 +3179,7 @@ def user_border_remove(user_id, border_key, qty=1):
 
 
 def user_borders_list(user_id):
-    """Inventaire : bordures en stock (qty > 0)."""
+    """Inventory: borders in stock (qty > 0)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT ub.border_key, ub.qty, ub.acquired_at, b.name, b.filename "
@@ -3182,7 +3191,7 @@ def user_borders_list(user_id):
 
 
 def user_card_customizations_map(user_id):
-    """Retourne {card_id: border_key} des cartes customisees par le user."""
+    """Return {card_id: border_key} for the cards customized by the user."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT card_id, border_key FROM card_customizations "
@@ -3191,7 +3200,7 @@ def user_card_customizations_map(user_id):
     return {int(r["card_id"]): r["border_key"] for r in rows}
 
 
-# ===== FUSION (prestige etoiles) =====
+# ===== FUSION (star prestige) =====
 def card_fusion_get(user_id, card_id) -> int:
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT fusion_level FROM card_customizations WHERE user_id = ? AND card_id = ?",
@@ -3201,7 +3210,7 @@ def card_fusion_get(user_id, card_id) -> int:
 
 
 def card_fusion_set(user_id, card_id, level):
-    """Upsert le niveau de fusion (etoiles) d'une carte pour un user."""
+    """Upsert the fusion level (stars) of a card for a user."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO card_customizations (user_id, card_id, fusion_level, updated_at) "
               "VALUES (?, ?, ?, CURRENT_TIMESTAMP) "
@@ -3212,7 +3221,7 @@ def card_fusion_set(user_id, card_id, level):
 
 
 def user_card_fusion_map(user_id):
-    """Retourne {card_id: fusion_level} pour les cartes ayant >=1 etoile."""
+    """Return {card_id: fusion_level} for the cards having >=1 star."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT card_id, fusion_level FROM card_customizations "
@@ -3222,7 +3231,7 @@ def user_card_fusion_map(user_id):
 
 
 def user_card_set_not_tradeable(user_id, card_id, value=1):
-    """Marque toutes les copies d'une carte d'un user comme (non) tradeable."""
+    """Mark all copies of a card owned by a user as (non) tradeable."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE user_cards SET not_tradeable = ? WHERE user_id = ? AND card_id = ?",
               (1 if value else 0, str(user_id), int(card_id)))
@@ -3230,8 +3239,8 @@ def user_card_set_not_tradeable(user_id, card_id, value=1):
 
 
 def user_card_lock_one(user_id, card_id):
-    """Verrouille UNE seule copie (la carte qui porte les etoiles). Les doublons
-    en trop restent echangeables/recyclables. No-op si une copie est deja verrouillee."""
+    """Lock ONE single copy (the card carrying the stars). The extra duplicates
+    stay tradeable/recyclable. No-op if a copy is already locked."""
     conn = get_db(); c = conn.cursor()
     already = c.execute(
         "SELECT COUNT(*) AS n FROM user_cards WHERE user_id = ? AND card_id = ? "
@@ -3246,8 +3255,8 @@ def user_card_lock_one(user_id, card_id):
 
 
 def user_card_remove_copies(user_id, card_id, n) -> int:
-    """Supprime n copies (rows) d'une carte pour un user. Retourne nb reellement
-    supprime. Ne verifie pas le 'keep' (a faire cote appelant)."""
+    """Delete n copies (rows) of a card for a user. Returns the number actually
+    deleted. Does not check the 'keep' (to be done by the caller)."""
     if n <= 0:
         return 0
     conn = get_db(); c = conn.cursor()
@@ -3262,18 +3271,18 @@ def user_card_remove_copies(user_id, card_id, n) -> int:
     return len(id_list)
 
 
-# Palette de couleurs de profil. lvl = niveau de GUILDE requis (debloque tous les 5).
+# Profile color palette. lvl = required GUILD level (one unlocked every 5).
 PROFILE_COLORS = [
-    {"key": "lime",   "name": "Lime",   "hex": 0xB9F23A, "lvl": 0},
-    {"key": "rouge",  "name": "Rouge",  "hex": 0xFF4D4D, "lvl": 5},
-    {"key": "bleu",   "name": "Bleu",   "hex": 0x4C8DFF, "lvl": 10},
-    {"key": "vert",   "name": "Vert",   "hex": 0x4ADE80, "lvl": 15},
-    {"key": "jaune",  "name": "Jaune",  "hex": 0xF2D23A, "lvl": 20},
-    {"key": "violet", "name": "Violet", "hex": 0xA86DFF, "lvl": 25},
-    {"key": "rose",   "name": "Rose",   "hex": 0xFF5FA2, "lvl": 30},
-    {"key": "orange", "name": "Orange", "hex": 0xFFA726, "lvl": 35},
-    {"key": "cyan",   "name": "Cyan",   "hex": 0x4DD0E1, "lvl": 40},
-    {"key": "blanc",  "name": "Blanc",  "hex": 0xECEFF4, "lvl": 45},
+    {"key": "lime",   "name": t("data.profile_color.lime"),   "hex": 0xB9F23A, "lvl": 0},
+    {"key": "rouge",  "name": t("data.profile_color.rouge"),  "hex": 0xFF4D4D, "lvl": 5},
+    {"key": "bleu",   "name": t("data.profile_color.bleu"),   "hex": 0x4C8DFF, "lvl": 10},
+    {"key": "vert",   "name": t("data.profile_color.vert"),   "hex": 0x4ADE80, "lvl": 15},
+    {"key": "jaune",  "name": t("data.profile_color.jaune"),  "hex": 0xF2D23A, "lvl": 20},
+    {"key": "violet", "name": t("data.profile_color.violet"), "hex": 0xA86DFF, "lvl": 25},
+    {"key": "rose",   "name": t("data.profile_color.rose"),   "hex": 0xFF5FA2, "lvl": 30},
+    {"key": "orange", "name": t("data.profile_color.orange"), "hex": 0xFFA726, "lvl": 35},
+    {"key": "cyan",   "name": t("data.profile_color.cyan"),   "hex": 0x4DD0E1, "lvl": 40},
+    {"key": "blanc",  "name": t("data.profile_color.blanc"),  "hex": 0xECEFF4, "lvl": 45},
 ]
 
 
@@ -3324,7 +3333,7 @@ def card_profile_set(user_id, left_id, mid_id, right_id):
 
 
 def user_card_rarity_breakdown(user_id):
-    """Retourne {rarity: count_de_copies} pour un user."""
+    """Return {rarity: copy_count} for a user."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT c.rarity AS rarity, COUNT(*) AS n FROM user_cards uc "
@@ -3335,7 +3344,7 @@ def user_card_rarity_breakdown(user_id):
 
 
 def all_card_origins():
-    """Toutes les origines (subtitle) du catalogue + nb de cartes (uniques)."""
+    """All origins (subtitle) in the catalog + number of (unique) cards."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT subtitle AS origin, COUNT(*) AS n FROM cards "
@@ -3346,7 +3355,7 @@ def all_card_origins():
 
 
 def user_collection_origins(user_id):
-    """Origines (subtitle) presentes dans la collection d'un user + nb cartes uniques."""
+    """Origins (subtitle) present in a user's collection + number of unique cards."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT c.subtitle AS origin, COUNT(DISTINCT uc.card_id) AS n "
@@ -3359,7 +3368,7 @@ def user_collection_origins(user_id):
 
 
 def user_unique_rarity_breakdown(user_id):
-    """Retourne {rarity: nb_cartes_uniques} (distinctes) pour un user."""
+    """Return {rarity: unique_card_count} (distinct) for a user."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT c.rarity AS rarity, COUNT(DISTINCT uc.card_id) AS n FROM user_cards uc "
@@ -3369,10 +3378,10 @@ def user_unique_rarity_breakdown(user_id):
     return {r["rarity"]: int(r["n"]) for r in rows}
 
 
-# ===== STATS DE COMBAT (joueur) : derivees des cartes uniques pondérées =====
+# ===== COMBAT STATS (player): derived from unique cards weighted by rarity =====
 PLAYER_HP_BASE = 50
 PLAYER_ATK_BASE = 25
-# Gros chiffres = plus impressionnant. Cible : carte rare ~500 PV / 270 ATK.
+# Big numbers = more impressive. Target: rare card ~500 HP / 270 ATK.
 PLAYER_HP_WEIGHTS = {
     "common": 300, "rare": 500, "epic": 900, "legendary": 1800, "mythic": 4000, "secret": 6000,
 }
@@ -3381,10 +3390,10 @@ PLAYER_ATK_WEIGHTS = {
 }
 
 
-# Soft cap collection : au-dela de SOFT_T cartes possedees (total), chaque carte
-# supplementaire ne compte que pour SOFT_DECAY. Lisse l'ecart entre joueurs et
-# evite l'inflation absurde des nombres. (N'affecte PAS la difficulte car le boss
-# scale sur cette meme valeur — voir team_scaled_boss_stats.)
+# Collection soft cap: past SOFT_T owned cards (total), each extra card
+# only counts for SOFT_DECAY. Smooths the gap between players and avoids
+# absurd number inflation. (Does NOT affect difficulty because the boss
+# scales on that same value - see team_scaled_boss_stats.)
 COLLECTION_SOFT_T = 3000
 COLLECTION_SOFT_DECAY = 0.7
 
@@ -3397,14 +3406,14 @@ def _collection_soft_factor(total_cards):
     return eff / n
 
 
-# Bonus de fusion (% sur PV+ATK de base). Lineaire 1%/etoile jusqu'a 15, puis
-# courbe logarithmique a rendement decroissant, SANS cap (pente continue a 15).
+# Fusion bonus (% on base HP+ATK). Linear 1%/star up to 15, then a
+# logarithmic curve with diminishing returns, with NO cap (slope continuous at 15).
 FUSION_CURVE_KNEE = 15
 FUSION_CURVE_A = 30.0
 
 
 def fusion_bonus_pct(stars) -> float:
-    """Retourne le bonus de fusion en POURCENT (ex 23.4) pour un total d'etoiles."""
+    """Return the fusion bonus in PERCENT (e.g. 23.4) for a total number of stars."""
     import math
     s = max(0, int(stars))
     if s <= FUSION_CURVE_KNEE:
@@ -3414,11 +3423,11 @@ def fusion_bonus_pct(stars) -> float:
 
 
 def compute_player_combat_stats(user_id):
-    """PV + ATK de BASE d'un joueur selon ses cartes UNIQUES pondérées par rareté,
-    + bonus des etoiles de fusion (courbe fusion_bonus_pct, sans cap).
-    C'est le socle 'collection' (recompense le temps de jeu). La carte ENGAGEE
-    applique ensuite un multiplicateur (voir engaged_combat_stats).
-    Retourne {hp, atk, unique_total, stars, bonus_pct}."""
+    """BASE HP + ATK of a player based on their UNIQUE cards weighted by rarity,
+    + bonus from fusion stars (fusion_bonus_pct curve, no cap).
+    This is the 'collection' baseline (rewards playtime). The ENGAGED card
+    then applies a multiplier (see engaged_combat_stats).
+    Returns {hp, atk, unique_total, stars, bonus_pct}."""
     uniq = user_unique_rarity_breakdown(user_id)
     hp = PLAYER_HP_BASE + sum(PLAYER_HP_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
     atk = PLAYER_ATK_BASE + sum(PLAYER_ATK_WEIGHTS.get(r, 0) * n for r, n in uniq.items())
@@ -3436,18 +3445,18 @@ def compute_player_combat_stats(user_id):
     }
 
 
-# Multiplicateur d'ATK selon la RARETE de la carte engagée au combat.
-# Cree l'arbitrage "carte qui contre l'element (faible)" vs "grosse carte (neutre)".
-# IMPORTANT : s'applique a l'ATK SEULE. Les PV viennent de la collection (= ta
-# profondeur de jeu = ton mur), sinon la grosse carte serait a la fois plus
-# tanky ET plus forte, et le contre elementaire ne servirait jamais.
+# ATK multiplier based on the RARITY of the card engaged in combat.
+# Creates the trade-off "card that counters the element (weak)" vs "big card (neutral)".
+# IMPORTANT: applies to ATK ONLY. HP comes from the collection (= your
+# depth of play = your wall), otherwise the big card would be both
+# tankier AND stronger, and the elemental counter would never be worth it.
 # Ancre : epic = 1.0. common contre-element (0.8 x1.25 = 1.0) ~ epic neutre.
 CARD_RARITY_COMBAT_MULT = {
     "common": 0.80, "rare": 0.92, "epic": 1.05,
     "legendary": 1.25, "mythic": 1.55, "secret": 2.50,
 }
 
-# Puissance de combat (affichage flashy) = PV + ATK x poids. Cappee a 999999999999999.
+# Combat power (flashy display) = HP + ATK x weight. Capped at 999999999999999.
 COMBAT_POWER_ATK_WEIGHT = 2
 COMBAT_POWER_MAX = 999999999999999
 
@@ -3455,16 +3464,16 @@ COMBAT_POWER_MAX = 999999999999999
 def combat_power(hp, atk) -> int:
     p = int(hp) + int(atk) * COMBAT_POWER_ATK_WEIGHT
     return max(0, min(COMBAT_POWER_MAX, p))
-# +20%/etoile (cap 5 = +100%, x2.0). La FUSION est le vrai axe de puissance (recompense
-# l'investissement) plutot que la chance au roll. Ainsi une common 5* (0.80x2.0=1.60)
-# bat une mythic brute (1.55). Les valeurs 0* ne changent pas -> equilibrage boss preserve.
+# +20%/star (cap 5 = +100%, x2.0). FUSION is the real power axis (rewards
+# investment) rather than roll luck. So a common 5* (0.80x2.0=1.60)
+# beats a raw mythic (1.55). The 0* values do not change -> boss balance preserved.
 CARD_STAR_COMBAT_BONUS = 0.20
 
 
 def engaged_combat_stats(user_id, card_id):
-    """Stats de combat REELLES. PV = socle collection (inchange). ATK = socle x
-    modificateur de la carte engagée (rareté + etoiles de fusion de CETTE carte).
-    Retourne {hp, atk, mult, rarity}."""
+    """REAL combat stats. HP = collection baseline (unchanged). ATK = baseline x
+    modifier of the engaged card (rarity + fusion stars of THAT card).
+    Returns {hp, atk, mult, rarity}."""
     base = compute_player_combat_stats(user_id)
     card = card_get(int(card_id)) if card_id else None
     rar = (card or {}).get("rarity")
@@ -3472,8 +3481,8 @@ def engaged_combat_stats(user_id, card_id):
     stars = int(card_fusion_get(user_id, int(card_id))) if card_id else 0
     star_mult = 1.0 + min(5, stars) * CARD_STAR_COMBAT_BONUS
     mult = rar_mult * star_mult
-    # Carte secret 5 etoiles : multiplicateur ultime (recompense la fusion max
-    # d'une secret, la rarete la plus dure a obtenir).
+    # Secret card at 5 stars: ultimate multiplier (rewards maxing the fusion
+    # of a secret, the hardest rarity to obtain).
     secret_max = (rar == "secret" and stars >= 5)
     if secret_max:
         mult = 999.0
@@ -3489,12 +3498,12 @@ def engaged_combat_stats(user_id, card_id):
     }
 
 
-# ===== ROLL CHARGES (multi-roll par heure, par serveur) =====
+# ===== ROLL CHARGES (multi-roll per hour, per server) =====
 import time as _roll_time
 
 
 def roll_events_count(user_id, guild_id, window_sec=3600) -> int:
-    """Nb de rolls 'normaux' (rechargeables) consommes dans la fenetre."""
+    """Number of 'normal' (rechargeable) rolls consumed within the window."""
     cutoff = _roll_time.time() - window_sec
     conn = get_db(); c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM roll_events "
@@ -3505,7 +3514,7 @@ def roll_events_count(user_id, guild_id, window_sec=3600) -> int:
 
 
 def roll_events_oldest_ts(user_id, guild_id, window_sec=3600):
-    """Timestamp epoch du plus vieux roll encore dans la fenetre (ou None)."""
+    """Epoch timestamp of the oldest roll still inside the window (or None)."""
     cutoff = _roll_time.time() - window_sec
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT MIN(rolled_at) AS t FROM roll_events "
@@ -3519,7 +3528,7 @@ def roll_events_add(user_id, guild_id):
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO roll_events (user_id, guild_id, rolled_at) VALUES (?, ?, ?)",
               (str(user_id), str(guild_id), _roll_time.time()))
-    # purge vieux events (> 2h) pour ne pas gonfler la table
+    # purge old events (> 2h) so the table does not grow
     c.execute("DELETE FROM roll_events WHERE rolled_at < ?", (_roll_time.time() - 7200,))
     conn.commit(); conn.close()
 
@@ -3541,7 +3550,7 @@ def roll_total_get(user_id) -> int:
 
 
 def roll_solo_guild_has(user_id, guild_id) -> bool:
-    """True si ce user a deja roll dans ce serveur solo (deja compte)."""
+    """True if this user already rolled in this solo server (already counted)."""
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT 1 FROM card_roll_solo_guild WHERE user_id = ? AND guild_id = ?",
                   (str(user_id), str(guild_id))).fetchone()
@@ -3550,7 +3559,7 @@ def roll_solo_guild_has(user_id, guild_id) -> bool:
 
 
 def roll_solo_guild_count(user_id) -> int:
-    """Nb de serveurs solo distincts ou ce user a deja roll."""
+    """Number of distinct solo servers where this user already rolled."""
     conn = get_db(); c = conn.cursor()
     n = c.execute("SELECT COUNT(*) AS n FROM card_roll_solo_guild WHERE user_id = ?",
                   (str(user_id),)).fetchone()["n"]
@@ -3566,7 +3575,7 @@ def roll_solo_guild_add(user_id, guild_id):
 
 
 def roll_events_reset_all() -> int:
-    """Owner : reset tous les cooldowns de roll (tout le monde peut re-roll)."""
+    """Owner: reset every roll cooldown (everyone can roll again)."""
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM roll_events")
     n = c.rowcount
@@ -3574,8 +3583,8 @@ def roll_events_reset_all() -> int:
     return n
 
 
-# ===== ROLL BONUS (rolls offerts par owner, non rechargeables) =====
-# Dispo = part du grant global non consommee + credits individuels.
+# ===== BONUS ROLLS (rolls gifted by the owner, not rechargeable) =====
+# Available = unconsumed share of the global grant + individual credits.
 def _roll_grant_row(c, user_id):
     r = c.execute("SELECT consumed, COALESCE(credits,0) AS credits "
                   "FROM roll_grant_state WHERE user_id = ?",
@@ -3592,7 +3601,7 @@ def roll_bonus_available(user_id) -> int:
 
 
 def roll_bonus_consume(user_id) -> bool:
-    """Consomme 1 roll bonus (grant global d'abord, puis credits). True si dispo."""
+    """Consume 1 bonus roll (global grant first, then credits). True if available."""
     grant = int(get_setting("roll_global_grant", "0") or 0)
     conn = get_db(); c = conn.cursor()
     consumed, credits = _roll_grant_row(c, user_id)
@@ -3612,7 +3621,7 @@ def roll_bonus_consume(user_id) -> bool:
 
 
 def roll_give_user(user_id, n: int) -> int:
-    """Owner : offre n rolls bonus a UN user (credits individuels). Retourne dispo."""
+    """Owner: give n bonus rolls to ONE user (individual credits). Returns availability."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO roll_grant_state (user_id, credits) VALUES (?, ?) "
               "ON CONFLICT(user_id) DO UPDATE SET credits = COALESCE(credits,0) + excluded.credits",
@@ -3622,8 +3631,8 @@ def roll_give_user(user_id, n: int) -> int:
 
 
 def roll_set_user(user_id, n):
-    """Owner : fixe le nombre EXACT de rolls bonus dispo d'un user.
-    On annule sa part du grant global (consumed = grant) et on met credits = n."""
+    """Owner: set the EXACT number of bonus rolls available for a user.
+    We cancel their share of the global grant (consumed = grant) and set credits = n."""
     grant = int(get_setting("roll_global_grant", "0") or 0)
     n = max(0, int(n))
     conn = get_db(); c = conn.cursor()
@@ -3634,7 +3643,7 @@ def roll_set_user(user_id, n):
 
 
 def roll_reset_user_cooldown(user_id) -> int:
-    """Owner : reset le cooldown de roll d'UN user (tous serveurs)."""
+    """Owner: reset the roll cooldown of ONE user (all servers)."""
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM roll_events WHERE user_id = ?", (str(user_id),))
     n = c.rowcount
@@ -3643,7 +3652,7 @@ def roll_reset_user_cooldown(user_id) -> int:
 
 
 def roll_reset_user_grant(user_id):
-    """Owner : retire les rolls bonus d'UN user (credits 0 + aligne sur le grant global)."""
+    """Owner: remove the bonus rolls of ONE user (credits 0 + realigned on the global grant)."""
     grant = int(get_setting("roll_global_grant", "0") or 0)
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO roll_grant_state (user_id, consumed, credits) VALUES (?, ?, 0) "
@@ -3653,25 +3662,25 @@ def roll_reset_user_grant(user_id):
 
 
 def roll_grant_give_all(n: int) -> int:
-    """Owner : offre n rolls bonus a tout le monde (grant cumulatif). Retourne nouveau grant."""
+    """Owner: give n bonus rolls to everyone (cumulative grant). Returns the new grant."""
     grant = int(get_setting("roll_global_grant", "0") or 0) + int(n)
     set_setting("roll_global_grant", grant)
     return grant
 
 
 def roll_grant_reset():
-    """Remet le grant et la consommation a zero (retire les rolls bonus a tous)."""
+    """Reset the grant and the consumption to zero (removes bonus rolls for everyone)."""
     set_setting("roll_global_grant", 0)
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM roll_grant_state")
     conn.commit(); conn.close()
 
 
-# ===== COMBAT BOSS =====
-# Stats du boss selon le tier (1-5)
-# Equilibrage (carte engagée x rareté désormais). Reference joueurs :
-#   ATK base collection ~ 60k (moyen) a ~100k (gros rolleur), x carte ~0.8..1.55,
-#   x matchup 0.8..1.25. T1 soloable par un gros joueur, T3 exige une vraie equipe.
+# ===== BOSS FIGHT =====
+# Boss stats depending on the tier (1-5)
+# Balance (engaged card x rarity from now on). Player reference:
+#   base collection ATK ~ 60k (average) to ~100k (heavy roller), x card 0.8..1.55,
+#   x matchup 0.8..1.25. T1 soloable by a big player, T3 requires a real team.
 BOSS_TIERS = {
     1: {"hp": 550000,   "atk": 7000,   "label": "Tier 1"},
     2: {"hp": 1250000,  "atk": 12000,  "label": "Tier 2"},
@@ -3680,14 +3689,14 @@ BOSS_TIERS = {
     5: {"hp": 4600000,  "atk": 20000,  "label": "Tier 5"},
 }
 
-# Scaling anti-powercreep : au lancement du combat, les PV/ATK du boss sont
-# recalcules a partir de la puissance REELLE de l'equipe presente.
-#   PV boss  = HP_FACTOR[tier] x somme(ATK base de l'equipe)
-#   ATK boss = ATK_FACTOR[tier] x (PV base moyen de l'equipe)
-# La base = socle collection (sans mult carte/etoiles/element/aptitude), donc
-# fusionner/contrer/sortir une grosse rareté reste un avantage NON budgete = on
-# gagne. Roller plus grossit le boss d'autant => jamais trivial.
-# Facteurs calibres pour reproduire l'equilibrage de reference (cf BOSS_TIERS).
+# Anti-powercreep scaling: when the fight starts, the boss HP/ATK are
+# recomputed from the REAL power of the team present.
+#   boss HP  = HP_FACTOR[tier] x sum(base ATK of the team)
+#   boss ATK = ATK_FACTOR[tier] x (average base HP of the team)
+# The base = collection baseline (without card/star/element/aptitude mult), so
+# fusing/countering/bringing a high rarity stays an UNBUDGETED advantage = you
+# win. Rolling more grows the boss accordingly => never trivial.
+# Factors calibrated to reproduce the reference balance (see BOSS_TIERS).
 BOSS_TIER_SCALE = {
     1: {"hp": 3.0,  "atk": 0.06},
     2: {"hp": 5.5,  "atk": 0.10},
@@ -3698,7 +3707,7 @@ BOSS_TIER_SCALE = {
 
 
 def card_boss_set_stats(boss_id, max_hp, atk):
-    """Fixe PV (= max et courant) et ATK du boss (scaling sur l'equipe au lancement)."""
+    """Set the boss HP (= max and current) and ATK (scaling on the team at launch)."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_boss SET max_hp = ?, hp = ?, atk = ? WHERE id = ?",
               (int(max_hp), int(max_hp), int(atk), int(boss_id)))
@@ -3750,7 +3759,7 @@ def user_item_add(user_id, item_key, n=1):
 
 
 def user_item_consume(user_id, item_key, n=1) -> bool:
-    """Retire n exemplaires si dispo (atomic). True si consomme."""
+    """Remove n units if available (atomic). True if consumed."""
     _ensure_user_items()
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE user_items SET qty = qty - ? WHERE user_id = ? AND item_key = ? AND qty >= ?",
@@ -3761,7 +3770,7 @@ def user_item_consume(user_id, item_key, n=1) -> bool:
 
 
 def user_item_set(user_id, item_key, qty):
-    """Owner : fixe la quantite exacte d'un item."""
+    """Owner: set the exact quantity of an item."""
     _ensure_user_items()
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_items (user_id, item_key, qty) VALUES (?, ?, ?) "
@@ -3771,7 +3780,7 @@ def user_item_set(user_id, item_key, qty):
 
 
 def currency_set(user_id, amount):
-    """Owner : fixe le solde d'essences exact."""
+    """Owner: set the exact essence balance."""
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO user_currency (user_id, essences) VALUES (?, ?) "
               "ON CONFLICT(user_id) DO UPDATE SET essences = excluded.essences, "
@@ -3787,7 +3796,7 @@ def card_boss_set_start(boss_id, start_at):
 
 
 def element_weaknesses(element):
-    """Retourne les elements qui ont l'avantage contre `element` (le battent)."""
+    """Return the elements that have the advantage against `element` (that beat it)."""
     return [e for e in CARD_ELEMENTS if element_matchup(e, element) > 1.0]
 
 
@@ -3799,7 +3808,7 @@ def card_boss_get(boss_id):
 
 
 def card_boss_list_active():
-    """Boss encore en cours (recrutement ou combat) pour reprise au boot."""
+    """Boss still running (recruiting or fighting), for resuming at boot."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute("SELECT * FROM card_boss WHERE status IN ('recruiting','fighting') "
                      "ORDER BY id DESC").fetchall()
@@ -3808,7 +3817,7 @@ def card_boss_list_active():
 
 
 def card_boss_guild_has_active(guild_id) -> bool:
-    """True si ce serveur a deja un boss en recrutement ou en combat."""
+    """True if this server already has a boss recruiting or fighting."""
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT 1 FROM card_boss WHERE guild_id = ? "
                   "AND status IN ('recruiting','fighting') LIMIT 1",
@@ -3824,7 +3833,7 @@ def boss_chat_add(boss_id, user_id, name, text):
               (int(boss_id), str(user_id), str(name)[:40], str(text)[:300], _time.time()))
     conn.commit()
     cid = c.lastrowid
-    # garde les 200 derniers messages par boss
+    # keep the last 200 messages per boss
     c.execute("DELETE FROM card_boss_chat WHERE boss_id = ? AND id NOT IN "
               "(SELECT id FROM card_boss_chat WHERE boss_id = ? ORDER BY id DESC LIMIT 200)",
               (int(boss_id), int(boss_id)))
@@ -3842,7 +3851,7 @@ def boss_chat_recent(boss_id, after_id=0, limit=80):
 
 
 def boss_auto_get_next(guild_id):
-    """Timestamp (epoch) de la prochaine apparition auto pour ce serveur, ou None."""
+    """Timestamp (epoch) of the next automatic spawn for this server, or None."""
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT next_at FROM boss_auto_schedule WHERE guild_id = ?",
                   (str(guild_id),)).fetchone()
@@ -3859,14 +3868,14 @@ def boss_auto_set_next(guild_id, next_at):
 
 
 def max_guild_level_for_users(user_ids) -> int:
-    """Niveau de la guilde de cartes la plus haute parmi ces utilisateurs (0 si aucun
-    n'est en guilde). Sert a calibrer le tier d'un boss automatique sur la force du serveur."""
+    """Highest card-guild level among these users (0 if none of them is in a
+    guild). Used to calibrate the tier of an automatic boss on the server strength."""
     uids = [str(u) for u in user_ids]
     if not uids:
         return 0
     conn = get_db(); c = conn.cursor()
     best = 0
-    # chunks pour rester sous la limite de variables SQLite
+    # chunks to stay under the SQLite variable limit
     for i in range(0, len(uids), 400):
         chunk = uids[i:i + 400]
         ph = ",".join("?" * len(chunk))
@@ -3880,10 +3889,10 @@ def max_guild_level_for_users(user_ids) -> int:
 
 
 def avg_guild_level_for_users(user_ids) -> int:
-    """Niveau MOYEN des guildes de cartes des membres qui sont dans une guilde
-    (chaque membre compte pour le niveau de sa meilleure guilde ; les membres hors
-    guilde sont ignores). Retourne 0 si personne n'est en guilde. Sert a calibrer le
-    tier d'un boss automatique sur la force TYPIQUE du serveur (pas le seul whale)."""
+    """AVERAGE card-guild level of the members who are in a guild
+    (each member counts for the level of their best guild; members without a
+    guild are ignored). Returns 0 if nobody is in a guild. Used to calibrate the
+    tier of an automatic boss on the TYPICAL server strength (not just the whale)."""
     uids = [str(u) for u in user_ids]
     if not uids:
         return 0
@@ -3903,10 +3912,10 @@ def avg_guild_level_for_users(user_ids) -> int:
 
 
 def avg_combat_power_for_users(user_ids) -> int:
-    """Puissance de combat REELLE moyenne (combat_power = PV + ATK*poids, calcule
-    depuis compute_player_combat_stats) des membres qui possedent au moins une carte.
-    0 si personne n'a de carte. Sert a gater le spawn des avatars les plus durs
-    (secret) sur la vraie force de combat du serveur, pas le niveau de palier."""
+    """Average REAL combat power (combat_power = HP + ATK*weight, computed from
+    compute_player_combat_stats) of the members owning at least one card.
+    0 if nobody has a card. Used to gate the spawn of the hardest avatars
+    (secret) on the real combat strength of the server, not the tier level."""
     uids = [str(u) for u in user_ids]
     if not uids:
         return 0
@@ -3934,7 +3943,7 @@ def card_boss_set_message(boss_id, message_id):
 
 
 def card_boss_apply_damage(boss_id, dmg) -> int:
-    """Retire dmg au boss (atomic). Retourne le HP restant (>=0)."""
+    """Remove dmg from the boss (atomic). Returns the remaining HP (>=0)."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_boss SET hp = MAX(0, hp - ?) WHERE id = ?", (int(dmg), int(boss_id)))
     r = c.execute("SELECT hp FROM card_boss WHERE id = ?", (int(boss_id),)).fetchone()
@@ -3943,7 +3952,7 @@ def card_boss_apply_damage(boss_id, dmg) -> int:
 
 
 def card_boss_heal(boss_id, amount) -> int:
-    """Soigne le boss (cappe a max_hp). Retourne le HP apres soin."""
+    """Heal the boss (capped at max_hp). Returns the HP after healing."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_boss SET hp = MIN(max_hp, hp + ?) WHERE id = ?",
               (int(amount), int(boss_id)))
@@ -3959,7 +3968,7 @@ def card_boss_set_status(boss_id, status):
 
 
 def boss_event_add(boss_id, etype, data=None):
-    """Enregistre un evenement de combat pour le live dashboard."""
+    """Record a combat event for the live dashboard."""
     import json as _json, time as _time
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO card_boss_event (boss_id, etype, data, ts) VALUES (?, ?, ?, ?)",
@@ -3968,7 +3977,7 @@ def boss_event_add(boss_id, etype, data=None):
 
 
 def boss_events_since(boss_id, after_id=0, limit=200):
-    """Evenements du boss avec id > after_id, ordre chrono."""
+    """Boss events with id > after_id, chronological order."""
     import json as _json
     conn = get_db(); c = conn.cursor()
     rows = c.execute("SELECT id, etype, data, ts FROM card_boss_event "
@@ -3986,7 +3995,7 @@ def boss_events_since(boss_id, after_id=0, limit=200):
 
 
 def boss_participant_add(boss_id, user_id, name, element, hp, atk, card_id=None) -> bool:
-    """Ajoute un participant. False si deja present."""
+    """Add a participant. False if already present."""
     conn = get_db(); c = conn.cursor()
     exists = c.execute("SELECT 1 FROM card_boss_participant WHERE boss_id = ? AND user_id = ?",
                        (int(boss_id), str(user_id))).fetchone()
@@ -4062,7 +4071,7 @@ def wishlist_has(user_id, card_id) -> bool:
 
 
 def wishlist_toggle(user_id, card_id) -> bool:
-    """Ajoute si absent, retire si present. Retourne True si ajoutee, False si retiree."""
+    """Add if missing, remove if present. Returns True if added, False if removed."""
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT 1 FROM card_wishlist WHERE user_id = ? AND card_id = ?",
                   (str(user_id), int(card_id))).fetchone()
@@ -4089,7 +4098,7 @@ def wishlist_list(user_id):
 
 
 def wishlist_users_for_card(card_id, exclude_user=None):
-    """Liste des user_id qui ont cette carte en wishlist (hors exclude_user)."""
+    """List of user_ids that have this card in their wishlist (excluding exclude_user)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute("SELECT user_id FROM card_wishlist WHERE card_id = ?",
                      (int(card_id),)).fetchall()
@@ -4100,14 +4109,14 @@ def wishlist_users_for_card(card_id, exclude_user=None):
     return out
 
 
-# ===== LEADERBOARDS (cartes) =====
+# ===== LEADERBOARDS (cards) =====
 LEADERBOARD_RARITY_POINTS = {
     "common": 1, "rare": 2, "epic": 5, "legendary": 25, "mythic": 100, "secret": 200,
 }
 
 
 def leaderboard_card_aggregates():
-    """Par user : {user_id: {total, pts, mythic}}. Sur toute la base."""
+    """Per user: {user_id: {total, pts, mythic}}. Over the whole database."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT uc.user_id AS uid, c.rarity AS rarity, COUNT(*) AS n "
@@ -4135,7 +4144,7 @@ def leaderboard_essences(limit=10):
 
 
 def leaderboard_fusions(limit=10):
-    """Top users par nb de cartes fusionnees (>=1 etoile) + total etoiles."""
+    """Top users by number of fused cards (>=1 star) + total stars."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT user_id, COUNT(*) AS cards, SUM(fusion_level) AS stars "
@@ -4146,7 +4155,7 @@ def leaderboard_fusions(limit=10):
     return [(r["user_id"], int(r["cards"]), int(r["stars"] or 0)) for r in rows]
 
 
-# Essences rendues au recyclage d'un doublon (~50% du gain de roll)
+# Essences refunded when recycling a duplicate (~50% of the roll gain)
 ESSENCE_RECYCLE = {
     "common":    6,
     "rare":      14,
@@ -4156,18 +4165,18 @@ ESSENCE_RECYCLE = {
     "secret":    500,
 }
 
-# Cout en doublons pour passer du niveau d'etoile L a L+1 (index = niveau actuel)
-FUSION_STAR_COSTS = [2, 3, 4, 5, 6]  # total 20 doublons pour 5 etoiles
+# Duplicate cost to go from star level L to L+1 (index = current level)
+FUSION_STAR_COSTS = [2, 3, 4, 5, 6]  # 20 duplicates total for 5 stars
 FUSION_MAX_STARS = 5
 
-# Tier-up (/cardup) : consomme N doublons d'une rareté -> 1 carte rareté au-dessus
+# Tier-up (/cardup): consumes N duplicates of a rarity -> 1 card of the rarity above
 CARDUP_NEXT = {"common": "rare", "rare": "epic", "epic": "legendary", "legendary": "mythic"}
 CARDUP_COST = {"common": 5, "rare": 5, "epic": 5, "legendary": 5}
 
 
 def user_duplicate_count_by_rarity(user_id, rarity) -> int:
-    """Nb de copies en trop (au-dela de 1 par carte) de cette rareté, UNIQUEMENT
-    pour les cartes deja maxées (fusion 5 etoiles)."""
+    """Number of extra copies (beyond 1 per card) of this rarity, ONLY
+    for the cards already maxed (fusion 5 stars)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT uc.card_id, COUNT(*) AS n FROM user_cards uc "
@@ -4181,8 +4190,8 @@ def user_duplicate_count_by_rarity(user_id, rarity) -> int:
 
 
 def user_consume_duplicates_by_rarity(user_id, rarity, n) -> int:
-    """Supprime n copies en trop (garde 1 par carte) de cette rareté, UNIQUEMENT
-    sur les cartes maxées (5 etoiles). Garde la copie etoilee. Retourne nb supprime."""
+    """Delete n extra copies (keeps 1 per card) of this rarity, ONLY
+    on maxed cards (5 stars). Keeps the starred copy. Returns the number deleted."""
     if n <= 0:
         return 0
     conn = get_db(); c = conn.cursor()
@@ -4193,7 +4202,7 @@ def user_consume_duplicates_by_rarity(user_id, rarity, n) -> int:
         "WHERE uc.user_id = ? AND c.rarity = ? AND cc.fusion_level >= 5 "
         "ORDER BY uc.card_id ASC, uc.not_tradeable DESC, uc.id ASC",
         (str(user_id), rarity)).fetchall()
-    # Par carte : garde la 1ere (verrouillee en priorite), le reste = supprimable
+    # Per card: keep the first one (locked one in priority), the rest = deletable
     removable = []
     seen = set()
     for r in rows:
@@ -4211,7 +4220,7 @@ def user_consume_duplicates_by_rarity(user_id, rarity, n) -> int:
 
 
 def card_pick_random_exact_rarity(rarity, element=None):
-    """Carte aleatoire obtenable d'une rareté exacte. Filtre element optionnel."""
+    """Random obtainable card of an exact rarity. Optional element filter."""
     conn = get_db(); c = conn.cursor()
     if element:
         r = c.execute("SELECT * FROM cards WHERE rarity = ? AND element = ? "
@@ -4254,8 +4263,8 @@ _SHOP_SLOT_COLS = {"item_type", "item_ref", "price", "label", "subtitle", "enabl
 
 
 def card_shop_set_slot(slot, **fields):
-    """Met a jour le slot. Tout champ present dans fields est ecrit, y compris
-    None/vide (permet de vider un slot). Seules les cles non listees sont ignorees."""
+    """Update the slot. Every field present in fields is written, including
+    None/empty (allows clearing a slot). Only the keys not listed are ignored."""
     conn = get_db(); c = conn.cursor()
     sets, vals = [], []
     for col, v in fields.items():
@@ -4279,7 +4288,7 @@ def card_shop_get_slot(slot):
 
 
 def card_pick_random_by_min_rarity(min_rarity: str):
-    """Pioche carte random parmi celles >= min_rarity (skip not_obtainable + secret)."""
+    """Draw a random card among those >= min_rarity (skips not_obtainable + secret)."""
     tier = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4}
     min_tier = tier.get(min_rarity, 0)
     eligible = [k for k, v in tier.items() if v >= min_tier]
@@ -4297,8 +4306,8 @@ def card_pick_random_by_min_rarity(min_rarity: str):
 
 def card_trade_create(sender_id, receiver_id, guild_id, channel_id,
                        offer_items, request_items):
-    """offer_items / request_items : list[(card_id, qty)].
-    Retourne trade_id."""
+    """offer_items / request_items: list[(card_id, qty)].
+    Returns trade_id."""
     conn = get_db(); c = conn.cursor()
     c.execute('''INSERT INTO card_trades (sender_id, receiver_id, guild_id, channel_id)
                  VALUES (?, ?, ?, ?)''',
@@ -4356,7 +4365,7 @@ def card_trade_set_status(trade_id, status, message_id=None):
 
 
 def roll_cooldown_get(user_id, guild_id):
-    """Retourne last_roll_at ISO ou None pour (user, guild)."""
+    """Return last_roll_at ISO or None for (user, guild)."""
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT last_roll_at FROM user_guild_roll_cooldown "
                   "WHERE user_id = ? AND guild_id = ?",
@@ -4395,7 +4404,7 @@ def user_card_settings_set_last_roll(user_id, when_iso):
     conn.commit(); conn.close()
 
 
-# ===== Cards : config per-guild (salon obligatoire) =====
+# ===== Cards: per-guild config (required channel) =====
 def guild_card_config_get(guild_id):
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT * FROM guild_card_config WHERE guild_id = ?",
@@ -4414,7 +4423,7 @@ def guild_card_config_set(guild_id, channel_id=None, enabled=None, ping_role_id=
         fields.append("channel_id = ?"); values.append(str(channel_id) if channel_id else None)
     if enabled is not None:
         fields.append("enabled = ?"); values.append(1 if enabled else 0)
-    # sentinelle ... -> ne pas toucher ; None -> effacer le role
+    # sentinel ... -> do not touch; None -> clear the role
     if ping_role_id is not ...:
         fields.append("ping_role_id = ?"); values.append(str(ping_role_id) if ping_role_id else None)
     if fields:
@@ -4426,7 +4435,7 @@ def guild_card_config_set(guild_id, channel_id=None, enabled=None, ping_role_id=
 
 # ===== Dashboard notifications helpers =====
 def dash_notif_add(user_id, type_, title, message=None, link_url=None, guild_id=None):
-    """Cree une notif pour un user. Retourne l'id."""
+    """Create a notification for a user. Returns the id."""
     conn = get_db(); c = conn.cursor()
     c.execute('''INSERT INTO dashboard_notifications
                  (user_id, guild_id, type, title, message, link_url)
@@ -4466,7 +4475,7 @@ def dash_notif_unread_count(user_id):
 
 
 def dash_notif_mark_read(user_id, notif_id=None):
-    """Marque comme lue. Si notif_id None : marque toutes."""
+    """Mark as read. If notif_id is None: mark all of them."""
     conn = get_db(); c = conn.cursor()
     if notif_id:
         c.execute(
@@ -4484,7 +4493,7 @@ def dash_notif_mark_read(user_id, notif_id=None):
 
 
 def dash_notif_purge_old(days=90):
-    """Purge globale des notifs > N jours (cron daily)."""
+    """Global purge of notifications older than N days (daily cron)."""
     conn = get_db(); c = conn.cursor()
     c.execute(
         "DELETE FROM dashboard_notifications WHERE created_at < datetime('now', ?)",
@@ -4539,7 +4548,7 @@ def reminders_list_user(user_id, include_fired=False, limit=20):
 
 
 def reminder_delete(reminder_id, user_id):
-    """Supprime si appartient au user (anti hijack)."""
+    """Delete if it belongs to the user (anti hijack)."""
     conn = get_db(); c = conn.cursor()
     c.execute("DELETE FROM reminders WHERE id = ? AND user_id = ?",
               (int(reminder_id), str(user_id)))
@@ -4641,8 +4650,8 @@ def guild_bot_profile_set(guild_id, *, nick=None, avatar_url=None, banner_url=No
 
 
 def guild_bot_profile_mark_applied(guild_id, applied_by=None):
-    """Marque le profile comme applique. Si applied_by fourni, le trace
-    pour pouvoir le revoke automatiquement a expiration TookBot+ du user."""
+    """Mark the profile as applied. If applied_by is provided, trace it
+    so it can be revoked automatically when the user's TookBot+ expires."""
     conn = get_db(); c = conn.cursor()
     if applied_by is not None:
         c.execute(
@@ -4664,7 +4673,7 @@ def guild_bot_profile_clear(guild_id):
 
 
 def guild_bot_profile_list_all():
-    """Pour le re-apply au boot : retourne tous les profils enregistres."""
+    """For the re-apply at boot: returns every registered profile."""
     conn = get_db(); c = conn.cursor()
     c.execute("SELECT * FROM guild_bot_profile")
     rows = [dict(r) for r in c.fetchall()]; conn.close()
@@ -4672,10 +4681,10 @@ def guild_bot_profile_list_all():
 
 
 def service_uptime_log(component: str, ok: bool):
-    """Enregistre un check uptime pour un component dans le bucket de l'heure courante.
+    """Record an uptime check for a component in the current hour bucket.
 
-    UPSERT par (component, hour_bucket). On garde checks total + oks pour calculer
-    le ratio par heure, et last_ok pour determiner la couleur de la barre.
+    UPSERT by (component, hour_bucket). We keep total checks + oks to compute
+    the ratio per hour, and last_ok to determine the color of the bar.
     """
     conn = get_db()
     c = conn.cursor()
@@ -4694,10 +4703,10 @@ def service_uptime_log(component: str, ok: bool):
 
 
 def service_uptime_history(component: str, hours: int = 24) -> list:
-    """Retourne les checks des N dernieres heures pour un component.
+    """Return the checks of the last N hours for a component.
 
-    Liste de dicts {hour_bucket, checks, oks, last_ok}. Ordre chronologique ascendant.
-    Les heures sans check sont absentes (a padder cote frontend si besoin).
+    List of dicts {hour_bucket, checks, oks, last_ok}. Ascending chronological order.
+    Hours without a check are absent (to be padded on the frontend if needed).
     """
     conn = get_db()
     c = conn.cursor()
@@ -4714,7 +4723,7 @@ def service_uptime_history(component: str, hours: int = 24) -> list:
 
 
 def music_play_log(guild_id, user_id, track_title, track_url=None, source=None, duration=None):
-    """Enregistre une lecture musicale (appele depuis play_next sur succes)."""
+    """Record a music play (called from play_next on success)."""
     conn = get_db()
     c = conn.cursor()
     c.execute("""INSERT INTO music_plays
@@ -4765,7 +4774,7 @@ def music_stats_top_requesters(guild_id=None, days=30, limit=10):
 
 
 def music_stats_summary(guild_id=None, days=30):
-    """Retourne {total_plays, unique_tracks, unique_users, total_seconds, by_source}."""
+    """Return {total_plays, unique_tracks, unique_users, total_seconds, by_source}."""
     conn = get_db()
     c = conn.cursor()
     where = "played_at >= datetime('now', ?)"
@@ -4887,7 +4896,7 @@ def get_logs(guild_id, type_filter=None, search=None, limit=200):
     return rows
 
 def prune_old_logs(guild_id, keep=5000):
-    """Limite la table logs a `keep` dernieres entrees par guild (anti-explosion DB)."""
+    """Limit the logs table to the last `keep` entries per guild (anti DB blow-up)."""
     conn = get_db()
     c = conn.cursor()
     c.execute("""DELETE FROM logs WHERE id IN (
@@ -4898,9 +4907,9 @@ def prune_old_logs(guild_id, keep=5000):
     conn.close()
 
 def get_activity_by_day(guild_id=None, days=14):
-    """Compte les logs par jour sur les `days` derniers jours.
-       guild_id=None -> cross-server. Retourne [{date, count}, ...] (ASC, dates en string YYYY-MM-DD).
-       Inclut les jours sans activite (count=0)."""
+    """Count the logs per day over the last `days` days.
+       guild_id=None -> cross-server. Returns [{date, count}, ...] (ASC, dates as YYYY-MM-DD strings).
+       Includes days without activity (count=0)."""
     conn = get_db()
     c = conn.cursor()
     if guild_id:
@@ -4913,7 +4922,7 @@ def get_activity_by_day(guild_id=None, days=14):
                      GROUP BY day""", (f"-{int(days)} days",))
     by_day = {r["day"]: r["n"] for r in c.fetchall()}
     conn.close()
-    # Generer la liste complete
+    # Generate the complete list
     import datetime as _dt
     today = _dt.date.today()
     out = []
@@ -4924,8 +4933,8 @@ def get_activity_by_day(guild_id=None, days=14):
     return out
 
 def get_xp_by_day(guild_id=None, days=14):
-    """Approximation : on n'a pas de log XP par event, mais on peut deduire l'activite via les logs de type 'command' + actions message.
-       Pour l'instant on renvoie le COUNT de logs de type action_message_* + command par jour comme proxy d'activite."""
+    """Approximation: we have no per-event XP log, but activity can be deduced from logs of type 'command' + message actions.
+       For now we return the COUNT of logs of type action_message_* + command per day as an activity proxy."""
     conn = get_db()
     c = conn.cursor()
     where = "type IN ('command', 'action_message_delete', 'action_message_edit', 'action_voice_join', 'action_member_join')"
@@ -4949,10 +4958,10 @@ def get_xp_by_day(guild_id=None, days=14):
     return out
 
 def get_logs_by_day(guild_id=None, days=8, types=None, user_id=None):
-    """Serie generique de comptage de logs par jour sur `days` jours.
-       types = liste de valeurs `type` a filtrer (None = tous).
-       user_id = filtre sur un utilisateur precis (None = tous).
-       Retourne [{date, count}, ...] ASC, jours vides inclus (count=0)."""
+    """Generic series counting logs per day over `days` days.
+       types = list of `type` values to filter on (None = all).
+       user_id = filter on a specific user (None = all).
+       Returns [{date, count}, ...] ASC, empty days included (count=0)."""
     conn = get_db()
     c = conn.cursor()
     clauses = ["ts >= datetime('now', ?)"]
@@ -4981,8 +4990,8 @@ def get_logs_by_day(guild_id=None, days=8, types=None, user_id=None):
     return out
 
 def get_activity_heatmap(guild_id=None, weeks=4):
-    """Heatmap 7 jours x 24h sur les `weeks` dernieres semaines.
-       Retourne [[count_mon_h0, count_mon_h1, ...], [count_tue_h0, ...], ...] (7 lignes x 24 cols)."""
+    """7 days x 24h heatmap over the last `weeks` weeks.
+       Returns [[count_mon_h0, count_mon_h1, ...], [count_tue_h0, ...], ...] (7 rows x 24 cols)."""
     conn = get_db()
     c = conn.cursor()
     if guild_id:
@@ -5001,17 +5010,17 @@ def get_activity_heatmap(guild_id=None, weeks=4):
                      GROUP BY dow, hour""", (f"-{int(weeks*7)} days",))
     matrix = [[0]*24 for _ in range(7)]
     for r in c.fetchall():
-        # SQLite : strftime %w => 0=Dimanche..6=Samedi. On reorganise en 0=Lundi..6=Dimanche
+        # SQLite: strftime %w => 0=Sunday..6=Saturday. We reorder to 0=Monday..6=Sunday
         dow = (r["dow"] - 1) % 7
         matrix[dow][r["hour"]] = r["n"]
     conn.close()
     return matrix
 
 def get_guild_analytics_overview(guild_id):
-    """Stats overview pour la page Analytics serveur.
+    """Overview stats for the server Analytics page.
 
-    Compte les logs (toutes activites : commands + actions + msg events)
-    par fenetre temporelle. Active users = distinct user_id avec >= 1 log.
+    Counts the logs (all activity: commands + actions + msg events)
+    per time window. Active users = distinct user_id with >= 1 log.
     """
     conn = get_db(); c = conn.cursor()
     g = (str(guild_id),)
@@ -5039,10 +5048,10 @@ def get_guild_analytics_overview(guild_id):
 
 
 def get_msg_per_day(guild_id, days=30):
-    """Series temporelle : nb logs par jour sur les N derniers jours.
+    """Time series: number of logs per day over the last N days.
 
-    Retourne liste de {date: 'YYYY-MM-DD', count: int} ordonnee du plus ancien
-    au plus recent, avec zeros pour les jours sans activite.
+    Returns a list of {date: 'YYYY-MM-DD', count: int} ordered from oldest
+    to most recent, with zeros for days without activity.
     """
     import datetime as _dtmod
     conn = get_db(); c = conn.cursor()
@@ -5054,7 +5063,7 @@ def get_msg_per_day(guild_id, days=30):
     ).fetchall()
     conn.close()
     counts = {r["d"]: r["n"] for r in rows}
-    # Comble les trous
+    # Fill the gaps
     today = _dtmod.date.today()
     out = []
     for i in range(days - 1, -1, -1):
@@ -5065,16 +5074,16 @@ def get_msg_per_day(guild_id, days=30):
 
 
 def get_cohort_retention(guild_id, weeks=12):
-    """Cohort retention par semaine. Pour chaque cohort (semaine de join),
-    on calcule % de membres encore actifs (1+ log) dans les semaines suivantes.
+    """Cohort retention per week. For each cohort (join week),
+    we compute the % of members still active (1+ log) in the following weeks.
 
-    Retourne liste de dicts :
+    Returns a list of dicts:
     [{cohort_week: 'YYYY-Www', cohort_size: int,
       week_offsets: [pct_w0, pct_w1, ..., pct_wN]}]
     """
     import datetime as _dtmod
     conn = get_db(); c = conn.cursor()
-    # Liste cohorts : tous les member_join groupes par ISO week
+    # List cohorts: every member_join grouped by ISO week
     rows = c.execute(
         """SELECT strftime('%Y-%W', ts) AS week, user_id, ts
            FROM logs WHERE guild_id = ? AND type = 'action_member_join'
@@ -5092,13 +5101,13 @@ def get_cohort_retention(guild_id, weeks=12):
     today = _dtmod.date.today()
     for week, members in sorted(cohorts.items())[-weeks:]:
         cohort_size = len(members)
-        # Pour chaque offset (semaine N apres join), compte combien sont actifs
+        # For each offset (week N after join), count how many are active
         join_dates = {uid: r for uid, r in cohort_join_ts[week].items()}
         offsets = []
         for w_offset in range(weeks):
             start_iso = None
             end_iso = None
-            # On utilise la semaine du 1er joiner comme reference
+            # We use the week of the first joiner as the reference
             try:
                 ref = list(join_dates.values())[0]
                 ref_dt = _dtmod.datetime.strptime(ref[:10], "%Y-%m-%d")
@@ -5110,7 +5119,7 @@ def get_cohort_retention(guild_id, weeks=12):
                 end_iso   = end.strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
                 continue
-            # Count distinct user_id (members de la cohort) actifs sur cette fenetre
+            # Count distinct user_id (cohort members) active over this window
             ph = ",".join("?" * len(members))
             params = [str(guild_id), start_iso, end_iso] + members
             active = c.execute(
@@ -5131,8 +5140,8 @@ def get_cohort_retention(guild_id, weeks=12):
 
 
 def export_logs_csv_rows(guild_id, days=90):
-    """Yield rows pour CSV : ts, type, user_id, username, channel_name, content.
-    Generateur."""
+    """Yield rows for CSV: ts, type, user_id, username, channel_name, content.
+    Generator."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         """SELECT ts, type, user_id, username, channel_name, content
@@ -5147,11 +5156,11 @@ def export_logs_csv_rows(guild_id, days=90):
 
 
 def get_member_growth(guild_id, days=30):
-    """Series temporelle membres : joins, leaves, net cumule par jour.
+    """Member time series: joins, leaves, cumulative net per day.
 
-    Necessite que on_member_join/remove ait loggue action_member_join /
-    action_member_leave avant. Pas de cumul absolu (on n'a pas le total
-    initial), juste les variations.
+    Requires on_member_join/remove to have logged action_member_join /
+    action_member_leave beforehand. No absolute cumulative total (we do not have
+    the initial total), only the variations.
     """
     import datetime as _dtmod
     conn = get_db(); c = conn.cursor()
@@ -5186,9 +5195,9 @@ def get_member_growth(guild_id, days=30):
 
 
 def get_heatmap_cell_detail(guild_id=None, dow=0, hour=0, weeks=4, limit=10):
-    """Detail d'une cellule heatmap (dow + hour) sur les dernieres `weeks`
-    semaines. dow=0..6 ou 0=Lundi (consistant avec get_activity_heatmap).
-    Retourne (total, top_rows) ou top_rows = liste {type, content, n}."""
+    """Detail of a heatmap cell (dow + hour) over the last `weeks`
+    weeks. dow=0..6 where 0=Monday (consistent with get_activity_heatmap).
+    Returns (total, top_rows) where top_rows = list of {type, content, n}."""
     sql_dow = (dow + 1) % 7  # SQLite %w : 0=Dimanche
     conn = get_db()
     c = conn.cursor()
@@ -5222,7 +5231,7 @@ def get_heatmap_cell_detail(guild_id=None, dow=0, hour=0, weeks=4, limit=10):
 
 
 def get_top_commands(guild_id=None, days=30, limit=10):
-    """Top des commandes les plus utilisees."""
+    """Top of the most used commands."""
     conn = get_db()
     c = conn.cursor()
     if guild_id:
@@ -5244,7 +5253,7 @@ def get_top_commands(guild_id=None, days=30, limit=10):
     return rows
 
 def get_top_active_users(guild_id, days=30, limit=10):
-    """Users les plus actifs (envois de commandes + messages edit/delete) sur N jours."""
+    """Most active users (commands sent + messages edit/delete) over N days."""
     conn = get_db()
     c = conn.cursor()
     c.execute("""SELECT user_id, MAX(username) AS username, COUNT(*) AS n
@@ -5257,13 +5266,13 @@ def get_top_active_users(guild_id, days=30, limit=10):
 
 
 def prune_logs_global(keep_per_guild=5000, max_age_days=90):
-    """Purge globale logs : limite N par guild + supprime > max_age_days. Retourne dict counts."""
+    """Global log purge: limit N per guild + delete older than max_age_days. Returns a dict of counts."""
     conn = get_db()
     c = conn.cursor()
-    # 1. Purge par age
+    # 1. Purge by age
     c.execute("DELETE FROM logs WHERE ts < datetime('now', ?)", (f"-{int(max_age_days)} days",))
     by_age = c.rowcount
-    # 2. Purge par guild (garde les N plus recents)
+    # 2. Purge per guild (keep the N most recent)
     c.execute("SELECT DISTINCT guild_id FROM logs")
     guilds = [r["guild_id"] for r in c.fetchall()]
     by_count = 0
@@ -5274,7 +5283,7 @@ def prune_logs_global(keep_per_guild=5000, max_age_days=90):
                      )""", (str(gid), int(keep_per_guild)))
         by_count += c.rowcount
     conn.commit()
-    # VACUUM pour récupérer l'espace disque
+    # VACUUM to reclaim disk space
     try:
         c.execute("VACUUM")
     except Exception:
@@ -5283,7 +5292,7 @@ def prune_logs_global(keep_per_guild=5000, max_age_days=90):
     return {"by_age": by_age, "by_count": by_count}
 
 
-# ===== GUILD CHANNELS (cache pour BotTalk + logs lisibles) =====
+# ===== GUILD CHANNELS (cache for BotTalk + readable logs) =====
 def upsert_channel(guild_id, channel_id, name, type_, position=0):
     conn = get_db()
     c = conn.cursor()
@@ -5321,7 +5330,7 @@ def list_channels(guild_id, type_filter=None):
 
 # ===== DM MESSAGES (global cross-guild) =====
 def save_dm(user_id, username, direction, content=None, attachments=None, avatar_url=None):
-    """direction = 'in' (user -> bot) ou 'out' (bot -> user via dashboard)."""
+    """direction = 'in' (user -> bot) or 'out' (bot -> user via dashboard)."""
     import json
     conn = get_db()
     c = conn.cursor()
@@ -5336,7 +5345,7 @@ def save_dm(user_id, username, direction, content=None, attachments=None, avatar
     return msg_id
 
 def list_dm_conversations():
-    """Liste des users avec qui le bot a echange en DM, dernier message + count unread."""
+    """List of users the bot exchanged DMs with, last message + unread count."""
     conn = get_db()
     c = conn.cursor()
     c.execute("""
@@ -5363,7 +5372,7 @@ def get_dm_conversation(user_id, limit=200):
                  ORDER BY ts DESC LIMIT ?""", (str(user_id), int(limit)))
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
-    rows.reverse()  # plus ancien -> plus recent
+    rows.reverse()  # oldest -> most recent
     return rows
 
 def mark_dm_read(user_id):
@@ -5402,7 +5411,7 @@ def _ensure_analytics_tables():
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_visits_site_ts ON site_visits(site, ts)')
 
-    # Tracking riche par pageview : durée active, scroll, device, referrer.
+    # Rich per-pageview tracking: active time, scroll, device, referrer.
     c.execute('''CREATE TABLE IF NOT EXISTS page_views (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         vid        TEXT UNIQUE,
@@ -5424,7 +5433,7 @@ def _ensure_analytics_tables():
     c.execute('CREATE INDEX IF NOT EXISTS idx_pv_site_ts ON page_views(site, ts)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid)')
 
-    # Dons Ko-fi (recus via webhook). txn_id unique pour eviter les doublons.
+    # Ko-fi donations (received via webhook). Unique txn_id to avoid duplicates.
     c.execute('''CREATE TABLE IF NOT EXISTS donations (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         txn_id      TEXT UNIQUE,
@@ -5464,7 +5473,7 @@ def ai_usage_add(user_id, guild_id, model, prompt_tokens, completion_tokens, tot
 
 
 def ai_usage_stats():
-    """Retourne stats agrégées : total, last 24h, 7j, 30j, top users."""
+    """Return aggregated stats: total, last 24h, 7d, 30d, top users."""
     conn = get_db()
     c = conn.cursor()
     out = {}
@@ -5510,7 +5519,7 @@ def visit_log(site: str, path: str, ip_hash: str, user_id=None):
 
 
 def visits_stats(site: str):
-    """Retourne stats agrégées : total, h24, 7j, 30j, uniques (ip_hash distinct)."""
+    """Return aggregated stats: total, h24, 7d, 30d, uniques (distinct ip_hash)."""
     conn = get_db()
     c = conn.cursor()
     out = {}
@@ -5541,10 +5550,10 @@ def visits_stats(site: str):
 def pageview_upsert(vid, site, path=None, referrer=None, device=None, browser=None,
                     os_name=None, screen=None, lang=None, active_ms=None,
                     scroll_pct=None, ip_hash=None, user_id=None):
-    """Insere une pageview (1er hit) ou met a jour duree/scroll (heartbeat/unload).
+    """Insert a pageview (first hit) or update duration/scroll (heartbeat/unload).
 
-    Le 1er appel cree la ligne avec les metadonnees device/referrer.
-    Les appels suivants (meme vid) ne mettent a jour que active_ms (max) et scroll_pct (max).
+    The first call creates the row with the device/referrer metadata.
+    Subsequent calls (same vid) only update active_ms (max) and scroll_pct (max).
     """
     if not vid:
         return
@@ -5579,16 +5588,16 @@ def pageview_upsert(vid, site, path=None, referrer=None, device=None, browser=No
 
 
 def pageview_stats(site: str):
-    """Stats d'engagement riches pour un site (landing/dashboard).
+    """Rich engagement stats for a site (landing/dashboard).
 
-    Retourne : compteurs par periode, duree active moyenne/mediane, taux de rebond,
-    scroll moyen, split device/browser/os, top referrers, top pages, repartition horaire.
+    Returns: counters per period, average/median active time, bounce rate,
+    average scroll, device/browser/os split, top referrers, top pages, hourly split.
     """
     conn = get_db()
     c = conn.cursor()
     out = {}
 
-    # --- Compteurs + engagement par periode ---
+    # --- Counters + engagement per period ---
     for label, since in (("h24", "-1 day"), ("d7", "-7 days"), ("d30", "-30 days"), ("total", None)):
         where = "WHERE site = ?"
         params = [site]
@@ -5624,7 +5633,7 @@ def pageview_stats(site: str):
     else:
         out["median_sec_30d"] = 0
 
-    # --- Visites par jour (30j) ---
+    # --- Visits per day (30d) ---
     by_day = c.execute(
         '''SELECT DATE(ts) AS day, COUNT(*) AS n, COUNT(DISTINCT ip_hash) AS u,
                   COALESCE(AVG(active_ms),0) AS avg_ms
@@ -5650,7 +5659,7 @@ def pageview_stats(site: str):
     out["by_browser_30d"] = _split("browser")
     out["by_os_30d"] = _split("os")
 
-    # --- Top referrers (30j, hors self) ---
+    # --- Top referrers (30d, excluding self) ---
     refs = c.execute(
         """SELECT COALESCE(referrer,'direct') AS r, COUNT(*) AS n
            FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
@@ -5670,8 +5679,8 @@ def pageview_stats(site: str):
         for r in pages
     ]
 
-    # --- Pages ou on reste le plus longtemps (30j) ---
-    # Triees par temps actif moyen. Seuil min 3 visites pour eviter le bruit statistique.
+    # --- Pages where people stay the longest (30d) ---
+    # Sorted by average active time. Minimum 3 visits to avoid statistical noise.
     time_pages = c.execute(
         """SELECT COALESCE(path,'/') AS p, COUNT(*) AS n,
                   COALESCE(AVG(active_ms),0) AS avg_ms,
@@ -5686,7 +5695,7 @@ def pageview_stats(site: str):
         for r in time_pages
     ]
 
-    # --- Repartition horaire (30j, heure locale serveur) ---
+    # --- Hourly split (30d, server local time) ---
     hours = c.execute(
         """SELECT CAST(strftime('%H', ts) AS INTEGER) AS h, COUNT(*) AS n
            FROM page_views WHERE site = ? AND ts >= datetime('now','-30 days')
@@ -5701,9 +5710,9 @@ def pageview_stats(site: str):
 
 def donation_add(txn_id, kofi_type=None, donor_name=None, amount=0, currency=None,
                  message=None, is_public=1, is_subscription=0, tier_name=None, email=None):
-    """Enregistre un don Ko-fi. Idempotent via txn_id (ON CONFLICT IGNORE).
+    """Record a Ko-fi donation. Idempotent via txn_id (ON CONFLICT IGNORE).
 
-    Retourne True si insere, False si doublon (txn_id deja vu).
+    Returns True if inserted, False if duplicate (txn_id already seen).
     """
     conn = get_db()
     c = conn.cursor()
@@ -5729,7 +5738,7 @@ def donation_add(txn_id, kofi_type=None, donor_name=None, amount=0, currency=Non
 
 
 def donation_delete(donation_id):
-    """Supprime un don par son id. Retourne True si supprime."""
+    """Delete a donation by its id. Returns True if deleted."""
     conn = get_db()
     c = conn.cursor()
     try:
@@ -5742,7 +5751,7 @@ def donation_delete(donation_id):
 
 
 def donations_stats():
-    """Stats dons : totaux par periode, compteurs, top donateurs, liste recente, par jour."""
+    """Donation stats: totals per period, counters, top donors, recent list, per day."""
     conn = get_db()
     c = conn.cursor()
     out = {}
@@ -5759,18 +5768,18 @@ def donations_stats():
             ).fetchone()
         out[label] = {"amount": round(float(row["s"]), 2), "count": int(row["n"])}
 
-    # Devise principale (la plus frequente)
+    # Main currency (the most frequent one)
     cur = c.execute(
         "SELECT currency, COUNT(*) AS n FROM donations WHERE currency IS NOT NULL "
         "GROUP BY currency ORDER BY n DESC LIMIT 1"
     ).fetchone()
     out["currency"] = cur["currency"] if cur else "EUR"
 
-    # Don moyen (total)
+    # Average donation (total)
     avg = c.execute("SELECT COALESCE(AVG(amount),0) AS a FROM donations").fetchone()
     out["avg_amount"] = round(float(avg["a"]), 2)
 
-    # Top donateurs (cumul, tous temps)
+    # Top donors (all-time cumulative)
     top = c.execute(
         '''SELECT COALESCE(donor_name,'Anonyme') AS name,
                   SUM(amount) AS total, COUNT(*) AS n
@@ -5781,7 +5790,7 @@ def donations_stats():
         for r in top
     ]
 
-    # Dons recents (50 derniers)
+    # Recent donations (last 50)
     recent = c.execute(
         '''SELECT id, donor_name, amount, currency, message, is_subscription,
                   tier_name, ts
@@ -5799,7 +5808,7 @@ def donations_stats():
         for r in recent
     ]
 
-    # Par jour (30j)
+    # Per day (30d)
     by_day = c.execute(
         '''SELECT DATE(ts) AS day, COALESCE(SUM(amount),0) AS s, COUNT(*) AS n
            FROM donations WHERE ts >= datetime('now','-30 days')
@@ -5823,7 +5832,7 @@ def count_unread_dms():
     return n
 
 def delete_dm_conversation(user_id):
-    """Supprime tous les messages echanges avec un user donne. Retourne le nombre supprime."""
+    """Delete every message exchanged with a given user. Returns the number deleted."""
     conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM dm_messages WHERE user_id = ?", (str(user_id),))
@@ -5847,37 +5856,37 @@ DEFAULT_SETTINGS = {
     "ai_system_prompt":     "Tu es TookBot, l'assistant officiel d'un bot Discord polyvalent. Tu es concis, utile, sympa, et tu parles français. Tu réponds en quelques phrases max sauf si on te demande un détail. Évite les listes interminables.",
     "ai_allowed_user_ids":  "",   # CSV
     "ai_max_tokens":        "400",
-    # Modele vision (utilise si l'utilisateur joint une image/GIF a son message).
-    # Doit etre un modele Groq qui supporte la vision (multimodal).
+    # Vision model (used if the user attaches an image/GIF to their message).
+    # Must be a Groq model that supports vision (multimodal).
     "ai_vision_model":      "meta-llama/llama-4-scout-17b-16e-instruct",
-    # Mode vocal IA : si "1", l'IA repond avec un message vocal (TTS) au lieu de texte.
+    # AI voice mode: if "1", the AI answers with a voice message (TTS) instead of text.
     # Voix Microsoft Edge TTS (gratuit). Voix FR dispo :
     #   fr-FR-DeniseNeural (femme), fr-FR-HenriNeural (homme),
     #   fr-FR-EloiseNeural (jeune femme), fr-FR-VivienneMultilingualNeural (multi).
     "ai_voice_enabled":     "0",
     "ai_voice_name":        "fr-FR-DeniseNeural",
-    # Provider TTS : "edge" (Microsoft Edge gratuit, robotique) ou "elevenlabs"
-    # (qualite top, free tier 10k chars/mois, fallback auto vers edge si quota epuise).
-    # ELEVENLABS_API_KEY doit etre defini dans .env pour "elevenlabs".
+    # TTS provider: "edge" (Microsoft Edge, free, robotic) or "elevenlabs"
+    # (top quality, free tier 10k chars/month, auto fallback to edge if the quota runs out).
+    # ELEVENLABS_API_KEY must be set in .env for "elevenlabs".
     "ai_voice_provider":    "edge",
-    # Voice ID ElevenLabs (premade voices, fonctionnent en FR via le modele multilingual).
+    # ElevenLabs voice ID (premade voices, work in FR through the multilingual model).
     "ai_elevenlabs_voice_id": "XB0fDUnXU5powFXDhCwa",  # Charlotte (femme, naturelle)
     "ai_elevenlabs_model":    "eleven_multilingual_v2",
-    # Message soutien Ko-fi (poste quand un membre recoit un role de donateur)
+    # Ko-fi support message (posted when a member gets a donor role)
     "soutien_message":      "<user> A décidé de filer un coup de main ! Merci pour ton soutien !",
-    "soutien_role_ids":     "",   # CSV d'IDs de roles ; vide = fallback noms par defaut
-    "soutien_channel_id":   "",   # vide = fallback env SOUTIEN_CHANNEL_ID
-    # Cartes : age minimum (jours) d'un serveur pour autoriser /roll (anti-farm
-    # par serveurs jetables). 0 = desactive. Override : env ROLL_MIN_GUILD_AGE_DAYS.
+    "soutien_role_ids":     "",   # CSV of role IDs; empty = fallback on default names
+    "soutien_channel_id":   "",   # empty = fallback on env SOUTIEN_CHANNEL_ID
+    # Cards: minimum age (days) of a server to allow /roll (anti-farm through
+    # throwaway servers). 0 = disabled. Override: env ROLL_MIN_GUILD_AGE_DAYS.
     "roll_min_guild_age_days": "7",
-    # Event global actif (cle du catalogue GLOBAL_EVENTS, ou vide = aucun).
+    # Active global event (key from the GLOBAL_EVENTS catalog, or empty = none).
     "global_event_key": "",
-    # Multiplicateur de drop des CARTES taguees a l'event (1 = pas de boost).
+    # Drop multiplier for the CARDS tagged to the event (1 = no boost).
     "global_event_drop_boost": "2.0",
-    # Boost GENERAL des rares (epic/legendary/mythic) pendant l'event (1 = aucun).
+    # GENERAL boost of rares (epic/legendary/mythic) during the event (1 = none).
     "global_event_rarity_boost": "1.0",
-    # Cartes : nb max de serveurs "solo" (user seul avec le bot) ou un compte peut
-    # roll. Au-dela, /roll bloque sur tout nouveau serveur solo. 0 = desactive.
+    # Cards: max number of "solo" servers (user alone with the bot) where an account
+    # can roll. Beyond that, /roll is blocked on any new solo server. 0 = disabled.
     "roll_max_solo_guilds": "2",
 }
 
@@ -5902,7 +5911,7 @@ def set_setting(key, value):
     conn.close()
 
 def get_all_settings():
-    """Retourne dict : key -> value (avec defaults appliques)."""
+    """Return a dict: key -> value (with defaults applied)."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT key, value FROM settings")
@@ -5913,24 +5922,24 @@ def get_all_settings():
     return out
 
 
-# ===== Config GUILDES (tout reglable par l'owner) =====
+# ===== GUILD config (everything tunable by the owner) =====
 DEFAULT_GUILD_CONFIG = {
-    "create_cost": 10000,      # essences pour creer une guilde
+    "create_cost": 10000,      # essences to create a guild
     "max_members": 30,
-    "hop_cooldown_h": 24,      # delai avant de re-rejoindre une guilde
-    "daily_xp_cap": 1000,      # XP max apporte par membre / jour (actions perso)
+    "hop_cooldown_h": 24,      # delay before joining a guild again
+    "daily_xp_cap": 1000,      # max XP contributed per member / day (personal actions)
     "xp": {
         "roll": 10,
         "fusion": 25,
         "wheel": 30,
-        "essence_per_100": 5,   # XP par tranche de 100 essences donnees
+        "essence_per_100": 5,   # XP per 100 essences donated
         "boss": {"1": 60, "2": 150, "3": 350, "4": 700, "5": 1400},
     },
-    "level_base": 600,         # XP requis pour passer au niveau 2 (cumul lvl60 ~1.65M)
-    "level_growth": 1.10,      # x par niveau (XP niveau n = base * growth^(n-2))
+    "level_base": 600,         # XP required to reach level 2 (cumulative lvl60 ~1.65M)
+    "level_growth": 1.10,      # x per level (XP for level n = base * growth^(n-2))
     "max_level": 60,
-    # Paliers de recompense : a un niveau donne, bonus ABSOLUS. Une guilde applique
-    # le palier de plus haut niveau <= son niveau. roll_cd_min = minutes en MOINS.
+    # Reward tiers: at a given level, ABSOLUTE bonuses. A guild applies the
+    # highest tier whose level <= its own level. roll_cd_min = minutes LESS.
     "rewards": [
         {"level": 1,  "essence_pct": 0,  "xp_pct": 0,  "roll_cd_min": 0,  "charges": 0, "wishlist": 0, "boss_pct": 0,  "bank": False, "raids": False, "shop": False},
         {"level": 10, "essence_pct": 4,  "xp_pct": 5,  "roll_cd_min": 2,  "charges": 0, "wishlist": 0, "boss_pct": 2,  "bank": True,  "raids": False, "shop": False},
@@ -5939,18 +5948,18 @@ DEFAULT_GUILD_CONFIG = {
         {"level": 50, "essence_pct": 15, "xp_pct": 16, "roll_cd_min": 8,  "charges": 0, "wishlist": 2, "boss_pct": 9,  "bank": True,  "raids": True,  "shop": True},
         {"level": 60, "essence_pct": 20, "xp_pct": 20, "roll_cd_min": 10, "charges": 1, "wishlist": 3, "boss_pct": 12, "bank": True,  "raids": True,  "shop": True},
     ],
-    # Boutique de guilde : items payes avec la BANQUE. type : guild_xp | rolls_all |
-    # essence_all. value = XP guilde, ou rolls/essences donnes a CHAQUE membre.
+    # Guild shop: items paid with the BANK. type: guild_xp | rolls_all |
+    # essence_all. value = guild XP, or rolls/essences given to EACH member.
     "shop": [
-        {"key": "xpboost", "name": "Coup de boost XP", "cost": 5000, "type": "guild_xp",    "value": 3000, "desc": "+3000 XP à la guilde"},
-        {"key": "rollall", "name": "Rolls pour tous",  "cost": 8000, "type": "rolls_all",   "value": 3,    "desc": "+3 rolls à chaque membre"},
-        {"key": "essall",  "name": "Essences pour tous", "cost": 6000, "type": "essence_all", "value": 500, "desc": "+500 ✨ à chaque membre"},
+        {"key": "xpboost", "name": t("data.guild_shop.xpboost.name"), "cost": 5000, "type": "guild_xp",    "value": 3000, "desc": t("data.guild_shop.xpboost.desc", n=3000)},
+        {"key": "rollall", "name": t("data.guild_shop.rollall.name"), "cost": 8000, "type": "rolls_all",   "value": 3,    "desc": t("data.guild_shop.rollall.desc", n=3)},
+        {"key": "essall",  "name": t("data.guild_shop.essall.name"),  "cost": 6000, "type": "essence_all", "value": 500,  "desc": t("data.guild_shop.essall.desc", n=500)},
     ],
 }
 
 
 def get_guild_config():
-    """Config guildes (defaults fusionnes avec l'override owner stocke en JSON)."""
+    """Guild config (defaults merged with the owner override stored as JSON)."""
     import json as _j
     raw = get_setting("guild_config", None)
     cfg = dict(DEFAULT_GUILD_CONFIG)
@@ -5968,7 +5977,7 @@ def set_guild_config(cfg: dict):
 
 
 def guild_level_for_xp(xp, cfg=None):
-    """Niveau atteint pour un total d'XP, selon la courbe (base * growth^(n-2))."""
+    """Level reached for a total amount of XP, following the curve (base * growth^(n-2))."""
     cfg = cfg or get_guild_config()
     base = float(cfg.get("level_base", 1000))
     growth = float(cfg.get("level_growth", 1.35))
@@ -5985,18 +5994,18 @@ def guild_level_for_xp(xp, cfg=None):
 
 
 def guild_rewards_for_level(level, cfg=None):
-    """Palier de recompense effectif (plus haut level <= niveau de la guilde)."""
+    """Effective reward tier (highest level <= the guild level)."""
     cfg = cfg or get_guild_config()
     paliers = sorted(cfg.get("rewards", []), key=lambda p: p.get("level", 0))
     eff = {}
     for p in paliers:
         if p.get("level", 0) <= level:
             eff = p
-    # Aucun palier <= niveau -> aucun bonus (PAS le palier le plus bas).
+    # No tier <= level -> no bonus (NOT the lowest tier).
     return eff
 
 
-# ===== CRUD guildes =====
+# ===== GUILD CRUD =====
 def guild_create(name, owner_id, tag=None, color=None):
     conn = get_db(); c = conn.cursor()
     c.execute("INSERT INTO card_guild (name, tag, owner_id, color) VALUES (?, ?, ?, ?)",
@@ -6024,7 +6033,7 @@ def guild_get_by_name(name):
 
 
 def guild_set_name(gid, name):
-    """Renomme la guilde + stocke la date du renommage (cooldown 1/mois)."""
+    """Rename the guild + store the rename date (cooldown 1/month)."""
     conn = get_db(); c = conn.cursor()
     c.execute("UPDATE card_guild SET name = ?, renamed_at = ? WHERE id = ?",
               (name, _dt.datetime.utcnow().isoformat(), int(gid)))
@@ -6032,7 +6041,7 @@ def guild_set_name(gid, name):
 
 
 def guild_list_all(search=None):
-    """Toutes les guildes (admin) avec nb de membres. Filtre optionnel sur nom/tag."""
+    """All guilds (admin) with their member count. Optional filter on name/tag."""
     conn = get_db(); c = conn.cursor()
     where = ""; params = []
     if search:
@@ -6049,25 +6058,25 @@ _GUILD_ADMIN_COLS = {"name", "tag", "level", "xp", "bank", "color", "emblem",
                      "owner_id", "renamed_at", "min_level", "min_power", "open_join"}
 
 
-# ============ QUETES DE GUILDE ============
-# Quetes quotidiennes (perso, par membre) + hebdomadaires (collectives par guilde).
+# ============ GUILD QUESTS ============
+# Daily quests (personal, per member) + weekly quests (collective, per guild).
 # metric = action incrementee : roll / fusion / boss / wheel / donate.
 GUILD_DAILY_QUESTS = [
-    {"key": "d_roll",   "metric": "roll",   "target": 10, "label": "Faire 10 rolls",            "xp": 60},
-    {"key": "d_fusion", "metric": "fusion", "target": 1,  "label": "Fusionner 1 carte",         "xp": 50},
-    {"key": "d_boss",   "metric": "boss",   "target": 1,  "label": "Participer a un boss vaincu","xp": 80},
+    {"key": "d_roll",   "metric": "roll",   "target": 10, "label": t("data.guild_quest.d_roll", n=10),  "xp": 60},
+    {"key": "d_fusion", "metric": "fusion", "target": 1,  "label": t("data.guild_quest.d_fusion", n=1), "xp": 50},
+    {"key": "d_boss",   "metric": "boss",   "target": 1,  "label": t("data.guild_quest.d_boss"),        "xp": 80},
 ]
 GUILD_WEEKLY_QUESTS = [
-    {"key": "w_roll",   "metric": "roll",   "target": 500, "label": "La guilde fait 500 rolls",         "xp": 2500, "bank": 5000},
-    {"key": "w_boss",   "metric": "boss",   "target": 15,  "label": "Vaincre 15 boss en groupe",         "xp": 3000, "bank": 8000},
-    {"key": "w_fusion", "metric": "fusion", "target": 30,  "label": "Fusionner 30 cartes (guilde)",       "xp": 2000, "bank": 0},
+    {"key": "w_roll",   "metric": "roll",   "target": 500, "label": t("data.guild_quest.w_roll", n=500),  "xp": 2500, "bank": 5000},
+    {"key": "w_boss",   "metric": "boss",   "target": 15,  "label": t("data.guild_quest.w_boss", n=15),   "xp": 3000, "bank": 8000},
+    {"key": "w_fusion", "metric": "fusion", "target": 30,  "label": t("data.guild_quest.w_fusion", n=30), "xp": 2000, "bank": 0},
 ]
 _DAILY_BY_KEY = {q["key"]: q for q in GUILD_DAILY_QUESTS}
 _WEEKLY_BY_KEY = {q["key"]: q for q in GUILD_WEEKLY_QUESTS}
 
 
 def _quest_paris_date():
-    """Date du jour en heure FRANCAISE (reset quetes a minuit Europe/Paris)."""
+    """Today's date in FRENCH time (quests reset at midnight Europe/Paris)."""
     try:
         from zoneinfo import ZoneInfo
         return _dt.datetime.now(ZoneInfo("Europe/Paris")).date()
@@ -6085,7 +6094,7 @@ def _quest_week():
 
 
 def guild_quests_daily_get(user_id, guild_id):
-    """Quetes du jour du membre (cree les lignes manquantes). Retourne liste dict."""
+    """The member's quests of the day (creates the missing rows). Returns a list of dicts."""
     day = _quest_day()
     conn = get_db(); c = conn.cursor()
     for q in GUILD_DAILY_QUESTS:
@@ -6105,7 +6114,7 @@ def guild_quests_daily_get(user_id, guild_id):
 
 
 def guild_quests_weekly_get(guild_id):
-    """Quetes hebdo de la guilde + contributions par membre. Cree les lignes manquantes."""
+    """Weekly quests of the guild + contributions per member. Creates the missing rows."""
     week = _quest_week()
     conn = get_db(); c = conn.cursor()
     for q in GUILD_WEEKLY_QUESTS:
@@ -6132,8 +6141,8 @@ def guild_quests_weekly_get(guild_id):
 
 
 def guild_quest_progress(user_id, metric, amount=1):
-    """Incremente les quetes daily (du membre) + weekly (de sa guilde) pour `metric`.
-    Auto-recompense a la completion (XP guilde + bank pour les hebdo). Best-effort."""
+    """Increment the daily quests (of the member) + weekly ones (of their guild) for `metric`.
+    Auto-reward on completion (guild XP + bank for the weekly ones). Best-effort."""
     try:
         g = guild_of_user(user_id)
         if not g:
@@ -6164,7 +6173,7 @@ def guild_quest_progress(user_id, metric, amount=1):
                     c.execute("INSERT INTO card_guild_xp_log (guild_id, user_id, amount, source) "
                               "VALUES (?, ?, ?, ?)", (gid, str(user_id), int(q["xp"]),
                               f"quete:{q['label']}"))
-        # --- WEEKLY (collectif guilde) ---
+        # --- WEEKLY (guild collective) ---
         for q in GUILD_WEEKLY_QUESTS:
             if q["metric"] != metric:
                 continue
@@ -6237,10 +6246,10 @@ def guild_application_count(gid):
 
 
 def guild_meets_requirements(gid, user_id):
-    """(ok, raison). Verifie min_level (niveau de collection ~ puissance) et min_power."""
+    """(ok, reason). Checks min_level (collection level ~ power) and min_power."""
     g = guild_get(gid)
     if not g:
-        return (False, "Guilde introuvable.")
+        return (False, t("data.guild_join.not_found"))
     min_pw = int(g.get("min_power") or 0)
     if min_pw > 0:
         try:
@@ -6249,7 +6258,9 @@ def guild_meets_requirements(gid, user_id):
         except Exception:
             pw = 0
         if pw < min_pw:
-            return (False, f"Puissance de combat insuffisante ({pw:,}/{min_pw:,}).".replace(",", " "))
+            return (False, t("data.guild_join.not_enough_power",
+                             power=f"{pw:,}".replace(",", " "),
+                             required=f"{min_pw:,}".replace(",", " ")))
     min_cards = int(g.get("min_level") or 0)
     if min_cards > 0:
         try:
@@ -6257,12 +6268,12 @@ def guild_meets_requirements(gid, user_id):
         except Exception:
             nc = 0
         if nc < min_cards:
-            return (False, f"Trop peu de cartes ({nc}/{min_cards}).")
+            return (False, t("data.guild_join.not_enough_cards", count=nc, required=min_cards))
     return (True, None)
 
 
 def guild_admin_update(gid, fields):
-    """Update admin (owner dashboard) de colonnes whitelistees de card_guild."""
+    """Admin update (owner dashboard) of whitelisted card_guild columns."""
     sets = []; params = []
     for k, v in (fields or {}).items():
         if k in _GUILD_ADMIN_COLS:
@@ -6373,7 +6384,7 @@ def guild_invite_has(gid, user_id):
 
 
 def guild_add_xp(gid, amount):
-    """Ajoute de l'XP a la guilde, recalcule le niveau. Retourne (level, leveled_up)."""
+    """Add XP to the guild, recompute the level. Returns (level, leveled_up)."""
     if amount <= 0:
         g = guild_get(gid)
         return (g["level"] if g else 1, False)
@@ -6389,9 +6400,9 @@ def guild_add_xp(gid, amount):
 
 
 def guild_member_action_xp(user_id, amount, source="action"):
-    """XP d'action perso (roll/fusion/roue/don) : applique le cap journalier du
-    membre puis credite sa guilde. Logue l'XP credite (qui/source/montant).
-    Retourne (guild, level, leveled_up) ou None."""
+    """Personal action XP (roll/fusion/wheel/donation): applies the member's daily
+    cap then credits their guild. Logs the credited XP (who/source/amount).
+    Returns (guild, level, leveled_up) or None."""
     g = guild_of_user(user_id)
     if not g:
         return None
@@ -6420,8 +6431,8 @@ def guild_member_action_xp(user_id, amount, source="action"):
 
 
 def guild_xp_log_add(gid, user_id, amount, source):
-    """Logue une entree d'XP de guilde (utilise pour les recompenses de quete qui
-    creditent la guilde directement, hors cap membre)."""
+    """Log a guild XP entry (used for quest rewards that credit the guild
+    directly, outside the member cap)."""
     if int(amount) <= 0:
         return
     conn = get_db(); c = conn.cursor()
@@ -6431,7 +6442,7 @@ def guild_xp_log_add(gid, user_id, amount, source):
 
 
 def guild_xp_log_list(gid, limit=30):
-    """Dernieres entrees d'XP de la guilde (recentes d'abord)."""
+    """Latest guild XP entries (most recent first)."""
     conn = get_db(); c = conn.cursor()
     rows = c.execute(
         "SELECT user_id, amount, source, created_at FROM card_guild_xp_log "
@@ -6447,7 +6458,7 @@ def guild_bank_add(gid, amount):
 
 
 def guild_bank_spend(gid, amount):
-    """Debite la banque si solde suffisant. Retourne True si ok."""
+    """Debit the bank if the balance is enough. Returns True if ok."""
     conn = get_db(); c = conn.cursor()
     r = c.execute("SELECT bank FROM card_guild WHERE id = ?", (int(gid),)).fetchone()
     if not r or int(r["bank"]) < int(amount):
@@ -6474,7 +6485,7 @@ def guild_top(limit=20):
 
 
 def guild_perks_for_user(user_id):
-    """Palier de recompense de la guilde du user (dict vide si pas de guilde)."""
+    """Reward tier of the user's guild (empty dict if they have no guild)."""
     g = guild_of_user(user_id)
     if not g:
         return {}
@@ -6482,7 +6493,7 @@ def guild_perks_for_user(user_id):
 
 
 GUILD_DEFAULT_SETTINGS = {
-    # Langue du serveur ("" = auto : langue du client Discord de chaque user)
+    # Server language ("" = auto: Discord client language of each user)
     "locale":          "",
     # Feature toggles
     "xp_enabled":      "1",
@@ -6500,27 +6511,27 @@ GUILD_DEFAULT_SETTINGS = {
     "cs2":             "1",
     "lol":             "1",
     "duels":           "1",
-    # XP — configurables par serveur
+    # XP - configurable per server
     "xp_min":              "1",
     "xp_max":              "5",
     "xp_cooldown_seconds": "30",
-    # Courbe de difficulte : exposant E dans xp_for_level(L) = L^E.
-    # Plage utile 2.0 a 8.0. Defaut 5.0 (= ancien comportement).
-    # Plus bas = montee facile (level 10 atteignable rapidement).
-    # Plus haut = montee dure (chaque level demande beaucoup plus de XP).
+    # Difficulty curve: exponent E in xp_for_level(L) = L^E.
+    # Useful range 2.0 to 8.0. Default 5.0 (= previous behaviour).
+    # Lower = easy progression (level 10 reachable quickly).
+    # Higher = hard progression (each level requires a lot more XP).
     "xp_curve_exponent":   "5.0",
-    # Message de bienvenue par défaut du serveur
+    # Default welcome message of the server
     "welcome_template": "👋 Bienvenue {user} !\nBienvenue sur **{guild}** ! Tu es le membre numéro **{count}**.",
-    # Setup initial (configuré via /setup)
+    # Initial setup (configured via /setup)
     "setup_completed":            "0",
     "setup_welcome_channel_id":   "",
     "setup_logs_channel_id":      "",
     "setup_alerts_channel_id":    "",
     "setup_admin_channel_id":     "",
-    # Présentations membres
+    # Member presentations
     "presentation_enabled":       "0",
     "presentation_channel_id":    "",
-    # Permissions modérateurs (configurees par le server owner)
+    # Moderator permissions (configured by the server owner)
     "mod_role_id":                "",
     "mod_access_configured":      "0",
     # Toggleables slash commands
@@ -6539,7 +6550,7 @@ GUILD_DEFAULT_SETTINGS = {
     "mod_perm_setup":             "0",
     "mod_perm_xp":                "0",
     "mod_perm_note":              "0",
-    # Toggleables pages dashboard (sans slash equivalent)
+    # Toggleable dashboard pages (without a slash equivalent)
     "mod_perm_features":          "0",
     "mod_perm_settings":          "0",
     "mod_perm_logs":              "0",
@@ -6582,7 +6593,7 @@ def guild_settings_all(guild_id):
 
 # ===== DAILY LOGIN BONUS =====
 def daily_claim_get(user_id):
-    """Etat actuel : {last_claim_date, streak, total_claims}."""
+    """Current state: {last_claim_date, streak, total_claims}."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT last_claim_date, streak, total_claims FROM daily_claims WHERE user_id = ?",
@@ -6634,7 +6645,7 @@ def promo_code_delete(code):
     return n
 
 def promo_redeem_check(code, user_id):
-    """Verifie sans appliquer : (ok, reason, promo_dict)."""
+    """Check without applying: (ok, reason, promo_dict)."""
     promo = promo_code_get(code)
     if not promo:
         return False, "code_invalid", None
@@ -6659,7 +6670,7 @@ def promo_redeem_check(code, user_id):
     return True, "ok", promo
 
 def promo_redeem_apply(code, user_id):
-    """Marque la redemption (atomic). Le caller doit appliquer le reward."""
+    """Mark the redemption (atomic). The caller must apply the reward."""
     conn = get_db()
     c = conn.cursor()
     c.execute("INSERT INTO promo_redemptions (code, user_id) VALUES (?, ?)",
@@ -6788,8 +6799,8 @@ def lol_scout_sessions_list(owner_id=None, status=None, limit=50):
 
 
 def lol_scout_user_join(slug, pseudo):
-    """Renvoie {pseudo, color}. Si pseudo deja pris dans la session, ré-use.
-    Color assignee dans l'ordre d'arrivee."""
+    """Return {pseudo, color}. If the pseudo is already taken in the session, re-use it.
+    Color assigned in arrival order."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM lol_scout_users WHERE session_slug=? AND pseudo=?",
@@ -6878,7 +6889,7 @@ def lol_rank_config_upsert(guild_id, *, enabled=None, role_map=None):
 
 
 def daily_claim_apply(user_id, today_str, new_streak):
-    """Marque la claim du jour et bump le streak. Idempotent par jour."""
+    """Mark today's claim and bump the streak. Idempotent per day."""
     conn = get_db()
     c = conn.cursor()
     c.execute("""INSERT INTO daily_claims (user_id, last_claim_date, streak, total_claims, updated_at)
@@ -6952,9 +6963,9 @@ def replace_guild_members(guild_id, members):
     conn.close()
 
 
-# ===== Member roles (cache pour gating mod perms) =====
+# ===== Member roles (cache for mod perms gating) =====
 def member_roles_set(guild_id, user_id, role_ids):
-    """Remplace tous les role_ids d'un member pour cette guild."""
+    """Replace every role_id of a member for this guild."""
     conn = get_db()
     c = conn.cursor()
     c.execute(
@@ -7006,11 +7017,11 @@ def member_get_roles(guild_id, user_id) -> list[str]:
 
 
 def mod_has_perm(guild_id, user_id, perm_key: str, mod_role_id: str | None = None) -> bool:
-    """True si user a le mod_role configure ET la perm_key est activee.
+    """True if the user has the configured mod_role AND perm_key is enabled.
 
-    `perm_key` sans le prefixe 'mod_perm_'. Ex: 'kick', 'ticket'.
+    `perm_key` without the 'mod_perm_' prefix. E.g. 'kick', 'ticket'.
     """
-    # Lit mod_role_id si non fourni
+    # Read mod_role_id if not provided
     if mod_role_id is None:
         mod_role_id = guild_setting_get(guild_id, "mod_role_id", "") or ""
     if not mod_role_id:
@@ -7022,7 +7033,7 @@ def mod_has_perm(guild_id, user_id, perm_key: str, mod_role_id: str | None = Non
 
 
 def replace_guild_channels(guild_id, channels):
-    """Remplace en bulk la liste des channels d'un guild. channels = list of dicts."""
+    """Bulk-replace the channel list of a guild. channels = list of dicts."""
     conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM guild_channels WHERE guild_id = ?", (str(guild_id),))
@@ -7157,7 +7168,7 @@ def get_historique(user_id, limit=10):
     return [dict(row) for row in rows]
 
 
-# ===== DUEL - XP DE COMBAT =====
+# ===== DUEL - COMBAT XP =====
 STAT_COLUMNS = {
     "force":     "stat_force",
     "agilite":   "stat_agilite",
@@ -7167,11 +7178,11 @@ STAT_COLUMNS = {
 }
 
 def get_xp_pour_prochain_niveau(level):
-    """XP requis pour passer du niveau `level` au suivant."""
+    """XP required to go from level `level` to the next one."""
     return int(100 * (level ** 1.3))
 
 def get_combat_xp_progress(total_xp):
-    """Retourne (level, xp_dans_niveau_actuel, xp_requis_prochain_niveau)."""
+    """Return (level, xp_in_current_level, xp_required_for_next_level)."""
     level = 1
     remaining = total_xp
     while True:
@@ -7184,7 +7195,7 @@ def get_combat_xp_progress(total_xp):
             return level, 0, 0
 
 def add_combat_xp_db(user_id, montant):
-    """Ajoute de l'XP de combat. Retourne (nouveau_niveau, a_monte_de_niveau)."""
+    """Add combat XP. Returns (new_level, leveled_up)."""
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT combat_xp, combat_level, stat_points FROM duel_profil WHERE user_id = ?", (str(user_id),))
@@ -7210,7 +7221,7 @@ def add_combat_xp_db(user_id, montant):
     return new_level, leveled_up
 
 def attribuer_stat_db(user_id, stat):
-    """Attribue 1 point à une stat. Retourne True si succès."""
+    """Assign 1 point to a stat. Returns True on success."""
     if stat not in STAT_COLUMNS:
         return False
     col = STAT_COLUMNS[stat]
@@ -7344,9 +7355,9 @@ def get_premium_settings(user_id) -> dict:
 
 
 def add_premium_grant(user_id, feature="all", granted_by=None, note=None, expires_at=None):
-    """Accorde manuellement la feature premium a un utilisateur.
+    """Manually grant the premium feature to a user.
 
-    `expires_at` (ISO TEXT) : grant temporaire (trial, abo). None = permanent.
+    `expires_at` (ISO TEXT): temporary grant (trial, subscription). None = permanent.
     """
     conn = get_db()
     c = conn.cursor()
@@ -7375,19 +7386,19 @@ def remove_premium_grant(user_id, feature="all"):
 
 
 def has_premium_grant(user_id, feature="all", inherit_all: bool = True) -> bool:
-    """True si l'user a un grant manuel pour cette feature, non expire.
+    """True if the user has a manual grant for this feature, not expired.
 
-    Par defaut, un grant feature='all' compte aussi (master pack premium).
-    Passer `inherit_all=False` pour exiger un grant strictement sur la feature
-    demandee. Utile pour les abonnements distincts (ex. Battle Pass) qui ne
-    doivent PAS etre auto-debloques par le grant 'all' du /niveau Premium.
+    By default, a feature='all' grant also counts (premium master pack).
+    Pass `inherit_all=False` to require a grant strictly on the requested
+    feature. Useful for separate subscriptions (e.g. Battle Pass) that must
+    NOT be auto-unlocked by the 'all' grant of /niveau Premium.
 
-    expires_at NULL = grant permanent. expires_at <= now = expire (ignore).
+    expires_at NULL = permanent grant. expires_at <= now = expired (ignored).
     """
     conn = get_db()
     c = conn.cursor()
-    # Filtre expires_at : NULL ou futur. Comparaison ISO TEXT lexicographique
-    # OK car format datetime('now') = 'YYYY-MM-DD HH:MM:SS'.
+    # expires_at filter: NULL or in the future. Lexicographic ISO TEXT comparison
+    # OK because the datetime('now') format = 'YYYY-MM-DD HH:MM:SS'.
     if inherit_all:
         row = c.execute(
             """SELECT 1 FROM premium_grants
@@ -7408,7 +7419,7 @@ def has_premium_grant(user_id, feature="all", inherit_all: bool = True) -> bool:
     return bool(row)
 
 
-# ===== Cles d'activation TookBot+ =====
+# ===== TookBot+ activation keys =====
 
 def tookbot_plus_key_create(code, duration_days, created_by=None, note=None):
     conn = get_db(); c = conn.cursor()
@@ -7440,10 +7451,10 @@ def tookbot_plus_key_delete(code):
     return n
 
 def tookbot_plus_key_redeem(code, user_id, username=None, avatar=None):
-    """Redeem atomique d'une cle a usage unique. Marque la cle redeemed et accorde
-    (ou prolonge) le grant TookBot+ de l'utilisateur pour `duration_days` jours.
-    Stocke username/avatar du claimer pour l'affichage owner.
-    Retourne (ok, reason, expires_at). reason : ok | code_invalid | already_redeemed."""
+    """Atomic redeem of a single-use key. Marks the key redeemed and grants
+    (or extends) the user's TookBot+ grant for `duration_days` days.
+    Stores the claimer's username/avatar for the owner display.
+    Returns (ok, reason, expires_at). reason: ok | code_invalid | already_redeemed."""
     conn = get_db(); c = conn.cursor()
     row = c.execute("SELECT * FROM tookbot_plus_keys WHERE code = ?",
                     (str(code).upper(),)).fetchone()
@@ -7454,7 +7465,7 @@ def tookbot_plus_key_redeem(code, user_id, username=None, avatar=None):
         conn.close()
         return False, "already_redeemed", None
     days = int(row["duration_days"])
-    # Point de depart = expiration TookBot+ active existante (prolongation) sinon now.
+    # Starting point = existing active TookBot+ expiry (extension), otherwise now.
     base = c.execute(
         """SELECT expires_at FROM premium_grants
            WHERE user_id = ? AND feature = 'tookbot_plus'
@@ -7466,7 +7477,7 @@ def tookbot_plus_key_redeem(code, user_id, username=None, avatar=None):
     else:
         new_expires = c.execute("SELECT datetime('now', ?)",
                                 (f"+{days} days",)).fetchone()[0]
-    # Marque la cle consommee (atomic : re-check redeemed_by NULL)
+    # Mark the key as consumed (atomic: re-check redeemed_by NULL)
     upd = c.execute("UPDATE tookbot_plus_keys SET redeemed_by = ?, "
                     "redeemed_at = CURRENT_TIMESTAMP, redeemed_username = ?, redeemed_avatar = ? "
                     "WHERE code = ? AND redeemed_by IS NULL",
@@ -7474,7 +7485,7 @@ def tookbot_plus_key_redeem(code, user_id, username=None, avatar=None):
     if upd.rowcount == 0:
         conn.close()
         return False, "already_redeemed", None
-    # Applique / prolonge le grant TookBot+
+    # Apply / extend the TookBot+ grant
     c.execute('''INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note, expires_at)
                  VALUES (?, 'tookbot_plus', ?, CURRENT_TIMESTAMP, ?, ?)
                  ON CONFLICT(user_id, feature) DO UPDATE SET
@@ -7488,8 +7499,8 @@ def tookbot_plus_key_redeem(code, user_id, username=None, avatar=None):
     return True, "ok", new_expires
 
 def tookbot_plus_key_deactivate(code):
-    """Desactive manuellement une cle deja utilisee : retire le grant TookBot+ du
-    claimer et marque la cle revoquee. Retourne (ok, redeemed_by)."""
+    """Manually deactivate an already used key: removes the claimer's TookBot+
+    grant and marks the key revoked. Returns (ok, redeemed_by)."""
     conn = get_db(); c = conn.cursor()
     row = c.execute("SELECT redeemed_by FROM tookbot_plus_keys WHERE code = ?",
                     (str(code).upper(),)).fetchone()
@@ -7497,8 +7508,8 @@ def tookbot_plus_key_deactivate(code):
         conn.close()
         return False, None
     uid = row["redeemed_by"]
-    # Retire le grant TookBot+ du claimer (seulement si issu de CETTE cle, pour ne
-    # pas revoquer un abonnement Stripe / une autre cle active).
+    # Remove the claimer's TookBot+ grant (only if it came from THIS key, so we
+    # do not revoke a Stripe subscription / another active key).
     c.execute("DELETE FROM premium_grants WHERE user_id = ? AND feature = 'tookbot_plus' "
               "AND granted_by = ?", (str(uid), f"key:{str(code).upper()}"))
     c.execute("UPDATE tookbot_plus_keys SET revoked_at = CURRENT_TIMESTAMP WHERE code = ?",
@@ -7508,15 +7519,15 @@ def tookbot_plus_key_deactivate(code):
 
 
 def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:
-    """Demarre un trial TookBot+ de N jours pour cet user. 1 seul trial / user.
+    """Start an N-day TookBot+ trial for this user. Only 1 trial / user.
 
-    Retourne {ok: bool, error: str|None, expires_at: str|None}.
+    Returns {ok: bool, error: str|None, expires_at: str|None}.
     """
     import datetime as _dtmod
     conn = get_db()
     c = conn.cursor()
 
-    # Verifie qu'il n'y a pas deja un trial use (premium_settings.trial_used_at)
+    # Check there is no trial already used (premium_settings.trial_used_at)
     row = c.execute(
         "SELECT trial_used_at FROM premium_settings WHERE user_id = ?",
         (str(user_id),),
@@ -7525,7 +7536,7 @@ def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:
         conn.close()
         return {"ok": False, "error": "trial_already_used", "expires_at": None}
 
-    # Verifie qu'il n'a pas deja TookBot+ actif (grant permanent ou trial actif)
+    # Check they do not already have TookBot+ active (permanent grant or active trial)
     active = c.execute(
         """SELECT 1 FROM premium_grants
            WHERE user_id = ? AND feature = 'tookbot_plus'
@@ -7538,7 +7549,7 @@ def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:
         return {"ok": False, "error": "already_active", "expires_at": None}
 
     expires = (_dtmod.datetime.utcnow() + _dtmod.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
-    # Insere le grant temporaire
+    # Insert the temporary grant
     c.execute('''
         INSERT INTO premium_grants (user_id, feature, granted_by, granted_at, note, expires_at)
         VALUES (?, 'tookbot_plus', NULL, CURRENT_TIMESTAMP, ?, ?)
@@ -7547,7 +7558,7 @@ def start_tookbot_plus_trial(user_id, days: int = 7) -> dict:
             note       = excluded.note,
             expires_at = excluded.expires_at
     ''', (str(user_id), f"trial_{days}j", expires))
-    # Marque trial_used_at dans premium_settings (cree row si absente)
+    # Mark trial_used_at in premium_settings (creates the row if missing)
     now_iso = _dtmod.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     c.execute('''
         INSERT INTO premium_settings (user_id, trial_used_at)
@@ -7576,10 +7587,10 @@ def list_premium_grants(user_id=None):
 
 
 def user_is_premium(user_id, feature="all", owner_id=None) -> bool:
-    """Combinaison unifiee : entitlement Discord OU grant manuel OU owner ENV.
+    """Unified combination: Discord entitlement OR manual grant OR owner ENV.
 
-    `owner_id` (str) est lu depuis DISCORD_OWNER_ID a l'appel ; le passer
-    explicitement evite l'import os ici.
+    `owner_id` (str) is read from DISCORD_OWNER_ID by the caller; passing it
+    explicitly avoids importing os here.
     """
     if not user_id:
         return False
@@ -7595,7 +7606,7 @@ def user_is_premium(user_id, feature="all", owner_id=None) -> bool:
 
 # ===== GUILD BOOST + =====
 def guild_boost_get_for_user(user_id) -> list[dict]:
-    """Retourne toutes les assignations actives d'un user (1 max sauf owner)."""
+    """Return every active assignment of a user (1 max except for the owner)."""
     conn = get_db()
     c = conn.cursor()
     rows = c.execute(
@@ -7607,9 +7618,9 @@ def guild_boost_get_for_user(user_id) -> list[dict]:
 
 
 def guild_boost_assign(user_id, guild_id):
-    """Assigne le Guild Boost + d'un user a une guild (upsert).
+    """Assign a user's Guild Boost + to a guild (upsert).
 
-    Le caller doit verifier la capacite (user_max_guild_slots) AVANT d'appeler.
+    The caller must check the capacity (user_max_guild_slots) BEFORE calling.
     """
     conn = get_db()
     c = conn.cursor()
@@ -7624,7 +7635,7 @@ def guild_boost_assign(user_id, guild_id):
 
 
 def guild_boost_unassign(user_id, guild_id=None):
-    """Retire l'assignation. Si guild_id None, retire toutes celles du user."""
+    """Remove the assignment. If guild_id is None, remove all of the user's."""
     conn = get_db()
     c = conn.cursor()
     if guild_id is None:
@@ -7640,13 +7651,13 @@ def guild_boost_unassign(user_id, guild_id=None):
 
 def user_max_guild_slots(user_id, *, sku_solo=None, sku_duo=None, sku_squad=None,
                           owner_id=None) -> int:
-    """Nb total de serveurs que ce user peut booster simultanement.
+    """Total number of servers this user can boost at the same time.
 
-    Slots cumulatifs (stackent) :
-    - Owner -> 999 (illimite)
-    - Solo  (entitlement OU grant 'guild_boost')        : +1
-    - Duo   (entitlement OU grant 'guild_boost_duo')    : +2
-    - Squad (entitlement OU grant 'guild_boost_squad')  : +5
+    Cumulative slots (they stack):
+    - Owner -> 999 (unlimited)
+    - Solo  (entitlement OR 'guild_boost' grant)        : +1
+    - Duo   (entitlement OR 'guild_boost_duo' grant)    : +2
+    - Squad (entitlement OR 'guild_boost_squad' grant)  : +5
     """
     if not user_id:
         return 0
@@ -7668,10 +7679,10 @@ def user_max_guild_slots(user_id, *, sku_solo=None, sku_duo=None, sku_squad=None
 
 def guild_has_active_boost(guild_id, *, sku_solo=None, sku_duo=None, sku_squad=None,
                             owner_id=None) -> bool:
-    """True si au moins un user a assigne son Guild Boost + actif a cette guild.
+    """True if at least one user assigned their active Guild Boost + to this guild.
 
-    Verifie que les users qui ont assigne ont toujours des slots disponibles
-    (grant ou entitlement valide sur un des 3 tiers).
+    Checks that the users who assigned still have slots available
+    (valid grant or entitlement on one of the 3 tiers).
     """
     conn = get_db()
     c = conn.cursor()
@@ -7694,7 +7705,7 @@ def guild_has_active_boost(guild_id, *, sku_solo=None, sku_duo=None, sku_squad=N
 
 def user_can_assign_guild_boost(user_id, *, sku_solo=None, sku_duo=None, sku_squad=None,
                                  owner_id=None) -> bool:
-    """True si le user a au moins 1 slot Guild Boost + utilisable."""
+    """True if the user has at least 1 usable Guild Boost + slot."""
     return user_max_guild_slots(
         user_id, sku_solo=sku_solo, sku_duo=sku_duo, sku_squad=sku_squad,
         owner_id=owner_id,
@@ -7728,7 +7739,7 @@ def _current_month_key(now=None):
 
 
 def _month_bounds(month_key: str) -> tuple[str, str]:
-    """Retourne (start_iso, end_iso) du mois donne 'YYYY-MM'."""
+    """Return (start_iso, end_iso) of the given month 'YYYY-MM'."""
     y, m = map(int, month_key.split("-"))
     start = _dt.datetime(y, m, 1)
     if m == 12:
@@ -7739,20 +7750,20 @@ def _month_bounds(month_key: str) -> tuple[str, str]:
 
 
 def _seasonal_bg_expiry(unlocked_at: _dt.datetime) -> str:
-    """BG saisonnier : expire fin du mois SUIVANT le mois de deblocage.
+    """Seasonal BG: expires at the end of the month AFTER the unlock month.
 
-    Exemple : deblocage 28 mai 2026 -> expire 30 juin 2026 23:59:59.
+    Example: unlocked 28 May 2026 -> expires 30 June 2026 23:59:59.
     """
     y, m = unlocked_at.year, unlocked_at.month
     if m == 12:
         ey, em = y + 1, 12
-        # Mois suivant decembre = janvier annee+2
+        # Month after December = January of year+2
         if em == 12:
-            ny, nm = ey, 12  # decembre meme annee
+            ny, nm = ey, 12  # December, same year
         ny, nm = y + 2, 1
         end = _dt.datetime(y + 2, 1, 1) - _dt.timedelta(seconds=1)
     else:
-        # Mois suivant
+        # Next month
         nm = m + 1
         ny = y
         if nm == 12:
@@ -7796,7 +7807,7 @@ def seed_pass_quest_templates_si_vide():
         conn.commit()
         print(f"[seed] {len(_PASS_QUEST_TEMPLATES_DEFAULT)} pass_quest_templates")
     else:
-        # Migration : rebalance daily earn_xp 200/500 -> 100/250 (anciennes versions trop hardcore).
+        # Migration: rebalance daily earn_xp 200/500 -> 100/250 (old versions were too hardcore).
         c.execute(
             "UPDATE pass_quest_templates SET target = 100, label = 'Gagne 100 XP message' WHERE type='earn_xp' AND period='daily' AND target = 200"
         )
@@ -7810,7 +7821,7 @@ def seed_pass_quest_templates_si_vide():
 
 
 def _current_period_start(period: str, now: _dt.datetime = None) -> str:
-    """Renvoie le marqueur de debut de periode :
+    """Return the period start marker:
     - daily  -> 'YYYY-MM-DD' UTC
     - weekly -> 'YYYY-Www' ISO week
     """
@@ -7824,10 +7835,10 @@ def _current_period_start(period: str, now: _dt.datetime = None) -> str:
 
 
 def ensure_user_quests(user_id, period: str, slots: int = 3, now: _dt.datetime = None) -> list[dict]:
-    """Assure que l'user a `slots` quetes pour la periode courante.
+    """Ensure the user has `slots` quests for the current period.
 
-    Si la periode a change ou aucune quete n'existe, on tire `slots` templates
-    aleatoires distincts dans le pool et on les insere. Sinon retourne tel quel.
+    If the period changed or no quest exists, we draw `slots` distinct random
+    templates from the pool and insert them. Otherwise return them as-is.
     """
     import random as _random
     period_start = _current_period_start(period, now)
@@ -7841,7 +7852,7 @@ def ensure_user_quests(user_id, period: str, slots: int = 3, now: _dt.datetime =
         conn.close()
         return [dict(r) for r in rows]
 
-    # Tire `slots` templates differents pour cette periode
+    # Draw `slots` different templates for this period
     templates = c.execute(
         "SELECT * FROM pass_quest_templates WHERE period = ?", (period,)
     ).fetchall()
@@ -7867,7 +7878,7 @@ def ensure_user_quests(user_id, period: str, slots: int = 3, now: _dt.datetime =
 
 
 def list_user_active_quests(user_id) -> list[dict]:
-    """Retourne les quetes daily + weekly de la periode courante (les genere si besoin)."""
+    """Return the daily + weekly quests of the current period (generating them if needed)."""
     quests = []
     quests += ensure_user_quests(user_id, "daily",  slots=3)
     quests += ensure_user_quests(user_id, "weekly", slots=3)
@@ -7875,10 +7886,10 @@ def list_user_active_quests(user_id) -> list[dict]:
 
 
 def increment_quest_progress(user_id, quest_type: str, amount: int = 1) -> list[dict]:
-    """Incremente le progress de TOUTES les quetes actives matchant ce type.
+    """Increment the progress of ALL active quests matching this type.
 
-    Retourne la liste des quetes nouvellement completees (target atteint sur
-    cet appel) — utile pour creditter l'XP du Pass et notifier l'utilisateur.
+    Returns the list of quests newly completed (target reached during this
+    call) - useful to credit the Pass XP and notify the user.
     """
     if not user_id or amount <= 0:
         return []
@@ -7896,7 +7907,7 @@ def increment_quest_progress(user_id, quest_type: str, amount: int = 1) -> list[
             old_progress = r["progress"]
             target = r["target"]
             if old_progress >= target:
-                continue  # deja complete
+                continue  # already completed
             new_progress = min(target, old_progress + amount)
             c.execute(
                 '''UPDATE pass_user_quests SET progress = ?
@@ -7911,7 +7922,7 @@ def increment_quest_progress(user_id, quest_type: str, amount: int = 1) -> list[
 
 
 def claim_quest_reward(user_id, period: str, slot: int) -> dict | None:
-    """Marque la quete claimed et retourne {xp_reward, ...} si OK, sinon None."""
+    """Mark the quest as claimed and return {xp_reward, ...} if OK, else None."""
     period_start = _current_period_start(period)
     conn = get_db()
     c = conn.cursor()
@@ -7937,10 +7948,10 @@ def claim_quest_reward(user_id, period: str, slot: int) -> dict | None:
 
 
 def get_or_create_current_season(name: str = None) -> dict:
-    """Retourne la saison du mois courant, en la creant si elle n'existe pas.
+    """Return the season of the current month, creating it if it does not exist.
 
-    A la creation, on seed automatiquement les 30 paliers de recompenses et
-    les 3 sabres cosmetiques de la saison.
+    On creation, we automatically seed the 30 reward tiers and
+    the 3 cosmetic sabers of the season.
     """
     mk = _current_month_key()
     conn = get_db()
@@ -7964,8 +7975,8 @@ def get_or_create_current_season(name: str = None) -> dict:
     return dict(row)
 
 
-# Aucun TookCoin pour eviter le P2W (TookCoins servent aux duels/sabres).
-# Recompenses purement cosmetiques + boosts XP message (limites dans le temps).
+# No TookCoin to avoid P2W (TookCoins are used for duels/sabers).
+# Purely cosmetic rewards + message XP boosts (time-limited).
 # Format : (tier, type, payload_dict, label)
 _PASS_TIER_MAP = [
     (1,  "boost_xp",  {"hours": 0.5, "multiplier": 2.0}, "Boost XP ×2 pendant 30min"),
@@ -8006,9 +8017,9 @@ _SEASONAL_BG_NAMES = [
 
 
 def _migrate_pass_rewards_and_sabres():
-    """A chaque demarrage : assure que toutes les saisons existantes ont
-    leurs sabres saisonniers + leur pass_rewards a jour avec le _PASS_TIER_MAP
-    courant. Les unlocks deja accordes ne sont PAS revoques."""
+    """On every startup: ensures that all existing seasons have their
+    seasonal sabers + their pass_rewards up to date with the current
+    _PASS_TIER_MAP. Unlocks already granted are NOT revoked."""
     conn = get_db()
     c = conn.cursor()
     seasons = c.execute("SELECT season_id, month_key FROM pass_seasons").fetchall()
@@ -8019,7 +8030,7 @@ def _migrate_pass_rewards_and_sabres():
         except Exception as e:
             print(f"[migrate] seasonal sabres {s['month_key']} error: {e!r}")
         try:
-            # Re-seed pass_rewards : drop + insert pour appliquer le nouveau mapping
+            # Re-seed pass_rewards: drop + insert to apply the new mapping
             conn = get_db(); c = conn.cursor()
             c.execute("DELETE FROM pass_rewards WHERE season_id = ?", (s["season_id"],))
             conn.commit()
@@ -8030,12 +8041,12 @@ def _migrate_pass_rewards_and_sabres():
 
 
 def seed_pass_rewards_for_season(season_id: int, month_key: str):
-    """Insere les 30 lignes pass_rewards pour une saison. Idempotent.
+    """Insert the 30 pass_rewards rows for a season. Idempotent.
 
-    Tout est themed par mois (titres, emojis, sabres, BGs) : la map
-    _PASS_TIER_MAP utilise des indices (title_idx, emoji_idx) ou des
-    references (rarete, bg index) que seasonal_themes resout en valeurs
-    concretes selon le theme du mois."""
+    Everything is themed per month (titles, emojis, sabers, BGs): the
+    _PASS_TIER_MAP map uses indices (title_idx, emoji_idx) or references
+    (rarete, bg index) that seasonal_themes resolves into concrete values
+    according to the theme of the month."""
     from seasonal_themes import sabre_skin, _theme_for, tier_title, tier_emoji
     conn = get_db()
     c = conn.cursor()
@@ -8074,15 +8085,15 @@ def seed_pass_rewards_for_season(season_id: int, month_key: str):
 
 
 def seed_seasonal_sabres(month_key: str):
-    """Cree 3 sabres cosmetiques (R/SR/SSR) saisonniers.
+    """Create 3 seasonal cosmetic sabers (R/SR/SSR).
 
-    Pour conserver le principe anti-P2W, chaque sabre saisonnier COPIE l'effet
-    + la description detaillee d'un sabre f2p existant. MAIS le sabre f2p
-    source change chaque mois (cf. seasonal_themes.MONTH_THEMES) ce qui donne
-    une vraie variete gameplay au Pass entre saisons. Le nom du sabre,
-    l'emoji, le nom de la speciale et son emoji viennent du theme du mois.
+    To preserve the anti-P2W principle, each seasonal saber COPIES the effect
+    + the detailed description of an existing f2p saber. BUT the source f2p
+    saber changes every month (see seasonal_themes.MONTH_THEMES), which gives
+    the Pass real gameplay variety across seasons. The saber name, the emoji,
+    the special's name and its emoji come from the theme of the month.
 
-    IDs : season_<YYYY-MM>_<R|SR|SSR>"""
+    IDs: season_<YYYY-MM>_<R|SR|SSR>"""
     from seasonal_themes import sabre_skin
     conn = get_db()
     c = conn.cursor()
@@ -8090,7 +8101,7 @@ def seed_seasonal_sabres(month_key: str):
     for rarete in ("R", "SR", "SSR"):
         skin = sabre_skin(month_key, rarete)
         source_id = skin["source_id"]
-        # Lit le sabre f2p source pour copier effet + description
+        # Read the source f2p saber to copy its effect + description
         src = c.execute("SELECT * FROM sabres WHERE id = ?", (source_id,)).fetchone()
         if not src:
             print(f"[seed sabres saisonniers] source f2p manquant: {source_id} (mois {month_key} {rarete}) — skip")
@@ -8101,9 +8112,9 @@ def seed_seasonal_sabres(month_key: str):
             skin["nom"], skin["emoji_sabre"], rarete, 0, desc_generale,
             skin["nom_special"], src["speciale_description"], skin["emoji_special"], src["speciale_effet"],
         ))
-    # UPSERT : si le sabre existe deja (saison generee precedemment avec un
-    # ancien template) on met a jour ses champs visuels pour refleter le theme
-    # courant. Mecanique (speciale_effet) reste identique = anti-P2W.
+    # UPSERT: if the saber already exists (season generated previously with an
+    # old template) we update its visual fields to reflect the current theme
+    # theme. Mechanics (speciale_effet) stay identical = anti-P2W.
     for s in rows:
         try:
             c.execute('''
@@ -8127,9 +8138,9 @@ def seed_seasonal_sabres(month_key: str):
 
 
 def cleanup_legacy_seasonal_sabres():
-    """Migration : supprime les anciens sabres saisonniers crees avec des
-    raretes invalides (rare/epique/legendaire). Nettoie aussi duel_collection
-    et reset sabre_equipe sur 'bleu' pour les profils qui les avaient equipes."""
+    """Migration: delete the old seasonal sabers created with invalid
+    rarities (rare/epique/legendaire). Also cleans up duel_collection
+    and resets sabre_equipe to 'bleu' for the profiles that had them equipped."""
     conn = get_db()
     c = conn.cursor()
     bad = c.execute(
@@ -8139,19 +8150,19 @@ def cleanup_legacy_seasonal_sabres():
         conn.close()
         return
     ids = [r["id"] for r in bad]
-    # Reset sabre_equipe sur 'bleu' si l'user avait un sabre legacy equipe
+    # Reset sabre_equipe to 'bleu' if the user had a legacy saber equipped
     c.execute(
         f"UPDATE duel_profil SET sabre_equipe = 'bleu' WHERE sabre_equipe IN ({','.join(['?'] * len(ids))})",
         ids,
     )
-    # Vire les sabres legacy de duel_collection
+    # Drop the legacy sabers from duel_collection
     c.execute(
         f"DELETE FROM duel_collection WHERE sabre_id IN ({','.join(['?'] * len(ids))})",
         ids,
     )
-    # Supprime les sabres eux-memes
+    # Delete the sabers themselves
     c.executemany("DELETE FROM sabres WHERE id = ?", [(i,) for i in ids])
-    # Supprime les pass_unlocks qui pointaient sur ces sabres legacy
+    # Delete the pass_unlocks that pointed at those legacy sabers
     c.execute(
         "DELETE FROM pass_unlocks WHERE type = 'sabre' AND payload LIKE '%season_%_rare%' OR payload LIKE '%season_%_epique%' OR payload LIKE '%season_%_legendaire%'"
     )
@@ -8181,12 +8192,12 @@ def get_pass_rewards_for_season(season_id: int) -> list[dict]:
 
 def auto_claim_pass_tiers(user_id, season_id: int, current_xp: int,
                            tier_xp: int = 250, max_tier: int = 30) -> list[dict]:
-    """Compare XP du user au seuil de chaque palier non encore reclame ; declenche
-    les rewards correspondants. Retourne la liste des rewards delivres.
+    """Compare the user's XP to the threshold of every tier not claimed yet;
+    triggers the matching rewards. Returns the list of delivered rewards.
 
-    Les rewards instantanes (tookcoins) sont appliques directement.
-    Les autres (bg, title, emoji, boost_xp, sabre) creent des entrees pass_unlocks
-    avec expires_at adapte.
+    Instant rewards (tookcoins) are applied directly.
+    The others (bg, title, emoji, boost_xp, sabre) create pass_unlocks entries
+    with a suitable expires_at.
     """
     progress = get_pass_progress(user_id, season_id)
     claimed_max = progress.get("claimed_max_tier", 0)
@@ -8203,17 +8214,17 @@ def auto_claim_pass_tiers(user_id, season_id: int, current_xp: int,
             continue
         rtype = rdef["type"]
         payload = rdef.get("payload") or {}
-        # Resolution selon type
+        # Resolution depending on type
         if rtype == "tookcoins":
             try:
-                # S'assure que le profil duel existe (sinon UPDATE no-op)
+                # Make sure the duel profile exists (otherwise the UPDATE is a no-op)
                 if get_duel_profil(user_id) is None:
                     creer_duel_profil(user_id, str(user_id))
                 ajouter_tookcoins(user_id, int(payload.get("amount") or 0))
             except Exception as e:
                 print(f"[auto_claim] tookcoins error: {e!r}")
         elif rtype == "sabre":
-            # Ajoute le sabre saisonnier de la rarete a la collection
+            # Add the seasonal saber of the rarity to the collection
             mk = season["month_key"] if season else None
             if not mk:
                 conn = get_db(); c = conn.cursor()
@@ -8229,15 +8240,15 @@ def auto_claim_pass_tiers(user_id, season_id: int, current_xp: int,
                 ajouter_sabre(user_id, sabre_id)
             except Exception as e:
                 print(f"[auto_claim] sabre add error: {e!r}")
-            # Aussi enregistrer dans pass_unlocks pour visibilite
+            # Also record it in pass_unlocks for visibility
             add_pass_unlock(user_id, "sabre", {"sabre_id": sabre_id, **payload}, season_id=season_id)
         elif rtype == "bg":
-            # BG saisonnier : expire fin du mois SUIVANT
+            # Seasonal BG: expires at the end of the NEXT month
             now = _dt.datetime.utcnow()
             exp = _seasonal_bg_expiry(now)
             add_pass_unlock(user_id, "bg", payload, season_id=season_id, expires_at=exp)
         elif rtype == "boost_xp":
-            # Active immediatement, expire dans N heures
+            # Active immediately, expires in N hours
             hours = float(payload.get("hours") or 1)
             exp = (_dt.datetime.utcnow() + _dt.timedelta(hours=hours)).isoformat()
             add_pass_unlock(user_id, "boost_xp", payload, season_id=season_id, expires_at=exp)
@@ -8261,10 +8272,10 @@ def auto_claim_pass_tiers(user_id, season_id: int, current_xp: int,
 
 
 def get_user_cosmetic(user_id) -> dict:
-    """Retourne le titre et l'emoji actifs (verifies dans les unlocks) pour cet user.
+    """Return the active title and emoji (verified in the unlocks) for this user.
 
-    Renvoie {'title': str|None, 'emoji': str|None}. Si l'user a selectionne un
-    titre/emoji qu'il ne possede plus (cas rare : revoke), on renvoie None.
+    Returns {'title': str|None, 'emoji': str|None}. If the user selected a
+    title/emoji they no longer own (rare case: revoke), we return None.
     """
     settings = get_premium_settings(user_id)
     sel_title = settings.get("pass_selected_title")
@@ -8272,8 +8283,8 @@ def get_user_cosmetic(user_id) -> dict:
     out = {"title": None, "emoji": None}
     if not (sel_title or sel_emoji):
         return out
-    # Titles + emojis sont permanents (gardes entre saisons), donc on ignore
-    # expires_at qui pouvait etre set par d'anciens bugs ou rotations de saison.
+    # Titles + emojis are permanent (kept across seasons), so we ignore
+    # expires_at which could have been set by old bugs or season rotations.
     unlocks = list_user_pass_unlocks(user_id, include_expired=True)
     titles_owned = set()
     emojis_owned = set()
@@ -8293,10 +8304,10 @@ def get_user_cosmetic(user_id) -> dict:
 
 
 def list_user_owned_cosmetics(user_id) -> dict:
-    """Retourne les listes 'titles' et 'emojis' que l'user possede via Pass.
+    """Return the 'titles' and 'emojis' lists the user owns through the Pass.
 
-    Permanents : on ignore expires_at (anciens unlocks pouvaient avoir une date
-    set par bug ou par d'anciennes rotations de saison).
+    Permanent: we ignore expires_at (old unlocks could have a date set by a
+    bug or by old season rotations).
     """
     unlocks = list_user_pass_unlocks(user_id, include_expired=True)
     titles, emojis = [], []
@@ -8312,7 +8323,7 @@ def list_user_owned_cosmetics(user_id) -> dict:
 
 
 def get_active_xp_boost_multiplier(user_id) -> float:
-    """Retourne le plus haut multiplicateur boost_xp encore actif, sinon 1.0."""
+    """Return the highest boost_xp multiplier still active, otherwise 1.0."""
     unlocks = list_user_pass_unlocks(user_id, type_="boost_xp", include_expired=False)
     best = 1.0
     for u in unlocks:
@@ -8325,13 +8336,13 @@ def get_active_xp_boost_multiplier(user_id) -> float:
 
 
 def user_has_active_pass(user_id, sku_pass_id: str = None) -> bool:
-    """Pass actif : grant manuel feature='pass' OU entitlement Discord
-    sur le SKU subscription Pass.
+    """Pass active: manual grant feature='pass' OR Discord entitlement
+    on the Pass subscription SKU.
 
-    Le Battle Pass est un produit independant du /niveau Premium. Un grant
-    feature='all' (Premium pack) ne deverrouille PAS le Pass automatiquement.
-    Pour activer le check via SKU subscription Discord, passer `sku_pass_id`.
-    L'owner gere son acces via _has_pass dans web.py / is_premium_user dans bot.py.
+    The Battle Pass is a product independent from /niveau Premium. A
+    feature='all' grant (Premium pack) does NOT unlock the Pass automatically.
+    To enable the check through the Discord subscription SKU, pass `sku_pass_id`.
+    The owner manages their access via _has_pass in web.py / is_premium_user in bot.py.
     """
     if not user_id:
         return False
@@ -8356,7 +8367,7 @@ def get_pass_progress(user_id, season_id: int) -> dict:
 
 
 def add_pass_xp(user_id, season_id: int, amount: int) -> int:
-    """Incremente l'XP du Pass et retourne le nouveau total."""
+    """Increment the Pass XP and return the new total."""
     if amount <= 0:
         cur = get_pass_progress(user_id, season_id)
         return cur.get("xp", 0)
@@ -8472,10 +8483,10 @@ def reaction_role_add(guild_id, message_id, channel_id, emoji: str,
                        role_id, mode: str = "toggle", group_key: str = None,
                        created_by=None, label: str = None, position: int = 0,
                        delivery: str = "reaction", style: str = "embed"):
-    """Insere un mapping reaction-role. UPSERT sur (guild, message, emoji).
+    """Insert a reaction-role mapping. UPSERT on (guild, message, emoji).
 
-    delivery : 'reaction' (emojis sous le message) ou 'button' (boutons).
-    style    : 'embed' ou 'text' (message normal).
+    delivery: 'reaction' (emojis under the message) or 'button' (buttons).
+    style   : 'embed' or 'text' (normal message).
     """
     conn = get_db()
     c = conn.cursor()
@@ -8554,7 +8565,7 @@ def reaction_role_list(guild_id, message_id=None) -> list[dict]:
 
 
 def reaction_role_list_unique_group(guild_id, message_id, group_key: str) -> list[dict]:
-    """Retourne tous les mappings d'un meme groupe 'unique' sur ce message."""
+    """Return every mapping of the same 'unique' group on this message."""
     conn = get_db()
     c = conn.cursor()
     rows = c.execute(
@@ -8778,7 +8789,7 @@ def social_alert_update_seen(alert_id, last_seen_id: str):
 
 
 def social_alert_touch_check(alert_id):
-    """Met a jour last_check_at sans toucher last_seen_id."""
+    """Update last_check_at without touching last_seen_id."""
     conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE social_alerts SET last_check_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -8788,7 +8799,7 @@ def social_alert_touch_check(alert_id):
 
 
 def social_alert_reset(alert_id, guild_id=None) -> int:
-    """Efface last_seen_id pour forcer une re-detection au prochain poll."""
+    """Clear last_seen_id to force a re-detection on the next poll."""
     conn = get_db()
     c = conn.cursor()
     if guild_id:
@@ -8832,7 +8843,7 @@ def cs_profile_get(discord_id) -> Optional[dict]:
 
 def cs_profile_upsert(discord_id, *, steam_id=None, faceit_id=None,
                       faceit_nick=None, premier_elo=None) -> None:
-    """Insère ou met à jour un profil. Seuls les params non-None sont écrits."""
+    """Insert or update a profile. Only the non-None params are written."""
     conn = get_db()
     c = conn.cursor()
     existing = c.execute("SELECT 1 FROM cs_profiles WHERE discord_id = ?",
@@ -9166,7 +9177,7 @@ def giveaways_list(guild_id=None, *, only_active: bool = False,
 
 
 def giveaway_entry_add(giveaway_id: int, user_id) -> bool:
-    """Retourne True si nouveau participant, False si deja inscrit."""
+    """Return True if this is a new participant, False if already registered."""
     conn = get_db()
     c = conn.cursor()
     try:
@@ -9227,7 +9238,7 @@ def giveaway_cancel(giveaway_id: int) -> None:
 
 
 def giveaways_pending_finalize(now_iso: str) -> list[dict]:
-    """Liste les giveaways non termines dont la date est passee."""
+    """List the unfinished giveaways whose date has passed."""
     conn = get_db()
     c = conn.cursor()
     rows = c.execute("""SELECT * FROM giveaways

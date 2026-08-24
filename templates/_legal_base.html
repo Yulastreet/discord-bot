@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="{{ current_locale() }}" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -103,8 +103,8 @@
     </article>
 
     <footer class="legal-foot">
-      <span>© TookBot · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
-      <span><a href="/">Accueil</a></span>
+      <span>© TookBot · <a href="/privacy">{{ t('web_core.legal.privacy') }}</a> · <a href="/terms">{{ t('web_core.legal.terms') }}</a></span>
+      <span><a href="/">{{ t('web_core.nav.home') }}</a></span>
     </footer>
   </div>
 </body>

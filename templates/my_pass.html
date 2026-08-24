@@ -1,6 +1,6 @@
 {% extends "_base.html" %}
-{% block title %}Mon Pass · TookBot{% endblock %}
-{% block crumb %}Mon Pass{% endblock %}
+{% block title %}{{ t('web_premium.my_pass.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.my_pass.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -110,7 +110,7 @@
         <div class="sub" id="seasonDates"></div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:12px;color:#a8b39a;text-transform:uppercase;letter-spacing:.05em;">Palier</div>
+        <div style="font-size:12px;color:#a8b39a;text-transform:uppercase;letter-spacing:.05em;">{{ t('web_premium.my_pass.tier') }}</div>
         <div style="font-size:32px;font-weight:800;line-height:1;" id="currentTier">0</div>
         <div style="font-size:12px;color:#a8b39a;">/ <span id="maxTier">30</span></div>
       </div>
@@ -119,63 +119,57 @@
       <div class="pass-bar-fill" id="passBarFill" style="width:0%;"></div>
       <div class="pass-bar-label" id="passBarLabel">0 / 250 XP</div>
     </div>
-    <div class="sub" id="totalXpLabel">0 XP saison</div>
+    <div class="sub" id="totalXpLabel">0 XP</div>
   </div>
 
   <div class="grid" style="grid-template-columns: 1fr 1fr; gap:20px;">
     <div>
-      <h3 style="margin: 0 0 10px;">📅 Quêtes du jour</h3>
+      <h3 style="margin: 0 0 10px;">📅 {{ t('web_premium.my_pass.daily_quests') }}</h3>
       <div id="dailyList" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
     <div>
-      <h3 style="margin: 0 0 10px;">🗓️ Quêtes de la semaine</h3>
+      <h3 style="margin: 0 0 10px;">🗓️ {{ t('web_premium.my_pass.weekly_quests') }}</h3>
       <div id="weeklyList" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
   </div>
 
-  <h3 style="margin: 24px 0 6px;">Roadmap des paliers</h3>
+  <h3 style="margin: 24px 0 6px;">{{ t('web_premium.my_pass.tier_roadmap') }}</h3>
   <div id="tierGrid" class="tier-grid"></div>
 
-  <h3 style="margin: 24px 0 6px;">🎨 Cosmétiques actifs</h3>
+  <h3 style="margin: 24px 0 6px;">🎨 {{ t('web_premium.my_pass.active_cosmetics') }}</h3>
   <p class="muted" style="font-size:12px;margin-bottom:10px;">
-    Choisis un titre + un emoji parmi ceux que tu as débloqués. Ils apparaîtront
-    sur ta carte <code>/niveau</code> et sur ton <code>/profil</code> de duel.
+    {{ t('web_premium.my_pass.cosmetics_help_1') }} <code>/niveau</code> {{ t('web_premium.my_pass.cosmetics_help_2') }} <code>/profil</code> {{ t('web_premium.my_pass.cosmetics_help_3') }}
   </p>
   <div id="cosmeticPanel" class="row" style="gap:14px;flex-wrap:wrap;align-items:flex-end;">
     <label style="display:flex;flex-direction:column;gap:4px;">
-      <span class="muted" style="font-size:11px;">Titre actif</span>
+      <span class="muted" style="font-size:11px;">{{ t('web_premium.my_pass.active_title') }}</span>
       <select id="selTitle" class="input" style="min-width:200px;"></select>
     </label>
     <label style="display:flex;flex-direction:column;gap:4px;">
-      <span class="muted" style="font-size:11px;">Emoji actif (devant ton pseudo)</span>
+      <span class="muted" style="font-size:11px;">{{ t('web_premium.my_pass.active_emoji') }}</span>
       <select id="selEmoji" class="input" style="min-width:160px;"></select>
     </label>
     <span id="cosmHint" class="muted" style="font-size:11px;"></span>
   </div>
 
-  <h3 style="margin: 24px 0 6px;">Mes récompenses débloquées</h3>
+  <h3 style="margin: 24px 0 6px;">{{ t('web_premium.my_pass.my_unlocked_rewards') }}</h3>
   <div id="unlockGrid" class="unlock-grid"></div>
 </div>
 
 <div id="lockedContent" class="locked-screen hidden">
   <h2>🎟️ Battle Pass</h2>
   <p class="muted" style="max-width:560px;margin:0 auto 16px;">
-    Le Battle Pass est un <strong>abonnement mensuel</strong> qui se prend dans
-    la <strong>boutique du bot</strong> sur Discord (clique sur le profil de
-    TookBot → Boutique → <em>TookBot Battle Pass</em>).
+    {{ t('web_premium.my_pass.locked_p1') }}
     <br><br>
-    <strong>30 paliers</strong> de récompenses cosmétiques chaque mois :
-    backgrounds exclusifs, sabres skins, titres, boosts XP, et plus.
-    Le contenu rotate à chaque saison — les récompenses débloquées sur la
-    saison en cours te restent jusqu'à la fin du mois suivant.
+    {{ t('web_premium.my_pass.locked_p2') }}
   </p>
-  <div class="price-tag">3,99 € / mois · renouvellement automatique</div>
+  <div class="price-tag">3,99 € / {{ t('web_premium.my_pass.per_month') }} · {{ t('web_premium.my_pass.auto_renew') }}</div>
   <p class="muted" style="font-size:11px;margin-top:14px;">
-    Tu peux annuler à tout moment depuis Discord.
+    {{ t('web_premium.my_pass.cancel_anytime') }}
   </p>
 </div>
 
-<div id="loadingState" class="muted" style="text-align:center;padding:40px;">Chargement…</div>
+<div id="loadingState" class="muted" style="text-align:center;padding:40px;">{{ t('web_premium.common.loading') }}</div>
 
 <script>
 const REWARD_ICONS = {
@@ -187,13 +181,13 @@ const REWARD_ICONS = {
 };
 const REWARD_LABELS = {
   bg:        'Background',
-  sabre:     'Sabre',
-  title:     'Titre',
+  sabre:     'Saber',
+  title:     'Title',
   emoji:     'Emoji',
-  boost_xp:  'Boost XP',
+  boost_xp:  'XP Boost',
 };
 
-function fmt(n) { return (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' '); }
+function fmt(n) { return (n ?? 0).toLocaleString('en-US').replace(/,/g, ' '); }
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -212,7 +206,7 @@ async function load() {
     document.getElementById('passContent').classList.remove('hidden');
     render(d);
   } catch (e) {
-    document.getElementById('loadingState').textContent = 'Erreur: ' + e.message;
+    document.getElementById('loadingState').textContent = 'Error: ' + e.message;
   }
 }
 
@@ -226,21 +220,21 @@ function render(d) {
   const xpNeeded = tier < MAX_TIER ? PASS_XP_PER_TIER : 0;
   const pct = xpNeeded ? Math.min(100, (xpInTier / xpNeeded) * 100) : 100;
 
-  document.getElementById('seasonName').textContent = d.season?.name || 'Saison';
+  document.getElementById('seasonName').textContent = d.season?.name || 'Season';
   document.getElementById('seasonDates').textContent =
-    `Du ${(d.season?.started_at || '').slice(0,10)} au ${(d.season?.ends_at || '').slice(0,10)}`;
+    `From ${(d.season?.started_at || '').slice(0,10)} to ${(d.season?.ends_at || '').slice(0,10)}`;
   document.getElementById('currentTier').textContent = tier;
   document.getElementById('passBarFill').style.width = pct + '%';
   document.getElementById('passBarLabel').textContent =
-    tier >= MAX_TIER ? 'Pass complété !' : `${fmt(xpInTier)} / ${fmt(xpNeeded)} XP`;
+    tier >= MAX_TIER ? 'Pass completed!' : `${fmt(xpInTier)} / ${fmt(xpNeeded)} XP`;
   document.getElementById('totalXpLabel').textContent =
-    `${fmt(xp)} XP cumulés cette saison`;
+    `${fmt(xp)} XP earned this season`;
 
-  // Quetes
+  // Quests
   const daily  = (d.quests || []).filter(q => q.period === 'daily');
   const weekly = (d.quests || []).filter(q => q.period === 'weekly');
-  document.getElementById('dailyList').innerHTML  = daily.length  ? daily.map(renderQuest).join('')  : '<div class="muted" style="font-size:13px;">Aucune quête active.</div>';
-  document.getElementById('weeklyList').innerHTML = weekly.length ? weekly.map(renderQuest).join('') : '<div class="muted" style="font-size:13px;">Aucune quête active.</div>';
+  document.getElementById('dailyList').innerHTML  = daily.length  ? daily.map(renderQuest).join('')  : '<div class="muted" style="font-size:13px;">No active quest.</div>';
+  document.getElementById('weeklyList').innerHTML = weekly.length ? weekly.map(renderQuest).join('') : '<div class="muted" style="font-size:13px;">No active quest.</div>';
 
   // Roadmap
   const claimedMax = d.progress?.claimed_max_tier ?? 0;
@@ -262,14 +256,14 @@ function render(d) {
   }
   document.getElementById('tierGrid').innerHTML = cells.join('');
 
-  // Cosmetiques (titre / emoji)
+  // Cosmetics (title / emoji)
   renderCosmetics(d.cosmetics_owned || {titles:[],emojis:[]}, d.cosmetics_active || {});
 
   // Unlocks
   const unlocks = d.unlocks || [];
   if (unlocks.length === 0) {
     document.getElementById('unlockGrid').innerHTML =
-      '<div class="muted" style="font-size:13px;">Aucune récompense débloquée pour le moment.</div>';
+      '<div class="muted" style="font-size:13px;">No reward unlocked yet.</div>';
   } else {
     document.getElementById('unlockGrid').innerHTML = unlocks.map(u => {
       const ico = REWARD_ICONS[u.type] || '🎁';
@@ -277,14 +271,14 @@ function render(d) {
       const p = u.payload || {};
       let name = u.display_name || typLabel;
       if (!u.display_name) {
-        // fallback si l'API n'a pas enrichi (compat ascendante)
+        // fallback if the API did not enrich (backward compat)
         if (u.type === 'bg')    name = (p.bg_name || p.bg_id || '').replace('seasonal:', '');
         if (u.type === 'sabre') name = p.sabre_id || '';
         if (u.type === 'title') name = p.title || '';
         if (u.type === 'emoji') name = p.emoji || '';
-        if (u.type === 'boost_xp') name = `XP ×${p.multiplier} pendant ${p.hours}h`;
+        if (u.type === 'boost_xp') name = `XP ×${p.multiplier} for ${p.hours}h`;
       }
-      const exp = u.expires_at ? `Expire ${u.expires_at.slice(0,10)}` : 'Permanent';
+      const exp = u.expires_at ? `Expires ${u.expires_at.slice(0,10)}` : 'Permanent';
       return `<div class="unlock-card">
         <div class="ico">${ico}</div>
         <div class="meta">
@@ -317,14 +311,14 @@ function renderCosmetics(owned, active) {
     if (items.length === 0) {
       sel.disabled = true;
       sel.appendChild(Object.assign(document.createElement('option'),
-        { textContent: '— aucun débloqué —', disabled: true }));
+        { textContent: '— none unlocked —', disabled: true }));
     } else {
       sel.disabled = false;
     }
   }
 
-  buildOptions(selT, owned.titles || [], active.title, '— aucun titre —');
-  buildOptions(selE, owned.emojis || [], active.emoji, '— aucun emoji —');
+  buildOptions(selT, owned.titles || [], active.title, '— no title —');
+  buildOptions(selE, owned.emojis || [], active.emoji, '— no emoji —');
 
   async function save(kind, value) {
     hint.textContent = '…';
@@ -335,7 +329,7 @@ function renderCosmetics(owned, active) {
         body: JSON.stringify({ kind, value: value || null }),
       });
       if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.status);
-      hint.textContent = '✓ Sauvegardé';
+      hint.textContent = '✓ Saved';
       setTimeout(() => hint.textContent = '', 1800);
     } catch (e) {
       hint.textContent = '✗ ' + e.message;
@@ -350,10 +344,10 @@ function renderQuest(q) {
   const pct = Math.min(100, (q.progress / q.target) * 100);
   const done = q.progress >= q.target;
   const types = {
-    send_messages: '💬 Envoyer des messages',
-    play_duels:    '⚔️ Jouer des duels',
-    earn_xp:       "✨ Gagner de l'XP message",
-    use_commands:  '🔧 Utiliser des slash commands',
+    send_messages: '💬 Send messages',
+    play_duels:    '⚔️ Play duels',
+    earn_xp:       '✨ Earn message XP',
+    use_commands:  '🔧 Use slash commands',
   };
   return `<div class="quest ${done ? 'done' : ''}">
     <div class="top">
@@ -361,7 +355,7 @@ function renderQuest(q) {
       <span><strong>${q.progress}</strong> / ${q.target} ${done ? '✓' : ''}</span>
     </div>
     <div class="bar"><div class="fill" style="width:${pct}%;"></div></div>
-    <div class="reward">+${q.xp_reward} XP de Pass</div>
+    <div class="reward">+${q.xp_reward} Pass XP</div>
   </div>`;
 }
 

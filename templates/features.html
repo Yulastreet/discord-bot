@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'features' %}
 
-{% block title %}Fonctionnalités · Bot Console{% endblock %}
-{% block crumb %}Fonctionnalités{% endblock %}
+{% block title %}{{ t('web_core.features.crumb') }} · Bot Console{% endblock %}
+{% block crumb %}{{ t('web_core.features.crumb') }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -112,9 +112,9 @@
 {% block content %}
 <div class="col gap-7">
   <div>
-    <h1>Fonctionnalités</h1>
+    <h1>{{ t('web_core.features.heading') }}</h1>
     <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">
-      Active ou désactive chaque fonctionnalité pour ce serveur. Un membre qui tente d'utiliser une commande désactivée reçoit un message éphémère.
+      {{ t('web_core.features.subtitle') }}
     </p>
   </div>
 
@@ -137,7 +137,7 @@
           <div class="feat-desc">{{ f.desc }}</div>
         </div>
         <div class="toggle-wrap" style="flex-direction:column;align-items:flex-end;gap:6px;">
-          <label class="toggle" aria-label="Activer {{ f.label }}">
+          <label class="toggle" aria-label="{{ t('web_core.features.toggle_aria', name=f.label) }}">
             <input type="checkbox"
                    data-key="{{ f.key }}"
                    {{ 'checked' if is_on else '' }}
@@ -175,7 +175,7 @@ async function toggleFeature(checkbox) {
     const data = await res.json();
     if (!res.ok || data.error) {
       checkbox.checked = !val;
-      if (window.toast) window.toast(data.error || 'Erreur', 'error');
+      if (window.toast) window.toast(data.error || 'Error', 'error');
       return;
     }
     if (card)   card.classList.toggle('disabled', !val);
@@ -183,10 +183,10 @@ async function toggleFeature(checkbox) {
       status.textContent = val ? 'ON' : 'OFF';
       status.className = 'feat-status ' + (val ? 'on' : 'off');
     }
-    if (window.toast) window.toast(val ? 'Fonctionnalité activée' : 'Fonctionnalité désactivée');
+    if (window.toast) window.toast(val ? 'Feature enabled' : 'Feature disabled');
   } catch (e) {
     checkbox.checked = !val;
-    if (window.toast) window.toast('Erreur réseau', 'error');
+    if (window.toast) window.toast('Network error', 'error');
   } finally {
     checkbox.disabled = false;
   }

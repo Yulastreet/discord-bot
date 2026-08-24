@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = 'bot-profile' %}
-{% block title %}Bot Customization · Bot Console{% endblock %}
-{% block crumb %}Bot Customization{% endblock %}
+{% block title %}{{ t('web_features.bot_profile.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.bot_profile.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -158,82 +158,82 @@
     color: #ffa726; text-decoration: underline; margin-left: 8px;
   }
 
-  /* Preview mode = pas d'interaction */
+  /* Preview mode = no interaction */
   body.bp-preview-mode .bp-form-content { pointer-events: none; user-select: none; opacity: .65; }
 </style>
 
 <div class="bp-head">
-  <h1>Bot Customization</h1>
-  <p>Personnalise le nom, l'avatar et la bannière de TookBot sur ce serveur.</p>
+  <h1>{{ t('web_features.bot_profile.title') }}</h1>
+  <p>{{ t('web_features.bot_profile.subtitle') }}</p>
 </div>
 
 <form id="bpForm" class="bp-layout" enctype="multipart/form-data">
   <div class="bp-form-content">
 
     <div class="bp-section">
-      <h3>Nickname du bot</h3>
-      <div class="hint">Le nickname affiché sur ce serveur (max 32 caractères).</div>
+      <h3>{{ t('web_features.bot_profile.nick_title') }}</h3>
+      <div class="hint">{{ t('web_features.bot_profile.nick_hint') }}</div>
       <input type="text" name="nick" id="bpNick" class="bp-input" maxlength="32" placeholder="TookBot">
       <div class="bp-counter"><span id="bpNickCount">0</span>/32</div>
     </div>
 
     <div class="bp-section">
-      <h3>À propos (bio)</h3>
-      <div class="hint">Bio affichée sur le profil bot dans ce serveur. Markdown Discord supporté : <code>**gras**</code> <code>*italique*</code> <code>__souligné__</code> <code>~~barré~~</code> <code>`code`</code>.</div>
-      <textarea name="bio" id="bpBio" class="bp-textarea" maxlength="190" placeholder="Bot tout-en-un : musique, modération, XP."></textarea>
+      <h3>{{ t('web_features.bot_profile.bio_title') }}</h3>
+      <div class="hint">{{ t('web_features.bot_profile.bio_hint') }} <code>{{ t('web_features.bot_profile.bio_md_bold') }}</code> <code>{{ t('web_features.bot_profile.bio_md_italic') }}</code> <code>{{ t('web_features.bot_profile.bio_md_underline') }}</code> <code>{{ t('web_features.bot_profile.bio_md_strike') }}</code> <code>{{ t('web_features.bot_profile.bio_md_code') }}</code>.</div>
+      <textarea name="bio" id="bpBio" class="bp-textarea" maxlength="190" placeholder="{{ t('web_features.bot_profile.bio_placeholder') }}"></textarea>
       <div class="bp-counter"><span id="bpBioCount">0</span>/190</div>
     </div>
 
     <div class="bp-section">
-      <h3>Avatar</h3>
-      <div class="hint">Upload une image PNG/JPG/GIF/WebP, max 5 Mo.</div>
+      <h3>{{ t('web_features.bot_profile.avatar_title') }}</h3>
+      <div class="hint">{{ t('web_features.bot_profile.avatar_hint') }}</div>
       <div class="bp-file">
         <div class="bp-file-thumb" id="bpAvatarThumb">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
         </div>
         <div>
-          <label class="bp-file-btn" for="bpAvatarFile">Choisir un fichier</label>
+          <label class="bp-file-btn" for="bpAvatarFile">{{ t('web_features.bot_profile.choose_file') }}</label>
           <input type="file" name="avatar" id="bpAvatarFile" accept="image/png,image/jpeg,image/gif,image/webp">
-          <div class="bp-file-hint">PNG, JPG, GIF, WebP · Max 5 Mo</div>
+          <div class="bp-file-hint">{{ t('web_features.bot_profile.file_hint') }}</div>
         </div>
       </div>
     </div>
 
     <div class="bp-section">
-      <h3>Bannière</h3>
-      <div class="hint">Bannière du profil bot, format paysage recommandé.</div>
+      <h3>{{ t('web_features.bot_profile.banner_title') }}</h3>
+      <div class="hint">{{ t('web_features.bot_profile.banner_hint') }}</div>
       <div class="bp-file">
         <div class="bp-file-thumb" id="bpBannerThumb" style="aspect-ratio:16/9;width:120px;height:auto;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
         </div>
         <div>
-          <label class="bp-file-btn" for="bpBannerFile">Choisir un fichier</label>
+          <label class="bp-file-btn" for="bpBannerFile">{{ t('web_features.bot_profile.choose_file') }}</label>
           <input type="file" name="banner" id="bpBannerFile" accept="image/png,image/jpeg,image/gif,image/webp">
-          <div class="bp-file-hint">PNG, JPG, GIF, WebP · Max 5 Mo</div>
+          <div class="bp-file-hint">{{ t('web_features.bot_profile.file_hint') }}</div>
         </div>
       </div>
     </div>
 
     <div class="bp-actions">
-      <button type="submit" class="btn btn-primary" id="bpSave">Sauvegarder & appliquer</button>
-      <button type="button" class="btn btn-secondary" id="bpReset">Réinitialiser</button>
+      <button type="submit" class="btn btn-primary" id="bpSave">{{ t('web_features.bot_profile.save') }}</button>
+      <button type="button" class="btn btn-secondary" id="bpReset">{{ t('web_features.bot_profile.reset') }}</button>
     </div>
   </div>
 
   <div class="bp-preview-wrap">
-    <h3>Aperçu profil Discord</h3>
-    <div class="hint">À quoi ça ressemblera sur ce serveur.</div>
+    <h3>{{ t('web_features.bot_profile.preview_title') }}</h3>
+    <div class="hint">{{ t('web_features.bot_profile.preview_hint') }}</div>
     <div class="bp-preview-card">
       <div class="bp-preview-banner" id="bpPreviewBanner"></div>
       <div class="bp-preview-body">
         <div class="bp-preview-avatar" id="bpPreviewAvatar"></div>
         <div class="bp-preview-name">
           <span id="bpPreviewName">TookBot</span>
-          <span class="bp-preview-badge">APP</span>
+          <span class="bp-preview-badge">{{ t('web_features.bot_profile.badge_app') }}</span>
         </div>
         <div class="bp-preview-tag">TookBot#9730</div>
         <div class="bp-preview-section" id="bpPreviewBioWrap" hidden>
-          <h5>À propos</h5>
+          <h5>{{ t('web_features.bot_profile.about_heading') }}</h5>
           <p id="bpPreviewBio"></p>
         </div>
       </div>
@@ -246,23 +246,23 @@
 <div class="bp-paywall-scrim" id="bpPaywall">
   <div class="bp-paywall-modal">
     <div class="ico">✦</div>
-    <h2>Feature TookBot+ uniquement</h2>
-    <p>Le Bot Customization est réservé aux abonnés TookBot+. Choisis ton option ci-dessous.</p>
+    <h2>{{ t('web_features.bot_profile.paywall_title') }}</h2>
+    <p>{{ t('web_features.bot_profile.paywall_text') }}</p>
     <div class="bp-paywall-actions">
-      <button class="bp-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
-      <button class="bp-btn-preview" id="bpPreviewModeBtn">Voir un aperçu de la feature</button>
+      <button class="bp-btn-subscribe" onclick="window.location.href='/subscription'">{{ t('web_features.bot_profile.paywall_subscribe') }}</button>
+      <button class="bp-btn-preview" id="bpPreviewModeBtn">{{ t('web_features.bot_profile.paywall_preview') }}</button>
     </div>
   </div>
 </div>
 
 <div class="bp-preview-mode-banner" id="bpPreviewBanner-bottom">
-  ✦ Tu es en aperçu de la feature TookBot+ · Les actions sont désactivées.
-  <a href="/subscription">S'abonner pour débloquer</a>
+  {{ t('web_features.bot_profile.preview_banner') }}
+  <a href="/subscription">{{ t('web_features.bot_profile.preview_banner_cta') }}</a>
 </div>
 
 <script>
 (function() {
-  // Pre-rempli avec exemples pour le mode preview
+  // Pre-filled with sample values for preview mode
   document.getElementById('bpNick').value = 'Aspect Helper';
   document.getElementById('bpNickCount').textContent  = '13';
   document.getElementById('bpPreviewName').textContent  = 'Aspect Helper';
@@ -277,14 +277,14 @@
 {% endif %}
 
 <script>
-// Markdown Discord -> HTML pour preview (subset : bold, italic, underline, strike, code, codeblock, link)
+// Discord markdown -> HTML for preview (subset: bold, italic, underline, strike, code, codeblock, link)
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function discordMarkdown(raw) {
   if (!raw) return '';
   let s = escapeHtml(raw);
-  // Codeblock ``` (avant inline code)
+  // Codeblock ``` (before inline code)
   s = s.replace(/```([\s\S]*?)```/g, (_, c) => '<pre>' + c + '</pre>');
   // Inline code `...`
   s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
@@ -296,7 +296,7 @@ function discordMarkdown(raw) {
   s = s.replace(/__([^_\n]+)__/g, '<u>$1</u>');
   // Strike ~~...~~
   s = s.replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
-  // Italic *...* (apres bold)
+  // Italic *...* (after bold)
   s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
   // Italic _..._  (single underscore)
   s = s.replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, '$1<em>$2</em>');
@@ -321,7 +321,7 @@ function bind(id, counterId, previewId, isMarkdown) {
   el.addEventListener('input', upd); upd();
 }
 bind('bpNick',  'bpNickCount',  'bpPreviewName',  false);
-// Bio : preview live avec markdown Discord
+// Bio: live preview with Discord markdown
 (function() {
   const el = document.getElementById('bpBio');
   const cnt = document.getElementById('bpBioCount');
@@ -355,7 +355,7 @@ function bindFile(id, thumbId, previewBg, isAvatar) {
 bindFile('bpAvatarFile', 'bpAvatarThumb', 'bpPreviewAvatar', true);
 bindFile('bpBannerFile', 'bpBannerThumb', 'bpPreviewBanner', false);
 
-// Pre-fill depuis DB si data existante
+// Pre-fill from DB if data exists
 fetch('/api/bot-profile').then(r => r.ok ? r.json() : null).then(d => {
   if (!d) return;
   if (d.nick)       { document.getElementById('bpNick').value = d.nick; document.getElementById('bpNickCount').textContent = d.nick.length; document.getElementById('bpPreviewName').textContent = d.nick; }
@@ -369,32 +369,32 @@ document.getElementById('bpForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (document.body.classList.contains('bp-preview-mode')) return;
   const btn = document.getElementById('bpSave');
-  btn.disabled = true; btn.textContent = 'Application en cours...';
+  btn.disabled = true; btn.textContent = 'Applying...';
   try {
     const fd = new FormData(e.target);
     const r = await fetch('/api/bot-profile', { method: 'POST', body: fd });
-    // Lire texte brut puis tenter JSON (evite "Unexpected token <" si HTML retourne)
+    // Read raw text then try JSON (avoids "Unexpected token <" when HTML is returned)
     const rawText = await r.text();
     let d;
     try { d = JSON.parse(rawText); }
-    catch (_) { d = { error: `Reponse non-JSON (HTTP ${r.status}). Detail : ${rawText.slice(0, 200)}` }; }
-    if (r.ok && d.ok) { btn.textContent = 'Appliqué ✓'; setTimeout(() => { btn.textContent = 'Sauvegarder & appliquer'; btn.disabled = false; }, 1800); }
+    catch (_) { d = { error: `Non-JSON response (HTTP ${r.status}). Detail: ${rawText.slice(0, 200)}` }; }
+    if (r.ok && d.ok) { btn.textContent = 'Applied ✓'; setTimeout(() => { btn.textContent = 'Save & apply'; btn.disabled = false; }, 1800); }
     else {
-      alert('Erreur : ' + (d.error || (d.body && JSON.stringify(d.body)) || ('HTTP ' + r.status)));
-      btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer';
+      alert('Error: ' + (d.error || (d.body && JSON.stringify(d.body)) || ('HTTP ' + r.status)));
+      btn.disabled = false; btn.textContent = 'Save & apply';
     }
-  } catch (err) { alert('Erreur réseau : ' + err.message); btn.disabled = false; btn.textContent = 'Sauvegarder & appliquer'; }
+  } catch (err) { alert('Network error: ' + err.message); btn.disabled = false; btn.textContent = 'Save & apply'; }
 });
 
 document.getElementById('bpReset').addEventListener('click', async () => {
   if (document.body.classList.contains('bp-preview-mode')) return;
-  if (!confirm('Réinitialiser le profil bot sur ce serveur ?')) return;
+  if (!confirm('Reset the bot profile on this server?')) return;
   try {
     const r = await fetch('/api/bot-profile/reset', { method: 'POST' });
     const d = await r.json();
     if (r.ok && d.ok) location.reload();
-    else alert('Erreur : ' + (d.error || r.status));
-  } catch (e) { alert('Erreur : ' + e.message); }
+    else alert('Error: ' + (d.error || r.status));
+  } catch (e) { alert('Error: ' + e.message); }
 });
 </script>
 {% endblock %}

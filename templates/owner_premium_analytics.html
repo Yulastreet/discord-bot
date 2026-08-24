@@ -1,51 +1,51 @@
 {% extends "_base.html" %}
 {% set active_nav = 'owner_premium_analytics' %}
 
-{% block title %}Analytics Premium · Owner{% endblock %}
-{% block crumb %}Owner · Analytics Premium{% endblock %}
+{% block title %}{{ t('web_premium.owner_premium_analytics.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_premium_analytics.crumb') }}{% endblock %}
 
 {% block content %}
 <section class="hero">
   <div class="parallax-layer">
-    <span class="eyebrow">Owner only</span>
-    <h1>Analytics Premium.</h1>
-    <p class="hero-sub">Entitlements Discord SKU, grants manuels, codes promo, total membres premium.</p>
+    <span class="eyebrow">{{ t('web_premium.common.owner_only') }}</span>
+    <h1>{{ t('web_premium.owner_premium_analytics.title') }}</h1>
+    <p class="hero-sub">{{ t('web_premium.owner_premium_analytics.subtitle') }}</p>
   </div>
 </section>
 
 <section class="grid grid-4 mb-6" id="paCards">
   <div class="stat-card">
-    <div class="stat-head"><span class="stat-icon">👥 Total Premium</span></div>
+    <div class="stat-head"><span class="stat-icon">👥 {{ t('web_premium.owner_premium_analytics.total_premium') }}</span></div>
     <div class="stat-body"><div class="stat-num" id="paUnique"><div class="skel skel-line lg"></div></div></div>
-    <div class="stat-foot"><span class="stat-foot-label">Membres uniques avec accès</span></div>
+    <div class="stat-foot"><span class="stat-foot-label">{{ t('web_premium.owner_premium_analytics.total_premium_foot') }}</span></div>
   </div>
   <div class="stat-card">
-    <div class="stat-head"><span class="stat-icon">🎟️ Pass actifs</span></div>
+    <div class="stat-head"><span class="stat-icon">🎟️ {{ t('web_premium.owner_premium_analytics.active_passes') }}</span></div>
     <div class="stat-body"><div class="stat-num" id="paPass"><div class="skel skel-line lg"></div></div></div>
-    <div class="stat-foot"><span class="stat-foot-label">Abonnements en cours</span></div>
+    <div class="stat-foot"><span class="stat-foot-label">{{ t('web_premium.owner_premium_analytics.active_passes_foot') }}</span></div>
   </div>
   <div class="stat-card">
-    <div class="stat-head"><span class="stat-icon">🎁 Grants</span></div>
+    <div class="stat-head"><span class="stat-icon">🎁 {{ t('web_premium.owner_premium_analytics.grants') }}</span></div>
     <div class="stat-body"><div class="stat-num" id="paGrants"><div class="skel skel-line lg"></div></div></div>
-    <div class="stat-foot"><span class="stat-foot-label">Offerts manuellement</span></div>
+    <div class="stat-foot"><span class="stat-foot-label">{{ t('web_premium.owner_premium_analytics.grants_foot') }}</span></div>
   </div>
   <div class="stat-card">
-    <div class="stat-head"><span class="stat-icon">🏷️ Codes utilisés (30 j)</span></div>
+    <div class="stat-head"><span class="stat-icon">🏷️ {{ t('web_premium.owner_premium_analytics.codes_used_30d') }}</span></div>
     <div class="stat-body"><div class="stat-num" id="paRedeems"><div class="skel skel-line lg"></div></div></div>
-    <div class="stat-foot"><span class="stat-foot-label">Redemptions sur 30 jours</span></div>
+    <div class="stat-foot"><span class="stat-foot-label">{{ t('web_premium.owner_premium_analytics.codes_used_30d_foot') }}</span></div>
   </div>
 </section>
 
 <div class="grid grid-2 gap-5 mb-6">
   <section class="card">
-    <h2 style="margin-bottom: var(--s-3);">Entitlements par SKU</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_premium.owner_premium_analytics.entitlements_by_sku') }}</h2>
     <div id="paSkuList">
       <div class="skel skel-line" style="margin: 6px 0;"></div>
       <div class="skel skel-line" style="margin: 6px 0;"></div>
     </div>
   </section>
   <section class="card">
-    <h2 style="margin-bottom: var(--s-3);">Grants par feature</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_premium.owner_premium_analytics.grants_by_feature') }}</h2>
     <div id="paFeatureList">
       <div class="skel skel-line" style="margin: 6px 0;"></div>
       <div class="skel skel-line" style="margin: 6px 0;"></div>
@@ -55,8 +55,8 @@
 
 <section class="card padless">
   <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-    <h2 style="margin:0;">Top codes les plus utilisés</h2>
-    <a class="btn btn-secondary btn-sm" href="/owner/promo-codes">Gérer les codes →</a>
+    <h2 style="margin:0;">{{ t('web_premium.owner_premium_analytics.top_codes') }}</h2>
+    <a class="btn btn-secondary btn-sm" href="/owner/promo-codes">{{ t('web_premium.owner_premium_analytics.manage_codes') }}</a>
   </div>
   <div id="paTopWrap">
     <div style="padding: var(--s-5);">
@@ -68,43 +68,42 @@
 </section>
 
 <section class="card" style="margin-top: var(--s-6); padding: var(--s-6);">
-  <h2 style="margin:0 0 6px;">❤️ Message de soutien (Ko-fi)</h2>
+  <h2 style="margin:0 0 6px;">❤️ {{ t('web_premium.owner_premium_analytics.support_message_title') }}</h2>
   <p class="muted" style="margin:0 0 16px; font-size:13px;">
-    Message posté dans le salon soutien quand un membre reçoit un rôle de donateur.
+    {{ t('web_premium.owner_premium_analytics.support_message_sub') }}
   </p>
   <form id="soutienForm" style="display:grid; gap:16px; max-width:680px;">
     <label style="display:grid; gap:6px;">
-      <span style="font-weight:600;">Message</span>
+      <span style="font-weight:600;">{{ t('web_premium.owner_premium_analytics.message') }}</span>
       <textarea id="soutienMessage" rows="3"
         style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-1); color:var(--text); font-family:inherit; resize:vertical;"
-        placeholder="<user> A décidé de filer un coup de main !">{{ soutien_message }}</textarea>
+        placeholder="{{ t('web_premium.owner_premium_analytics.message_placeholder') }}">{{ soutien_message }}</textarea>
       <span class="muted" style="font-size:12px;">
-        Variables : <code>&lt;user&gt;</code> mention · <code>&lt;username&gt;</code> pseudo ·
-        <code>&lt;role&gt;</code> nom du rôle · <code>&lt;server&gt;</code> nom du serveur ·
-        <code>&lt;timestamp&gt;</code> date/heure
+        {{ t('web_premium.owner_premium_analytics.vars_label') }} <code>&lt;user&gt;</code> {{ t('web_premium.owner_premium_analytics.var_user') }} · <code>&lt;username&gt;</code> {{ t('web_premium.owner_premium_analytics.var_username') }} ·
+        <code>&lt;role&gt;</code> {{ t('web_premium.owner_premium_analytics.var_role') }} · <code>&lt;server&gt;</code> {{ t('web_premium.owner_premium_analytics.var_server') }} ·
+        <code>&lt;timestamp&gt;</code> {{ t('web_premium.owner_premium_analytics.var_timestamp') }}
       </span>
     </label>
     <label style="display:grid; gap:6px;">
-      <span style="font-weight:600;">IDs des rôles déclencheurs (séparés par virgules)</span>
+      <span style="font-weight:600;">{{ t('web_premium.owner_premium_analytics.trigger_role_ids') }}</span>
       <input id="soutienRoleIds" type="text"
         style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-1); color:var(--text);"
-        placeholder="ex: 123456789012345678, 987654321098765432"
+        placeholder="{{ t('web_premium.owner_premium_analytics.role_ids_placeholder') }}"
         value="{{ soutien_role_ids }}">
       <span class="muted" style="font-size:12px;">
-        Clic droit sur le rôle &gt; Copier l'identifiant. Vide = utilise les noms
-        "💎 VIP" et "🧡 Super VIP" par défaut (moins fiable).
+        {{ t('web_premium.owner_premium_analytics.role_ids_help') }}
       </span>
     </label>
     <label style="display:grid; gap:6px;">
-      <span style="font-weight:600;">ID du salon soutien</span>
+      <span style="font-weight:600;">{{ t('web_premium.owner_premium_analytics.support_channel_id') }}</span>
       <input id="soutienChannelId" type="text"
         style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-1); color:var(--text);"
-        placeholder="ID du salon ❤️│soutien"
+        placeholder="{{ t('web_premium.owner_premium_analytics.channel_id_placeholder') }}"
         value="{{ soutien_channel_id }}">
-      <span class="muted" style="font-size:12px;">Vide = valeur par défaut.</span>
+      <span class="muted" style="font-size:12px;">{{ t('web_premium.owner_premium_analytics.empty_default') }}</span>
     </label>
     <div style="display:flex; gap:10px; align-items:center;">
-      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <button type="submit" class="btn btn-primary">{{ t('web_premium.common.save') }}</button>
       <span id="soutienSaveStatus" class="muted" style="font-size:13px;"></span>
     </div>
   </form>
@@ -116,7 +115,7 @@
 const REWARD_LABELS = {
   tookcoins: '🪙 TC',
   pass_xp: '🎟️ XP',
-  premium_grant_days: '🎁 j',
+  premium_grant_days: '🎁 d',
 };
 
 fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
@@ -132,7 +131,7 @@ fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
   const skuList = document.getElementById('paSkuList');
   const skus = Object.entries(data.entitlements_by_sku || {});
   if (skus.length === 0) {
-    skuList.innerHTML = '<p class="muted" style="font-size: var(--t-sm);">Aucun entitlement actif.</p>';
+    skuList.innerHTML = '<p class="muted" style="font-size: var(--t-sm);">No active entitlement.</p>';
   } else {
     skuList.innerHTML = skus.map(([sku, n]) => `
       <div class="bar-row" style="grid-template-columns: 1fr 80px;">
@@ -145,7 +144,7 @@ fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
   const featList = document.getElementById('paFeatureList');
   const feats = Object.entries(data.grants_by_feature || {});
   if (feats.length === 0) {
-    featList.innerHTML = '<p class="muted" style="font-size: var(--t-sm);">Aucun grant manuel.</p>';
+    featList.innerHTML = '<p class="muted" style="font-size: var(--t-sm);">No manual grant.</p>';
   } else {
     featList.innerHTML = feats.map(([feat, n]) => `
       <div class="bar-row" style="grid-template-columns: 1fr 80px;">
@@ -158,15 +157,15 @@ fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
   const top = data.promo_top || [];
   const topWrap = document.getElementById('paTopWrap');
   if (top.length === 0) {
-    topWrap.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);">Aucun code créé.</div>';
+    topWrap.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);">No code created.</div>';
   } else {
     topWrap.innerHTML = `
       <table class="tbl">
         <thead>
           <tr>
             <th>Code</th>
-            <th>Récompense</th>
-            <th class="num">Utilisations</th>
+            <th>Reward</th>
+            <th class="num">Uses</th>
           </tr>
         </thead>
         <tbody>
@@ -185,14 +184,14 @@ fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
   document.querySelectorAll('.stat-num').forEach(el => el.textContent = '—');
 });
 
-// Sauvegarde du message de soutien
+// Save the support message
 (function(){
   const f = document.getElementById("soutienForm");
   if (!f) return;
   f.addEventListener("submit", async function(e){
     e.preventDefault();
     const status = document.getElementById("soutienSaveStatus");
-    status.textContent = "Enregistrement...";
+    status.textContent = "Saving...";
     try {
       const r = await fetch("/api/owner/soutien-settings", {
         method: "POST",
@@ -204,9 +203,9 @@ fetch('/api/owner/premium-analytics').then(r => r.json()).then(data => {
         })
       });
       const data = await r.json();
-      status.textContent = data.success ? "Enregistré ✓" : "Échec";
+      status.textContent = data.success ? "Saved ✓" : "Failed";
     } catch (err) {
-      status.textContent = "Erreur réseau";
+      status.textContent = "Network error";
     }
   });
 })();

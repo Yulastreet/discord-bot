@@ -1,8 +1,8 @@
-"""Render carte + bordure custom (cosmetique joueur).
+"""Card render + custom border (player cosmetic).
 
-Base = render local static/card_renders/<card_id>.png (450x675).
-Bordure = PNG RGBA dans assets/cardrelated/borders/, resize + offset selon
-config owner (offset_x, offset_y, scale_pct). Output dans
+Base = local render static/card_renders/<card_id>.png (450x675).
+Border = RGBA PNG in assets/cardrelated/borders/, resized + offset according
+to the owner config (offset_x, offset_y, scale_pct). Output in
 static/card_customs/<user_id>_<card_id>.png.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ _USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 _border_cache: dict[str, Image.Image] = {}
 _star_cache: dict[tuple, Image.Image] = {}
 
-# Etoiles par rareté (assets/cardrelated). secret -> fichier mythic (pas de fichier dedie).
+# Stars per rarity (assets/cardrelated). secret -> mythic file (no dedicated file).
 _STARS_BY_RARITY = {
     "common":    "starscommune.png",
     "rare":      "starsrare.png",
@@ -42,7 +42,7 @@ def _star_path(rarity: str | None) -> str:
         p = os.path.join(_ROOT, "assets", "cardrelated", fname)
         if os.path.exists(p):
             return p
-    return _STARS_PATH  # fallback ancien sprite unique
+    return _STARS_PATH  # fallback to the old single sprite
 
 
 def _get_star(rarity: str | None, size: int) -> Image.Image | None:
@@ -61,39 +61,39 @@ def _get_star(rarity: str | None, size: int) -> Image.Image | None:
 
 
 def _overlay_stars(canvas: Image.Image, level: int, rarity: str | None = None) -> Image.Image:
-    """Pose une rangee de `level` etoiles (sprite selon rarete) en bas-centre.
-    L'etoile du milieu est agrandie UNIQUEMENT a 5 etoiles ; sinon toutes egales."""
+    """Place a row of `level` stars (sprite depends on rarity) at bottom center.
+    The middle star is enlarged ONLY at 5 stars; otherwise all are equal."""
     level = max(0, min(5, int(level or 0)))
     if level <= 0:
         return canvas
     path = _star_path(rarity)
     if not os.path.exists(path):
-        print(f"[card_render] sprite etoiles introuvable: {path}")
+        print(f"[card_render] stars sprite not found: {path}")
         return canvas
     base_size = 46
-    mid_size = 64        # etoile centrale agrandie (5 etoiles seulement)
+    mid_size = 64        # enlarged center star (5 stars only)
     gap = 6
-    center_y = int(_CARD_H * 0.80)  # un peu plus bas, sans toucher le cadre
+    center_y = int(_CARD_H * 0.80)  # slightly lower, without touching the frame
     if level >= 5:
-        mid_index = level // 2      # etoile du milieu (5 -> index 2)
+        mid_index = level // 2      # middle star (5 -> index 2)
         sizes = [mid_size if i == mid_index else base_size for i in range(level)]
     else:
-        sizes = [base_size] * level  # avant 5 : toutes la meme taille
+        sizes = [base_size] * level  # below 5: all the same size
     total_w = sum(sizes) + gap * (level - 1)
     out = canvas.convert("RGBA")
     x = (_CARD_W - total_w) // 2
     for s in sizes:
         star = _get_star(rarity, s)
         if star is not None:
-            y = center_y - s // 2  # centre vertical aligne
+            y = center_y - s // 2  # vertically centered
             out.paste(star, (x, y), star)
         x += s + gap
     return out
 
 
 def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | None:
-    """Charge le render local de la carte. Fallback : download image_url remote
-    (UA navigateur + cache local pour eviter de re-telecharger / 429)."""
+    """Load the card's local render. Fallback: download the remote image_url
+    (browser UA + local cache to avoid re-downloading / 429)."""
     for _ext in (".webp", ".png"):
         local = os.path.join(_RENDERS_DIR, f"{card_id}{_ext}")
         if os.path.exists(local):
@@ -112,12 +112,12 @@ def _load_base(card_id: int, fallback_url: str | None = None) -> Image.Image | N
                 data = resp.read()
             im = Image.open(io.BytesIO(data))
             try:
-                im.seek(0)  # GIF/WEBP animé (cartes secretes) : 1ere frame
+                im.seek(0)  # animated GIF/WEBP (secret cards): first frame
             except Exception:
                 pass
             img = im.convert("RGBA")
             img = img.resize((_CARD_W, _CARD_H), Image.LANCZOS)
-            # Cache en local render (webp leger) pour ne plus retelecharger (evite 429)
+            # Cache as a local render (light webp) to avoid re-downloading (avoids 429)
             try:
                 os.makedirs(_RENDERS_DIR, exist_ok=True)
                 img.convert("RGB").save(os.path.join(_RENDERS_DIR, f"{card_id}.webp"),
@@ -149,14 +149,14 @@ def _load_border(filename: str) -> Image.Image | None:
 def composite_border_preview(base: Image.Image, border_img: Image.Image,
                               offset_x: int = 0, offset_y: int = 0,
                               scale_pct: int = 100, card_scale_pct: int = 100) -> Image.Image:
-    """Composite bordure sur base (450x675). Retourne nouvelle image RGBA.
+    """Composite the border onto the base (450x675). Returns a new RGBA image.
 
-    card_scale_pct redimensionne la carte dans le cadre (fond rempli par
-    la carte plein-cadre derriere les marges)."""
+    card_scale_pct resizes the card inside the frame (background filled by
+    the full-frame card behind the margins)."""
     if base.size != (_CARD_W, _CARD_H):
         base = base.resize((_CARD_W, _CARD_H), Image.LANCZOS)
     canvas = base.copy().convert("RGBA")
-    # Echelle de la carte dans le cadre
+    # Card scale inside the frame
     cs = max(20, min(200, int(card_scale_pct or 100))) / 100.0
     if abs(cs - 1.0) > 0.001:
         cw, ch = int(_CARD_W * cs), int(_CARD_H * cs)
@@ -164,17 +164,17 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
         px = (_CARD_W - cw) // 2
         py = (_CARD_H - ch) // 2
         if cs < 1.0:
-            # Marges transparentes (pas de fond) + carte scalee centree
+            # Transparent margins (no background) + scaled card centered
             canvas = Image.new("RGBA", (_CARD_W, _CARD_H), (0, 0, 0, 0))
             canvas.paste(scaled, (px, py), scaled if scaled.mode == "RGBA" else None)
         else:
-            # carte plus grande : crop au centre
+            # bigger card: crop at the center
             canvas = scaled.crop((-px, -py, -px + _CARD_W, -py + _CARD_H)).convert("RGBA")
     scale = max(10, min(300, int(scale_pct or 100))) / 100.0
     bw = int(_CARD_W * scale)
     bh = int(_CARD_H * scale)
     bimg = border_img.resize((bw, bh), Image.LANCZOS)
-    # Centre + offset
+    # Center + offset
     px = (_CARD_W - bw) // 2 + int(offset_x or 0)
     py = (_CARD_H - bh) // 2 + int(offset_y or 0)
     layer = Image.new("RGBA", (_CARD_W, _CARD_H), (0, 0, 0, 0))
@@ -183,7 +183,7 @@ def composite_border_preview(base: Image.Image, border_img: Image.Image,
 
 
 def _load_alt(card_id: int) -> Image.Image | None:
-    """Charge le render du skin ALT (card_renders/<id>_alt.png|webp) ou None."""
+    """Load the ALT skin render (card_renders/<id>_alt.png|webp) or None."""
     for _ext in (".webp", ".png"):
         p = os.path.join(_RENDERS_DIR, f"{card_id}_alt{_ext}")
         if os.path.exists(p):
@@ -198,17 +198,17 @@ def compose_card_image(card_id: int, border: dict | None = None,
                         fusion_level: int = 0,
                         fallback_url: str | None = None,
                         alt: bool = False) -> Image.Image | None:
-    """Compose la carte (bordure et/ou etoiles) et retourne l'image PIL RGBA, ou None.
-    alt=True : utilise le skin alternatif comme base (les event cards n'ont pas de
-    bordure ; on garde juste les etoiles de fusion sur l'art alt)."""
+    """Compose the card (border and/or stars) and return the PIL RGBA image, or None.
+    alt=True: use the alternate skin as the base (event cards have no border;
+    only the fusion stars are kept on the alt art)."""
     base = (_load_alt(card_id) if alt else None) or _load_base(card_id, fallback_url)
     if base is None:
-        print(f"[card_render] base introuvable card={card_id} fallback={fallback_url}")
+        print(f"[card_render] base not found card={card_id} fallback={fallback_url}")
         return None
     if border and not alt:
         bimg = _load_border(border["filename"])
         if bimg is None:
-            print(f"[card_render] bordure introuvable: {border.get('filename')}")
+            print(f"[card_render] border not found: {border.get('filename')}")
             out = base.convert("RGBA")
         else:
             out = composite_border_preview(
@@ -236,8 +236,8 @@ def render_user_card(user_id: int, card_id: int, border: dict | None = None,
                       fusion_level: int = 0,
                       fallback_url: str | None = None,
                       alt: bool = False) -> str | None:
-    """Genere render carte custom (bordure et/ou etoiles fusion). URL relative ou None.
-    alt=True : compose sur le skin alternatif (etoiles seulement)."""
+    """Generate a custom card render (border and/or fusion stars). Relative URL or None.
+    alt=True: compose on the alternate skin (stars only)."""
     os.makedirs(_CUSTOMS_DIR, exist_ok=True)
     out = compose_card_image(card_id, border, fusion_level, fallback_url, alt=alt)
     if out is None:
@@ -252,14 +252,14 @@ def render_border_preview_file(border_key: str, filename: str,
                                 offset_x: int = 0, offset_y: int = 0,
                                 scale_pct: int = 100, card_scale_pct: int = 100,
                                 placeholder_card_id: int | None = None) -> str | None:
-    """Genere preview placement bordure sur une carte placeholder (dashboard owner).
+    """Generate a border placement preview on a placeholder card (owner dashboard).
     Output static/card_customs/_preview_<border_key>.png."""
     os.makedirs(_CUSTOMS_DIR, exist_ok=True)
     base = None
     if placeholder_card_id:
         base = _load_base(placeholder_card_id)
     if base is None:
-        # Placeholder gris uni
+        # Plain grey placeholder
         base = Image.new("RGBA", (_CARD_W, _CARD_H), (40, 42, 48, 255))
     bimg = _load_border(filename)
     if bimg is None:

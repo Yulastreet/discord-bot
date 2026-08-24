@@ -1,25 +1,27 @@
-"""Stripe Checkout + Customer Portal + Webhook pour TookBot+.
+"""Stripe Checkout + Customer Portal + Webhook for TookBot+.
 
-Env vars requises (.env) :
-    STRIPE_SECRET_KEY        sk_live_... ou sk_test_...
-    STRIPE_WEBHOOK_SECRET    whsec_... (recopie depuis Stripe Dashboard > Webhooks endpoint)
-    STRIPE_PRICE_1MO         price_xxx (4.39 EUR /mois)
-    STRIPE_PRICE_3MO         price_xxx (3.99 EUR /mois, billed every 3 months)
-    STRIPE_PRICE_6MO         price_xxx (3.49 EUR /mois, billed every 6 months)
-    STRIPE_PRICE_12MO        price_xxx (2.99 EUR /mois, billed every 12 months)
-    DASHBOARD_URL            https://dashboard.tookbot.click (pour success/cancel/return URLs)
+Required env vars (.env):
+    STRIPE_SECRET_KEY        sk_live_... or sk_test_...
+    STRIPE_WEBHOOK_SECRET    whsec_... (copied from Stripe Dashboard > Webhooks endpoint)
+    STRIPE_PRICE_1MO         price_xxx (4.39 EUR /month)
+    STRIPE_PRICE_3MO         price_xxx (3.99 EUR /month, billed every 3 months)
+    STRIPE_PRICE_6MO         price_xxx (3.49 EUR /month, billed every 6 months)
+    STRIPE_PRICE_12MO        price_xxx (2.99 EUR /month, billed every 12 months)
+    DASHBOARD_URL            https://dashboard.tookbot.click (for success/cancel/return URLs)
 
-Cote Stripe Dashboard (https://dashboard.stripe.com) :
-1. Crée 4 produits "TookBot+ 1 mois / 3 mois / 6 mois / 12 mois"
-2. Pour chaque, ajoute 1 prix recurrent EUR avec billing period correspondant
-3. Configure ton webhook endpoint : https://dashboard.tookbot.click/api/stripe/webhook
-   Events a ecouter : checkout.session.completed, customer.subscription.created,
+On the Stripe Dashboard side (https://dashboard.stripe.com):
+1. Create 4 products "TookBot+ 1 month / 3 months / 6 months / 12 months"
+2. For each one, add 1 recurring EUR price with the matching billing period
+3. Configure your webhook endpoint: https://dashboard.tookbot.click/api/stripe/webhook
+   Events to listen to: checkout.session.completed, customer.subscription.created,
    customer.subscription.updated, customer.subscription.deleted, invoice.paid, invoice.payment_failed
-4. Active le Customer Portal (Stripe Dashboard > Settings > Customer portal)
+4. Enable the Customer Portal (Stripe Dashboard > Settings > Customer portal)
 """
 
 import os
 from flask import request, jsonify, g, redirect, session
+
+from services.i18n import t
 
 try:
     import stripe as _stripe
@@ -36,9 +38,9 @@ _PRICE_BY_MONTHS = {
 
 
 def _g(obj, key, default=None):
-    """Safe getter pour StripeObject (qui n'a pas .get dict-style en v15+).
+    """Safe getter for a StripeObject (no dict-style .get since v15+).
 
-    Tente __getitem__, sinon getattr, sinon default.
+    Tries __getitem__, then getattr, then default.
     """
     if obj is None:
         return default
@@ -54,10 +56,10 @@ def _g(obj, key, default=None):
 
 def _stripe_ready():
     if _stripe is None:
-        return False, "Module stripe non installe. pip install stripe"
+        return False, t("api.stripe.module_missing")
     key = os.getenv("STRIPE_SECRET_KEY", "").strip()
     if not key:
-        return False, "STRIPE_SECRET_KEY absent dans .env"
+        return False, t("api.stripe.secret_key_missing")
     _stripe.api_key = key
     return True, None
 
@@ -91,19 +93,19 @@ def register_stripe_routes(app, deps):
         months = str(data.get("months") or "1").strip()
         price_env = _PRICE_BY_MONTHS.get(months)
         if not price_env:
-            return jsonify({"error": "months invalide (1, 3, 6, 12 seulement)"}), 400
+            return jsonify({"error": t("api.stripe.invalid_months")}), 400
         price_id = os.getenv(price_env, "").strip()
         if not price_id:
-            return jsonify({"error": f"env var {price_env} non configuree"}), 500
+            return jsonify({"error": t("api.stripe.price_env_missing", env_var=price_env)}), 500
 
         base = _dashboard_base()
-        # Re-use Stripe customer si l'user en a deja un
+        # Re-use the Stripe customer when the user already has one
         existing = stripe_subscription_get(uid) or {}
         customer = existing.get("stripe_customer_id") or None
 
         try:
-            # En mode subscription Stripe cree automatiquement un Customer si pas fourni.
-            # customer_creation est interdit en mode subscription (seulement payment one-shot).
+            # In subscription mode Stripe creates a Customer automatically when none is given.
+            # customer_creation is forbidden in subscription mode (payment one-shot only).
             kwargs = dict(
                 mode="subscription",
                 payment_method_types=["card", "paypal"],
@@ -123,7 +125,7 @@ def register_stripe_routes(app, deps):
             sess = _stripe.checkout.Session.create(**kwargs)
         except Exception as e:
             print(f"[stripe checkout] err: {type(e).__name__}: {e}")
-            return jsonify({"error": "Le paiement est momentanément indisponible. Réessaie dans quelques minutes."}), 500
+            return jsonify({"error": t("api.stripe.checkout_unavailable")}), 500
 
         return jsonify({"url": sess.url, "session_id": sess.id})
 
@@ -138,7 +140,7 @@ def register_stripe_routes(app, deps):
 
         sub = stripe_subscription_get(uid)
         if not sub or not sub.get("stripe_customer_id"):
-            return jsonify({"error": "Aucun abonnement Stripe trouve pour ton compte."}), 404
+            return jsonify({"error": t("api.stripe.no_subscription")}), 404
 
         base = _dashboard_base()
         try:
@@ -149,7 +151,7 @@ def register_stripe_routes(app, deps):
             )
         except Exception as e:
             print(f"[stripe portal] err: {type(e).__name__}: {e}")
-            return jsonify({"error": "Le portail d'abonnement est momentanément indisponible. Réessaie plus tard."}), 500
+            return jsonify({"error": t("api.stripe.portal_unavailable")}), 500
 
         return jsonify({"url": portal.url})
 
@@ -160,15 +162,15 @@ def register_stripe_routes(app, deps):
             return jsonify({"error": err}), 500
         wh_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
         if not wh_secret:
-            return jsonify({"error": "STRIPE_WEBHOOK_SECRET absent"}), 500
+            return jsonify({"error": t("api.stripe.webhook_secret_missing")}), 500
 
         payload = request.get_data(as_text=False)
         sig = request.headers.get("Stripe-Signature", "")
         try:
             event = _stripe.Webhook.construct_event(payload, sig, wh_secret)
         except Exception as e:
-            print(f"[stripe webhook] signature invalide : {e}")
-            return jsonify({"error": "signature invalide"}), 400
+            print(f"[stripe webhook] invalid signature: {e}")
+            return jsonify({"error": t("api.stripe.invalid_signature")}), 400
 
         etype = event["type"]
         obj   = event["data"]["object"]
@@ -192,14 +194,14 @@ def register_stripe_routes(app, deps):
         return jsonify({"ok": True})
 
     def _handle_checkout_completed(sess):
-        """Premier paiement reussi : enregistre customer + subscription + grant tookbot_plus."""
+        """First successful payment: store customer + subscription + grant tookbot_plus."""
         meta      = _g(sess, "metadata") or {}
         uid       = _g(meta, "discord_user_id") or _g(sess, "client_reference_id")
         months    = int(_g(meta, "plan_months") or 1)
         customer  = _g(sess, "customer")
         sub_id    = _g(sess, "subscription")
         if not uid:
-            print("[stripe checkout.completed] discord_user_id manquant, skip")
+            print("[stripe checkout.completed] missing discord_user_id, skipping")
             return
         stripe_subscription_upsert(
             uid,
@@ -210,23 +212,23 @@ def register_stripe_routes(app, deps):
         )
         add_premium_grant(uid, feature="tookbot_plus", granted_by="stripe",
                           note=f"sub:{sub_id} plan:{months}mo")
-        print(f"[stripe] grant tookbot_plus pour user={uid} sub={sub_id} ({months}mo)")
+        print(f"[stripe] grant tookbot_plus for user={uid} sub={sub_id} ({months}mo)")
 
     def _handle_subscription_updated(sub):
-        """Subscription state change : sync DB + grant/revoke selon status."""
+        """Subscription state change: sync the DB + grant/revoke depending on status."""
         meta     = _g(sub, "metadata") or {}
         uid_meta = _g(meta, "discord_user_id")
         customer = _g(sub, "customer")
         sub_id   = _g(sub, "id")
         status   = _g(sub, "status")
         cpe      = _g(sub, "current_period_end")
-        # Resolve uid via metadata ou DB lookup
+        # Resolve uid through metadata or a DB lookup
         uid = uid_meta
         if not uid and customer:
             row = stripe_subscription_get_by_customer(customer) or {}
             uid = row.get("discord_user_id")
         if not uid:
-            print(f"[stripe sub.updated] uid introuvable customer={customer}")
+            print(f"[stripe sub.updated] uid not found customer={customer}")
             return
         stripe_subscription_upsert(
             uid,
@@ -257,7 +259,7 @@ def register_stripe_routes(app, deps):
         print(f"[stripe sub.deleted] revoke tookbot_plus uid={uid}")
 
     def _handle_invoice_paid(inv):
-        # Met a jour current_period_end via la sub
+        # Refresh current_period_end through the subscription
         sub_id = _g(inv, "subscription")
         if not sub_id:
             return
@@ -275,5 +277,5 @@ def register_stripe_routes(app, deps):
         uid = row.get("discord_user_id")
         if uid:
             stripe_subscription_upsert(uid, status="past_due")
-            # On garde le grant pour quelques jours (Stripe va re-try), pas de revoke immediat
+            # Keep the grant for a few days (Stripe will retry), no immediate revoke
             print(f"[stripe invoice.failed] uid={uid} status=past_due")

@@ -1,16 +1,16 @@
-"""Custom commands : enregistrement dynamique par guild.
+"""Custom commands: dynamic per-guild registration.
 
-Chaque commande custom devient une vraie slash command `/<nom>` propre au serveur
-(guild-scoped). Le builder est cote dashboard (page /custom-commands).
+Each custom command becomes a real slash command `/<name>` scoped to the
+server (guild-scoped). The builder lives on the dashboard (/custom-commands).
 
-Variables supportees dans le texte ou les champs d'embed :
-  {user}        -> @mention de l'utilisateur
+Variables supported in the text or in the embed fields:
+  {user}        -> @mention of the user
   {user.name}   -> display name
   {user.id}     -> ID
-  {server}      -> nom du serveur
-  {channel}     -> #salon mention
-  {date}        -> date du jour (YYYY-MM-DD)
-  {time}        -> heure HH:MM
+  {server}      -> server name
+  {channel}     -> #channel mention
+  {date}        -> current date (YYYY-MM-DD)
+  {time}        -> time HH:MM
 """
 from __future__ import annotations
 
@@ -28,6 +28,7 @@ from database import (
     custom_cmds_list, custom_cmd_get, custom_cmd_increment_uses,
     has_premium_grant, user_has_active_entitlement,
 )
+from services.i18n import ti
 
 
 _SKU_TOOKBOT_PLUS  = _os.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
@@ -35,7 +36,7 @@ _DISCORD_OWNER_ID  = _os.getenv("DISCORD_OWNER_ID", "").strip() or None
 
 
 def _owner_has_tookbot_plus(guild) -> bool:
-    """True si l'owner du serveur a TookBot+ (grant manuel OU SKU OR owner global)."""
+    """True when the server owner has TookBot+ (manual grant OR SKU OR global owner)."""
     if not guild:
         return False
     owner_id = getattr(guild, "owner_id", None)
@@ -100,30 +101,25 @@ def _build_embed_from_json(raw: str, *, user, guild, channel) -> Optional[discor
 
 
 async def _execute_custom(interaction: discord.Interaction, name: str):
-    """Logique d'execution partagee : recupere la commande en DB et repond."""
+    """Shared execution logic: fetch the command from the DB and answer."""
     if not interaction.guild:
         await interaction.response.send_message(
-            "❌ Indisponible en message privé, utilise cette commande dans un serveur.", ephemeral=True)
+            ti(interaction, "server.custom_cmd.dm_unavailable"), ephemeral=True)
         return
-    # Gate TookBot+ : les commandes custom sont payantes. Owner du serveur doit avoir TookBot+.
+    # TookBot+ gate: custom commands are paid. The server owner must have TookBot+.
     if not _owner_has_tookbot_plus(interaction.guild):
         embed = discord.Embed(
-            title="✦ Feature TookBot+",
-            description=(
-                "Les commandes custom (`/" + name + "`) sont reservees aux serveurs "
-                "dont le proprietaire a un abonnement **TookBot+**.\n\n"
-                "Le proprietaire peut s'abonner ici :\n"
-                "**https://dashboard.tookbot.click/subscription**"
-            ),
+            title=ti(interaction, "server.custom_cmd.plus_title"),
+            description=ti(interaction, "server.custom_cmd.plus_body", name=name),
             color=0xffa726,
         )
-        embed.set_footer(text="TookBot+ : Bot Customization + Commandes custom + Soutien direct")
+        embed.set_footer(text=ti(interaction, "server.custom_cmd.plus_footer"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
     row = custom_cmd_get(interaction.guild.id, name)
     if not row or not row.get("enabled"):
         await interaction.response.send_message(
-            f"❌ Commande `/{name}` introuvable ou désactivée.",
+            ti(interaction, "server.custom_cmd.not_found", name=name),
             ephemeral=True)
         return
     try:
@@ -134,7 +130,7 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
                 channel=interaction.channel,
             )
             if not embed:
-                raise ValueError("embed invalide")
+                raise ValueError("invalid embed")
             await interaction.response.send_message(embed=embed)
         else:
             text = _interpolate(
@@ -143,28 +139,28 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
                 channel=interaction.channel,
             )
             if not text.strip():
-                text = "_(réponse vide)_"
+                text = ti(interaction, "server.custom_cmd.empty_response")
             await interaction.response.send_message(text)
         custom_cmd_increment_uses(row["id"])
     except Exception as e:
         print(f"[custom_cmd] exec err {name}: {type(e).__name__}: {e}")
         try:
             await interaction.response.send_message(
-                "❌ Cette commande n'a pas pu s'exécuter. Réessaie plus tard.",
+                ti(interaction, "server.custom_cmd.exec_failed"),
                 ephemeral=True)
         except Exception:
             pass
 
 
 def _make_callback(name: str):
-    """Cree un callback async qui exec la commande custom 'name'."""
+    """Builds an async callback that executes the custom command 'name'."""
     async def _cb(interaction: discord.Interaction):
         await _execute_custom(interaction, name)
     return _cb
 
 
 def _build_command(name: str, description: Optional[str]) -> app_commands.Command:
-    desc = (description or "Commande personnalisée du serveur")[:100]
+    desc = (description or "Custom server command")[:100]
     return app_commands.Command(
         name=name,
         description=desc,
@@ -173,8 +169,8 @@ def _build_command(name: str, description: Optional[str]) -> app_commands.Comman
 
 
 async def sync_custom_commands_for_guild(bot: commands.Bot, guild_id) -> int:
-    """Recharge les slash commands custom d'un serveur (utilise au boot + apres
-    save/delete depuis le dashboard). Retourne le nb de commandes enregistrees."""
+    """Reload the custom slash commands of a server (used at boot + after a
+    save/delete from the dashboard). Returns the number of registered commands."""
     guild = bot.get_guild(int(guild_id))
     if guild is None:
         return 0
@@ -199,8 +195,8 @@ async def sync_custom_commands_for_guild(bot: commands.Bot, guild_id) -> int:
 
 
 def setup_custom_cmd_commands(bot: commands.Bot):
-    """Conserve pour compat. Aucune commande globale `/cmd` n'est plus enregistree :
-    les commandes custom sont ajoutees dynamiquement par guild via
-    sync_custom_commands_for_guild() au demarrage du bot et apres chaque
-    modification depuis le dashboard."""
+    """Kept for compatibility. No global `/cmd` command is registered anymore:
+    custom commands are added dynamically per guild through
+    sync_custom_commands_for_guild() at bot startup and after every change made
+    from the dashboard."""
     return

@@ -1,8 +1,8 @@
-"""Card Shop : composite l'image du shop (6 slots) + helpers achat.
+"""Card Shop: composites the shop image (6 slots) + purchase helpers.
 
-Fond = assets/cardrelated/cardshopbg.png (1672x941, grille 3x2 d'emplacements).
-Chaque slot enabled affiche l'item (carte ou bordure) + label + prix en Essences.
-Sert a la fois pour le post Discord et la preview dashboard.
+Background = assets/cardrelated/cardshopbg.png (1672x941, 3x2 slot grid).
+Each enabled slot shows the item (card or border) + label + price in Essences.
+Used both for the Discord post and the dashboard preview.
 """
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ import os
 import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 
+from services.i18n import t
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _BG_PATH = os.path.join(_ROOT, "assets", "cardrelated", "cardshopbg.png")
 _BORDERS_DIR = os.path.join(_ROOT, "assets", "cardrelated", "borders")
@@ -18,21 +20,21 @@ _RENDERS_DIR = os.path.join(_ROOT, "static", "card_renders")
 _OUT_DIR = os.path.join(_ROOT, "static", "card_shop")
 _USER_AGENT = "TookBot/1.0 (https://tookbot.click)"
 
-# Prix par defaut suggeres (essences). Base E ~40/roll.
-# epic=20 rolls, legendary=70, mythic=200, bordure=200.
+# Suggested default prices (essences). Base E ~40/roll.
+# epic=20 rolls, legendary=70, mythic=200, border=200.
 DEFAULT_CARD_PRICES = {
     "common":    510,
     "rare":      900,
     "epic":      3900,
     "legendary": 5440,
     "mythic":    15400,
-    # secret : jamais vendu en boutique (exclu du shuffle)
+    # secret: never sold in the shop (excluded from the shuffle)
 }
 DEFAULT_BORDER_PRICE = 16000
 
 
 def suggested_price(item_type: str, item_ref) -> int:
-    """Prix par defaut suggere selon le type/rarete de l'item."""
+    """Suggested default price based on the item type/rarity."""
     if item_type == "border":
         return DEFAULT_BORDER_PRICE
     if item_type == "card" and item_ref:
@@ -46,10 +48,10 @@ def suggested_price(item_type: str, item_ref) -> int:
     return 0
 
 
-# Centres des 6 slots (grille 3x2) sur le fond 1672x941
+# Centers of the 6 slots (3x2 grid) on the 1672x941 background
 SLOT_CENTERS = [
-    (378, 285), (836, 285), (1294, 285),   # rangee haut : slots 1,2,3
-    (378, 650), (836, 650), (1294, 650),   # rangee bas  : slots 4,5,6
+    (378, 285), (836, 285), (1294, 285),   # top row:    slots 1,2,3
+    (378, 650), (836, 650), (1294, 650),   # bottom row: slots 4,5,6
 ]
 _THUMB_W = 172
 _THUMB_H = 258
@@ -91,9 +93,9 @@ def _download(url: str):
 
 
 def _card_thumb(card_id, image_url):
-    """Charge render local de la carte (webp/png), puis /static local, puis download."""
+    """Load the card's local render (webp/png), then local /static, then download."""
     img = None
-    # 1. render local : webp d'abord (migration), puis png
+    # 1. local render: webp first (migration), then png
     for ext in (".webp", ".png"):
         local = os.path.join(_RENDERS_DIR, f"{card_id}{ext}")
         if os.path.exists(local):
@@ -102,7 +104,7 @@ def _card_thumb(card_id, image_url):
                 break
             except Exception:
                 img = None
-    # 2. image_url pointant sur un /static/ local (evite un download qui peut 429)
+    # 2. image_url pointing at a local /static/ file (avoids a download that may 429)
     if img is None and isinstance(image_url, str) and "/static/" in image_url:
         rel = "/static/" + image_url.split("/static/", 1)[1].split("?")[0]
         p = os.path.join(_ROOT, rel.lstrip("/").replace("/", os.sep))
@@ -111,11 +113,11 @@ def _card_thumb(card_id, image_url):
                 img = Image.open(p).convert("RGBA")
             except Exception:
                 img = None
-    # 3. dernier recours : download distant
+    # 3. last resort: remote download
     if img is None and image_url and str(image_url).startswith("http"):
         img = _download(image_url)
     if img is None:
-        print(f"[card_shop] thumb introuvable card={card_id} url={image_url}")
+        print(f"[card_shop] thumb not found card={card_id} url={image_url}")
         return None
     return img.resize((_THUMB_W, _THUMB_H), Image.LANCZOS)
 
@@ -128,7 +130,7 @@ def _border_thumb(filename):
         img = Image.open(path).convert("RGBA")
     except Exception:
         return None
-    # Pas de fond : bordure transparente, le bois du shop transparait au centre
+    # No background: transparent border, the shop wood shows through the center
     return img.resize((_THUMB_W, _THUMB_H), Image.LANCZOS)
 
 
@@ -150,10 +152,10 @@ def _rounded_text(draw, xy, text, font, fill=(255, 255, 255), shadow=True):
 
 
 def build_shop_image(out_name: str = "shop_current.png") -> str | None:
-    """Genere l'image du shop avec les slots enabled. Retourne URL relative."""
+    """Generate the shop image with the enabled slots. Returns a relative URL."""
     from database import card_shop_get_slots, card_get, border_get
     if not os.path.exists(_BG_PATH):
-        print(f"[card_shop] bg manquant {_BG_PATH}")
+        print(f"[card_shop] bg missing {_BG_PATH}")
         return None
     os.makedirs(_OUT_DIR, exist_ok=True)
     bg = Image.open(_BG_PATH).convert("RGBA")
@@ -189,13 +191,13 @@ def build_shop_image(out_name: str = "shop_current.png") -> str | None:
             tx = cx - _THUMB_W // 2
             ty = cy - _THUMB_H // 2 - 10
             bg.paste(thumb, (tx, ty), thumb)
-        # Label au-dessus
+        # Label above
         if label:
             lf = _font(28, bold=True)
             tw = draw.textlength(label, font=lf)
             _rounded_text(draw, (cx - tw / 2, cy - _THUMB_H // 2 - 48), label, lf,
                           fill=(255, 240, 180))
-        # Prix en dessous + etoile
+        # Price below + star
         price = int(s.get("price") or 0)
         ptext = f"{price:,}".replace(",", " ")
         pw = draw.textlength(ptext, font=f_price)
@@ -211,21 +213,21 @@ def build_shop_image(out_name: str = "shop_current.png") -> str | None:
 
 
 def purchase_slot(user_id: int, slot: int) -> dict:
-    """Achete l'item du slot pour user. Retourne dict {ok, error, item_name, new_balance}."""
+    """Buy the slot item for the user. Returns dict {ok, error, item_name, new_balance}."""
     from database import (card_shop_get_slot, currency_get, currency_spend,
                            card_get, border_get, user_border_add,
                            user_card_add_with_flag)
     s = card_shop_get_slot(slot)
     if not s or not s.get("enabled") or not s.get("item_type") or not s.get("item_ref"):
-        return {"ok": False, "error": "Slot vide ou désactivé."}
+        return {"ok": False, "error": t("services.shop.slot_empty")}
     price = int(s.get("price") or 0)
     item_type = s["item_type"]
     item_name = s.get("label") or ""
-    # Verifs specifiques
+    # Type-specific checks
     if item_type == "border":
         border = border_get(s["item_ref"])
         if not border:
-            return {"ok": False, "error": "Bordure introuvable."}
+            return {"ok": False, "error": t("services.shop.border_not_found")}
         item_name = item_name or border["name"]
     elif item_type == "card":
         try:
@@ -233,17 +235,18 @@ def purchase_slot(user_id: int, slot: int) -> dict:
         except (ValueError, TypeError):
             card = None
         if not card:
-            return {"ok": False, "error": "Carte introuvable."}
+            return {"ok": False, "error": t("services.shop.card_not_found")}
         item_name = item_name or card["name"]
     else:
-        return {"ok": False, "error": "Type d'item inconnu."}
-    # Solde + debit atomique
+        return {"ok": False, "error": t("services.shop.unknown_item_type")}
+    # Balance + atomic debit
     bal = currency_get(user_id)
     if bal < price:
-        return {"ok": False, "error": f"Solde insuffisant ({bal} / {price} ✨)."}
+        return {"ok": False, "error": t("services.shop.insufficient_balance",
+                                        balance=bal, price=price)}
     if not currency_spend(user_id, price):
-        return {"ok": False, "error": "Débit échoué (solde insuffisant)."}
-    # Livraison
+        return {"ok": False, "error": t("services.shop.debit_failed")}
+    # Delivery
     if item_type == "border":
         user_border_add(user_id, s["item_ref"])
     elif item_type == "card":

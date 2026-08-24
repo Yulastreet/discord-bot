@@ -1,9 +1,11 @@
-"""Booster de cartes quotidien (roue de la chance) : 9 cartes par paquet, avec une
-epique garantie au minimum sur la derniere. Sert aussi les images du paquet."""
+"""Daily card booster (wheel of luck): 9 cards per pack, with at least a guaranteed
+epic on the last one. Also serves the pack images."""
 import os as _os
 import random as _r
 
 from flask import jsonify, send_file
+
+from services.i18n import t
 
 
 def register_cards_booster_routes(app, deps):
@@ -18,8 +20,8 @@ def register_cards_booster_routes(app, deps):
     _RENDERS = _os.path.join(_ROOT, "static", "card_renders")
 
     PACK_SIZE = 9
-    # Les 8 premieres cartes vont de commune a epique (epique = plafond). La derniere
-    # est garantie epique au minimum (epique/legendaire/mythic).
+    # The first 8 cards range from common to epic (epic = cap). The last one is
+    # guaranteed epic at minimum (epic/legendary/mythic).
     _FILLER_WEIGHTS = {"common": 62, "rare": 30, "epic": 8}
     _LAST_WEIGHTS = {"epic": 80, "legendary": 17, "mythic": 3}
 
@@ -68,7 +70,7 @@ def register_cards_booster_routes(app, deps):
         fname = {"close": "boosterclose.png", "open": "boosteropen.png"}.get(state)
         if not fname:
             return "", 404
-        # plusieurs racines candidates (robuste au cwd/__file__ de prod)
+        # Several candidate roots (robust against the prod cwd/__file__)
         roots = [_ROOT]
         try:
             from services.card_render import _ROOT as _CR_ROOT
@@ -83,8 +85,8 @@ def register_cards_booster_routes(app, deps):
         return "", 404
 
     def _build_pack(force=None):
-        """Genere un paquet de 9 cartes (8 commune/rare/epique, derniere epique au moins).
-        force='min_legendary' garantit une legendaire/mythic sur la derniere (1er booster)."""
+        """Build a 9-card pack (8 common/rare/epic, last one epic at minimum).
+        force='min_legendary' guarantees a legendary/mythic on the last one (first booster)."""
         cards = []
         for _ in range(PACK_SIZE - 1):
             rar = _weighted(_FILLER_WEIGHTS)
@@ -93,7 +95,7 @@ def register_cards_booster_routes(app, deps):
             if p:
                 cards.append(p)
         if force == "min_legendary":
-            # premier booster d'un joueur : au moins une legendaire (sinon mythic)
+            # A player's very first booster: at least a legendary (otherwise mythic)
             last_rar = _weighted({"legendary": 85, "mythic": 15})
         else:
             last_rar = _weighted(_LAST_WEIGHTS)
@@ -105,22 +107,22 @@ def register_cards_booster_routes(app, deps):
 
     @app.route("/api/public/booster/open", methods=["POST"])
     def api_public_booster_open():
-        # Booster quotidien gratuit (1/jour) : octroie REELLEMENT les cartes.
+        # Free daily booster (1/day): the cards are ACTUALLY granted.
         uid = _session_uid()
         if not uid:
-            return jsonify({"error": "Connecte-toi pour ouvrir ton booster."}), 401
+            return jsonify({"error": t("api.cards_booster.login_required")}), 401
         from database import (daily_booster_claimed_today, daily_booster_claim, user_card_add,
                               daily_booster_ever_claimed)
-        is_owner = _is_owner_session()   # owner : ouvertures illimitees (pas de claim quotidien)
+        is_owner = _is_owner_session()   # owner: unlimited openings (no daily claim)
         if not is_owner and daily_booster_claimed_today(uid):
-            return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
-        # premier booster d'un joueur -> legendaire garantie minimum a la 9e carte
+            return jsonify({"error": t("api.cards_booster.already_opened_today")}), 400
+        # A player's first booster -> legendary guaranteed at minimum on the 9th card
         first = (not is_owner) and (not daily_booster_ever_claimed(uid))
         cards = _build_pack("min_legendary" if first else None)
         if not cards:
-            return jsonify({"error": "Booster indisponible pour le moment."}), 500
-        if not is_owner and not daily_booster_claim(uid):   # garde anti double-ouverture
-            return jsonify({"error": "Booster quotidien déjà ouvert aujourd'hui."}), 400
+            return jsonify({"error": t("api.cards_booster.unavailable")}), 500
+        if not is_owner and not daily_booster_claim(uid):   # guard against double opening
+            return jsonify({"error": t("api.cards_booster.already_opened_today")}), 400
         for c in cards:
             try:
                 user_card_add(uid, c["id"])

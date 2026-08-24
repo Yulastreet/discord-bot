@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = 'cards_boss_sim' %}
-{% block title %}Simuler fin de combat · Owner{% endblock %}
-{% block crumb %}Owner · Simuler fin de combat{% endblock %}
+{% block title %}{{ t('web_cards.owner_boss_sim.title') }} · Owner{% endblock %}
+{% block crumb %}Owner · {{ t('web_cards.owner_boss_sim.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -71,30 +71,30 @@
 <section class="hero">
   <div class="parallax-layer">
     <span class="eyebrow">Owner only</span>
-    <h1>Simuler une fin de combat.</h1>
-    <p class="hero-sub">Prévisualise l'écran de fin, les notes A-F et leurs animations sans lancer un vrai raid.</p>
+    <h1>{{ t('web_cards.owner_boss_sim.hero') }}</h1>
+    <p class="hero-sub">{{ t('web_cards.owner_boss_sim.hero_sub') }}</p>
   </div>
 </section>
 
 <section class="card sim-wrap">
-  <h2 style="margin-bottom:12px;">Joueurs</h2>
+  <h2 style="margin-bottom:12px;">{{ t('web_cards.owner_boss_sim.players') }}</h2>
   <div class="sim-players" id="simPlayers"></div>
-  <button class="btn-rm" id="addPlayer" type="button">＋ Ajouter un joueur</button>
+  <button class="btn-rm" id="addPlayer" type="button">{{ t('web_cards.owner_boss_sim.add_player') }}</button>
 
-  <h2 style="margin:18px 0 8px;">Vitesse des animations (FPS)</h2>
-  <div class="sim-row"><label style="width:150px;">Bonne note (slash)</label>
+  <h2 style="margin:18px 0 8px;">{{ t('web_cards.owner_boss_sim.anim_speed') }}</h2>
+  <div class="sim-row"><label style="width:150px;">{{ t('web_cards.owner_boss_sim.good_grade') }}</label>
     <input type="range" id="fpsWin" min="3" max="20" value="6" style="flex:1;">
     <span id="fpsWinV" style="width:40px;text-align:right;">6</span></div>
-  <div class="sim-row"><label style="width:150px;">Mauvaise note (chute)</label>
+  <div class="sim-row"><label style="width:150px;">{{ t('web_cards.owner_boss_sim.bad_grade') }}</label>
     <input type="range" id="fpsWinbad" min="3" max="20" value="6" style="flex:1;">
     <span id="fpsWinbadV" style="width:40px;text-align:right;">6</span></div>
-  <div class="sim-row"><label style="width:150px;">Défaite (explosion)</label>
+  <div class="sim-row"><label style="width:150px;">{{ t('web_cards.owner_boss_sim.defeat_anim') }}</label>
     <input type="range" id="fpsLose" min="3" max="20" value="6" style="flex:1;">
     <span id="fpsLoseV" style="width:40px;text-align:right;">6</span></div>
 
   <div class="sim-actions">
-    <button class="btn-sim btn-win" id="simWin" type="button">🎉 Simuler VICTOIRE</button>
-    <button class="btn-sim btn-lose" id="simLose" type="button">💀 Simuler DÉFAITE</button>
+    <button class="btn-sim btn-win" id="simWin" type="button">{{ t('web_cards.owner_boss_sim.sim_win') }}</button>
+    <button class="btn-sim btn-lose" id="simLose" type="button">{{ t('web_cards.owner_boss_sim.sim_lose') }}</button>
   </div>
 </section>
 
@@ -106,7 +106,7 @@
 {% block scripts %}
 <script>
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function fmt(n){ return (n||0).toLocaleString('fr-FR'); }
+function fmt(n){ return (n||0).toLocaleString('en-US'); }
 
 // ----- éditeur de joueurs -----
 let PID = 0;
@@ -116,13 +116,13 @@ function addPlayerRow(name, grade, dmg, died){
   row.className = 'sim-row';
   row.dataset.id = id;
   row.innerHTML = `
-    <input type="text" class="sp-name" value="${esc(name||('Joueur '+id))}" placeholder="Nom">
+    <input type="text" class="sp-name" value="${esc(name||('Player '+id))}" placeholder="Name">
     <select class="sp-grade">
-      ${['A','B','C','D','E','F'].map(g=>`<option value="${g}" ${g===(grade||'A')?'selected':''}>Note ${g}</option>`).join('')}
+      ${['A','B','C','D','E','F'].map(g=>`<option value="${g}" ${g===(grade||'A')?'selected':''}>Grade ${g}</option>`).join('')}
     </select>
-    <input type="number" class="sp-dmg" value="${dmg||1000000}" min="0" title="Dégâts">
+    <input type="number" class="sp-dmg" value="${dmg||1000000}" min="0" title="Damage">
     <label style="font-size:12px;display:flex;align-items:center;gap:4px;">
-      <input type="checkbox" class="sp-died" ${died?'checked':''}> mort 💀</label>
+      <input type="checkbox" class="sp-died" ${died?'checked':''}> dead 💀</label>
     <button class="btn-rm sp-del" type="button">✕</button>`;
   row.querySelector('.sp-del').addEventListener('click', ()=> row.remove());
   document.getElementById('simPlayers').appendChild(row);
@@ -133,17 +133,17 @@ document.getElementById('addPlayer').addEventListener('click', ()=> addPlayerRow
 function fakeItems(grade){
   const ESS={A:7500,B:6250,C:5000,D:4250,E:3250,F:2000};
   const ROLLS={A:12,B:9,C:6,D:4,E:2,F:1};
-  const items=[`✨ +${fmt(ESS[grade]||5000)} essences`];
+  const items=[`✨ +${fmt(ESS[grade]||5000)} essence`];
   if(ROLLS[grade]) items.push(`🎟️ +${ROLLS[grade]} rolls`);
-  if(grade==='A') items.push('🎴 Carte ×2');
-  else if(grade!=='F') items.push('🎴 Carte');
+  if(grade==='A') items.push('🎴 Card ×2');
+  else if(grade!=='F') items.push('🎴 Card');
   return items;
 }
 function collectPlayers(){
   return [...document.querySelectorAll('#simPlayers .sim-row')].map((r,i)=>{
     const grade = r.querySelector('.sp-grade').value;
     return {
-      name: r.querySelector('.sp-name').value || ('Joueur '+(i+1)),
+      name: r.querySelector('.sp-name').value || ('Player '+(i+1)),
       grade, dmg: parseInt(r.querySelector('.sp-dmg').value,10)||0,
       died: r.querySelector('.sp-died').checked, mvp: i===0,
       items: fakeItems(grade),
@@ -168,7 +168,7 @@ function playGradeAnim(i, grade){
   if(!kind){ note.classList.add('show'); return; }
   playFrames(anim, kind, 6, 11, ()=> note.classList.add('show'));
 }
-function closeBtn(){ return `<div class="end-close"><button class="btn-rm" onclick="document.getElementById('endOverlay').classList.remove('show')">Fermer</button></div>`; }
+function closeBtn(){ return `<div class="end-close"><button class="btn-rm" onclick="document.getElementById('endOverlay').classList.remove('show')">Close</button></div>`; }
 
 function fps(id){ return parseInt(document.getElementById(id).value,10)||8; }
 
@@ -178,21 +178,21 @@ function victoryTable(c, players, heroGrade){
       <img class="rw-note-mini" src="/cards/img/bossweb/note/${p.grade||'C'}" alt="">
       <div class="rw-body">
         <div class="rw-head">${p.mvp?'👑 ':''}<b>${esc(p.name)}</b>
-          <span class="rw-dmg">🗡️ ${fmt(p.dmg)} dégâts${p.died?' 💀':''}</span></div>
+          <span class="rw-dmg">🗡️ ${fmt(p.dmg)} damage${p.died?' 💀':''}</span></div>
         <div class="rw-items">${(p.items||[]).map(esc).join(' · ')}</div>
       </div>
     </div>`).join('') || '<div class="sub">—</div>';
   c.className='victory';
-  c.innerHTML = `<div class="big">🎉 VICTOIRE</div>
+  c.innerHTML = `<div class="big">🎉 VICTORY</div>
     <div class="rw-note-wrap"><div class="rays"></div>
       <img class="rw-big-note show" src="/cards/img/bossweb/note/${heroGrade}" alt=""></div>
-    <div class="rw-hdr">Aperçu des récompenses (simulation)</div>
+    <div class="rw-hdr">Reward preview (simulation)</div>
     <div class="rw-list">${rows}</div>${closeBtn()}`;
 }
 
 function simWin(){
   const players=collectPlayers();
-  if(!players.length){ window.toast?.('Ajoute au moins un joueur'); return; }
+  if(!players.length){ window.toast?.('Add at least one player'); return; }
   const ov=document.getElementById('endOverlay'), c=document.getElementById('endCard');
   ov.classList.add('show');
   const heroGrade=(players[0]||{}).grade||'C';
@@ -200,7 +200,7 @@ function simWin(){
   const chestPhase=()=>{
     c.className='victory';
     c.innerHTML=`<div class="chest-wrap"><img class="chest shake" id="chest" src="/cards/img/chest/close" alt=""></div>
-      <div class="sub">Ouverture du butin…</div>`;
+      <div class="sub">Opening the loot…</div>`;
     const chest=document.getElementById('chest');
     setTimeout(()=>{ chest.classList.remove('shake'); chest.src='/cards/img/chest/open'; }, 1300);
     setTimeout(()=> victoryTable(c, players, heroGrade), 2600);
@@ -216,7 +216,7 @@ function simLose(){
   const ov=document.getElementById('endOverlay'), c=document.getElementById('endCard');
   ov.classList.add('show');
   const finish=()=>{ c.className='defeat';
-    c.innerHTML=`<div class="big">💀 DÉFAITE</div><div class="sub">L'équipe a été anéantie.</div>${closeBtn()}`; };
+    c.innerHTML=`<div class="big">💀 DEFEAT</div><div class="sub">The team was wiped out.</div>${closeBtn()}`; };
   c.className='defeat bare';
   c.innerHTML=`<div class="lose-boom" id="loseBoom"></div>`;
   playFrames(document.getElementById('loseBoom'), 'lose', 8, fps('fpsLose'), finish);
@@ -233,6 +233,6 @@ document.getElementById('endOverlay').addEventListener('click', e=>{ if(e.target
 // 3 joueurs par défaut
 addPlayerRow('Carry DPS','A',5200000,false);
 addPlayerRow('Healer','B',900000,false);
-addPlayerRow('Tank mort','C',1500000,true);
+addPlayerRow('Dead tank','C',1500000,true);
 </script>
 {% endblock %}

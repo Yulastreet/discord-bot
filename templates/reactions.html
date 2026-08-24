@@ -2,8 +2,8 @@
 {% block feature_meta %}<meta name="feature-key" content="reactions">{% endblock %}
 {% set active_nav = 'reactions' %}
 
-{% block title %}Réactions · Bot Console{% endblock %}
-{% block crumb %}Réactions automatiques{% endblock %}
+{% block title %}{{ t('web_features.reactions.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.reactions.title') }}{% endblock %}
 
 {% block content %}
 
@@ -11,44 +11,44 @@
 
   <div class="row between" style="align-items: flex-end;">
     <div>
-      <h1>Réactions automatiques</h1>
-      <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">Le bot ajoute automatiquement l'emoji choisi à chaque message du membre sélectionné.</p>
+      <h1>{{ t('web_features.reactions.title') }}</h1>
+      <p class="muted mt-2" style="font-size:var(--t-sm);max-width:60ch;">{{ t('web_features.reactions.subtitle') }}</p>
     </div>
   </div>
 
   <div class="card">
     <div class="grid grid-2">
       <div class="field">
-        <label for="userSelect">Utilisateur</label>
+        <label for="userSelect">{{ t('web_features.reactions.user') }}</label>
         <select id="userSelect">
-          <option value="">Choisir un utilisateur</option>
+          <option value="">{{ t('web_features.reactions.choose_user') }}</option>
           {% for user in users %}
             <option value="{{ user[0] }}" data-username="{{ user[1] }}">{{ user[1] }} · {{ user[0] }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="field">
-        <label for="emojiInput">Emoji</label>
-        <input type="text" id="emojiInput" placeholder="ex. 👍 ou <:nom:id>">
+        <label for="emojiInput">{{ t('web_features.reactions.emoji') }}</label>
+        <input type="text" id="emojiInput" placeholder="{{ t('web_features.reactions.emoji_placeholder') }}">
       </div>
     </div>
 
     <div class="row mt-4 gap-2">
       <button class="btn btn-primary" onclick="addReaction()">
-        <svg class="ic"><use href="#i-plus"/></svg> Ajouter / Modifier
+        <svg class="ic"><use href="#i-plus"/></svg> {{ t('web_features.reactions.add_edit') }}
       </button>
       <button class="btn btn-danger" onclick="removeReaction()">
-        <svg class="ic"><use href="#i-trash"/></svg> Supprimer
+        <svg class="ic"><use href="#i-trash"/></svg> {{ t('web_features.reactions.delete') }}
       </button>
       <span class="faint" style="font-size:var(--t-xs);margin-left:auto;">
-        Pour un emoji custom, copie son code complet : <code>&lt;:nom:id&gt;</code>
+        {{ t('web_features.reactions.custom_emoji_hint') }} <code>&lt;:name:id&gt;</code>
       </span>
     </div>
   </div>
 
   <div class="card padless">
     <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-      <h2>Réactions actives</h2>
+      <h2>{{ t('web_features.reactions.active_reactions') }}</h2>
       <span class="badge" id="reactionCount">0</span>
     </div>
     <div id="reactionsList"></div>
@@ -67,7 +67,7 @@
   function addReaction() {
     const userId = document.getElementById('userSelect').value;
     const emoji  = document.getElementById('emojiInput').value;
-    if (!userId || !emoji) { toast('Choisis un utilisateur et un emoji.', 'error'); return; }
+    if (!userId || !emoji) { toast('Pick a user and an emoji.', 'error'); return; }
     fetch('/api/reactions/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,20 +75,20 @@
     })
       .then(r => r.json())
       .then(d => {
-        if (d.success) { toast('Réaction enregistrée.'); document.getElementById('emojiInput').value = ''; setTimeout(() => location.reload(), 350); }
-        else toast(d.error || 'Erreur', 'error');
+        if (d.success) { toast('Reaction saved.'); document.getElementById('emojiInput').value = ''; setTimeout(() => location.reload(), 350); }
+        else toast(d.error || 'Error', 'error');
       })
       .catch(err => toast(err.message, 'error'));
   }
 
   function removeReaction() {
     const userId = document.getElementById('userSelect').value;
-    if (!userId) { toast('Choisis un utilisateur.', 'error'); return; }
+    if (!userId) { toast('Pick a user.', 'error'); return; }
     deleteReaction(userId);
   }
 
   function deleteReaction(userId) {
-    if (!confirm('Supprimer cette réaction ?')) return;
+    if (!confirm('Delete this reaction?')) return;
     fetch('/api/reactions/remove', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -96,8 +96,8 @@
     })
       .then(r => r.json())
       .then(d => {
-        if (d.success) { toast('Réaction supprimée.'); setTimeout(() => location.reload(), 350); }
-        else toast(d.error || 'Erreur', 'error');
+        if (d.success) { toast('Reaction deleted.'); setTimeout(() => location.reload(), 350); }
+        else toast(d.error || 'Error', 'error');
       })
       .catch(err => toast(err.message, 'error'));
   }
@@ -106,7 +106,7 @@
     const list = document.getElementById('reactionsList');
     const count = document.getElementById('reactionCount');
     if (!reactions || Object.keys(reactions).length === 0) {
-      list.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);"><p>Aucune réaction configurée.</p></div>';
+      list.innerHTML = '<div style="padding: var(--s-9); text-align: center; color: var(--text-2);"><p>No reaction configured.</p></div>';
       count.textContent = '0';
       return;
     }
@@ -117,13 +117,13 @@
     list.innerHTML = `
       <table class="tbl">
         <thead>
-          <tr><th style="width:60px;">Emoji</th><th>Utilisateur</th><th class="mono">ID</th><th style="width:120px;text-align:right;">Action</th></tr>
+          <tr><th style="width:60px;">Emoji</th><th>User</th><th class="mono">ID</th><th style="width:120px;text-align:right;">Action</th></tr>
         </thead>
         <tbody>
           ${entries.map(([uid, emo]) => `
             <tr style="cursor:default;">
               <td style="font-size:22px;">${emo}</td>
-              <td><strong>${userMap[uid] || '(inconnu)'}</strong></td>
+              <td><strong>${userMap[uid] || '(unknown)'}</strong></td>
               <td class="mono">${uid}</td>
               <td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="deleteReaction('${uid}')"><svg class="ic"><use href="#i-trash"/></svg></button></td>
             </tr>

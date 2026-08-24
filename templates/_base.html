@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="{{ current_locale() }}" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -408,81 +408,81 @@
       {% if is_owner %}
       <details class="nav-cat" data-cat="owner" open>
         <summary class="nav-section">
-          <span class="nav-section-label">👑 Owner</span>
+          <span class="nav-section-label">👑 {{ t('web_core.nav.cat_owner') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/general" class="nav-item {{ 'active' if active_nav == 'general' }}">
-          <svg class="ic"><use href="#i-globe"/></svg> Vue d'ensemble
+          <svg class="ic"><use href="#i-globe"/></svg> {{ t('web_core.nav.overview') }}
         </a>
         <a href="/search-global" class="nav-item {{ 'active' if active_nav == 'search_global' }}">
-          <svg class="ic"><use href="#i-globe"/></svg> Rechercher (global)
+          <svg class="ic"><use href="#i-globe"/></svg> {{ t('web_core.nav.search_global') }}
         </a>
         <a href="/duels" class="nav-item {{ 'active' if active_nav == 'duels' }}">
-          <svg class="ic"><use href="#i-swords"/></svg> Duels
+          <svg class="ic"><use href="#i-swords"/></svg> {{ t('web_core.nav.duels') }}
         </a>
         <a href="/bottalk" class="nav-item {{ 'active' if active_nav == 'bottalk' }}">
           <svg class="ic"><use href="#i-quote"/></svg> BotTalk
         </a>
         <a href="/status" class="nav-item {{ 'active' if active_nav == 'status' }}">
-          <svg class="ic"><use href="#i-pulse"/></svg> Status
+          <svg class="ic"><use href="#i-pulse"/></svg> {{ t('web_core.nav.status') }}
         </a>
         <a href="/owner/promo-codes" class="nav-item {{ 'active' if active_nav == 'owner_promo_codes' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Codes promo
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.promo_codes') }}
         </a>
         <a href="/owner/premium-analytics" class="nav-item {{ 'active' if active_nav == 'owner_premium_analytics' }}">
-          <svg class="ic"><use href="#i-pulse"/></svg> Analytics Premium
+          <svg class="ic"><use href="#i-pulse"/></svg> {{ t('web_core.nav.premium_analytics') }}
         </a>
         <a href="/owner/lol-scout" class="nav-item {{ 'active' if active_nav == 'owner_lol_scout' }}">
           <svg class="ic"><use href="#i-swords"/></svg> LoL Scout
         </a>
         <a href="/owner/analytics" class="nav-item {{ 'active' if active_nav == 'owner_analytics' }}">
-          <svg class="ic"><use href="#i-pulse"/></svg> Analytics
+          <svg class="ic"><use href="#i-pulse"/></svg> {{ t('web_core.nav.analytics') }}
         </a>
         <a href="/owner/ai" class="nav-item {{ 'active' if active_nav == 'owner_ai' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> IA (Groq)
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.ai') }}
         </a>
         <a href="/owner/settings" class="nav-item {{ 'active' if active_nav == 'owner_settings' }}">
-          <svg class="ic"><use href="#i-gear"/></svg> Paramètres owner
+          <svg class="ic"><use href="#i-gear"/></svg> {{ t('web_core.nav.owner_settings') }}
         </a>
       </details>
 
       <details class="nav-cat" data-cat="owner_cards" open>
         <summary class="nav-section">
-          <span class="nav-section-label">🃏 Owner Cards</span>
+          <span class="nav-section-label">🃏 {{ t('web_core.nav.cat_owner_cards') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/owner/cards" class="nav-item {{ 'active' if active_nav == 'owner_cards' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Cards
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.cards_admin') }}
         </a>
         <a href="/owner/cards/suggestions" class="nav-item {{ 'active' if active_nav == 'owner_card_suggestions' }}">
-          <svg class="ic"><use href="#i-bell"/></svg> Cards Suggest <span id="navSugBadge" class="muted" style="font-size:10px;"></span>
+          <svg class="ic"><use href="#i-bell"/></svg> {{ t('web_core.nav.cards_suggest') }} <span id="navSugBadge" class="muted" style="font-size:10px;"></span>
         </a>
         <a href="/owner/cards/events" class="nav-item {{ 'active' if active_nav == 'owner_card_events' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Cards Events
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.cards_events') }}
         </a>
         <a href="/owner/cards/shop" class="nav-item {{ 'active' if active_nav == 'owner_card_shop' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Cards Shop
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.cards_shop') }}
         </a>
         <a href="/owner/cards/cosmetics" class="nav-item {{ 'active' if active_nav == 'owner_card_cosmetics' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Cards Cosmetics
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.cards_cosmetics') }}
         </a>
         <a href="/owner/cards-cheat" class="nav-item {{ 'active' if active_nav == 'cards_cheat' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Cards Cheat
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.cards_cheat') }}
         </a>
         <a href="/owner/cards-settings" class="nav-item {{ 'active' if active_nav == 'cards_settings' }}">
-          <svg class="ic"><use href="#i-gear"/></svg> Cards Settings
+          <svg class="ic"><use href="#i-gear"/></svg> {{ t('web_core.nav.cards_settings') }}
         </a>
         <a href="/owner/cards-event" class="nav-item {{ 'active' if active_nav == 'cards_event' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Cards Theme Event
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.cards_theme_event') }}
         </a>
         <a href="/owner/cards-boss-sim" class="nav-item {{ 'active' if active_nav == 'cards_boss_sim' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Simuler fin de combat
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.boss_sim') }}
         </a>
         <a href="/owner/guilds" class="nav-item {{ 'active' if active_nav == 'owner_guilds' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Guilde Gestion
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.guild_management') }}
         </a>
         <a href="/owner/guild-settings" class="nav-item {{ 'active' if active_nav == 'owner_guild_settings' }}">
-          <svg class="ic"><use href="#i-shield"/></svg> Guild Settings
+          <svg class="ic"><use href="#i-shield"/></svg> {{ t('web_core.nav.guild_settings') }}
         </a>
       </details>
       {% endif %}
@@ -490,81 +490,81 @@
       {% if has_server_access %}
       <details class="nav-cat" data-cat="moderation" open>
         <summary class="nav-section">
-          <span class="nav-section-label">🛡️ Modération</span>
+          <span class="nav-section-label">🛡️ {{ t('web_core.nav.cat_moderation') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/moderation" class="nav-item {{ 'active' if active_nav == 'moderation' }}">
-          <svg class="ic"><use href="#i-shield"/></svg> Modération
+          <svg class="ic"><use href="#i-shield"/></svg> {{ t('web_core.nav.moderation') }}
         </a>
         <a href="/features" class="nav-item {{ 'active' if active_nav == 'features' }}">
-          <svg class="ic"><use href="#i-power"/></svg> Fonctionnalités
+          <svg class="ic"><use href="#i-power"/></svg> {{ t('web_core.features.crumb') }}
         </a>
         <a href="/settings" class="nav-item {{ 'active' if active_nav == 'settings' }}">
-          <svg class="ic"><use href="#i-gear"/></svg> Réglages serveur
+          <svg class="ic"><use href="#i-gear"/></svg> {{ t('web_core.settings.crumb') }}
         </a>
         {% if is_server_owner_of_current or is_owner %}
         <a href="/mod-config" class="nav-item {{ 'active' if active_nav == 'mod_config' }}">
-          <svg class="ic"><use href="#i-shield"/></svg> Permissions modérateurs
+          <svg class="ic"><use href="#i-shield"/></svg> {{ t('web_core.nav.mod_permissions') }}
         </a>
         {% endif %}
         <a href="/logs" class="nav-item {{ 'active' if active_nav == 'logs' }}">
-          <svg class="ic"><use href="#i-terminal"/></svg> Logs
+          <svg class="ic"><use href="#i-terminal"/></svg> {{ t('web_core.nav.logs') }}
         </a>
         <a href="/tickets" class="nav-item {{ 'active' if active_nav == 'tickets' }}">
-          <svg class="ic"><use href="#i-mail"/></svg> Tickets
+          <svg class="ic"><use href="#i-mail"/></svg> {{ t('web_core.nav.tickets') }}
         </a>
         <a href="/reactionroles" class="nav-item {{ 'active' if active_nav == 'reactionroles' }}">
-          <svg class="ic"><use href="#i-shield"/></svg> Rôles-Réaction
+          <svg class="ic"><use href="#i-shield"/></svg> {{ t('web_core.nav.reaction_roles') }}
         </a>
       </details>
 
       <details class="nav-cat" data-cat="outils" open>
         <summary class="nav-section">
-          <span class="nav-section-label">🧰 Outils utiles</span>
+          <span class="nav-section-label">🧰 {{ t('web_core.nav.cat_tools') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/dashboard" class="nav-item {{ 'active' if active_nav == 'dashboard' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Dashboard
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.dashboard') }}
         </a>
         <a href="/analytics" class="nav-item {{ 'active' if active_nav == 'analytics' }}">
-          <svg class="ic"><use href="#i-pulse"/></svg> Analytics
+          <svg class="ic"><use href="#i-pulse"/></svg> {{ t('web_core.nav.analytics') }}
         </a>
         <a href="/automod" class="nav-item {{ 'active' if active_nav == 'automod' }}">
-          <svg class="ic"><use href="#i-shield"/></svg> Automod
+          <svg class="ic"><use href="#i-shield"/></svg> {{ t('web_core.nav.automod') }}
         </a>
         <a href="/search" class="nav-item {{ 'active' if active_nav == 'search' }}">
-          <svg class="ic"><use href="#i-search"/></svg> Rechercher
+          <svg class="ic"><use href="#i-search"/></svg> {{ t('web_core.search.crumb') }}
         </a>
         <a href="/social-alerts" class="nav-item {{ 'active' if active_nav == 'social_alerts' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Alertes Twitch/YT
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.social_alerts') }}
         </a>
         <a href="/poll-builder" class="nav-item {{ 'active' if active_nav == 'poll_builder' }}">
-          <svg class="ic"><use href="#i-pulse"/></svg> Sondage
+          <svg class="ic"><use href="#i-pulse"/></svg> {{ t('web_core.nav.poll') }}
         </a>
         <a href="/custom-commands" class="nav-item {{ 'active' if active_nav == 'custom_commands' }}">
-          <svg class="ic"><use href="#i-terminal"/></svg> Commandes custom
+          <svg class="ic"><use href="#i-terminal"/></svg> {{ t('web_core.nav.custom_commands') }}
         </a>
       </details>
 
       <details class="nav-cat" data-cat="fun" open>
         <summary class="nav-section">
-          <span class="nav-section-label">🎉 Fun</span>
+          <span class="nav-section-label">🎉 {{ t('web_core.nav.cat_fun') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/reactions" class="nav-item {{ 'active' if active_nav == 'reactions' }}">
-          <svg class="ic"><use href="#i-react"/></svg> Réactions
+          <svg class="ic"><use href="#i-react"/></svg> {{ t('web_core.nav.reactions') }}
         </a>
         <a href="/music" class="nav-item {{ 'active' if active_nav == 'music' }}">
-          <svg class="ic"><use href="#i-music"/></svg> Musique
+          <svg class="ic"><use href="#i-music"/></svg> {{ t('web_core.nav.music') }}
         </a>
         <a href="/giveaways" class="nav-item {{ 'active' if active_nav == 'giveaways' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Giveaways
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.giveaways') }}
         </a>
       </details>
 
       <details class="nav-cat" data-cat="jeux" open>
         <summary class="nav-section">
-          <span class="nav-section-label">🎮 Jeux</span>
+          <span class="nav-section-label">🎮 {{ t('web_core.nav.cat_games') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/cs2" class="nav-item {{ 'active' if active_nav == 'cs2' }}">
@@ -579,46 +579,46 @@
       <!-- Cartes a collectionner : visible par TOUT LE MONDE (hors gating serveur) -->
       <details class="nav-cat" data-cat="cartes_collec" open>
         <summary class="nav-section">
-          <span class="nav-section-label">🃏 Cartes à collectionner</span>
+          <span class="nav-section-label">🃏 {{ t('web_core.nav.cat_cards') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/cards" class="nav-item {{ 'active' if active_nav == 'public_cards' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Cartes
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.cards') }}
         </a>
         <a href="/cards/collection" class="nav-item {{ 'active' if active_nav == 'collection' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Collection (classeur)
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.collection') }}
         </a>
         <a href="/cards/trade" class="nav-item {{ 'active' if active_nav == 'cards_trade' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Échange de cartes
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.card_trade') }}
         </a>
         <a href="/cards/live" class="nav-item {{ 'active' if active_nav == 'cards_live' }}">
-          <svg class="ic"><use href="#i-pulse"/></svg> Obtention temps réel
+          <svg class="ic"><use href="#i-pulse"/></svg> {{ t('web_core.nav.cards_live') }}
         </a>
         <a href="/cards/wheel" class="nav-item {{ 'active' if active_nav == 'cards_wheel' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Roue de la chance
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.wheel') }}
         </a>
         <a href="/cards/guilds" class="nav-item {{ 'active' if active_nav == 'public_guilds' }}">
-          <svg class="ic"><use href="#i-grid"/></svg> Classement guildes
+          <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.guild_ranking') }}
         </a>
         <a href="/cards/my-guild" class="nav-item {{ 'active' if active_nav == 'my_guild' }}">
-          <svg class="ic"><use href="#i-shield"/></svg> Ma Guilde
+          <svg class="ic"><use href="#i-shield"/></svg> {{ t('web_core.nav.my_guild') }}
         </a>
       </details>
 
       {% if discord_user and discord_user.user_id %}
       <details class="nav-cat" data-cat="premium" open>
         <summary class="nav-section">
-          <span class="nav-section-label">✨ Premium</span>
+          <span class="nav-section-label">✨ {{ t('web_core.nav.cat_premium') }}</span>
           <svg class="ic chevron"><use href="#i-caret-down"/></svg>
         </summary>
         <a href="/premium" class="nav-item {{ 'active' if active_nav == 'premium' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Premium ✨
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.premium') }} ✨
         </a>
         <a href="/bot-profile" class="nav-item {{ 'active' if active_nav == 'bot-profile' }}">
-          <svg class="ic"><use href="#i-bolt"/></svg> Bot Customization ✦
+          <svg class="ic"><use href="#i-bolt"/></svg> {{ t('web_core.nav.bot_customization') }} ✦
         </a>
         <a href="/my-pass" class="nav-item {{ 'active' if active_nav == 'my_pass' }}">
-          <svg class="ic"><use href="#i-swords"/></svg> Mon Pass 🎟️
+          <svg class="ic"><use href="#i-swords"/></svg> {{ t('web_core.nav.my_pass') }} 🎟️
         </a>
       </details>
       {% endif %}
@@ -634,9 +634,9 @@
       <div class="uc-meta">
         <div class="uc-name">{{ discord_user.username }}</div>
         <div class="uc-role">
-          {% if is_owner %}Owner
-          {% elif has_mod_access %}Modérateur
-          {% else %}Utilisateur{% endif %}
+          {% if is_owner %}{{ t('web_core.role.owner') }}
+          {% elif has_mod_access %}{{ t('web_core.role.moderator') }}
+          {% else %}{{ t('web_core.role.user') }}{% endif %}
         </div>
       </div>
     </div>
@@ -644,16 +644,16 @@
 
     <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="kofi-btn">
       <span class="kofi-ico">☕</span>
-      Soutenir TookBot
+      {{ t('web_core.sidebar.support_tookbot') }}
     </a>
     <a href="/subscription" class="tookbot-plus-btn">
       TookBot<span class="tbp-ico">+</span>
     </a>
     <div class="sidebar-foot">
-      <button class="theme-cycle" id="themeCycle" aria-label="Changer le thème" title="Cycler le thème">
+      <button class="theme-cycle" id="themeCycle" aria-label="{{ t('web_core.sidebar.theme_aria') }}" title="{{ t('web_core.sidebar.theme_title') }}">
         <svg class="ic" id="themeIcon"><use href="#i-monitor"/></svg>
       </button>
-      <a href="/logout" class="icon-btn" aria-label="Déconnexion" title="Déconnexion">
+      <a href="/logout" class="icon-btn" aria-label="{{ t('web_core.nav.logout') }}" title="{{ t('web_core.nav.logout') }}">
         <svg class="ic"><use href="#i-power"/></svg>
       </a>
     </div>
@@ -665,7 +665,7 @@
   <main class="main">
     <header class="topbar">
       <div class="row gap-3" style="min-width:0;">
-        <button class="icon-btn drawer-toggle" id="drawerToggle" aria-label="Menu" onclick="openDrawer()">
+        <button class="icon-btn drawer-toggle" id="drawerToggle" aria-label="{{ t('web_core.topbar.menu') }}" onclick="openDrawer()">
           <svg class="ic"><use href="#i-menu"/></svg>
         </button>
         <div class="crumb">{% block crumb %}{% endblock %}</div>
@@ -673,27 +673,27 @@
       <div class="topbar-center">
         <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener" class="support-btn">
           <svg><use href="#i-discord"/></svg>
-          REJOINDRE LE SERVEUR DE SUPPORT
+          {{ t('web_core.topbar.support_server') }}
         </a>
         <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="support-btn support-btn-kofi">
           <span class="kofi-ico">☕</span>
-          SOUTENIR
+          {{ t('web_core.topbar.donate') }}
         </a>
       </div>
       <div class="actions">
         <!-- Notifications cloche -->
         <div class="notif-wrap" id="notifWrap" style="position:relative;">
-          <button class="icon-btn" id="notifBtn" type="button" onclick="toggleNotifMenu(event)" title="Notifications" style="position:relative;">
+          <button class="icon-btn" id="notifBtn" type="button" onclick="toggleNotifMenu(event)" title="{{ t('web_core.notif.title') }}" style="position:relative;">
             <svg class="ic"><use href="#i-bell"/></svg>
             <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#f85149;color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;font-family:var(--font-mono);"></span>
           </button>
           <div id="notifMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:8px;width:360px;max-height:480px;overflow-y:auto;background:var(--bg-1);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:1000;">
             <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-              <strong style="font-size:14px;">Notifications</strong>
-              <button class="btn btn-ghost btn-sm" onclick="markAllNotifsRead()" style="font-size:11px;">Tout marquer lu</button>
+              <strong style="font-size:14px;">{{ t('web_core.notif.title') }}</strong>
+              <button class="btn btn-ghost btn-sm" onclick="markAllNotifsRead()" style="font-size:11px;">{{ t('web_core.notif.mark_all_read') }}</button>
             </div>
             <div id="notifList" style="padding:0;">
-              <div style="padding:24px;text-align:center;color:var(--text-2);font-size:12px;">Chargement...</div>
+              <div style="padding:24px;text-align:center;color:var(--text-2);font-size:12px;">{{ t('web_core.common.loading') }}</div>
             </div>
           </div>
         </div>
@@ -712,14 +712,14 @@
               <span class="guild-dot"></span>
               <div class="col" style="gap:0;">
                 <span style="font-size: var(--t-sm); font-weight: 500;">{{ gd.name }}</span>
-                <span class="faint" style="font-size: 11px;">{{ gd.member_count }} membres</span>
+                <span class="faint" style="font-size: 11px;">{{ t('web_core.select_guild.members', count=gd.member_count) }}</span>
               </div>
               {% if gd.guild_id == current_guild.guild_id %}<svg class="ic" style="margin-left:auto;color:var(--accent);"><use href="#i-check"/></svg>{% endif %}
             </a>
             {% endfor %}
             <div class="guild-menu-divider"></div>
             <a href="/select-guild" class="guild-menu-item" style="color: var(--text-2);">
-              <svg class="ic"><use href="#i-grid"/></svg> Tous les serveurs
+              <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.all_servers') }}
             </a>
           </div>
         </div>
@@ -850,7 +850,7 @@
   window.toast = toast;
 
   // ─── Number formatting (FR thin space) ───────────────────
-  window.fmtNum = n => (n ?? 0).toLocaleString('fr-FR').replace(/,/g, ' ');
+  window.fmtNum = n => (n ?? 0).toLocaleString('en-US').replace(/,/g, ' ');
 
   // ─── Guild switcher ───────────────────────────────────────
   function toggleGuildMenu(e) {
@@ -878,7 +878,7 @@
         body: JSON.stringify({ guild_id: guildId })
       });
       if (res.ok) location.reload();
-      else toast('Erreur de sélection', 'error');
+      else toast('Selection failed', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }
   window.selectGuild = selectGuild;
@@ -893,11 +893,11 @@
       const dt = new Date(iso.replace(' ', 'T') + 'Z');
       const now = Date.now();
       const diff = (now - dt.getTime()) / 1000;
-      if (diff < 60)        return 'a l\'instant';
+      if (diff < 60)        return 'just now';
       if (diff < 3600)      return Math.floor(diff/60) + ' min';
       if (diff < 86400)     return Math.floor(diff/3600) + ' h';
-      if (diff < 86400*7)   return Math.floor(diff/86400) + ' j';
-      return dt.toLocaleDateString('fr-FR');
+      if (diff < 86400*7)   return Math.floor(diff/86400) + ' d';
+      return dt.toLocaleDateString('en-GB');
     } catch (_) { return iso; }
   }
 
@@ -932,7 +932,7 @@
     const list = document.getElementById('notifList');
     if (!list) return;
     if (!_notifData.items || _notifData.items.length === 0) {
-      list.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-2);font-size:13px;">Aucune notification.</div>';
+      list.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-2);font-size:13px;">No notifications.</div>';
       return;
     }
     list.innerHTML = _notifData.items.map(n => {
@@ -1128,12 +1128,12 @@
     <div style="font-size:36px;margin-bottom:14px;">🔐</div>
     <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-bottom:10px;
                 text-shadow:0 0 14px oklch(0.86 0.20 130 / .55);">
-      Configure les permissions des modérateurs
+      {{ t('web_core.modconfig.title') }}
     </div>
     <div style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.6;margin-bottom:24px;">
-      Tu es le proprietaire de <strong>{{ current_guild.name if current_guild else 'ce serveur' }}</strong>.<br>
-      Tant que tu n'as pas configuré, <strong>aucun modérateur</strong> ne peut utiliser le bot ou accéder au dashboard de ce serveur.<br>
-      Choisis le rôle des modos et coche les fonctionnalités auxquelles ils auront accès.
+      {{ t('web_core.modconfig.you_are_owner') }} <strong>{{ current_guild.name if current_guild else t('web_core.modconfig.this_server') }}</strong>.<br>
+      {{ t('web_core.modconfig.warning') | safe }}<br>
+      {{ t('web_core.modconfig.instructions') }}
     </div>
     <a href="/mod-config" style="display:inline-flex;align-items:center;gap:8px;
             padding:11px 24px;
@@ -1141,7 +1141,7 @@
             border-radius:999px;font-size:13px;font-weight:800;
             text-decoration:none;letter-spacing:0.03em;
             box-shadow:0 4px 18px oklch(0.86 0.20 130 / .35);">
-      Configurer maintenant
+      {{ t('web_core.modconfig.cta') }}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
       </svg>
@@ -1270,10 +1270,10 @@
     if (!feat) return;
     if (!feat.enabled) {
       showOverlay({
-        title: 'Fonctionnalité désactivée',
-        sub:   'Cette fonctionnalité a été désactivée sur ce serveur par un administrateur.',
+        title: 'Feature disabled',
+        sub:   'This feature has been disabled on this server by an administrator.',
         href:  '/features',
-        btn:   'Pour la réactiver, cliquer ici',
+        btn:   'Click here to re-enable it',
       });
       return;
     }
@@ -1282,10 +1282,10 @@
       fetch('/api/guild-boost/guild-status').then(function(r) { return r.json(); }).then(function(gb) {
         if (gb && gb.active) return;
         showOverlay({
-          title: 'Guild Boost + requis',
-          sub:   'Cette fonctionnalité nécessite Guild Boost + sur ce serveur. Un admin doit acheter et assigner Guild Boost + au serveur.',
+          title: 'Guild Boost + required',
+          sub:   'This feature requires Guild Boost + on this server. An admin must purchase and assign Guild Boost + to the server.',
           href:  '/premium',
-          btn:   'Voir Guild Boost +',
+          btn:   'See Guild Boost +',
         });
       }).catch(function() {});
     }
@@ -1310,7 +1310,7 @@
                               0 0 48px oklch(0.86 0.20 130 / .3);">
         TOOK RUNNER
       </div>
-      <button id="eeCloseBtn" type="button" aria-label="Fermer"
+      <button id="eeCloseBtn" type="button" aria-label="{{ t('web_core.common.close') }}"
               style="background:none;border:none;color:rgba(255,255,255,0.55);
                      cursor:pointer;font-size:22px;padding:4px 10px;line-height:1;
                      transition:color 120ms ease;"
@@ -1324,7 +1324,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;
                 margin-top:14px;font-size:12px;color:rgba(255,255,255,0.55);
                 font-family:var(--font-mono,monospace);letter-spacing:0.06em;">
-      <span><strong style="color:rgba(255,255,255,0.85);">SPACE</strong> ou <strong style="color:rgba(255,255,255,0.85);">↑</strong> pour sauter · <strong style="color:rgba(255,255,255,0.85);">ESC</strong> pour quitter</span>
+      <span><strong style="color:rgba(255,255,255,0.85);">SPACE</strong> {{ t('web_core.easter.or') }} <strong style="color:rgba(255,255,255,0.85);">↑</strong> {{ t('web_core.easter.to_jump') }} · <strong style="color:rgba(255,255,255,0.85);">ESC</strong> {{ t('web_core.easter.to_quit') }}</span>
       <span id="eeScore" style="color:oklch(0.86 0.20 130);font-weight:700;font-size:14px;">00000</span>
     </div>
   </div>
@@ -1706,7 +1706,7 @@
         ctx.shadowBlur = 0;
         ctx.font = '13px ui-monospace, monospace';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.fillText('SPACE pour rejouer', W / 2, H / 2 + 16);
+        ctx.fillText('SPACE to play again', W / 2, H / 2 + 16);
         ctx.textAlign = 'start';
       }
 

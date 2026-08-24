@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="rolereaction">{% endblock %}
-{% block title %}Rôles-Réaction · TookBot{% endblock %}
-{% block crumb %}Rôles-Réaction{% endblock %}
+{% block title %}{{ t('web_features.reactionroles.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.reactionroles.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -98,90 +98,90 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 </style>
 
-<h1 style="margin:0 0 8px;">🎭 Rôles-Réaction</h1>
+<h1 style="margin:0 0 8px;">🎭 {{ t('web_features.reactionroles.title') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:24px;">
-  Crée un message avec des réactions. Les membres réagissent pour obtenir un rôle automatiquement.
+  {{ t('web_features.reactionroles.subtitle') }}
 </p>
 
 <div class="builder" style="margin-bottom: 32px;">
-  <h2>➕ Nouveau message rôle-réaction</h2>
+  <h2>➕ {{ t('web_features.reactionroles.new_message') }}</h2>
 
   <div class="row-2col">
     <div class="field">
-      <label>Salon de destination</label>
+      <label>{{ t('web_features.reactionroles.target_channel') }}</label>
       <select id="rrChannel"></select>
     </div>
     <div class="field">
-      <label>Mode</label>
+      <label>{{ t('web_features.reactionroles.mode') }}</label>
       <select id="rrMode">
-        <option value="toggle" selected>toggle (ajout + retrait)</option>
-        <option value="add_only">add_only (ajout seulement)</option>
-        <option value="unique">unique (1 seul rôle du groupe)</option>
+        <option value="toggle" selected>{{ t('web_features.reactionroles.mode_toggle') }}</option>
+        <option value="add_only">{{ t('web_features.reactionroles.mode_add_only') }}</option>
+        <option value="unique">{{ t('web_features.reactionroles.mode_unique') }}</option>
       </select>
     </div>
   </div>
 
   <div class="row-2col">
     <div class="field">
-      <label>Type d'interaction</label>
+      <label>{{ t('web_features.reactionroles.interaction_type') }}</label>
       <select id="rrDelivery">
-        <option value="reaction" selected>Réactions (emojis)</option>
-        <option value="button">Boutons</option>
+        <option value="reaction" selected>{{ t('web_features.reactionroles.delivery_reaction') }}</option>
+        <option value="button">{{ t('web_features.reactionroles.delivery_button') }}</option>
       </select>
     </div>
     <div class="field">
-      <label>Affichage</label>
+      <label>{{ t('web_features.reactionroles.display') }}</label>
       <select id="rrStyle">
-        <option value="embed" selected>Embed</option>
-        <option value="text">Message normal</option>
+        <option value="embed" selected>{{ t('web_features.reactionroles.style_embed') }}</option>
+        <option value="text">{{ t('web_features.reactionroles.style_text') }}</option>
       </select>
     </div>
   </div>
 
   <div class="field">
-    <label>Titre de l'embed</label>
-    <input id="rrTitle" type="text" maxlength="256" placeholder="Choisis ton rôle de couleur">
+    <label>{{ t('web_features.reactionroles.embed_title') }}</label>
+    <input id="rrTitle" type="text" maxlength="256" placeholder="{{ t('web_features.reactionroles.title_placeholder') }}">
   </div>
 
   <div class="row-2col">
     <div class="field">
-      <label>Description (markdown OK)</label>
-      <textarea id="rrDesc" maxlength="2000" placeholder="Réagis avec un emoji pour recevoir le rôle correspondant."></textarea>
+      <label>{{ t('web_features.reactionroles.description') }}</label>
+      <textarea id="rrDesc" maxlength="2000" placeholder="{{ t('web_features.reactionroles.desc_placeholder') }}"></textarea>
     </div>
     <div class="field">
-      <label>Couleur embed</label>
+      <label>{{ t('web_features.reactionroles.embed_color') }}</label>
       <input id="rrColor" type="color" value="#C8F050" style="width: 80px; height: 40px;">
     </div>
   </div>
 
   <div class="field">
-    <label>Mappings (glisse-déplace pour réordonner)</label>
+    <label>{{ t('web_features.reactionroles.mappings_label') }}</label>
     <div id="mapBuilder" class="map-builder"></div>
     <button id="addMapBtn" class="btn btn-secondary" type="button" style="align-self:flex-start;">
-      ➕ Ajouter un mapping
+      ➕ {{ t('web_features.reactionroles.add_mapping') }}
     </button>
   </div>
 
   <div class="field">
-    <label>Aperçu</label>
+    <label>{{ t('web_features.reactionroles.preview') }}</label>
     <div id="rrPreview" class="rr-preview">
-      <div class="pv-title" id="pvTitle">Choisis ton rôle</div>
+      <div class="pv-title" id="pvTitle">{{ t('web_features.reactionroles.pv_default_title') }}</div>
       <div class="pv-desc" id="pvDesc"></div>
-      <div class="pv-fname">Réactions disponibles</div>
-      <div class="pv-fval" id="pvMappings"><em style="color:#787C81;">_aucun mapping_</em></div>
-      <div class="pv-footer" id="pvFooter">Réagis pour recevoir le rôle correspondant.</div>
+      <div class="pv-fname">{{ t('web_features.reactionroles.pv_available_reactions') }}</div>
+      <div class="pv-fval" id="pvMappings"><em style="color:#787C81;">{{ t('web_features.reactionroles.pv_no_mapping') }}</em></div>
+      <div class="pv-footer" id="pvFooter">{{ t('web_features.reactionroles.pv_footer') }}</div>
     </div>
   </div>
 
   <div class="actions">
-    <button id="postBtn" class="btn btn-primary" type="button">✅ Publier le message</button>
+    <button id="postBtn" class="btn btn-primary" type="button">✅ {{ t('web_features.reactionroles.publish') }}</button>
     <span id="postHint" class="muted" style="font-size:12px;"></span>
   </div>
 </div>
 
-<h2 style="margin: 24px 0 12px;">📋 Messages existants</h2>
+<h2 style="margin: 24px 0 12px;">📋 {{ t('web_features.reactionroles.existing_messages') }}</h2>
 <div id="rrList" class="rr-grid">
-  <div class="muted" style="font-size:13px;">Chargement…</div>
+  <div class="muted" style="font-size:13px;">{{ t('web_features.reactionroles.loading') }}</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -212,7 +212,7 @@ async function loadChannels() {
     const d = await r.json();
     CHANNELS = d.channels || [];
     const sel = document.getElementById('rrChannel');
-    sel.innerHTML = '<option value="">— sélectionne un salon —</option>' +
+    sel.innerHTML = '<option value="">— select a channel —</option>' +
       CHANNELS.map(c => `<option value="${c.channel_id}">#${escapeHtml(c.name)}</option>`).join('');
   } catch (_) {}
 }
@@ -227,7 +227,7 @@ async function loadRoles() {
 }
 
 function buildRoleSelect(currentId) {
-  const opts = ['<option value="">— rôle —</option>'].concat(
+  const opts = ['<option value="">— role —</option>'].concat(
     ROLES.map(r => `<option value="${r.role_id}" ${currentId === r.role_id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`)
   );
   return opts.join('');
@@ -238,9 +238,9 @@ function addMapRow(emoji = '', roleId = '', label = '') {
   div.className = 'map-builder-row';
   div.draggable = true;
   div.innerHTML = `
-    <span class="drag-handle" title="Glisser pour réordonner">⋮⋮</span>
+    <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
     <input type="text" class="emo-in"   placeholder="🟢" maxlength="80" value="${escapeHtml(emoji)}">
-    <input type="text" class="label-in" placeholder="Libellé (optionnel)" maxlength="60" value="${escapeHtml(label)}">
+    <input type="text" class="label-in" placeholder="Label (optional)" maxlength="60" value="${escapeHtml(label)}">
     <select class="role-sel">${buildRoleSelect(roleId)}</select>
     <button class="rm-btn" type="button">✕</button>
   `;
@@ -282,7 +282,7 @@ function getMappings() {
   })).filter(m => m.emoji_key && m.role_id);
 }
 function updatePreview() {
-  const title = document.getElementById('rrTitle').value.trim() || 'Choisis ton rôle';
+  const title = document.getElementById('rrTitle').value.trim() || 'Pick your role';
   const desc  = document.getElementById('rrDesc').value.trim();
   const mode  = document.getElementById('rrMode').value;
   const color = document.getElementById('rrColor').value;
@@ -297,11 +297,11 @@ function updatePreview() {
         if (m.label) return `${escapeHtml(m.emoji_key)} <strong>${escapeHtml(m.label)}</strong> — <span style="color:#5865F2;">@${escapeHtml(roleName)}</span>`;
         return `${escapeHtml(m.emoji_key)} → <span style="color:#5865F2;">@${escapeHtml(roleName)}</span>`;
       }).join('<br>')
-    : '<em style="color:#787C81;">_aucun mapping_</em>';
+    : '<em style="color:#787C81;">_no mapping_</em>';
   document.getElementById('pvMappings').innerHTML = html;
   document.getElementById('pvFooter').textContent = mode === 'unique'
-    ? "Tu ne peux choisir qu'UN seul rôle parmi ceux-ci."
-    : "Réagis pour recevoir le rôle correspondant.";
+    ? 'You can only pick ONE role from this group.'
+    : 'React to get the matching role.';
 }
 ['rrTitle','rrDesc','rrMode','rrColor'].forEach(id => {
   document.getElementById(id).addEventListener('input', updatePreview);
@@ -319,7 +319,7 @@ async function _pollCommand(cmdId, maxTries = 15) {
       // 'pending' / 'processing' -> continue
     } catch (_) {}
   }
-  return { ok: false, data: { result: 'Timeout — le bot n\'a pas répondu à temps.' } };
+  return { ok: false, data: { result: 'Timeout — the bot did not respond in time.' } };
 }
 
 document.getElementById('postBtn').addEventListener('click', async () => {
@@ -332,16 +332,16 @@ document.getElementById('postBtn').addEventListener('click', async () => {
   const color       = document.getElementById('rrColor').value;
   const mappings    = getMappings();
 
-  if (!channel_id) { showToast('Sélectionne un salon', false); return; }
-  if (mappings.length === 0) { showToast('Au moins 1 mapping requis', false); return; }
+  if (!channel_id) { showToast('Select a channel', false); return; }
+  if (mappings.length === 0) { showToast('At least 1 mapping required', false); return; }
   if (delivery === 'reaction' && mappings.some(m => !m.emoji_key)) {
-    showToast('Emoji requis pour chaque mapping en mode réactions', false); return;
+    showToast('An emoji is required for every mapping in reaction mode', false); return;
   }
 
   const btn  = document.getElementById('postBtn');
   const hint = document.getElementById('postHint');
   btn.disabled = true;
-  hint.textContent = '⏳ Envoi de la commande au bot…';
+  hint.textContent = '⏳ Sending the command to the bot…';
   try {
     const r = await fetch('/api/rolereactions/post', {
       method: 'POST',
@@ -351,26 +351,26 @@ document.getElementById('postBtn').addEventListener('click', async () => {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || r.status);
 
-    hint.textContent = '⏳ Le bot publie le message…';
+    hint.textContent = '⏳ The bot is posting the message…';
     // Polling status
     const result = await _pollCommand(d.cmd_id);
     if (result.ok) {
-      showToast('✅ Message publié avec succès !');
-      hint.textContent = '✓ Publié';
+      showToast('✅ Message published successfully!');
+      hint.textContent = '✓ Published';
       // Reset form
       document.getElementById('mapBuilder').innerHTML = '';
       addMapRow();
       loadList();
       setTimeout(() => { hint.textContent = ''; }, 2000);
     } else {
-      const errMsg = result.data?.result || 'Erreur inconnue';
-      // Affiche modal d'erreur explicatif
-      alert('❌ Le bot n\'a pas pu publier le message :\n\n' + errMsg);
-      hint.textContent = '✗ Échec — voir détails';
-      showToast('Erreur lors de la publication', false);
+      const errMsg = result.data?.result || 'Unknown error';
+      // Show an explanatory error modal
+      alert('❌ The bot could not publish the message:\n\n' + errMsg);
+      hint.textContent = '✗ Failed — see details';
+      showToast('Error while publishing', false);
     }
   } catch (e) {
-    showToast('Erreur : ' + e.message, false);
+    showToast('Error: ' + e.message, false);
     hint.textContent = '';
   } finally {
     btn.disabled = false;
@@ -385,7 +385,7 @@ async function loadList() {
     const d = await r.json();
     const msgs = d.messages || [];
     if (msgs.length === 0) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucun message rôle-réaction sur ce serveur._</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_No reaction-role message on this server._</div>';
       return;
     }
     list.innerHTML = msgs.map(m => {
@@ -396,16 +396,16 @@ async function loadList() {
           <span class="emo">${escapeHtml(map.emoji)}</span>
           <span class="arrow">→</span>
           <span class="role-pill">@${escapeHtml(roleName)}</span>
-          <button class="x" data-msg="${m.message_id}" data-emo="${escapeHtml(map.emoji)}" title="Retirer ce mapping">✕</button>
+          <button class="x" data-msg="${m.message_id}" data-emo="${escapeHtml(map.emoji)}" title="Remove this mapping">✕</button>
         </div>`;
       }).join('');
       return `<div class="rr-card">
         <h3>Message <code>${m.message_id}</code></h3>
-        <div class="meta">Salon : <#${m.channel_id}> · Mode : <strong>${m.mode}</strong></div>
+        <div class="meta">Channel: <#${m.channel_id}> · Mode: <strong>${m.mode}</strong></div>
         ${rows}
         <div style="margin-top:10px;">
           <button class="btn btn-secondary delall-btn" data-msg="${m.message_id}" type="button">
-            🗑️ Supprimer tous les mappings de ce message
+            🗑️ Delete all mappings of this message
           </button>
         </div>
       </div>`;
@@ -413,22 +413,22 @@ async function loadList() {
     // Bind handlers
     list.querySelectorAll('.x').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Retirer ce mapping ?')) return;
+        if (!confirm('Remove this mapping?')) return;
         const r = await fetch(`/api/rolereactions/${btn.dataset.msg}/${encodeURIComponent(btn.dataset.emo)}`, { method: 'DELETE' });
-        if (r.ok) { showToast('Mapping retiré'); loadList(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast('Mapping removed'); loadList(); }
+        else showToast('Error', false);
       });
     });
     list.querySelectorAll('.delall-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Supprimer TOUS les mappings de ce message ?')) return;
+        if (!confirm('Delete ALL mappings of this message?')) return;
         const r = await fetch(`/api/rolereactions/${btn.dataset.msg}`, { method: 'DELETE' });
-        if (r.ok) { showToast('Mappings supprimés'); loadList(); }
-        else showToast('Erreur', false);
+        if (r.ok) { showToast('Mappings deleted'); loadList(); }
+        else showToast('Error', false);
       });
     });
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur de chargement : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Loading error: ${e.message}</div>`;
   }
 }
 

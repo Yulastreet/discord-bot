@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% set active_nav = '' %}
 
-{% block title %}{% if is_500 %}Erreur serveur{% else %}Page introuvable{% endif %} · TookBot{% endblock %}
+{% block title %}{% if is_500 %}{{ t('web_core.error.title_500') }}{% else %}{{ t('web_core.error.title_404') }}{% endif %} · TookBot{% endblock %}
 {% block crumb %}{% if is_500 %}500{% else %}404{% endif %}{% endblock %}
 
 {% block extra_head %}
@@ -80,23 +80,22 @@
   <div class="err-code">{% if is_500 %}500{% else %}404{% endif %}</div>
 
   <div class="err-title">
-    {% if is_500 %}Erreur interne du serveur{% else %}Page introuvable{% endif %}
+    {% if is_500 %}{{ t('web_core.error.heading_500') }}{% else %}{{ t('web_core.error.heading_404') }}{% endif %}
   </div>
 
   <p class="err-sub">
     {% if is_500 %}
-      Quelque chose s'est mal passé côté serveur. Réessaie dans quelques instants.
+      {{ t('web_core.error.body_500') }}
     {% else %}
-      Cette page n'existe pas ou a été déplacée.
-      Vérifie l'URL ou retourne au dashboard.
+      {{ t('web_core.error.body_404') }}
     {% endif %}
   </p>
 
   <div class="err-actions">
     <a href="/dashboard" class="btn btn-primary">
-      <svg class="ic"><use href="#i-grid"/></svg> Dashboard
+      <svg class="ic"><use href="#i-grid"/></svg> {{ t('web_core.nav.dashboard') }}
     </a>
-    <a href="javascript:history.back()" class="btn btn-ghost">Retour</a>
+    <a href="javascript:history.back()" class="btn btn-ghost">{{ t('web_core.common.back') }}</a>
   </div>
 </div>
 {% endblock %}

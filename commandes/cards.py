@@ -1,6 +1,6 @@
-"""Cards collection : /cardsetup (admin), /roll, /collection, /card.
+"""Cards collection: /cardsetup (admin), /roll, /collection, /card.
 
-Le owner du bot a un rolls infini (skip cooldown).
+The bot owner has infinite rolls (cooldown skipped).
 """
 from __future__ import annotations
 
@@ -22,29 +22,31 @@ from database import (
     CARD_ELEMENT_LABELS as _ELEM_LABELS,
 )
 
+from services.i18n import t, ti, locale_of
 
-# Racine repo fiable. __file__ de ce module resout vers un mauvais cwd sur le VPS
-# (charge en top-level). Les modules sous services/ resolvent correctement leur
-# chemin -> on reutilise celui-la comme reference fiable.
+
+# Reliable repo root. __file__ of this module resolves to a wrong cwd on the VPS
+# (loaded at top-level). Modules under services/ resolve their path correctly
+# -> we reuse that one as the reliable reference.
 from services.card_render import _ROOT as _REPO_ROOT
 
-ROLL_COOLDOWN_SECONDS = 3600  # 1h, par serveur
+ROLL_COOLDOWN_SECONDS = 3600  # 1h, per server
 
 RARITY_COLORS = {
-    "common":    0x9aa0a6,  # gris
-    "rare":      0x4cb5f9,  # bleu
-    "epic":      0xa86dff,  # violet
+    "common":    0x9aa0a6,  # grey
+    "rare":      0x4cb5f9,  # blue
+    "epic":      0xa86dff,  # purple
     "legendary": 0xffa726,  # orange
-    "mythic":    0xff3d57,  # rouge
-    "secret":    0x1c1c1e,  # noir profond (laisse le rainbow border briller)
+    "mythic":    0xff3d57,  # red
+    "secret":    0x1c1c1e,  # deep black (lets the rainbow border shine)
 }
-# Couleur embed par bordure (assortie au visuel de chaque cosmetique)
+# Embed color per border (matches each cosmetic's visual)
 BORDER_COLORS = {
-    "gold":  0xFFC83D,  # or
-    "leaf":  0x6AB04C,  # vert feuille
-    "frost": 0x4FC3F7,  # cyan givre
-    "hell":  0xE7402B,  # rouge enfer
-    "void":  0x8E44AD,  # violet neant
+    "gold":  0xFFC83D,  # gold
+    "leaf":  0x6AB04C,  # leaf green
+    "frost": 0x4FC3F7,  # frost cyan
+    "hell":  0xE7402B,  # hell red
+    "void":  0x8E44AD,  # void purple
 }
 
 RARITY_EMOJIS = {
@@ -53,28 +55,28 @@ RARITY_EMOJIS = {
     "epic":      "🟣",
     "legendary": "🟠",
     "mythic":    "🔴",
-    "secret":    "🌈",  # fallback unicode si custom emoji 'rainbow' indispo
+    "secret":    "🌈",  # unicode fallback if the custom 'rainbow' emoji is unavailable
 }
 
-# Mapping rarete -> nom emoji custom Discord pour THUMBNAIL embed
+# Rarity -> custom Discord emoji name for the embed THUMBNAIL
 _RARITY_CUSTOM_NAME = {
     "common":    "commun",
     "rare":      "rare",
     "epic":      "epic",
     "legendary": "legendaire",
     "mythic":    "mythic",
-    "secret":    "secret",  # badge thumbnail emoji custom (support server)
+    "secret":    "secret",  # custom thumbnail badge emoji (support server)
 }
 
-# Mapping rarete -> nom emoji custom Discord INLINE (titre carte)
+# Rarity -> INLINE custom Discord emoji name (card title)
 _RARITY_INLINE_EMOJI_NAME = {
     "secret":    "rainbowsphere",
 }
 _rarity_emoji_cache: dict[str, str] = {}
 
 def _get_inline_emoji_str(bot, emoji_name: str) -> str:
-    """Cherche emoji custom par nom dans tous les guilds, retourne string
-    '<:name:id>' ou '<a:name:id>' utilisable inline. '' si pas trouve."""
+    """Look up a custom emoji by name across every guild, returns the string
+    '<:name:id>' or '<a:name:id>' usable inline. '' if not found."""
     if not emoji_name:
         return ""
     try:
@@ -86,14 +88,14 @@ def _get_inline_emoji_str(bot, emoji_name: str) -> str:
     return ""
 
 
-# Cache mémoire des noms de cartes pour les autocompletes : evite de taper la DB
-# a chaque frappe (20k+ cartes -> blocage/timeout = "Echec des options de chargement").
+# In-memory cache of card names for autocompletes: avoids hitting the DB on
+# every keystroke (20k+ cards -> freeze/timeout = "failed to load options").
 _CARD_NAMES_CACHE = {"all": [], "obtainable": [], "universes": [], "ts": 0.0}
 
 
 def _card_cache_refresh(force=False):
-    """Recharge le cache depuis la DB. Appele par un warmer en ARRIERE-PLAN
-    (jamais depuis un autocomplete -> aucune requete DB sur la boucle/interaction)."""
+    """Reload the cache from the DB. Called by a BACKGROUND warmer
+    (never from an autocomplete -> no DB query on the loop/interaction)."""
     import time as _t
     now = _t.time()
     if not force and _CARD_NAMES_CACHE["all"] and (now - _CARD_NAMES_CACHE["ts"] < 120):
@@ -113,7 +115,7 @@ def _card_cache_refresh(force=False):
         print(f"[cards cache] refresh err: {e}")
 
 
-# Lecture PURE RAM (zero DB, zero await) : utilisable dans un autocomplete sans risque.
+# PURE RAM read (zero DB, zero await): safe to use inside an autocomplete.
 def _card_names_cached(obtainable_only=False):
     return _CARD_NAMES_CACHE["obtainable"] if obtainable_only else _CARD_NAMES_CACHE["all"]
 
@@ -123,8 +125,8 @@ def _card_universes_cached():
 
 
 def _names_to_choices(names, current, limit=25):
-    """Construit des Choices VALIDES (un nom vide/None fait rejeter TOUTE la
-    reponse autocomplete par Discord -> 'Echec des options de chargement')."""
+    """Build VALID Choices (an empty/None name makes Discord reject the WHOLE
+    autocomplete response -> 'failed to load options')."""
     q = (current or "").strip().lower()
     out = []
     seen = set()
@@ -147,7 +149,7 @@ def _names_to_choices(names, current, limit=25):
 
 
 def _get_rarity_title_emoji(bot, rarity: str) -> str:
-    """Pour secret : emoji custom 'rainbow' inline. Sinon : unicode par defaut."""
+    """For secret: inline custom 'rainbow' emoji. Otherwise: default unicode."""
     inline_name = _RARITY_INLINE_EMOJI_NAME.get(rarity)
     if inline_name:
         s = _get_inline_emoji_str(bot, inline_name)
@@ -157,7 +159,7 @@ def _get_rarity_title_emoji(bot, rarity: str) -> str:
 
 
 def _get_element_emoji(bot, element: str) -> str:
-    """Emoji custom support de l'element (par nom) sinon fallback unicode."""
+    """Support custom emoji for the element (by name), unicode fallback otherwise."""
     from database import CARD_ELEMENT_EMOJI, CARD_ELEMENT_EMOJI_NAME
     if not element:
         return ""
@@ -170,27 +172,27 @@ def _get_element_emoji(bot, element: str) -> str:
 
 
 def _golden_emoji(bot) -> str:
-    """Emoji custom 'goldenroll' (par nom) sinon fallback unicode arc-en-ciel."""
+    """Custom 'goldenroll' emoji (by name), unicode rainbow fallback otherwise."""
     s = _get_inline_emoji_str(bot, "goldenroll")
     return s or "🌈"
 
 
 def _roll_emoji(bot) -> str:
-    """Emoji custom 'roll' (serveur support, par nom) sinon fallback ticket."""
+    """Custom 'roll' emoji (support server, by name), ticket fallback otherwise."""
     s = _get_inline_emoji_str(bot, "roll")
     return s or "🎟️"
 
 
 def _epic_roll_emoji(bot) -> str:
-    """Emoji custom 'epicroll' (par nom) sinon fallback violet."""
+    """Custom 'epicroll' emoji (by name), purple fallback otherwise."""
     s = _get_inline_emoji_str(bot, "epicroll")
     return s or "🟣"
 
 
 def _power_emoji_str(bot, n) -> str:
-    """Nombre -> emojis chiffres custom du SERVEUR SUPPORT (noms '0_'..'9_', 'm').
-    Format compact >=1M : 'XmYYY' (ex 1345986 -> 1m345). Recherche limitee au
-    support (noms courts en collision). Fallback : chiffres unicode."""
+    """Number -> custom digit emojis from the SUPPORT SERVER (names '0_'..'9_', 'm').
+    Compact format >=1M: 'XmYYY' (e.g. 1345986 -> 1m345). Lookup limited to the
+    support server (short names collide). Fallback: unicode digits."""
     sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
     guild = bot.get_guild(sg) if sg else None
     by_name = {}
@@ -211,8 +213,8 @@ def _power_emoji_str(bot, n) -> str:
 
 
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
-    """Cherche emoji custom dans tous les guilds du bot (support server inclus).
-    Cache CDN URL (gif si animé, png sinon). Pour usage en thumbnail embed."""
+    """Look up a custom emoji across every guild of the bot (support server included).
+    Caches the CDN URL (gif if animated, png otherwise). For embed thumbnail use."""
     if rarity in _rarity_emoji_cache:
         return _rarity_emoji_cache[rarity]
     expected = _RARITY_CUSTOM_NAME.get(rarity)
@@ -238,16 +240,17 @@ def _is_owner(user_id: int | str) -> bool:
 SUPPORT_INVITE_URL = os.getenv("SUPPORT_INVITE_URL", "https://discord.gg/hx4KEFSGJA")
 
 
-def _support_view(label="🎁 Rejoindre le serveur support"):
-    """View avec un bouton lien vers le serveur support (perks roll/wishlist)."""
+def _support_view(locale=None, label=None):
+    """View with a link button to the support server (roll/wishlist perks)."""
     v = discord.ui.View()
-    v.add_item(discord.ui.Button(label=label, style=discord.ButtonStyle.link,
+    v.add_item(discord.ui.Button(label=(label or t("cards.support.join_button", locale)),
+                                  style=discord.ButtonStyle.link,
                                   url=SUPPORT_INVITE_URL))
     return v
 
 
 def _is_support_member(bot, user_id) -> bool:
-    """True si le user est membre du serveur de support (perks : roll x2, wishlist 6)."""
+    """True if the user is a member of the support server (perks: roll x2, wishlist 6)."""
     try:
         sg = int((os.getenv("SUPPORT_GUILD_ID") or "1502322150822908115").strip() or 0)
         if not sg:
@@ -261,22 +264,22 @@ def _is_support_member(bot, user_id) -> bool:
 
 
 def _resolve_card_image(card: dict):
-    """Retourne (url_http_ou_None, discord.File_ou_None) pour set_image embed.
+    """Return (http_url_or_None, discord.File_or_None) for embed set_image.
 
-    PRIORITE AU RENDER LOCAL : on ne hotlink JAMAIS un hote externe tant qu'un
-    render local existe (anti-liens-morts). Ordre :
-      1. render local static/card_renders/<id>.(webp|png) -> servi via domaine
-         (PUBLIC_BASE_URL) sinon en attachment.
-      2. image_url qui pointe deja sur un /static/ local existant.
-      3. dernier recours : image_url distante http (peut mourir, seulement si
-         aucun render local).
+    LOCAL RENDER FIRST: we NEVER hotlink an external host as long as a local
+    render exists (anti dead links). Order:
+      1. local render static/card_renders/<id>.(webp|png) -> served through the
+         domain (PUBLIC_BASE_URL), otherwise as an attachment.
+      2. image_url already pointing at an existing local /static/ file.
+      3. last resort: remote http image_url (can die, only when no local render
+         exists).
     """
     root = _REPO_ROOT
     cid = card.get("id")
     img = card.get("image_url") or ""
     public_base = (os.getenv("PUBLIC_BASE_URL") or "").rstrip("/")
 
-    # 1+2. Trouve un fichier render local
+    # 1+2. Find a local render file
     local_rel = None
     local_path = None
     if cid:
@@ -293,16 +296,16 @@ def _resolve_card_image(card: dict):
 
     if local_rel:
         if public_base:
-            # Servi par ton domaine : Discord proxifie, jamais d'hote externe.
-            # Cache-bust par mtime : quand le render change (recadrage approuve),
-            # l'URL change -> Discord re-telecharge au lieu de servir l'ancien cache.
+            # Served by your domain: Discord proxies it, never an external host.
+            # Cache-bust by mtime: when the render changes (approved re-crop),
+            # the URL changes -> Discord re-downloads instead of serving the old cache.
             try:
                 ver = int(os.path.getmtime(local_path))
                 return (f"{public_base}{local_rel}?v={ver}", None)
             except Exception:
                 return (public_base + local_rel, None)
-        # Pas de domaine public (dev) : attachment. Re-encode en PNG pour matcher
-        # le 'attachment://card.png' attendu par les callers.
+        # No public domain (dev): attachment. Re-encoded to PNG to match the
+        # 'attachment://card.png' expected by callers.
         try:
             import io as _io
             from PIL import Image as _PImg
@@ -313,28 +316,28 @@ def _resolve_card_image(card: dict):
         except Exception:
             pass
 
-    # 3. Dernier recours : distante
+    # 3. Last resort: remote
     if isinstance(img, str) and img.startswith("http"):
         return (img, None)
     return (None, None)
 
 
-# ===== Visionneuse des cartes d'un trade (navigation paginee, PERSISTANTE) =====
-# View persistante : custom_id fixes + etat (trade_id, index) relu dans le footer
-# de l'embed a chaque clic -> survit aux restarts pm2 et au timeout (plus de
-# "Echec de l'interaction" en revenant en arriere).
+# ===== Trade card viewer (paginated navigation, PERSISTENT) =====
+# Persistent view: fixed custom_ids + state (trade_id, index) re-read from the
+# embed footer on every click -> survives pm2 restarts and timeouts (no more
+# "interaction failed" when going back).
 import re as _re_trade
 
 
-def _trade_card_entries(trade_id, sender_name, receiver_name):
-    """Liste plate des cartes du trade : offres puis demandes."""
+def _trade_card_entries(trade_id, sender_name, receiver_name, locale=None):
+    """Flat list of the trade cards: offers then requests."""
     from database import card_trade_items
     entries = []
     for side, items in (("offer", card_trade_items(trade_id, side="offer")),
                         ("request", card_trade_items(trade_id, side="request"))):
         for it in items:
-            side_lbl = (f"📤 Proposé par {sender_name}" if side == "offer"
-                        else f"📥 Demandé à {receiver_name}")
+            side_lbl = (t("cards.trade.offered_by", locale, name=sender_name) if side == "offer"
+                        else t("cards.trade.requested_from", locale, name=receiver_name))
             url, _f = _resolve_card_image({"id": it["card_id"], "image_url": it.get("image_url")})
             entries.append({
                 "name": it["name"], "rarity": it.get("rarity"),
@@ -344,7 +347,7 @@ def _trade_card_entries(trade_id, sender_name, receiver_name):
     return entries
 
 
-def _trade_card_embed(trade_id, idx, entries):
+def _trade_card_embed(trade_id, idx, entries, locale=None):
     if not entries:
         return None
     idx = idx % len(entries)
@@ -353,50 +356,55 @@ def _trade_card_embed(trade_id, idx, entries):
     qty = f" ×{e['qty']}" if e["qty"] > 1 else ""
     embed = discord.Embed(
         title=f"{emoji} {e['name']}{qty}"[:256],
-        description=f"{e['side']}\n**Rareté :** {(e['rarity'] or '?').upper()}\n"
-                    f"**Origine :** {e['universe']}",
+        description=t("cards.trade.card_desc", locale, side=e["side"],
+                      rarity=(e["rarity"] or "?").upper(), universe=e["universe"]),
         color=RARITY_COLORS.get(e["rarity"], 0xC8F050))
     if e["url"]:
         embed.set_image(url=e["url"])
-    # footer = etat persistant (parse au prochain clic)
-    embed.set_footer(text=f"Trade #{trade_id} · carte {idx + 1}/{len(entries)}")
+    # footer = persistent state (parsed on the next click). Any translation MUST
+    # keep the "Trade #<id>" marker and the "<index>/<total>" counter.
+    embed.set_footer(text=t("cards.trade.card_footer", locale, trade_id=trade_id,
+                            index=idx + 1, total=len(entries)))
     return embed
 
 
 def _trade_entries_for(interaction, trade_id):
-    """Reconstruit les entries en resolvant les pseudos depuis le trade record."""
+    """Rebuild the entries, resolving nicknames from the trade record."""
     from database import card_trade_get
     trade = card_trade_get(trade_id)
     if not trade:
         return []
+    loc = locale_of(interaction)
     g = interaction.guild
     sender = g.get_member(int(trade["sender_id"])) if g and trade.get("sender_id") else None
     receiver = g.get_member(int(trade["receiver_id"])) if g and trade.get("receiver_id") else None
-    sname = sender.display_name if sender else "le proposeur"
-    rname = receiver.display_name if receiver else "le destinataire"
-    return _trade_card_entries(trade_id, sname, rname)
+    sname = sender.display_name if sender else t("cards.trade.the_sender", loc)
+    rname = receiver.display_name if receiver else t("cards.trade.the_recipient", loc)
+    return _trade_card_entries(trade_id, sname, rname, locale=loc)
 
 
 class TradeCardsNavView(discord.ui.View):
-    """Persistante (timeout=None, custom_id fixes). Une instance enregistree au
-    boot via bot.add_view gere TOUS les visionneurs de trade."""
+    """Persistent (timeout=None, fixed custom_ids). A single instance registered
+    at boot via bot.add_view handles ALL trade viewers."""
     def __init__(self):
         super().__init__(timeout=None)
 
     async def _nav(self, interaction: discord.Interaction, direction: int):
         emb = interaction.message.embeds[0] if interaction.message.embeds else None
         ft = (emb.footer.text if emb and emb.footer else "") or ""
-        m = _re_trade.search(r"Trade #(\d+) · carte (\d+)/(\d+)", ft)
+        # Locale-tolerant: only the trade id and the counter are required.
+        m = _re_trade.search(r"Trade #(\d+)\D+(\d+)\s*/\s*(\d+)", ft)
         if not m:
             await interaction.response.defer(); return
         tid = int(m.group(1)); cur = int(m.group(2)) - 1
         entries = _trade_entries_for(interaction, tid)
         if not entries:
             await interaction.response.send_message(
-                "Ce trade n'a plus de cartes à afficher.", ephemeral=True); return
+                ti(interaction, "cards.trade.no_cards_left"), ephemeral=True); return
         new_idx = (cur + direction) % len(entries)
         await interaction.response.edit_message(
-            embed=_trade_card_embed(tid, new_idx, entries), view=self)
+            embed=_trade_card_embed(tid, new_idx, entries, locale=locale_of(interaction)),
+            view=self)
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, custom_id="trade_card_prev")
     async def prev_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
@@ -408,25 +416,28 @@ class TradeCardsNavView(discord.ui.View):
 
 
 def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
-                     essence_gain=0, already_owned=False):
-    """Construit l'embed d'un roll (meme format que /roll). Reutilise par /roll,
-    le golden roll et la simulation dashboard. Retourne (embed, img_file, view)."""
+                     essence_gain=0, already_owned=False, locale=None):
+    """Build the embed of a roll (same format as /roll). Reused by /roll, the
+    golden roll and the dashboard simulation. Returns (embed, img_file, view)."""
     rarity = card.get("rarity", "common")
     color = RARITY_COLORS.get(rarity, 0x9aa0a6)
     emoji = _get_rarity_title_emoji(bot, rarity)
-    origine = card.get("subtitle") or "?"
-    univers = card.get("universe") or "?"
+    origin = card.get("subtitle") or "?"
+    universe = card.get("universe") or "?"
     rarity_display = "?????" if rarity == "secret" else rarity.upper()
     flavor = (card.get("flavor_subtitle") or "").strip()
-    essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
+    essence_line = (t("cards.roll.essences_line", locale, amount=essence_gain)
+                    + (t("cards.roll.duplicate_x2", locale) if already_owned else ""))
     _elem = card.get("element")
     if _elem:
-        essence_line += f"\n**Élément :** {_get_element_emoji(bot, _elem)} {_ELEM_LABELS.get(_elem, '')}"
+        essence_line += t("cards.roll.element_line", locale,
+                          emoji=_get_element_emoji(bot, _elem),
+                          label=_ELEM_LABELS.get(_elem, ''))
     desc_parts = []
     if flavor:
         desc_parts.append(f"_**{flavor}**_")
-    desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n"
-                      f"**Univers :** {univers}\n{essence_line}")
+    desc_parts.append(t("cards.roll.card_desc", locale, rarity=rarity_display,
+                        origin=origin, universe=universe, essence_line=essence_line))
     embed = discord.Embed(title=f"{emoji} {card['name']}"[:256],
                           description="\n\n".join(desc_parts), color=color)
     thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
@@ -437,14 +448,15 @@ def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
         embed.set_image(url=img_url)
     elif img_file:
         embed.set_image(url="attachment://card.png")
-    embed.set_footer(text=f"Appartient à {roller_name}", icon_url=roller_avatar_url)
-    return embed, img_file, OwnersView(card["id"], card["name"])
+    embed.set_footer(text=t("cards.roll.belongs_to", locale, name=roller_name),
+                     icon_url=roller_avatar_url)
+    return embed, img_file, OwnersView(card["id"], card["name"], locale=locale)
 
 
 async def _persist_attachment(att) -> str | None:
-    """Telecharge une piece jointe image et la sauve en local STABLE (les URLs
-    d'attachment ephemeral Discord EXPIRENT -> inutilisables a l'approbation).
-    Retourne l'URL (domaine + /static/card_suggestions/...) ou None."""
+    """Download an image attachment and store it locally in a STABLE way (Discord
+    ephemeral attachment URLs EXPIRE -> unusable at approval time).
+    Returns the URL (domain + /static/card_suggestions/...) or None."""
     try:
         import time as _t
         data = await att.read()
@@ -465,8 +477,8 @@ async def _persist_attachment(att) -> str | None:
 
 
 def _resolve_owned_card(uid, query):
-    """Trouve une carte possedee par le user a partir d'un nom tape (match libre).
-    Priorite : exact > prefixe > contient. Retourne dict {card_id, name} ou None."""
+    """Find a card owned by the user from a typed name (fuzzy match).
+    Priority: exact > prefix > contains. Returns dict {card_id, name} or None."""
     from database import get_db
     q = (query or "").strip()
     if not q:
@@ -490,22 +502,29 @@ def _resolve_owned_card(uid, query):
     return dict(rows[0])
 
 
-class _CardsModal(discord.ui.Modal, title="Tes 3 cartes vedettes"):
-    """Saisie libre des 3 cartes par nom (recherche floue dans l'inventaire)."""
-    def __init__(self, uid, cur_names):
-        super().__init__()
+class _CardsModal(discord.ui.Modal, title="Your 3 featured cards"):
+    """Free text entry of the 3 cards by name (fuzzy search in the inventory)."""
+    def __init__(self, uid, cur_names, locale=None):
+        super().__init__(title=t("cards.profile.modal_title", locale))
         self.uid = uid
-        self.left_in = discord.ui.TextInput(label="Carte gauche", required=True, max_length=100,
+        self.locale = locale
+        self.left_in = discord.ui.TextInput(label=t("cards.profile.left_card", locale),
+                                            required=True, max_length=100,
                                             default=cur_names.get("left") or "")
-        self.mid_in = discord.ui.TextInput(label="Carte milieu", required=True, max_length=100,
+        self.mid_in = discord.ui.TextInput(label=t("cards.profile.mid_card", locale),
+                                           required=True, max_length=100,
                                            default=cur_names.get("mid") or "")
-        self.right_in = discord.ui.TextInput(label="Carte droite", required=True, max_length=100,
+        self.right_in = discord.ui.TextInput(label=t("cards.profile.right_card", locale),
+                                             required=True, max_length=100,
                                              default=cur_names.get("right") or "")
         self.add_item(self.left_in); self.add_item(self.mid_in); self.add_item(self.right_in)
 
     async def on_submit(self, interaction):
         from database import card_profile_set
-        slots = [("gauche", self.left_in.value), ("milieu", self.mid_in.value), ("droite", self.right_in.value)]
+        loc = locale_of(interaction)
+        slots = [(t("cards.profile.slot_left", loc), self.left_in.value),
+                 (t("cards.profile.slot_mid", loc), self.mid_in.value),
+                 (t("cards.profile.slot_right", loc), self.right_in.value)]
         resolved = []; missing = []
         for lbl, raw in slots:
             cd = _resolve_owned_card(self.uid, raw)
@@ -515,22 +534,30 @@ class _CardsModal(discord.ui.Modal, title="Tes 3 cartes vedettes"):
                 missing.append(f"**{lbl}** (`{(raw or '').strip()}`)")
         if missing:
             await interaction.response.send_message(
-                "❌ Cartes introuvables dans ton inventaire : " + ", ".join(missing)
-                + "\nTape le nom (ou un bout) d'une carte que tu possèdes.", ephemeral=True)
+                ti(interaction, "cards.profile.cards_not_found", list=", ".join(missing)),
+                ephemeral=True)
             return
         card_profile_set(self.uid, resolved[0]["card_id"], resolved[1]["card_id"], resolved[2]["card_id"])
         await interaction.response.send_message(
-            "✅ Cartes vedettes : "
-            + " · ".join(f"**{r['name']}**" for r in resolved)
-            + "\n`/cardprofile` pour voir.", ephemeral=True)
+            ti(interaction, "cards.profile.featured_set",
+               list=" · ".join(f"**{r['name']}**" for r in resolved)), ephemeral=True)
+
+
+def _profile_color_name(col, locale=None):
+    """Localized name of a PROFILE_COLORS entry (falls back to the DB label)."""
+    key = f"cards.profile.color.{col['key']}"
+    label = t(key, locale)
+    return col["name"] if label == key else label
 
 
 class _ProfileCustomView(discord.ui.View):
-    """Editeur de profil : bouton modal cartes (choix libre) + dropdown couleur (palier guilde)."""
-    def __init__(self, uid, prof, guild_level, cur_names):
+    """Profile editor: cards modal button (free choice) + color dropdown (guild tier)."""
+    def __init__(self, uid, prof, guild_level, cur_names, locale=None):
         super().__init__(timeout=300)
         self.uid = uid; self.guild_level = guild_level; self.cur_names = cur_names
+        self.locale = locale
         self.color = (prof or {}).get("color")
+        self.pick_cards.label = t("cards.profile.pick_cards_btn", locale)
         self.add_item(self._ColorSelect(self))
 
     class _ColorSelect(discord.ui.Select):
@@ -540,31 +567,41 @@ class _ProfileCustomView(discord.ui.View):
             opts = []
             for col in PROFILE_COLORS:
                 locked = parent.guild_level < col["lvl"]
-                name = col["name"] + (f" (dispo niv {col['lvl']})" if locked else "")
+                name = _profile_color_name(col, parent.locale)
+                if locked:
+                    name += t("cards.profile.color_locked_suffix", parent.locale, level=col["lvl"])
                 opts.append(discord.SelectOption(label=name[:100], value=col["key"],
                                                  default=(col["key"] == parent.color)))
-            super().__init__(placeholder="🎨 Couleur du profil", options=opts, min_values=1, max_values=1)
+            super().__init__(placeholder=t("cards.profile.color_placeholder", parent.locale),
+                             options=opts, min_values=1, max_values=1)
 
         async def callback(self, interaction):
             from database import PROFILE_COLORS, card_profile_set_color
             if interaction.user.id != self.pv.uid:
-                await interaction.response.send_message("Ce profil n'est pas le tien.", ephemeral=True); return
+                await interaction.response.send_message(
+                    ti(interaction, "cards.profile.not_yours"), ephemeral=True); return
             key = self.values[0]
             col = next((c for c in PROFILE_COLORS if c["key"] == key), None)
+            loc = locale_of(interaction)
             if col and self.pv.guild_level < col["lvl"]:
                 await interaction.response.send_message(
-                    f"🔒 Couleur **{col['name']}** dispo au niveau de guilde **{col['lvl']}**.",
+                    t("cards.profile.color_locked", loc,
+                      color=_profile_color_name(col, loc), level=col["lvl"]),
                     ephemeral=True); return
             card_profile_set_color(self.pv.uid, key)
             self.pv.color = key
-            await interaction.response.send_message(f"🎨 Couleur **{col['name']}** appliquée.", ephemeral=True)
+            await interaction.response.send_message(
+                t("cards.profile.color_applied", loc, color=_profile_color_name(col, loc)),
+                ephemeral=True)
 
-    @discord.ui.button(label="Choisir mes 3 cartes", emoji="🎴",
+    @discord.ui.button(label="Pick my 3 cards", emoji="🎴",
                        style=discord.ButtonStyle.success, row=1)
     async def pick_cards(self, interaction, btn):
         if interaction.user.id != self.uid:
-            await interaction.response.send_message("Ce profil n'est pas le tien.", ephemeral=True); return
-        await interaction.response.send_modal(_CardsModal(self.uid, self.cur_names))
+            await interaction.response.send_message(
+                ti(interaction, "cards.profile.not_yours"), ephemeral=True); return
+        await interaction.response.send_modal(
+            _CardsModal(self.uid, self.cur_names, locale=locale_of(interaction)))
 
 
 async def _open_profile_customizer(bot, interaction):
@@ -575,10 +612,10 @@ async def _open_profile_customizer(bot, interaction):
     if not n:
         conn.close()
         await interaction.response.send_message(
-            "Tu n'as aucune carte à mettre en avant. Fais des `/roll` d'abord.", ephemeral=True)
+            ti(interaction, "cards.profile.no_cards"), ephemeral=True)
         return
     prof = card_profile_get(uid) or {}
-    # Noms actuels (pour pre-remplir le modal)
+    # Current names (to pre-fill the modal)
     cur_names = {}
     for key, col in (("left", "left_id"), ("mid", "mid_id"), ("right", "right_id")):
         cid = prof.get(col)
@@ -588,17 +625,15 @@ async def _open_profile_customizer(bot, interaction):
                 cur_names[key] = r["name"]
     conn.close()
     glvl = (guild_of_user(uid) or {}).get("level", 0)
-    view = _ProfileCustomView(uid, prof, glvl, cur_names)
+    loc = locale_of(interaction)
+    view = _ProfileCustomView(uid, prof, glvl, cur_names, locale=loc)
     await interaction.response.send_message(
-        "🎨 **Personnalise ton profil**\n"
-        "• **Choisir mes 3 cartes** : tape le nom de n'importe quelle carte que tu possèdes (choix libre).\n"
-        "• **Couleur** : s'applique direct (déblocage par niveau de guilde).",
-        view=view, ephemeral=True)
+        t("cards.profile.customizer_intro", loc), view=view, ephemeral=True)
 
 
 def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
-    """Verifie que la commande est lancee dans le salon configure.
-    Retourne (ok, channel_mention_si_ko)."""
+    """Check that the command is run in the configured channel.
+    Returns (ok, channel_mention_if_ko)."""
     cfg = guild_card_config_get(interaction.guild.id) if interaction.guild else None
     if not cfg or not cfg.get("channel_id"):
         return (True, None)
@@ -611,25 +646,26 @@ _DASHBOARD_URL = (os.getenv("DASHBOARD_URL") or "https://dashboard.tookbot.click
 
 
 class OwnersView(discord.ui.View):
-    """Boutons 'Voir possesseurs' + 'Modifier' sous embed carte."""
-    def __init__(self, card_id: int, card_name: str):
+    """'View owners' + 'Edit' buttons under a card embed."""
+    def __init__(self, card_id: int, card_name: str, locale=None):
         super().__init__(timeout=600)
         self.card_id = card_id
         self.card_name = card_name
-        # Bouton link 'Modifier' -> dashboard /cards?edit=<id>
+        self._show_owners.label = t("cards.owners.btn_view", locale)
+        # 'Edit' link button -> dashboard /cards?edit=<id>
         edit_url = f"{_DASHBOARD_URL}/cards?edit={card_id}"
         self.add_item(discord.ui.Button(
-            label="Modifier", style=discord.ButtonStyle.link,
+            label=t("cards.owners.btn_edit", locale), style=discord.ButtonStyle.link,
             emoji="✏", url=edit_url,
         ))
 
-    @discord.ui.button(label="Voir possesseurs", style=discord.ButtonStyle.secondary,
+    @discord.ui.button(label="View owners", style=discord.ButtonStyle.secondary,
                         emoji="👥")
     async def _show_owners(self, interaction: discord.Interaction, button: discord.ui.Button):
         owners = card_owners_list(self.card_id, limit=50)
         if not owners:
             await interaction.response.send_message(
-                "Personne ne possède cette carte.", ephemeral=True)
+                ti(interaction, "cards.owners.nobody"), ephemeral=True)
             return
         lines = []
         for o in owners:
@@ -638,12 +674,12 @@ class OwnersView(discord.ui.View):
             suffix = f" ×{qty}" if qty > 1 else ""
             lines.append(f"<@{uid}>{suffix}")
         embed = discord.Embed(
-            title=f"👥 Possesseurs de {self.card_name}",
+            title=ti(interaction, "cards.owners.title", name=self.card_name),
             description="\n".join(lines)[:4000],
             color=0xB9F23A,
         )
         if len(owners) >= 50:
-            embed.set_footer(text="50 premiers affichés.")
+            embed.set_footer(text=ti(interaction, "cards.owners.footer_limit"))
         await interaction.response.send_message(
             embed=embed, ephemeral=True,
             allowed_mentions=discord.AllowedMentions.none(),
@@ -653,14 +689,14 @@ class OwnersView(discord.ui.View):
 def setup_cards_commands(bot, deps):
     globals().update(deps)
 
-    # View persistante du visionneur de cartes de trade : survit aux restarts pm2.
+    # Persistent view of the trade card viewer: survives pm2 restarts.
     try:
         bot.add_view(TradeCardsNavView())
     except Exception as _e:
         print(f"[cards] add_view TradeCardsNavView: {_e}")
 
-    # Warmer du cache de noms/univers (arriere-plan, thread) : l'autocomplete ne lit
-    # plus jamais la DB -> jamais de blocage de boucle ni "Echec des options".
+    # Warmer for the names/universes cache (background thread): the autocomplete
+    # never reads the DB again -> no loop blocking and no "failed to load options".
     from discord.ext import tasks as _tasks
 
     @_tasks.loop(seconds=120)
@@ -675,7 +711,7 @@ def setup_cards_commands(bot, deps):
     async def _before_cards_cache():
         await bot.wait_until_ready()
 
-    # Demarre le loop quand la boucle async tourne (setup s'execute avant le loop).
+    # Start the loop once the async loop is running (setup runs before the loop).
     @bot.listen("on_ready")
     async def _start_cards_cache():
         try:
@@ -684,41 +720,41 @@ def setup_cards_commands(bot, deps):
         except Exception as e:
             print(f"[cards cache] start err: {e}")
 
-    # === /cardsetup admin (alias top-level pour clarte) ===
+    # === /cardsetup admin (top-level alias for clarity) ===
     async def _resolve_or_create_role(interaction, role_str):
-        """Resout un role depuis un texte : mention <@&id>, id, ou nom exact.
-        Si aucun role ne correspond au nom, en cree un. Retourne (role, created)
-        ou (None, False) si echec creation."""
+        """Resolve a role from text: mention <@&id>, id, or exact name.
+        If no role matches the name, create one. Returns (role, created)
+        or (None, False) on creation failure."""
         guild = interaction.guild
         raw = (role_str or "").strip()
         if not raw:
             return (None, False)
-        # mention <@&123> ou id brut
+        # mention <@&123> or raw id
         digits = "".join(ch for ch in raw if ch.isdigit())
         if (raw.startswith("<@&") or raw.isdigit()) and digits:
             r = guild.get_role(int(digits))
             if r:
                 return (r, False)
-        # nom exact (insensible a la casse)
+        # exact name (case insensitive)
         low = raw.lower()
         for r in guild.roles:
             if r.name.lower() == low:
                 return (r, False)
-        # introuvable -> creer un role de ce nom
+        # not found -> create a role with that name
         try:
             r = await guild.create_role(name=raw, mentionable=True,
-                                        reason="cardsetup : role fans de cartes")
+                                        reason="cardsetup: card fans role")
             return (r, True)
         except Exception as e:
             print(f"[cardsetup] create_role err: {e}")
             return (None, False)
 
-    @bot.tree.command(name="cardsetup", description="Definir le salon des cartes + role a ping sur drop/boss (admin)")
+    @bot.tree.command(name="cardsetup", description="Set the cards channel + role to ping on drops/bosses (admin)")
     @app_commands.describe(
-        salon="Salon textuel ou les commandes cartes seront limitees",
-        role="(Optionnel) Role a ping (mention, ou un nom : cree le role s'il n'existe pas)")
+        channel="Text channel the card commands will be limited to",
+        role="(Optional) Role to ping (mention, or a name: creates the role if it doesn't exist)")
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def cardsetup(interaction: discord.Interaction, salon: discord.TextChannel,
+    async def cardsetup(interaction: discord.Interaction, channel: discord.TextChannel,
                         role: str = None):
         role_obj = None
         created = False
@@ -726,44 +762,42 @@ def setup_cards_commands(bot, deps):
         if role and role.strip():
             role_obj, created = await _resolve_or_create_role(interaction, role)
             role_err = role_obj is None
-        guild_card_config_set(interaction.guild.id, channel_id=salon.id, enabled=True,
+        guild_card_config_set(interaction.guild.id, channel_id=channel.id, enabled=True,
                               ping_role_id=(role_obj.id if role_obj else ...))
-        msg = (f"✅ Salon des cartes configure sur {salon.mention}. "
-               f"Les commandes `/roll`, `/cardcollec`, `/card` ne marcheront que dans ce salon.")
+        msg = ti(interaction, "cards.setup.channel_set", channel=channel.mention)
         if role_obj:
-            verb = "cree et " if created else ""
-            msg += f"\n🔔 Role {role_obj.mention} {verb}pinge a chaque drop event et spawn de boss."
+            key = "cards.setup.role_created_set" if created else "cards.setup.role_set"
+            msg += ti(interaction, key, role=role_obj.mention)
         elif role_err:
-            msg += ("\n⚠️ Role introuvable et creation impossible "
-                    "(permission **Gerer les roles** manquante pour le bot ?). Ping non configure.")
+            msg += ti(interaction, "cards.setup.role_error")
         await interaction.response.send_message(msg, ephemeral=True)
 
-    @bot.tree.command(name="cardsetup_disable", description="Desactive la restriction de salon cartes (admin)")
+    @bot.tree.command(name="cardsetup_disable", description="Disable the cards channel restriction (admin)")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def cardsetup_disable(interaction: discord.Interaction):
         guild_card_config_set(interaction.guild.id, channel_id=None, enabled=True)
         await interaction.response.send_message(
-            "✅ Restriction de salon retiree. Les commandes cartes sont disponibles partout.",
-            ephemeral=True,
+            ti(interaction, "cards.setup.disabled"), ephemeral=True,
         )
 
-    # === /roll [univers] ===
+    # === /roll [universe] ===
     @bot.tree.command(name="roll",
-                       description="Tire une carte aleatoire (optionnel : filtre par univers)")
-    @app_commands.describe(univers="Filtrer par categorie (sinon toutes)")
-    async def roll(interaction: discord.Interaction, univers: str = None):
+                       description="Pull a random card (optional: filter by universe)")
+    @app_commands.describe(universe="Filter by category (all of them otherwise)")
+    async def roll(interaction: discord.Interaction, universe: str = None):
         if interaction.guild:
             ok, target = _check_channel(interaction)
             if not ok:
                 await interaction.response.send_message(
-                    f"Les commandes cartes sont reservees au salon {target}. Utilise `/cardsetup` (admin) pour changer.",
+                    ti(interaction, "cards.channel.restricted", channel=target),
                     ephemeral=True,
                 )
                 return
 
-        # Anti-abus : /roll bloque dans les serveurs trop RECENTS. L'age du serveur
-        # vient du snowflake Discord (guild.created_at), infalsifiable. Coupe le farm
-        # par creation de serveurs jetables en masse. Owner + serveur support exemptes.
+        # Anti-abuse: /roll blocked in servers that are too RECENT. The server age
+        # comes from the Discord snowflake (guild.created_at), which can't be faked.
+        # Kills farming through mass throwaway server creation. Owner + support
+        # server are exempt.
         if interaction.guild and not _is_owner(interaction.user.id):
             try:
                 from database import get_setting
@@ -778,15 +812,13 @@ def setup_cards_commands(bot, deps):
                     ready_at = int((interaction.guild.created_at
                                     + _dt.timedelta(days=_min_days)).timestamp())
                     await interaction.response.send_message(
-                        f"🚫 Ce serveur est trop récent pour utiliser `/roll`.\n"
-                        f"Les rolls s'y débloquent **{_min_days} jours** après sa création "
-                        f"(<t:{ready_at}:R>).\n"
-                        f"_Mesure anti-abus contre la création de serveurs jetables._",
+                        ti(interaction, "cards.roll.guild_too_young",
+                           days=_min_days, ready_at=ready_at),
                         ephemeral=True)
                     return
 
-            # Anti-abus #2 : cap des serveurs "solo" (user seul avec le bot, que des
-            # bots a part lui). Un compte ne peut roll que dans N serveurs solo max.
+            # Anti-abuse #2: cap on "solo" servers (user alone with the bot, only
+            # bots besides them). An account can only roll in N solo servers max.
             if interaction.guild.id != _sg:
                 try:
                     from database import (get_setting, roll_solo_guild_has,
@@ -796,30 +828,27 @@ def setup_cards_commands(bot, deps):
                     _max_solo = 2
                 if _max_solo > 0:
                     humans = sum(1 for m in interaction.guild.members if not m.bot)
-                    if humans <= 1:  # serveur solo : juste le roller (+ des bots)
+                    if humans <= 1:  # solo server: just the roller (+ some bots)
                         uid_s = interaction.user.id
                         gid_s = interaction.guild.id
                         if not roll_solo_guild_has(uid_s, gid_s):
                             if roll_solo_guild_count(uid_s) >= _max_solo:
                                 await interaction.response.send_message(
-                                    f"🚫 Tu as atteint la limite de **{_max_solo} serveurs** où tu es "
-                                    f"seul avec le bot pour utiliser `/roll`.\n"
-                                    f"_Cette limite évite les abus et les \"faux serveurs\" qui faussent "
-                                    f"les stats du bot. Roll plutôt depuis un vrai serveur communautaire._",
+                                    ti(interaction, "cards.roll.solo_guild_cap", max=_max_solo),
                                     ephemeral=True)
                                 return
                             roll_solo_guild_add(uid_s, gid_s)
 
-        # Cooldown PAR SERVEUR (un timer par guild) - skip pour owner.
-        # Membres serveur support : 2 charges/h. Autres : 1/h. Chaque charge
-        # recharge 1h apres SA propre utilisation. Les rolls bonus (offerts par
-        # owner) sont consommes en priorite et ne se rechargent pas.
+        # PER-SERVER cooldown (one timer per guild) - skipped for the owner.
+        # Support server members: 2 charges/h. Others: 1/h. Each charge recharges
+        # 1h after ITS own use. Bonus rolls (granted by the owner) are consumed
+        # first and never recharge.
         from database import (roll_bonus_available, roll_bonus_consume,
                                roll_events_count, roll_events_oldest_ts, roll_events_add)
         uid = interaction.user.id
         gid = interaction.guild.id if interaction.guild else None
         is_support = _is_support_member(bot, uid)
-        # Passifs de guilde (palier du niveau) : +charges/h, -cooldown roll
+        # Guild passives (level tier): +charges/h, -roll cooldown
         from database import guild_perks_for_user
         _gperk = guild_perks_for_user(uid) or {}
         max_charges = (2 if is_support else 1) + int(_gperk.get("charges", 0))
@@ -839,29 +868,25 @@ def setup_cards_commands(bot, deps):
                     ready_at = int(now_ts + remain)
                     if is_support:
                         await interaction.response.send_message(
-                            f"⏰ Tu as utilisé tes **2 rolls** de l'heure. "
-                            f"Prochain roll <t:{ready_at}:R>.",
+                            ti(interaction, "cards.roll.cooldown_support", ready_at=ready_at),
                             ephemeral=True)
                     else:
                         await interaction.response.send_message(
-                            f"⏰ Cooldown actif. Prochain roll <t:{ready_at}:R>.\n"
-                            f"💡 Si tu es sur le **serveur support** tu as **2 rolls/h** au lieu de 1. "
-                            f"Rejoins-le :",
-                            view=_support_view(), ephemeral=True)
+                            ti(interaction, "cards.roll.cooldown", ready_at=ready_at),
+                            view=_support_view(locale_of(interaction)), ephemeral=True)
                     return
 
-        # Verifie qu'il y a des cartes
+        # Make sure there are cards
         if card_count_total() == 0:
             await interaction.response.send_message(
-                "Aucune carte dans le catalogue. Demande au owner d'en ajouter via le dashboard.",
-                ephemeral=True,
+                ti(interaction, "cards.roll.catalog_empty"), ephemeral=True,
             )
             return
 
-        # Pioche + add (avec filtre univers si fourni)
-        univers_filter = (univers or "").strip() or None
-        # Owner cheat : carte forcee. Appliquee SEULEMENT si elle respecte le filtre
-        # univers du roll (sinon roll normal, et la carte forcee reste en attente).
+        # Draw + add (with universe filter when provided)
+        univers_filter = (universe or "").strip() or None
+        # Owner cheat: forced card. Applied ONLY if it matches the roll's universe
+        # filter (otherwise normal roll, and the forced card stays pending).
         from database import forced_roll_get, forced_roll_clear, card_get
         card = None
         _forced_id = forced_roll_get(uid)
@@ -870,15 +895,16 @@ def setup_cards_commands(bot, deps):
             if fc and (not univers_filter
                        or (fc.get("universe") or "").lower() == univers_filter.lower()):
                 card = fc
-                forced_roll_clear(uid)   # consomme seulement si elle matche
+                forced_roll_clear(uid)   # consumed only when it matches
         if not card:
             card = card_roll_random(universe=univers_filter, user_id=uid, guild_id=gid)
         if not card:
-            label = f" dans l'univers `{univers_filter}`" if univers_filter else ""
+            label = (ti(interaction, "cards.roll.no_card_universe_suffix",
+                        universe=univers_filter) if univers_filter else "")
             await interaction.response.send_message(
-                f"Aucune carte disponible{label}.", ephemeral=True)
+                ti(interaction, "cards.roll.no_card_available", universe=label), ephemeral=True)
             return
-        # Doublon ? (avant l'ajout) -> essences x2
+        # Duplicate? (before adding) -> essences x2
         already_owned = user_card_count_owned(uid, card["id"]) > 0
         user_card_add(uid, card["id"])
         bonus_left = None
@@ -889,20 +915,20 @@ def setup_cards_commands(bot, deps):
             else:
                 roll_events_add(uid, gid)
 
-        # Gain d'essences selon rarete (doublon = x2)
+        # Essence gain based on rarity (duplicate = x2)
         rarity_for_reward = card.get("rarity", "common")
         essence_base = ESSENCE_REWARDS.get(rarity_for_reward, 12)
         essence_gain = essence_base * 2 if already_owned else essence_base
-        # Bonus passif de guilde sur les essences
+        # Guild passive bonus on essences
         _ess_pct = int(_gperk.get("essence_pct", 0))
         if _ess_pct:
             essence_gain = int(essence_gain * (1 + _ess_pct / 100))
         try:
             from database import essence_reward_add
-            essence_gain = essence_reward_add(uid, essence_gain)  # applique bonus roue du jour
+            essence_gain = essence_reward_add(uid, essence_gain)  # applies the daily wheel bonus
         except Exception as e:
             print(f"[roll essence] err: {e}")
-        # Hook XP de guilde (roll = levier principal), capé par jour/membre
+        # Guild XP hook (roll = main lever), capped per day/member
         try:
             from database import get_guild_config, guild_member_action_xp, guild_quest_progress
             _xpr = int(get_guild_config().get("xp", {}).get("roll", 0))
@@ -917,31 +943,38 @@ def setup_cards_commands(bot, deps):
         except Exception as e:
             print(f"[roll total] err: {e}")
 
-        # Embed minimaliste
+        # Minimalist embed
+        loc = locale_of(interaction)
         rarity = card.get("rarity", "common")
         color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = _get_rarity_title_emoji(bot, rarity)
-        origine = card.get("subtitle") or "?"
-        univers = card.get("universe") or "?"
+        origin = card.get("subtitle") or "?"
+        universe_name = card.get("universe") or "?"
         rarity_display = "?????" if rarity == "secret" else rarity.upper()
         flavor = (card.get("flavor_subtitle") or "").strip()
-        essence_line = f"**Essences :** +{essence_gain} ✨" + (" _(doublon x2)_" if already_owned else "")
+        essence_line = (t("cards.roll.essences_line", loc, amount=essence_gain)
+                        + (t("cards.roll.duplicate_x2", loc) if already_owned else ""))
         _elem = card.get("element")
         if _elem:
-            essence_line += f"\n**Élément :** {_get_element_emoji(bot, _elem)} {_ELEM_LABELS.get(_elem, '')}"
+            essence_line += t("cards.roll.element_line", loc,
+                              emoji=_get_element_emoji(bot, _elem),
+                              label=_ELEM_LABELS.get(_elem, ''))
         if bonus_left is not None:
-            essence_line += f"\n{_roll_emoji(bot)} _Roll bonus utilisé — il t'en reste **{bonus_left}**_"
+            essence_line += t("cards.roll.bonus_roll_used", loc,
+                              emoji=_roll_emoji(bot), left=bonus_left)
         desc_parts = []
         if flavor:
             desc_parts.append(f"_**{flavor}**_")
-        desc_parts.append(f"**Rareté :** {rarity_display}\n**Origine :** {origine}\n**Univers :** {univers}\n{essence_line}")
+        desc_parts.append(t("cards.roll.card_desc", loc, rarity=rarity_display,
+                            origin=origin, universe=universe_name,
+                            essence_line=essence_line))
         desc = "\n\n".join(desc_parts)
         embed = discord.Embed(
             title=f"{emoji} {card['name']}"[:256],
             description=desc,
             color=color,
         )
-        # Thumbnail = emoji custom anime (rareté) si dispo
+        # Thumbnail = animated custom emoji (rarity) when available
         thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
         if thumb_url:
             embed.set_thumbnail(url=thumb_url)
@@ -951,15 +984,15 @@ def setup_cards_commands(bot, deps):
         elif img_file:
             embed.set_image(url="attachment://card.png")
         avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
-        embed.set_footer(text=f"Appartient à {interaction.user.display_name}",
+        embed.set_footer(text=t("cards.roll.belongs_to", loc, name=interaction.user.display_name),
                           icon_url=avatar_url)
-        view = OwnersView(card["id"], card["name"])
+        view = OwnersView(card["id"], card["name"], locale=loc)
         if img_file:
             await interaction.response.send_message(embed=embed, file=img_file, view=view)
         else:
             await interaction.response.send_message(embed=embed, view=view)
 
-        # Notif wishlist : ping les gens qui veulent cette carte (hors roller)
+        # Wishlist notification: ping the people who want this card (roller excluded)
         try:
             from database import wishlist_users_for_card
             wishers = wishlist_users_for_card(card["id"], exclude_user=uid)
@@ -970,15 +1003,14 @@ def setup_cards_commands(bot, deps):
                     if m:
                         mentions.append(m.mention)
                 if mentions:
-                    # mentions dans un spoiler : ping quand meme, mais pas de gros bloc
+                    # mentions in a spoiler: still pings, but no huge block
                     await interaction.channel.send(
-                        f"🔔 ||{' '.join(mentions)}|| — **{interaction.user.display_name}** "
-                        f"vient d'obtenir **{card['name']}** de votre wishlist ! "
-                        f"Proposez un échange avec `/cardtrade`.")
+                        t("cards.roll.wishlist_ping", loc, mentions=" ".join(mentions),
+                          roller=interaction.user.display_name, card=card["name"]))
         except Exception as e:
             print(f"[wishlist notif] {e}")
 
-    @roll.autocomplete("univers")
+    @roll.autocomplete("universe")
     async def roll_univers_autocomplete(interaction: discord.Interaction, current: str):
         try:
             return _names_to_choices(_card_universes_cached(), current)
@@ -987,19 +1019,20 @@ def setup_cards_commands(bot, deps):
             return []
 
     # === /collection ===
-    @bot.tree.command(name="cardcollec", description="Voir ta collection de cartes (ou celle de quelqu'un)")
-    @app_commands.describe(membre="Membre dont voir la collection (defaut : toi)")
+    @bot.tree.command(name="cardcollec", description="View your card collection (or someone else's)")
+    @app_commands.describe(member="Member whose collection to view (default: you)")
     async def collection(interaction: discord.Interaction,
-                          membre: discord.Member = None):
+                          member: discord.Member = None):
+        loc = locale_of(interaction)
         if interaction.guild:
             ok, target = _check_channel(interaction)
             if not ok:
                 await interaction.response.send_message(
-                    f"Les commandes cartes sont reservees au salon {target}.",
+                    t("cards.channel.restricted_short", loc, channel=target),
                     ephemeral=True,
                 )
                 return
-        target_user = membre or interaction.user
+        target_user = member or interaction.user
         rar_val = None
         cat_val = None
         from database import (user_card_customizations_map, user_card_fusion_map,
@@ -1011,8 +1044,11 @@ def setup_cards_commands(bot, deps):
         PAGE_SIZE = 25
 
         _RARITY_RANK = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4, "secret": 5}
-        _SORT_CYCLE = [None, "nom", "rareté", "étoiles"]
-        _SORT_BTN = {None: "🔃 Trier", "nom": "🔤 Nom ↑", "rareté": "🎯 Rareté ↓", "étoiles": "⭐ Étoiles ↓"}
+        # Internal sort ids (never displayed as-is, see cards.collection.sort.*)
+        _SORT_CYCLE = [None, "name", "rarity", "stars"]
+
+        def _sort_btn_label(sort_mode):
+            return t("cards.collection.sort." + (sort_mode or "none"), loc)
 
         def _grouped_rows(cat, name_q=None):
             cards = user_card_list(target_user.id, rarity=rar_val, categorie=cat)
@@ -1033,27 +1069,28 @@ def setup_cards_commands(bot, deps):
             return rows
 
         def _sorted_rows(rows, sort_mode):
-            if sort_mode == "nom":
+            if sort_mode == "name":
                 return sorted(rows, key=lambda c: c["name"].lower())
-            if sort_mode == "rareté":
+            if sort_mode == "rarity":
                 return sorted(rows, key=lambda c: -_RARITY_RANK.get(c.get("rarity", ""), 0))
-            if sort_mode == "étoiles":
+            if sort_mode == "stars":
                 return sorted(rows, key=lambda c: -fusion_map.get(c["card_id"], 0))
             return rows
 
         def _build_embed(rows, cat, page, total_pages, name_q=None, sort_mode=None):
             page_rows = rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
-            desc = f"**{total}** cartes ({len(rows)} uniques)"
+            desc = t("cards.collection.count", loc, total=total, unique=len(rows))
             if rar_val:
-                desc += f" • rareté **{rar_val}**"
+                desc += t("cards.collection.filter_rarity", loc, rarity=rar_val)
             if cat:
-                desc += f" • **{cat}**"
+                desc += t("cards.collection.filter_category", loc, category=cat)
             if name_q:
-                desc += f" • 🔍 **{name_q}**"
+                desc += t("cards.collection.filter_search", loc, query=name_q)
             if sort_mode:
-                desc += f" • trié: **{sort_mode}**"
+                desc += t("cards.collection.sorted_by", loc,
+                          sort=t("cards.collection.sort_name." + sort_mode, loc))
             embed = discord.Embed(
-                title=f"🃏 Collection de {target_user.display_name}",
+                title=t("cards.collection.title", loc, name=target_user.display_name),
                 description=desc, color=0xB9F23A,
             )
             lines = []
@@ -1076,8 +1113,10 @@ def setup_cards_commands(bot, deps):
                     nt = c.get("nt_count", 0)
                     nt_tag = f" 🔒{nt}" if nt > 0 else ""
                     lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{uni}_")
-            embed.description += "\n\n" + ("\n".join(lines) if lines else "_(vide)_")
-            embed.set_footer(text=f"Page {page}/{total_pages}")
+            embed.description += "\n\n" + ("\n".join(lines) if lines
+                                            else t("cards.collection.empty", loc))
+            embed.set_footer(text=t("cards.collection.footer", loc,
+                                    page=page, total=total_pages))
             if target_user.display_avatar:
                 embed.set_thumbnail(url=str(target_user.display_avatar.url))
             return embed
@@ -1092,18 +1131,22 @@ def setup_cards_commands(bot, deps):
                 self.rows = _sorted_rows(rows, sort_mode)
                 self.page = 1
                 self.total_pages = max(1, (len(self.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
+                self.prev_btn.label = t("cards.collection.btn.prev", loc)
+                self.next_btn.label = t("cards.collection.btn.next", loc)
+                self.browse_btn.label = t("cards.collection.btn.browse", loc)
+                self.search_btn.label = t("cards.collection.btn.search", loc)
                 self._refresh()
-                # Bouton lien vers le classeur dashboard de la personne ciblee
+                # Link button to the target user's dashboard binder
                 _dash = os.getenv("DASHBOARD_URL", "https://dashboard.tookbot.click").rstrip("/")
                 self.add_item(discord.ui.Button(
-                    label="📖 Voir le classeur", style=discord.ButtonStyle.link,
+                    label=t("cards.collection.btn.binder", loc), style=discord.ButtonStyle.link,
                     url=f"{_dash}/cards/collection/{target_user.id}", row=2))
 
             def _refresh(self):
                 self.prev_btn.disabled = (self.page <= 1)
                 self.next_btn.disabled = (self.page >= self.total_pages)
                 self.counter.label = f"{self.page} / {self.total_pages}"
-                self.trier_btn.label = _SORT_BTN[self.sort_mode]
+                self.trier_btn.label = _sort_btn_label(self.sort_mode)
 
             def _embed(self):
                 return _build_embed(self.rows, self.cat, self.page, self.total_pages,
@@ -1112,12 +1155,11 @@ def setup_cards_commands(bot, deps):
             async def _guard(self, interaction):
                 if interaction.user.id != owner_id:
                     await interaction.response.send_message(
-                        "Ce menu n'est pas pour toi. Fais ta propre `/cardcollec`.",
-                        ephemeral=True)
+                        ti(interaction, "cards.collection.not_yours"), ephemeral=True)
                     return False
                 return True
 
-            @discord.ui.button(label="◀ Précédent", style=discord.ButtonStyle.secondary, row=0)
+            @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, row=0)
             async def prev_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 if self.page > 1:
@@ -1128,14 +1170,14 @@ def setup_cards_commands(bot, deps):
             async def counter(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 pass
 
-            @discord.ui.button(label="Suivant ▶", style=discord.ButtonStyle.secondary, row=0)
+            @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=0)
             async def next_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 if self.page < self.total_pages:
                     self.page += 1; self._refresh()
                     await interaction.response.edit_message(embed=self._embed(), view=self)
 
-            @discord.ui.button(label="🔃 Trier", style=discord.ButtonStyle.secondary, row=0)
+            @discord.ui.button(label="🔃 Sort", style=discord.ButtonStyle.secondary, row=0)
             async def trier_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 idx = _SORT_CYCLE.index(self.sort_mode)
@@ -1146,14 +1188,14 @@ def setup_cards_commands(bot, deps):
                 self._refresh()
                 await interaction.response.edit_message(embed=self._embed(), view=self)
 
-            @discord.ui.button(label="📚 Parcourir les origines", style=discord.ButtonStyle.success, row=1)
+            @discord.ui.button(label="📚 Browse origins", style=discord.ButtonStyle.success, row=1)
             async def browse_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 view = _OriginsView()
                 await interaction.response.edit_message(
                     embed=view.build_embed(), view=view)
 
-            @discord.ui.button(label="🔍 Rechercher", style=discord.ButtonStyle.secondary, row=1)
+            @discord.ui.button(label="🔍 Search", style=discord.ButtonStyle.secondary, row=1)
             async def search_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
                 if not await self._guard(interaction): return
                 await interaction.response.send_modal(_SearchCardModal(self.cat, self.sort_mode))
@@ -1163,7 +1205,7 @@ def setup_cards_commands(bot, deps):
             view = _CollecView(rows, cat, name_q=name_q, sort_mode=sort_mode)
             return view._embed(), view
 
-        # Navigateur d'origines (style "Browse Series")
+        # Origins browser ("Browse Series" style)
         class _OriginsView(discord.ui.View):
             def __init__(self, query=None):
                 super().__init__(timeout=300)
@@ -1182,13 +1224,16 @@ def setup_cards_commands(bot, deps):
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
                 lines = "\n".join(
-                    f"**{o}** · {self.owned.get(o, 0)}/{n}" for o, n in chunk) or "_(aucun résultat)_"
-                q_txt = f" · recherche : **{self.query}**" if self.query else ""
+                    f"**{o}** · {self.owned.get(o, 0)}/{n}" for o, n in chunk
+                ) or t("cards.collection.origins.no_results", loc)
+                q_txt = (t("cards.collection.origins.query_suffix", loc, query=self.query)
+                         if self.query else "")
                 return discord.Embed(
-                    title=f"📚 Origines — collection de {target_user.display_name}",
-                    description=(f"_{len(self.origins)} origines · page {self.page + 1}/{tp}{q_txt}_\n"
-                                  f"{lines}\n\n"
-                                  f"_possédées/total._ Navigue avec ◀ ▶ ou choisis dans le menu."),
+                    title=t("cards.collection.origins.title", loc,
+                            name=target_user.display_name),
+                    description=t("cards.collection.origins.body", loc,
+                                  count=len(self.origins), page=self.page + 1,
+                                  total=tp, query=q_txt, lines=lines),
                     color=0xB9F23A,
                 )
 
@@ -1197,74 +1242,91 @@ def setup_cards_commands(bot, deps):
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
                 opts = [discord.SelectOption(
                             label=o[:100],
-                            description=f"{self.owned.get(o, 0)}/{n} possédée(s)")
+                            description=t("cards.collection.origins.option_desc", loc,
+                                          owned=self.owned.get(o, 0), total=n))
                         for o, n in chunk]
-                sel = discord.ui.Select(placeholder="Sélectionne une origine…",
-                                          options=opts or [discord.SelectOption(label="—")], row=0)
+                sel = discord.ui.Select(
+                    placeholder=t("cards.collection.origins.placeholder", loc),
+                    options=opts or [discord.SelectOption(label="—")], row=0)
                 async def _on_select(inter: discord.Interaction):
                     if inter.user.id != owner_id:
-                        await inter.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
+                        await inter.response.send_message(
+                            ti(inter, "cards.collection.origins.not_yours"), ephemeral=True); return
                     chosen = sel.values[0]
                     emb, v = _make_collec_view(chosen)
                     await inter.response.edit_message(embed=emb, view=v)
                 sel.callback = _on_select
                 self.add_item(sel)
-                # boutons page + retour
+                # page buttons + back
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
                 prev = discord.ui.Button(label="◀", style=discord.ButtonStyle.secondary,
                                           row=1, disabled=self.page <= 0)
                 nxt = discord.ui.Button(label="▶", style=discord.ButtonStyle.secondary,
                                          row=1, disabled=self.page >= tp - 1)
-                back = discord.ui.Button(label="↩ Retour", style=discord.ButtonStyle.danger, row=1)
+                back = discord.ui.Button(label=t("cards.collection.origins.back", loc),
+                                         style=discord.ButtonStyle.danger, row=1)
                 async def _prev(i):
                     if i.user.id != owner_id:
-                        await i.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
+                        await i.response.send_message(
+                            ti(i, "cards.collection.origins.not_yours"), ephemeral=True); return
                     self.page -= 1; self._build_select()
                     await i.response.edit_message(embed=self.build_embed(), view=self)
                 async def _nxt(i):
                     if i.user.id != owner_id:
-                        await i.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
+                        await i.response.send_message(
+                            ti(i, "cards.collection.origins.not_yours"), ephemeral=True); return
                     self.page += 1; self._build_select()
                     await i.response.edit_message(embed=self.build_embed(), view=self)
                 async def _back(i):
                     if i.user.id != owner_id:
-                        await i.response.send_message("Ce menu n'est pas le tien.", ephemeral=True); return
+                        await i.response.send_message(
+                            ti(i, "cards.collection.origins.not_yours"), ephemeral=True); return
                     emb, v = _make_collec_view(None)
                     await i.response.edit_message(embed=emb, view=v)
                 prev.callback = _prev; nxt.callback = _nxt; back.callback = _back
                 self.add_item(prev); self.add_item(nxt); self.add_item(back)
 
-        class _SearchCardModal(discord.ui.Modal, title="Rechercher une carte"):
-            q = discord.ui.TextInput(label="Nom de carte OU origine",
-                                      placeholder="ex: Naruto, One Piece, Game of Thrones…",
-                                      required=True, max_length=100)
+        class _SearchCardModal(discord.ui.Modal, title="Search for a card"):
             def __init__(self, cat, sort_mode):
-                super().__init__()
+                super().__init__(title=t("cards.collection.search.card_title", loc))
                 self._cat = cat
                 self._sort = sort_mode
+                self.q = discord.ui.TextInput(
+                    label=t("cards.collection.search.card_label", loc),
+                    placeholder=t("cards.collection.search.card_placeholder", loc),
+                    required=True, max_length=100)
+                self.add_item(self.q)
+
             async def on_submit(self, inter: discord.Interaction):
                 emb, v = _make_collec_view(self._cat, name_q=str(self.q.value).strip(), sort_mode=self._sort)
                 if not v.rows:
                     await inter.response.send_message(
-                        f"Aucune carte trouvée pour **{self.q.value}**.", ephemeral=True)
+                        ti(inter, "cards.collection.search.no_result", query=self.q.value),
+                        ephemeral=True)
                     return
                 await inter.response.edit_message(embed=emb, view=v)
 
-        class _SearchOriginModal(discord.ui.Modal, title="Rechercher une origine"):
-            q = discord.ui.TextInput(label="Nom de l'origine / série",
-                                      placeholder="ex: Genshin, Naruto…", required=True, max_length=100)
+        class _SearchOriginModal(discord.ui.Modal, title="Search for an origin"):
+            def __init__(self):
+                super().__init__(title=t("cards.collection.search.origin_title", loc))
+                self.q = discord.ui.TextInput(
+                    label=t("cards.collection.search.origin_label", loc),
+                    placeholder=t("cards.collection.search.origin_placeholder", loc),
+                    required=True, max_length=100)
+                self.add_item(self.q)
+
             async def on_submit(self, inter: discord.Interaction):
                 view = _OriginsView(query=str(self.q.value))
                 await inter.response.edit_message(embed=view.build_embed(), view=view)
 
-        # Envoi initial
+        # Initial send
         first_rows = _grouped_rows(cat_val)
         if not first_rows:
-            msg = f"**{target_user.display_name}** n'a pas de cartes"
+            msg = t("cards.collection.no_cards", loc, name=target_user.display_name)
             if rar_val:
-                msg += f" {rar_val}"
+                msg += t("cards.collection.no_cards_rarity", loc, rarity=rar_val)
             if cat_val:
-                msg += f" pour **{cat_val}**"
+                msg += t("cards.collection.no_cards_category", loc, category=cat_val)
             await interaction.response.send_message(msg + ".", ephemeral=True)
             return
         view = _CollecView(first_rows, cat_val)

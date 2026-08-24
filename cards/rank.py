@@ -12,7 +12,7 @@ async def generate_rank_card(member, level, xp, progress_xp, needed_xp, percent)
     card = Image.new("RGBA", (600, 170), color=(44, 47, 51))
     draw = ImageDraw.Draw(card)
 
-    # Avatar rond
+    # Round avatar
     mask = Image.new("L", (110, 110), 0)
     mask_draw = ImageDraw.Draw(mask)
     mask_draw.ellipse((0, 0, 110, 110), fill=255)
@@ -27,14 +27,14 @@ async def generate_rank_card(member, level, xp, progress_xp, needed_xp, percent)
         font_level = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Nom
+    # Name
     draw.text((150, 18), f"{member.display_name}", fill=(255, 255, 255), font=font_name)
-    # Niveau
-    draw.text((150, 60), f"Niveau {level}", fill=(88, 101, 242), font=font_level)
-    # XP total
-    draw.text((280, 63), f"•  {xp} XP total", fill=(200, 200, 200), font=font_small)
+    # Level
+    draw.text((150, 60), f"Level {level}", fill=(88, 101, 242), font=font_level)
+    # Total XP
+    draw.text((280, 63), f"•  {xp} total XP", fill=(200, 200, 200), font=font_small)
 
-    # Barre de progression
+    # Progress bar
     bar_x, bar_y = 150, 105
     bar_w, bar_h = 400, 22
     filled_w = int((percent / 100) * bar_w)
@@ -43,7 +43,7 @@ async def generate_rank_card(member, level, xp, progress_xp, needed_xp, percent)
     if filled_w > 0:
         draw.rounded_rectangle([bar_x, bar_y, bar_x + filled_w, bar_y + bar_h], radius=11, fill=(88, 101, 242))
 
-    # XP progression + pourcentage
+    # XP progress + percentage
     draw.text((150, 133), f"{progress_xp} / {needed_xp} XP", fill=(180, 180, 180), font=font_small)
     draw.text((490, 133), f"{percent}%", fill=(255, 255, 255), font=font_small)
 
@@ -54,10 +54,11 @@ async def generate_rank_card(member, level, xp, progress_xp, needed_xp, percent)
 
 
 async def generate_levelup_card(member, level, percent):
-    """Carte LEVEL UP f2p, taille native 300x85 (pas de resize destructif).
+    """Free LEVEL UP card, native size 300x85 (no destructive resize).
 
-    Composition identique au premium : LEVEL UP! centre haut, pseudo
-    centre milieu, NIVEAU X centre bas. Pas de barre de progression.
+    Same composition as the premium one: LEVEL UP! centered at the top,
+    username centered in the middle, LEVEL X centered at the bottom. No
+    progress bar.
     """
     async with aiohttp.ClientSession() as session:
         async with session.get(str(member.display_avatar.url)) as resp:
@@ -75,7 +76,7 @@ async def generate_levelup_card(member, level, percent):
     card = Image.new("RGBA", (W, H), color=(44, 47, 51, 255))
     draw = ImageDraw.Draw(card)
 
-    # Avatar rond
+    # Round avatar
     mask = Image.new("L", (AVATAR_SIZE, AVATAR_SIZE), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, AVATAR_SIZE, AVATAR_SIZE), fill=255)
     card.paste(avatar, (AVATAR_X, AVATAR_Y), mask)
@@ -93,7 +94,7 @@ async def generate_levelup_card(member, level, percent):
     f_label = _font(9,  bold=True)
     f_value = _font(26, bold=True)
 
-    # Zone texte
+    # Text zone
     text_x = AVATAR_X + AVATAR_SIZE + 10
     text_right = W - 10
     zone_w = text_right - text_x
@@ -102,10 +103,10 @@ async def generate_levelup_card(member, level, percent):
         tw = draw.textlength(text, font=font)
         draw.text((text_x + (zone_w - tw) / 2, y), text, font=font, fill=fill)
 
-    # LEVEL UP !
-    _center(5, "LEVEL UP !", f_title, (255, 215, 0))
+    # LEVEL UP!
+    _center(5, "LEVEL UP!", f_title, (255, 215, 0))
 
-    # Pseudo
+    # Username
     name = member.display_name
     while draw.textlength(name, font=f_user) > zone_w and len(name) > 1:
         name = name[:-1]
@@ -113,8 +114,8 @@ async def generate_levelup_card(member, level, percent):
         name = name[:-1] + "…"
     _center(30, name, f_user, (255, 255, 255))
 
-    # NIVEAU X : label + valeur cote a cote, centres
-    lbl = "NIVEAU"
+    # LEVEL X: label + value side by side, centered
+    lbl = "LEVEL"
     val = str(level)
     lbl_tw = draw.textlength(lbl, font=f_label)
     val_tw = draw.textlength(val, font=f_value)

@@ -1,8 +1,8 @@
-"""Slash commands /niveau et /leaderboard.
+"""Slash commands /level and /leaderboard.
 
-Refonte clean (juin 2026) : defer immediat pour eviter timeout interaction,
-followup uniquement, filename horodate pour eviter cache attachment,
-dedup interaction.id pour stopper tout double-dispatch.
+Clean rework (June 2026): immediate defer to avoid an interaction timeout,
+followup only, timestamped filename to dodge the attachment cache,
+interaction.id dedup to stop any double dispatch.
 """
 
 import time as _time
@@ -10,8 +10,10 @@ import collections as _col
 import discord
 from discord import app_commands
 
-# Dedup interaction.id pour stopper net tout double-dispatch
-# (re-delivery Discord, double tree register, etc). 1024 entries LRU.
+from services.i18n import ti
+
+# interaction.id dedup to hard-stop any double dispatch
+# (Discord re-delivery, double tree register, etc). 1024 entries LRU.
 _INTER_SEEN = _col.OrderedDict()
 _INTER_SEEN_MAX = 1024
 
@@ -31,38 +33,38 @@ def _is_dup_interaction(interaction):
 def setup_niveau_commands(bot, deps):
     globals().update(deps)
 
-    @bot.tree.command(name="niveau", description="Voir ton niveau et XP sur ce serveur")
-    @app_commands.describe(membre="Membre dont voir le niveau (defaut : toi)")
-    async def niveau(interaction: discord.Interaction, membre: discord.Member = None):
+    @bot.tree.command(name="level", description="See your level and XP on this server")
+    @app_commands.describe(member="Member whose level to show (default: you)")
+    async def level(interaction: discord.Interaction, member: discord.Member = None):
         if _is_dup_interaction(interaction):
-            print(f"[/niveau] dedup interaction.id={interaction.id} — skip", flush=True)
+            print(f"[/level] dedup interaction.id={interaction.id} - skip", flush=True)
             return
 
-        # ACK IMMEDIAT (interaction expire en 3s sinon)
+        # IMMEDIATE ACK (the interaction expires after 3s otherwise)
         try:
             await interaction.response.defer()
         except Exception:
             pass
 
-        membre = membre or interaction.user
+        member = member or interaction.user
         gid = str(interaction.guild.id)
-        xp  = get_xp(gid, membre.id)
-        level, in_lvl, needed, percent = get_progress(xp, gid)
-        print(f"[/niveau] iid={interaction.id} guild={gid} user={membre.id} xp={xp} level={level}", flush=True)
+        xp  = get_xp(gid, member.id)
+        lvl, in_lvl, needed, percent = get_progress(xp, gid)
+        print(f"[/level] iid={interaction.id} guild={gid} user={member.id} xp={xp} level={lvl}", flush=True)
 
-        # Etape 1 : RENDER (peut fail). On obtient un buf ou None.
+        # Step 1: RENDER (can fail). We end up with a buf or None.
         buf = None
-        prem = is_premium_user(membre.id)
-        print(f"[/niveau] prem={prem}", flush=True)
+        prem = is_premium_user(member.id)
+        print(f"[/level] prem={prem}", flush=True)
         if prem:
             try:
-                settings = get_premium_settings(membre.id) or {}
-                cosmetic = get_user_cosmetic(membre.id) or {}
-                print(f"[/niveau] settings={settings} cosmetic={cosmetic}", flush=True)
+                settings = get_premium_settings(member.id) or {}
+                cosmetic = get_user_cosmetic(member.id) or {}
+                print(f"[/level] settings={settings} cosmetic={cosmetic}", flush=True)
                 buf = await render_niveau_card(
-                    username=membre.display_name,
-                    avatar_url=membre.display_avatar.url,
-                    level=level,
+                    username=member.display_name,
+                    avatar_url=member.display_avatar.url,
+                    level=lvl,
                     xp_total=xp,
                     xp_in_level=in_lvl,
                     xp_needed=needed,
@@ -71,39 +73,42 @@ def setup_niveau_commands(bot, deps):
                     emoji_prefix=cosmetic.get("emoji"),
                 )
             except Exception as e:
-                print(f"[/niveau premium render] {type(e).__name__}: {e} — fallback embed", flush=True)
+                print(f"[/level premium render] {type(e).__name__}: {e} - fallback embed", flush=True)
                 buf = None
 
-        # Etape 2 : SEND (un seul send total, jamais deux)
+        # Step 2: SEND (a single send overall, never two)
         if buf is not None:
-            file = discord.File(buf, filename=f"niveau-{int(_time.time()*1000)}.png")
+            file = discord.File(buf, filename=f"level-{int(_time.time()*1000)}.png")
             try:
                 await interaction.followup.send(file=file)
             except Exception as e:
-                print(f"[/niveau premium send] {type(e).__name__}: {e}", flush=True)
-            return  # PAS de fallback derriere : on a deja tente d'envoyer
+                print(f"[/level premium send] {type(e).__name__}: {e}", flush=True)
+            return  # NO fallback behind this: we already tried to send
 
-        # Fallback embed (non-premium ou render fail)
+        # Fallback embed (non-premium, or render failure)
         filled = percent // 5
         bar = "█" * filled + "░" * (20 - filled)
         embed = discord.Embed(
-            title=f"📊 {membre.display_name}",
+            title=ti(interaction, "utils.level.title", name=member.display_name),
             color=discord.Color.blurple(),
         )
-        embed.add_field(name="🏆 Niveau", value=f"**{level}**", inline=True)
-        embed.add_field(name="⭐ XP total", value=f"**{xp}**", inline=True)
+        embed.add_field(name=ti(interaction, "utils.level.field_level"),
+                        value=f"**{lvl}**", inline=True)
+        embed.add_field(name=ti(interaction, "utils.level.field_xp"),
+                        value=f"**{xp}**", inline=True)
         embed.add_field(
-            name="📈 Progression",
-            value=f"`{bar}` **{percent}%**\n`{in_lvl} / {needed} XP`",
+            name=ti(interaction, "utils.level.field_progress"),
+            value=ti(interaction, "utils.level.progress_value",
+                     bar=bar, percent=percent, current=in_lvl, needed=needed),
             inline=False,
         )
-        embed.set_thumbnail(url=membre.display_avatar.url)
+        embed.set_thumbnail(url=member.display_avatar.url)
         try:
             await interaction.followup.send(embed=embed)
         except Exception as e:
-            print(f"[/niveau fallback send] {type(e).__name__}: {e}", flush=True)
+            print(f"[/level fallback send] {type(e).__name__}: {e}", flush=True)
 
-    @bot.tree.command(name="leaderboard", description="Top XP du serveur")
+    @bot.tree.command(name="leaderboard", description="Server XP top")
     async def leaderboard(interaction: discord.Interaction):
         try:
             await interaction.response.defer()
@@ -112,16 +117,18 @@ def setup_niveau_commands(bot, deps):
         gid = str(interaction.guild.id)
         rows = get_leaderboard(gid, limit=10) or []
         if not rows:
-            await interaction.followup.send("Personne n'a encore gagne de XP sur ce serveur.")
+            await interaction.followup.send(
+                ti(interaction, "utils.level.leaderboard.empty"))
             return
         medals = ["🥇", "🥈", "🥉"]
         lines = []
         for i, r in enumerate(rows):
             prefix = medals[i] if i < 3 else f"`{i+1:>2}.`"
             uname = r.get("username") or "?"
-            lines.append(f"{prefix}  **{uname}**  · niveau **{r['level']}** · {r['xp']} XP")
+            lines.append(ti(interaction, "utils.level.leaderboard.line",
+                            prefix=prefix, name=uname, level=r["level"], xp=r["xp"]))
         embed = discord.Embed(
-            title=f"🏆 Top XP — {interaction.guild.name}",
+            title=ti(interaction, "utils.level.leaderboard.title", guild=interaction.guild.name),
             description="\n".join(lines),
             color=discord.Color.blurple(),
         )

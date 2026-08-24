@@ -1,0 +1,146 @@
+{
+  "onboarding": {
+    "btn_dashboard": "Open the dashboard",
+    "btn_commands": "See all commands",
+    "btn_support": "Support server",
+    "btn_configure_dashboard": "Configure dashboard",
+    "inviter_title": "👋 Welcome to TookBot — {guild}",
+    "inviter_desc": "Hey **{user}**, thanks for inviting me.\nEverything is ready to run. Here is what is left for you to do.",
+    "step1_name": "⚙️ 1 — Run the required setup",
+    "step1_value": "Type `/setup` in the server (admin required).\nYou will pick the 4 channels: **Welcome**, **Logs**, **Alerts**, **Admin/Mods**.\nWithout it, some features do not know where to post.",
+    "step2_name": "🎛️ 2 — Configure from the dashboard",
+    "step2_value": "[Open {dashboard_label}]({dashboard_url}) to adjust XP, the welcome message, features, moderator permissions, custom commands, Twitch/YouTube/Reddit alerts, and more.",
+    "step3_name": "🚀 3 — Discover the commands",
+    "step3_value": "`/commandes` for the full list, `/duel info` for PvP duels, `/play` for music, `/niveau` for your XP.",
+    "tip_name": "💡 Good to know",
+    "tip_value": "The **XP system** is **enabled by default**. To turn it off: `/xp off` or from the dashboard (XP already earned is kept).",
+    "inviter_footer": "{guild} • {members} member(s)",
+    "owner_title": "🔐 Action required — Moderator permissions",
+    "owner_desc": "Hey **{user}**, TookBot is now on **{guild}**.\nOnly one action is required from you as the owner:",
+    "owner_warn_name": "⚠️ By default, moderators have access to everything",
+    "owner_warn_value": "Until you configure their rights feature by feature:\n• they cannot **use any moderation command**\n• they cannot **open any dashboard page** (except their own Premium/Pass)",
+    "owner_how_name": "🎯 How to configure",
+    "owner_how_value": "**Dashboard**: open [{dashboard_label}]({dashboard_url}) and a popup guides you on the first login.\n**Discord**: `/setup` to pick the moderator role, then a temporary private channel lets you tick the rights.",
+    "owner_footer": "You can change these rights at any time"
+  },
+  "log": {
+    "member_join": "joined **{guild}**",
+    "member_leave": "left **{guild}**",
+    "empty_message": "(empty message or attachment only)"
+  },
+  "soutien": {
+    "default_message": "<user> decided to lend a hand! Thanks for your support!"
+  },
+  "social": {
+    "twitch_title": "{target} is live!",
+    "twitch_desc": "🔴 **{target}** is LIVE!",
+    "twitch_game": "🎮 Game",
+    "twitch_viewers": "👀 Viewers",
+    "youtube_title": "New video",
+    "youtube_desc": "📺 **{author}** published a new video.",
+    "reddit_title": "New Reddit post",
+    "reddit_desc": "🟠 New post from **{target}**.",
+    "generic_title": "New content",
+    "generic_desc": "New content from **{target}**."
+  },
+  "welcome": {
+    "fallback": "Welcome {user}!"
+  },
+  "rolebutton": {
+    "role_not_found": "Role not found.",
+    "granted": "✅ Role {role} granted.",
+    "already_owned": "You already have {role}.",
+    "removed": "➖ Role {role} removed.",
+    "no_perm": "❌ I couldn't grant this role.\nI need the **Manage Roles** permission, and my own role must be **above** the role to grant in the server's role hierarchy.",
+    "error": "❌ Error."
+  },
+  "ratelimit": {
+    "too_fast": "⏱️ You're sending commands too fast. Try again in **{seconds}s**."
+  },
+  "slash_error": {
+    "user_missing_perms": "❌ **Missing user permissions.**\nYou need: **{perms}** to use this command.",
+    "bot_missing_perms": "❌ **Missing bot permissions.**\nThe bot needs: **{perms}**. An administrator must add these permissions to the bot's role.",
+    "cooldown": "⏰ Cooldown active. Try again in {seconds}s.",
+    "missing_role": "❌ You need the <@&{role_id}> role to use this command.",
+    "no_private_message": "❌ This command can't be used in direct messages.",
+    "check_failure": "❌ You're not allowed to use this command in this context.",
+    "forbidden": "❌ **The bot doesn't have permission to perform this action.**\nCheck that the bot has the required permissions in this channel (e.g. **Manage Channels**, **Manage Roles**, **Send Messages**, **Embed Links**). Contact a server administrator.",
+    "not_found": "❌ Resource not found (deleted channel, role or message?).",
+    "internal": "❌ Internal error: `{error}`. If the problem persists, contact the bot support.",
+    "generic": "❌ Error: `{error}`."
+  },
+  "ai": {
+    "not_configured": "⚠️ AI is not configured (missing Groq key).",
+    "no_question": "You pinged me but didn't ask anything 🤔",
+    "error": "❌ AI error: `{error}`"
+  },
+  "reminder": {
+    "title": "⏰ Reminder",
+    "footer": "Reminder #{id} created on {created_at}"
+  },
+  "plus_expiry": {
+    "trial_title": "Your TookBot+ trial has ended",
+    "trial_message": "Your custom commands and bot customization have been removed. Upgrade to TookBot+ to get them back.",
+    "sub_title": "Your TookBot+ subscription has expired",
+    "sub_message": "Your TookBot+ features have been disabled. Renew to get them back."
+  },
+  "presence": {
+    "music": "/play 🎵",
+    "commands": "/commandes for the list",
+    "servers": "{count} server(s)",
+    "website": "tookbot.click"
+  },
+  "giveaway": {
+    "cancelled_title": "❌ Giveaway cancelled · {prize}"
+  },
+  "modwarn": {
+    "dm_title": "⚠️ Warning received on **{guild}**",
+    "dm_desc": "**Reason:** {reason}\n\nYou now have **{count}** active warn(s).",
+    "no_reason": "no reason given",
+    "modlog_footer": "Active warns: {count}",
+    "autotimeout_reason": "Auto-timeout: {count} warns (threshold {threshold})",
+    "autotimeout_log_reason": "Auto-timeout after {count} warns"
+  },
+  "rolereaction": {
+    "default_title": "Choose your role",
+    "footer_unique": "You can only pick ONE role among these.",
+    "footer_button": "Click a button to get the matching role.",
+    "footer_reaction": "React to get the matching role.",
+    "field_reactions": "Available reactions",
+    "default_role_label": "Role"
+  },
+  "guildboost": {
+    "title": "🛡️ Guild Boost + activated on this server",
+    "member_fallback": "A member",
+    "description": "{mention} just activated **Guild Boost +** on this server. The following features are now **unlocked**:\n\n**⚙️ Custom commands** — direct `/<name>` commands\nCreate them from the dashboard: `dashboard.tookbot.click/custom-commands`\n\n**🔔 Twitch / YouTube / Reddit alerts**\nSet up per-channel alerts with: `/socialalert add`\nDefault channel: the one configured through `/setup` (Alerts).\n\n**🎟️ Ticket system**\nCreate a ticket panel with: `/ticket`\nFull management: claim, transcripts, dedicated modlog.\n\n**📜 Extended logs**\nBrowse the server history on the dashboard: `dashboard.tookbot.click/logs`\n\n💡 *To manage or disable a feature: `dashboard.tookbot.click/features`*",
+    "footer": "Guild Boost + — Thanks for supporting TookBot!"
+  },
+  "kofi": {
+    "title": "💚 New Ko-fi donation",
+    "anonymous": "Anonymous",
+    "kind_subscription": "monthly subscription",
+    "kind_donation": "donation",
+    "description": "**{donor}** just made a {kind} of **{amount} {currency}** on Ko-fi."
+  },
+  "suggestion": {
+    "rejected_one": "❌ **Your card suggestion was rejected.**",
+    "rejected_many": "❌ **{count} of your card suggestions were rejected.**",
+    "reason_line": "\n**Reason:** {reason}"
+  },
+  "simulate_roll": {
+    "label": "Simulated roll (test)",
+    "wishlist_ping": "🔔 ||{mentions}|| — a simulation just posted **{card}** from your wishlist! Offer a trade with `/cardtrade`."
+  },
+  "music": {
+    "not_connected": "❌ I'm not connected to the voice channel anymore. Run `/join` then `/play` again.",
+    "queue_finished": "✅ Queue finished!",
+    "too_many_errors": "⚠️ Too many consecutive playback errors. Queue cleared to avoid spam.",
+    "now_playing": "🎵 Now playing: **{title}**"
+  },
+  "guard": {
+    "suggest_channel_only": "❌ This channel is dedicated to card suggestions. Only use `/cardsuggest` here.\nFor any other command, go to another channel.",
+    "mod_not_configured": "⛔ This command is disabled for moderators until the **server owner** has configured the permissions.\nAsk <@{owner_id}> to run `/setup` or to go to `dashboard.tookbot.click`.",
+    "mod_missing_perm": "⛔ You don't have the `{perm}` permission granted by the server owner.\nAsk <@{owner_id}> to enable it from the dashboard.",
+    "feature_disabled": "The **{feature}** feature is disabled on this server by the administrators."
+  }
+}

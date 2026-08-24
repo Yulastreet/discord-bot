@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'public_guilds' %}
 
-{% block title %}Classement guildes · TookBot{% endblock %}
-{% block crumb %}Classement guildes{% endblock %}
+{% block title %}{{ t('web_cards.guilds.title') }} · TookBot{% endblock %}
+{% block crumb %}{{ t('web_cards.guilds.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -80,10 +80,10 @@
 
 <div class="gl-wrap">
   <div class="gl-head">
-    <h2>🏆 Classement des guildes</h2>
-    <p>Toutes les guildes, classées par niveau puis XP. Cross-serveur.</p>
+    <h2>{{ t('web_cards.guilds.heading') }}</h2>
+    <p>{{ t('web_cards.guilds.sub') }}</p>
   </div>
-  <div id="glList"><div class="gl-empty">Chargement…</div></div>
+  <div id="glList"><div class="gl-empty">{{ t('web_cards.guilds.loading') }}</div></div>
 </div>
 
 <script>
@@ -92,7 +92,7 @@ function powerDigits(n){
   return String(Math.max(0, Math.round(n))).split('').map(
     d => `<img src="/static/power_digits/${d}.png" alt="${d}">`).join('');
 }
-function fmt(n){return (n||0).toLocaleString('fr-FR').replace(/ /g,' ');}
+function fmt(n){return (n||0).toLocaleString('en-US').replace(/ /g,' ');}
 
 const GCOLORS = { lime:'#b9f23a', rouge:'#ff4d4d', bleu:'#4c8dff', vert:'#4ade80',
   jaune:'#f2d23a', violet:'#a86dff', rose:'#ff5fa2', orange:'#ffa726', cyan:'#22d3ee', blanc:'#e8e8e8' };
@@ -103,7 +103,7 @@ async function load(){
     const d = await r.json();
     const items = d.items || [];
     const el = document.getElementById('glList');
-    if(!items.length){ el.innerHTML = '<div class="gl-empty">Aucune guilde pour le moment. Crée la tienne avec <code>/guild create</code> !</div>'; return; }
+    if(!items.length){ el.innerHTML = '<div class="gl-empty">No guilds yet. Create yours with <code>/guild create</code>!</div>'; return; }
     el.innerHTML = items.map((g,i)=>{
       const rank = i===0?'🥇':i===1?'🥈':i===2?'🥉':('#'+(i+1));
       const tag = g.tag ? `<span class="gl-tag">${esc(g.tag)}</span>` : '';
@@ -121,29 +121,29 @@ async function load(){
               <div class="gl-name">${esc(g.name)}${tag}</div>
               <div class="gl-chips">
                 <span class="gl-chip">👑 <b>${esc(g.owner||'?')}</b></span>
-                <span class="gl-chip">👥 <b>${g.members}</b> membre(s)</span>
+                <span class="gl-chip">👥 <b>${g.members}</b> member(s)</span>
                 <span class="gl-chip">💰 <b>${fmt(g.bank)}</b> ✨</span>
                 <span class="gl-chip">📈 <b>${fmt(g.xp)}</b> XP</span>
               </div>
             </div>
           </div>
           <div class="gl-power">
-            <span class="gl-pw-lbl">⚡ Puissance totale</span>
+            <span class="gl-pw-lbl">⚡ Total power</span>
             <span class="gl-pw-digits">${powerDigits(g.power || 0)}</span>
           </div>
-          <div class="gl-lvl"><span class="gl-lvl-n">${g.level}</span><small>${maxed?'MAX':'niveau'}</small></div>
+          <div class="gl-lvl"><span class="gl-lvl-n">${g.level}</span><small>${maxed?'MAX':'level'}</small></div>
           <div class="gl-caret">▶</div>
         </div>
         <div class="gl-members"><div class="gl-empty" style="padding:14px;">…</div></div>
       </div>`;
     }).join('');
   }catch(e){
-    document.getElementById('glList').innerHTML = '<div class="gl-empty">Erreur de chargement.</div>';
+    document.getElementById('glList').innerHTML = '<div class="gl-empty">Loading failed.</div>';
   }
 }
 
 const ROLE_ICON = {master:'👑', officer:'🔧', member:'▫️'};
-const ROLE_LBL  = {master:'Maître', officer:'Officier', member:'Membre'};
+const ROLE_LBL  = {master:'Master', officer:'Officer', member:'Member'};
 const _loaded = {};
 
 async function toggleGuild(item, gid){
@@ -155,21 +155,21 @@ async function toggleGuild(item, gid){
     const r = await fetch(`/api/public/guilds/${gid}/members`);
     const d = await r.json();
     const ms = d.items || [];
-    if(!ms.length){ box.innerHTML = '<div class="gl-empty" style="padding:14px;">Aucun membre.</div>'; }
+    if(!ms.length){ box.innerHTML = '<div class="gl-empty" style="padding:14px;">No members.</div>'; }
     else {
       box.innerHTML = ms.map(m=>{
         const av = m.avatar ? `<img class="gl-m-av" src="${esc(m.avatar)}" alt="">` : `<div class="gl-m-av"></div>`;
         const href = m.user_id ? `onclick="event.stopPropagation();location.href='/cards/collection/${m.user_id}'" style="cursor:pointer"` : '';
         return `<div class="gl-m" ${href}>
           ${av}
-          <div class="gl-m-name">${esc(m.user)} <span class="gl-m-role">${ROLE_ICON[m.role]||'▫️'} ${ROLE_LBL[m.role]||'Membre'}</span></div>
+          <div class="gl-m-name">${esc(m.user)} <span class="gl-m-role">${ROLE_ICON[m.role]||'▫️'} ${ROLE_LBL[m.role]||'Member'}</span></div>
           <div class="gl-m-stat">⚡ ${fmt(m.power)} · 🎴 ${fmt(m.cards)} 📖</div>
         </div>`;
       }).join('');
     }
     _loaded[gid] = true;
   }catch(e){
-    box.innerHTML = '<div class="gl-empty" style="padding:14px;">Erreur de chargement des membres.</div>';
+    box.innerHTML = '<div class="gl-empty" style="padding:14px;">Failed to load members.</div>';
   }
 }
 load();

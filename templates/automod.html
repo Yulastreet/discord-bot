@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'automod' %}
 
-{% block title %}Modération automatique · Bot Console{% endblock %}
-{% block crumb %}Modération automatique{% endblock %}
+{% block title %}{{ t('web_features.automod.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.automod.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -37,7 +37,7 @@
   textarea.am-input { resize: vertical; min-height: 80px; font-family: var(--font-mono); }
   .am-sub-config { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
   .am-sub-config.hidden { display: none; }
-  /* Paywall overlay — meme style que Bot Customization */
+  /* Paywall overlay - same style as Bot Customization */
   .am-paywall-scrim {
     position: fixed; inset: 0;
     background: rgba(0,0,0,.65);
@@ -84,7 +84,7 @@
   .am-preview-banner a {
     color: #2a1a00; text-decoration: underline; margin-left: 8px;
   }
-  /* En mode preview : disable inputs / boutons sans paywall */
+  /* Preview mode: disable inputs / buttons without the paywall */
   body.am-preview-mode .am-toggle,
   body.am-preview-mode .am-input,
   body.am-preview-mode #amSave {
@@ -94,47 +94,46 @@
 
 <div class="col gap-7">
   <div>
-    <h1>Modération automatique</h1>
+    <h1>{{ t('web_features.automod.title') }}</h1>
     <p class="muted mt-2" style="font-size: var(--t-sm); max-width: 60ch;">
-      Active des filtres pour modérer ton serveur automatiquement. Les messages
-      qui matchent sont supprimés et loggués dans le salon admin.
+      {{ t('web_features.automod.subtitle') }}
     </p>
   </div>
 
   <div class="am-card">
-    <h2>État général</h2>
-    <div class="sub">Master switch : si désactivé, aucune règle n'est appliquée.</div>
+    <h2>{{ t('web_features.automod.general_title') }}</h2>
+    <div class="sub">{{ t('web_features.automod.general_sub') }}</div>
     <div class="am-row">
       <div>
-        <div class="am-rule-name">Automod activé</div>
-        <div class="am-rule-desc">Active l'ensemble du système. Désactiver pour pause sans perdre la config.</div>
+        <div class="am-rule-name">{{ t('web_features.automod.enabled_name') }}</div>
+        <div class="am-rule-desc">{{ t('web_features.automod.enabled_desc') }}</div>
       </div>
       <input type="checkbox" class="am-toggle" id="t_enabled" {{ 'checked' if config.enabled }}>
     </div>
     <div class="am-row" style="flex-direction:column;align-items:stretch;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div class="am-rule-name">Salon de logs</div>
-          <div class="am-rule-desc">Salon texte où l'automod poste un embed à chaque action.</div>
+          <div class="am-rule-name">{{ t('web_features.automod.log_channel_name') }}</div>
+          <div class="am-rule-desc">{{ t('web_features.automod.log_channel_desc') }}</div>
         </div>
       </div>
       <select id="log_channel_id" class="am-input" style="margin-top:10px;">
-        <option value="">— Aucun (pas de log) —</option>
+        <option value="">{{ t('web_features.automod.log_channel_none') }}</option>
       </select>
     </div>
   </div>
 
   <div class="am-card">
-    <h2>Règles</h2>
-    <div class="sub">Active les filtres souhaités. Chaque règle peut avoir sa propre config.</div>
+    <h2>{{ t('web_features.automod.rules_title') }}</h2>
+    <div class="sub">{{ t('web_features.automod.rules_sub') }}</div>
 
     <div class="am-row">
       <div style="flex:1;">
-        <div class="am-rule-name">🚫 Mots interdits</div>
-        <div class="am-rule-desc">Supprime tout message contenant un des mots listés (matching mot entier, case-insensitive).</div>
+        <div class="am-rule-name">{{ t('web_features.automod.banned_words_name') }}</div>
+        <div class="am-rule-desc">{{ t('web_features.automod.banned_words_desc') }}</div>
         <div class="am-sub-config {{ '' if config.banned_words_enabled else 'hidden' }}" data-rule="banned_words">
-          <label style="font-size:12px;color:var(--text-2);">Mots (séparés par virgule) :</label>
-          <textarea class="am-input" id="banned_words" placeholder="con, putain, fuck">{{ config.banned_words or '' }}</textarea>
+          <label style="font-size:12px;color:var(--text-2);">{{ t('web_features.automod.banned_words_label') }}</label>
+          <textarea class="am-input" id="banned_words" placeholder="{{ t('web_features.automod.banned_words_placeholder') }}">{{ config.banned_words or '' }}</textarea>
         </div>
       </div>
       <input type="checkbox" class="am-toggle" id="t_banned_words" data-rule="banned_words" {{ 'checked' if config.banned_words_enabled }}>
@@ -142,18 +141,18 @@
 
     <div class="am-row">
       <div style="flex:1;">
-        <div class="am-rule-name">🔗 Anti-invites Discord</div>
-        <div class="am-rule-desc">Supprime les liens d'invitation Discord (discord.gg/* ou discord.com/invite/*).</div>
+        <div class="am-rule-name">{{ t('web_features.automod.invites_name') }}</div>
+        <div class="am-rule-desc">{{ t('web_features.automod.invites_desc') }}</div>
       </div>
       <input type="checkbox" class="am-toggle" id="t_discord_invites" {{ 'checked' if config.discord_invites_enabled }}>
     </div>
 
     <div class="am-row">
       <div style="flex:1;">
-        <div class="am-rule-name">📣 Spam mentions</div>
-        <div class="am-rule-desc">Supprime les messages avec un nombre élevé de mentions (users + rôles).</div>
+        <div class="am-rule-name">{{ t('web_features.automod.mention_spam_name') }}</div>
+        <div class="am-rule-desc">{{ t('web_features.automod.mention_spam_desc') }}</div>
         <div class="am-sub-config {{ '' if config.mention_spam_enabled else 'hidden' }}" data-rule="mention_spam">
-          <label style="font-size:12px;color:var(--text-2);">Seuil (mentions par message) :</label>
+          <label style="font-size:12px;color:var(--text-2);">{{ t('web_features.automod.mention_spam_label') }}</label>
           <input type="number" min="2" max="50" class="am-input" id="mention_spam_threshold" value="{{ config.mention_spam_threshold or 5 }}" style="max-width:120px;">
         </div>
       </div>
@@ -162,10 +161,10 @@
 
     <div class="am-row">
       <div style="flex:1;">
-        <div class="am-rule-name">🛡️ Protection anti-raid</div>
-        <div class="am-rule-desc">Log une alerte si un nombre élevé de joins est detecté en moins d'une minute (pas de kick auto pour éviter les faux positifs).</div>
+        <div class="am-rule-name">{{ t('web_features.automod.raid_name') }}</div>
+        <div class="am-rule-desc">{{ t('web_features.automod.raid_desc') }}</div>
         <div class="am-sub-config {{ '' if config.raid_protection_enabled else 'hidden' }}" data-rule="raid_protection">
-          <label style="font-size:12px;color:var(--text-2);">Seuil (joins/minute) :</label>
+          <label style="font-size:12px;color:var(--text-2);">{{ t('web_features.automod.raid_label') }}</label>
           <input type="number" min="2" max="50" class="am-input" id="raid_threshold" value="{{ config.raid_threshold or 5 }}" style="max-width:120px;">
         </div>
       </div>
@@ -175,26 +174,26 @@
 
   <div class="row end gap-3">
     <button class="btn btn-primary" id="amSave">
-      <svg class="ic"><use href="#i-check"/></svg> Enregistrer
+      <svg class="ic"><use href="#i-check"/></svg> {{ t('web_features.automod.save') }}
     </button>
   </div>
 
   <div class="am-preview-banner" id="amPreviewBanner">
-    ✦ Tu es en aperçu de la feature TookBot+ · Les actions sont désactivées.
-    <a href="/subscription">S'abonner pour débloquer</a>
+    {{ t('web_features.automod.preview_banner') }}
+    <a href="/subscription">{{ t('web_features.automod.preview_banner_cta') }}</a>
   </div>
 </div>
 
 {% if not is_tookbot_plus %}
-<!-- Paywall overlay : meme style que Bot Customization -->
+<!-- Paywall overlay: same style as Bot Customization -->
 <div class="am-paywall-scrim" id="amPaywall">
   <div class="am-paywall-modal">
     <div class="ico">✦</div>
-    <h2>Feature TookBot+ uniquement</h2>
-    <p>L'automod est réservé aux abonnés TookBot+. Choisis ton option ci-dessous.</p>
+    <h2>{{ t('web_features.automod.paywall_title') }}</h2>
+    <p>{{ t('web_features.automod.paywall_text') }}</p>
     <div class="am-paywall-actions">
-      <button class="am-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
-      <button class="am-btn-preview" id="amPreviewModeBtn">Voir un aperçu de la feature</button>
+      <button class="am-btn-subscribe" onclick="window.location.href='/subscription'">{{ t('web_features.automod.paywall_subscribe') }}</button>
+      <button class="am-btn-preview" id="amPreviewModeBtn">{{ t('web_features.automod.paywall_preview') }}</button>
     </div>
   </div>
 </div>
@@ -206,7 +205,7 @@
 const CURRENT_LOG = {{ (config.log_channel_id or '')|tojson }};
 const IS_TOOKBOT_PLUS = {{ 'true' if is_tookbot_plus else 'false' }};
 
-// Mode preview : dismiss paywall et grise les actions
+// Preview mode: dismiss paywall and grey out actions
 const previewBtn = document.getElementById('amPreviewModeBtn');
 if (previewBtn) {
   previewBtn.addEventListener('click', () => {
@@ -231,7 +230,7 @@ if (previewBtn) {
   } catch (_) {}
 })();
 
-// Toggle show/hide des sub-configs
+// Toggle show/hide of sub-configs
 document.querySelectorAll('.am-toggle[data-rule]').forEach(t => {
   t.addEventListener('change', () => {
     const rule = t.dataset.rule;
@@ -242,13 +241,13 @@ document.querySelectorAll('.am-toggle[data-rule]').forEach(t => {
 
 document.getElementById('amSave').addEventListener('click', async () => {
   if (!IS_TOOKBOT_PLUS) {
-    toast('TookBot+ requis pour sauvegarder.', 'error');
+    toast('TookBot+ required to save.', 'error');
     return;
   }
   const btn = document.getElementById('amSave');
   btn.disabled = true;
   const orig = btn.innerHTML;
-  btn.innerHTML = 'Enregistrement...';
+  btn.innerHTML = 'Saving...';
   const payload = {
     enabled:                  document.getElementById('t_enabled').checked,
     banned_words_enabled:     document.getElementById('t_banned_words').checked,
@@ -268,9 +267,9 @@ document.getElementById('amSave').addEventListener('click', async () => {
     });
     const d = await r.json();
     if (d.ok) {
-      toast(`Sauvegarde (${(d.updated || []).length} champs)`);
+      toast(`Saved (${(d.updated || []).length} fields)`);
     } else {
-      toast(d.error || 'Erreur', 'error');
+      toast(d.error || 'Error', 'error');
     }
   } catch (e) {
     toast(e.message, 'error');

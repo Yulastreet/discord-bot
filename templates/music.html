@@ -2,12 +2,12 @@
 {% block feature_meta %}<meta name="feature-key" content="music">{% endblock %}
 {% set active_nav = 'music' %}
 
-{% block title %}Musique · Bot Console{% endblock %}
-{% block crumb %}Musique{% endblock %}
+{% block title %}{{ t('web_features.music.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.music.title') }}{% endblock %}
 
 {% block content %}
 
-<!-- Sortable.js CDN pour drag-drop de la queue -->
+<!-- Sortable.js CDN for queue drag-drop -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <div class="col gap-7">
@@ -18,44 +18,44 @@
       <svg class="ic" style="width:48px;height:48px;color:var(--text-3);"><use href="#i-music"/></svg>
     </div>
     <div class="np-meta">
-      <span class="eyebrow" id="npStatus">Bot inactif</span>
-      <h2 class="np-title" id="npTitle">Aucune musique en cours</h2>
-      <div class="np-sub" id="npSub">Ajoute un titre ou colle un lien YouTube ci-dessous.</div>
+      <span class="eyebrow" id="npStatus">{{ t('web_features.music.status_bot_idle') }}</span>
+      <h2 class="np-title" id="npTitle">{{ t('web_features.music.nothing_playing') }}</h2>
+      <div class="np-sub" id="npSub">{{ t('web_features.music.np_hint') }}</div>
       <div class="np-controls">
         <button class="btn btn-secondary" id="btnPause" onclick="cmd('pause')" disabled>
-          <svg class="ic"><use href="#i-pause"/></svg> Pause
+          <svg class="ic"><use href="#i-pause"/></svg> {{ t('web_features.music.pause') }}
         </button>
         <button class="btn btn-secondary hidden" id="btnResume" onclick="cmd('resume')">
-          <svg class="ic"><use href="#i-play"/></svg> Reprendre
+          <svg class="ic"><use href="#i-play"/></svg> {{ t('web_features.music.resume') }}
         </button>
         <button class="btn btn-secondary" id="btnSkip" onclick="cmd('skip')" disabled>
-          <svg class="ic"><use href="#i-skip-forward"/></svg> Skip
+          <svg class="ic"><use href="#i-skip-forward"/></svg> {{ t('web_features.music.skip') }}
         </button>
         <button class="btn btn-danger" id="btnStop" onclick="cmd('stop')" disabled>
-          <svg class="ic"><use href="#i-stop"/></svg> Stop
+          <svg class="ic"><use href="#i-stop"/></svg> {{ t('web_features.music.stop') }}
         </button>
-        <button class="btn btn-ghost" onclick="cmd('leave')" title="Déconnecter du salon vocal">
-          <svg class="ic"><use href="#i-logout"/></svg> Quitter le vocal
+        <button class="btn btn-ghost" onclick="cmd('leave')" title="{{ t('web_features.music.leave_voice_title') }}">
+          <svg class="ic"><use href="#i-logout"/></svg> {{ t('web_features.music.leave_voice') }}
         </button>
       </div>
     </div>
     <div class="np-channel" id="npChannel">
-      <span class="eyebrow">Salon vocal</span>
-      <span id="npChannelName" class="muted">Non connecté</span>
+      <span class="eyebrow">{{ t('web_features.music.voice_channel') }}</span>
+      <span id="npChannelName" class="muted">{{ t('web_features.music.not_connected') }}</span>
 
-      <!-- Selecteur voice channel pour /join depuis dashboard -->
+      <!-- Voice channel picker for /join from the dashboard -->
       <div style="margin-top:10px;">
         <select id="voiceChannelSelect" class="input" style="width:100%;padding:6px 10px;font-size:var(--t-sm);">
-          <option value="">— Choisir un vocal —</option>
+          <option value="">{{ t('web_features.music.choose_voice') }}</option>
         </select>
         <button class="btn btn-secondary" onclick="joinVoice()" style="margin-top:6px;width:100%;">
-          <svg class="ic"><use href="#i-mic"/></svg> Rejoindre vocal
+          <svg class="ic"><use href="#i-mic"/></svg> {{ t('web_features.music.join_voice') }}
         </button>
       </div>
 
       <!-- Volume -->
       <div style="margin-top:14px;">
-        <span class="eyebrow">Volume <span id="volLabel" style="font-family:var(--font-mono);color:var(--text);">100%</span></span>
+        <span class="eyebrow">{{ t('web_features.music.volume') }} <span id="volLabel" style="font-family:var(--font-mono);color:var(--text);">100%</span></span>
         <input type="range" id="volSlider" min="0" max="200" value="100"
                oninput="document.getElementById('volLabel').textContent = this.value + '%';"
                onchange="setVolume(this.value)"
@@ -64,7 +64,7 @@
     </div>
   </div>
 
-  <!-- Progress bar de la track en cours -->
+  <!-- Progress bar for the current track -->
   <div id="progressWrap" style="display:none;margin-top:-10px;padding:0 var(--s-6);">
     <div style="position:relative;height:6px;background:var(--bg-2);border-radius:3px;overflow:hidden;">
       <div id="progressBar" style="position:absolute;top:0;left:0;height:100%;width:0%;background:oklch(0.86 0.20 130);transition:width 1s linear;"></div>
@@ -77,70 +77,70 @@
 
   <!-- ====== Add track ====== -->
   <div class="card">
-    <h2 style="margin-bottom: var(--s-3);">Ajouter une musique</h2>
+    <h2 style="margin-bottom: var(--s-3);">{{ t('web_features.music.add_track_title') }}</h2>
     <div class="row gap-3">
       <div class="input-search" style="flex: 1;">
         <svg class="ic"><use href="#i-music"/></svg>
-        <input type="text" id="addInput" placeholder="Titre, lien YouTube/SoundCloud/Bandcamp, playlist YouTube, ou URL Spotify (track/album/playlist)..." onkeydown="if (event.key === 'Enter') addTrack();">
+        <input type="text" id="addInput" placeholder="{{ t('web_features.music.add_placeholder') }}" onkeydown="if (event.key === 'Enter') addTrack();">
       </div>
       <button class="btn btn-primary" onclick="addTrack()">
-        <svg class="ic"><use href="#i-plus"/></svg> Ajouter à la file
+        <svg class="ic"><use href="#i-plus"/></svg> {{ t('web_features.music.add_to_queue') }}
       </button>
     </div>
     <p class="faint mt-2" style="font-size:var(--t-xs);">
-      Multi-source : YouTube, SoundCloud, Bandcamp, Spotify (track/album/playlist), playlists YouTube (jusqu'à 50 pistes).
-      Le bot doit être connecté à un salon vocal. Si non, lance <code>/join</code> dans Discord depuis ton salon.
+      {{ t('web_features.music.sources_help') }}
+      {{ t('web_features.music.join_hint_before') }} <code>/join</code> {{ t('web_features.music.join_hint_after') }}
     </p>
   </div>
 
-  <!-- ====== Stats lecture ====== -->
+  <!-- ====== Playback stats ====== -->
   <div class="card padless">
     <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-      <h2>Statistiques d'écoute</h2>
+      <h2>{{ t('web_features.music.stats_title') }}</h2>
       <div class="row gap-2">
         <select id="statsDays" class="input" onchange="loadStats()" style="padding:6px 10px;font-size:var(--t-sm);">
-          <option value="7">7 jours</option>
-          <option value="30" selected>30 jours</option>
-          <option value="90">90 jours</option>
-          <option value="365">1 an</option>
+          <option value="7">{{ t('web_features.music.days_7') }}</option>
+          <option value="30" selected>{{ t('web_features.music.days_30') }}</option>
+          <option value="90">{{ t('web_features.music.days_90') }}</option>
+          <option value="365">{{ t('web_features.music.year_1') }}</option>
         </select>
         <button class="btn btn-ghost btn-sm" onclick="loadStats()">
-          <svg class="ic"><use href="#i-refresh-cw"/></svg> Rafraîchir
+          <svg class="ic"><use href="#i-refresh-cw"/></svg> {{ t('web_features.music.refresh') }}
         </button>
       </div>
     </div>
 
     <div class="stats-grid" id="statsGrid">
       <div class="stat-tile">
-        <span class="eyebrow">Lectures totales</span>
+        <span class="eyebrow">{{ t('web_features.music.stat_plays') }}</span>
         <strong id="stTotal">—</strong>
       </div>
       <div class="stat-tile">
-        <span class="eyebrow">Pistes uniques</span>
+        <span class="eyebrow">{{ t('web_features.music.stat_unique') }}</span>
         <strong id="stUniq">—</strong>
       </div>
       <div class="stat-tile">
-        <span class="eyebrow">Auditeurs</span>
+        <span class="eyebrow">{{ t('web_features.music.stat_listeners') }}</span>
         <strong id="stUsers">—</strong>
       </div>
       <div class="stat-tile">
-        <span class="eyebrow">Temps total</span>
+        <span class="eyebrow">{{ t('web_features.music.stat_time') }}</span>
         <strong id="stTime">—</strong>
       </div>
     </div>
 
     <div class="stats-cols">
       <div class="stats-col">
-        <h3>Top pistes</h3>
-        <div id="statsTopTracks"><div class="queue-empty">Aucune donnée pour la période.</div></div>
+        <h3>{{ t('web_features.music.top_tracks') }}</h3>
+        <div id="statsTopTracks"><div class="queue-empty">{{ t('web_features.music.no_data') }}</div></div>
       </div>
       <div class="stats-col">
-        <h3>Top auditeurs</h3>
-        <div id="statsTopUsers"><div class="queue-empty">Aucune donnée pour la période.</div></div>
+        <h3>{{ t('web_features.music.top_listeners') }}</h3>
+        <div id="statsTopUsers"><div class="queue-empty">{{ t('web_features.music.no_data') }}</div></div>
       </div>
       <div class="stats-col">
-        <h3>Par source</h3>
-        <div id="statsBySource"><div class="queue-empty">Aucune donnée pour la période.</div></div>
+        <h3>{{ t('web_features.music.by_source') }}</h3>
+        <div id="statsBySource"><div class="queue-empty">{{ t('web_features.music.no_data') }}</div></div>
       </div>
     </div>
   </div>
@@ -148,11 +148,11 @@
   <!-- ====== Queue ====== -->
   <div class="card padless">
     <div class="card-row" style="padding: var(--s-5) var(--s-6); border-bottom: 1px solid var(--border);">
-      <h2>File d'attente</h2>
+      <h2>{{ t('web_features.music.queue_title') }}</h2>
       <div class="row gap-2">
         <span class="badge" id="queueCount">0</span>
-        <button class="btn btn-ghost btn-sm" onclick="cmd('clear')" title="Vider la file">
-          <svg class="ic"><use href="#i-trash"/></svg> Vider
+        <button class="btn btn-ghost btn-sm" onclick="cmd('clear')" title="{{ t('web_features.music.clear_queue_title') }}">
+          <svg class="ic"><use href="#i-trash"/></svg> {{ t('web_features.music.clear') }}
         </button>
       </div>
     </div>
@@ -300,13 +300,13 @@
     const inVoice = !!state.voice_channel_name;
 
     // Now playing
-    document.getElementById('npTitle').textContent = state.current_title || 'Aucune musique en cours';
+    document.getElementById('npTitle').textContent = state.current_title || 'Nothing playing';
     document.getElementById('npSub').textContent = hasTrack
-      ? (state.current_duration ? `Durée : ${fmtDur(state.current_duration)}` : '')
-      : (inVoice ? 'Bot prêt à jouer.' : 'Bot inactif. Lance /join sur Discord pour le connecter.');
+      ? (state.current_duration ? `Duration: ${fmtDur(state.current_duration)}` : '')
+      : (inVoice ? 'Bot ready to play.' : 'Bot idle. Run /join in Discord to connect it.');
 
     const status = document.getElementById('npStatus');
-    status.textContent = paused ? 'En pause' : (playing ? 'En lecture' : (inVoice ? 'Connecté' : 'Inactif'));
+    status.textContent = paused ? 'Paused' : (playing ? 'Playing' : (inVoice ? 'Connected' : 'Idle'));
     status.className = 'eyebrow' + ((playing || paused) ? ' np-status-active' : '');
 
     const thumb = document.getElementById('npThumb');
@@ -316,7 +316,7 @@
       thumb.innerHTML = '<svg class="ic" style="width:48px;height:48px;color:var(--text-3);"><use href="#i-music"/></svg>';
     }
 
-    document.getElementById('npChannelName').textContent = state.voice_channel_name || 'Non connecté';
+    document.getElementById('npChannelName').textContent = state.voice_channel_name || 'Not connected';
 
     // Buttons state
     document.getElementById('btnPause').disabled  = !playing;
@@ -329,18 +329,18 @@
     document.getElementById('queueCount').textContent = queue.length;
     const list = document.getElementById('queueList');
     if (queue.length === 0) {
-      list.innerHTML = '<div class="queue-empty">La file d\'attente est vide.</div>';
+      list.innerHTML = '<div class="queue-empty">The queue is empty.</div>';
       return;
     }
     list.innerHTML = queue.map((t, i) => `
       <div class="queue-row" data-track-id="${t.id}">
-        <div class="qr-handle" title="Glisser pour reordonner" style="cursor:grab;color:var(--text-3);padding:0 6px;">⋮⋮</div>
+        <div class="qr-handle" title="Drag to reorder" style="cursor:grab;color:var(--text-3);padding:0 6px;">⋮⋮</div>
         <div class="qr-pos">${String(i+1).padStart(2,'0')}</div>
         ${t.thumbnail ? `<img class="qr-thumb" src="${t.thumbnail}" alt="">` : '<div class="qr-thumb"></div>'}
-        <div class="qr-title">${escapeHtml(t.title || '(sans titre)')}</div>
+        <div class="qr-title">${escapeHtml(t.title || '(untitled)')}</div>
         <div class="qr-dur">${fmtDur(t.duration)}</div>
-        <div class="qr-jump"><button class="icon-btn" onclick="jumpTo(${i+1})" title="Jouer maintenant"><svg class="ic"><use href="#i-play"/></svg></button></div>
-        <div class="qr-rm"><button class="icon-btn" onclick="removeTrack(${t.id})" title="Retirer"><svg class="ic"><use href="#i-trash"/></svg></button></div>
+        <div class="qr-jump"><button class="icon-btn" onclick="jumpTo(${i+1})" title="Play now"><svg class="ic"><use href="#i-play"/></svg></button></div>
+        <div class="qr-rm"><button class="icon-btn" onclick="removeTrack(${t.id})" title="Remove"><svg class="ic"><use href="#i-trash"/></svg></button></div>
       </div>
     `).join('');
 
@@ -351,15 +351,15 @@
         handle: '.qr-handle',
         animation: 150,
         onEnd: function(evt) {
-          // Recolle l'ordre actuel et envoie
+          // Recollect the current order and send it
           const ids = Array.from(list.children).map(el => parseInt(el.dataset.trackId, 10));
           fetch('/api/music/queue_reorder', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({track_ids: ids}),
           }).then(r => r.json()).then(d => {
-            if (d.success) { toast('Ordre mis a jour.'); setTimeout(refresh, 800); }
-            else toast(d.error || 'Erreur', 'error');
+            if (d.success) { toast('Order updated.'); setTimeout(refresh, 800); }
+            else toast(d.error || 'Error', 'error');
           }).catch(e => toast(e.message, 'error'));
         },
       });
@@ -375,12 +375,12 @@
       const res = await fetch('/api/music/' + name, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
       const data = await res.json();
       if (data.success) {
-        const labels = { skip: 'Skip envoyé.', stop: 'Stop envoyé.', pause: 'Pause envoyée.',
-                         resume: 'Reprise envoyée.', leave: 'Déconnexion envoyée.', clear: 'File vidée.' };
-        toast(labels[name] || 'Commande envoyée. (~1.5s pour effet)');
+        const labels = { skip: 'Skip sent.', stop: 'Stop sent.', pause: 'Pause sent.',
+                         resume: 'Resume sent.', leave: 'Disconnect sent.', clear: 'Queue cleared.' };
+        toast(labels[name] || 'Command sent. (~1.5s to take effect)');
         setTimeout(refresh, 1700);
       } else {
-        toast(data.error || 'Erreur', 'error');
+        toast(data.error || 'Error', 'error');
       }
     } catch (e) { toast(e.message, 'error'); }
   }
@@ -398,11 +398,11 @@
       });
       const data = await res.json();
       if (data.success) {
-        toast('Recherche en cours... (~3s)');
+        toast('Searching... (~3s)');
         input.value = '';
         setTimeout(refresh, 3500);
       } else {
-        toast(data.error || 'Erreur', 'error');
+        toast(data.error || 'Error', 'error');
       }
     } catch (e) { toast(e.message, 'error'); }
   }
@@ -416,8 +416,8 @@
         body: JSON.stringify({ track_id: trackId })
       });
       const data = await res.json();
-      if (data.success) { toast('Piste retirée.'); setTimeout(refresh, 1700); }
-      else toast(data.error || 'Erreur', 'error');
+      if (data.success) { toast('Track removed.'); setTimeout(refresh, 1700); }
+      else toast(data.error || 'Error', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }
   window.removeTrack = removeTrack;
@@ -451,7 +451,7 @@
             <span class="lbl" title="${escapeHtml(t.track_title || '')}">${escapeHtml(t.track_title || '?')}</span>
             <span class="val">${t.plays}</span>
           </div>`).join('')
-        : '<div class="queue-empty">Aucune donnée pour la période.</div>';
+        : '<div class="queue-empty">No data for this period.</div>';
 
       const tu = data.top_requesters || [];
       document.getElementById('statsTopUsers').innerHTML = tu.length
@@ -461,7 +461,7 @@
             <span class="lbl"><code>${escapeHtml(u.user_id || '?')}</code></span>
             <span class="val">${u.plays}</span>
           </div>`).join('')
-        : '<div class="queue-empty">Aucune donnée pour la période.</div>';
+        : '<div class="queue-empty">No data for this period.</div>';
 
       const bs = sum.by_source || [];
       document.getElementById('statsBySource').innerHTML = bs.length
@@ -470,7 +470,7 @@
             <span class="lbl">${escapeHtml(s.source || 'youtube')}</span>
             <span class="val">${s.plays}</span>
           </div>`).join('')
-        : '<div class="queue-empty">Aucune donnée pour la période.</div>';
+        : '<div class="queue-empty">No data for this period.</div>';
     } catch (e) { /* swallow */ }
   }
   window.loadStats = loadStats;
@@ -484,7 +484,7 @@
         body: JSON.stringify({volume: parseInt(v, 10)}),
       });
       const d = await r.json();
-      if (!d.success) toast(d.error || 'Erreur volume', 'error');
+      if (!d.success) toast(d.error || 'Volume error', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }
   window.setVolume = setVolume;
@@ -497,8 +497,8 @@
         body: JSON.stringify({position}),
       });
       const d = await r.json();
-      if (d.success) { toast(`Saut vers piste ${position}`); setTimeout(refresh, 1500); }
-      else toast(d.error || 'Erreur', 'error');
+      if (d.success) { toast(`Jumping to track ${position}`); setTimeout(refresh, 1500); }
+      else toast(d.error || 'Error', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }
   window.jumpTo = jumpTo;
@@ -506,7 +506,7 @@
   async function joinVoice() {
     const sel = document.getElementById('voiceChannelSelect');
     const id = sel.value;
-    if (!id) { toast('Choisis un vocal d\'abord.', 'error'); return; }
+    if (!id) { toast('Pick a voice channel first.', 'error'); return; }
     try {
       const r = await fetch('/api/music/join', {
         method: 'POST',
@@ -514,8 +514,8 @@
         body: JSON.stringify({voice_channel_id: id}),
       });
       const d = await r.json();
-      if (d.success) { toast('Bot rejoint le vocal...'); setTimeout(refresh, 2000); }
-      else toast(d.error || 'Erreur', 'error');
+      if (d.success) { toast('Bot joining the voice channel...'); setTimeout(refresh, 2000); }
+      else toast(d.error || 'Error', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }
   window.joinVoice = joinVoice;
@@ -526,7 +526,7 @@
       const d = await r.json();
       const sel = document.getElementById('voiceChannelSelect');
       const cur = sel.value;
-      sel.innerHTML = '<option value="">— Choisir un vocal —</option>';
+      sel.innerHTML = '<option value="">— Choose a voice channel —</option>';
       for (const c of (d.voice_channels || [])) {
         const o = document.createElement('option');
         o.value = String(c.channel_id);
@@ -537,7 +537,7 @@
     } catch (_) {}
   }
 
-  // Progress bar : track le temps depuis started_at + total duration
+  // Progress bar: tracks elapsed time from started_at + total duration
   let _trackStartTs = null;
   let _trackDuration = null;
   function updateProgress(state) {
@@ -565,7 +565,7 @@
     document.getElementById('progressCur').textContent = fmtDur(Math.floor(elapsed));
   }, 500);
 
-  // Hook updateProgress dans le render() existant : wrap renderState
+  // Hook updateProgress into the existing render(): wrap renderState
   const _origRender = renderState;
   renderState = function(state, queue) {
     _origRender(state, queue);

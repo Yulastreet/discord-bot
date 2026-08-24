@@ -2,15 +2,17 @@ import datetime as _dt
 import discord
 from discord import app_commands
 
+from services.i18n import locale_of, t, ti
+
 def setup_pass_commands(bot, deps):
     globals().update(deps)
     # ===== BATTLE PASS =====
 
-    _QUEST_TYPE_LABELS = {
-        "send_messages": "💬 Messages envoyés",
-        "play_duels":    "⚔️ Duels joués",
-        "earn_xp":       "✨ XP gagné",
-        "use_commands":  "🔧 Commandes utilisées",
+    _QUEST_TYPE_KEYS = {
+        "send_messages": "server.pass.quest_send_messages",
+        "play_duels":    "server.pass.quest_play_duels",
+        "earn_xp":       "server.pass.quest_earn_xp",
+        "use_commands":  "server.pass.quest_use_commands",
     }
 
 
@@ -20,20 +22,16 @@ def setup_pass_commands(bot, deps):
         return "▰" * filled + "▱" * (width - filled)
 
 
-    @bot.tree.command(name="pass", description="Voir ta progression dans le Battle Pass")
+    @bot.tree.command(name="pass", description="See your Battle Pass progress")
     async def pass_status(interaction: discord.Interaction):
         user = interaction.user
+        loc = locale_of(interaction)
         has_pass = user_has_active_pass(user.id, sku_pass_id=SKU_PASS) or (DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID))
 
         if not has_pass:
             embed = discord.Embed(
-                title="🎟️ TookBot Battle Pass",
-                description=(
-                    "Tu n'as pas encore de Pass actif sur cette saison.\n\n"
-                    "Le Pass se prend dans la **boutique** du bot (clique sur le profil "
-                    "de TookBot → Boutique). 30 paliers de récompenses chaque mois : "
-                    "backgrounds exclusifs, sabres cosmétiques, titres, boosts XP, et plus."
-                ),
+                title=t("server.pass.no_pass_title", loc),
+                description=t("server.pass.no_pass_body", loc),
                 color=0x9CB94A,
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -50,12 +48,11 @@ def setup_pass_commands(bot, deps):
 
         bar = _quest_progress_bar(min(xp_in_tier, xp_needed), max(1, xp_needed), width=20)
         embed = discord.Embed(
-            title=f"🎟️ {season.get('name') or 'Battle Pass'}",
-            description=(
-                f"**Palier {tier} / {PASS_TIERS}**\n"
-                f"`{bar}`  {xp_in_tier}/{xp_needed} XP du palier suivant\n"
-                f"Total saison : **{xp_total} XP**"
-            ),
+            title=t("server.pass.season_title", loc,
+                    season=season.get("name") or t("server.pass.default_season_name", loc)),
+            description=t("server.pass.season_body", loc,
+                          tier=tier, tiers=PASS_TIERS, bar=bar,
+                          xp_in_tier=xp_in_tier, xp_needed=xp_needed, xp_total=xp_total),
             color=0x9CB94A,
         )
 
@@ -65,43 +62,44 @@ def setup_pass_commands(bot, deps):
         if daily:
             lines = []
             for q in daily:
-                lbl = _QUEST_TYPE_LABELS.get(q["type"], q["type"])
+                lbl = t(_QUEST_TYPE_KEYS[q["type"]], loc) if q["type"] in _QUEST_TYPE_KEYS else q["type"]
                 done = "✅" if q["progress"] >= q["target"] else "🔸"
                 bar_q = _quest_progress_bar(q["progress"], q["target"])
                 lines.append(f"{done} {lbl} : `{bar_q}` {q['progress']}/{q['target']} (+{q['xp_reward']} XP)")
-            embed.add_field(name="📅 Quêtes du jour", value="\n".join(lines), inline=False)
+            embed.add_field(name=t("server.pass.daily_quests", loc), value="\n".join(lines), inline=False)
 
         if weekly:
             lines = []
             for q in weekly:
-                lbl = _QUEST_TYPE_LABELS.get(q["type"], q["type"])
+                lbl = t(_QUEST_TYPE_KEYS[q["type"]], loc) if q["type"] in _QUEST_TYPE_KEYS else q["type"]
                 done = "✅" if q["progress"] >= q["target"] else "🔸"
                 bar_q = _quest_progress_bar(q["progress"], q["target"])
                 lines.append(f"{done} {lbl} : `{bar_q}` {q['progress']}/{q['target']} (+{q['xp_reward']} XP)")
-            embed.add_field(name="🗓️ Quêtes de la semaine", value="\n".join(lines), inline=False)
+            embed.add_field(name=t("server.pass.weekly_quests", loc), value="\n".join(lines), inline=False)
 
-        embed.set_footer(text=f"Saison se termine le {season.get('ends_at', '?')[:10]}")
+        embed.set_footer(text=t("server.pass.season_footer", loc, date=season.get("ends_at", "?")[:10]))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-    @bot.tree.command(name="redeem", description="Utiliser un code promo (TookCoins, XP Pass, ou Pass gratuit)")
-    @app_commands.describe(code="Le code promo a echanger (insensible a la casse)")
+    @bot.tree.command(name="redeem", description="Redeem a promo code (TookCoins, Pass XP, or a free Pass)")
+    @app_commands.describe(code="The promo code to redeem (case insensitive)")
     async def redeem_code(interaction: discord.Interaction, code: str):
+        loc = locale_of(interaction)
         code = (code or "").strip().upper()
         if not code or len(code) > 32:
             await interaction.response.send_message(
-                "❌ Code invalide.", ephemeral=True)
+                ti(interaction, "server.redeem.invalid_code"), ephemeral=True)
             return
         ok, reason, promo = promo_redeem_check(code, interaction.user.id)
         if not ok:
-            messages = {
-                "code_invalid":     "❌ Ce code n'existe pas.",
-                "max_uses_reached": "❌ Ce code a atteint son nombre max d'utilisations.",
-                "expired":          "❌ Ce code a expiré.",
-                "already_redeemed": "❌ Tu as déjà utilisé ce code.",
+            keys = {
+                "code_invalid":     "server.redeem.code_unknown",
+                "max_uses_reached": "server.redeem.max_uses",
+                "expired":          "server.redeem.expired",
+                "already_redeemed": "server.redeem.already_used",
             }
-            await interaction.response.send_message(messages.get(reason, "❌ Code invalide."),
-                                                    ephemeral=True)
+            await interaction.response.send_message(
+                t(keys.get(reason, "server.redeem.invalid_code"), loc), ephemeral=True)
             return
 
         rtype  = promo["reward_type"]
@@ -111,7 +109,7 @@ def setup_pass_commands(bot, deps):
         except Exception as e:
             print(f"[redeem] apply err: {e}")
             await interaction.response.send_message(
-                "❌ Erreur lors de la validation. Réessaie plus tard.", ephemeral=True)
+                ti(interaction, "server.redeem.validation_error"), ephemeral=True)
             return
 
         applied_label = "?"
@@ -119,50 +117,50 @@ def setup_pass_commands(bot, deps):
             if rtype == "tookcoins":
                 creer_duel_profil(interaction.user.id, interaction.user.name)
                 ajouter_tookcoins(interaction.user.id, rvalue)
-                applied_label = f"**+{rvalue} TookCoins** 🪙"
+                applied_label = t("server.redeem.reward_tookcoins", loc, amount=rvalue)
             elif rtype == "pass_xp":
                 season = get_or_create_current_season()
                 sid = season["season_id"]
                 new_total = add_pass_xp(interaction.user.id, sid, rvalue)
                 auto_claim_pass_tiers(interaction.user.id, sid, new_total)
-                applied_label = f"**+{rvalue} XP Pass** 🎟️"
+                applied_label = t("server.redeem.reward_pass_xp", loc, amount=rvalue)
             elif rtype == "premium_grant_days":
                 add_premium_grant(interaction.user.id, feature="pass",
                                   granted_by=f"promo:{code}",
-                                  note=f"{rvalue} jours de Pass via code promo")
-                applied_label = f"**Pass offert** ({rvalue} jour(s)) 🎁"
+                                  note=f"{rvalue} days of Pass via promo code")
+                applied_label = t("server.redeem.reward_pass_days", loc, days=rvalue)
             elif rtype == "roll":
                 from database import roll_give_user as _rg
                 _rg(interaction.user.id, rvalue)
-                applied_label = f"**+{rvalue} Roll(s)** 🎟️"
+                applied_label = t("server.redeem.reward_roll", loc, amount=rvalue)
             elif rtype == "epic_roll":
                 from database import user_item_add as _uia
                 _uia(interaction.user.id, "epic_roll", rvalue)
-                applied_label = f"**+{rvalue} Epic Roll(s)** 🟣"
+                applied_label = t("server.redeem.reward_epic_roll", loc, amount=rvalue)
             elif rtype == "golden_roll":
                 from database import user_item_add as _uia
                 _uia(interaction.user.id, "golden_roll", rvalue)
-                applied_label = f"**+{rvalue} Golden Roll(s)** 🌈"
+                applied_label = t("server.redeem.reward_golden_roll", loc, amount=rvalue)
         except Exception as e:
             print(f"[redeem] reward apply err type={rtype}: {e}")
             await interaction.response.send_message(
-                "⚠️ Code validé mais récompense non appliquée. Contacte le owner.",
-                ephemeral=True)
+                ti(interaction, "server.redeem.reward_failed"), ephemeral=True)
             return
 
         await interaction.response.send_message(
             embed=discord.Embed(
-                title="🎉 Code utilisé !",
-                description=f"Code `{code}` validé.\n\n{applied_label}",
+                title=t("server.redeem.success_title", loc),
+                description=t("server.redeem.success_body", loc, code=code, reward=applied_label),
                 color=0xB9F23A,
             ),
             ephemeral=True,
         )
 
 
-    @bot.tree.command(name="daily", description="Reclame ta recompense quotidienne (TookCoins + XP Pass si actif)")
+    @bot.tree.command(name="daily", description="Claim your daily reward (TookCoins + Pass XP if active)")
     async def daily_claim(interaction: discord.Interaction):
         user = interaction.user
+        loc = locale_of(interaction)
         today = _dt.datetime.utcnow().date()
         today_str = today.isoformat()
 
@@ -171,7 +169,7 @@ def setup_pass_commands(bot, deps):
         prev_streak = int(state.get("streak") or 0)
 
         if last_str == today_str:
-            # Deja claim aujourd'hui
+            # Already claimed today
             tomorrow = _dt.datetime.combine(today + _dt.timedelta(days=1),
                                             _dt.time(0, 0, tzinfo=_dt.timezone.utc))
             now = _dt.datetime.now(_dt.timezone.utc)
@@ -180,18 +178,15 @@ def setup_pass_commands(bot, deps):
             minutes = rem // 60
             await interaction.response.send_message(
                 embed=discord.Embed(
-                    title=f"⏳ Déjà réclamé — {user.display_name}",
-                    description=(
-                        f"Tu as déjà récupéré ta récompense aujourd'hui.\n\n"
-                        f"Prochaine réclamation dans **{hours}h {minutes}m** (UTC minuit).\n"
-                        f"Streak actuelle : **{prev_streak} jour(s)** 🔥"
-                    ),
+                    title=t("server.daily.already_title", loc, user=user.display_name),
+                    description=t("server.daily.already_body", loc,
+                                  hours=hours, minutes=minutes, streak=prev_streak),
                     color=0xE67E22,
                 ),
             )
             return
 
-        # Calcul streak : si yesterday -> +1, sinon reset a 1
+        # Streak: yesterday -> +1, otherwise reset to 1
         new_streak = 1
         if last_str:
             try:
@@ -201,14 +196,14 @@ def setup_pass_commands(bot, deps):
             except ValueError:
                 pass
 
-        # Recompenses : 10 base + 2/jour streak cap 7 -> max 24 TC
-        # (vs 100 TC pour gagner un duel : daily reste un modeste appoint)
+        # Rewards: 10 base + 2/streak day capped at 7 -> max 24 TC
+        # (vs 100 TC for winning a duel: daily stays a modest top-up)
         streak_bonus = min(7, new_streak) * 2
         coins = 10 + streak_bonus
-        # Essences (monnaie cartes) : 40 de base + 8 par jour de streak (cap 7), soit 96 max
+        # Essences (card currency): 40 base + 8 per streak day (cap 7), so 96 max
         essences_gain = 40 + min(7, new_streak) * 8
 
-        # XP Pass si user a un Pass actif (10 XP/jour -> ~25 jours pour 1 tier)
+        # Pass XP when the user has an active Pass (10 XP/day -> ~25 days for 1 tier)
         has_pass = bool(user_has_active_pass(user.id, sku_pass_id=SKU_PASS)) or (
             DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID)
         )
@@ -237,9 +232,9 @@ def setup_pass_commands(bot, deps):
             except Exception as e:
                 print(f"[daily] add_pass_xp err: {e}")
 
-        # Monnaie d'event si un event global est actif
+        # Event currency when a global event is running
         event_coins_gain = 0
-        event_coin_name = "Jetons d'event"
+        event_coin_name = t("server.daily.event_tokens", loc)
         event_emoji = "🎟️"
         try:
             from database import (global_event_for_guild, event_coins_add, EVENT_DAILY_COINS)
@@ -248,27 +243,29 @@ def setup_pass_commands(bot, deps):
                 event_coins_gain = EVENT_DAILY_COINS
                 event_coins_add(user.id, _ev["key"], event_coins_gain)
                 event_emoji = _ev.get("coin_emoji") or "🎟️"
-                event_coin_name = _ev.get("coin") or "Jetons d'event"
+                event_coin_name = _ev.get("coin") or t("server.daily.event_tokens", loc)
         except Exception as e:
             print(f"[daily] event coins err: {e}")
 
         daily_claim_apply(user.id, today_str, new_streak)
 
-        lines = [f"**+{coins} TookCoins** 🪙", f"**+{essences_gain} Essences** ✨"]
+        lines = [t("server.daily.reward_tookcoins", loc, amount=coins),
+                 t("server.daily.reward_essences", loc, amount=essences_gain)]
         if event_coins_gain:
-            lines.append(f"**+{event_coins_gain} {event_coin_name}** {event_emoji}")
+            lines.append(t("server.daily.reward_event", loc, amount=event_coins_gain,
+                           currency=event_coin_name, emoji=event_emoji))
         if pass_xp_gain:
-            lines.append(f"**+{pass_xp_gain} XP Pass** 🎟️")
+            lines.append(t("server.daily.reward_pass_xp", loc, amount=pass_xp_gain))
         lines.append("")
-        lines.append(f"🔥 Streak : **{new_streak} jour(s)** consécutif(s)")
+        lines.append(t("server.daily.streak_line", loc, streak=new_streak))
         if new_streak < 7:
-            lines.append(f"_Bonus streak max atteint à 7 jours (+14 TC)._")
+            lines.append(t("server.daily.streak_hint", loc))
         if not has_pass:
-            lines.append(f"_Active un Pass pour gagner aussi de l'XP Pass quotidien._")
+            lines.append(t("server.daily.pass_hint", loc))
 
         await interaction.response.send_message(
             embed=discord.Embed(
-                title=f"🎁 Récompense quotidienne — {user.display_name}",
+                title=t("server.daily.title", loc, user=user.display_name),
                 description="\n".join(lines),
                 color=0xB9F23A,
             ),

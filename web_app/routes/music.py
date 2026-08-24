@@ -1,5 +1,7 @@
 from flask import render_template, request, redirect, session, jsonify, g, url_for, abort, send_file
 
+from services.i18n import t
+
 def register_music_routes(app, deps):
     globals().update(deps)
     @app.route("/music")
@@ -20,7 +22,7 @@ def register_music_routes(app, deps):
         data = request.json or {}
         query = (data.get("query") or "").strip()
         if not query:
-            return jsonify({"error": "query requis"}), 400
+            return jsonify({"error": t("api.music.query_required")}), 400
         cmd_id = bot_command_enqueue(g_id, "music_play", {
             "query": query,
             "voice_channel_id": data.get("voice_channel_id"),
@@ -62,13 +64,13 @@ def register_music_routes(app, deps):
         data = request.json or {}
         track_id = data.get("track_id")
         if track_id is None:
-            return jsonify({"error": "track_id requis"}), 400
+            return jsonify({"error": t("api.music.track_id_required")}), 400
         cid = bot_command_enqueue(gid(), "music_remove_track", {"track_id": track_id})
         return jsonify({"success": True, "command_id": cid})
 
     @app.route("/api/music/stats")
     def api_music_stats():
-        """Stats lecture : summary, top tracks, top requesters. ?days=30 par defaut."""
+        """Playback stats: summary, top tracks, top requesters. ?days=30 by default."""
         from database import (music_stats_summary, music_stats_top_tracks,
                               music_stats_top_requesters)
         try:
@@ -90,8 +92,8 @@ def register_music_routes(app, deps):
         try:
             vol = max(0, min(200, int(data.get("volume", 100))))
         except (TypeError, ValueError):
-            return jsonify({"error": "volume invalide"}), 400
-        # Persist immediatement (utilise par la prochaine track + applique en live)
+            return jsonify({"error": t("api.music.invalid_volume")}), 400
+        # Persist immediately (used by the next track + applied live)
         from database import guild_setting_set
         g_id = gid()
         guild_setting_set(g_id, "music_volume", str(vol / 100.0))
@@ -104,24 +106,24 @@ def register_music_routes(app, deps):
         try:
             position = max(1, int(data.get("position", 1)))
         except (TypeError, ValueError):
-            return jsonify({"error": "position invalide"}), 400
+            return jsonify({"error": t("api.music.invalid_position")}), 400
         cid = bot_command_enqueue(gid(), "music_jump", {"position": position})
         return jsonify({"success": True, "command_id": cid})
 
     @app.route("/api/music/queue_reorder", methods=["POST"])
     def api_music_queue_reorder():
-        """Reordonne la queue selon l'ordre des track_ids fournis."""
+        """Reorder the queue following the supplied track_ids order."""
         from database import music_queue_list, get_db
         data = request.json or {}
         track_ids = data.get("track_ids") or []
         if not isinstance(track_ids, list) or not track_ids:
-            return jsonify({"error": "track_ids requis"}), 400
+            return jsonify({"error": t("api.music.track_ids_required")}), 400
         g_id = gid()
-        # Verifie que tous les ids appartiennent a cette guild
+        # Check that every id belongs to this guild
         existing = {t["id"]: t for t in (music_queue_list(g_id) or [])}
         if not all(int(tid) in existing for tid in track_ids):
-            return jsonify({"error": "track_id inconnu"}), 400
-        # Reassigne position 1..N dans l'ordre fourni
+            return jsonify({"error": t("api.music.unknown_track_id")}), 400
+        # Reassign position 1..N in the supplied order
         conn = get_db(); c = conn.cursor()
         for new_pos, tid in enumerate(track_ids, start=1):
             c.execute(
@@ -136,13 +138,13 @@ def register_music_routes(app, deps):
         data = request.json or {}
         ch_id = (data.get("voice_channel_id") or "").strip()
         if not ch_id:
-            return jsonify({"error": "voice_channel_id requis"}), 400
+            return jsonify({"error": t("api.music.voice_channel_id_required")}), 400
         cid = bot_command_enqueue(gid(), "music_join", {"voice_channel_id": ch_id})
         return jsonify({"success": True, "command_id": cid})
 
     @app.route("/api/music/voice-channels")
     def api_music_voice_channels():
-        """Liste les voice channels du guild courant pour le selecteur."""
+        """List the current guild's voice channels for the selector."""
         from database import list_channels
         try:
             chans = list_channels(gid(), type_filter="voice") or []
@@ -154,7 +156,7 @@ def register_music_routes(app, deps):
     def api_music_command_status(cmd_id):
         row = bot_command_get(cmd_id)
         if not row:
-            return jsonify({"error": "Commande introuvable"}), 404
+            return jsonify({"error": t("api.music.command_not_found")}), 404
         return jsonify(row)
 
 

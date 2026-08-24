@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="lol">{% endblock %}
-{% block title %}League of Legends · TookBot{% endblock %}
-{% block crumb %}League of Legends{% endblock %}
+{% block title %}{{ t('web_features.lol.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.lol.title') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -91,16 +91,16 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 </style>
 
-<h1 style="margin:0 0 6px;">⚔️ League of Legends</h1>
+<h1 style="margin:0 0 6px;">⚔️ {{ t('web_features.lol.title') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
-  Config rank-role auto : assigne un rôle Discord selon le tier Solo/Duo fetched depuis l'API Riot quand un membre lance <code>/lol rank</code>.
+  {{ t('web_features.lol.intro') }} <code>/lol rank</code>.
 </p>
 
 <div class="lol-card">
   <div class="switch-row">
     <div>
-      <strong>Activer l'attribution auto</strong>
-      <div class="muted" style="font-size:12px;">Les rôles configurés ci-dessous seront appliqués/retirés selon le tier Solo/Duo.</div>
+      <strong>{{ t('web_features.lol.auto_assign') }}</strong>
+      <div class="muted" style="font-size:12px;">{{ t('web_features.lol.auto_assign_desc') }}</div>
     </div>
     <label class="switch">
       <input type="checkbox" id="lolEnabled">
@@ -110,8 +110,8 @@
 </div>
 
 <div class="lol-card">
-  <h2>Mapping rôles ↔ paliers</h2>
-  <p class="help">Sélectionne le rôle Discord à appliquer pour chaque tier.</p>
+  <h2>{{ t('web_features.lol.mapping_title') }}</h2>
+  <p class="help">{{ t('web_features.lol.mapping_help') }}</p>
 
   <div id="tierRows">
     {% for t in tiers %}
@@ -122,20 +122,20 @@
     {% endfor %}
   </div>
 
-  <button class="btn btn-primary" id="saveBtn" type="button" style="margin-top:12px;">💾 Enregistrer</button>
+  <button class="btn btn-primary" id="saveBtn" type="button" style="margin-top:12px;">💾 {{ t('web_features.lol.save') }}</button>
 </div>
 
 <div class="lol-card">
-  <h2>📚 Commandes disponibles dans Discord</h2>
+  <h2>📚 {{ t('web_features.lol.commands_title') }}</h2>
   <ul style="font-size:13px;line-height:1.8;margin:0;padding-left:20px;">
-    <li><code>/lol link &lt;Pseudo#TAG&gt; [region]</code> — lie ton Riot ID</li>
-    <li><code>/lol unlink</code> — retire le lien</li>
-    <li><code>/lol stats [@membre]</code> — Solo/Flex + top maitrises</li>
-    <li><code>/lol rank [@membre]</code> — focus rank Solo/Duo + auto rank role</li>
-    <li><code>/lol history [n] [@membre]</code> — N dernières ranked Solo/Duo</li>
-    <li><code>/lol live [@membre]</code> — partie en cours si en jeu</li>
-    <li><code>/lol mastery [champion] [@membre]</code> — top 10 ou détail champion</li>
-    <li><code>/lol rankrole on|off</code> — toggle l'auto rank role (admin)</li>
+    <li><code>/lol link &lt;Pseudo#TAG&gt; [region]</code> — {{ t('web_features.lol.cmd_link') }}</li>
+    <li><code>/lol unlink</code> — {{ t('web_features.lol.cmd_unlink') }}</li>
+    <li><code>/lol stats [@membre]</code> — {{ t('web_features.lol.cmd_stats') }}</li>
+    <li><code>/lol rank [@membre]</code> — {{ t('web_features.lol.cmd_rank') }}</li>
+    <li><code>/lol history [n] [@membre]</code> — {{ t('web_features.lol.cmd_history') }}</li>
+    <li><code>/lol live [@membre]</code> — {{ t('web_features.lol.cmd_live') }}</li>
+    <li><code>/lol mastery [champion] [@membre]</code> — {{ t('web_features.lol.cmd_mastery') }}</li>
+    <li><code>/lol rankrole on|off</code> — {{ t('web_features.lol.cmd_rankrole') }}</li>
   </ul>
 </div>
 
@@ -170,7 +170,7 @@ async function loadConfig() {
   document.querySelectorAll('.role-select').forEach(sel => {
     const tier = sel.dataset.tier;
     const current = (CONFIG.role_map || {})[tier] || '';
-    sel.innerHTML = '<option value="">— aucun —</option>' +
+    sel.innerHTML = '<option value="">— none —</option>' +
       ROLES.map(r => `<option value="${r.role_id}" ${String(r.role_id) === String(current) ? 'selected' : ''}>${r.name}</option>`).join('');
   });
 }
@@ -189,8 +189,8 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (r.ok) showToast('✅ Config enregistrée');
-  else showToast('Erreur', false);
+  if (r.ok) showToast('✅ Config saved');
+  else showToast('Error', false);
 });
 
 window.addEventListener('DOMContentLoaded', async () => {

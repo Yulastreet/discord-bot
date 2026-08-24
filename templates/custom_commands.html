@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block feature_meta %}<meta name="feature-key" content="custom_commands">{% endblock %}
-{% block title %}Commandes custom · TookBot{% endblock %}
-{% block crumb %}Commandes custom{% endblock %}
+{% block title %}{{ t('web_features.custom_commands.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_features.custom_commands.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -47,90 +47,89 @@
   }
 </style>
 
-<h1 style="margin:0 0 6px;">⚙️ Commandes custom</h1>
+<h1 style="margin:0 0 6px;">⚙️ {{ t('web_features.custom_commands.heading') }}</h1>
 <p class="muted" style="font-size:13px;max-width:60ch;margin-bottom:22px;">
-  Crée des commandes personnalisées exécutables via <code>/&lt;nom&gt;</code> dans Discord (slash directe).
-  Mode texte simple ou embed structuré (JSON).
+  {{ t('web_features.custom_commands.intro_before') }} <code>/&lt;name&gt;</code> {{ t('web_features.custom_commands.intro_after') }}
 </p>
 
 <div class="cc-card">
-  <h2 id="formTitle">➕ Nouvelle commande</h2>
+  <h2 id="formTitle">➕ {{ t('web_features.custom_commands.form_title_new') }}</h2>
   <div class="grid grid-2 gap-3">
     <div class="field">
-      <label>Nom (a-z, 0-9, _ -)</label>
-      <input id="ccName" type="text" maxlength="32" placeholder="ex: rules, info, discord-link">
+      <label>{{ t('web_features.custom_commands.label_name') }}</label>
+      <input id="ccName" type="text" maxlength="32" placeholder="{{ t('web_features.custom_commands.ph_name') }}">
     </div>
     <div class="field">
-      <label>Description (optionnelle)</label>
-      <input id="ccDesc" type="text" maxlength="100" placeholder="ex: Règles du serveur">
+      <label>{{ t('web_features.custom_commands.label_desc') }}</label>
+      <input id="ccDesc" type="text" maxlength="100" placeholder="{{ t('web_features.custom_commands.ph_desc') }}">
     </div>
   </div>
 
   <div class="mode-toggle">
-    <button id="modeText"  onclick="setMode('text')"  class="active">📝 Texte</button>
-    <button id="modeEmbed" onclick="setMode('embed')">🎨 Embed</button>
+    <button id="modeText"  onclick="setMode('text')"  class="active">📝 {{ t('web_features.custom_commands.mode_text') }}</button>
+    <button id="modeEmbed" onclick="setMode('embed')">🎨 {{ t('web_features.custom_commands.mode_embed') }}</button>
   </div>
 
   <div id="textPane">
     <div class="field">
-      <label>Réponse (texte, max 2000 caractères)</label>
-      <textarea id="ccText" class="cc-text" maxlength="2000" placeholder="Salut {user} ! Bienvenue sur {server}."></textarea>
-      <small class="muted" style="font-size:11px;">Variables : <code>{user}</code> <code>{user.name}</code> <code>{server}</code> <code>{channel}</code> <code>{date}</code> <code>{time}</code></small>
+      <label>{{ t('web_features.custom_commands.label_response') }}</label>
+      <textarea id="ccText" class="cc-text" maxlength="2000" placeholder="{{ t('web_features.custom_commands.ph_response') }}"></textarea>
+      <small class="muted" style="font-size:11px;">{{ t('web_features.custom_commands.variables_label') }} <code>{user}</code> <code>{user.name}</code> <code>{server}</code> <code>{channel}</code> <code>{date}</code> <code>{time}</code></small>
     </div>
   </div>
 
   <div id="embedPane" style="display:none;">
     <div class="grid grid-2 gap-3">
       <div class="field">
-        <label>Titre</label>
-        <input id="embTitle" type="text" maxlength="256" placeholder="📜 Règles">
+        <label>{{ t('web_features.custom_commands.label_title') }}</label>
+        <input id="embTitle" type="text" maxlength="256" placeholder="{{ t('web_features.custom_commands.ph_title') }}">
       </div>
       <div class="field">
-        <label>Couleur (hex, ex: 3498DB)</label>
+        <label>{{ t('web_features.custom_commands.label_color') }}</label>
         <input id="embColor" type="text" maxlength="6" placeholder="3498DB" value="3498DB">
       </div>
     </div>
     <div class="field">
-      <label>Description</label>
-      <textarea id="embDesc" class="cc-text" placeholder="Voici les règles..."></textarea>
+      <label>{{ t('web_features.custom_commands.label_description') }}</label>
+      <textarea id="embDesc" class="cc-text" placeholder="{{ t('web_features.custom_commands.ph_embed_desc') }}"></textarea>
     </div>
     <div class="grid grid-2 gap-3">
       <div class="field">
-        <label>Image (URL)</label>
+        <label>{{ t('web_features.custom_commands.label_image') }}</label>
         <input id="embImage" type="url" placeholder="https://...">
       </div>
       <div class="field">
-        <label>Thumbnail (URL)</label>
+        <label>{{ t('web_features.custom_commands.label_thumbnail') }}</label>
         <input id="embThumb" type="url" placeholder="https://...">
       </div>
     </div>
     <div class="field">
-      <label>Footer</label>
-      <input id="embFooter" type="text" maxlength="2048" placeholder="ex: bot {server}">
+      <label>{{ t('web_features.custom_commands.label_footer') }}</label>
+      <input id="embFooter" type="text" maxlength="2048" placeholder="{{ t('web_features.custom_commands.ph_footer') }}">
     </div>
-    <small class="muted" style="font-size:11px;">Pour des champs avancés (fields multiples), édite directement le JSON ci-dessous.</small>
+    <small class="muted" style="font-size:11px;">{{ t('web_features.custom_commands.advanced_help') }}</small>
     <div class="field">
-      <label>JSON brut (optionnel — écrase les champs ci-dessus)</label>
+      <label>{{ t('web_features.custom_commands.label_raw_json') }}</label>
       <textarea id="embRawJson" class="cc-text" placeholder='{"title":"...","description":"...","color":3447003,"fields":[{"name":"X","value":"Y","inline":true}]}'></textarea>
     </div>
   </div>
 
   <div class="row gap-2 mt-4">
     <label style="display:flex;align-items:center;gap:6px;">
-      <input id="ccEnabled" type="checkbox" checked> <span>Activée</span>
+      <input id="ccEnabled" type="checkbox" checked> <span>{{ t('web_features.custom_commands.enabled') }}</span>
     </label>
   </div>
 
   <div class="row gap-2 mt-4">
-    <button class="btn btn-primary" onclick="saveCmd()">💾 Enregistrer</button>
-    <button class="btn btn-ghost" onclick="resetForm()">↺ Nouveau</button>
+    <button class="btn btn-primary" onclick="saveCmd()">💾 {{ t('web_features.custom_commands.save') }}</button>
+    <button class="btn btn-ghost" onclick="resetForm()">↺ {{ t('web_features.custom_commands.reset') }}</button>
   </div>
 </div>
 
 <div class="cc-card">
-  <h2>📋 Commandes existantes</h2>
+  <h2>📋 {{ t('web_features.custom_commands.list_title') }}</h2>
   <div id="ccList" class="cc-list">
-    <div class="muted" style="font-size:13px;">Chargement…</div>
+    <div class="muted" style="font-size:13px;">{{ t('web_features.custom_commands.loading') }}</div>
   </div>
 </div>
 
@@ -172,7 +171,7 @@ function buildEmbedJson() {
 
 async function saveCmd() {
   const name = document.getElementById('ccName').value.trim().toLowerCase();
-  if (!/^[a-z0-9_-]{1,32}$/.test(name)) { toast('Nom invalide', 'error'); return; }
+  if (!/^[a-z0-9_-]{1,32}$/.test(name)) { toast('Invalid name', 'error'); return; }
   const payload = {
     name,
     description: document.getElementById('ccDesc').value.trim() || null,
@@ -188,16 +187,16 @@ async function saveCmd() {
   });
   const d = await r.json().catch(() => ({}));
   if (r.ok) {
-    toast(`✅ Commande /${name} ${EDITING_NAME ? 'mise à jour' : 'créée'}`);
+    toast(`✅ Command /${name} ${EDITING_NAME ? 'updated' : 'created'}`);
     resetForm();
     loadList();
-  } else toast(d.error || 'Erreur', 'error');
+  } else toast(d.error || 'Error', 'error');
 }
 window.saveCmd = saveCmd;
 
 function resetForm() {
   EDITING_NAME = null;
-  document.getElementById('formTitle').textContent = '➕ Nouvelle commande';
+  document.getElementById('formTitle').textContent = '➕ New command';
   ['ccName','ccDesc','ccText','embTitle','embDesc','embImage','embThumb','embFooter','embRawJson']
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('embColor').value = '3498DB';
@@ -208,7 +207,7 @@ window.resetForm = resetForm;
 
 function editCmd(c) {
   EDITING_NAME = c.name;
-  document.getElementById('formTitle').textContent = `✏️ Édition · /${c.name}`;
+  document.getElementById('formTitle').textContent = `✏️ Editing · /${c.name}`;
   document.getElementById('ccName').value = c.name;
   document.getElementById('ccName').readOnly = true;
   document.getElementById('ccDesc').value = c.description || '';
@@ -237,10 +236,10 @@ function editCmd(c) {
 window.editCmd = editCmd;
 
 async function deleteCmd(name) {
-  if (!confirm(`Supprimer /${name} ?`)) return;
+  if (!confirm(`Delete /${name}?`)) return;
   const r = await fetch(`/api/custom-commands/${encodeURIComponent(name)}`, { method: 'DELETE' });
-  if (r.ok) { toast('Commande supprimée'); loadList(); }
-  else toast('Erreur', 'error');
+  if (r.ok) { toast('Command deleted'); loadList(); }
+  else toast('Error', 'error');
 }
 window.deleteCmd = deleteCmd;
 
@@ -252,24 +251,24 @@ async function loadList() {
     const d = await r.json();
     const rows = d.commands || [];
     if (!rows.length) {
-      list.innerHTML = '<div class="muted" style="font-size:13px;">_Aucune commande custom._</div>';
+      list.innerHTML = '<div class="muted" style="font-size:13px;">_No custom command yet._</div>';
       return;
     }
     list.innerHTML = rows.map(c => `
       <div class="cc-row ${c.enabled ? '' : 'disabled'}">
         <div>
           <div class="nm">/${escapeHtml(c.name)} ${c.enabled ? '<span class="pill-on">on</span>' : '<span class="pill-off">off</span>'} ${c.use_embed ? '<span class="pill-on">embed</span>' : ''}</div>
-          <div class="desc">${escapeHtml(c.description || 'sans description')} · ${c.uses_count || 0} utilisations</div>
+          <div class="desc">${escapeHtml(c.description || 'no description')} · ${c.uses_count || 0} uses</div>
         </div>
         <div class="row gap-2">
-          <button class="btn btn-secondary" onclick='editCmd(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="font-size:12px;padding:4px 10px;">✏️ Éditer</button>
+          <button class="btn btn-secondary" onclick='editCmd(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="font-size:12px;padding:4px 10px;">✏️ Edit</button>
           <button class="btn btn-secondary" onclick="deleteCmd('${c.name}')" style="font-size:12px;padding:4px 10px;">🗑️</button>
         </div>
       </div>
     `).join('');
     document.getElementById('ccName').readOnly = !!EDITING_NAME;
   } catch (e) {
-    list.innerHTML = `<div class="muted">Erreur : ${e.message}</div>`;
+    list.innerHTML = `<div class="muted">Error: ${e.message}</div>`;
   }
 }
 
@@ -321,17 +320,17 @@ window.addEventListener('DOMContentLoaded', loadList);
 <div class="cc-paywall-scrim" id="ccPaywall">
   <div class="cc-paywall-modal">
     <div class="ico">✦</div>
-    <h2>Feature TookBot+ uniquement</h2>
-    <p>Les commandes custom sont réservées aux serveurs dont le propriétaire a un abonnement TookBot+.</p>
+    <h2>{{ t('web_features.custom_commands.paywall_title') }}</h2>
+    <p>{{ t('web_features.custom_commands.paywall_text') }}</p>
     <div class="cc-paywall-actions">
-      <button class="cc-btn-subscribe" onclick="window.location.href='/subscription'">S'abonner à TookBot+</button>
-      <button class="cc-btn-preview" onclick="document.getElementById('ccPaywall').style.display='none';document.getElementById('ccPreviewBanner').style.display='block';document.body.classList.add('cc-preview-mode');">Voir un aperçu de la feature</button>
+      <button class="cc-btn-subscribe" onclick="window.location.href='/subscription'">{{ t('web_features.custom_commands.paywall_subscribe') }}</button>
+      <button class="cc-btn-preview" onclick="document.getElementById('ccPaywall').style.display='none';document.getElementById('ccPreviewBanner').style.display='block';document.body.classList.add('cc-preview-mode');">{{ t('web_features.custom_commands.paywall_preview') }}</button>
     </div>
   </div>
 </div>
 <div class="cc-preview-mode-banner" id="ccPreviewBanner">
-  ✦ Tu es en aperçu de la feature TookBot+ · Aucune modification ne sera enregistrée.
-  <a href="/subscription">S'abonner pour débloquer</a>
+  ✦ {{ t('web_features.custom_commands.preview_banner') }}
+  <a href="/subscription">{{ t('web_features.custom_commands.preview_banner_link') }}</a>
 </div>
 {% endif %}
 

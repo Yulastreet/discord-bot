@@ -1,14 +1,14 @@
-"""Rendu carte /niveau premium (Pillow).
+"""Premium /niveau card rendering (Pillow).
 
-Compose une image 1024x320 :
-- Background choisi par l'utilisateur (assets/niveau_bg/<id>.png)
-- Avatar Discord rond
-- Pseudo + Niveau + XP total
-- Barre de progression XP
-- Badge Premium
-- Mention discrète "rendu possible par achat intégré"
+Composes a 1024x320 image:
+- Background chosen by the user (assets/niveau_bg/<id>.png)
+- Round Discord avatar
+- Username + Level + total XP
+- XP progress bar
+- Premium badge
+- Discreet "made possible by an in-app purchase" note
 
-Renvoie un BytesIO PNG, prêt à être passé à `discord.File`.
+Returns a PNG BytesIO, ready to be passed to `discord.File`.
 """
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ from typing import Optional
 import aiohttp
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-# pilmoji rend les emojis couleur (Twemoji) sur les images Pillow.
-# Fallback gracieux si la lib n'est pas dispo.
+# pilmoji renders color emojis (Twemoji) on Pillow images.
+# Graceful fallback if the lib is not available.
 try:
     from pilmoji import Pilmoji
     _HAS_PILMOJI = True
@@ -34,16 +34,16 @@ except Exception:
 
 
 CARD_W, CARD_H = 1024, 320
-# Module deplace dans cards/, donc on remonte d'un niveau pour pointer assets/
+# Module moved into cards/, so go up one level to point at assets/
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BG_DIR = os.path.join(_REPO_ROOT, "assets", "niveau_bg")
-# BG custom owner : 1 par owner_id (perso, jamais expose aux autres).
+# Custom owner BG: 1 per owner_id (personal, never exposed to others).
 BG_OWNER_DIR = os.path.join(BG_DIR, "owner")
 os.makedirs(BG_OWNER_DIR, exist_ok=True)
 AVATAR_SIZE = 200
 AVATAR_X, AVATAR_Y = 60, (CARD_H - AVATAR_SIZE) // 2
 
-ACCENT = (200, 240, 80)            # lime acide TookBot
+ACCENT = (200, 240, 80)            # TookBot acid lime
 ACCENT_DARK = (140, 180, 40)
 TEXT_PRIMARY = (245, 250, 235)
 TEXT_SECONDARY = (200, 215, 180)
@@ -78,14 +78,14 @@ def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     return f
 
 
-# Session HTTP partagee (TLS reuse + connection pool).
+# Shared HTTP session (TLS reuse + connection pool).
 _HTTP_SESSION: Optional[aiohttp.ClientSession] = None
 _HTTP_SESSION_LOCK = asyncio.Lock()
 
-# Cache avatar bytes : { url: (expires_ts, bytes) }. TTL court car les avatars
-# Discord changent peu mais on veut suivre les renames; 10 min suffisent.
+# Avatar bytes cache: { url: (expires_ts, bytes) }. Short TTL because Discord
+# avatars change rarely but we still want to follow renames; 10 min is enough.
 _AVATAR_CACHE: dict[str, tuple[float, bytes]] = {}
-_AVATAR_TTL = 600  # secondes
+_AVATAR_TTL = 600  # seconds
 _AVATAR_CACHE_MAX = 256
 
 
@@ -146,20 +146,20 @@ def _placeholder_avatar(size: int) -> Image.Image:
     return img
 
 
-# Cache backgrounds en RAM : { id: (mtime_disk, Image RGB) }.
-# La cle inclut le mtime du fichier source ; quand le fichier est modifie
-# (upload owner, regeneration saisonniere) on invalide automatiquement, ce
-# qui rend le cache transparent entre les processus pm2 (bot et web).
+# Backgrounds cached in RAM: { id: (mtime_disk, Image RGB) }.
+# The key includes the source file mtime; when the file is modified (owner
+# upload, seasonal regeneration) the entry is invalidated automatically, which
+# makes the cache transparent across pm2 processes (bot and web).
 _BG_CACHE: dict[str, tuple[float, Image.Image]] = {}
 
 
 def _resolve_bg_path(bg_id: str) -> Optional[str]:
-    """Resout l'ID du BG vers un chemin disque.
+    """Resolve a BG ID to a disk path.
 
-    Supporte :
-    - 'owner:<owner_id>' -> assets/niveau_bg/owner/<owner_id>.png  (owner uniquement)
+    Supports:
+    - 'owner:<owner_id>' -> assets/niveau_bg/owner/<owner_id>.png  (owner only)
     - 'seasonal:<YYYY-MM>:<name>' -> assets/niveau_bg/seasonal/<YYYY-MM>/<name>.png
-    - '<name>' simple -> assets/niveau_bg/<name>.png  (BG permanent)
+    - plain '<name>' -> assets/niveau_bg/<name>.png  (permanent BG)
     """
     if not bg_id:
         return None
@@ -179,15 +179,15 @@ def _resolve_bg_path(bg_id: str) -> Optional[str]:
 
 
 def _load_background(bg_id: str) -> Image.Image:
-    """Charge le BG demandé (cache RAM mtime-aware), fallback default puis gradient.
+    """Load the requested BG (mtime-aware RAM cache), fallback default then gradient.
 
-    Le cache stocke (mtime_disk, Image). Si le fichier sur disque a un mtime
-    plus recent que celui en cache, on recharge automatiquement — utile pour
-    propager un upload owner BG ou la regeneration des BG saisonniers entre
-    les processus pm2 (bot + web ont chacun leur cache).
+    The cache stores (mtime_disk, Image). If the file on disk has a more recent
+    mtime than the cached one, it is reloaded automatically - useful to
+    propagate an owner BG upload or the seasonal BG regeneration across pm2
+    processes (bot + web each have their own cache).
 
-    Renvoie une COPIE pour que les operations suivantes (alpha_composite, draw)
-    ne mutent pas l'image cachee.
+    Returns a COPY so the following operations (alpha_composite, draw) do not
+    mutate the cached image.
     """
     candidates = [bg_id, "default"]
     for name in candidates:
@@ -203,12 +203,12 @@ def _load_background(bg_id: str) -> Image.Image:
                 return img.copy()
             except Exception:
                 continue
-    # Fallback procédural si aucun fichier
+    # Procedural fallback if no file is available
     return Image.new("RGB", (CARD_W, CARD_H), (22, 24, 30))
 
 
 def invalidate_bg_cache(bg_id: str = None):
-    """A appeler apres upload/replacement d'un BG pour purger le cache RAM."""
+    """Call after uploading/replacing a BG to purge the RAM cache."""
     if bg_id is None:
         _BG_CACHE.clear()
     else:
@@ -216,7 +216,7 @@ def invalidate_bg_cache(bg_id: str = None):
 
 
 def preload_backgrounds():
-    """A appeler au boot pour eviter la 1ere latence de decode disque."""
+    """Call at boot to avoid the first disk decode latency."""
     if not os.path.isdir(BG_DIR):
         return
     for fn in os.listdir(BG_DIR):
@@ -236,13 +236,13 @@ def preload_backgrounds():
 
 _EMOJI_RE = re.compile(
     "["
-    "\U0001F1E6-\U0001F1FF"  # drapeaux regionaux
-    "\U0001F300-\U0001FAFF"  # symboles & pictogrammes etendus
-    "\U00002600-\U000027BF"  # divers symboles + dingbats
-    "\U0001F000-\U0001F0FF"  # mahjong/dominos/cartes
+    "\U0001F1E6-\U0001F1FF"  # regional flags
+    "\U0001F300-\U0001FAFF"  # extended symbols & pictograms
+    "\U00002600-\U000027BF"  # misc symbols + dingbats
+    "\U0001F000-\U0001F0FF"  # mahjong/dominoes/cards
     "\U0000FE00-\U0000FE0F"  # variation selectors
-    "\U00002190-\U000021FF"  # fleches
-    "\U00002B00-\U00002BFF"  # fleches & etoiles diverses
+    "\U00002190-\U000021FF"  # arrows
+    "\U00002B00-\U00002BFF"  # misc arrows & stars
     "\U0000200D"             # zero width joiner
     "]+",
     flags=re.UNICODE,
@@ -250,17 +250,17 @@ _EMOJI_RE = re.compile(
 
 
 def _strip_emojis(text: str) -> str:
-    """Retire les emojis unicode et nettoie les espaces restants (fallback sans pilmoji)."""
+    """Strip unicode emojis and clean up leftover spaces (fallback without pilmoji)."""
     return _EMOJI_RE.sub("", text).strip()
 
 
 def _draw_text_emoji(image: Image.Image, xy, text: str, font, fill,
                       emoji_scale: float = 1.0):
-    """Dessine du texte contenant potentiellement des emojis couleur.
+    """Draw text that may contain color emojis.
 
-    Utilise pilmoji si dispo (rendu Twemoji propre). Sinon fallback Pillow
-    qui retire les emojis (eviter le carre tofu de la police par defaut).
-    `emoji_scale` ajuste la taille des glyphes emoji (alignement vertical).
+    Uses pilmoji when available (clean Twemoji rendering). Otherwise falls back
+    to Pillow, which strips the emojis (avoids the default font's tofu box).
+    `emoji_scale` tunes the emoji glyph size (vertical alignment).
     """
     if _HAS_PILMOJI:
         try:
@@ -268,8 +268,8 @@ def _draw_text_emoji(image: Image.Image, xy, text: str, font, fill,
                 pj.text(xy, text, font=font, fill=fill, emoji_scale_factor=emoji_scale)
             return
         except Exception:
-            pass  # fallback ci-dessous
-    # Pas de pilmoji : on retire les emojis pour ne pas afficher de tofu.
+            pass  # fallback below
+    # No pilmoji: strip the emojis so we don't render tofu boxes.
     ImageDraw.Draw(image).text(xy, _strip_emojis(text), font=font, fill=fill)
 
 
@@ -278,13 +278,13 @@ def _draw_xp_bar(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, perc
     radius = h // 2
     # Track
     draw.rounded_rectangle((x, y, x + w, y + h), radius=radius, fill=(20, 22, 30, 220))
-    # Inner shadow line (visuel propre)
+    # Inner shadow line (clean look)
     draw.rounded_rectangle((x, y, x + w, y + h), radius=radius, outline=(0, 0, 0, 100), width=1)
     # Fill
     fill_w = int(w * percent / 100)
     if fill_w >= 4:
         draw.rounded_rectangle((x, y, x + fill_w, y + h), radius=radius, fill=ACCENT + (255,))
-        # Highlight haut
+        # Top highlight
         draw.rounded_rectangle((x + 2, y + 2, x + fill_w - 2, y + h // 2),
                                radius=radius // 2, fill=(255, 255, 255, 60))
 
@@ -319,10 +319,10 @@ async def render_niveau_card(
     title: Optional[str] = None,
     emoji_prefix: Optional[str] = None,
 ) -> io.BytesIO:
-    """Génère la carte et retourne un BytesIO PNG.
+    """Generate the card and return a PNG BytesIO.
 
-    `title` (str) : titre Pass affiche sous le pseudo (ex: "Maître").
-    `emoji_prefix` (str) : emoji Pass affiche devant le pseudo (ex: "🌟").
+    `title` (str): Pass title shown under the username (e.g. "Master").
+    `emoji_prefix` (str): Pass emoji shown before the username (e.g. "🌟").
     """
     print(f"[render_niveau_card] user={username} level={level} xp_total={xp_total} "
           f"xp_in_level={xp_in_level} xp_needed={xp_needed} bg={background}", flush=True)
@@ -339,7 +339,7 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
                          emoji_prefix=None) -> io.BytesIO:
     base = _load_background(background).convert("RGBA")
 
-    # Voile foncé sous le texte (gauche zone avatar->droite)
+    # Dark veil under the text (from the avatar zone on the left to the right)
     veil = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
     vd = ImageDraw.Draw(veil)
     vd.rectangle((0, 0, CARD_W, CARD_H), fill=(0, 0, 0, 75))
@@ -358,7 +358,7 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     base.alpha_composite(avatar_img, (AVATAR_X, AVATAR_Y))
 
     text_x = AVATAR_X + AVATAR_SIZE + 40
-    # Pseudo (avec emoji prefix si Pass cosmetic actif). Pilmoji gere le rendu.
+    # Username (with emoji prefix if a cosmetic Pass is active). Pilmoji handles rendering.
     name_font = _font(46, bold=True)
     full_name = (f"{emoji_prefix} {username}" if emoji_prefix else username)
     display = full_name
@@ -369,7 +369,7 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     _draw_text_emoji(base, (text_x, 28), display, font=name_font, fill=TEXT_PRIMARY,
                       emoji_scale=0.75)
 
-    # Titre Pass (sous le pseudo) si actif
+    # Pass title (under the username) if active
     if title:
         f_title = _font(18, bold=False)
         title_text = f"« {title} »"
@@ -378,16 +378,16 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     else:
         sub_y = 100
 
-    # Niveau / XP : 2 colonnes recentrees dans la moitie droite de la zone
-    # texte (au lieu de coller a gauche pres de l'avatar). Police plus grosse.
+    # Level / XP: 2 columns re-centered in the right half of the text zone
+    # (instead of hugging the left next to the avatar). Bigger font.
     f_label = _font(24, bold=True)
     f_value = _font(40, bold=True)
-    # Centres des 2 colonnes : Niveau a gauche du centre carte, XP TOTAL a droite.
-    # Zone disponible : x = text_x .. CARD_W - 60.
+    # Centers of the 2 columns: Level left of the card center, TOTAL XP right.
+    # Available zone: x = text_x .. CARD_W - 60.
     zone_left  = text_x
     zone_right = CARD_W - 60
     zone_w     = zone_right - zone_left
-    # 1/3 et 2/3 de la zone pour bien espacer
+    # 1/3 and 2/3 of the zone for good spacing
     col1_cx = zone_left + int(zone_w * 0.30)
     col2_cx = zone_left + int(zone_w * 0.70)
 
@@ -395,12 +395,12 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
         tw = draw.textlength(text, font=font)
         draw.text((cx - tw / 2, y), text, font=font, fill=fill)
 
-    _draw_centered(col1_cx, sub_y,      "NIVEAU",                                  f_label, ACCENT)
+    _draw_centered(col1_cx, sub_y,      "LEVEL",                                   f_label, ACCENT)
     _draw_centered(col1_cx, sub_y + 30, str(level),                                f_value, TEXT_PRIMARY)
-    _draw_centered(col2_cx, sub_y,      "XP TOTAL",                                f_label, ACCENT)
+    _draw_centered(col2_cx, sub_y,      "TOTAL XP",                                f_label, ACCENT)
     _draw_centered(col2_cx, sub_y + 30, f"{xp_total:,}".replace(",", " "),         f_value, TEXT_PRIMARY)
     if rank:
-        # Rang : insertion entre les 2 si presente (rare). On le met en bas a droite.
+        # Rank: inserted between the 2 when present (rare). Put it bottom right.
         f_rank = _font(18, bold=True)
         draw.text((zone_right, sub_y - 4), f"#{rank}", font=f_rank,
                   fill=TEXT_SECONDARY, anchor="rt")
@@ -411,7 +411,7 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     bar_h = 26
     pct = (xp_in_level / xp_needed * 100) if xp_needed > 0 else 0
     _draw_xp_bar(draw, bar_x, bar_y, bar_w, bar_h, pct)
-    # Texte sous la barre
+    # Text under the bar
     f_xp = _font(18, bold=False)
     xp_text = f"{xp_in_level:,} / {xp_needed:,} XP".replace(",", " ")
     draw.text((bar_x, bar_y + bar_h + 8), xp_text, font=f_xp, fill=TEXT_SECONDARY)
@@ -420,11 +420,11 @@ def _render_niveau_sync(username, raw_avatar, level, xp_total, xp_in_level,
     draw.text((bar_x + bar_w - pct_w, bar_y + bar_h + 8), pct_text, font=f_xp, fill=TEXT_SECONDARY)
 
     f_mention = _font(11, bold=False)
-    mention = "Rendu possible grâce à un achat intégré"
+    mention = "Made possible by an in-app purchase"
     draw.text((CARD_W - 16, CARD_H - 18), mention, font=f_mention,
               fill=(200, 215, 180, 130), anchor="rb")
 
-    # Output (optimize=False pour vitesse, fichier reste petit)
+    # Output (optimize=False for speed, the file stays small)
     buf = io.BytesIO()
     base.convert("RGB").save(buf, "PNG", optimize=False, compress_level=6)
     buf.seek(0)
@@ -439,18 +439,18 @@ async def render_levelup_card_premium(
     percent: float = 0,
     background: str = "default",
 ) -> io.BytesIO:
-    """Carte LEVEL UP premium : avatar fetch async + Pillow dans thread."""
+    """Premium LEVEL UP card: async avatar fetch + Pillow in a thread."""
     raw_avatar = await _fetch_avatar_bytes(avatar_url) if avatar_url else None
     return await asyncio.to_thread(
         _render_levelup_sync, username, raw_avatar, new_level, percent, background,
     )
 
 
-# ===== LEVELUP CARD : taille native compacte =====
-# Rendue directement a 384x120 (taille d'affichage Discord finale, identique
-# a l'ancienne) au lieu de rendre en 1024x320 puis resize (qui rendait
-# l'image compressee/pixelisee). Discord ne grossit pas les images <400px
-# donc le rendu reste compact dans le chat.
+# ===== LEVELUP CARD: compact native size =====
+# Rendered directly at 384x120 (final Discord display size, same as the old
+# one) instead of rendering at 1024x320 then resizing (which made the image
+# compressed/pixelated). Discord does not upscale images under 400px so the
+# render stays compact in chat.
 LU_W, LU_H = 384, 120
 LU_AVATAR_SIZE = 88
 LU_AVATAR_X = 14
@@ -458,32 +458,32 @@ LU_AVATAR_Y = (LU_H - LU_AVATAR_SIZE) // 2
 
 
 def _draw_up_arrow(draw, cx, cy, size, fill):
-    """Fleche bold pointant vers le haut, polygone simple."""
+    """Bold arrow pointing up, simple polygon."""
     s = size
-    # Triangle pointu + queue rectangulaire
+    # Sharp triangle + rectangular tail
     pts = [
-        (cx,            cy - s),         # pointe haute
-        (cx + s * 0.75, cy - s * 0.05),  # bord droit
-        (cx + s * 0.30, cy - s * 0.05),  # creux droit
-        (cx + s * 0.30, cy + s * 0.60),  # bas droit queue
-        (cx - s * 0.30, cy + s * 0.60),  # bas gauche queue
-        (cx - s * 0.30, cy - s * 0.05),  # creux gauche
-        (cx - s * 0.75, cy - s * 0.05),  # bord gauche
+        (cx,            cy - s),         # top point
+        (cx + s * 0.75, cy - s * 0.05),  # right edge
+        (cx + s * 0.30, cy - s * 0.05),  # right notch
+        (cx + s * 0.30, cy + s * 0.60),  # tail bottom right
+        (cx - s * 0.30, cy + s * 0.60),  # tail bottom left
+        (cx - s * 0.30, cy - s * 0.05),  # left notch
+        (cx - s * 0.75, cy - s * 0.05),  # left edge
     ]
     draw.polygon(pts, fill=fill)
 
 
 def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -> io.BytesIO:
-    # Background rendu directement a la taille finale
+    # Background rendered directly at the final size
     base_full = _load_background(background).convert("RGBA")
     base = base_full.resize((LU_W, LU_H), Image.LANCZOS)
 
-    # Voile sombre pour lisibilite
+    # Dark veil for readability
     veil = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 110))
     base.alpha_composite(veil)
 
-    # Fleches vertes UP scattered : 13 fleches de tailles variees, opacite
-    # faible, reparties sur toute la carte (motif d'ascension).
+    # Scattered green UP arrows: 13 arrows of varied sizes, low opacity,
+    # spread over the whole card (ascension pattern).
     arrows = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 0))
     ad = ImageDraw.Draw(arrows)
     arrow_positions = [
@@ -518,14 +518,14 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
         avatar_img = _placeholder_avatar(LU_AVATAR_SIZE)
     base.alpha_composite(avatar_img, (LU_AVATAR_X, LU_AVATAR_Y))
 
-    # Zone texte : x apres avatar jusqu'au bord droit
+    # Text zone: x after the avatar up to the right edge
     text_x = LU_AVATAR_X + LU_AVATAR_SIZE + 14
     text_right = LU_W - 14
     text_zone_w = text_right - text_x
 
-    # LEVEL UP ! titre centre haut
+    # LEVEL UP! title centered at the top
     f_title = _font(26, bold=True)
-    title = "LEVEL UP !"
+    title = "LEVEL UP!"
     glow = Image.new("RGBA", (LU_W, LU_H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     title_tw = gd.textlength(title, font=f_title)
@@ -535,7 +535,7 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     base.alpha_composite(glow)
     draw.text((title_x, 8), title, font=f_title, fill=(250, 255, 230, 255))
 
-    # Pseudo
+    # Username
     f_user = _font(14, bold=True)
     display = username
     while draw.textlength(display, font=f_user) > text_zone_w and len(display) > 1:
@@ -546,10 +546,10 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
     draw.text((text_x + (text_zone_w - user_tw) / 2, 44), display,
               font=f_user, fill=TEXT_SECONDARY)
 
-    # NIVEAU label + valeur grosse, centres horizontalement
+    # LEVEL label + big value, horizontally centered
     f_label = _font(11, bold=True)
     f_value = _font(36, bold=True)
-    lbl = "NIVEAU"
+    lbl = "LEVEL"
     val = str(new_level)
     lbl_tw = draw.textlength(lbl, font=f_label)
     val_tw = draw.textlength(val, font=f_value)
@@ -565,21 +565,21 @@ def _render_levelup_sync(username, raw_avatar, new_level, percent, background) -
 
 
 def list_available_backgrounds(user_id: str = None) -> list[str]:
-    """Retourne la liste des IDs de backgrounds disponibles pour cet utilisateur.
+    """Return the list of background IDs available to this user.
 
-    - Tout le monde voit les BG permanents (assets/niveau_bg/*.png)
-    - Si `user_id` correspond a un BG custom owner uploade, l'ID 'owner:<id>'
-      est ajoute en debut de liste pour ce user uniquement.
-    - Si l'user a debloque des BG saisonniers via le Battle Pass, ils sont
-      ajoutes (tant que non expires).
+    - Everyone sees the permanent BGs (assets/niveau_bg/*.png)
+    - If `user_id` matches an uploaded custom owner BG, the ID 'owner:<id>'
+      is prepended to the list for that user only.
+    - If the user unlocked seasonal BGs via the Battle Pass, they are added
+      (as long as they are not expired).
     """
     out: list[str] = []
-    # BG owner (perso)
+    # Owner BG (personal)
     if user_id:
         owner_path = os.path.join(BG_OWNER_DIR, f"{user_id}.png")
         if os.path.exists(owner_path):
             out.append(f"owner:{user_id}")
-    # BG saisonniers debloques via Pass
+    # Seasonal BGs unlocked via the Pass
     if user_id:
         try:
             from database import list_user_pass_unlocks as _ul
@@ -589,7 +589,7 @@ def list_available_backgrounds(user_id: str = None) -> list[str]:
                     out.append(bg_id)
         except Exception:
             pass
-    # BG permanents
+    # Permanent BGs
     if os.path.isdir(BG_DIR):
         for fn in sorted(os.listdir(BG_DIR)):
             if not fn.lower().endswith(".png"):
@@ -605,7 +605,7 @@ def has_owner_custom_bg(user_id: str) -> bool:
 
 
 def save_owner_custom_bg(user_id: str, source_image: Image.Image):
-    """Sauvegarde un BG custom owner (1024x320, redimensionne si besoin)."""
+    """Save a custom owner BG (1024x320, resized if needed)."""
     if source_image.size != (CARD_W, CARD_H):
         source_image = source_image.convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
     else:

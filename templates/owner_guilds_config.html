@@ -1,8 +1,8 @@
 {% extends "_base.html" %}
 {% set active_nav = 'owner_guilds' %}
 
-{% block title %}Guilde Gestion · Owner{% endblock %}
-{% block crumb %}Guilde Gestion{% endblock %}
+{% block title %}{{ t('web_premium.owner_guilds_config.page_title') }}{% endblock %}
+{% block crumb %}{{ t('web_premium.owner_guilds_config.crumb') }}{% endblock %}
 
 {% block content %}
 <style>
@@ -23,73 +23,73 @@
 </style>
 
 <div class="gc-sec">
-  <h3>⚙️ Config Guildes</h3>
-  <p class="sub">Tout est réglable ici. Sauvegarde en bas. Les guildes appliquent ces valeurs en temps réel.</p>
+  <h3>⚙️ {{ t('web_premium.owner_guilds_config.section_config') }}</h3>
+  <p class="sub">{{ t('web_premium.owner_guilds_config.section_config_sub') }}</p>
 
   <div class="gc-grid">
-    <div class="gc-f"><label>Coût création (✨)</label><input id="createCost" type="number" class="input"></div>
-    <div class="gc-f"><label>Membres max</label><input id="maxMembers" type="number" class="input"></div>
-    <div class="gc-f"><label>Cooldown re-join (h)</label><input id="hopCd" type="number" class="input"></div>
-    <div class="gc-f"><label>XP max / membre / jour</label><input id="dailyCap" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.create_cost') }}</label><input id="createCost" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.max_members') }}</label><input id="maxMembers" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.rejoin_cooldown') }}</label><input id="hopCd" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.daily_xp_cap') }}</label><input id="dailyCap" type="number" class="input"></div>
   </div>
 </div>
 
 <div class="gc-sec">
-  <h3>✨ XP par action</h3>
-  <p class="sub">Combien d'XP de guilde chaque action rapporte (cappé par le max journalier ci-dessus).</p>
+  <h3>✨ {{ t('web_premium.owner_guilds_config.section_xp') }}</h3>
+  <p class="sub">{{ t('web_premium.owner_guilds_config.section_xp_sub') }}</p>
   <div class="gc-grid">
-    <div class="gc-f"><label>Roll</label><input id="xpRoll" type="number" class="input"></div>
-    <div class="gc-f"><label>Fusion (par ★)</label><input id="xpFusion" type="number" class="input"></div>
-    <div class="gc-f"><label>Roue (spin)</label><input id="xpWheel" type="number" class="input"></div>
-    <div class="gc-f"><label>Don (par 100 ✨)</label><input id="xpEss" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.xp_roll') }}</label><input id="xpRoll" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.xp_fusion') }}</label><input id="xpFusion" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.xp_wheel') }}</label><input id="xpWheel" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.xp_donation') }}</label><input id="xpEss" type="number" class="input"></div>
   </div>
-  <div style="margin-top:12px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);">Victoire boss par tier</div>
+  <div style="margin-top:12px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-2);">{{ t('web_premium.owner_guilds_config.boss_win_by_tier') }}</div>
   <div class="gc-grid" style="margin-top:6px;">
-    <div class="gc-f"><label>Tier 1</label><input id="xpBoss1" type="number" class="input"></div>
-    <div class="gc-f"><label>Tier 2</label><input id="xpBoss2" type="number" class="input"></div>
-    <div class="gc-f"><label>Tier 3</label><input id="xpBoss3" type="number" class="input"></div>
-    <div class="gc-f"><label>Tier 4</label><input id="xpBoss4" type="number" class="input"></div>
-    <div class="gc-f"><label>Tier 5</label><input id="xpBoss5" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.tier', n=1) }}</label><input id="xpBoss1" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.tier', n=2) }}</label><input id="xpBoss2" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.tier', n=3) }}</label><input id="xpBoss3" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.tier', n=4) }}</label><input id="xpBoss4" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.tier', n=5) }}</label><input id="xpBoss5" type="number" class="input"></div>
   </div>
 </div>
 
 <div class="gc-sec">
-  <h3>📈 Courbe de niveau</h3>
-  <p class="sub">XP requis pour le niveau n = <code>base × growth^(n-2)</code> (cumulé). Ex base 1000, growth 1.35.</p>
+  <h3>📈 {{ t('web_premium.owner_guilds_config.section_curve') }}</h3>
+  <p class="sub">{{ t('web_premium.owner_guilds_config.section_curve_sub_1') }} <code>base × growth^(n-2)</code> {{ t('web_premium.owner_guilds_config.section_curve_sub_2') }}</p>
   <div class="gc-grid">
-    <div class="gc-f"><label>XP base (niv 2)</label><input id="lvlBase" type="number" class="input"></div>
-    <div class="gc-f"><label>Growth (×/niv)</label><input id="lvlGrowth" type="number" step="0.01" class="input"></div>
-    <div class="gc-f"><label>Niveau max</label><input id="lvlMax" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.base_xp') }}</label><input id="lvlBase" type="number" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.growth') }}</label><input id="lvlGrowth" type="number" step="0.01" class="input"></div>
+    <div class="gc-f"><label>{{ t('web_premium.owner_guilds_config.max_level') }}</label><input id="lvlMax" type="number" class="input"></div>
   </div>
 </div>
 
 <div class="gc-sec">
-  <h3>🎁 Récompenses par palier</h3>
-  <p class="sub">À un niveau donné, bonus <b>absolus</b>. Une guilde applique le palier de plus haut niveau ≤ son niveau. % = pourcentage.</p>
+  <h3>🎁 {{ t('web_premium.owner_guilds_config.section_rewards') }}</h3>
+  <p class="sub">{{ t('web_premium.owner_guilds_config.section_rewards_sub') }}</p>
   <table class="gc-rew">
     <thead><tr>
-      <th>Niveau</th><th>✨ Ess %</th><th>XP %</th><th>CD roll −min</th><th>+Charges</th>
-      <th>+Wishlist</th><th>Loot boss %</th><th>Banque</th><th>Raids</th><th>Boutique</th><th></th>
+      <th>{{ t('web_premium.owner_guilds_config.th_level') }}</th><th>{{ t('web_premium.owner_guilds_config.th_essence_pct') }}</th><th>{{ t('web_premium.owner_guilds_config.th_xp_pct') }}</th><th>{{ t('web_premium.owner_guilds_config.th_roll_cd') }}</th><th>{{ t('web_premium.owner_guilds_config.th_charges') }}</th>
+      <th>{{ t('web_premium.owner_guilds_config.th_wishlist') }}</th><th>{{ t('web_premium.owner_guilds_config.th_boss_loot') }}</th><th>{{ t('web_premium.owner_guilds_config.th_bank') }}</th><th>{{ t('web_premium.owner_guilds_config.th_raids') }}</th><th>{{ t('web_premium.owner_guilds_config.th_shop') }}</th><th></th>
     </tr></thead>
     <tbody id="rewBody"></tbody>
   </table>
-  <button class="btn btn-secondary" style="margin-top:10px;" onclick="addRewRow()">+ Ajouter un palier</button>
+  <button class="btn btn-secondary" style="margin-top:10px;" onclick="addRewRow()">{{ t('web_premium.owner_guilds_config.add_tier') }}</button>
 </div>
 
 <div class="gc-sec">
-  <h3>🛒 Boutique de guilde</h3>
-  <p class="sub">Items achetés avec la <b>banque</b> de guilde (par Maître/Officier). Type : <code>guild_xp</code> (XP à la guilde), <code>rolls_all</code> / <code>essence_all</code> (à chaque membre). Value = montant.</p>
+  <h3>🛒 {{ t('web_premium.owner_guilds_config.section_shop') }}</h3>
+  <p class="sub">{{ t('web_premium.owner_guilds_config.section_shop_sub_1') }} <code>guild_xp</code> {{ t('web_premium.owner_guilds_config.section_shop_sub_2') }} <code>rolls_all</code> / <code>essence_all</code> {{ t('web_premium.owner_guilds_config.section_shop_sub_3') }}</p>
   <table class="gc-rew">
     <thead><tr>
-      <th>Nom</th><th>Coût ✨</th><th>Type</th><th>Value</th><th>Description</th><th></th>
+      <th>{{ t('web_premium.owner_guilds_config.th_name') }}</th><th>{{ t('web_premium.owner_guilds_config.th_cost') }}</th><th>{{ t('web_premium.owner_guilds_config.th_type') }}</th><th>{{ t('web_premium.owner_guilds_config.th_value') }}</th><th>{{ t('web_premium.owner_guilds_config.th_description') }}</th><th></th>
     </tr></thead>
     <tbody id="shopBody"></tbody>
   </table>
-  <button class="btn btn-secondary" style="margin-top:10px;" onclick="addShopRow()">+ Ajouter un item</button>
+  <button class="btn btn-secondary" style="margin-top:10px;" onclick="addShopRow()">{{ t('web_premium.owner_guilds_config.add_item') }}</button>
 </div>
 
 <div class="gc-save">
-  <button class="btn btn-primary" onclick="saveGuildConfig()">💾 Enregistrer la config</button>
+  <button class="btn btn-primary" onclick="saveGuildConfig()">💾 {{ t('web_premium.owner_guilds_config.save_config') }}</button>
   <span id="gcHint" class="muted"></span>
 </div>
 
@@ -179,14 +179,14 @@ async function saveGuildConfig(){
     })),
   };
   const hint = document.getElementById('gcHint');
-  hint.textContent = 'Sauvegarde…';
+  hint.textContent = 'Saving…';
   try {
     const r = await fetch('/api/owner/guilds-config', {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body),
     });
     const d = await r.json();
-    hint.textContent = d.ok ? '✅ Config enregistrée.' : `❌ ${d.error||'Erreur'}`;
-  } catch(e){ hint.textContent = 'Erreur : '+e.message; }
+    hint.textContent = d.ok ? '✅ Config saved.' : `❌ ${d.error||'Error'}`;
+  } catch(e){ hint.textContent = 'Error: '+e.message; }
 }
 window.saveGuildConfig = saveGuildConfig;
 

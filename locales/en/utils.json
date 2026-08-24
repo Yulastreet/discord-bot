@@ -1,0 +1,348 @@
+{
+  "ping": {
+    "result": "Pong! Latency: **{latency}ms**"
+  },
+  "vote": {
+    "title": "❤️ Vote for TookBot",
+    "description": "Support the bot by voting on top.gg.\n\n[**Click to vote**]({url})\n\nYou can vote every 12h. No obligation, it's free."
+  },
+  "invite": {
+    "title": "➕ Invite TookBot",
+    "description": "[**Add TookBot to your server**]({url})\n\nThe requested permissions map exactly to what the bot does. You can adjust them after the invite from your server settings."
+  },
+  "userinfo": {
+    "title": "{name}'s info",
+    "field_name": "Name",
+    "field_id": "ID",
+    "field_created": "Account created on",
+    "field_joined": "Joined on",
+    "field_top_role": "Top role"
+  },
+  "serverinfo": {
+    "title": "{name}'s info",
+    "field_id": "ID",
+    "field_owner": "Owner",
+    "field_members": "Members",
+    "field_created": "Created on",
+    "field_channels": "Channels",
+    "field_roles": "Roles"
+  },
+  "avatar": {
+    "title": "{name}'s avatar"
+  },
+  "help": {
+    "dm_sent": "📩 The command list has just been sent to you in a private message!",
+    "dm_blocked": "❌ I can't DM you: you have disabled DMs from this server.\nTurn them on in **User Settings → Privacy** then run the command again.",
+    "send_error": "❌ Sending failed. Try again later.",
+    "not_yours": "❌ This menu isn't yours. Run `/commands` yourself.",
+    "closed": "_Menu closed._",
+    "btn_close": "✖ Close",
+    "footer": "Page {n}/{total} · Tip: type / to see Discord's autocomplete.",
+    "p1": {
+      "title": "📋 Commands · 🛡️ Moderation & 🧰 Server tools",
+      "moderation_name": "🛡️ Moderation",
+      "moderation_value": "**/clear `<n>`** — delete the last N messages\n**/kick `<member>` `[reason]`** — kick a member\n**/ban `<member>` `[reason]`** — ban a member\n**/poll** — opens a builder (question + 2-10 options + 1-168h duration, native Discord poll)\n**/setwelcome `[channel]`** — welcome message builder\n**/warn `<member>` `<reason>`** — warn + auto-timeout past the threshold\n**/modlogs `<member>`** — sanction history\n**/clearwarns `<member>` `[reason]`** — revoke every warn\n**/note `<member>` `<text>`** — internal mod note (no DM)\n**Automod** (TookBot+) — banned-word filters, anti-ads, mention anti-spam and anti-raid, all configurable from the dashboard",
+      "tempvoice_name": "🔊 Temporary voice channels",
+      "tempvoice_value": "**/tempvoice setup `<lobby>` `[category]` `[default_name]`** — admin: set up the lobby channel\n**/tempvoice info** — admin: view the current config\n**/tempvoice disable** — admin: turn the feature off\n**/voc rename `<name>`** — rename your temp channel\n**/voc limit `<number>`** — cap the member count\n**/voc lock / unlock** — lock / reopen the channel\n**/voc kick `<member>`** — remove a member from the channel\n**/voc transfer `<member>`** — hand over ownership",
+      "tools_name": "🧰 Server tools",
+      "tools_value": "**/reaction_add / remove / list** — auto reactions on a member\n**/rolereaction create** — role-reaction builder\n**/socialalert add / list / remove** — Twitch/YT/Reddit alerts\n**/ticket** — ticket panel builder\n**/giveaway create / list / reroll / cancel** — giveaways\n**/cmd `<name>`** — run a custom command (TookBot+, dashboard builder)\n**Server analytics** — dashboard page with live stats, heatmap, top commands / top users"
+    },
+    "p2": {
+      "title": "📋 Commands · 🎉 Fun · ⭐ XP · ⚔️ Duel · 🎵 Music",
+      "fun_name": "🎉 Fun",
+      "fun_value": "**/8ball** **/dice** **/coinflip** **/joke** **/ship** **/choice** **/random** **/who** **/clap** **/rate** **/quote** **/pp**",
+      "xp_name": "⭐ Levels & XP",
+      "xp_value": "**/level `[member]`** — show level + XP\n**/leaderboard** — server top 10 XP",
+      "duel_name": "⚔️ Duel",
+      "duel_value": "**/duel fight `<opponent>` `[nerf]`** — lightsaber challenge (defense mindgame)\n**/duel info** — full guide to the system\n**/profil `[member]`** — duel profile\n**/statpoint `<stat>`** — spend a stat point\n**/sabre** — saber menu (equipped / collection / shop)\n**/historique `[member]`** — duel history",
+      "music_name": "🎵 Music",
+      "music_value": "**/join** **/leave** — join / leave your voice channel\n**/play `<title|link>`** — YouTube, SoundCloud, Bandcamp, Spotify (track/album/playlist)\n**/search `<query>`** — pick from 5 YouTube results\n**/queue** **/nowplaying** — full queue / current track\n**/skip `[position]`** **/remove `<position>`** — skip / drop a track\n**/volume `<0-200>`** **/pause** **/resume** **/stop**\n**/musicstats `[period]`** — top tracks and top listeners"
+    },
+    "p3": {
+      "title": "📋 Commands · 🎮 Counter-Strike 2 & 🔧 Utilities",
+      "cs_name": "🎮 Counter-Strike 2",
+      "cs_value": "**/cs link `<platform>` `<id>`** — link a Steam or Faceit account\n**/cs unlink `<platform>`** — drop a link\n**/cs stats `[member]`** — Steam / Faceit stats\n**/cs setrank `<elo>`** — declare your Premier ELO + rank role\n**/cs rankrole on|off** — admin: automatic rank role assignment\n**/cs price `<weapon>` `<skin>` `[wear]` `[stattrak]`** — Steam + Skinport price\n**/cs inventory `[member|steamid]`** — CS2 inventory + € value\n**/cs queue** — temporary 5-slot voice channel\n**/cs map** — ban/pick maps with the people in your voice channel\n**/cs loadout** — random loadout",
+      "utils_name": "🔧 Utilities",
+      "utils_value": "**/avatar `[member]`** — a member's avatar\n**/userinfo `[member]`** — detailed member info\n**/serverinfo** — server info\n**/ping** — bot latency\n**/tweet `<message_id>`** — tweet-style card image of a message\n**/remind** — reminder builder (date, message, channel)\n**/reminders** — list your pending reminders\n**/unremind `<id>`** — cancel a reminder\n**/vote** — vote for TookBot on top.gg\n**/invite** — official invite link\n**/commands** — show this help again in DM"
+    },
+    "p4": {
+      "title": "📋 Commands · 🃏 Cards — collection & economy",
+      "collection_name": "🃏 Collection",
+      "collection_value": "**/roll `[universe]`** — draw 1 random card. Cooldown **1h per server** (each server has its own timer). Grants Essences ✨ based on rarity\n**/cardcollec `[member]` `[rarity]`** — your collection (✨ = cosmetic, ⭐ = fusion)\n**/card `<name>`** — full details of a card (autocomplete over 19k+)\n**/show `<card>`** — show off one of your cards with its border + stars",
+      "essences_name": "✨ Essences (currency)",
+      "essences_value": "**/essences `[member]`** — your Essence ✨ balance\n**/daily** — daily reward (TookCoins + Essences, streak)\n**/cardshop** — shop: buy cards & cosmetics with your Essences\n**/cardrecycle `<card>` `[qty]`** — recycle your duplicates into Essences",
+      "fusion_name": "⭐ Fusion & cosmetics",
+      "fusion_value": "**/cardfuse `<card>`** — fuse duplicates to add a star (max 5). A fused card becomes non-tradable\n**/cardup `<rarity>`** — sacrifice duplicate 5⭐ cards for 1 random card of the rarity above\n**/cardcustom `<card>` `<border>`** — apply a border (consumed on use)\n**/cardinventory `[member]`** — your cosmetics in stock",
+      "events_name": "🎪 Events",
+      "events_value": "**/eventfight** — event fight: send your best card matching the element of the day (3/day) to earn event tokens\n**/eventshop** — spend your event tokens (rolls, essence bonuses, skins)"
+    },
+    "p5": {
+      "title": "📋 Commands · 🃏 Cards — social & profile",
+      "profile_name": "🪪 Profile & leaderboards",
+      "profile_value": "**/cardprofile `[member]`** — card profile (stats, combat power, image of your 3 featured cards)\n**/cardprofile `custom:true`** — editor: pick your 3 featured cards + your profile color\n**/cardtop `<category>`** — global leaderboards (value, mythics, essences, fusions, luck)",
+      "wishlist_name": "💖 Wishlist",
+      "wishlist_value": "**/cardwish `<card>`** — add/remove from your wishlist (3 max, **6 on the support server**). You get pinged when someone rolls it\n**/cardwishlist `[member]`** — view a wishlist (🗑 buttons to remove)",
+      "trade_name": "🔄 Trading & suggestions",
+      "trade_value": "**/cardtrade `<player>`** — multi-card trade (Accept / Decline / Counter-offer)\n**/cardsuggest** — suggest a character to add (community 🔼/🔽 vote)\n**/cardmodify `<card>`** — suggest an edit to an existing card (rarity, universe, image...)",
+      "combat_name": "⚔️ Combat & bosses",
+      "combat_value": "Your cards have a **combat power** (HP + ATK ×2, plus a bonus per fusion), shown on **/cardprofile**.\n**Raid bosses** — they spawn in the cards channel: everyone hits to deal damage, and loot is split between the participants on a win. Difficulty scales with the rarity of the group's avatars.",
+      "setup_name": "⚙️ Server setup (admin)",
+      "setup_value": "**/cardsetup `<channel>` `[role]`** — cards channel + ping role on drop/boss\n**/cardsetup_disable** — lift the restriction\n**/cardhelp** — full guide to the card system"
+    },
+    "p6": {
+      "title": "📋 Commands · 🛡️ Guilds (clubs)",
+      "base_name": "🛡️ Guild — basics",
+      "base_value": "Guilds are **cross-server clubs** (up to 30 members) that gain levels (max 60) and unlock **passive bonuses** for every member.\n**/guild create `<name>` `[tag]`** — create a guild (costs Essences ✨)\n**/guild info `[name]`** — a guild's sheet (yours by default)\n**/guildprofile `[name]`** — rich profile: level, total power, members, bank, shop\n**/guild top** — guild leaderboard",
+      "members_name": "👥 Members",
+      "members_value": "**/guild invite `<member>`** — invite someone (Master / Officer)\n**/guild accept `<name>`** — join a guild that invited you\n**/guild leave** — leave your guild\n**/guild kick `<member>`** — remove someone (Master / Officer)\n**/guild promote / demote `<member>`** — manage officers (Master)\n**/guild transfer `<member>`** — hand over mastership (Master)\n**/guild disband** — disband the guild (Master)",
+      "xp_name": "✨ XP, bank & bonuses",
+      "xp_value": "The guild earns **XP** when its members roll, beat a boss, spin the wheel, fuse or donate to the bank.\n**/guild donate `<amount>`** — feed the bank (unlocked at a tier)\nTier bonuses: **% essences**, **% XP**, **shorter roll cooldown** (down to −10 min), **+1 roll/h at level 60**, **+ wishlist slots**, **% boss loot**, bank, guild shop and profile colors (a new unlock every 5 levels)."
+    }
+  },
+  "fun": {
+    "tweet": {
+      "invalid_id": "Invalid ID. Turn on Discord developer mode and copy the message ID.",
+      "not_found": "Message not found. Run the command in the same channel as the target message.",
+      "render_failed": "Couldn't generate the tweet image, try again.",
+      "empty_body": "*[empty message, or attachments only]*",
+      "timestamp": "{time} · {month} {day}, {year}",
+      "months": {
+        "m1": "January",
+        "m2": "February",
+        "m3": "March",
+        "m4": "April",
+        "m5": "May",
+        "m6": "June",
+        "m7": "July",
+        "m8": "August",
+        "m9": "September",
+        "m10": "October",
+        "m11": "November",
+        "m12": "December"
+      }
+    },
+    "eightball": {
+      "title": "8Ball",
+      "field_question": "Question",
+      "field_answer": "Answer",
+      "a1": "Yes, absolutely!",
+      "a2": "No, not at all.",
+      "a3": "Maybe...",
+      "a4": "It is certain!",
+      "a5": "I don't think so.",
+      "a6": "Without a doubt!",
+      "a7": "Very likely.",
+      "a8": "Signs point to no.",
+      "a9": "Concentrate and ask again.",
+      "a10": "Too hazy, try again."
+    },
+    "dice": {
+      "result": "You rolled a {faces}-sided die and got: **{result}**"
+    },
+    "coinflip": {
+      "heads": "Heads",
+      "tails": "Tails",
+      "result": "The coin lands on: **{side}**"
+    },
+    "joke": {
+      "failed": "The joke API isn't answering right now, try again in a bit.",
+      "two_parts": "**{setup}**\n||{delivery}||"
+    },
+    "ship": {
+      "self": "You can't ship someone with themselves.",
+      "title": "{a} x {b}",
+      "field_compat": "Compatibility",
+      "field_fused": "Fusion name",
+      "field_verdict": "Verdict",
+      "compat_value": "`{bar}` **{pct}%**",
+      "v_soulmates": "Soulmates.",
+      "v_chemistry": "Great chemistry.",
+      "v_could_work": "This could work.",
+      "v_meh": "Meh.",
+      "v_disaster": "Total disaster."
+    },
+    "choice": {
+      "need_two": "Give me at least 2 options separated by `|`.",
+      "too_many": "20 options max.",
+      "title": "The bot has chosen",
+      "field_options": "Options",
+      "field_pick": "Pick"
+    },
+    "random": {
+      "range_too_big": "Range too wide (1 billion max).",
+      "result": "Between **{min}** and **{max}**: **{n}**"
+    },
+    "who": {
+      "no_members": "No human member found on this server.",
+      "field_question": "Question",
+      "field_chosen": "Chosen one"
+    },
+    "clap": {
+      "too_long": "Text too long (800 characters max).",
+      "empty": "The text can't be empty."
+    },
+    "rate": {
+      "title": "Rating: {thing}",
+      "field_score": "Score",
+      "score_value": "{bar}\n**{score}/10** - {verdict}",
+      "v_masterpiece": "Masterpiece.",
+      "v_solid": "Solid.",
+      "v_decent": "Decent.",
+      "v_mixed": "Mixed bag.",
+      "v_meh": "Meh."
+    },
+    "quote": {
+      "q1_text": "Doubt is the beginning of wisdom.",
+      "q1_author": "Aristotle",
+      "q2_text": "Know thyself.",
+      "q2_author": "Socrates",
+      "q3_text": "What does not kill us makes us stronger.",
+      "q3_author": "Friedrich Nietzsche",
+      "q4_text": "Be the change you want to see in the world.",
+      "q4_author": "Gandhi",
+      "q5_text": "I think, therefore I am.",
+      "q5_author": "Rene Descartes",
+      "q6_text": "Simplicity is the ultimate sophistication.",
+      "q6_author": "Leonardo da Vinci",
+      "body": "_{text}_",
+      "footer": "- {author}"
+    },
+    "pp": {
+      "result": "Your pp measures **{size} cm**. {reaction}",
+      "r_wow": "Wow! Impressive.",
+      "r_good": "Not bad at all.",
+      "r_decent": "Respectable.",
+      "r_average": "About average.",
+      "r_meh": "Well...",
+      "r_small": "Haha...",
+      "r_tiny": "My condolences."
+    }
+  },
+  "setup": {
+    "guild_only": "❌ Not available in DMs, run this command inside a server.",
+    "not_configured": "*(not configured)*",
+    "field": {
+      "welcome_label": "Welcome channel",
+      "welcome_hint": "📥 Arrival messages for new members.",
+      "logs_label": "Logs channel",
+      "logs_hint": "📜 Activity history (commands, moderation).",
+      "alerts_label": "Alerts channel",
+      "alerts_hint": "🔴 Twitch / YouTube / Reddit notifications.",
+      "admin_label": "Admin/mod channel",
+      "admin_hint": "🛡️ Internal notifications (Guild Boost +, staff alerts)."
+    },
+    "main": {
+      "title": "⚠️ IMPORTANT — Initial bot configuration",
+      "description": "Pick the channels below then click **Save**.\nThese channels are **essential** for the bot to work properly.\n\n{body}",
+      "line": "**{label}** — {hint}\n→ Current: {current}",
+      "next_step_name": "🔐 Next step (you only)",
+      "next_step_value": "You are the owner of this server. Once you save here, a **private temporary channel** will be created automatically so you can configure moderator permissions.",
+      "footer": "You can run /setup again at any time."
+    },
+    "view": {
+      "ph_welcome": "📥 Welcome channel",
+      "ph_logs": "📜 Logs channel",
+      "ph_alerts": "🔴 Alerts channel (Twitch / YouTube / Reddit)",
+      "ph_admin": "🛡️ Admin/mod channel (internal notifications)",
+      "btn_save": "Save the configuration",
+      "btn_cancel": "Cancel"
+    },
+    "save": {
+      "no_selection": "❌ Pick at least one channel before saving.",
+      "title": "✅ Configuration saved",
+      "description": "The following channels have been configured:",
+      "next_owner": "\n\n🔐 **Next step:** I just created a private channel `#🔐-mod-config` so you can pick the moderator permissions. Go take a look!",
+      "next_again": "\n\nYou can run `/setup` again at any time to change this."
+    },
+    "cancel": {
+      "message": "❌ Configuration cancelled. Run `/setup` again whenever you want."
+    },
+    "modperms": {
+      "channel_name": "🔐-mod-config",
+      "channel_reason": "Mod perms setup for {owner}",
+      "delete_reason_done": "Mod perms setup finished",
+      "delete_reason_cancel": "Mod perms setup cancelled",
+      "intro_title": "🔐 Configure moderator permissions",
+      "intro_description": "Hey **{owner}**!\n\nThis channel is **private** (only you and the bot can see it) and will be **deleted** automatically once the configuration is done.\n\n**1.** Pick the Discord role that stands for your server's **moderators**.\n**2.** Select the **slash commands** your mods are allowed to use.\n**3.** Select the **dashboard pages** they can open.\n**4.** Click **Save**.\n\n💡 *You can change these rights at any time from `dashboard.tookbot.click/mod-config`.*",
+      "intro_footer": "Moderator permission setup — only the owner can interact",
+      "ph_role": "🎭 Pick the moderator role",
+      "ph_slash": "🛠️ Slash commands allowed for mods",
+      "ph_dash": "🖥️ Dashboard pages allowed for mods",
+      "btn_save": "Save",
+      "btn_cancel": "Cancel",
+      "not_owner": "⛔ This builder is reserved for the server owner.",
+      "no_role": "❌ Pick a moderator role first.",
+      "saved_title": "✅ Moderator permissions saved",
+      "saved_description": "**Moderator role:** <@&{role_id}>\n**Slash commands granted:** {n_slash} / {t_slash}\n**Dashboard pages granted:** {n_dash} / {t_dash}\n\n💡 *You can change these permissions at any time from the dashboard:*\n`dashboard.tookbot.click/mod-config`\n\nThis temporary channel will be **deleted in 30 seconds**.",
+      "cancelled": "❌ Configuration cancelled. The channel will be deleted in 10 seconds.\nYou can run `/setup` again or head to `dashboard.tookbot.click/mod-config`.",
+      "perm": {
+        "warn_label": "/warn",
+        "warn_desc": "Warn a member",
+        "kick_label": "/kick",
+        "kick_desc": "Kick a member",
+        "ban_label": "/ban",
+        "ban_desc": "Ban a member",
+        "clear_label": "/clear",
+        "clear_desc": "Delete messages",
+        "ticket_label": "/ticket",
+        "ticket_desc": "Ticket panel",
+        "giveaway_label": "/giveaway",
+        "giveaway_desc": "Create giveaways",
+        "poll_label": "/poll",
+        "poll_desc": "Create polls",
+        "rolereaction_label": "/rolereaction",
+        "rolereaction_desc": "Role reactions",
+        "socialalert_label": "/socialalert",
+        "socialalert_desc": "Twitch/YT/Reddit alerts",
+        "setwelcome_label": "/setwelcome",
+        "setwelcome_desc": "Welcome message builder",
+        "reaction_label": "/reaction_*",
+        "reaction_desc": "Auto reactions",
+        "modlogs_label": "/modlogs",
+        "modlogs_desc": "View / configure modlog",
+        "setup_label": "/setup",
+        "setup_desc": "Redo the channel setup",
+        "note_label": "/note",
+        "note_desc": "Add a note on a member",
+        "logs_label": "Logs",
+        "logs_desc": "Dashboard Logs page",
+        "custom_commands_label": "Custom commands",
+        "custom_commands_desc": "Dashboard Custom commands page",
+        "music_label": "Music",
+        "music_desc": "Dashboard Music page",
+        "features_label": "Features",
+        "features_desc": "Dashboard Features page",
+        "settings_label": "Server settings",
+        "settings_desc": "Dashboard Server settings page"
+      }
+    }
+  },
+  "level": {
+    "title": "📊 {name}",
+    "field_level": "🏆 Level",
+    "field_xp": "⭐ Total XP",
+    "field_progress": "📈 Progress",
+    "progress_value": "`{bar}` **{percent}%**\n`{current} / {needed} XP`",
+    "leaderboard": {
+      "empty": "Nobody has earned XP on this server yet.",
+      "title": "🏆 Top XP — {guild}",
+      "line": "{prefix}  **{name}**  · level **{level}** · {xp} XP"
+    }
+  },
+  "remind": {
+    "invalid_date": "Invalid date/duration. Accepted formats:\n• Duration: `30s`, `5min`, `2h`, `1d2h30min`\n• Date: `15/06/2026 14:30`, `2026-06-15 14:30`, `18:00`",
+    "past_date": "The date has to be in the future.",
+    "too_far": "**30 days** into the future, max.",
+    "channel_not_found": "Channel not found: `{raw}`. Double-check the name/ID.",
+    "channel_not_text": "The channel has to be a text channel.",
+    "no_send_perm": "I don't have permission to send messages in {channel}.",
+    "created": "⏰ Reminder **#{id}** created. Ping in {channel} <t:{unix}:R> (<t:{unix}:F>).\n> {text}",
+    "list_empty": "No pending reminder. Use `/remind` to create one.",
+    "list_header": "**Your pending reminders**",
+    "list_line": "**#{id}** • <t:{unix}:R> • {text}",
+    "list_line_raw": "**#{id}** • {due} • {text}",
+    "list_footer": "\n\nRemove one with `/unremind id:<number>`.",
+    "deleted": "Reminder **#{id}** deleted.",
+    "delete_failed": "Reminder **#{id}** not found, or it isn't yours."
+  }
+}

@@ -2,20 +2,22 @@ import discord
 from discord import app_commands
 
 from database import get_welcome, set_welcome
+from services.i18n import locale_of, t
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE
 
 
-class _WelcomeMessageModal(discord.ui.Modal, title="Message de bienvenue"):
+class _WelcomeMessageModal(discord.ui.Modal):
     message = discord.ui.TextInput(
         label="Message",
         style=discord.TextStyle.paragraph,
         max_length=1800,
-        placeholder="Ex: Coucou @pseudo sur le serveur, installe toi !",
     )
 
     def __init__(self, parent_view):
-        super().__init__()
+        super().__init__(title=t("server.welcome.modal_title", parent_view.locale))
         self.parent_view = parent_view
+        self.message.label = t("server.welcome.modal_message_label", parent_view.locale)
+        self.message.placeholder = t("server.welcome.modal_message_placeholder", parent_view.locale)
         self.message.default = parent_view.message or DEFAULT_WELCOME_MESSAGE
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -24,44 +26,48 @@ class _WelcomeMessageModal(discord.ui.Modal, title="Message de bienvenue"):
 
 
 class _WelcomeBuilderView(discord.ui.View):
-    def __init__(self, author_id: int, guild: discord.Guild):
+    def __init__(self, author_id: int, guild: discord.Guild, locale: str = "en"):
         super().__init__(timeout=900)
         self.author_id = author_id
         self.guild = guild
+        self.locale = locale
         current = get_welcome(guild.id)
-        self.salon = guild.get_channel(current["channel_id"]) if current else None
+        self.channel = guild.get_channel(current["channel_id"]) if current else None
         self.message = (current or {}).get("message") or DEFAULT_WELCOME_MESSAGE
         self._rebuild()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author_id:
-            await interaction.response.send_message("Ce builder n'est pas le tien.", ephemeral=True)
+            await interaction.response.send_message(
+                t("server.welcome.not_your_builder", self.locale), ephemeral=True)
             return False
         return True
 
     def _summary_embed(self) -> discord.Embed:
         preview = self.message or DEFAULT_WELCOME_MESSAGE
-        embed = discord.Embed(title="Builder bienvenue", color=discord.Color.green())
+        embed = discord.Embed(title=t("server.welcome.builder_title", self.locale),
+                              color=discord.Color.green())
         embed.add_field(
-            name="Configuration",
-            value=(
-                f"**Salon :** {self.salon.mention if self.salon else '_non defini_'}\n"
-                f"**Message :** {(preview[:400] + '...') if len(preview) > 400 else preview}"
+            name=t("server.welcome.field_config", self.locale),
+            value=t(
+                "server.welcome.config_value", self.locale,
+                channel=self.channel.mention if self.channel else t("server.welcome.not_set", self.locale),
+                message=(preview[:400] + "...") if len(preview) > 400 else preview,
             ),
             inline=False,
         )
         embed.add_field(
-            name="Variables",
-            value="`@pseudo` ou `{user}` = mention du membre, `{username}` = pseudo, `{guild}` = serveur, `{count}` = nombre de membres.",
+            name=t("server.welcome.field_variables", self.locale),
+            value=t("server.welcome.variables_value", self.locale),
             inline=False,
         )
-        embed.set_footer(text="Le builder expire dans 15 minutes.")
+        embed.set_footer(text=t("server.welcome.builder_footer", self.locale))
         return embed
 
     def _rebuild(self):
         self.clear_items()
         chan_sel = discord.ui.ChannelSelect(
-            placeholder="Salon ou envoyer les bienvenues...",
+            placeholder=t("server.welcome.select_channel", self.locale),
             channel_types=[discord.ChannelType.text],
             min_values=1,
             max_values=1,
@@ -71,13 +77,14 @@ class _WelcomeBuilderView(discord.ui.View):
         async def _on_chan(interaction: discord.Interaction):
             ch = self.guild.get_channel(chan_sel.values[0].id)
             if isinstance(ch, discord.TextChannel):
-                self.salon = ch
+                self.channel = ch
             await self.refresh(interaction)
 
         chan_sel.callback = _on_chan
         self.add_item(chan_sel)
 
-        btn_message = discord.ui.Button(label="Modifier le message", style=discord.ButtonStyle.secondary, row=1)
+        btn_message = discord.ui.Button(label=t("server.welcome.btn_edit_message", self.locale),
+                                        style=discord.ButtonStyle.secondary, row=1)
 
         async def _on_message(interaction: discord.Interaction):
             await interaction.response.send_modal(_WelcomeMessageModal(self))
@@ -86,19 +93,21 @@ class _WelcomeBuilderView(discord.ui.View):
         self.add_item(btn_message)
 
         btn_save = discord.ui.Button(
-            label="Enregistrer",
+            label=t("server.welcome.btn_save", self.locale),
             style=discord.ButtonStyle.success,
             row=1,
-            disabled=not self.salon,
+            disabled=not self.channel,
         )
         btn_save.callback = self._on_save
         self.add_item(btn_save)
 
-        btn_cancel = discord.ui.Button(label="Annuler", style=discord.ButtonStyle.danger, row=1)
+        btn_cancel = discord.ui.Button(label=t("server.welcome.btn_cancel", self.locale),
+                                       style=discord.ButtonStyle.danger, row=1)
 
         async def _on_cancel(interaction: discord.Interaction):
             self.clear_items()
-            await interaction.response.edit_message(content="Builder annule.", embed=None, view=None)
+            await interaction.response.edit_message(
+                content=t("server.welcome.cancelled", self.locale), embed=None, view=None)
             self.stop()
 
         btn_cancel.callback = _on_cancel
@@ -112,13 +121,14 @@ class _WelcomeBuilderView(discord.ui.View):
             await interaction.response.edit_message(embed=self._summary_embed(), view=self)
 
     async def _on_save(self, interaction: discord.Interaction):
-        if not self.salon:
-            await interaction.response.send_message("Choisis d'abord un salon.", ephemeral=True)
+        if not self.channel:
+            await interaction.response.send_message(
+                t("server.welcome.pick_channel_first", self.locale), ephemeral=True)
             return
-        set_welcome(interaction.guild.id, self.salon.id, self.message)
+        set_welcome(interaction.guild.id, self.channel.id, self.message)
         self.clear_items()
         await interaction.response.edit_message(
-            content=f"Bienvenue configure dans {self.salon.mention}.",
+            content=t("server.welcome.saved", self.locale, channel=self.channel.mention),
             embed=None,
             view=None,
         )
@@ -126,12 +136,12 @@ class _WelcomeBuilderView(discord.ui.View):
 
 
 def setup_welcome_commands(bot):
-    @bot.tree.command(name="setwelcome", description="Ouvrir le builder de bienvenue")
-    @app_commands.describe(salon="Preselection optionnelle du salon")
+    @bot.tree.command(name="setwelcome", description="Open the welcome message builder")
+    @app_commands.describe(channel="Optional channel preselection")
     @app_commands.default_permissions(manage_guild=True)
-    async def setwelcome(interaction: discord.Interaction, salon: discord.TextChannel = None):
-        view = _WelcomeBuilderView(interaction.user.id, interaction.guild)
-        if salon:
-            view.salon = salon
+    async def setwelcome(interaction: discord.Interaction, channel: discord.TextChannel = None):
+        view = _WelcomeBuilderView(interaction.user.id, interaction.guild, locale_of(interaction))
+        if channel:
+            view.channel = channel
             view._rebuild()
         await interaction.response.send_message(embed=view._summary_embed(), view=view, ephemeral=True)

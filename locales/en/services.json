@@ -1,0 +1,10 @@
+{
+  "shop": {
+    "slot_empty": "Slot empty or disabled.",
+    "border_not_found": "Border not found.",
+    "card_not_found": "Card not found.",
+    "unknown_item_type": "Unknown item type.",
+    "insufficient_balance": "Not enough Essences ({balance} / {price} ✨).",
+    "debit_failed": "Payment failed (not enough Essences)."
+  }
+}
