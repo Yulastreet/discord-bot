@@ -6482,6 +6482,8 @@ def guild_perks_for_user(user_id):
 
 
 GUILD_DEFAULT_SETTINGS = {
+    # Langue du serveur ("" = auto : langue du client Discord de chaque user)
+    "locale":          "",
     # Feature toggles
     "xp_enabled":      "1",
     "music":           "1",

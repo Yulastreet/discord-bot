@@ -1,0 +1,36 @@
+{
+  "yes": "Yes",
+  "no": "No",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "close": "Close",
+  "back": "Back",
+  "next": "Next",
+  "save": "Save",
+  "delete": "Delete",
+  "edit": "Edit",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "loading": "Loading...",
+  "none": "None",
+  "unknown": "Unknown",
+  "error": {
+    "generic": "Something went wrong. Please try again.",
+    "guild_only": "This command can only be used in a server.",
+    "not_found": "Not found.",
+    "no_permission": "You don't have permission to do that."
+  },
+  "perm": {
+    "view_channel": "**View Channel**",
+    "send_messages": "**Send Messages**",
+    "embed_links": "**Embed Links**",
+    "attach_files": "**Attach Files**",
+    "manage_channels": "**Manage Channels**",
+    "manage_messages": "**Manage Messages**",
+    "manage_roles": "**Manage Roles**",
+    "kick_members": "**Kick Members**",
+    "ban_members": "**Ban Members**",
+    "add_reactions": "**Add Reactions**",
+    "read_history": "**Read Message History**"
+  }
+}

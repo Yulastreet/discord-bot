@@ -106,6 +106,31 @@ app.secret_key = os.getenv("FLASK_SECRET") or os.urandom(24)
 # Filtre Jinja : bg_id technique -> nom convivial pour l'UI dashboard.
 from seasonal_themes import bg_display_name as _bg_display_name
 app.jinja_env.filters["bg_display_name"] = _bg_display_name
+
+# i18n : `t()` dispo dans tous les templates Jinja. La langue vient de la session
+# (choix user) sinon Accept-Language, sinon anglais.
+from services.i18n import t as _i18n_t, DEFAULT_LOCALE as _I18N_DEFAULT, available_locales as _i18n_locales
+
+def _web_locale():
+    try:
+        lang = session.get("locale")
+        if lang:
+            return lang
+    except Exception:
+        pass
+    try:
+        best = request.accept_languages.best_match(_i18n_locales())
+        if best:
+            return best
+    except Exception:
+        pass
+    return _I18N_DEFAULT
+
+def _t_web(key, **kwargs):
+    return _i18n_t(key, _web_locale(), **kwargs)
+
+app.jinja_env.globals["t"] = _t_web
+app.jinja_env.globals["current_locale"] = _web_locale
 PASSWORD = os.getenv("WEB_PASSWORD")  # Fallback si OAuth pas configure (dev)
 
 # ===== OAuth Discord =====
