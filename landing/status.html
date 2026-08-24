@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Status - TookBot</title>
-<meta name="description" content="Statut en temps réel de TookBot : bot Discord, dashboard web, moteur musique. Surveillance live, latence et incidents.">
+<meta name="description" content="Real-time status of TookBot: Discord bot, web dashboard, music engine. Live monitoring, latency and incidents.">
 <meta property="og:title" content="Status - TookBot">
-<meta property="og:description" content="Statut live des services TookBot : bot, dashboard, musique.">
+<meta property="og:description" content="Live status of every TookBot service: bot, dashboard, music.">
 <meta property="og:url" content="https://tookbot.click/status.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TookBot">
-<meta property="og:locale" content="fr_FR">
+<meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://tookbot.click/previewdiscord.png">
 <meta name="theme-color" content="#0b1208">
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
@@ -166,7 +166,7 @@
   }
   .status-banner .text p { color: var(--ink-2); font-size: 14px; }
 
-  /* Component cards : empilées full-width */
+  /* Component cards: stacked full-width */
   .cards-grid {
     display: grid; grid-template-columns: 1fr;
     gap: 14px; margin-bottom: 28px;
@@ -435,33 +435,33 @@
     <span class="page-tag">Status</span>
   </a>
   <div class="topbar-actions">
-    <a class="topbar-link" href="/commandes.html">Commandes</a>
+    <a class="topbar-link" href="/commandes.html">Commands</a>
     <a class="topbar-link" href="/docs.html">Docs</a>
     <a class="topbar-link" href="/faq.html">FAQ</a>
-    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Invite</a>
   </div>
 </header>
 
 <main>
   <div class="page-head">
     <div>
-      <h1>Statut TookBot</h1>
-      <p class="muted">Surveillance en temps réel des composants principaux. Auto-refresh toutes les 30 secondes.</p>
+      <h1>TookBot status</h1>
+      <p class="muted">Real-time monitoring of the core services. Auto-refresh every 30 seconds.</p>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
       <button class="refresh-btn" id="refreshBtn" onclick="loadStatus(true)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Rafraîchir
+        Refresh
       </button>
-      <span class="updated-at" id="lastCheck">Chargement...</span>
+      <span class="updated-at" id="lastCheck">Loading...</span>
     </div>
   </div>
 
   <div class="status-banner" id="banner">
     <div class="pulse-wrap"><div class="pulse-dot"></div></div>
     <div class="text">
-      <h2 id="bannerTitle">Vérification du statut...</h2>
-      <p id="bannerSub">Récupération des données live, patiente quelques secondes.</p>
+      <h2 id="bannerTitle">Checking status...</h2>
+      <p id="bannerSub">Fetching live data, this takes a few seconds.</p>
     </div>
   </div>
 
@@ -477,11 +477,11 @@
       </div>
       <div class="card-grid-row">
         <div class="kv">
-          <span class="k">État</span><span class="v" id="botState">—</span>
-          <span class="k">Latence WS</span><span class="v" id="botLatency">—</span>
-          <span class="k">Serveurs</span><span class="v" id="botGuilds">—</span>
-          <span class="k">Vocaux actifs</span><span class="v" id="botVoice">—</span>
-          <span class="k">Dernier ping</span><span class="v" id="botAge">—</span>
+          <span class="k">State</span><span class="v" id="botState">—</span>
+          <span class="k">WS latency</span><span class="v" id="botLatency">—</span>
+          <span class="k">Servers</span><span class="v" id="botGuilds">—</span>
+          <span class="k">Active voice sessions</span><span class="v" id="botVoice">—</span>
+          <span class="k">Last ping</span><span class="v" id="botAge">—</span>
         </div>
         <div class="uptime-block">
           <div class="uptime-head">
@@ -489,7 +489,7 @@
             <span class="pct" id="upBotPct">—</span>
           </div>
           <div class="uptime-bars" id="upBotBars"></div>
-          <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+          <div class="uptime-axis"><span>48h</span><span>24h</span><span>now</span></div>
         </div>
       </div>
     </article>
@@ -505,8 +505,8 @@
       <div class="card-grid-row">
         <div class="kv">
           <span class="k">URL</span><span class="v">dashboard.tookbot.click</span>
-          <span class="k">OAuth Discord</span><span class="v good">Opérationnel</span>
-          <span class="k">API REST</span><span class="v good">Joignable</span>
+          <span class="k">OAuth Discord</span><span class="v good">Operational</span>
+          <span class="k">API REST</span><span class="v good">Reachable</span>
         </div>
         <div class="uptime-block">
           <div class="uptime-head">
@@ -514,7 +514,7 @@
             <span class="pct" id="upDashPct">—</span>
           </div>
           <div class="uptime-bars" id="upDashBars"></div>
-          <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+          <div class="uptime-axis"><span>48h</span><span>24h</span><span>now</span></div>
         </div>
       </div>
     </article>
@@ -523,7 +523,7 @@
       <div class="card-head">
         <h3>
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
-          Moteur musique
+          Music engine
         </h3>
         <span class="status-pill unknown" id="pillMusic"><span class="dot"></span>—</span>
       </div>
@@ -545,7 +545,7 @@
             <span class="pct" id="upMusicPct">—</span>
           </div>
           <div class="uptime-bars" id="upMusicBars"></div>
-          <div class="uptime-axis"><span>48h</span><span>24h</span><span>maintenant</span></div>
+          <div class="uptime-axis"><span>48h</span><span>24h</span><span>now</span></div>
         </div>
       </div>
     </article>
@@ -553,8 +553,8 @@
   </div>
 
   <div class="footer-info">
-    <p>Status mis à jour toutes les 30 secondes côté serveur, refresh navigateur toutes les 30s.</p>
-    <p>Un souci persistant ? Rejoins le <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">serveur de support</a> pour signaler le bug.</p>
+    <p>Status refreshed every 30 seconds server-side, and every 30s in your browser.</p>
+    <p>Still seeing a problem? Join the <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">support server</a> to report the bug.</p>
   </div>
 </main>
 
@@ -597,7 +597,7 @@
         const h = await historyRes.json();
         renderHistory(h);
       } else {
-        // history pas dispo (endpoint pas encore deploy) : bars vides
+        // history not available yet (endpoint not deployed): empty bars
         renderHistoryEmpty();
       }
     } catch (e) {
@@ -613,8 +613,8 @@
     const p = document.getElementById(pctId);
     if (!c) return;
     if (!series || !series.length) {
-      // 48 bars vides (placeholder)
-      c.innerHTML = Array(49).fill('<span class="bar empty" data-tooltip="Aucune donnée"></span>').join('');
+      // 48 empty bars (placeholder)
+      c.innerHTML = Array(49).fill('<span class="bar empty" data-tooltip="No data"></span>').join('');
       if (p) p.textContent = '—';
       return;
     }
@@ -628,7 +628,7 @@
         else                    cls = 'partial';
         tip = `${s.hour.split(' ')[1]} · ${s.oks}/${s.checks} OK`;
       } else {
-        tip = `${s.hour.split(' ')[1]} · pas de check`;
+        tip = `${s.hour.split(' ')[1]} · no check`;
       }
       return `<span class="bar ${cls}" data-tooltip="${tip}"></span>`;
     }).join('');
@@ -661,27 +661,27 @@
 
     if (d.overall === 'operational') {
       banner.className = 'status-banner ok';
-      t.textContent = 'Tous les systèmes sont opérationnels';
-      s.textContent = 'TookBot fonctionne normalement.';
+      t.textContent = 'All systems operational';
+      s.textContent = 'TookBot is running normally.';
     } else if (d.overall === 'degraded') {
       banner.className = 'status-banner deg';
-      t.textContent = 'Service partiellement dégradé';
-      s.textContent = 'Le bot répond mais une partie du moteur musique a un souci.';
+      t.textContent = 'Partially degraded service';
+      s.textContent = 'The bot is responding but part of the music engine is struggling.';
     } else {
       banner.className = 'status-banner down';
-      t.textContent = 'Service indisponible';
-      s.textContent = 'Le bot ne répond plus côté serveur. Surveillance en cours.';
+      t.textContent = 'Service unavailable';
+      s.textContent = 'The bot has stopped responding server-side. Monitoring in progress.';
     }
 
     const b = d.components.bot || {};
     setPill(document.getElementById('pillBot'),
       b.online ? 'ok' : 'down', b.online ? 'Online' : 'Offline');
-    document.getElementById('botState').textContent    = b.online ? 'En ligne' : 'Hors ligne';
+    document.getElementById('botState').textContent    = b.online ? 'Online' : 'Offline';
     document.getElementById('botState').className      = 'v ' + (b.online ? 'good' : 'bad');
     document.getElementById('botLatency').textContent  = (b.latency_ms != null ? b.latency_ms + ' ms' : '—');
     document.getElementById('botGuilds').textContent   = b.guild_count != null ? b.guild_count : '—';
     document.getElementById('botVoice').textContent    = b.voice_count != null ? b.voice_count : '—';
-    document.getElementById('botAge').textContent      = 'il y a ' + fmtAge(b.age_sec);
+    document.getElementById('botAge').textContent      = fmtAge(b.age_sec) + ' ago';
 
     const ds = d.components.dashboard || {};
     setPill(document.getElementById('pillDash'),
@@ -689,7 +689,7 @@
 
     const m = d.components.music_engine || {};
     setPill(document.getElementById('pillMusic'),
-      m.operational ? 'ok' : 'deg', m.operational ? 'Opérationnel' : 'Dégradé');
+      m.operational ? 'ok' : 'deg', m.operational ? 'Operational' : 'Degraded');
     document.getElementById('musYtdlp').textContent = m.yt_dlp_version || '—';
     setBadge('badgeWarp',    m.warp,        'WARP');
     setBadge('badgeBgutil',  m.bgutil_pot,  'bgutil-pot');
@@ -697,18 +697,18 @@
 
     const dt = new Date((d.checked_at || 0) * 1000);
     document.getElementById('lastCheck').textContent =
-      'MAJ : ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      'Updated: ' + dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   function renderError(e) {
     const banner = document.getElementById('banner');
     banner.className = 'status-banner down';
-    document.getElementById('bannerTitle').textContent = 'Impossible de joindre le status API';
-    document.getElementById('bannerSub').textContent   = 'Endpoint /api/public-status injoignable. Le dashboard est peut-être down. (' + e + ')';
-    setPill(document.getElementById('pillBot'),   'unknown', 'Inconnu');
+    document.getElementById('bannerTitle').textContent = 'Could not reach the status API';
+    document.getElementById('bannerSub').textContent   = 'Endpoint /api/public-status unreachable. The dashboard may be down. (' + e + ')';
+    setPill(document.getElementById('pillBot'),   'unknown', 'Unknown');
     setPill(document.getElementById('pillDash'),  'down',    'Offline');
-    setPill(document.getElementById('pillMusic'), 'unknown', 'Inconnu');
-    document.getElementById('lastCheck').textContent = 'MAJ : échec';
+    setPill(document.getElementById('pillMusic'), 'unknown', 'Unknown');
+    document.getElementById('lastCheck').textContent = 'Update: failed';
   }
 
   loadStatus();
@@ -719,7 +719,7 @@
   });
 </script>
 <script>
-  /* Parallax multi-couches du fond au scroll */
+  /* Multi-layer background parallax on scroll */
   (function(){
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const layers = [...document.querySelectorAll('.bg-fx [data-par]')].map(el => ({ el, par: parseFloat(el.dataset.par) || 0 }));

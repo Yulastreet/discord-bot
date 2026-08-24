@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Commandes - TookBot</title>
-<meta name="description" content="Toutes les commandes slash de TookBot, expliquees par categorie : musique, modération, automod, salons vocaux temp, XP, duels, jeux, cartes Mudae-like, utilitaires. Plus de 130 commandes.">
-<meta property="og:title" content="Commandes - TookBot">
-<meta property="og:description" content="Toutes les commandes TookBot avec explications et comparatif vs autres bots.">
+<title>Commands - TookBot</title>
+<meta name="description" content="Every TookBot slash command, explained category by category: music, moderation, automod, temp voice channels, XP, duels, games, Mudae-like cards, utilities. More than 130 commands.">
+<meta property="og:title" content="Commands - TookBot">
+<meta property="og:description" content="Every TookBot command, explained, plus a head-to-head against the other bots.">
 <meta property="og:url" content="https://tookbot.click/commandes.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TookBot">
-<meta property="og:locale" content="fr_FR">
+<meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://tookbot.click/previewdiscord.png">
 <meta name="theme-color" content="#f6ffe7">
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
@@ -402,21 +402,21 @@
     <div class="bg-stars bg-stars-sparkle2" data-par="0.24"></div>
   </div>
 
-  <header class="nav" aria-label="Navigation principale">
-    <a class="brand" href="/" aria-label="Accueil TookBot">
+  <header class="nav" aria-label="Main navigation">
+    <a class="brand" href="/" aria-label="TookBot home">
       <span class="brand-mark" aria-hidden="true"></span>
       <span>TookBot</span>
     </a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="/commandes.html" class="active">Commandes</a>
-      <a href="/cartes.html">Cartes</a>
+      <a href="/commandes.html" class="active">Commands</a>
+      <a href="/cartes.html">Cards</a>
       <a href="/docs.html">Docs</a>
       <a href="/status.html">Status</a>
       <a href="/faq.html">FAQ</a>
       <a href="https://dashboard.tookbot.click/dashboard">Dashboard</a>
     </nav>
     <div class="nav-actions">
-      <button class="theme-toggle" type="button" aria-label="Changer le thème" onclick="toggleTheme()">
+      <button class="theme-toggle" type="button" aria-label="Toggle theme" onclick="toggleTheme()">
         <svg class="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.4-6.4 1.4-1.4M4.2 19.8l1.4-1.4m0-12.8L4.2 4.2m15.6 15.6-1.4-1.4" stroke="currentColor" stroke-linecap="round"/>
           <circle cx="12" cy="12" r="4" stroke="currentColor"/>
@@ -425,26 +425,26 @@
           <path d="M20 14.4A7.8 7.8 0 0 1 9.6 4a8.2 8.2 0 1 0 10.4 10.4Z" stroke="currentColor" stroke-linejoin="round"/>
         </svg>
       </button>
-      <a class="btn btn-secondary btn-small nav-support" href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">☕ Soutenir</a>
-      <a class="btn btn-primary btn-small" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+      <a class="btn btn-secondary btn-small nav-support" href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">☕ Donate</a>
+      <a class="btn btn-primary btn-small" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Invite</a>
     </div>
   </header>
 
   <main>
     <div class="head">
-      <h1>130+ commandes slash. Pas de prise de tête.</h1>
-      <p>Chaque commande TookBot est conçue pour faire UNE chose, et la faire bien. Pas de paywall sur l'essentiel, pas de pub, pas de préfixe à retenir.</p>
-      <div class="counter">Total : <strong>90+</strong> commandes</div>
+      <h1>130+ slash commands. Zero headaches.</h1>
+      <p>Every TookBot command is built to do ONE thing, and do it well. No paywall on the essentials, no ads, no prefix to memorise.</p>
+      <div class="counter">Total: <strong>90+</strong> commands</div>
       <div class="search-bar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="color:var(--muted)"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input id="searchInput" type="text" placeholder="Cherche une commande (ex: play, warn, niveau...)" autocomplete="off">
+        <input id="searchInput" type="text" placeholder="Search a command (e.g. play, warn, level...)" autocomplete="off">
         <span class="count-live" id="searchCount"></span>
       </div>
     </div>
 
     <div class="layout">
-      <aside class="sidebar" aria-label="Catégories">
-        <h3>Catégories</h3>
+      <aside class="sidebar" aria-label="Categories">
+        <h3>Categories</h3>
         <nav id="catNav"></nav>
       </aside>
 
@@ -452,13 +452,13 @@
     </div>
 
     <section class="compare" aria-labelledby="compare-title">
-      <h2 id="compare-title">TookBot vs les gros bots musique</h2>
-      <p>Quand Groovy et Rythm ont fermé en 2021, les serveurs Discord se sont rabattus sur des solutions souvent payantes. TookBot reste gratuit pour l'essentiel, et combine musique + tout le reste.</p>
+      <h2 id="compare-title">TookBot vs the big music bots</h2>
+      <p>When Groovy and Rythm shut down in 2021, Discord servers fell back on options that usually charge for the basics. TookBot keeps the essentials free, and bundles music with everything else.</p>
       <div style="overflow-x:auto">
       <table class="compare-table">
         <thead>
           <tr>
-            <th>Fonctionnalité</th>
+            <th>Feature</th>
             <th class="us">TookBot</th>
             <th>Jockie Music</th>
             <th>Hydra</th>
@@ -466,62 +466,62 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>Musique YouTube</td><td class="yes us">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td></tr>
-          <tr><td>SoundCloud / Bandcamp</td><td class="yes us">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td><td class="yes">Oui</td></tr>
-          <tr><td>Spotify (résolution YT)</td><td class="yes us">Oui</td><td class="yes">Premium</td><td class="yes">Premium</td><td class="yes">Oui</td></tr>
-          <tr><td>Volume + queue avancée</td><td class="yes us">Gratuit</td><td class="partial">Premium</td><td class="partial">Premium</td><td class="yes">Gratuit</td></tr>
-          <tr><td>XP / niveaux</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
-          <tr><td>Modération (warn, ban, kick)</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
-          <tr><td>IA conversationnelle + vision</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
-          <tr><td>Tickets / rôles-réaction</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
-          <tr><td>Dashboard web complet</td><td class="yes us">Oui</td><td class="partial">Limité</td><td class="partial">Limité</td><td class="no">Non</td></tr>
-          <tr><td>Stats d'écoute par serveur</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="no">Non</td></tr>
-          <tr><td>Hébergé en Europe</td><td class="yes us">Allemagne</td><td class="partial">US</td><td class="partial">US</td><td class="yes">UK</td></tr>
-          <tr><td>Open / dev solo accessible</td><td class="yes us">Oui</td><td class="no">Non</td><td class="no">Non</td><td class="partial">Open-src</td></tr>
+          <tr><td>YouTube music</td><td class="yes us">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+          <tr><td>SoundCloud / Bandcamp</td><td class="yes us">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+          <tr><td>Spotify (resolved via YT)</td><td class="yes us">Yes</td><td class="yes">Premium</td><td class="yes">Premium</td><td class="yes">Yes</td></tr>
+          <tr><td>Volume + advanced queue</td><td class="yes us">Free</td><td class="partial">Premium</td><td class="partial">Premium</td><td class="yes">Free</td></tr>
+          <tr><td>XP / levels</td><td class="yes us">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          <tr><td>Moderation (warn, ban, kick)</td><td class="yes us">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          <tr><td>Conversational AI + vision</td><td class="yes us">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          <tr><td>Tickets / reaction roles</td><td class="yes us">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          <tr><td>Full web dashboard</td><td class="yes us">Yes</td><td class="partial">Limited</td><td class="partial">Limited</td><td class="no">No</td></tr>
+          <tr><td>Listening stats per server</td><td class="yes us">Yes</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+          <tr><td>Hosted in Europe</td><td class="yes us">Germany</td><td class="partial">US</td><td class="partial">US</td><td class="yes">UK</td></tr>
+          <tr><td>Open / solo dev you can reach</td><td class="yes us">Yes</td><td class="no">No</td><td class="no">No</td><td class="partial">Open-src</td></tr>
         </tbody>
       </table>
       </div>
     </section>
 
-    <section class="why-us" aria-label="Pourquoi TookBot">
+    <section class="why-us" aria-label="Why TookBot">
       <article class="why-card">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.5 2.8 8.4 7 10 4.2-1.6 7-5.5 7-10V6l-7-3Z" stroke="currentColor" stroke-linejoin="round"/></svg></div>
-        <h3>Tout-en-un, vraiment</h3>
-        <p>Pas besoin d'inviter 5 bots différents. TookBot gère musique, modération, XP, IA, tickets, alertes et jeux dans une seule instance.</p>
+        <h3>All-in-one, for real</h3>
+        <p>No need to invite 5 different bots. TookBot handles music, moderation, XP, AI, tickets, alerts and games from a single instance.</p>
       </article>
       <article class="why-card">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" stroke="currentColor" stroke-linejoin="round"/></svg></div>
-        <h3>Rapide et stable</h3>
-        <p>VPS dédié Hetzner en Allemagne, auto-reconnect ffmpeg, reprise de file après reboot, monitoring uptime 24/7.</p>
+        <h3>Fast and stable</h3>
+        <p>Dedicated Hetzner VPS in Germany, ffmpeg auto-reconnect, queue restored after a reboot, 24/7 uptime monitoring.</p>
       </article>
       <article class="why-card">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2 2 7l10 5 10-5-10-5Z M2 17l10 5 10-5 M2 12l10 5 10-5" stroke="currentColor" stroke-linejoin="round"/></svg></div>
-        <h3>Pas de paywall</h3>
-        <p>Les commandes essentielles (musique complète, modération, XP) sont 100% gratuites. Premium = cosmétiques et bonus, jamais des features bloquées.</p>
+        <h3>No paywall</h3>
+        <p>The core commands (full music, moderation, XP) are 100% free. Premium means cosmetics and bonuses, never locked features.</p>
       </article>
       <article class="why-card">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-linecap="round"/></svg></div>
-        <h3>Réactif</h3>
-        <p>Bug ou idée ? Le dev répond en moins de 24h sur le serveur de support. Les mises à jour sortent toutes les semaines.</p>
+        <h3>Responsive</h3>
+        <p>Found a bug or have an idea? The dev answers within 24h on the support server, and updates ship every week.</p>
       </article>
     </section>
 
     <div class="cta">
-      <h2>Prêt à tester ?</h2>
-      <p>Invitation en un clic, configurable en 2 minutes.</p>
+      <h2>Ready to try it?</h2>
+      <p>One-click invite, set up in 2 minutes.</p>
       <div class="row">
-        <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter TookBot</a>
-        <a class="btn btn-secondary" href="/faq.html">Lire la FAQ</a>
-        <a class="btn btn-secondary" href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">Serveur de support</a>
+        <a class="btn btn-primary" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Invite TookBot</a>
+        <a class="btn btn-secondary" href="/faq.html">Read the FAQ</a>
+        <a class="btn btn-secondary" href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener">Support server</a>
       </div>
     </div>
   </main>
 
   <footer class="footer">
-    <span>© TookBot - Bot Discord personnel</span>
+    <span>© TookBot - Personal Discord bot</span>
     <div class="footer-links">
-      <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="footer-support">☕ Soutenir TookBot</a>
-      <a href="/">Accueil</a>
+      <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener" class="footer-support">☕ Donate to TookBot</a>
+      <a href="/">Home</a>
       <a href="/faq.html">FAQ</a>
       <a href="https://dashboard.tookbot.click">Dashboard</a>
       <a href="https://dashboard.tookbot.click/privacy">Privacy</a>
@@ -536,8 +536,8 @@
       localStorage.setItem('tookbot-theme', next);
     }
 
-    // ============ DONNEES COMMANDES ============
-    // SVG icons par catégorie (inline, stroke currentColor)
+    // ============ COMMAND DATA ============
+    // SVG icons per category (inline, stroke currentColor)
     const ICONS = {
       musique:    '<svg viewBox="0 0 24 24" fill="none"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="16" r="3" stroke="currentColor" stroke-width="2"/></svg>',
       moderation: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -554,164 +554,164 @@
     };
 
     const CATS = [
-      { id: 'musique', title: 'Musique', intro: 'Lecture multi-sources (YouTube, SoundCloud, Spotify, Bandcamp), file complète, contrôles précis et stats d\'écoute par serveur.', cmds: [
-        { name:'/play', syntax:'/play <titre|lien>', desc:'Joue depuis YouTube, SoundCloud, Spotify ou Bandcamp. Accepte aussi les playlists.', why:'<strong>Plus puissant que la plupart :</strong> Spotify gratuit, jusqu\'à 50 tracks par playlist, reconnect auto si la connexion drop.' },
-        { name:'/search', syntax:'/search <query>', desc:'Cherche sur YouTube et te laisse choisir parmi 5 résultats via menu déroulant.', why:'<strong>Évite les mauvaises pioches :</strong> tu vois titre, chaîne, durée avant de lancer la lecture.', badge:'new' },
-        { name:'/volume', syntax:'/volume <0-200>', desc:'Règle le volume musique du bot (0 = muet, 100 = normal, 200 = boost).', why:'<strong>Gratuit chez TookBot :</strong> sur Jockie/Hydra c\'est payant.', badge:'new' },
-        { name:'/queue', syntax:'/queue', desc:'Affiche la file d\'attente complète.' },
-        { name:'/nowplaying', syntax:'/nowplaying', desc:'Embed riche : titre, barre de progression, durée, salon vocal, 3 prochaines pistes.' },
-        { name:'/skip', syntax:'/skip', desc:'Passe la piste en cours.' },
-        { name:'/jump', syntax:'/jump <position>', desc:'Saute directement à la Nème piste de la file.', badge:'new' },
-        { name:'/remove', syntax:'/remove <position>', desc:'Retire une piste précise de la file sans interrompre la lecture.', badge:'new' },
-        { name:'/pause', syntax:'/pause', desc:'Met en pause la lecture en cours.' },
-        { name:'/resume', syntax:'/resume', desc:'Reprend une lecture en pause.' },
-        { name:'/stop', syntax:'/stop', desc:'Arrête tout et vide la file.' },
-        { name:'/join', syntax:'/join', desc:'Rejoint ton salon vocal sans lancer de musique.' },
-        { name:'/leave', syntax:'/leave', desc:'Quitte le salon vocal.' },
-        { name:'/musicstats', syntax:'/musicstats [période]', desc:'Top tracks, top auditeurs, temps total d\'écoute sur N jours.', why:'<strong>Unique :</strong> aucun autre bot musique grand public ne sort ces stats par défaut.', badge:'new' },
+      { id: 'musique', title: 'Music', intro: 'Multi-source playback (YouTube, SoundCloud, Spotify, Bandcamp), a full queue, precise controls and listening stats per server.', cmds: [
+        { name:'/play', syntax:'/play <title|link>', desc:'Plays from YouTube, SoundCloud, Spotify or Bandcamp. Playlists work too.', why:'<strong>More powerful than most:</strong> Spotify for free, up to 50 tracks per playlist, auto-reconnect if the connection drops.' },
+        { name:'/search', syntax:'/search <query>', desc:'Searches YouTube and lets you pick from 5 results in a dropdown.', why:'<strong>No more bad picks:</strong> you see the title, channel and duration before playback starts.', badge:'new' },
+        { name:'/volume', syntax:'/volume <0-200>', desc:'Sets the bot music volume (0 = muted, 100 = normal, 200 = boost).', why:'<strong>Free on TookBot:</strong> Jockie and Hydra charge for it.', badge:'new' },
+        { name:'/queue', syntax:'/queue', desc:'Shows the full queue.' },
+        { name:'/nowplaying', syntax:'/nowplaying', desc:'Rich embed: title, progress bar, duration, voice channel, next 3 tracks.' },
+        { name:'/skip', syntax:'/skip', desc:'Skips the current track.' },
+        { name:'/jump', syntax:'/jump <position>', desc:'Jumps straight to the Nth track in the queue.', badge:'new' },
+        { name:'/remove', syntax:'/remove <position>', desc:'Removes one specific track from the queue without stopping playback.', badge:'new' },
+        { name:'/pause', syntax:'/pause', desc:'Pauses playback.' },
+        { name:'/resume', syntax:'/resume', desc:'Resumes a paused track.' },
+        { name:'/stop', syntax:'/stop', desc:'Stops everything and clears the queue.' },
+        { name:'/join', syntax:'/join', desc:'Joins your voice channel without starting any music.' },
+        { name:'/leave', syntax:'/leave', desc:'Leaves the voice channel.' },
+        { name:'/musicstats', syntax:'/musicstats [period]', desc:'Top tracks, top listeners and total listening time over N days.', why:'<strong>Unique:</strong> no other mainstream music bot ships these stats by default.', badge:'new' },
       ]},
-      { id: 'moderation', title: 'Modération', intro: 'Outils de mod nets, avec permissions par rôle configurables depuis le dashboard.', cmds: [
-        { name:'/warn', syntax:'/warn <membre> <raison>', desc:'Avertit un membre. Auto-timeout au seuil configurable.', why:'<strong>Modlogs persistants :</strong> historique consultable par serveur.' },
-        { name:'/kick', syntax:'/kick <membre> [raison]', desc:'Expulse un membre du serveur.' },
-        { name:'/ban', syntax:'/ban <membre> [raison]', desc:'Bannit un membre.' },
-        { name:'/clear', syntax:'/clear <n>', desc:'Supprime les N derniers messages (max 100).' },
-        { name:'/modlogs', syntax:'/modlogs <membre>', desc:'Historique des sanctions d\'un membre.' },
-        { name:'/clearwarns', syntax:'/clearwarns <membre> [raison]', desc:'Révoque tous les warns d\'un membre.' },
-        { name:'/note', syntax:'/note <membre> <texte>', desc:'Note interne mod, pas de DM envoyé au membre.' },
-        { name:'/poll', syntax:'/poll (modal)', desc:'Builder modal : question + 2-10 options + durée 1-168h. Sondage natif Discord avec vote live.', why:'<strong>UI Discord native :</strong> vote en 1 clic, résultats live, pas besoin de réactions emojis.', badge:'new' },
-        { name:'/setwelcome', syntax:'/setwelcome [salon]', desc:'Builder visuel pour message de bienvenue (image, texte, mentions).' },
-        { name:'Automod', syntax:'dashboard /automod', desc:'TookBot+ : filtres mots interdits, anti-pub Discord, anti-spam mentions, anti-raid configurables sans Discord.', why:'<strong>Configurable au pixel :</strong> seuils par règle, salon de logs dédié, admin exemptés automatiquement.', badge:'prem' },
+      { id: 'moderation', title: 'Moderation', intro: 'Clean moderation tools, with per-role permissions you configure from the dashboard.', cmds: [
+        { name:'/warn', syntax:'/warn <member> <reason>', desc:'Warns a member. Auto-timeout once your threshold is reached.', why:'<strong>Persistent modlogs:</strong> the full history stays available per server.' },
+        { name:'/kick', syntax:'/kick <member> [reason]', desc:'Kicks a member from the server.' },
+        { name:'/ban', syntax:'/ban <member> [reason]', desc:'Bans a member.' },
+        { name:'/clear', syntax:'/clear <n>', desc:'Deletes the last N messages (100 max).' },
+        { name:'/modlogs', syntax:'/modlogs <member>', desc:'Sanction history for a member.' },
+        { name:'/clearwarns', syntax:'/clearwarns <member> [reason]', desc:'Clears every warn on a member.' },
+        { name:'/note', syntax:'/note <member> <text>', desc:'Internal mod note, no DM sent to the member.' },
+        { name:'/poll', syntax:'/poll (modal)', desc:'Modal builder: question + 2-10 options + 1-168h duration. Native Discord poll with live voting.', why:'<strong>Native Discord UI:</strong> one-click voting, live results, no emoji reactions needed.', badge:'new' },
+        { name:'/setwelcome', syntax:'/setwelcome [channel]', desc:'Visual builder for the welcome message (image, text, mentions).' },
+        { name:'Automod', syntax:'dashboard /automod', desc:'TookBot+: banned word filters, Discord invite blocking, mention spam protection and anti-raid, all configurable outside Discord.', why:'<strong>Tuned to the pixel:</strong> per-rule thresholds, a dedicated log channel, admins exempt automatically.', badge:'prem' },
       ]},
-      { id: 'tempvoice', title: 'Salons vocaux temp', intro: 'Crée des vocaux perso à la demande : tu rejoins un lobby, le bot crée ton salon perso et le supprime quand tu pars.', cmds: [
-        { name:'/tempvoice setup', syntax:'/tempvoice setup <lobby> [categorie] [nom_par_defaut]', desc:'Admin : configure le salon lobby qui déclenche la création.', why:'<strong>Variable {user} :</strong> nom auto avec le pseudo de l\'utilisateur.', badge:'new' },
-        { name:'/tempvoice info', syntax:'/tempvoice info', desc:'Affiche la config actuelle et le nombre de salons actifs.' },
-        { name:'/tempvoice disable', syntax:'/tempvoice disable', desc:'Désactive la feature sur le serveur.' },
-        { name:'/voc rename', syntax:'/voc rename <nom>', desc:'Owner : renomme son salon temp.' },
-        { name:'/voc limit', syntax:'/voc limit <nombre>', desc:'Owner : limite le nombre de membres (0 = illimité).' },
-        { name:'/voc lock / unlock', syntax:'/voc lock | /voc unlock', desc:'Owner : verrouille / re-ouvre le salon aux autres membres.' },
-        { name:'/voc kick', syntax:'/voc kick <membre>', desc:'Owner : vire un membre du salon.' },
-        { name:'/voc transfer', syntax:'/voc transfer <membre>', desc:'Owner : transfère la propriété du salon. Transfert auto si l\'owner part avec d\'autres présents.' },
+      { id: 'tempvoice', title: 'Temp voice channels', intro: 'On-demand personal voice channels: you join a lobby, the bot creates your own channel and deletes it when you leave.', cmds: [
+        { name:'/tempvoice setup', syntax:'/tempvoice setup <lobby> [category] [default_name]', desc:'Admin: sets the lobby channel that triggers the creation.', why:'<strong>{user} variable:</strong> auto-names the channel after the member.', badge:'new' },
+        { name:'/tempvoice info', syntax:'/tempvoice info', desc:'Shows the current config and how many channels are active.' },
+        { name:'/tempvoice disable', syntax:'/tempvoice disable', desc:'Turns the feature off on the server.' },
+        { name:'/voc rename', syntax:'/voc rename <name>', desc:'Owner: renames their temp channel.' },
+        { name:'/voc limit', syntax:'/voc limit <number>', desc:'Owner: caps the member count (0 = unlimited).' },
+        { name:'/voc lock / unlock', syntax:'/voc lock | /voc unlock', desc:'Owner: locks or reopens the channel to other members.' },
+        { name:'/voc kick', syntax:'/voc kick <member>', desc:'Owner: removes a member from the channel.' },
+        { name:'/voc transfer', syntax:'/voc transfer <member>', desc:'Owner: hands the channel over to someone else. Transfers automatically if the owner leaves while others stay.' },
       ]},
-      { id: 'xp', title: 'XP & Niveaux', intro: 'Système d\'XP par message avec cartes profil personnalisables et leaderboard serveur.', cmds: [
-        { name:'/niveau', syntax:'/niveau [membre]', desc:'Affiche la carte profil avec niveau, XP, rang.', why:'<strong>Cartes générées :</strong> background, couleur, bordure customisables (Premium).' },
-        { name:'/leaderboard', syntax:'/leaderboard', desc:'Top 10 XP du serveur.' },
-        { name:'/pass', syntax:'/pass', desc:'Pass saisonnier : missions, récompenses, cosmétiques.' },
-        { name:'/daily', syntax:'/daily', desc:'Récompense quotidienne : TookCoins + Essences ✨ + streak. Message public.' },
-        { name:'/redeem', syntax:'/redeem <code>', desc:'Utilise un code promo.' },
+      { id: 'xp', title: 'XP & levels', intro: 'Message-based XP with customisable profile cards and a server leaderboard.', cmds: [
+        { name:'/level', syntax:'/level [member]', desc:'Shows the profile card with level, XP and rank.', why:'<strong>Generated cards:</strong> background, colour and border are customisable (Premium).' },
+        { name:'/leaderboard', syntax:'/leaderboard', desc:'Server XP top 10.' },
+        { name:'/pass', syntax:'/pass', desc:'Seasonal pass: missions, rewards, cosmetics.' },
+        { name:'/daily', syntax:'/daily', desc:'Daily reward: TookCoins + Essences plus a streak. Posted publicly.' },
+        { name:'/redeem', syntax:'/redeem <code>', desc:'Redeems a promo code.' },
       ]},
-      { id: 'duel', title: 'Duels Sabres', intro: 'Mini-jeu RPG : combats tour par tour, sabres laser, XP combat, boutique et collection.', cmds: [
-        { name:'/duel fight', syntax:'/duel fight <adversaire>', desc:'Défi un autre membre. Mindgame attaque/défense.', why:'<strong>Plus stratégique qu\'un coinflip :</strong> tu choisis attaque + défense chaque tour, l\'autre tente de bloquer.' },
-        { name:'/duel info', syntax:'/duel info', desc:'Guide complet du système de combat.' },
-        { name:'/profil', syntax:'/profil [membre]', desc:'Stats duel : victoires, défaites, tookcoins, sabre équipé.' },
-        { name:'/sabre', syntax:'/sabre', desc:'Menu : sabre équipé, collection, boutique.' },
-        { name:'/statpoint', syntax:'/statpoint <stat>', desc:'Attribuer un point gagné en levelant.' },
-        { name:'/historique', syntax:'/historique [membre]', desc:'Liste des derniers duels.' },
-        { name:'/collection', syntax:'/collection', desc:'Tous tes sabres collectionnés.' },
+      { id: 'duel', title: 'Lightsaber duels', intro: 'An RPG mini-game: turn-based fights, lightsabers, combat XP, a shop and a collection.', cmds: [
+        { name:'/duel fight', syntax:'/duel fight <opponent>', desc:'Challenges another member. Attack/defence mind games.', why:'<strong>More tactical than a coinflip:</strong> you pick an attack and a guard every turn while the other tries to block.' },
+        { name:'/duel info', syntax:'/duel info', desc:'Full guide to the combat system.' },
+        { name:'/profil', syntax:'/profil [member]', desc:'Duel stats: wins, losses, tookcoins, equipped saber.' },
+        { name:'/sabre', syntax:'/sabre', desc:'Menu: equipped saber, collection, shop.' },
+        { name:'/statpoint', syntax:'/statpoint <stat>', desc:'Spends a stat point earned on level up.' },
+        { name:'/historique', syntax:'/historique [member]', desc:'Lists your most recent duels.' },
+        { name:'/collection', syntax:'/collection', desc:'Every saber you have collected.' },
       ]},
-      { id: 'cs2', title: 'Counter-Strike 2', intro: 'Stats Steam + Faceit, rank roles auto, prix de skins, queues de vocal et ban/pick maps.', cmds: [
-        { name:'/cs link', syntax:'/cs link <plateforme> <id>', desc:'Lie ton compte Steam ou Faceit.' },
-        { name:'/cs stats', syntax:'/cs stats [membre]', desc:'Stats Steam (premier rank, hours, K/D) et Faceit (elo, lvl, matchs).' },
-        { name:'/cs setrank', syntax:'/cs setrank <elo>', desc:'Déclare ton Premier ELO. Auto-attribution du rank role.', why:'<strong>Rank role auto :</strong> les rôles couleur se synchronisent avec ton elo Faceit.' },
-        { name:'/cs price', syntax:'/cs price <arme> <skin>', desc:'Prix Steam + Skinport pour un skin (avec usure et StatTrak).' },
-        { name:'/cs inventory', syntax:'/cs inventory [membre]', desc:'Inventaire CS2 + valeur totale en euros.' },
-        { name:'/cs queue', syntax:'/cs queue', desc:'Voice channel temporaire 5 slots pour matchmaking.' },
-        { name:'/cs map', syntax:'/cs map', desc:'Ban/pick maps entre membres du vocal.' },
-        { name:'/cs loadout', syntax:'/cs loadout', desc:'Loadout aléatoire (challenge fun).' },
+      { id: 'cs2', title: 'Counter-Strike 2', intro: 'Steam and Faceit stats, automatic rank roles, skin prices, voice queues and map ban/pick.', cmds: [
+        { name:'/cs link', syntax:'/cs link <platform> <id>', desc:'Links your Steam or Faceit account.' },
+        { name:'/cs stats', syntax:'/cs stats [member]', desc:'Steam stats (Premier rank, hours, K/D) and Faceit stats (elo, level, matches).' },
+        { name:'/cs setrank', syntax:'/cs setrank <elo>', desc:'Declares your Premier ELO. Assigns the matching rank role automatically.', why:'<strong>Automatic rank roles:</strong> the coloured roles stay in sync with your Faceit elo.' },
+        { name:'/cs price', syntax:'/cs price <weapon> <skin>', desc:'Steam and Skinport prices for a skin (wear and StatTrak included).' },
+        { name:'/cs inventory', syntax:'/cs inventory [member]', desc:'CS2 inventory plus its total value in euros.' },
+        { name:'/cs queue', syntax:'/cs queue', desc:'Temporary 5-slot voice channel for matchmaking.' },
+        { name:'/cs map', syntax:'/cs map', desc:'Map ban/pick between members of the voice channel.' },
+        { name:'/cs loadout', syntax:'/cs loadout', desc:'Random loadout (fun challenge).' },
       ]},
-      { id: 'lol', title: 'League of Legends', intro: 'Profil Riot, rangs, masteries et scout sessions pour previewer une équipe.', cmds: [
-        { name:'/lol link', syntax:'/lol link <riotid>', desc:'Lie ton Riot ID.' },
-        { name:'/lol unlink', syntax:'/lol unlink', desc:'Délie ton compte Riot.' },
-        { name:'/lol stats', syntax:'/lol stats [membre]', desc:'Résumé du profil : rangs, winrate, mains.' },
-        { name:'/lol rank', syntax:'/lol rank [membre]', desc:'Rang Solo/Flex actuels.' },
-        { name:'/lol history', syntax:'/lol history [membre]', desc:'Dernières parties (résultat, KDA, champion).' },
-        { name:'/lol mastery', syntax:'/lol mastery [membre]', desc:'Top champions par mastery points.' },
-        { name:'/lol live', syntax:'/lol live [membre]', desc:'Game en cours détectée.' },
-        { name:'/lol queue', syntax:'/lol queue', desc:'File de vocal temporaire pour se faire une équipe.' },
-        { name:'/lol skin', syntax:'/lol skin <champion>', desc:'Aperçu d\'un skin de champion.' },
-        { name:'/lol build', syntax:'/lol build <champion>', desc:'Build conseillé (objets, runes) pour un champion.' },
-        { name:'/lol rankrole', syntax:'/lol rankrole', desc:'Admin : synchronise des rôles couleur sur le rang des membres.' },
+      { id: 'lol', title: 'League of Legends', intro: 'Riot profile, ranks, masteries and scout sessions to preview a team.', cmds: [
+        { name:'/lol link', syntax:'/lol link <riotid>', desc:'Links your Riot ID.' },
+        { name:'/lol unlink', syntax:'/lol unlink', desc:'Unlinks your Riot account.' },
+        { name:'/lol stats', syntax:'/lol stats [member]', desc:'Profile summary: ranks, winrate, main champions.' },
+        { name:'/lol rank', syntax:'/lol rank [member]', desc:'Current Solo/Flex ranks.' },
+        { name:'/lol history', syntax:'/lol history [member]', desc:'Recent games (result, KDA, champion).' },
+        { name:'/lol mastery', syntax:'/lol mastery [member]', desc:'Top champions by mastery points.' },
+        { name:'/lol live', syntax:'/lol live [member]', desc:'Detects a game in progress.' },
+        { name:'/lol queue', syntax:'/lol queue', desc:'Temporary voice queue to put a team together.' },
+        { name:'/lol skin', syntax:'/lol skin <champion>', desc:'Preview of a champion skin.' },
+        { name:'/lol build', syntax:'/lol build <champion>', desc:'Recommended build (items, runes) for a champion.' },
+        { name:'/lol rankrole', syntax:'/lol rankrole', desc:'Admin: syncs coloured roles with each member rank.' },
       ]},
-      { id: 'social', title: 'Tickets, rôles, alertes', intro: 'Builders visuels pour panneaux de tickets, rôles-réaction et alertes Twitch / YouTube / Reddit.', cmds: [
-        { name:'/ticket', syntax:'/ticket', desc:'Builder panneau de tickets avec catégories et transcripts.' },
-        { name:'/rolereaction', syntax:'/rolereaction create', desc:'Builder rôles-réaction (réaction emoji ou boutons).' },
-        { name:'/socialalert', syntax:'/socialalert add/list/remove', desc:'Alertes auto Twitch live, YouTube upload, Reddit post.' },
-        { name:'/giveaway', syntax:'/giveaway create', desc:'Tirage au sort avec entries, reroll et fin auto.' },
-        { name:'/presentation', syntax:'/presentation setup | create', desc:'Salon de présentations à trous : les membres remplissent un formulaire, le bot poste une fiche propre.' },
-        { name:'/reaction_add', syntax:'/reaction_add', desc:'Réaction auto sur les messages d\'un membre.' },
-        { name:'/reaction_list', syntax:'/reaction_list', desc:'Liste des auto-réactions actives.' },
-        { name:'/reaction_remove', syntax:'/reaction_remove', desc:'Retire une auto-réaction.' },
-        { name:'/cmd', syntax:'/cmd <nom>', desc:'Exécute une commande custom (créée depuis le dashboard).' },
+      { id: 'social', title: 'Tickets, roles, alerts', intro: 'Visual builders for ticket panels, reaction roles and Twitch / YouTube / Reddit alerts.', cmds: [
+        { name:'/ticket', syntax:'/ticket', desc:'Ticket panel builder with categories and transcripts.' },
+        { name:'/rolereaction', syntax:'/rolereaction create', desc:'Reaction role builder (emoji reactions or buttons).' },
+        { name:'/socialalert', syntax:'/socialalert add/list/remove', desc:'Automatic alerts for Twitch lives, YouTube uploads and Reddit posts.' },
+        { name:'/giveaway', syntax:'/giveaway create', desc:'Giveaway with entries, reroll and automatic ending.' },
+        { name:'/presentation', syntax:'/presentation setup | create', desc:'Fill-in-the-blank intro channel: members complete a form and the bot posts a clean profile card.' },
+        { name:'/reaction_add', syntax:'/reaction_add', desc:'Auto-reacts to a specific member messages.' },
+        { name:'/reaction_list', syntax:'/reaction_list', desc:'Lists the active auto-reactions.' },
+        { name:'/reaction_remove', syntax:'/reaction_remove', desc:'Removes an auto-reaction.' },
+        { name:'/cmd', syntax:'/cmd <name>', desc:'Runs a custom command (created from the dashboard).' },
       ]},
-      { id: 'fun', title: 'Fun & social', intro: 'Mini-commandes sociales pour animer le chat.', cmds: [
-        { name:'/8ball', syntax:'/8ball <question>', desc:'Boule magique répond oui/non/peut-être.' },
-        { name:'/dé', syntax:'/dé', desc:'Lance un dé.' },
-        { name:'/coinflip', syntax:'/coinflip', desc:'Pile ou face.' },
-        { name:'/blague', syntax:'/blague', desc:'Blague aléatoire (API blagues-api.fr).' },
-        { name:'/ship', syntax:'/ship <a> <b>', desc:'Calcule compatibilité entre 2 membres.' },
-        { name:'/choix', syntax:'/choix <opt1, opt2, ...>', desc:'Choisit aléatoirement dans une liste.' },
-        { name:'/random', syntax:'/random <min> <max>', desc:'Nombre aléatoire.' },
-        { name:'/qui', syntax:'/qui <action>', desc:'Qui est le/la plus... ?' },
-        { name:'/clap', syntax:'/clap <texte>', desc:'Texte 👏 avec 👏 emojis 👏.' },
-        { name:'/rate', syntax:'/rate <truc>', desc:'Note un truc de 0 à 10.' },
-        { name:'/citation', syntax:'/citation', desc:'Citation inspirante aléatoire.' },
-        { name:'/zgeg', syntax:'/zgeg [membre]', desc:'Mesure la taille de... bon.' },
+      { id: 'fun', title: 'Fun & social', intro: 'Small social commands to keep the chat alive.', cmds: [
+        { name:'/8ball', syntax:'/8ball <question>', desc:'Magic 8-ball answers yes, no or maybe.' },
+        { name:'/dice', syntax:'/dice', desc:'Rolls a die.' },
+        { name:'/coinflip', syntax:'/coinflip', desc:'Heads or tails.' },
+        { name:'/joke', syntax:'/joke', desc:'A random joke.' },
+        { name:'/ship', syntax:'/ship <a> <b>', desc:'Rates the compatibility between 2 members.' },
+        { name:'/choice', syntax:'/choice <opt1, opt2, ...>', desc:'Picks randomly from a list.' },
+        { name:'/random', syntax:'/random <min> <max>', desc:'Random number.' },
+        { name:'/who', syntax:'/who <action>', desc:'Who is the most... ?' },
+        { name:'/clap', syntax:'/clap <text>', desc:'Text 👏 with 👏 emojis 👏.' },
+        { name:'/rate', syntax:'/rate <thing>', desc:'Rates anything from 0 to 10.' },
+        { name:'/quote', syntax:'/quote', desc:'A random inspirational quote.' },
+        { name:'/pp', syntax:'/pp [member]', desc:'Measures the size of... well.' },
       ]},
-      { id: 'cards', title: 'Cartes (Mudae-like)', intro: 'Collection de cartes anime, jeux vidéo, films/séries. Roll, monnaie Essences, fusion à étoiles, bordures cosmétiques, puissance de combat, boss de raid, wishlist, classements et échanges. Catalogue de 19 000+ persos.', cmds: [
-        { name:'/roll', syntax:'/roll [univers]', desc:'Tire une carte aléatoire. Cooldown 1h par serveur (recharge indépendante par serveur). Chaque roll donne des Essences ✨ selon la rareté (doublon = ×2).', why:'<strong>Cooldown par serveur :</strong> un timer indépendant par serveur, donc plusieurs serveurs = plus de rolls.', badge:'new' },
-        { name:'/cardcollec', syntax:'/cardcollec [membre] [rareté]', desc:'Ta collection (ou celle de quelqu\'un), filtrable par rareté. ✨ = cosmétique équipé, ⭐ = niveau de fusion.', badge:'new' },
-        { name:'/card', syntax:'/card <nom>', desc:'Détails d\'une carte. Autocomplete fuzzy sur les 19k+ cartes.' },
-        { name:'/show', syntax:'/show <carte>', desc:'Montre une de tes cartes avec sa bordure cosmétique et ses étoiles de fusion.', badge:'new' },
-        { name:'/essences', syntax:'/essences [membre]', desc:'Ton solde d\'Essences ✨ (monnaie obtenue au roll et au daily).', badge:'new' },
-        { name:'/cardshop', syntax:'/cardshop', desc:'Boutique : achète des cartes et des bordures cosmétiques avec tes Essences.', badge:'new' },
-        { name:'/cardrecycle', syntax:'/cardrecycle <carte> [qté]', desc:'Recycle tes doublons en Essences (tu gardes toujours 1 exemplaire).', badge:'new' },
-        { name:'/cardfuse', syntax:'/cardfuse <carte>', desc:'Fusionne des exemplaires d\'une même carte pour ajouter une étoile (max 5). Coût croissant 2→6. La carte fusionnée devient non-échangeable.', why:'<strong>Prestige :</strong> les étoiles s\'affichent sur la carte et dans la collection.', badge:'new' },
-        { name:'/cardup', syntax:'/cardup <rareté>', desc:'Sacrifie des doublons de cartes 5⭐ pour obtenir 1 carte aléatoire de la rareté au-dessus (Common→Rare→…→Mythic).', badge:'new' },
-        { name:'/eventfight', syntax:'/eventfight', desc:'Combat d\'event : envoie ta meilleure carte selon l\'élément du jour (3/jour) pour gagner des jetons d\'event.', badge:'new' },
-        { name:'/eventshop', syntax:'/eventshop', desc:'Boutique d\'event : dépense tes jetons en rolls, bonus d\'essences et skins saisonniers.', badge:'new' },
-        { name:'/cardcustom', syntax:'/cardcustom <carte> <bordure>', desc:'Applique une bordure cosmétique (achetée au shop, consommée à l\'usage) à une carte.', badge:'new' },
-        { name:'/cardinventory', syntax:'/cardinventory [membre]', desc:'Tes cosmétiques (bordures) en stock.', badge:'new' },
-        { name:'/cardprofile', syntax:'/cardprofile [membre]', desc:'Profil de cartes : stats, puissance de combat et image podium de tes 3 cartes vedettes.', badge:'new' },
-        { name:'/cardprofile custom', syntax:'/cardprofile custom:true', desc:'Éditeur de profil : choisis tes 3 cartes vedettes (recherche libre) et ta couleur de profil (couleurs débloquées par niveau de guilde).', badge:'new' },
-        { name:'/cardtop', syntax:'/cardtop <catégorie>', desc:'Classements globaux : valeur de collection, mythiques, essences, fusions, indice de chance.', badge:'new' },
-        { name:'/cardwish', syntax:'/cardwish <carte>', desc:'Ajoute/retire une carte de ta wishlist (3 max, 6 sur le serveur support). Tu es ping quand quelqu\'un la tire.', badge:'new' },
-        { name:'/cardwishlist', syntax:'/cardwishlist [membre]', desc:'Voir une wishlist. Boutons 🗑 pour retirer tes cartes.', badge:'new' },
-        { name:'/cardtrade', syntax:'/cardtrade <joueur>', desc:'Échange multi-cartes non-équivalent (ex 4 vs 1). Modal builder + boutons Accepter/Refuser/Contre-offre.', why:'<strong>Atomique :</strong> re-vérification ownership au moment de l\'accept.' },
-        { name:'/cardhelp', syntax:'/cardhelp', desc:'Guide complet du système de cartes.', badge:'new' },
-        { name:'/cardsuggest', syntax:'/cardsuggest <nom> <univers> [origine] [rareté] [image]', desc:'Suggère un perso à ajouter. La commu vote 🔼/🔽, validation manuelle par l\'équipe.', why:'<strong>Serveur support TookBot.</strong> Vote up/down sur chaque proposition pour jauger l\'intérêt.', badge:'new' },
-        { name:'/cardmodify', syntax:'/cardmodify <carte> [rareté] [univers] [origine] [image]', desc:'Propose la modification d\'une carte existante (rareté, univers, origine ou image). Soumis au vote + validation.', badge:'new' },
-        { name:'/cardsetup', syntax:'/cardsetup <salon> [role]', desc:'Admin : restreint les commandes cartes à un salon, et définit un rôle ping sur les drops / boss (créé si inexistant).' },
-        { name:'/cardsetup_disable', syntax:'/cardsetup_disable', desc:'Admin : retire la restriction de salon.' },
+      { id: 'cards', title: 'Cards (Mudae-like)', intro: 'Collect cards from anime, video games and movies or shows. Rolls, Essence currency, star fusion, cosmetic borders, combat power, raid bosses, wishlists, leaderboards and trades. A catalogue of 19,000+ characters.', cmds: [
+        { name:'/roll', syntax:'/roll [universe]', desc:'Pulls a random card. 1h cooldown per server (each server has its own timer). Every roll grants Essences ✨ based on rarity (duplicate = x2).', why:'<strong>Per-server cooldown:</strong> one independent timer per server, so more servers means more rolls.', badge:'new' },
+        { name:'/cardcollec', syntax:'/cardcollec [member] [rarity]', desc:'Your collection (or someone else), filterable by rarity. ✨ = equipped cosmetic, ⭐ = fusion level.', badge:'new' },
+        { name:'/card', syntax:'/card <name>', desc:'Card details. Fuzzy autocomplete across all 19k+ cards.' },
+        { name:'/show', syntax:'/show <card>', desc:'Shows one of your cards with its cosmetic border and fusion stars.', badge:'new' },
+        { name:'/essences', syntax:'/essences [member]', desc:'Your Essence ✨ balance (the currency you earn from rolls and dailies).', badge:'new' },
+        { name:'/cardshop', syntax:'/cardshop', desc:'Shop: buy cards and cosmetic borders with your Essences.', badge:'new' },
+        { name:'/cardrecycle', syntax:'/cardrecycle <card> [qty]', desc:'Recycles your duplicates into Essences (you always keep one copy).', badge:'new' },
+        { name:'/cardfuse', syntax:'/cardfuse <card>', desc:'Fuses copies of the same card to add a star (5 max). The cost climbs from 2 to 6. A fused card can no longer be traded.', why:'<strong>Prestige:</strong> stars show up on the card itself and in your collection.', badge:'new' },
+        { name:'/cardup', syntax:'/cardup <rarity>', desc:'Sacrifices duplicate 5⭐ cards for 1 random card of the rarity above (Common to Rare to ... to Mythic).', badge:'new' },
+        { name:'/eventfight', syntax:'/eventfight', desc:'Event fight: send your best card for the element of the day (3 per day) to earn event tokens.', badge:'new' },
+        { name:'/eventshop', syntax:'/eventshop', desc:'Event shop: spend your tokens on rolls, essence bonuses and seasonal skins.', badge:'new' },
+        { name:'/cardcustom', syntax:'/cardcustom <card> <border>', desc:'Applies a cosmetic border (bought in the shop, consumed on use) to a card.', badge:'new' },
+        { name:'/cardinventory', syntax:'/cardinventory [member]', desc:'The cosmetics (borders) you have in stock.', badge:'new' },
+        { name:'/cardprofile', syntax:'/cardprofile [member]', desc:'Card profile: stats, combat power and a podium image of your 3 featured cards.', badge:'new' },
+        { name:'/cardprofile custom', syntax:'/cardprofile custom:true', desc:'Profile editor: pick your 3 featured cards (free search) and your profile colour (colours unlock with guild level).', badge:'new' },
+        { name:'/cardtop', syntax:'/cardtop <category>', desc:'Global leaderboards: collection value, mythics, essences, fusions, luck index.', badge:'new' },
+        { name:'/cardwish', syntax:'/cardwish <card>', desc:'Adds or removes a card from your wishlist (3 max, 6 on the support server). You get pinged when someone rolls it.', badge:'new' },
+        { name:'/cardwishlist', syntax:'/cardwishlist [member]', desc:'View a wishlist. 🗑 buttons to remove your own cards.', badge:'new' },
+        { name:'/cardtrade', syntax:'/cardtrade <player>', desc:'Uneven multi-card trades (4 against 1, for example). Modal builder plus Accept/Decline/Counter-offer buttons.', why:'<strong>Atomic:</strong> ownership is re-checked at the moment of the accept.' },
+        { name:'/cardhelp', syntax:'/cardhelp', desc:'Full guide to the card system.', badge:'new' },
+        { name:'/cardsuggest', syntax:'/cardsuggest <name> <universe> [origin] [rarity] [image]', desc:'Suggests a character to add. The community votes 🔼/🔽 and the team validates manually.', why:'<strong>TookBot support server.</strong> Up and down votes on every proposal to gauge interest.', badge:'new' },
+        { name:'/cardmodify', syntax:'/cardmodify <card> [rarity] [universe] [origin] [image]', desc:'Proposes an edit to an existing card (rarity, universe, origin or image). Goes through the same vote and validation.', badge:'new' },
+        { name:'/cardsetup', syntax:'/cardsetup <channel> [role]', desc:'Admin: restricts card commands to one channel and sets a ping role for drops and bosses (created if missing).' },
+        { name:'/cardsetup_disable', syntax:'/cardsetup_disable', desc:'Admin: lifts the channel restriction.' },
       ]},
-      { id: 'guilds', title: 'Guildes (clubs)', intro: 'Clubs cross-serveur jusqu\'à 30 membres qui montent en niveau (max 60) et débloquent des bonus passifs pour toute la guilde : essences, XP, cooldown de roll, loot boss, banque et boutique de guilde.', cmds: [
-        { name:'/guild create', syntax:'/guild create <nom> [tag]', desc:'Fonde une guilde (coûte des essences ✨). Tu en deviens le Maître.', why:'<strong>Cross-serveur :</strong> tes membres peuvent venir de n\'importe quel serveur où TookBot est présent.', badge:'new' },
-        { name:'/guild info', syntax:'/guild info [nom]', desc:'Fiche d\'une guilde : niveau, membres, banque, bonus actifs.', badge:'new' },
-        { name:'/guildprofile', syntax:'/guildprofile [nom]', desc:'Profil riche : barre d\'XP, puissance totale, liste des membres (tri par puissance/rôle/cartes), banque, boutique et customisation (Maître).', badge:'new' },
-        { name:'/guild top', syntax:'/guild top', desc:'Classement des guildes par niveau.', badge:'new' },
-        { name:'/guild invite', syntax:'/guild invite <membre>', desc:'Invite un joueur (Maître / Officier).', badge:'new' },
-        { name:'/guild accept', syntax:'/guild accept <nom>', desc:'Rejoint une guilde qui t\'a invité.', badge:'new' },
-        { name:'/guild apply', syntax:'/guild apply <nom>', desc:'Postule à une guilde ouverte aux candidatures.', badge:'new' },
-        { name:'/guild applications', syntax:'/guild applications', desc:'Maître / Officier : voir et accepter/refuser les candidatures.', badge:'new' },
-        { name:'/guild leave', syntax:'/guild leave', desc:'Quitte ta guilde.', badge:'new' },
-        { name:'/guild kick', syntax:'/guild kick <membre>', desc:'Exclut un membre (Maître / Officier).', badge:'new' },
-        { name:'/guild promote', syntax:'/guild promote <membre>', desc:'Promeut un membre officier (Maître).', badge:'new' },
-        { name:'/guild demote', syntax:'/guild demote <membre>', desc:'Rétrograde un officier (Maître).', badge:'new' },
-        { name:'/guild transfer', syntax:'/guild transfer <membre>', desc:'Transfère la maîtrise de la guilde (Maître).', badge:'new' },
-        { name:'/guild disband', syntax:'/guild disband', desc:'Dissout la guilde (Maître).', badge:'new' },
-        { name:'/guild donate', syntax:'/guild donate <montant>', desc:'Donne des essences à la banque de guilde (banque débloquée à un palier de niveau). Rapporte de l\'XP de guilde.', why:'<strong>XP de guilde :</strong> roll, victoire de boss, roue, fusion et dons font monter la guilde.', badge:'new' },
+      { id: 'guilds', title: 'Guilds (clubs)', intro: 'Cross-server clubs of up to 30 members that level up (60 max) and unlock passive bonuses for everyone: essences, XP, roll cooldown, boss loot, a bank and a guild shop.', cmds: [
+        { name:'/guild create', syntax:'/guild create <name> [tag]', desc:'Founds a guild (costs essences ✨). You become its Master.', why:'<strong>Cross-server:</strong> your members can come from any server TookBot is in.', badge:'new' },
+        { name:'/guild info', syntax:'/guild info [name]', desc:'Guild sheet: level, members, bank, active bonuses.', badge:'new' },
+        { name:'/guildprofile', syntax:'/guildprofile [name]', desc:'Rich profile: XP bar, total power, member list (sortable by power, role or cards), bank, shop and customisation (Master).', badge:'new' },
+        { name:'/guild top', syntax:'/guild top', desc:'Guild leaderboard by level.', badge:'new' },
+        { name:'/guild invite', syntax:'/guild invite <member>', desc:'Invites a player (Master / Officer).', badge:'new' },
+        { name:'/guild accept', syntax:'/guild accept <name>', desc:'Joins a guild that invited you.', badge:'new' },
+        { name:'/guild apply', syntax:'/guild apply <name>', desc:'Applies to a guild that is open to applications.', badge:'new' },
+        { name:'/guild applications', syntax:'/guild applications', desc:'Master / Officer: review and accept or decline applications.', badge:'new' },
+        { name:'/guild leave', syntax:'/guild leave', desc:'Leaves your guild.', badge:'new' },
+        { name:'/guild kick', syntax:'/guild kick <member>', desc:'Removes a member (Master / Officer).', badge:'new' },
+        { name:'/guild promote', syntax:'/guild promote <member>', desc:'Promotes a member to officer (Master).', badge:'new' },
+        { name:'/guild demote', syntax:'/guild demote <member>', desc:'Demotes an officer (Master).', badge:'new' },
+        { name:'/guild transfer', syntax:'/guild transfer <member>', desc:'Hands the guild over to another member (Master).', badge:'new' },
+        { name:'/guild disband', syntax:'/guild disband', desc:'Disbands the guild (Master).', badge:'new' },
+        { name:'/guild donate', syntax:'/guild donate <amount>', desc:'Donates essences to the guild bank (unlocked at a level milestone). Earns guild XP.', why:'<strong>Guild XP:</strong> rolls, boss wins, the wheel, fusions and donations all level the guild up.', badge:'new' },
       ]},
-      { id: 'utils', title: 'Utilitaires', intro: 'Infos serveur, membres, et accès à toute la liste de commandes.', cmds: [
-        { name:'/avatar', syntax:'/avatar [membre]', desc:'Affiche l\'avatar HD d\'un membre.' },
-        { name:'/userinfo', syntax:'/userinfo [membre]', desc:'Infos détaillées : ID, date création, date join, rôle principal.' },
-        { name:'/serverinfo', syntax:'/serverinfo', desc:'Infos serveur : propriétaire, membres, salons, rôles.' },
-        { name:'/ping', syntax:'/ping', desc:'Latence du bot en ms.' },
-        { name:'/tweet', syntax:'/tweet <message_id>', desc:'Génère une image-carte style tweet du message ciblé, avec avatar et tag verified.', badge:'new' },
-        { name:'/remind', syntax:'/remind (modal)', desc:'Builder modal : date, message, salon. Notification automatique quand le timer arrive.', badge:'new' },
-        { name:'/reminders', syntax:'/reminders', desc:'Liste tes rappels actifs.', badge:'new' },
-        { name:'/unremind', syntax:'/unremind <id>', desc:'Annule un rappel.', badge:'new' },
-        { name:'/vote', syntax:'/vote', desc:'Lien direct pour voter TookBot sur top.gg.', badge:'new' },
-        { name:'/invite', syntax:'/invite', desc:'Lien d\'invitation officiel avec permissions minimales requises.', badge:'new' },
-        { name:'/commandes', syntax:'/commandes', desc:'Liste des commandes envoyée en MP (paginée).' },
-        { name:'/setup', syntax:'/setup', desc:'Configure les salons clés (bienvenue, logs, alertes, admin).' },
+      { id: 'utils', title: 'Utilities', intro: 'Server and member info, plus access to the whole command list.', cmds: [
+        { name:'/avatar', syntax:'/avatar [member]', desc:'Shows a member avatar in HD.' },
+        { name:'/userinfo', syntax:'/userinfo [member]', desc:'Detailed info: ID, creation date, join date, top role.' },
+        { name:'/serverinfo', syntax:'/serverinfo', desc:'Server info: owner, members, channels, roles.' },
+        { name:'/ping', syntax:'/ping', desc:'Bot latency in ms.' },
+        { name:'/tweet', syntax:'/tweet <message_id>', desc:'Turns the target message into a tweet-style image card, avatar and verified tag included.', badge:'new' },
+        { name:'/remind', syntax:'/remind (modal)', desc:'Modal builder: date, message, channel. Automatic notification when the timer is up.', badge:'new' },
+        { name:'/reminders', syntax:'/reminders', desc:'Lists your active reminders.', badge:'new' },
+        { name:'/unremind', syntax:'/unremind <id>', desc:'Cancels a reminder.', badge:'new' },
+        { name:'/vote', syntax:'/vote', desc:'Direct link to vote for TookBot on top.gg.', badge:'new' },
+        { name:'/invite', syntax:'/invite', desc:'Official invite link with the minimum required permissions.', badge:'new' },
+        { name:'/commands', syntax:'/commands', desc:'The command list, sent by DM (paginated).' },
+        { name:'/setup', syntax:'/setup', desc:'Sets up the key channels (welcome, logs, alerts, admin).' },
       ]},
     ];
 
@@ -744,7 +744,7 @@
             ${c.cmds.map(cmd => `
               <div class="cmd-card" data-name="${cmd.name.toLowerCase()}" data-desc="${cmd.desc.toLowerCase()}">
                 <div class="slash">${escapeHtml(cmd.syntax)}</div>
-                <h4>${escapeHtml(cmd.name)}${cmd.badge === 'new' ? '<span class="badge badge-new">Nouveau</span>' : ''}${cmd.badge === 'prem' ? '<span class="badge badge-prem">Premium</span>' : ''}</h4>
+                <h4>${escapeHtml(cmd.name)}${cmd.badge === 'new' ? '<span class="badge badge-new">New</span>' : ''}${cmd.badge === 'prem' ? '<span class="badge badge-prem">Premium</span>' : ''}</h4>
                 <p>${cmd.desc}</p>
                 ${cmd.why ? `<div class="why">${cmd.why}</div>` : ''}
               </div>
@@ -788,7 +788,7 @@
         });
         panel.style.display = visibleInPanel > 0 ? 'block' : 'none';
       });
-      searchC.textContent = `${matched} résultat${matched > 1 ? 's' : ''}`;
+      searchC.textContent = `${matched} result${matched > 1 ? 's' : ''}`;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -803,7 +803,7 @@
     });
   </script>
 <script>
-  /* Parallax multi-couches du fond au scroll */
+  /* Multi-layer background parallax on scroll */
   (function(){
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const layers = [...document.querySelectorAll('.bg-fx [data-par]')].map(el => ({ el, par: parseFloat(el.dataset.par) || 0 }));

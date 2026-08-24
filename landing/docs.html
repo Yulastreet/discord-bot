@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Documentation - TookBot</title>
-<meta name="description" content="Documentation complète TookBot : installation, configuration, commandes musique / modération / automod TookBot+ / salons vocaux temp / XP / duels / CS2 / LoL, analytics, dashboard web, dépannage et FAQ.">
+<meta name="description" content="The complete TookBot documentation: install, setup, music / moderation / TookBot+ automod / temp voice channel / XP / duel / CS2 / LoL commands, analytics, web dashboard, troubleshooting and FAQ.">
 <meta property="og:title" content="Documentation - TookBot">
-<meta property="og:description" content="Guide complet pour bien démarrer avec TookBot : setup, toutes les commandes expliquées, dépannage.">
+<meta property="og:description" content="The complete guide to getting started with TookBot: setup, every command explained, troubleshooting.">
 <meta property="og:url" content="https://tookbot.click/docs.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TookBot">
-<meta property="og:locale" content="fr_FR">
+<meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://tookbot.click/previewdiscord.png">
 <meta name="theme-color" content="#0b1208">
 <link rel="icon" href="/favicon.ico?v=2" sizes="any">
@@ -517,17 +517,17 @@
 
   <div class="topbar-search" onclick="document.getElementById('searchInput').focus()">
     <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <input id="searchInput" type="text" placeholder="Chercher dans la doc...">
+    <input id="searchInput" type="text" placeholder="Search the docs...">
     <kbd>Ctrl K</kbd>
   </div>
 
   <div class="topbar-actions">
-    <a class="topbar-link" href="/commandes.html">Commandes</a>
-    <a class="topbar-link" href="/cartes.html">Cartes</a>
+    <a class="topbar-link" href="/commandes.html">Commands</a>
+    <a class="topbar-link" href="/cartes.html">Cards</a>
     <a class="topbar-link" href="/status.html">Status</a>
     <a class="topbar-link" href="/faq.html">FAQ</a>
     <a class="topbar-link" href="https://dashboard.tookbot.click" target="_blank" rel="noopener">Dashboard</a>
-    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Inviter</a>
+    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener">Invite</a>
     <button class="mobile-menu-btn" onclick="toggleDrawer()" aria-label="Menu">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
@@ -536,91 +536,91 @@
 
 <div class="docs-shell">
 
-  <!-- ===== Sidebar gauche ===== -->
+  <!-- ===== Left sidebar ===== -->
   <aside class="sidebar-wrap">
     <a class="sidebar-title" href="#top">📚 TookBot Documentation</a>
 
     <div class="sidebar-section">Quick Start</div>
-    <a class="sidebar-link" href="#about">À propos de TookBot</a>
-    <a class="sidebar-link" href="#invite">Inviter TookBot</a>
-    <a class="sidebar-link" href="#setup">Configuration initiale</a>
-    <a class="sidebar-link" href="#dashboard">Dashboard web</a>
-    <a class="sidebar-link" href="#permissions">Permissions et rôles</a>
+    <a class="sidebar-link" href="#about">About TookBot</a>
+    <a class="sidebar-link" href="#invite">Invite TookBot</a>
+    <a class="sidebar-link" href="#setup">First-time setup</a>
+    <a class="sidebar-link" href="#dashboard">Web dashboard</a>
+    <a class="sidebar-link" href="#permissions">Permissions and roles</a>
 
-    <div class="sidebar-section">Musique</div>
-    <a class="sidebar-link" href="#music-overview">Vue d'ensemble</a>
-    <a class="sidebar-link" href="#music-sources">Sources supportées</a>
-    <a class="sidebar-link" href="#music-commands">Commandes musique</a>
-    <a class="sidebar-link" href="#music-stats">Stats d'écoute</a>
-    <a class="sidebar-link" href="#music-dashboard">Pilotage web</a>
+    <div class="sidebar-section">Music</div>
+    <a class="sidebar-link" href="#music-overview">Overview</a>
+    <a class="sidebar-link" href="#music-sources">Supported sources</a>
+    <a class="sidebar-link" href="#music-commands">Music commands</a>
+    <a class="sidebar-link" href="#music-stats">Listening stats</a>
+    <a class="sidebar-link" href="#music-dashboard">Web controls</a>
 
-    <div class="sidebar-section">Modération</div>
-    <a class="sidebar-link" href="#mod-overview">Vue d'ensemble</a>
-    <a class="sidebar-link" href="#mod-commands">Commandes mod</a>
+    <div class="sidebar-section">Moderation</div>
+    <a class="sidebar-link" href="#mod-overview">Overview</a>
+    <a class="sidebar-link" href="#mod-commands">Mod commands</a>
     <a class="sidebar-link" href="#mod-automod">Automod (TookBot+)</a>
-    <a class="sidebar-link" href="#mod-warns">Système de warns</a>
-    <a class="sidebar-link" href="#mod-perms">Permissions par rôle</a>
-    <a class="sidebar-link" href="#mod-welcome">Message de bienvenue</a>
+    <a class="sidebar-link" href="#mod-warns">Warn system</a>
+    <a class="sidebar-link" href="#mod-perms">Per-role permissions</a>
+    <a class="sidebar-link" href="#mod-welcome">Welcome message</a>
 
-    <div class="sidebar-section">Salons vocaux</div>
+    <div class="sidebar-section">Voice channels</div>
     <a class="sidebar-link" href="#tempvoice-overview">Tempvoice (setup + /voc)</a>
 
     <div class="sidebar-section">Analytics</div>
-    <a class="sidebar-link" href="#server-analytics">Stats serveur live</a>
+    <a class="sidebar-link" href="#server-analytics">Live server stats</a>
 
-    <div class="sidebar-section">XP & Niveaux</div>
-    <a class="sidebar-link" href="#xp-overview">Vue d'ensemble</a>
-    <a class="sidebar-link" href="#xp-commands">Commandes XP</a>
-    <a class="sidebar-link" href="#xp-cards">Cartes profil</a>
-    <a class="sidebar-link" href="#xp-pass">Pass saisonnier</a>
+    <div class="sidebar-section">XP & levels</div>
+    <a class="sidebar-link" href="#xp-overview">Overview</a>
+    <a class="sidebar-link" href="#xp-commands">XP commands</a>
+    <a class="sidebar-link" href="#xp-cards">Profile cards</a>
+    <a class="sidebar-link" href="#xp-pass">Seasonal pass</a>
 
-    <div class="sidebar-section">Cartes à collectionner</div>
-    <a class="sidebar-link" href="#cards-overview">Vue d'ensemble</a>
-    <a class="sidebar-link" href="#cards-roll">Roll & Essences</a>
-    <a class="sidebar-link" href="#cards-progress">Fusion, up & cosmétiques</a>
-    <a class="sidebar-link" href="#cards-boss">Boss de raid & notes</a>
-    <a class="sidebar-link" href="#cards-social">Wishlist, échanges, classements</a>
-    <a class="sidebar-link" href="#cards-commands">Toutes les commandes cartes</a>
+    <div class="sidebar-section">Collectible cards</div>
+    <a class="sidebar-link" href="#cards-overview">Overview</a>
+    <a class="sidebar-link" href="#cards-roll">Rolls & Essences</a>
+    <a class="sidebar-link" href="#cards-progress">Fusion, upgrades & cosmetics</a>
+    <a class="sidebar-link" href="#cards-boss">Raid bosses & grades</a>
+    <a class="sidebar-link" href="#cards-social">Wishlist, trades, leaderboards</a>
+    <a class="sidebar-link" href="#cards-commands">Every card command</a>
 
-    <div class="sidebar-section">Guildes (clubs)</div>
-    <a class="sidebar-link" href="#guilds-overview">Vue d'ensemble</a>
-    <a class="sidebar-link" href="#guilds-commands">Commandes de guilde</a>
+    <div class="sidebar-section">Guilds (clubs)</div>
+    <a class="sidebar-link" href="#guilds-overview">Overview</a>
+    <a class="sidebar-link" href="#guilds-commands">Guild commands</a>
 
     <div class="sidebar-section">Engagement</div>
     <a class="sidebar-link" href="#tickets">Tickets</a>
-    <a class="sidebar-link" href="#rolereaction">Rôles-réaction</a>
-    <a class="sidebar-link" href="#socialalert">Alertes Twitch / YT / Reddit</a>
+    <a class="sidebar-link" href="#rolereaction">Reaction roles</a>
+    <a class="sidebar-link" href="#socialalert">Twitch / YT / Reddit alerts</a>
     <a class="sidebar-link" href="#giveaway">Giveaways</a>
-    <a class="sidebar-link" href="#customcmd">Commandes custom</a>
+    <a class="sidebar-link" href="#customcmd">Custom commands</a>
 
-    <div class="sidebar-section">Mini-jeux</div>
-    <a class="sidebar-link" href="#duel">Duels de sabres</a>
+    <div class="sidebar-section">Mini-games</div>
+    <a class="sidebar-link" href="#duel">Lightsaber duels</a>
     <a class="sidebar-link" href="#cs2">Counter-Strike 2</a>
     <a class="sidebar-link" href="#lol">League of Legends</a>
-    <a class="sidebar-link" href="#fun">Commandes fun</a>
+    <a class="sidebar-link" href="#fun">Fun commands</a>
 
     <div class="sidebar-section">Dashboard</div>
-    <a class="sidebar-link" href="#dash-overview">Connexion & overview</a>
-    <a class="sidebar-link" href="#dash-features">Activer une feature</a>
-    <a class="sidebar-link" href="#dash-music">Onglet musique</a>
+    <a class="sidebar-link" href="#dash-overview">Login & overview</a>
+    <a class="sidebar-link" href="#dash-features">Turning a feature on</a>
+    <a class="sidebar-link" href="#dash-music">Music tab</a>
     <a class="sidebar-link" href="#dash-promo">Promo codes</a>
 
     <div class="sidebar-section">Premium & support</div>
-    <a class="sidebar-link" href="#premium">Premium (cosmétique)</a>
-    <a class="sidebar-link" href="#donations">Soutenir via Ko-fi</a>
+    <a class="sidebar-link" href="#premium">Premium (cosmetic)</a>
+    <a class="sidebar-link" href="#donations">Donate via Ko-fi</a>
 
-    <div class="sidebar-section">Dépannage</div>
-    <a class="sidebar-link" href="#trouble-music">Musique ne marche pas</a>
-    <a class="sidebar-link" href="#trouble-perms">Commande désactivée</a>
-    <a class="sidebar-link" href="#trouble-bot">Bot inactif</a>
-    <a class="sidebar-link" href="/status.html">📡 Page status (live)</a>
+    <div class="sidebar-section">Troubleshooting</div>
+    <a class="sidebar-link" href="#trouble-music">Music is not working</a>
+    <a class="sidebar-link" href="#trouble-perms">Command disabled</a>
+    <a class="sidebar-link" href="#trouble-bot">Bot is inactive</a>
+    <a class="sidebar-link" href="/status.html">📡 Status page (live)</a>
     <a class="sidebar-link" href="#contact">Contact support</a>
   </aside>
 
-  <!-- ===== Contenu principal ===== -->
+  <!-- ===== Main content ===== -->
   <main class="content-wrap" id="content">
     <nav class="breadcrumb">
-      <a href="/">Accueil</a>
+      <a href="/">Home</a>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       <span>Documentation</span>
     </nav>
@@ -628,478 +628,478 @@
     <div class="hero-banner" id="top">
       <div class="brand-icon"></div>
       <h1>TookBot Documentation</h1>
-      <p>Le guide complet pour bien démarrer et exploiter tout le potentiel de TookBot.</p>
+      <p>The complete guide to getting started and getting everything out of TookBot.</p>
     </div>
 
     <section id="about">
-      <h2>À propos de TookBot</h2>
-      <p>Bienvenue sur la documentation officielle de <strong>TookBot</strong>, un bot Discord tout-en-un développé en solo et hébergé sur un VPS dédié en Allemagne. Que tu gères une petite communauté ou un serveur de plusieurs milliers de membres, TookBot fournit les outils pour animer, modérer et configurer ton serveur sans prise de tête.</p>
+      <h2>About TookBot</h2>
+      <p>Welcome to the official documentation for <strong>TookBot</strong>, an all-in-one Discord bot built solo and hosted on a dedicated VPS in Germany. Whether you run a small community or a server with thousands of members, TookBot gives you the tools to entertain, moderate and configure your server without the headaches.</p>
 
-      <h4>Points clés</h4>
+      <h4>Key points</h4>
       <ul>
-        <li><strong>130+ commandes slash</strong> couvrant cartes à collectionner, guildes, musique, modération, automod, salons vocaux temp, XP, mini-jeux, tickets, alertes sociales et plus</li>
-        <li><strong>Gratuit et sans paywall</strong> sur l'essentiel : volume musique, skip, multi-source Spotify, modération, XP</li>
-        <li><strong>Hébergé en Europe</strong> (Hetzner Cloud, Falkenstein) avec auto-restart et monitoring 24/7</li>
-        <li><strong>Dashboard web complet</strong> via OAuth Discord pour configurer sans taper de commandes</li>
-        <li><strong>Dev solo accessible</strong> : support direct, réponses en moins de 24h sur le serveur</li>
+        <li><strong>130+ slash commands</strong> covering collectible cards, guilds, music, moderation, automod, temp voice channels, XP, mini-games, tickets, social alerts and more</li>
+        <li><strong>Free and paywall-free</strong> on the essentials: music volume, skip, multi-source Spotify, moderation, XP</li>
+        <li><strong>Hosted in Europe</strong> (Hetzner Cloud, Falkenstein) with auto-restart and 24/7 monitoring</li>
+        <li><strong>Full web dashboard</strong> through Discord OAuth, so you can configure everything without typing commands</li>
+        <li><strong>A solo dev you can actually reach</strong>: direct support, answers within 24h on the server</li>
       </ul>
 
       <div class="callout tip">
         <span class="ico">💡</span>
-        <p><strong>Nouveau ?</strong> Commence par <a href="#invite">Inviter TookBot</a> puis suis les 4 étapes de <a href="#setup">Configuration initiale</a>. Tu seras opérationnel en moins de 5 minutes.</p>
+        <p><strong>New here?</strong> Start with <a href="#invite">Invite TookBot</a>, then follow the 4 steps in <a href="#setup">First-time setup</a>. You will be up and running in under 5 minutes.</p>
       </div>
     </section>
 
     <section id="invite">
-      <h2>Inviter TookBot</h2>
-      <p>Pour ajouter TookBot à ton serveur, tu dois être <strong>Administrateur</strong> ou avoir la permission "Gérer le serveur".</p>
+      <h2>Invite TookBot</h2>
+      <p>To add TookBot to your server you need to be an <strong>Administrator</strong> or hold the "Manage Server" permission.</p>
 
       <ol>
-        <li>Clique sur le bouton <a href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><strong>Inviter TookBot</strong></a></li>
-        <li>Choisis ton serveur dans la liste déroulante</li>
-        <li>Vérifie les permissions demandées (Admin recommandé pour simplifier, sinon coche au minimum : Lire les messages, Envoyer messages, Embed Links, Gérer rôles, Bannir, Expulser)</li>
-        <li>Clique <strong>Autoriser</strong></li>
-        <li>Complète le captcha Discord si demandé</li>
+        <li>Click the <a href="https://discord.com/oauth2/authorize?client_id=1499831600496640070&permissions=1101952052310&integration_type=0&scope=bot+applications.commands" target="_blank" rel="noopener"><strong>Invite TookBot</strong></a> button</li>
+        <li>Pick your server from the dropdown</li>
+        <li>Review the requested permissions (Admin keeps things simple, otherwise tick at least: Read Messages, Send Messages, Embed Links, Manage Roles, Ban, Kick)</li>
+        <li>Click <strong>Authorize</strong></li>
+        <li>Complete the Discord captcha if you get one</li>
       </ol>
 
       <div class="callout warning">
         <span class="ico">⚠️</span>
-        <p><strong>Permissions minimales requises pour fonctionner pleinement :</strong> <code>Manage Roles</code>, <code>Manage Channels</code> (pour tickets), <code>Connect</code> et <code>Speak</code> (pour musique), <code>Ban Members</code> + <code>Kick Members</code> (pour modération).</p>
+        <p><strong>Minimum permissions needed for everything to work:</strong> <code>Manage Roles</code>, <code>Manage Channels</code> (for tickets), <code>Connect</code> and <code>Speak</code> (for music), <code>Ban Members</code> + <code>Kick Members</code> (for moderation).</p>
       </div>
 
-      <h4>Vérifier que TookBot est bien connecté</h4>
-      <p>Après l'invitation, tape <code>/ping</code> dans n'importe quel salon. TookBot doit répondre avec sa latence en millisecondes. Si rien ne se passe, vérifie que le bot est en ligne dans la liste des membres et qu'il a accès au salon.</p>
+      <h4>Check that TookBot is connected</h4>
+      <p>Once invited, type <code>/ping</code> in any channel. TookBot should reply with its latency in milliseconds. If nothing happens, make sure the bot shows as online in the member list and that it can see the channel.</p>
     </section>
 
     <section id="setup">
-      <h2>Configuration initiale</h2>
-      <p>Une fois TookBot invité, la configuration de base se fait via la commande <code>/setup</code> directement sur Discord, ou depuis le <a href="#dashboard">dashboard web</a>.</p>
+      <h2>First-time setup</h2>
+      <p>Once TookBot is invited, the basic configuration happens through the <code>/setup</code> command right inside Discord, or from the <a href="#dashboard">web dashboard</a>.</p>
 
       <ol class="step-list">
         <li>
           <div>
-            <h4>Lance <code>/setup</code></h4>
-            <p>Un embed apparaît avec des menus déroulants pour chaque salon clé.</p>
+            <h4>Run <code>/setup</code></h4>
+            <p>An embed appears with a dropdown for every key channel.</p>
           </div>
         </li>
         <li>
           <div>
-            <h4>Définis le salon de bienvenue</h4>
-            <p>C'est là que les nouveaux membres seront accueillis. Tu pourras customiser le message via <code>/setwelcome</code> ou le builder du dashboard.</p>
+            <h4>Set the welcome channel</h4>
+            <p>This is where new members get greeted. You can customise the message with <code>/setwelcome</code> or the dashboard builder.</p>
           </div>
         </li>
         <li>
           <div>
-            <h4>Définis le salon de logs</h4>
-            <p>Sanctions, actions modération, joins/leaves seront publiés ici. Crée un salon <code>#logs-mod</code> visible uniquement par tes mods.</p>
+            <h4>Set the log channel</h4>
+            <p>Sanctions, moderation actions and joins/leaves are posted here. Create a <code>#mod-logs</code> channel that only your mods can see.</p>
           </div>
         </li>
         <li>
           <div>
-            <h4>Configure le rôle modérateur</h4>
-            <p>Sélectionne le rôle qui aura accès aux commandes mod (warn, kick, ban, etc.) sans lui filer les droits Admin Discord.</p>
+            <h4>Set the moderator role</h4>
+            <p>Pick the role that gets access to the mod commands (warn, kick, ban and so on) without handing it Discord Admin rights.</p>
           </div>
         </li>
       </ol>
 
       <div class="callout info">
         <span class="ico">ℹ️</span>
-        <p>Tout ce que <code>/setup</code> configure peut être modifié plus tard depuis le dashboard, onglet <strong>Fonctionnalités</strong> et <strong>Permissions</strong>.</p>
+        <p>Everything <code>/setup</code> configures can be changed later from the dashboard, in the <strong>Features</strong> and <strong>Permissions</strong> tabs.</p>
       </div>
     </section>
 
     <section id="dashboard">
-      <h2>Dashboard web</h2>
-      <p>Le dashboard web est disponible sur <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a>. Connexion via OAuth Discord (aucun mot de passe à créer).</p>
+      <h2>Web dashboard</h2>
+      <p>The web dashboard lives at <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a>. You log in with Discord OAuth (no password to create).</p>
 
-      <h4>Ce que tu peux faire depuis le dashboard</h4>
+      <h4>What you can do from the dashboard</h4>
       <ul>
-        <li>Activer / désactiver chaque feature par serveur via des toggles on/off</li>
-        <li>Configurer les permissions par rôle pour chaque commande mod</li>
-        <li>Builders visuels : tickets, rôles-réaction, alertes social, commandes custom</li>
-        <li>Consulter les stats temps réel : membres actifs, top commandes, heatmap d'activité, top pistes musicales</li>
-        <li>Piloter la musique : voir la queue live, pause/resume/skip depuis le navigateur</li>
-        <li>Gérer les promo codes (générer, distribuer, suivre les redemptions)</li>
-        <li>Modération : consulter les warns, logs, gérer les sanctions</li>
+        <li>Turn each feature on or off per server with on/off toggles</li>
+        <li>Configure per-role permissions for every mod command</li>
+        <li>Visual builders: tickets, reaction roles, social alerts, custom commands</li>
+        <li>Read live stats: active members, top commands, activity heatmap, top music tracks</li>
+        <li>Drive the music: watch the live queue and pause/resume/skip from your browser</li>
+        <li>Manage promo codes (generate, hand out, track redemptions)</li>
+        <li>Moderation: review warns and logs, manage sanctions</li>
       </ul>
 
       <div class="callout tip">
         <span class="ico">💡</span>
-        <p>Garde le dashboard ouvert dans un onglet pour les modifications fréquentes. Les changements sont appliqués en temps réel sans redémarrer TookBot.</p>
+        <p>Keep the dashboard open in a tab if you tweak things often. Changes apply in real time, no TookBot restart required.</p>
       </div>
     </section>
 
     <section id="permissions">
-      <h2>Permissions et rôles</h2>
-      <p>TookBot utilise deux niveaux de permissions distincts :</p>
+      <h2>Permissions and roles</h2>
+      <p>TookBot works with two separate permission layers:</p>
 
-      <h4>1. Permissions Discord natives</h4>
-      <p>Les commandes qui modifient ton serveur (kick, ban, clear) nécessitent les permissions Discord correspondantes sur l'utilisateur ET sur TookBot. Si TookBot ne peut pas bannir quelqu'un, son rôle est probablement trop bas dans la hiérarchie.</p>
+      <h4>1. Native Discord permissions</h4>
+      <p>Commands that change your server (kick, ban, clear) require the matching Discord permissions on the user AND on TookBot. If TookBot cannot ban someone, its role is probably too low in the hierarchy.</p>
 
-      <h4>2. Permissions par rôle TookBot</h4>
-      <p>Depuis le dashboard, onglet <strong>Permissions</strong>, tu peux donner accès à certaines commandes mod (warn, modlogs, clear) à un rôle modérateur, <em>sans</em> lui filer les droits Admin Discord. C'est la méthode recommandée pour avoir une équipe staff cadrée.</p>
+      <h4>2. TookBot per-role permissions</h4>
+      <p>In the dashboard <strong>Permissions</strong> tab you can grant specific mod commands (warn, modlogs, clear) to a moderator role <em>without</em> handing it Discord Admin rights. This is the recommended way to keep a tidy staff team.</p>
 
       <div class="callout warning">
         <span class="ico">⚠️</span>
-        <p><strong>Hiérarchie des rôles :</strong> place le rôle <code>TookBot</code> au-dessus de tous les rôles qu'il doit gérer. Sinon Discord refuse l'action et tu auras une erreur "Missing permissions" dans les logs.</p>
+        <p><strong>Role hierarchy:</strong> place the <code>TookBot</code> role above every role it has to manage. Otherwise Discord refuses the action and you get a "Missing permissions" error in the logs.</p>
       </div>
     </section>
 
-    <!-- ===== MUSIQUE ===== -->
+    <!-- ===== MUSIC ===== -->
     <section id="music-overview">
-      <h2>🎵 Musique : vue d'ensemble</h2>
-      <p>TookBot lit de la musique dans tes salons vocaux depuis <strong>4 sources gratuites</strong> : YouTube, SoundCloud, Spotify (track / album / playlist) et Bandcamp. Aucune feature musique n'est derrière un paywall, contrairement à Jockie ou Hydra.</p>
+      <h2>🎵 Music: overview</h2>
+      <p>TookBot plays music in your voice channels from <strong>4 free sources</strong>: YouTube, SoundCloud, Spotify (track / album / playlist) and Bandcamp. No music feature sits behind a paywall, unlike Jockie or Hydra.</p>
 
-      <h4>Points forts</h4>
+      <h4>Highlights</h4>
       <ul>
-        <li>File d'attente jusqu'à <strong>50 pistes</strong> par playlist YouTube ou Spotify</li>
-        <li>Volume ajustable de 0 à 200% (gratuit, là où c'est Premium chez les concurrents)</li>
-        <li>Skip à la position N (saute directement au Nème titre de la queue)</li>
-        <li>Reconnect auto si la connexion vocale drop</li>
-        <li>Reprise auto de la file après redémarrage du bot</li>
-        <li>Stats d'écoute persistantes par serveur (top pistes, top auditeurs, temps total)</li>
+        <li>A queue of up to <strong>50 tracks</strong> per YouTube or Spotify playlist</li>
+        <li>Volume adjustable from 0 to 200% (free, where competitors make it Premium)</li>
+        <li>Skip to position N (jump straight to the Nth title in the queue)</li>
+        <li>Auto-reconnect if the voice connection drops</li>
+        <li>Queue restored automatically after a bot restart</li>
+        <li>Persistent listening stats per server (top tracks, top listeners, total time)</li>
       </ul>
     </section>
 
     <section id="music-sources">
-      <h2>Sources musicales supportées</h2>
+      <h2>Supported music sources</h2>
 
       <h3>YouTube</h3>
-      <p>Source principale. Accepte les liens vidéo (<code>youtube.com/watch?v=...</code>), les liens courts (<code>youtu.be/...</code>) et les playlists (<code>youtube.com/playlist?list=...</code>). Les recherches par mots-clés font un <code>/search</code> automatique sur YouTube.</p>
+      <p>The main source. Accepts video links (<code>youtube.com/watch?v=...</code>), short links (<code>youtu.be/...</code>) and playlists (<code>youtube.com/playlist?list=...</code>). Keyword searches run an automatic <code>/search</code> on YouTube.</p>
       <pre><code>/play https://www.youtube.com/watch?v=dQw4w9WgXcQ
 /play https://www.youtube.com/playlist?list=PLxxxx
 /play never gonna give you up</code></pre>
 
       <h3>SoundCloud</h3>
-      <p>Pistes individuelles et sets supportés. Colle directement l'URL <code>soundcloud.com/artist/track</code> dans <code>/play</code>.</p>
+      <p>Single tracks and sets are supported. Paste the <code>soundcloud.com/artist/track</code> URL straight into <code>/play</code>.</p>
       <pre><code>/play https://soundcloud.com/artist/track-name</code></pre>
 
       <h3>Spotify</h3>
-      <p>Spotify ne permet pas de streamer son audio (DRM). TookBot extrait les métadonnées Spotify (titre + artiste) puis joue l'équivalent depuis YouTube. Tracks, albums et playlists supportés.</p>
+      <p>Spotify does not allow its audio to be streamed (DRM). TookBot reads the Spotify metadata (title + artist) and plays the equivalent from YouTube. Tracks, albums and playlists are supported.</p>
       <pre><code>/play https://open.spotify.com/track/xxx
 /play https://open.spotify.com/album/xxx
 /play https://open.spotify.com/playlist/xxx</code></pre>
 
       <h3>Bandcamp</h3>
-      <p>Pistes individuelles et albums. Colle l'URL Bandcamp directement.</p>
+      <p>Single tracks and albums. Paste the Bandcamp URL directly.</p>
       <pre><code>/play https://artist.bandcamp.com/track/song</code></pre>
     </section>
 
     <section id="music-commands">
-      <h2>Commandes musique</h2>
+      <h2>Music commands</h2>
 
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/play &lt;lien|titre&gt;</td><td>Joue une piste, playlist ou cherche par mots-clés</td></tr>
-          <tr><td>/search &lt;query&gt;</td><td>Preview + 4 boutons pour choisir la plateforme (YT / Spotify / SC / Bandcamp)</td></tr>
-          <tr><td>/queue</td><td>Affiche la file d'attente complète</td></tr>
-          <tr><td>/nowplaying</td><td>Embed avec titre, thumbnail, barre de progression et 3 pistes suivantes</td></tr>
-          <tr><td>/skip [position]</td><td>Passe la piste en cours, ou saute directement à la position N</td></tr>
-          <tr><td>/remove &lt;position&gt;</td><td>Retire une piste précise de la file par sa position</td></tr>
-          <tr><td>/volume &lt;0-200&gt;</td><td>Règle le volume musique (persistant par serveur)</td></tr>
-          <tr><td>/pause</td><td>Met la lecture en pause</td></tr>
-          <tr><td>/resume</td><td>Reprend une lecture en pause</td></tr>
-          <tr><td>/stop</td><td>Arrête la lecture et vide la file</td></tr>
-          <tr><td>/join</td><td>Rejoint ton salon vocal</td></tr>
-          <tr><td>/leave</td><td>Quitte le salon vocal</td></tr>
-          <tr><td>/musicstats [période]</td><td>Top pistes, top auditeurs, temps total d'écoute sur N jours</td></tr>
+          <tr><td>/play &lt;link|title&gt;</td><td>Plays a track or playlist, or searches by keywords</td></tr>
+          <tr><td>/search &lt;query&gt;</td><td>Preview + 4 buttons to pick the platform (YT / Spotify / SC / Bandcamp)</td></tr>
+          <tr><td>/queue</td><td>Shows the full queue</td></tr>
+          <tr><td>/nowplaying</td><td>Embed with title, thumbnail, progress bar and the next 3 tracks</td></tr>
+          <tr><td>/skip [position]</td><td>Skips the current track, or jumps straight to position N</td></tr>
+          <tr><td>/remove &lt;position&gt;</td><td>Removes one specific track from the queue by its position</td></tr>
+          <tr><td>/volume &lt;0-200&gt;</td><td>Sets the music volume (saved per server)</td></tr>
+          <tr><td>/pause</td><td>Pauses playback</td></tr>
+          <tr><td>/resume</td><td>Resumes a paused track</td></tr>
+          <tr><td>/stop</td><td>Stops playback and clears the queue</td></tr>
+          <tr><td>/join</td><td>Joins your voice channel</td></tr>
+          <tr><td>/leave</td><td>Leaves the voice channel</td></tr>
+          <tr><td>/musicstats [period]</td><td>Top tracks, top listeners and total listening time over N days</td></tr>
         </tbody>
       </table>
 
       <div class="callout tip">
         <span class="ico">💡</span>
-        <p>Le <code>/search</code> est utile quand tu ne veux pas le premier résultat YouTube et préfères choisir parmi 5. Les emojis custom de plateforme s'affichent sur les boutons si le bot est dans le serveur de support TookBot.</p>
+        <p><code>/search</code> is handy when you do not want the first YouTube result and would rather pick from 5. The custom platform emojis show up on the buttons if the bot is in the TookBot support server.</p>
       </div>
     </section>
 
     <section id="music-stats">
-      <h2>Statistiques d'écoute</h2>
-      <p>TookBot enregistre chaque lecture musicale dans une table dédiée. Tu peux consulter les stats avec <code>/musicstats</code> sur Discord ou depuis le dashboard onglet <strong>Musique</strong>.</p>
+      <h2>Listening statistics</h2>
+      <p>TookBot records every playback in a dedicated table. You can read the stats with <code>/musicstats</code> in Discord or from the dashboard <strong>Music</strong> tab.</p>
 
-      <h4>Ce que /musicstats affiche</h4>
+      <h4>What /musicstats shows</h4>
       <ul>
-        <li>Total de lectures sur la période</li>
-        <li>Nombre de pistes uniques jouées</li>
-        <li>Nombre d'auditeurs uniques (ceux qui ont ajouté au moins une piste)</li>
-        <li>Temps total d'écoute cumulé</li>
-        <li>Top 10 pistes les plus jouées</li>
-        <li>Top 5 auditeurs (utilisateurs qui ont fait jouer le plus de pistes)</li>
-        <li>Breakdown par source (YouTube / SoundCloud / Bandcamp / Twitch)</li>
+        <li>Total plays over the period</li>
+        <li>Number of unique tracks played</li>
+        <li>Number of unique listeners (anyone who queued at least one track)</li>
+        <li>Total accumulated listening time</li>
+        <li>Top 10 most played tracks</li>
+        <li>Top 5 listeners (the members who queued the most tracks)</li>
+        <li>Breakdown by source (YouTube / SoundCloud / Bandcamp / Twitch)</li>
       </ul>
 
-      <pre><code>/musicstats             # 30 derniers jours par defaut
-/musicstats periode:7   # 7 derniers jours
-/musicstats periode:365 # 1 an</code></pre>
+      <pre><code>/musicstats             # last 30 days by default
+/musicstats period:7    # last 7 days
+/musicstats period:365  # 1 year</code></pre>
     </section>
 
     <section id="music-dashboard">
-      <h2>Pilotage musique depuis le dashboard</h2>
-      <p>L'onglet <strong>Musique</strong> du dashboard te permet de tout faire depuis le navigateur, sans avoir à ouvrir Discord.</p>
+      <h2>Driving the music from the dashboard</h2>
+      <p>The dashboard <strong>Music</strong> tab lets you do everything from the browser, without opening Discord.</p>
 
       <ul>
-        <li>Voir le titre en cours avec thumbnail et durée</li>
-        <li>Boutons Pause / Resume / Skip / Stop / Leave</li>
-        <li>Ajouter une piste via le champ "Ajouter une musique" (accepte tout : lien, titre, playlist YT, URL Spotify)</li>
-        <li>Voir la file d'attente complète avec possibilité de retirer une piste précise</li>
-        <li>Stats d'écoute avec sélecteur de période (7 / 30 / 90 / 365 jours)</li>
+        <li>See the current title with its thumbnail and duration</li>
+        <li>Pause / Resume / Skip / Stop / Leave buttons</li>
+        <li>Add a track through the "Add a track" field (anything goes: link, title, YT playlist, Spotify URL)</li>
+        <li>See the full queue and remove any specific track from it</li>
+        <li>Listening stats with a period selector (7 / 30 / 90 / 365 days)</li>
       </ul>
 
       <div class="callout info">
         <span class="ico">ℹ️</span>
-        <p>Pour que les contrôles fonctionnent, TookBot doit déjà être connecté à un salon vocal. Si non, lance <code>/join</code> dans Discord depuis ton salon vocal.</p>
+        <p>For the controls to work, TookBot has to already be connected to a voice channel. If it is not, run <code>/join</code> in Discord from your voice channel.</p>
       </div>
     </section>
 
-    <!-- ===== MODÉRATION ===== -->
+    <!-- ===== MODERATION ===== -->
     <section id="mod-overview">
-      <h2>🛡️ Modération : vue d'ensemble</h2>
-      <p>TookBot fournit les outils de modération classiques (warn, kick, ban, clear) avec un système de logs persistants et des permissions par rôle configurables depuis le dashboard.</p>
+      <h2>🛡️ Moderation: overview</h2>
+      <p>TookBot ships the classic moderation tools (warn, kick, ban, clear) with persistent logs and per-role permissions you configure from the dashboard.</p>
     </section>
 
     <section id="mod-commands">
-      <h2>Commandes de modération</h2>
+      <h2>Moderation commands</h2>
 
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/warn &lt;membre&gt; &lt;raison&gt;</td><td>Avertit un membre. Auto-timeout au seuil configurable.</td></tr>
-          <tr><td>/clearwarns &lt;membre&gt; [raison]</td><td>Révoque tous les warns d'un membre</td></tr>
-          <tr><td>/modlogs &lt;membre&gt;</td><td>Historique des sanctions d'un membre</td></tr>
-          <tr><td>/note &lt;membre&gt; &lt;texte&gt;</td><td>Note interne mod (pas de DM envoyé)</td></tr>
-          <tr><td>/kick &lt;membre&gt; [raison]</td><td>Expulse un membre du serveur</td></tr>
-          <tr><td>/ban &lt;membre&gt; [raison]</td><td>Bannit un membre</td></tr>
-          <tr><td>/clear &lt;n&gt;</td><td>Supprime les N derniers messages (max 100)</td></tr>
-          <tr><td>/poll (modal)</td><td>Builder modal : question + 2-10 options + durée 1-168h. Sondage natif Discord avec vote live.</td></tr>
-          <tr><td>/setwelcome [salon]</td><td>Builder visuel du message de bienvenue</td></tr>
-          <tr><td>Automod (dashboard)</td><td><strong>TookBot+</strong> : mots interdits, anti-pub Discord, anti-spam mentions, anti-raid. Configurable depuis <code>/automod</code> sur le dashboard.</td></tr>
+          <tr><td>/warn &lt;member&gt; &lt;reason&gt;</td><td>Warns a member. Auto-timeout once your threshold is reached.</td></tr>
+          <tr><td>/clearwarns &lt;member&gt; [reason]</td><td>Clears every warn on a member</td></tr>
+          <tr><td>/modlogs &lt;member&gt;</td><td>Sanction history for a member</td></tr>
+          <tr><td>/note &lt;member&gt; &lt;text&gt;</td><td>Internal mod note (no DM sent)</td></tr>
+          <tr><td>/kick &lt;member&gt; [reason]</td><td>Kicks a member from the server</td></tr>
+          <tr><td>/ban &lt;member&gt; [reason]</td><td>Bans a member</td></tr>
+          <tr><td>/clear &lt;n&gt;</td><td>Deletes the last N messages (100 max)</td></tr>
+          <tr><td>/poll (modal)</td><td>Modal builder: question + 2-10 options + 1-168h duration. Native Discord poll with live voting.</td></tr>
+          <tr><td>/setwelcome [channel]</td><td>Visual builder for the welcome message</td></tr>
+          <tr><td>Automod (dashboard)</td><td><strong>TookBot+</strong>: banned words, Discord invite blocking, mention spam protection, anti-raid. Configurable from <code>/automod</code> on the dashboard.</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="mod-automod">
-      <h2>🤖 Modération automatique (TookBot+)</h2>
-      <p>L'automod tourne en arrière-plan et applique 4 règles toggleables sur chaque message / nouveau membre. Les admins et users avec la permission <code>Manage Messages</code> sont exempts automatiquement.</p>
+      <h2>🤖 Automatic moderation (TookBot+)</h2>
+      <p>Automod runs in the background and applies 4 toggleable rules to every message and every new member. Admins and users with the <code>Manage Messages</code> permission are exempt automatically.</p>
 
-      <h4>Règles disponibles</h4>
+      <h4>Available rules</h4>
       <ul>
-        <li><strong>Mots interdits</strong> : liste CSV de mots interdits, match du mot entier, case-insensitive. Action : delete message + log embed.</li>
-        <li><strong>Anti-invites Discord</strong> : detecte tout lien <code>discord.gg/*</code> ou <code>discord.com/invite/*</code>. Action : delete + log.</li>
-        <li><strong>Spam mentions</strong> : seuil configurable (2-50). Si le message contient ≥ seuil mentions (users + rôles), il est supprimé.</li>
-        <li><strong>Anti-raid</strong> : seuil joins/minute. Si dépassé, log une alerte dans le salon admin (pas de kick auto pour éviter les faux positifs).</li>
+        <li><strong>Banned words</strong>: a CSV list of forbidden words, whole-word match, case-insensitive. Action: delete the message + log embed.</li>
+        <li><strong>Discord invite blocking</strong>: detects any <code>discord.gg/*</code> or <code>discord.com/invite/*</code> link. Action: delete + log.</li>
+        <li><strong>Mention spam</strong>: configurable threshold (2-50). If a message holds at least that many mentions (users + roles), it gets deleted.</li>
+        <li><strong>Anti-raid</strong>: a joins-per-minute threshold. If it is crossed, an alert is logged in the admin channel (no auto-kick, to avoid false positives).</li>
       </ul>
 
       <div class="callout">
-        <p>Toutes les actions sont loggées dans un salon dédié configurable depuis le dashboard. Idéal pour avoir une trace sans polluer les channels.</p>
+        <p>Every action is logged in a dedicated channel you pick from the dashboard. Ideal for keeping a paper trail without polluting your channels.</p>
       </div>
     </section>
 
     <section id="tempvoice-overview">
-      <h2>🔊 Salons vocaux temporaires</h2>
-      <p>Configure un salon vocal "lobby" : quand un membre le rejoint, le bot crée un vocal perso à son nom dans la catégorie configurée et l'y déplace automatiquement. Le salon est détruit dès qu'il est vide.</p>
+      <h2>🔊 Temporary voice channels</h2>
+      <p>Set up a "lobby" voice channel: when a member joins it, the bot creates a personal voice channel named after them in the configured category and moves them into it. The channel is deleted as soon as it is empty.</p>
 
-      <h4>Setup admin</h4>
+      <h4>Admin setup</h4>
       <ol>
-        <li>Crée un vocal style <code>➕ Créer ton salon</code></li>
-        <li>(Optionnel) Crée une catégorie <code>Vocaux temp</code></li>
-        <li>Tape <code>/tempvoice setup lobby:&lt;lobby&gt; categorie:&lt;cat&gt; nom_par_defaut:Vocal de {user}</code></li>
+        <li>Create a voice channel such as <code>➕ Create your channel</code></li>
+        <li>(Optional) Create a <code>Temp voice</code> category</li>
+        <li>Type <code>/tempvoice setup lobby:&lt;lobby&gt; categorie:&lt;cat&gt; nom_par_defaut:{user}'s channel</code></li>
       </ol>
 
-      <h4>Commandes user (owner du salon)</h4>
+      <h4>User commands (channel owner)</h4>
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/voc rename &lt;nom&gt;</td><td>Renomme ton salon temp</td></tr>
-          <tr><td>/voc limit &lt;nombre&gt;</td><td>Limite le nombre de membres (0 = illimité)</td></tr>
-          <tr><td>/voc lock</td><td>Verrouille le salon (empêche les nouveaux joins)</td></tr>
-          <tr><td>/voc unlock</td><td>Re-ouvre le salon</td></tr>
-          <tr><td>/voc kick &lt;membre&gt;</td><td>Vire un membre du salon</td></tr>
-          <tr><td>/voc transfer &lt;membre&gt;</td><td>Transfère la propriété (transfert auto si owner part)</td></tr>
+          <tr><td>/voc rename &lt;name&gt;</td><td>Renames your temp channel</td></tr>
+          <tr><td>/voc limit &lt;number&gt;</td><td>Caps the member count (0 = unlimited)</td></tr>
+          <tr><td>/voc lock</td><td>Locks the channel (blocks new joins)</td></tr>
+          <tr><td>/voc unlock</td><td>Reopens the channel</td></tr>
+          <tr><td>/voc kick &lt;member&gt;</td><td>Removes a member from the channel</td></tr>
+          <tr><td>/voc transfer &lt;member&gt;</td><td>Hands ownership over (automatic if the owner leaves)</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="server-analytics">
-      <h2>📊 Analytics serveur</h2>
-      <p>Page dashboard <code>/analytics</code> avec stats live calculées depuis les logs : activité par jour, croissance membres (joins/leaves/net cumulé), heatmap 7×24, top commandes et top users sur 30 jours.</p>
+      <h2>📊 Server analytics</h2>
+      <p>The dashboard <code>/analytics</code> page shows live stats computed from the logs: activity per day, member growth (joins/leaves/cumulative net), a 7x24 heatmap, top commands and top users over 30 days.</p>
       <ul>
-        <li>5 stat cards avec delta vs hier</li>
-        <li>Line chart activité 7/30/90 jours</li>
-        <li>Bar chart joins/leaves + ligne nette cumulée</li>
-        <li>Heatmap colorée pour repérer les pics horaires</li>
+        <li>5 stat cards with a delta against yesterday</li>
+        <li>Activity line chart over 7/30/90 days</li>
+        <li>Joins/leaves bar chart plus a cumulative net line</li>
+        <li>Colour-coded heatmap to spot your busiest hours</li>
       </ul>
     </section>
 
     <section id="mod-warns">
-      <h2>Système de warns</h2>
-      <p>Les warns sont persistants par serveur et consultables via <code>/modlogs &lt;membre&gt;</code>. Tu peux configurer un seuil d'auto-timeout depuis le dashboard.</p>
+      <h2>Warn system</h2>
+      <p>Warns are stored per server and can be reviewed with <code>/modlogs &lt;member&gt;</code>. You can set an auto-timeout threshold from the dashboard.</p>
 
-      <h4>Comportement par défaut</h4>
+      <h4>Default behaviour</h4>
       <ul>
-        <li>1 warn → DM envoyé au membre avec la raison</li>
-        <li>3 warns → timeout 1h auto (configurable)</li>
-        <li>5 warns → timeout 24h auto (configurable)</li>
-        <li>Les warns expirés peuvent être révoqués via <code>/clearwarns</code></li>
+        <li>1 warn: a DM is sent to the member with the reason</li>
+        <li>3 warns: automatic 1h timeout (configurable)</li>
+        <li>5 warns: automatic 24h timeout (configurable)</li>
+        <li>Expired warns can be cleared with <code>/clearwarns</code></li>
       </ul>
 
       <div class="callout warning">
         <span class="ico">⚠️</span>
-        <p>Pour que l'auto-timeout fonctionne, TookBot doit avoir la permission <code>Moderate Members</code> et son rôle doit être au-dessus du membre warned dans la hiérarchie.</p>
+        <p>For the auto-timeout to work, TookBot needs the <code>Moderate Members</code> permission and its role must sit above the warned member in the hierarchy.</p>
       </div>
     </section>
 
     <section id="mod-perms">
-      <h2>Permissions par rôle</h2>
-      <p>Plutôt que de filer les droits Admin Discord à tes mods, TookBot te permet de mapper chaque commande mod à un rôle précis depuis le dashboard.</p>
+      <h2>Per-role permissions</h2>
+      <p>Rather than handing Discord Admin rights to your mods, TookBot lets you map each mod command to a specific role from the dashboard.</p>
 
-      <h4>Exemples de mapping</h4>
+      <h4>Example mapping</h4>
       <ul>
-        <li>Rôle <code>Helper</code> → accès à <code>/warn</code>, <code>/note</code>, <code>/clear</code></li>
-        <li>Rôle <code>Mod</code> → tout Helper + <code>/kick</code>, <code>/modlogs</code>, <code>/clearwarns</code></li>
-        <li>Rôle <code>Admin</code> → tout Mod + <code>/ban</code>, <code>/setup</code>, <code>/setwelcome</code></li>
+        <li><code>Helper</code> role: access to <code>/warn</code>, <code>/note</code>, <code>/clear</code></li>
+        <li><code>Mod</code> role: everything Helper has plus <code>/kick</code>, <code>/modlogs</code>, <code>/clearwarns</code></li>
+        <li><code>Admin</code> role: everything Mod has plus <code>/ban</code>, <code>/setup</code>, <code>/setwelcome</code></li>
       </ul>
 
-      <p>Configure ça depuis dashboard → onglet <strong>Permissions</strong>.</p>
+      <p>Set this up from dashboard, <strong>Permissions</strong> tab.</p>
     </section>
 
     <section id="mod-welcome">
-      <h2>Message de bienvenue</h2>
-      <p>Tape <code>/setwelcome [salon]</code> pour ouvrir un builder visuel. Tu peux configurer :</p>
+      <h2>Welcome message</h2>
+      <p>Type <code>/setwelcome [channel]</code> to open a visual builder. You can configure:</p>
       <ul>
-        <li>Texte du message (avec variables <code>{user}</code>, <code>{server}</code>, <code>{count}</code>)</li>
-        <li>Image / bannière custom</li>
-        <li>Couleur de l'embed</li>
-        <li>Mention automatique du nouveau membre</li>
-        <li>Rôle attribué automatiquement à l'arrivée (autorole)</li>
+        <li>The message text (with the <code>{user}</code>, <code>{server}</code> and <code>{count}</code> variables)</li>
+        <li>A custom image or banner</li>
+        <li>The embed colour</li>
+        <li>An automatic mention of the new member</li>
+        <li>A role granted automatically on arrival (autorole)</li>
       </ul>
     </section>
 
     <!-- ===== XP ===== -->
     <section id="xp-overview">
-      <h2>⭐ XP & Niveaux : vue d'ensemble</h2>
-      <p>Système d'XP par message avec cooldown anti-spam. Chaque message gagne de l'XP qui fait monter le membre en niveau. Les niveaux peuvent débloquer des rôles automatiques.</p>
+      <h2>⭐ XP & levels: overview</h2>
+      <p>Message-based XP with an anti-spam cooldown. Every message earns XP that pushes the member up through the levels, and levels can unlock roles automatically.</p>
     </section>
 
     <section id="xp-commands">
-      <h2>Commandes XP</h2>
+      <h2>XP commands</h2>
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/niveau [membre]</td><td>Carte profil avec niveau, XP et rang</td></tr>
-          <tr><td>/leaderboard</td><td>Top 10 XP du serveur</td></tr>
-          <tr><td>/daily</td><td>Récompense quotidienne : TookCoins + Essences ✨ + streak</td></tr>
-          <tr><td>/redeem &lt;code&gt;</td><td>Utiliser un code promo</td></tr>
-          <tr><td>/pass</td><td>Pass saisonnier : missions et récompenses</td></tr>
+          <tr><td>/level [member]</td><td>Profile card with level, XP and rank</td></tr>
+          <tr><td>/leaderboard</td><td>Server XP top 10</td></tr>
+          <tr><td>/daily</td><td>Daily reward: TookCoins + Essences ✨ + streak</td></tr>
+          <tr><td>/redeem &lt;code&gt;</td><td>Redeem a promo code</td></tr>
+          <tr><td>/pass</td><td>Seasonal pass: missions and rewards</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="xp-cards">
-      <h2>Cartes profil personnalisables</h2>
-      <p><code>/niveau</code> affiche une carte avec ton avatar, ton niveau, ta progression vers le suivant et ton rang serveur. Les utilisateurs Premium peuvent personnaliser le background, la couleur et les badges depuis l'onglet <strong>Premium</strong> du dashboard.</p>
+      <h2>Customisable profile cards</h2>
+      <p><code>/level</code> shows a card with your avatar, your level, your progress towards the next one and your server rank. Premium users can customise the background, the colour and the badges from the dashboard <strong>Premium</strong> tab.</p>
     </section>
 
     <section id="xp-pass">
-      <h2>Pass saisonnier</h2>
-      <p>Chaque mois un pass avec missions et récompenses débloquables (XP boost, sabres rares, cosmétiques). Tape <code>/pass</code> pour voir ta progression et claim tes récompenses.</p>
+      <h2>Seasonal pass</h2>
+      <p>Every month brings a pass with missions and unlockable rewards (XP boost, rare sabers, cosmetics). Type <code>/pass</code> to check your progress and claim your rewards.</p>
 
       <div class="callout info">
         <span class="ico">ℹ️</span>
-        <p>Les missions du pass se complètent en utilisant les features TookBot : jouer de la musique, faire des duels, rester actif sur le chat, etc.</p>
+        <p>Pass missions complete themselves as you use TookBot features: playing music, duelling, staying active in chat and so on.</p>
       </div>
     </section>
 
-    <!-- ===== CARTES ===== -->
+    <!-- ===== CARDS ===== -->
     <section id="cards-overview">
-      <h2>🃏 Cartes à collectionner : vue d'ensemble</h2>
-      <p>Un système de collection à la Mudae : tire des cartes de personnages (anime, jeux vidéo, films/séries) parmi un catalogue de <strong>19 000+ persos</strong>, gagne la monnaie <strong>Essences ✨</strong>, fais monter tes cartes en étoiles, applique des bordures cosmétiques, affronte des <strong>boss de raid</strong>, échange avec les autres joueurs et grimpe dans les classements.</p>
+      <h2>🃏 Collectible cards: overview</h2>
+      <p>A Mudae-style collecting system: roll character cards (anime, video games, movies and shows) from a catalogue of <strong>19,000+ characters</strong>, earn the <strong>Essences ✨</strong> currency, push your cards up in stars, apply cosmetic borders, take on <strong>raid bosses</strong>, trade with other players and climb the leaderboards.</p>
       <div class="callout info">
         <span class="ico">ℹ️</span>
-        <p>Un admin peut restreindre les commandes cartes à un seul salon avec <code>/cardsetup &lt;salon&gt;</code> (et définir un rôle ping sur les drops et boss). <code>/cardsetup_disable</code> retire la restriction.</p>
+        <p>An admin can restrict the card commands to a single channel with <code>/cardsetup &lt;channel&gt;</code> (and set a ping role for drops and bosses). <code>/cardsetup_disable</code> lifts the restriction.</p>
       </div>
     </section>
 
     <section id="cards-roll">
-      <h2>Roll & Essences</h2>
-      <p><code>/roll</code> tire une carte aléatoire. Le cooldown est de <strong>1h par serveur</strong> (chaque serveur a son propre timer, donc être sur plusieurs serveurs = plus de rolls). Chaque roll rapporte des <strong>Essences ✨</strong> selon la rareté de la carte (un doublon rapporte le double). Les Essences servent à la boutique, au recyclage et à la création de guilde.</p>
+      <h2>Rolls & Essences</h2>
+      <p><code>/roll</code> pulls a random card. The cooldown is <strong>1h per server</strong> (each server has its own timer, so being in several servers means more rolls). Every roll pays out <strong>Essences ✨</strong> based on the card rarity (a duplicate pays double). Essences are spent in the shop, on recycling and on founding a guild.</p>
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/roll [univers]</td><td>Tire une carte aléatoire (filtre optionnel par univers)</td></tr>
-          <tr><td>/cardcollec [membre] [rareté]</td><td>Voir ta collection ou celle d'un membre, filtrable par rareté</td></tr>
-          <tr><td>/card &lt;nom&gt;</td><td>Détails d'une carte (autocomplete sur 19k+ cartes)</td></tr>
-          <tr><td>/show &lt;carte&gt;</td><td>Montre une de tes cartes avec sa bordure et ses étoiles</td></tr>
-          <tr><td>/essences [membre]</td><td>Ton solde d'Essences ✨</td></tr>
-          <tr><td>/cardshop</td><td>Boutique : achète cartes et bordures avec tes Essences</td></tr>
-          <tr><td>/cardrecycle &lt;carte&gt; [qté]</td><td>Recycle tes doublons en Essences (tu gardes 1 exemplaire)</td></tr>
+          <tr><td>/roll [universe]</td><td>Pulls a random card (optional filter by universe)</td></tr>
+          <tr><td>/cardcollec [member] [rarity]</td><td>View your collection or someone else's, filterable by rarity</td></tr>
+          <tr><td>/card &lt;name&gt;</td><td>Card details (autocomplete across 19k+ cards)</td></tr>
+          <tr><td>/show &lt;card&gt;</td><td>Shows one of your cards with its border and its stars</td></tr>
+          <tr><td>/essences [member]</td><td>Your Essence ✨ balance</td></tr>
+          <tr><td>/cardshop</td><td>Shop: buy cards and borders with your Essences</td></tr>
+          <tr><td>/cardrecycle &lt;card&gt; [qty]</td><td>Recycles your duplicates into Essences (you keep one copy)</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="cards-progress">
-      <h2>Fusion, montée de rareté & cosmétiques</h2>
-      <p>Fais monter tes cartes : la <strong>fusion</strong> ajoute des étoiles (jusqu'à 5⭐), et <code>/cardup</code> transforme des cartes 5⭐ en une carte de la rareté au-dessus. Les <strong>bordures</strong> sont des cosmétiques achetés en boutique.</p>
+      <h2>Fusion, rarity upgrades & cosmetics</h2>
+      <p>Push your cards further: <strong>fusion</strong> adds stars (up to 5⭐), and <code>/cardup</code> turns 5⭐ cards into a card of the rarity above. <strong>Borders</strong> are cosmetics bought in the shop.</p>
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/cardfuse &lt;carte&gt;</td><td>Fusionne des doublons pour ajouter une étoile (max 5). La carte fusionnée devient non-échangeable</td></tr>
-          <tr><td>/cardup &lt;rareté&gt;</td><td>Sacrifie des doublons de cartes 5⭐ pour 1 carte de la rareté au-dessus</td></tr>
-          <tr><td>/cardcustom &lt;carte&gt; &lt;bordure&gt;</td><td>Applique une bordure cosmétique (consommée à l'usage)</td></tr>
-          <tr><td>/cardinventory [membre]</td><td>Tes objets : rolls, fragments mythic, golden rolls, bordures</td></tr>
+          <tr><td>/cardfuse &lt;card&gt;</td><td>Fuses duplicates to add a star (5 max). A fused card can no longer be traded</td></tr>
+          <tr><td>/cardup &lt;rarity&gt;</td><td>Sacrifices duplicate 5⭐ cards for 1 card of the rarity above</td></tr>
+          <tr><td>/cardcustom &lt;card&gt; &lt;border&gt;</td><td>Applies a cosmetic border (consumed on use)</td></tr>
+          <tr><td>/cardinventory [member]</td><td>Your items: rolls, mythic fragments, golden rolls, borders</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="cards-boss">
-      <h2>Boss de raid & système de note</h2>
-      <p>Des <strong>boss de raid</strong> apparaissent dans le salon cartes : jusqu'à 5 joueurs les affrontent en équipe avec leurs cartes et une aptitude (DPS, Gardien/tank, Soigneur). Un lien mène à une page de combat en direct sur le dashboard. À la fin, chaque joueur reçoit une <strong>note de A à F</strong> selon sa contribution (dégâts, tank encaissé, soin prodigué) qui détermine ses récompenses : Essences, rolls, cartes et fragments.</p>
+      <h2>Raid bosses & the grading system</h2>
+      <p><strong>Raid bosses</strong> show up in the card channel: up to 5 players fight them as a team with their cards and a role (DPS, Guardian/tank, Healer). A link opens a live battle page on the dashboard. At the end, every player gets a <strong>grade from A to F</strong> based on their contribution (damage dealt, damage tanked, healing done), and that grade decides their rewards: Essences, rolls, cards and fragments.</p>
       <div class="callout info">
         <span class="ico">ℹ️</span>
-        <p>Mourir plafonne la note à C. Un joueur qui affronte le boss en solo obtient A. Les <strong>events</strong> saisonniers ajoutent <code>/eventfight</code> (combat par élément, 3/jour) et <code>/eventshop</code> (dépense les jetons gagnés).</p>
+        <p>Dying caps your grade at C. A player who takes the boss down solo gets an A. Seasonal <strong>events</strong> add <code>/eventfight</code> (element-based fights, 3 per day) and <code>/eventshop</code> (spend the tokens you win).</p>
       </div>
     </section>
 
     <section id="cards-social">
-      <h2>Wishlist, échanges & classements</h2>
-      <p>Ajoute des cartes à ta <strong>wishlist</strong> pour être notifié quand quelqu'un les tire, <strong>échange</strong> des cartes avec d'autres joueurs (même non-équivalent, ex 4 contre 1), et compare-toi dans les <strong>classements</strong>.</p>
+      <h2>Wishlist, trades & leaderboards</h2>
+      <p>Add cards to your <strong>wishlist</strong> to get notified when someone rolls them, <strong>trade</strong> cards with other players (uneven trades allowed, 4 against 1 for example), and measure yourself against the <strong>leaderboards</strong>.</p>
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/cardwish &lt;carte&gt;</td><td>Ajoute/retire une carte de ta wishlist (ping quand elle est tirée)</td></tr>
-          <tr><td>/cardwishlist [membre]</td><td>Voir une wishlist</td></tr>
-          <tr><td>/cardtrade &lt;joueur&gt;</td><td>Propose un échange multi-cartes (Accepter / Refuser / Contre-offre). Aussi disponible sur le dashboard</td></tr>
-          <tr><td>/cardtop &lt;catégorie&gt;</td><td>Classements : valeur de collection, mythiques, essences, fusions, chance</td></tr>
-          <tr><td>/cardprofile [membre]</td><td>Profil de cartes : stats, puissance de combat, 3 cartes vedettes</td></tr>
-          <tr><td>/cardsuggest / /cardmodify</td><td>Propose l'ajout ou la modification d'une carte (vote de la communauté sur le serveur support)</td></tr>
+          <tr><td>/cardwish &lt;card&gt;</td><td>Adds or removes a card from your wishlist (ping when it gets rolled)</td></tr>
+          <tr><td>/cardwishlist [member]</td><td>View a wishlist</td></tr>
+          <tr><td>/cardtrade &lt;player&gt;</td><td>Offers a multi-card trade (Accept / Decline / Counter-offer). Also available on the dashboard</td></tr>
+          <tr><td>/cardtop &lt;category&gt;</td><td>Leaderboards: collection value, mythics, essences, fusions, luck</td></tr>
+          <tr><td>/cardprofile [member]</td><td>Card profile: stats, combat power, 3 featured cards</td></tr>
+          <tr><td>/cardsuggest / /cardmodify</td><td>Propose a new card or an edit to an existing one (community vote on the support server)</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="cards-commands">
-      <h2>Toutes les commandes cartes</h2>
-      <p>Tape <code>/cardhelp</code> dans Discord pour le guide complet en jeu, ou retrouve chaque commande détaillée sur la <a href="/commandes.html">page Commandes</a>.</p>
+      <h2>Every card command</h2>
+      <p>Type <code>/cardhelp</code> in Discord for the full in-game guide, or find every command explained on the <a href="/commandes.html">Commands page</a>.</p>
     </section>
 
-    <!-- ===== GUILDES ===== -->
+    <!-- ===== GUILDS ===== -->
     <section id="guilds-overview">
-      <h2>🛡️ Guildes (clubs) : vue d'ensemble</h2>
-      <p>Les guildes sont des <strong>clubs cross-serveur</strong> (jusqu'à 30 membres, venant de n'importe quel serveur où TookBot est présent) qui montent en niveau (max 60). En montant, la guilde débloque des <strong>bonus passifs pour tous ses membres</strong> : % d'Essences, % d'XP, cooldown de roll réduit, meilleur loot de boss, banque et boutique de guilde. L'XP de guilde vient des rolls, victoires de boss, roue, fusions et dons.</p>
+      <h2>🛡️ Guilds (clubs): overview</h2>
+      <p>Guilds are <strong>cross-server clubs</strong> (up to 30 members, from any server TookBot is in) that level up (60 max). As it levels, a guild unlocks <strong>passive bonuses for every member</strong>: % Essences, % XP, a shorter roll cooldown, better boss loot, a bank and a guild shop. Guild XP comes from rolls, boss wins, the wheel, fusions and donations.</p>
     </section>
 
     <section id="guilds-commands">
-      <h2>Commandes de guilde</h2>
+      <h2>Guild commands</h2>
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/guild create &lt;nom&gt; [tag]</td><td>Fonde une guilde (coûte des Essences). Tu en deviens le Maître</td></tr>
-          <tr><td>/guild info [nom]</td><td>Fiche d'une guilde : niveau, membres, banque, bonus actifs</td></tr>
-          <tr><td>/guildprofile [nom]</td><td>Profil riche : barre d'XP, puissance totale, membres, banque, boutique</td></tr>
-          <tr><td>/guild top</td><td>Classement des guildes par niveau</td></tr>
-          <tr><td>/guild invite / accept</td><td>Inviter un joueur (Maître/Officier) / rejoindre une invitation</td></tr>
-          <tr><td>/guild apply / applications</td><td>Postuler à une guilde / gérer les candidatures (Maître/Officier)</td></tr>
-          <tr><td>/guild promote / demote / transfer</td><td>Gérer les rôles et la maîtrise (Maître)</td></tr>
-          <tr><td>/guild kick / leave / disband</td><td>Exclure un membre / quitter / dissoudre</td></tr>
-          <tr><td>/guild donate &lt;montant&gt;</td><td>Donne des Essences à la banque (rapporte de l'XP de guilde)</td></tr>
+          <tr><td>/guild create &lt;name&gt; [tag]</td><td>Founds a guild (costs Essences). You become its Master</td></tr>
+          <tr><td>/guild info [name]</td><td>Guild sheet: level, members, bank, active bonuses</td></tr>
+          <tr><td>/guildprofile [name]</td><td>Rich profile: XP bar, total power, members, bank, shop</td></tr>
+          <tr><td>/guild top</td><td>Guild leaderboard by level</td></tr>
+          <tr><td>/guild invite / accept</td><td>Invite a player (Master/Officer) / accept an invitation</td></tr>
+          <tr><td>/guild apply / applications</td><td>Apply to a guild / review applications (Master/Officer)</td></tr>
+          <tr><td>/guild promote / demote / transfer</td><td>Manage roles and hand over the guild (Master)</td></tr>
+          <tr><td>/guild kick / leave / disband</td><td>Remove a member / leave / disband</td></tr>
+          <tr><td>/guild donate &lt;amount&gt;</td><td>Donates Essences to the bank (earns guild XP)</td></tr>
         </tbody>
       </table>
     </section>
@@ -1107,302 +1107,302 @@
     <!-- ===== ENGAGEMENT ===== -->
     <section id="tickets">
       <h2>🎫 Tickets</h2>
-      <p>Panneau de tickets pour que tes membres ouvrent un salon privé avec le staff. Transcripts auto à la fermeture, claim mod, catégories multiples.</p>
+      <p>A ticket panel so your members can open a private channel with the staff. Automatic transcripts on close, mod claiming, multiple categories.</p>
 
-      <h4>Setup en 30 secondes</h4>
+      <h4>Set up in 30 seconds</h4>
       <ol>
-        <li>Tape <code>/ticket</code> dans le salon où tu veux le panneau</li>
-        <li>Builder visuel : choisis titre, description, catégories (Support / Report / Partenariat / etc.)</li>
-        <li>Le panneau est posté avec un bouton "Ouvrir un ticket"</li>
-        <li>Quand un membre clique, TookBot crée un salon privé visible par lui et le rôle staff</li>
+        <li>Type <code>/ticket</code> in the channel where you want the panel</li>
+        <li>Visual builder: pick the title, the description and the categories (Support / Report / Partnership / etc.)</li>
+        <li>The panel is posted with an "Open a ticket" button</li>
+        <li>When a member clicks it, TookBot creates a private channel visible to them and the staff role</li>
       </ol>
 
-      <p>À la fermeture, TookBot génère un fichier HTML transcript et le poste dans le salon de logs.</p>
+      <p>On close, TookBot generates an HTML transcript file and posts it in the log channel.</p>
     </section>
 
     <section id="rolereaction">
-      <h2>🎨 Rôles-réaction</h2>
-      <p>Permet aux membres de s'attribuer eux-mêmes des rôles en cliquant sur des emojis ou des boutons.</p>
+      <h2>🎨 Reaction roles</h2>
+      <p>Lets members give themselves roles by clicking emojis or buttons.</p>
 
       <pre><code>/rolereaction create</code></pre>
 
-      <p>Le builder propose 2 modes :</p>
+      <p>The builder offers 2 modes:</p>
       <ul>
-        <li><strong>Reaction emoji</strong> : ajoute des réactions sur un message, chaque réaction = un rôle</li>
-        <li><strong>Boutons</strong> : message avec boutons colorés, chaque bouton = un rôle</li>
+        <li><strong>Emoji reactions</strong>: reactions are added to a message, each reaction maps to a role</li>
+        <li><strong>Buttons</strong>: a message with coloured buttons, each button maps to a role</li>
       </ul>
 
-      <p>Tu peux créer des <strong>groupes exclusifs</strong> (un seul rôle du groupe à la fois, ex : un seul pronoun, un seul jeu favori).</p>
+      <p>You can create <strong>exclusive groups</strong> (only one role from the group at a time, for example one pronoun or one favourite game).</p>
     </section>
 
     <section id="socialalert">
-      <h2>📢 Alertes Twitch / YouTube / Reddit</h2>
-      <p>TookBot surveille les comptes de ton choix et envoie une notification dans le salon désigné quand :</p>
+      <h2>📢 Twitch / YouTube / Reddit alerts</h2>
+      <p>TookBot watches the accounts you choose and posts a notification in the channel you pick whenever:</p>
       <ul>
-        <li>Un streamer Twitch passe en live</li>
-        <li>Un YouTuber upload une nouvelle vidéo</li>
-        <li>Un compte Reddit poste sur un subreddit donné</li>
+        <li>A Twitch streamer goes live</li>
+        <li>A YouTuber uploads a new video</li>
+        <li>A Reddit account posts in a given subreddit</li>
       </ul>
 
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/socialalert add</td><td>Ajouter une alerte (plateforme + compte + salon)</td></tr>
-          <tr><td>/socialalert list</td><td>Liste des alertes actives sur ce serveur</td></tr>
-          <tr><td>/socialalert remove</td><td>Retirer une alerte par ID</td></tr>
+          <tr><td>/socialalert add</td><td>Add an alert (platform + account + channel)</td></tr>
+          <tr><td>/socialalert list</td><td>Lists the active alerts on this server</td></tr>
+          <tr><td>/socialalert remove</td><td>Removes an alert by ID</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="giveaway">
       <h2>🎉 Giveaways</h2>
-      <p>Tirages au sort avec entries par réaction, reroll, cancel et fin programmée.</p>
+      <p>Giveaways with reaction entries, reroll, cancel and a scheduled ending.</p>
 
       <pre><code>/giveaway create
-  prize: Nitro Boost 1 mois
+  prize: 1 month of Nitro Boost
   winners: 1
   duration: 24h</code></pre>
 
-      <p>Les membres réagissent au message pour participer. À la fin, TookBot pick le ou les gagnants aléatoirement et les annonce.</p>
+      <p>Members react to the message to enter. At the end, TookBot picks the winner or winners at random and announces them.</p>
     </section>
 
     <section id="customcmd">
-      <h2>⚙️ Commandes custom</h2>
-      <p>Crée tes propres commandes <code>/cmd &lt;nom&gt;</code> avec une réponse texte ou un embed depuis le dashboard onglet <strong>Commandes custom</strong>. Utile pour les FAQ, règles, liens utiles.</p>
+      <h2>⚙️ Custom commands</h2>
+      <p>Build your own <code>/cmd &lt;name&gt;</code> commands with a text reply or an embed from the dashboard <strong>Custom commands</strong> tab. Handy for FAQs, rules and useful links.</p>
     </section>
 
-    <!-- ===== MINI-JEUX ===== -->
+    <!-- ===== MINI-GAMES ===== -->
     <section id="duel">
-      <h2>⚔️ Duels de sabres laser</h2>
-      <p>Mini-jeu RPG complet avec combat tour par tour, mindgame attaque/défense, collection de sabres, boutique, missions de pass.</p>
+      <h2>⚔️ Lightsaber duels</h2>
+      <p>A full RPG mini-game with turn-based combat, attack/defence mind games, a saber collection, a shop and pass missions.</p>
 
-      <h4>Principe</h4>
-      <p>Chaque tour, les deux joueurs choisissent secrètement une attaque (haute / médiane / basse) et une défense. Si l'adversaire attaque où tu défends, tu bloques. Sinon il touche. Le premier à 0 PV perd.</p>
+      <h4>How it works</h4>
+      <p>Each turn, both players secretly pick an attack (high / middle / low) and a guard. If your opponent attacks where you are guarding, you block. Otherwise they land the hit. First one down to 0 HP loses.</p>
 
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/duel fight @adversaire</td><td>Défi un autre membre</td></tr>
-          <tr><td>/duel info</td><td>Guide complet du système</td></tr>
-          <tr><td>/profil [membre]</td><td>Stats duel : victoires, défaites, tookcoins, sabre équipé</td></tr>
-          <tr><td>/sabre</td><td>Menu sabre : équipé, collection, boutique</td></tr>
-          <tr><td>/statpoint &lt;stat&gt;</td><td>Attribuer un point gagné en levelant</td></tr>
-          <tr><td>/historique [membre]</td><td>Liste des derniers duels</td></tr>
-          <tr><td>/collection</td><td>Tous tes sabres collectionnés</td></tr>
+          <tr><td>/duel fight @opponent</td><td>Challenges another member</td></tr>
+          <tr><td>/duel info</td><td>Full guide to the system</td></tr>
+          <tr><td>/profil [member]</td><td>Duel stats: wins, losses, tookcoins, equipped saber</td></tr>
+          <tr><td>/sabre</td><td>Saber menu: equipped, collection, shop</td></tr>
+          <tr><td>/statpoint &lt;stat&gt;</td><td>Spend a stat point earned on level up</td></tr>
+          <tr><td>/historique [member]</td><td>Lists your most recent duels</td></tr>
+          <tr><td>/collection</td><td>Every saber you have collected</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="cs2">
       <h2>🎮 Counter-Strike 2</h2>
-      <p>Intégration complète Steam + Faceit avec rank role auto, prix de skins en temps réel et inventaire valorisé.</p>
+      <p>Full Steam + Faceit integration with automatic rank roles, real-time skin prices and a valued inventory.</p>
 
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/cs link &lt;plateforme&gt; &lt;id&gt;</td><td>Lier ton compte Steam ou Faceit</td></tr>
-          <tr><td>/cs unlink &lt;plateforme&gt;</td><td>Retirer un lien</td></tr>
-          <tr><td>/cs stats [membre]</td><td>Stats Steam (rank, hours, K/D) et Faceit (elo, lvl)</td></tr>
-          <tr><td>/cs setrank &lt;elo&gt;</td><td>Déclarer ton Premier ELO + rank role auto</td></tr>
-          <tr><td>/cs rankrole on|off</td><td>Admin : auto-attribution du rank role</td></tr>
-          <tr><td>/cs price &lt;arme&gt; &lt;skin&gt;</td><td>Prix Steam + Skinport (usure et StatTrak supportés)</td></tr>
-          <tr><td>/cs inventory [membre]</td><td>Inventaire CS2 + valeur totale en euros</td></tr>
-          <tr><td>/cs queue</td><td>Voice channel temporaire 5 slots</td></tr>
-          <tr><td>/cs map</td><td>Ban/pick maps entre membres du vocal</td></tr>
-          <tr><td>/cs loadout</td><td>Loadout aléatoire (challenge fun)</td></tr>
+          <tr><td>/cs link &lt;platform&gt; &lt;id&gt;</td><td>Link your Steam or Faceit account</td></tr>
+          <tr><td>/cs unlink &lt;platform&gt;</td><td>Remove a link</td></tr>
+          <tr><td>/cs stats [member]</td><td>Steam stats (rank, hours, K/D) and Faceit stats (elo, level)</td></tr>
+          <tr><td>/cs setrank &lt;elo&gt;</td><td>Declare your Premier ELO + automatic rank role</td></tr>
+          <tr><td>/cs rankrole on|off</td><td>Admin: automatic rank role assignment</td></tr>
+          <tr><td>/cs price &lt;weapon&gt; &lt;skin&gt;</td><td>Steam + Skinport prices (wear and StatTrak supported)</td></tr>
+          <tr><td>/cs inventory [member]</td><td>CS2 inventory plus its total value in euros</td></tr>
+          <tr><td>/cs queue</td><td>Temporary 5-slot voice channel</td></tr>
+          <tr><td>/cs map</td><td>Map ban/pick between members of the voice channel</td></tr>
+          <tr><td>/cs loadout</td><td>Random loadout (fun challenge)</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="lol">
       <h2>🛡️ League of Legends</h2>
-      <p>Profil Riot, rangs Solo/Flex, top masteries et détection de game en cours.</p>
+      <p>Riot profile, Solo/Flex ranks, top masteries and live game detection.</p>
 
       <table class="cmd-table">
-        <thead><tr><th>Commande</th><th>Description</th></tr></thead>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>/lol link &lt;riotid&gt;</td><td>Lier ton Riot ID</td></tr>
-          <tr><td>/lol rank [membre]</td><td>Rang Solo/Flex actuels</td></tr>
-          <tr><td>/lol mastery [membre]</td><td>Top champions par mastery points</td></tr>
-          <tr><td>/lol live [membre]</td><td>Game en cours détectée</td></tr>
+          <tr><td>/lol link &lt;riotid&gt;</td><td>Link your Riot ID</td></tr>
+          <tr><td>/lol rank [member]</td><td>Current Solo/Flex ranks</td></tr>
+          <tr><td>/lol mastery [member]</td><td>Top champions by mastery points</td></tr>
+          <tr><td>/lol live [member]</td><td>Detects a game in progress</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="fun">
-      <h2>🎉 Commandes fun</h2>
-      <p>Mini-commandes sociales pour animer le chat.</p>
+      <h2>🎉 Fun commands</h2>
+      <p>Small social commands to keep the chat alive.</p>
 
       <div class="pill-row">
         <span class="pill">/8ball</span>
-        <span class="pill">/dé</span>
+        <span class="pill">/dice</span>
         <span class="pill">/coinflip</span>
-        <span class="pill">/blague</span>
+        <span class="pill">/joke</span>
         <span class="pill">/ship</span>
-        <span class="pill">/choix</span>
+        <span class="pill">/choice</span>
         <span class="pill">/random</span>
-        <span class="pill">/qui</span>
+        <span class="pill">/who</span>
         <span class="pill">/clap</span>
         <span class="pill">/rate</span>
-        <span class="pill">/citation</span>
-        <span class="pill">/zgeg</span>
+        <span class="pill">/quote</span>
+        <span class="pill">/pp</span>
       </div>
     </section>
 
     <!-- ===== DASHBOARD ===== -->
     <section id="dash-overview">
-      <h2>🎛️ Dashboard : connexion & overview</h2>
-      <p>Va sur <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a> et clique <strong>Connexion Discord</strong>. Tu autorises l'accès en lecture à ta liste de serveurs Discord (uniquement les serveurs où tu es Admin/Owner et où TookBot est invité).</p>
+      <h2>🎛️ Dashboard: login & overview</h2>
+      <p>Head to <a href="https://dashboard.tookbot.click" target="_blank" rel="noopener">dashboard.tookbot.click</a> and click <strong>Log in with Discord</strong>. You grant read access to your Discord server list (only the servers where you are Admin/Owner and where TookBot is invited).</p>
 
-      <p>L'overview te montre :</p>
+      <p>The overview shows you:</p>
       <ul>
-        <li>Stats activité du serveur sélectionné (7 / 30 derniers jours)</li>
-        <li>Heatmap d'activité par heure × jour de la semaine</li>
-        <li>Top commandes utilisées</li>
-        <li>Top auditeurs musique</li>
-        <li>Derniers événements de modération</li>
+        <li>Activity stats for the selected server (last 7 / 30 days)</li>
+        <li>An activity heatmap by hour x day of the week</li>
+        <li>Most used commands</li>
+        <li>Top music listeners</li>
+        <li>The latest moderation events</li>
       </ul>
     </section>
 
     <section id="dash-features">
-      <h2>Activer une fonctionnalité</h2>
-      <p>Onglet <strong>Fonctionnalités</strong>. Chaque feature a un toggle on/off propre au serveur. Si un membre tente d'utiliser une commande désactivée, il reçoit un message discret en MP (pas de spam dans le chat).</p>
+      <h2>Turning a feature on</h2>
+      <p><strong>Features</strong> tab. Every feature has its own on/off toggle per server. If a member tries to use a disabled command, they get a quiet DM about it (no chat spam).</p>
     </section>
 
     <section id="dash-music">
-      <h2>Onglet musique</h2>
-      <p>Voir <a href="#music-dashboard">Pilotage musique depuis le dashboard</a>.</p>
+      <h2>Music tab</h2>
+      <p>See <a href="#music-dashboard">Driving the music from the dashboard</a>.</p>
     </section>
 
     <section id="dash-promo">
       <h2>Promo codes</h2>
-      <p>Onglet <strong>Promo codes</strong> (admin owner uniquement). Génère des codes à distribuer à tes utilisateurs pour leur offrir Premium, XP boost, ou cosmétiques.</p>
+      <p><strong>Promo codes</strong> tab (owner admin only). Generate codes to hand out to your users to grant them Premium, an XP boost or cosmetics.</p>
     </section>
 
     <!-- ===== PREMIUM ===== -->
     <section id="premium">
-      <h2>💎 Premium (cosmétique uniquement)</h2>
-      <p>Premium TookBot débloque uniquement des <strong>cosmétiques</strong> (background de carte de niveau, badges, couleurs custom). Aucune feature fonctionnelle n'est gated derrière Premium.</p>
+      <h2>💎 Premium (cosmetics only)</h2>
+      <p>TookBot Premium unlocks <strong>cosmetics</strong> only (level card backgrounds, badges, custom colours). No functional feature is gated behind Premium.</p>
 
-      <p>Pour acheter : ouvre le profil Discord de TookBot → onglet <strong>Boutique</strong>.</p>
+      <p>To buy it: open the TookBot Discord profile and go to the <strong>Store</strong> tab.</p>
 
       <div class="callout tip">
         <span class="ico">💡</span>
-        <p>Tu peux aussi soutenir le projet sans passer par Premium en faisant un don Ko-fi : <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">ko-fi.com/tookbot</a>. Chaque don finance l'hébergement du VPS.</p>
+        <p>You can also support the project without Premium by donating on Ko-fi: <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">ko-fi.com/tookbot</a>. Every donation goes towards the VPS hosting.</p>
       </div>
     </section>
 
     <section id="donations">
-      <h2>☕ Soutenir via Ko-fi</h2>
-      <p>TookBot est développé en solo et tourne sur un VPS payé de ma poche. Si le bot te rend service, tu peux offrir un café : <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">ko-fi.com/tookbot</a>.</p>
+      <h2>☕ Donate via Ko-fi</h2>
+      <p>TookBot is built solo and runs on a VPS paid out of my own pocket. If the bot is useful to you, you can buy it a coffee: <a href="https://ko-fi.com/tookbot" target="_blank" rel="noopener">ko-fi.com/tookbot</a>.</p>
 
-      <p>Les donateurs sont reconnus :</p>
+      <p>Donors get some recognition:</p>
       <ul>
-        <li>Notification dans le salon support quand un don arrive (avec rôle Donateur)</li>
-        <li>Affichage dans le mur des soutiens sur le site</li>
+        <li>A notification in the support channel when a donation lands (with a Donor role)</li>
+        <li>A spot on the supporters wall on the site</li>
       </ul>
     </section>
 
     <!-- ===== TROUBLESHOOTING ===== -->
     <section id="trouble-music">
-      <h2>🛠 Musique ne marche pas</h2>
+      <h2>🛠 Music is not working</h2>
 
-      <h4>Symptôme : "Cette fonctionnalité a quelques soucis"</h4>
-      <p>Message friendly affiché quand yt-dlp ou ffmpeg échoue. Causes possibles :</p>
+      <h4>Symptom: "This feature is having some trouble"</h4>
+      <p>A friendly message shown when yt-dlp or ffmpeg fails. Possible causes:</p>
       <ul>
-        <li>Vidéo YouTube privée, supprimée ou age-restricted</li>
-        <li>WARP (proxy contournement anti-bot YouTube) déconnecté côté VPS</li>
-        <li>bgutil-pot HTTP server inaccessible</li>
-        <li>yt-dlp pas à jour (rare, auto-update hebdomadaire)</li>
+        <li>The YouTube video is private, deleted or age-restricted</li>
+        <li>WARP (the proxy that works around YouTube anti-bot) is disconnected on the VPS</li>
+        <li>The bgutil-pot HTTP server is unreachable</li>
+        <li>yt-dlp is out of date (rare, it auto-updates weekly)</li>
       </ul>
 
-      <p>Solution rapide : réessaie dans quelques minutes, ou avec une autre vidéo. Si ça persiste, signale sur le serveur support.</p>
+      <p>Quick fix: try again in a few minutes, or with another video. If it keeps happening, report it on the support server.</p>
 
-      <h4>Symptôme : Spotify "pas configuré"</h4>
-      <p>Les clés API Spotify ne sont pas définies côté serveur. Contacte le support pour corriger.</p>
+      <h4>Symptom: Spotify "not configured"</h4>
+      <p>The Spotify API keys are not set on the server side. Contact support to get it fixed.</p>
 
-      <h4>Symptôme : SoundCloud "Host unreachable"</h4>
-      <p>Le proxy WARP est routé pour YouTube uniquement maintenant. SoundCloud passe en direct. Si l'erreur revient, c'est probablement temporaire (DNS / réseau).</p>
+      <h4>Symptom: SoundCloud "Host unreachable"</h4>
+      <p>The WARP proxy is now routed for YouTube only, so SoundCloud goes out directly. If the error comes back, it is most likely temporary (DNS / network).</p>
     </section>
 
     <section id="trouble-perms">
-      <h2>Commande désactivée</h2>
-      <p>Si une commande répond "<em>Cette fonctionnalité est désactivée sur ce serveur</em>" :</p>
+      <h2>Command disabled</h2>
+      <p>If a command replies "<em>This feature is disabled on this server</em>":</p>
       <ol>
-        <li>Va sur dashboard.tookbot.click → ton serveur → onglet <strong>Fonctionnalités</strong></li>
-        <li>Active le toggle de la feature concernée</li>
-        <li>Réessaie la commande (effet immédiat)</li>
+        <li>Go to dashboard.tookbot.click, pick your server, open the <strong>Features</strong> tab</li>
+        <li>Turn the toggle on for that feature</li>
+        <li>Run the command again (it takes effect immediately)</li>
       </ol>
 
-      <p>Si une commande mod répond "<em>Tu n'as pas la permission</em>", vérifie le mapping rôle → commande dans l'onglet <strong>Permissions</strong>.</p>
+      <p>If a mod command replies "<em>You do not have permission</em>", check the role-to-command mapping in the <strong>Permissions</strong> tab.</p>
     </section>
 
     <section id="trouble-bot">
-      <h2>Bot inactif / ne répond pas</h2>
+      <h2>Bot inactive / not responding</h2>
       <ul>
-        <li>Vérifie que TookBot est en ligne dans la liste des membres Discord</li>
-        <li>Vérifie qu'il a accès au salon (permissions Voir le salon + Envoyer messages)</li>
-        <li>Vérifie le statut sur <a href="/status.html">tookbot.click/status</a></li>
-        <li>Si offline depuis longtemps, le VPS a probablement un souci. Contacte le support.</li>
+        <li>Check that TookBot shows as online in the Discord member list</li>
+        <li>Check that it can see the channel (View Channel + Send Messages permissions)</li>
+        <li>Check the status on <a href="/status.html">tookbot.click/status</a></li>
+        <li>If it has been offline for a while, the VPS is probably having trouble. Contact support.</li>
       </ul>
     </section>
 
     <section id="contact">
       <h2>Contact support</h2>
-      <p>Bug, question, suggestion : rejoins le <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener"><strong>serveur de support TookBot</strong></a>.</p>
+      <p>Bug, question or suggestion: join the <a href="https://discord.gg/hx4KEFSGJA" target="_blank" rel="noopener"><strong>TookBot support server</strong></a>.</p>
 
-      <p>Réponses en moins de 24h, souvent dans l'heure. Dev solo accessible directement.</p>
+      <p>Answers within 24h, often within the hour. A solo dev you can reach directly.</p>
 
       <div class="panel">
-        <h3>Avant de demander de l'aide</h3>
+        <h3>Before you ask for help</h3>
         <ul>
-          <li>Vérifie d'abord la <a href="/faq.html">FAQ</a></li>
-          <li>Précise le nom de ton serveur Discord (pour reproduction)</li>
-          <li>Si erreur : screenshot ou message d'erreur exact</li>
-          <li>Si bug musique : URL de la piste qui pose souci</li>
+          <li>Check the <a href="/faq.html">FAQ</a> first</li>
+          <li>Give us the name of your Discord server (so we can reproduce it)</li>
+          <li>If it is an error: a screenshot or the exact error message</li>
+          <li>If it is a music bug: the URL of the track causing trouble</li>
         </ul>
       </div>
     </section>
 
     <nav class="pager">
       <a href="/commandes.html" class="prev">
-        <span class="lbl">← Voir aussi</span>
-        <span class="ttl">Page Commandes (vitrine)</span>
+        <span class="lbl">← See also</span>
+        <span class="ttl">Commands page (showcase)</span>
       </a>
       <a href="/status.html" class="next">
-        <span class="lbl">Suivant →</span>
-        <span class="ttl">Page Status (live)</span>
+        <span class="lbl">Next →</span>
+        <span class="ttl">Status page (live)</span>
       </a>
     </nav>
 
     <div class="callout info" style="margin-top:28px;">
       <span class="ico">📡</span>
-      <p><strong>Status en temps réel :</strong> consulte <a href="/status.html">tookbot.click/status</a> pour voir si le bot, le dashboard et le moteur musique sont opérationnels.</p>
+      <p><strong>Real-time status:</strong> check <a href="/status.html">tookbot.click/status</a> to see whether the bot, the dashboard and the music engine are operational.</p>
     </div>
   </main>
 
-  <!-- ===== TOC droite ===== -->
+  <!-- ===== Right-hand TOC ===== -->
   <aside class="toc-wrap">
     <div class="toc-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      Sur cette page
+      On this page
     </div>
     <ul class="toc-list" id="tocList">
-      <li><a href="#about">À propos de TookBot</a></li>
-      <li><a href="#invite">Inviter TookBot</a></li>
-      <li><a href="#setup">Configuration initiale</a></li>
-      <li><a href="#dashboard">Dashboard web</a></li>
-      <li><a href="#permissions">Permissions et rôles</a></li>
-      <li><a href="#music-overview">Musique : vue d'ensemble</a></li>
-      <li><a href="#music-sources">Sources musicales</a></li>
-      <li><a href="#music-commands">Commandes musique</a></li>
-      <li><a href="#music-stats">Stats d'écoute</a></li>
-      <li><a href="#mod-overview">Modération</a></li>
-      <li><a href="#xp-overview">XP & Niveaux</a></li>
+      <li><a href="#about">About TookBot</a></li>
+      <li><a href="#invite">Invite TookBot</a></li>
+      <li><a href="#setup">First-time setup</a></li>
+      <li><a href="#dashboard">Web dashboard</a></li>
+      <li><a href="#permissions">Permissions and roles</a></li>
+      <li><a href="#music-overview">Music: overview</a></li>
+      <li><a href="#music-sources">Music sources</a></li>
+      <li><a href="#music-commands">Music commands</a></li>
+      <li><a href="#music-stats">Listening stats</a></li>
+      <li><a href="#mod-overview">Moderation</a></li>
+      <li><a href="#xp-overview">XP & levels</a></li>
       <li><a href="#tickets">Tickets</a></li>
-      <li><a href="#rolereaction">Rôles-réaction</a></li>
-      <li><a href="#socialalert">Alertes social</a></li>
-      <li><a href="#duel">Duels sabres</a></li>
+      <li><a href="#rolereaction">Reaction roles</a></li>
+      <li><a href="#socialalert">Social alerts</a></li>
+      <li><a href="#duel">Lightsaber duels</a></li>
       <li><a href="#cs2">Counter-Strike 2</a></li>
       <li><a href="#lol">League of Legends</a></li>
       <li><a href="#premium">Premium</a></li>
@@ -1411,14 +1411,14 @@
   </aside>
 </div>
 
-<!-- Mobile drawer (copie de la sidebar pour mobile) -->
+<!-- Mobile drawer (a copy of the sidebar for mobile) -->
 <div class="mobile-drawer" id="mobileDrawer"></div>
 
 <script>
   // ===== Toggle theme (optional, force dark for docs)
-  // Docs reste en dark theme pour matcher Ticket King
+  // Docs stays on the dark theme to match Ticket King
 
-  // ===== Sidebar : active link selon scroll
+  // ===== Sidebar: highlight the active link on scroll
   const sections = document.querySelectorAll('section[id]');
   const sidebarLinks = document.querySelectorAll('.sidebar-link[href^="#"]');
   const tocLinks = document.querySelectorAll('.toc-list a[href^="#"]');
@@ -1452,16 +1452,16 @@
   if (input) {
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase();
-      // Filtre sidebar links
+      // Filter the sidebar links
       sidebarLinks.forEach(l => {
         const visible = !q || l.textContent.toLowerCase().includes(q);
         l.style.display = visible ? '' : 'none';
       });
-      // Scroll vers la premiere section qui match si query non vide
+      // Scroll to the first matching section when the query is not empty
       if (q && q.length >= 2) {
         for (const s of sections) {
           if (s.textContent.toLowerCase().includes(q)) {
-            // ne scroll pas auto, juste highlight
+            // no auto scroll, just highlight
             break;
           }
         }
@@ -1489,7 +1489,7 @@
 </script>
 
 <script>
-  /* Parallax multi-couches du fond au scroll */
+  /* Multi-layer background parallax on scroll */
   (function(){
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const layers = [...document.querySelectorAll('.bg-fx [data-par]')].map(el => ({ el, par: parseFloat(el.dataset.par) || 0 }));
