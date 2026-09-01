@@ -413,7 +413,8 @@ def build_boss_panel(bot, boss, phase_text="", log=None, battle=False, locale=No
     `header` = what used to be the message `content` (a V2 message has none):
     rendered as the first text block, above the title. V2 has no accent colour
     and no inline columns: inline fields are merged on one line by ``Panel``,
-    the 3 roster columns become 3 stacked blocks.
+    and the roster shows one entry per player (name + power, then HP / ATK)
+    instead of the 3 aligned columns the embed used.
     """
     boss = card_boss_get(boss["id"])
     loc = locale or _bloc(boss)
@@ -466,56 +467,41 @@ def build_boss_panel(bot, boss, phase_text="", log=None, battle=False, locale=No
                     f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko} "
                     f"🗡️ {_fmt(p['atk'])}\n"
                     f"HP ❤️ {bar} **{_fmt(max(0, p['hp']))}**")
-            pan.field(t("guilds.boss.f_team", loc, count=len(parts)), "​")
-            if len(blocks) <= 8:
-                # 1 block per player -> uniform spacing
-                for b in blocks:
-                    pan.text(b)
-            else:
-                # too many players: group them to keep the panel compact
-                cur = ""
-                for b in blocks:
-                    add = ("\n" if cur else "") + b
-                    if cur and len(cur) + len(add) > 950:
-                        pan.text(cur); cur = b
-                    else:
-                        cur += add
-                if cur:
-                    pan.text(cur)
+            # One block for the whole roster: a block per player made Discord
+            # insert spacing between each and stretched the message.
+            # Chunked only if the 4000-char budget requires it.
+            pan.field(t("guilds.boss.f_team", loc, count=len(parts)),
+                      "\n".join(blocks) if len("\n".join(blocks)) <= 1600
+                      else "\n".join(blocks)[:1600])
         else:
-            # PREP: 3 stacked blocks (V2 has no Discord aligned inline columns),
-            # power under the nickname. Graceful degradation vs the block budget:
-            # emojis -> text -> nothing (power always visible even with 5 players
-            # or 7 digit power values).
-            def _name_cells(power_mode):  # 'emoji' | 'plain' | None
-                cells = []
+            # PREP: one line per player. The pre-V2 layout used 3 Discord inline
+            # columns (names / HP / ATK) aligned with zero-width padding; V2 has
+            # no inline columns, so stacking them detached each value from its
+            # player and made the panel enormous. Everything is grouped per
+            # player instead. Graceful degradation on the character budget:
+            # emoji power digits -> plain number -> no power at all.
+            def _roster(power_mode):  # 'emoji' | 'plain' | None
+                lines = []
                 for p in plist:
                     ko = " 💀" if p["hp"] <= 0 else ""
-                    line = f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko}"
+                    head = (f"{_elem(bot, p['element'])} **{p['name']}**"
+                            f"{_apt_badge(p.get('aptitude'))}{ko}")
                     pw = combat_power(p.get('max_hp') or p['hp'], p['atk'])
                     if power_mode == "emoji":
-                        line += f"\n⚡{_power_digits(bot, pw)}"
+                        head += f" ⚡{_power_digits(bot, pw)}"
                     elif power_mode == "plain":
-                        line += f"\n⚡ {_fmt(pw)}"
-                    cells.append(line)
-                return cells
-            mode = "emoji"
-            name_cells = _name_cells("emoji")
-            if len("​\n" + "\n".join(name_cells)) > 1000:
-                mode = "plain"
-                name_cells = _name_cells("plain")
-                if len("​\n" + "\n".join(name_cells)) > 1000:
-                    mode = None
-                    name_cells = _name_cells(None)
-            pad = "\n​" if mode else ""
-            hp_cells = [f"{_fmt(max(0, p['hp']))}{pad}" for p in plist]
-            atk_cells = [f"{_fmt(p['atk'])}{pad}" for p in plist]
+                        head += f" ⚡ {_fmt(pw)}"
+                    lines.append(
+                        f"{head}\n"
+                        f"❤️ {_fmt(max(0, p['hp']))}  ·  🗡️ {_fmt(p['atk'])}")
+                return lines
+            roster = _roster("emoji")
+            if len("\n".join(roster)) > 1200:
+                roster = _roster("plain")
+                if len("\n".join(roster)) > 1200:
+                    roster = _roster(None)
             pan.field(t("guilds.boss.f_team", loc, count=len(parts)),
-                      "​\n" + "\n".join(name_cells))
-            pan.field(t("guilds.boss.f_hp_col", loc),
-                      "​\n" + "\n".join(hp_cells))
-            pan.field(t("guilds.boss.f_atk_col", loc),
-                      "​\n" + "\n".join(atk_cells))
+                      "\n".join(roster))
         total_pw = sum(combat_power(p.get('max_hp') or p['hp'], p['atk']) for p in parts)
         pan.field(t("guilds.boss.f_party_power", loc), _power_digits(bot, total_pw))
     if log:
