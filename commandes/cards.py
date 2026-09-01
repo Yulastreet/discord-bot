@@ -23,6 +23,7 @@ from database import (
 )
 
 from services.i18n import t, ti, locale_of, guild_locale, DEFAULT_LOCALE, universe_label
+from services.ui_v2 import Panel, row
 
 
 # Reliable repo root. __file__ of this module resolves to a wrong cwd on the VPS
@@ -32,6 +33,9 @@ from services.card_render import _ROOT as _REPO_ROOT
 
 ROLL_COOLDOWN_SECONDS = 3600  # 1h, per server
 
+# Rarity / border palettes. Components V2 containers are built WITHOUT an accent
+# colour (deliberate product choice), so these are no longer used for messages;
+# they stay as the reference palette for the renderers and the dashboard.
 RARITY_COLORS = {
     "common":    0x9aa0a6,  # grey
     "rare":      0x4cb5f9,  # blue
@@ -40,7 +44,7 @@ RARITY_COLORS = {
     "mythic":    0xff3d57,  # red
     "secret":    0x1c1c1e,  # deep black (lets the rainbow border shine)
 }
-# Embed color per border (matches each cosmetic's visual)
+# Colour per border (matches each cosmetic's visual)
 BORDER_COLORS = {
     "gold":  0xFFC83D,  # gold
     "leaf":  0x6AB04C,  # leaf green
@@ -58,7 +62,7 @@ RARITY_EMOJIS = {
     "secret":    "🌈",  # unicode fallback if the custom 'rainbow' emoji is unavailable
 }
 
-# Rarity -> custom Discord emoji name for the embed THUMBNAIL
+# Rarity -> custom Discord emoji name for the panel THUMBNAIL
 _RARITY_CUSTOM_NAME = {
     "common":    "commun",
     "rare":      "rare",
@@ -237,7 +241,7 @@ def _power_emoji_str(bot, n) -> str:
 
 def _get_rarity_custom_emoji_url(bot, rarity: str) -> str:
     """Look up a custom emoji across every guild of the bot (support server included).
-    Caches the CDN URL (gif if animated, png otherwise). For embed thumbnail use."""
+    Caches the CDN URL (gif if animated, png otherwise). For panel thumbnail use."""
     if rarity in _rarity_emoji_cache:
         return _rarity_emoji_cache[rarity]
     expected = _RARITY_CUSTOM_NAME.get(rarity)
@@ -263,12 +267,18 @@ def _is_owner(user_id: int | str) -> bool:
 SUPPORT_INVITE_URL = os.getenv("SUPPORT_INVITE_URL", "https://discord.gg/hx4KEFSGJA")
 
 
+def _support_button(locale=None, label=None):
+    """Link button to the support server (roll/wishlist perks)."""
+    return discord.ui.Button(label=(label or t("cards.support.join_button", locale)),
+                             style=discord.ButtonStyle.link,
+                             url=SUPPORT_INVITE_URL)
+
+
 def _support_view(locale=None, label=None):
-    """View with a link button to the support server (roll/wishlist perks)."""
+    """Classic view holding the support link button. Only used on plain-text
+    messages (no panel), which may still carry `content=`."""
     v = discord.ui.View()
-    v.add_item(discord.ui.Button(label=(label or t("cards.support.join_button", locale)),
-                                  style=discord.ButtonStyle.link,
-                                  url=SUPPORT_INVITE_URL))
+    v.add_item(_support_button(locale, label))
     return v
 
 
@@ -287,7 +297,7 @@ def _is_support_member(bot, user_id) -> bool:
 
 
 def _resolve_card_image(card: dict):
-    """Return (http_url_or_None, discord.File_or_None) for embed set_image.
+    """Return (http_url_or_None, discord.File_or_None) for Panel.image().
 
     LOCAL RENDER FIRST: we NEVER hotlink an external host as long as a local
     render exists (anti dead links). Order:
@@ -347,9 +357,52 @@ def _resolve_card_image(card: dict):
 
 # ===== Trade card viewer (paginated navigation, PERSISTENT) =====
 # Persistent view: fixed custom_ids + state (trade_id, index) re-read from the
-# embed footer on every click -> survives pm2 restarts and timeouts (no more
+# message text on every click -> survives pm2 restarts and timeouts (no more
 # "interaction failed" when going back).
 import re as _re_trade
+
+
+def _v2_message_text(message) -> str:
+    """Flatten every text block of a Components V2 message.
+
+    Replaces the old ``message.embeds[0]`` reads: the persistent views recover
+    their state (trade id, page counter) from the rendered panel text, which
+    still carries the "Trade #<id>" marker and the "<index>/<total>" counter.
+
+    Messages posted BEFORE the V2 migration still carry a classic embed, so the
+    embed text is folded in too: their buttons keep working after the deploy.
+    """
+    parts: list[str] = []
+
+    def _walk(items):
+        for it in items or ():
+            content = getattr(it, "content", None)
+            if isinstance(content, str):
+                parts.append(content)
+            for attr in ("children", "items"):
+                sub = getattr(it, attr, None)
+                if sub:
+                    _walk(sub)
+            accessory = getattr(it, "accessory", None)
+            if accessory is not None:
+                _walk((accessory,))
+
+    try:
+        _walk(getattr(message, "components", None))
+    except Exception as e:
+        print(f"[cards] v2 text walk: {type(e).__name__}: {e}")
+    # Legacy fallback: pre-V2 messages (embed title / fields / footer).
+    try:
+        for emb in (getattr(message, "embeds", None) or ()):
+            parts.append(emb.title or "")
+            parts.append(emb.description or "")
+            for f in (emb.fields or ()):
+                parts.append(f"{f.name or ''}\n{f.value or ''}")
+            if emb.footer:
+                parts.append(emb.footer.text or "")
+    except Exception as e:
+        print(f"[cards] legacy embed walk: {type(e).__name__}: {e}")
+    return "\n".join(p for p in parts if p)
 
 
 def _trade_card_entries(trade_id, sender_name, receiver_name, locale=None):
@@ -370,25 +423,24 @@ def _trade_card_entries(trade_id, sender_name, receiver_name, locale=None):
     return entries
 
 
-def _trade_card_embed(trade_id, idx, entries, locale=None):
+def _trade_card_panel(trade_id, idx, entries, locale=None):
     if not entries:
         return None
     idx = idx % len(entries)
     e = entries[idx]
     emoji = RARITY_EMOJIS.get(e["rarity"], "⚪")
     qty = f" ×{e['qty']}" if e["qty"] > 1 else ""
-    embed = discord.Embed(
-        title=f"{emoji} {e['name']}{qty}"[:256],
-        description=t("cards.trade.card_desc", locale, side=e["side"],
-                      rarity=(e["rarity"] or "?").upper(), universe=e["universe"]),
-        color=RARITY_COLORS.get(e["rarity"], 0xC8F050))
+    p = Panel(
+        f"{emoji} {e['name']}{qty}"[:256],
+        t("cards.trade.card_desc", locale, side=e["side"],
+          rarity=(e["rarity"] or "?").upper(), universe=e["universe"]))
     if e["url"]:
-        embed.set_image(url=e["url"])
+        p.image(e["url"])
     # footer = persistent state (parsed on the next click). Any translation MUST
     # keep the "Trade #<id>" marker and the "<index>/<total>" counter.
-    embed.set_footer(text=t("cards.trade.card_footer", locale, trade_id=trade_id,
-                            index=idx + 1, total=len(entries)))
-    return embed
+    p.footer(t("cards.trade.card_footer", locale, trade_id=trade_id,
+               index=idx + 1, total=len(entries)))
+    return p
 
 
 def _trade_entries_for(interaction, trade_id):
@@ -406,44 +458,51 @@ def _trade_entries_for(interaction, trade_id):
     return _trade_card_entries(trade_id, sname, rname, locale=loc)
 
 
-class TradeCardsNavView(discord.ui.View):
-    """Persistent (timeout=None, fixed custom_ids). A single instance registered
-    at boot via bot.add_view handles ALL trade viewers."""
-    def __init__(self):
-        super().__init__(timeout=None)
+async def _trade_card_nav(interaction: discord.Interaction, direction: int):
+    text = _v2_message_text(interaction.message)
+    # Locale-tolerant: only the trade id and the counter are required.
+    m = _re_trade.search(r"Trade #(\d+)\D+(\d+)\s*/\s*(\d+)", text)
+    if not m:
+        await interaction.response.defer(); return
+    tid = int(m.group(1)); cur = int(m.group(2)) - 1
+    entries = _trade_entries_for(interaction, tid)
+    if not entries:
+        await interaction.response.send_message(
+            ti(interaction, "cards.trade.no_cards_left"), ephemeral=True); return
+    new_idx = (cur + direction) % len(entries)
+    panel = _trade_card_panel(tid, new_idx, entries, locale=locale_of(interaction))
+    # content/embeds cleared: a V2 message cannot carry either, and a pre-V2
+    # message still has them (they would make the edit fail).
+    await interaction.response.edit_message(
+        content=None, embeds=[], view=TradeCardsNavView(panel))
 
-    async def _nav(self, interaction: discord.Interaction, direction: int):
-        emb = interaction.message.embeds[0] if interaction.message.embeds else None
-        ft = (emb.footer.text if emb and emb.footer else "") or ""
-        # Locale-tolerant: only the trade id and the counter are required.
-        m = _re_trade.search(r"Trade #(\d+)\D+(\d+)\s*/\s*(\d+)", ft)
-        if not m:
-            await interaction.response.defer(); return
-        tid = int(m.group(1)); cur = int(m.group(2)) - 1
-        entries = _trade_entries_for(interaction, tid)
-        if not entries:
-            await interaction.response.send_message(
-                ti(interaction, "cards.trade.no_cards_left"), ephemeral=True); return
-        new_idx = (cur + direction) % len(entries)
-        await interaction.response.edit_message(
-            embed=_trade_card_embed(tid, new_idx, entries, locale=locale_of(interaction)),
-            view=self)
+
+class _TradeCardsNavRow(discord.ui.ActionRow):
+    """Navigation row. custom_ids kept identical to the pre-V2 version."""
 
     @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, custom_id="trade_card_prev")
     async def prev_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-        await self._nav(interaction, -1)
+        await _trade_card_nav(interaction, -1)
 
     @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, custom_id="trade_card_next")
     async def next_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
-        await self._nav(interaction, +1)
+        await _trade_card_nav(interaction, +1)
 
 
-def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
-                     essence_gain=0, already_owned=False, locale=None):
-    """Build the embed of a roll (same format as /roll). Reused by /roll, the
-    golden roll and the dashboard simulation. Returns (embed, img_file, view)."""
+class TradeCardsNavView(discord.ui.LayoutView):
+    """Persistent (timeout=None, fixed custom_ids). A single instance registered
+    at boot via bot.add_view handles ALL trade viewers."""
+    def __init__(self, panel=None):
+        super().__init__(timeout=None)
+        self.add_item((panel or Panel()).container())
+        self.add_item(_TradeCardsNavRow())
+
+
+def build_roll_view(bot, card, roller_name, roller_avatar_url=None,
+                    essence_gain=0, already_owned=False, locale=None):
+    """Build the panel of a roll (same format as /roll). Reused by /roll, the
+    golden roll and the dashboard simulation. Returns (layout_view, img_file)."""
     rarity = card.get("rarity", "common")
-    color = RARITY_COLORS.get(rarity, 0x9aa0a6)
     emoji = _get_rarity_title_emoji(bot, rarity)
     origin = card.get("subtitle") or "?"
     universe = universe_label(card.get("universe"), locale) or "?"
@@ -461,19 +520,17 @@ def build_roll_embed(bot, card, roller_name, roller_avatar_url=None,
         desc_parts.append(f"_**{flavor}**_")
     desc_parts.append(t("cards.roll.card_desc", locale, rarity=rarity_display,
                         origin=origin, universe=universe, essence_line=essence_line))
-    embed = discord.Embed(title=f"{emoji} {card['name']}"[:256],
-                          description="\n\n".join(desc_parts), color=color)
+    p = Panel(f"{emoji} {card['name']}"[:256], "\n\n".join(desc_parts))
     thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
     if thumb_url:
-        embed.set_thumbnail(url=thumb_url)
+        p.thumbnail(thumb_url)
     img_url, img_file = _resolve_card_image(card)
     if img_url:
-        embed.set_image(url=img_url)
+        p.image(img_url)
     elif img_file:
-        embed.set_image(url="attachment://card.png")
-    embed.set_footer(text=t("cards.roll.belongs_to", locale, name=roller_name),
-                     icon_url=roller_avatar_url)
-    return embed, img_file, OwnersView(card["id"], card["name"], locale=locale)
+        p.image("attachment://card.png")
+    p.footer(t("cards.roll.belongs_to", locale, name=roller_name))
+    return OwnersView(p, card["id"], card["name"], locale=locale), img_file
 
 
 async def _persist_attachment(att) -> str | None:
@@ -668,10 +725,10 @@ def _check_channel(interaction: discord.Interaction) -> tuple[bool, str | None]:
 _DASHBOARD_URL = (os.getenv("DASHBOARD_URL") or "https://dashboard.tookbot.click").rstrip("/")
 
 
-class OwnersView(discord.ui.View):
-    """'View owners' + 'Edit' buttons under a card embed."""
+class _OwnersRow(discord.ui.ActionRow):
+    """'View owners' + 'Edit' buttons under a card panel."""
     def __init__(self, card_id: int, card_name: str, locale=None):
-        super().__init__(timeout=600)
+        super().__init__()
         self.card_id = card_id
         self.card_name = card_name
         self._show_owners.label = t("cards.owners.btn_view", locale)
@@ -696,17 +753,22 @@ class OwnersView(discord.ui.View):
             qty = o["qty"]
             suffix = f" ×{qty}" if qty > 1 else ""
             lines.append(f"<@{uid}>{suffix}")
-        embed = discord.Embed(
-            title=ti(interaction, "cards.owners.title", name=self.card_name),
-            description="\n".join(lines)[:4000],
-            color=0xB9F23A,
-        )
+        p = Panel(ti(interaction, "cards.owners.title", name=self.card_name),
+                  "\n".join(lines)[:4000])
         if len(owners) >= 50:
-            embed.set_footer(text=ti(interaction, "cards.owners.footer_limit"))
+            p.footer(ti(interaction, "cards.owners.footer_limit"))
         await interaction.response.send_message(
-            embed=embed, ephemeral=True,
+            view=p.view(), ephemeral=True,
             allowed_mentions=discord.AllowedMentions.none(),
         )
+
+
+class OwnersView(discord.ui.LayoutView):
+    """Card panel + the 'View owners' / 'Edit' buttons."""
+    def __init__(self, panel: Panel, card_id: int, card_name: str, locale=None):
+        super().__init__(timeout=600)
+        self.add_item(panel.container())
+        self.add_item(_OwnersRow(card_id, card_name, locale=locale))
 
 
 def setup_cards_commands(bot, deps):
@@ -966,10 +1028,9 @@ def setup_cards_commands(bot, deps):
         except Exception as e:
             print(f"[roll total] err: {e}")
 
-        # Minimalist embed
+        # Minimalist panel
         loc = locale_of(interaction)
         rarity = card.get("rarity", "common")
-        color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = _get_rarity_title_emoji(bot, rarity)
         origin = card.get("subtitle") or "?"
         universe_name = universe_label(card.get("universe"), loc) or "?"
@@ -992,28 +1053,22 @@ def setup_cards_commands(bot, deps):
                             origin=origin, universe=universe_name,
                             essence_line=essence_line))
         desc = "\n\n".join(desc_parts)
-        embed = discord.Embed(
-            title=f"{emoji} {card['name']}"[:256],
-            description=desc,
-            color=color,
-        )
+        p = Panel(f"{emoji} {card['name']}"[:256], desc)
         # Thumbnail = animated custom emoji (rarity) when available
         thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
         if thumb_url:
-            embed.set_thumbnail(url=thumb_url)
+            p.thumbnail(thumb_url)
         img_url, img_file = _resolve_card_image(card)
         if img_url:
-            embed.set_image(url=img_url)
+            p.image(img_url)
         elif img_file:
-            embed.set_image(url="attachment://card.png")
-        avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
-        embed.set_footer(text=t("cards.roll.belongs_to", loc, name=interaction.user.display_name),
-                          icon_url=avatar_url)
-        view = OwnersView(card["id"], card["name"], locale=loc)
+            p.image("attachment://card.png")
+        p.footer(t("cards.roll.belongs_to", loc, name=interaction.user.display_name))
+        view = OwnersView(p, card["id"], card["name"], locale=loc)
         if img_file:
-            await interaction.response.send_message(embed=embed, file=img_file, view=view)
+            await interaction.response.send_message(view=view, file=img_file)
         else:
-            await interaction.response.send_message(embed=embed, view=view)
+            await interaction.response.send_message(view=view)
 
         # Wishlist notification: ping the people who want this card (roller excluded)
         try:
@@ -1100,7 +1155,7 @@ def setup_cards_commands(bot, deps):
                 return sorted(rows, key=lambda c: -fusion_map.get(c["card_id"], 0))
             return rows
 
-        def _build_embed(rows, cat, page, total_pages, name_q=None, sort_mode=None):
+        def _build_panel(rows, cat, page, total_pages, name_q=None, sort_mode=None):
             page_rows = rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
             desc = t("cards.collection.count", loc, total=total, unique=len(rows))
             if rar_val:
@@ -1112,10 +1167,6 @@ def setup_cards_commands(bot, deps):
             if sort_mode:
                 desc += t("cards.collection.sorted_by", loc,
                           sort=t("cards.collection.sort_name." + sort_mode, loc))
-            embed = discord.Embed(
-                title=t("cards.collection.title", loc, name=target_user.display_name),
-                description=desc, color=0xB9F23A,
-            )
             lines = []
             for c in page_rows:
                 emoji = RARITY_EMOJIS.get(c["rarity"], "⚪")
@@ -1136,15 +1187,62 @@ def setup_cards_commands(bot, deps):
                     nt = c.get("nt_count", 0)
                     nt_tag = f" 🔒{nt}" if nt > 0 else ""
                     lines.append(f"{pre} **{c['name']}**{cosmetic_tag}{count}{nt_tag} · _{uni}_")
-            embed.description += "\n\n" + ("\n".join(lines) if lines
-                                            else t("cards.collection.empty", loc))
-            embed.set_footer(text=t("cards.collection.footer", loc,
-                                    page=page, total=total_pages))
+            body = desc + "\n\n" + ("\n".join(lines) if lines
+                                    else t("cards.collection.empty", loc))
+            p = Panel(t("cards.collection.title", loc, name=target_user.display_name),
+                      body)
+            p.footer(t("cards.collection.footer", loc, page=page, total=total_pages))
             if target_user.display_avatar:
-                embed.set_thumbnail(url=str(target_user.display_avatar.url))
-            return embed
+                p.thumbnail(str(target_user.display_avatar.url))
+            return p
 
-        class _CollecView(discord.ui.View):
+        class _CollecNavRow(discord.ui.ActionRow):
+            @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
+            async def prev_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                v = self.view
+                if not await v._guard(interaction): return
+                if v.page > 1:
+                    v.page -= 1; v._rebuild()
+                    await interaction.response.edit_message(view=v)
+
+            @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
+            async def counter(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                pass
+
+            @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+            async def next_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                v = self.view
+                if not await v._guard(interaction): return
+                if v.page < v.total_pages:
+                    v.page += 1; v._rebuild()
+                    await interaction.response.edit_message(view=v)
+
+            @discord.ui.button(label="🔃 Sort", style=discord.ButtonStyle.secondary)
+            async def trier_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                v = self.view
+                if not await v._guard(interaction): return
+                idx = _SORT_CYCLE.index(v.sort_mode)
+                v.sort_mode = _SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)]
+                v.rows = _sorted_rows(v.base_rows, v.sort_mode)
+                v.page = 1
+                v.total_pages = max(1, (len(v.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
+                v._rebuild()
+                await interaction.response.edit_message(view=v)
+
+        class _CollecToolsRow(discord.ui.ActionRow):
+            @discord.ui.button(label="📚 Browse origins", style=discord.ButtonStyle.success)
+            async def browse_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                v = self.view
+                if not await v._guard(interaction): return
+                await interaction.response.edit_message(view=_OriginsView())
+
+            @discord.ui.button(label="🔍 Search", style=discord.ButtonStyle.secondary)
+            async def search_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
+                v = self.view
+                if not await v._guard(interaction): return
+                await interaction.response.send_modal(_SearchCardModal(v.cat, v.sort_mode))
+
+        class _CollecView(discord.ui.LayoutView):
             def __init__(self, rows, cat, name_q=None, sort_mode=None):
                 super().__init__(timeout=300)
                 self.base_rows = rows
@@ -1154,25 +1252,33 @@ def setup_cards_commands(bot, deps):
                 self.rows = _sorted_rows(rows, sort_mode)
                 self.page = 1
                 self.total_pages = max(1, (len(self.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
-                self.prev_btn.label = t("cards.collection.btn.prev", loc)
-                self.next_btn.label = t("cards.collection.btn.next", loc)
-                self.browse_btn.label = t("cards.collection.btn.browse", loc)
-                self.search_btn.label = t("cards.collection.btn.search", loc)
-                self._refresh()
+                self.nav = _CollecNavRow()
+                self.tools = _CollecToolsRow()
+                self.nav.prev_btn.label = t("cards.collection.btn.prev", loc)
+                self.nav.next_btn.label = t("cards.collection.btn.next", loc)
+                self.tools.browse_btn.label = t("cards.collection.btn.browse", loc)
+                self.tools.search_btn.label = t("cards.collection.btn.search", loc)
                 # Link button to the target user's dashboard binder
                 _dash = os.getenv("DASHBOARD_URL", "https://dashboard.tookbot.click").rstrip("/")
-                self.add_item(discord.ui.Button(
+                self.binder = row(discord.ui.Button(
                     label=t("cards.collection.btn.binder", loc), style=discord.ButtonStyle.link,
-                    url=f"{_dash}/cards/collection/{target_user.id}", row=2))
+                    url=f"{_dash}/cards/collection/{target_user.id}"))
+                self._rebuild()
 
-            def _refresh(self):
-                self.prev_btn.disabled = (self.page <= 1)
-                self.next_btn.disabled = (self.page >= self.total_pages)
-                self.counter.label = f"{self.page} / {self.total_pages}"
-                self.trier_btn.label = _sort_btn_label(self.sort_mode)
+            def _rebuild(self):
+                """Swap the container for the current page and refresh the nav state."""
+                self.clear_items()
+                self.nav.prev_btn.disabled = (self.page <= 1)
+                self.nav.next_btn.disabled = (self.page >= self.total_pages)
+                self.nav.counter.label = f"{self.page} / {self.total_pages}"
+                self.nav.trier_btn.label = _sort_btn_label(self.sort_mode)
+                self.add_item(self._panel().container())
+                self.add_item(self.nav)
+                self.add_item(self.tools)
+                self.add_item(self.binder)
 
-            def _embed(self):
-                return _build_embed(self.rows, self.cat, self.page, self.total_pages,
+            def _panel(self):
+                return _build_panel(self.rows, self.cat, self.page, self.total_pages,
                                     name_q=self.name_q, sort_mode=self.sort_mode)
 
             async def _guard(self, interaction):
@@ -1182,54 +1288,12 @@ def setup_cards_commands(bot, deps):
                     return False
                 return True
 
-            @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, row=0)
-            async def prev_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
-                if not await self._guard(interaction): return
-                if self.page > 1:
-                    self.page -= 1; self._refresh()
-                    await interaction.response.edit_message(embed=self._embed(), view=self)
-
-            @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=0)
-            async def counter(self, interaction: discord.Interaction, btn: discord.ui.Button):
-                pass
-
-            @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=0)
-            async def next_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
-                if not await self._guard(interaction): return
-                if self.page < self.total_pages:
-                    self.page += 1; self._refresh()
-                    await interaction.response.edit_message(embed=self._embed(), view=self)
-
-            @discord.ui.button(label="🔃 Sort", style=discord.ButtonStyle.secondary, row=0)
-            async def trier_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
-                if not await self._guard(interaction): return
-                idx = _SORT_CYCLE.index(self.sort_mode)
-                self.sort_mode = _SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)]
-                self.rows = _sorted_rows(self.base_rows, self.sort_mode)
-                self.page = 1
-                self.total_pages = max(1, (len(self.rows) + PAGE_SIZE - 1) // PAGE_SIZE)
-                self._refresh()
-                await interaction.response.edit_message(embed=self._embed(), view=self)
-
-            @discord.ui.button(label="📚 Browse origins", style=discord.ButtonStyle.success, row=1)
-            async def browse_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
-                if not await self._guard(interaction): return
-                view = _OriginsView()
-                await interaction.response.edit_message(
-                    embed=view.build_embed(), view=view)
-
-            @discord.ui.button(label="🔍 Search", style=discord.ButtonStyle.secondary, row=1)
-            async def search_btn(self, interaction: discord.Interaction, btn: discord.ui.Button):
-                if not await self._guard(interaction): return
-                await interaction.response.send_modal(_SearchCardModal(self.cat, self.sort_mode))
-
         def _make_collec_view(cat, name_q=None, sort_mode=None):
             rows = _grouped_rows(cat, name_q)
-            view = _CollecView(rows, cat, name_q=name_q, sort_mode=sort_mode)
-            return view._embed(), view
+            return _CollecView(rows, cat, name_q=name_q, sort_mode=sort_mode)
 
         # Origins browser ("Browse Series" style)
-        class _OriginsView(discord.ui.View):
+        class _OriginsView(discord.ui.LayoutView):
             def __init__(self, query=None):
                 super().__init__(timeout=300)
                 self.query = (query or "").strip()
@@ -1241,9 +1305,9 @@ def setup_cards_commands(bot, deps):
                 self.owned = dict(user_collection_origins(target_user.id))
                 self.page = 0
                 self.per = 25
-                self._build_select()
+                self._rebuild()
 
-            def build_embed(self):
+            def build_panel(self):
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
                 lines = "\n".join(
@@ -1251,17 +1315,17 @@ def setup_cards_commands(bot, deps):
                 ) or t("cards.collection.origins.no_results", loc)
                 q_txt = (t("cards.collection.origins.query_suffix", loc, query=self.query)
                          if self.query else "")
-                return discord.Embed(
-                    title=t("cards.collection.origins.title", loc,
-                            name=target_user.display_name),
-                    description=t("cards.collection.origins.body", loc,
-                                  count=len(self.origins), page=self.page + 1,
-                                  total=tp, query=q_txt, lines=lines),
-                    color=0xB9F23A,
+                return Panel(
+                    t("cards.collection.origins.title", loc,
+                      name=target_user.display_name),
+                    t("cards.collection.origins.body", loc,
+                      count=len(self.origins), page=self.page + 1,
+                      total=tp, query=q_txt, lines=lines),
                 )
 
-            def _build_select(self):
+            def _rebuild(self):
                 self.clear_items()
+                self.add_item(self.build_panel().container())
                 chunk = self.origins[self.page * self.per:(self.page + 1) * self.per]
                 opts = [discord.SelectOption(
                             label=o[:100],
@@ -1270,44 +1334,42 @@ def setup_cards_commands(bot, deps):
                         for o, n in chunk]
                 sel = discord.ui.Select(
                     placeholder=t("cards.collection.origins.placeholder", loc),
-                    options=opts or [discord.SelectOption(label="—")], row=0)
+                    options=opts or [discord.SelectOption(label="—")])
                 async def _on_select(inter: discord.Interaction):
                     if inter.user.id != owner_id:
                         await inter.response.send_message(
                             ti(inter, "cards.collection.origins.not_yours"), ephemeral=True); return
                     chosen = sel.values[0]
-                    emb, v = _make_collec_view(chosen)
-                    await inter.response.edit_message(embed=emb, view=v)
+                    await inter.response.edit_message(view=_make_collec_view(chosen))
                 sel.callback = _on_select
-                self.add_item(sel)
+                self.add_item(row(sel))
                 # page buttons + back
                 tp = max(1, (len(self.origins) + self.per - 1) // self.per)
                 prev = discord.ui.Button(label="◀", style=discord.ButtonStyle.secondary,
-                                          row=1, disabled=self.page <= 0)
+                                          disabled=self.page <= 0)
                 nxt = discord.ui.Button(label="▶", style=discord.ButtonStyle.secondary,
-                                         row=1, disabled=self.page >= tp - 1)
+                                         disabled=self.page >= tp - 1)
                 back = discord.ui.Button(label=t("cards.collection.origins.back", loc),
-                                         style=discord.ButtonStyle.danger, row=1)
+                                         style=discord.ButtonStyle.danger)
                 async def _prev(i):
                     if i.user.id != owner_id:
                         await i.response.send_message(
                             ti(i, "cards.collection.origins.not_yours"), ephemeral=True); return
-                    self.page -= 1; self._build_select()
-                    await i.response.edit_message(embed=self.build_embed(), view=self)
+                    self.page -= 1; self._rebuild()
+                    await i.response.edit_message(view=self)
                 async def _nxt(i):
                     if i.user.id != owner_id:
                         await i.response.send_message(
                             ti(i, "cards.collection.origins.not_yours"), ephemeral=True); return
-                    self.page += 1; self._build_select()
-                    await i.response.edit_message(embed=self.build_embed(), view=self)
+                    self.page += 1; self._rebuild()
+                    await i.response.edit_message(view=self)
                 async def _back(i):
                     if i.user.id != owner_id:
                         await i.response.send_message(
                             ti(i, "cards.collection.origins.not_yours"), ephemeral=True); return
-                    emb, v = _make_collec_view(None)
-                    await i.response.edit_message(embed=emb, view=v)
+                    await i.response.edit_message(view=_make_collec_view(None))
                 prev.callback = _prev; nxt.callback = _nxt; back.callback = _back
-                self.add_item(prev); self.add_item(nxt); self.add_item(back)
+                self.add_item(row(prev, nxt, back))
 
         class _SearchCardModal(discord.ui.Modal, title="Search for a card"):
             def __init__(self, cat, sort_mode):
@@ -1321,13 +1383,13 @@ def setup_cards_commands(bot, deps):
                 self.add_item(self.q)
 
             async def on_submit(self, inter: discord.Interaction):
-                emb, v = _make_collec_view(self._cat, name_q=str(self.q.value).strip(), sort_mode=self._sort)
+                v = _make_collec_view(self._cat, name_q=str(self.q.value).strip(), sort_mode=self._sort)
                 if not v.rows:
                     await inter.response.send_message(
                         ti(inter, "cards.collection.search.no_result", query=self.q.value),
                         ephemeral=True)
                     return
-                await inter.response.edit_message(embed=emb, view=v)
+                await inter.response.edit_message(view=v)
 
         class _SearchOriginModal(discord.ui.Modal, title="Search for an origin"):
             def __init__(self):
@@ -1339,8 +1401,7 @@ def setup_cards_commands(bot, deps):
                 self.add_item(self.q)
 
             async def on_submit(self, inter: discord.Interaction):
-                view = _OriginsView(query=str(self.q.value))
-                await inter.response.edit_message(embed=view.build_embed(), view=view)
+                await inter.response.edit_message(view=_OriginsView(query=str(self.q.value)))
 
         # Initial send
         first_rows = _grouped_rows(cat_val)
@@ -1352,8 +1413,7 @@ def setup_cards_commands(bot, deps):
                 msg += t("cards.collection.no_cards_category", loc, category=cat_val)
             await interaction.response.send_message(msg + ".", ephemeral=True)
             return
-        view = _CollecView(first_rows, cat_val)
-        await interaction.response.send_message(embed=view._embed(), view=view)
+        await interaction.response.send_message(view=_CollecView(first_rows, cat_val))
 
 
     # === /card <card> ===
@@ -1378,7 +1438,6 @@ def setup_cards_commands(bot, deps):
                 )
                 return
             rarity = data.get("rarity", "common")
-            color = RARITY_COLORS.get(rarity, 0x9aa0a6)
             emoji = _get_rarity_title_emoji(bot, rarity)
             origin = data.get("subtitle") or "?"
             universe = universe_label(data.get("universe"), loc) or "?"
@@ -1395,29 +1454,25 @@ def setup_cards_commands(bot, deps):
                                 origin=origin, universe=universe,
                                 element_line=elem_line))
             desc = "\n\n".join(desc_parts)
-            embed = discord.Embed(
-                title=f"{emoji} {data['name']}"[:256],
-                description=desc,
-                color=color,
-            )
+            p = Panel(f"{emoji} {data['name']}"[:256], desc)
             thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
             if thumb_url:
-                embed.set_thumbnail(url=thumb_url)
+                p.thumbnail(thumb_url)
             img_url, img_file = _resolve_card_image(data)
             if img_url:
-                embed.set_image(url=img_url)
+                p.image(img_url)
             elif img_file:
-                embed.set_image(url="attachment://card.png")
+                p.image("attachment://card.png")
             owners = card_owners_count(data["id"])
             if owners > 0:
-                embed.set_footer(text=(t("cards.card.owned_by_one", loc) if owners == 1
-                                       else t("cards.card.owned_by_many", loc, count=owners)))
+                p.footer(t("cards.card.owned_by_one", loc) if owners == 1
+                         else t("cards.card.owned_by_many", loc, count=owners))
             # View always present (at least the 'Edit' link button)
-            view = OwnersView(data["id"], data["name"], locale=loc)
+            view = OwnersView(p, data["id"], data["name"], locale=loc)
             if img_file:
-                await interaction.response.send_message(embed=embed, file=img_file, view=view)
+                await interaction.response.send_message(view=view, file=img_file)
             else:
-                await interaction.response.send_message(embed=embed, view=view)
+                await interaction.response.send_message(view=view)
         except Exception:
             import traceback
             traceback.print_exc()
@@ -1458,15 +1513,14 @@ def setup_cards_commands(bot, deps):
         loc = locale_of(interaction)
         target = member or interaction.user
         bal = currency_get(target.id)
-        embed = discord.Embed(
-            title=t("cards.essences.title", loc),
-            description=t("cards.essences.balance", loc, name=target.display_name,
-                          amount=f"{bal:,}".replace(",", " ")),
-            color=0xB9F23A,
+        p = Panel(
+            t("cards.essences.title", loc),
+            t("cards.essences.balance", loc, name=target.display_name,
+              amount=f"{bal:,}".replace(",", " ")),
         )
         if target.display_avatar:
-            embed.set_thumbnail(url=str(target.display_avatar.url))
-        await interaction.response.send_message(embed=embed, ephemeral=(member is None))
+            p.thumbnail(str(target.display_avatar.url))
+        await interaction.response.send_message(view=p.view(), ephemeral=(member is None))
 
 
     # === /show <card>: show a card (with its custom border if applied) ===
@@ -1488,13 +1542,8 @@ def setup_cards_commands(bot, deps):
             await interaction.followup.send(
                 t("cards.show.not_owned", loc, name=data['name']), ephemeral=True)
             return
-        rarity = data.get("rarity", "common")
         border_key = card_customization_get(uid, data["id"])
         fusion_level = card_fusion_get(uid, data["id"])
-        # Color: border if equipped, rarity otherwise
-        color = BORDER_COLORS.get(border_key) if border_key else None
-        if color is None:
-            color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         # Title: cosmetic marker before the name, then the fusion stars
         title = ("✨ " if border_key else "") + data['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else "")
         # Unlocked alternate skin (event): takes priority, replaces the normal render.
@@ -1507,20 +1556,17 @@ def setup_cards_commands(bot, deps):
             alt_path = (_os_alt.path.join(_REPO_ROOT, alt_url.lstrip("/").replace("/", _os_alt.sep))
                         if alt_url else None)
             if alt_path and _os_alt.path.exists(alt_path):
-                alt_embed = discord.Embed(
-                    title=("🎨 " + data['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else ""))[:256],
-                    color=color)
-                alt_embed.set_footer(text=t("cards.show.alt_skin_footer", loc,
-                                            name=interaction.user.display_name),
-                                     icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
-                alt_embed.set_image(url="attachment://card.png")
+                alt_panel = Panel(
+                    ("🎨 " + data['name'] + (" " + "⭐" * fusion_level if fusion_level > 0 else ""))[:256])
+                alt_panel.image("attachment://card.png")
+                alt_panel.footer(t("cards.show.alt_skin_footer", loc,
+                                   name=interaction.user.display_name))
                 await interaction.followup.send(
-                    embed=alt_embed, file=discord.File(alt_path, filename="card.png"))
+                    view=alt_panel.view(),
+                    file=discord.File(alt_path, filename="card.png"))
                 return
 
-        embed = discord.Embed(title=title[:256], color=color)
-        embed.set_footer(text=t("cards.show.footer", loc, name=interaction.user.display_name),
-                          icon_url=str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None)
+        p = Panel(title[:256])
         file = None
         rendered_url = None
         if border_key or fusion_level > 0:
@@ -1535,7 +1581,7 @@ def setup_cards_commands(bot, deps):
                 _REPO_ROOT, rendered_url.lstrip("/").replace("/", _os.sep))
             if _os.path.exists(local_path):
                 file = discord.File(local_path, filename="card.png")
-                embed.set_image(url="attachment://card.png")
+                p.image("attachment://card.png")
             else:
                 print(f"[show] render not found: {local_path}")
         else:
@@ -1545,14 +1591,15 @@ def setup_cards_commands(bot, deps):
             # No border/fusion: local render first (reliable), remote as a last resort
             img_url, img_file = _resolve_card_image(data)
             if img_url:
-                embed.set_image(url=img_url)
+                p.image(img_url)
             elif img_file:
                 file = img_file
-                embed.set_image(url="attachment://card.png")
+                p.image("attachment://card.png")
+        p.footer(t("cards.show.footer", loc, name=interaction.user.display_name))
         if file:
-            await interaction.followup.send(embed=embed, file=file)
+            await interaction.followup.send(view=p.view(), file=file)
         else:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=p.view())
 
     @show_cmd.autocomplete("card")
     async def show_autocomplete(interaction: discord.Interaction, current: str):
@@ -1672,11 +1719,12 @@ def setup_cards_commands(bot, deps):
     # === /cardinventory: items & cosmetics in stock ===
     _FRAGMENTS_PER_MYTHIC = 5
 
-    def _card_result_display(card, owner, essence_gain, already_owned, locale=None):
-        """Build the embed/file/view of an obtained card, SAME FORMAT as /roll.
-        Returns (embed, img_file_or_None, view)."""
+    def _card_result_display(card, owner, essence_gain, already_owned, locale=None,
+                             lead_text=None):
+        """Build the view/file of an obtained card, SAME FORMAT as /roll.
+        `lead_text` is what used to live in `content=` (a V2 message has none).
+        Returns (layout_view, img_file_or_None)."""
         rarity = card.get("rarity", "common")
-        color = RARITY_COLORS.get(rarity, 0x9aa0a6)
         emoji = _get_rarity_title_emoji(bot, rarity)
         origin = card.get("subtitle") or "?"
         universe = universe_label(card.get("universe"), locale) or "?"
@@ -1694,32 +1742,30 @@ def setup_cards_commands(bot, deps):
             desc_parts.append(f"_**{flavor}**_")
         desc_parts.append(t("cards.roll.card_desc", locale, rarity=rarity_display,
                             origin=origin, universe=universe, essence_line=essence_line))
-        embed = discord.Embed(title=f"{emoji} {card['name']}"[:256],
-                              description="\n\n".join(desc_parts), color=color)
+        p = Panel(f"{emoji} {card['name']}"[:256], "\n\n".join(desc_parts))
+        if lead_text:
+            p.text(lead_text)
         thumb_url = _get_rarity_custom_emoji_url(bot, rarity)
         if thumb_url:
-            embed.set_thumbnail(url=thumb_url)
+            p.thumbnail(thumb_url)
         img_url, img_file = _resolve_card_image(card)
         if img_url:
-            embed.set_image(url=img_url)
+            p.image(img_url)
         elif img_file:
-            embed.set_image(url="attachment://card.png")
-        avatar_url = str(owner.display_avatar.url) if owner.display_avatar else None
-        embed.set_footer(text=t("cards.roll.belongs_to", locale, name=owner.display_name),
-                         icon_url=avatar_url)
-        return embed, img_file, OwnersView(card["id"], card["name"], locale=locale)
+            p.image("attachment://card.png")
+        p.footer(t("cards.roll.belongs_to", locale, name=owner.display_name))
+        return OwnersView(p, card["id"], card["name"], locale=locale), img_file
 
-    def _inv_embed(target, locale=None):
+    def _inv_panel(target, locale=None):
         from database import (user_borders_list, user_item_get, roll_bonus_available)
         frags = user_item_get(target.id, "mythic_fragment")
         golden = user_item_get(target.id, "golden_roll")
         epic = user_item_get(target.id, "epic_roll")
         rolls = roll_bonus_available(target.id)
         borders = user_borders_list(target.id)
-        embed = discord.Embed(title=t("cards.inventory.title", locale, name=target.display_name),
-                              color=0xB9F23A)
+        p = Panel(t("cards.inventory.title", locale, name=target.display_name))
         if target.display_avatar:
-            embed.set_thumbnail(url=str(target.display_avatar.url))
+            p.thumbnail(str(target.display_avatar.url))
         lines = [
             t("cards.inventory.bonus_rolls", locale, emoji=_roll_emoji(bot), count=rolls),
             t("cards.inventory.epic_rolls", locale, emoji=_epic_roll_emoji(bot), count=epic),
@@ -1727,34 +1773,17 @@ def setup_cards_commands(bot, deps):
               needed=_FRAGMENTS_PER_MYTHIC),
             t("cards.inventory.golden_rolls", locale, emoji=_golden_emoji(bot), count=golden),
         ]
-        embed.add_field(name=t("cards.inventory.field_items", locale),
-                        value="\n".join(lines), inline=False)
+        p.field(t("cards.inventory.field_items", locale), "\n".join(lines))
         if borders:
             bl = [t("cards.inventory.border_line", locale, name=b['name'], qty=b['qty'])
                   for b in borders]
-            embed.add_field(name=t("cards.inventory.field_borders", locale),
-                            value="\n".join(bl) + t("cards.inventory.borders_hint", locale),
-                            inline=False)
-        return embed, frags, golden, epic
+            p.field(t("cards.inventory.field_borders", locale),
+                    "\n".join(bl) + t("cards.inventory.borders_hint", locale))
+        return p, frags, golden, epic
 
-    class _InventoryView(discord.ui.View):
-        def __init__(self, owner_id, locale=None):
-            super().__init__(timeout=180)
-            self.owner_id = owner_id
-            self.locale = locale
-            self.use_epic.label = t("cards.inventory.btn_epic", locale)
-            self.use_golden.label = t("cards.inventory.btn_golden", locale)
-            self.craft_mythic.label = t("cards.inventory.btn_craft", locale,
-                                        count=_FRAGMENTS_PER_MYTHIC)
-            ge = discord.utils.get(bot.emojis, name="goldenroll")
-            if ge:
-                self.use_golden.emoji = ge
-            ee = discord.utils.get(bot.emojis, name="epicroll")
-            if ee:
-                self.use_epic.emoji = ee
-
+    class _InventoryRow(discord.ui.ActionRow):
         async def _guard(self, interaction):
-            if interaction.user.id != self.owner_id:
+            if interaction.user.id != self.view.owner_id:
                 await interaction.response.send_message(
                     ti(interaction, "cards.inventory.not_yours"), ephemeral=True)
                 return False
@@ -1782,13 +1811,13 @@ def setup_cards_commands(bot, deps):
             user_card_add(uid, card["id"])
             base = ESSENCE_REWARDS.get("epic", 80) * (2 if already else 1)
             ess = essence_reward_add(uid, base)
-            embed, img_file, view = _card_result_display(card, interaction.user, ess, already,
-                                                         locale=loc)
-            content = t("cards.inventory.epic_content", loc, emoji=_epic_roll_emoji(bot))
+            view, img_file = _card_result_display(
+                card, interaction.user, ess, already, locale=loc,
+                lead_text=t("cards.inventory.epic_content", loc, emoji=_epic_roll_emoji(bot)))
             if img_file:
-                await interaction.response.send_message(content=content, embed=embed, file=img_file, view=view)
+                await interaction.response.send_message(view=view, file=img_file)
             else:
-                await interaction.response.send_message(content=content, embed=embed, view=view)
+                await interaction.response.send_message(view=view)
 
         @discord.ui.button(label="Use Golden Roll", style=discord.ButtonStyle.success, emoji="🌈")
         async def use_golden(self, interaction, btn):
@@ -1813,14 +1842,14 @@ def setup_cards_commands(bot, deps):
             user_card_add(uid, card["id"])
             base = ESSENCE_REWARDS.get("legendary", 220) * (2 if already else 1)
             ess = essence_reward_add(uid, base)
-            embed, img_file, view = _card_result_display(card, interaction.user, ess, already,
-                                                         locale=loc)
-            # PUBLIC, same shape as a /roll, with the coupon mentioned outside the embed
-            content = t("cards.inventory.golden_content", loc, emoji=_golden_emoji(bot))
+            # PUBLIC, same shape as a /roll, with the coupon mentioned in the panel
+            view, img_file = _card_result_display(
+                card, interaction.user, ess, already, locale=loc,
+                lead_text=t("cards.inventory.golden_content", loc, emoji=_golden_emoji(bot)))
             if img_file:
-                await interaction.response.send_message(content=content, embed=embed, file=img_file, view=view)
+                await interaction.response.send_message(view=view, file=img_file)
             else:
-                await interaction.response.send_message(content=content, embed=embed, view=view)
+                await interaction.response.send_message(view=view)
 
         @discord.ui.button(label="Craft Mythic", style=discord.ButtonStyle.danger, emoji="🔴")
         async def craft_mythic(self, interaction, btn):
@@ -1845,17 +1874,43 @@ def setup_cards_commands(bot, deps):
             already = user_card_count_owned(uid, card["id"]) > 0
             user_card_add(uid, card["id"])
             ess = essence_reward_add(uid, ESSENCE_REWARDS.get("mythic", 650) * (2 if already else 1))
-            # refresh the inventory (fragments consumed) then post the card in a clean embed
-            inv_embed, *_ = _inv_embed(interaction.user, locale=loc)
-            await interaction.response.edit_message(embed=inv_embed,
-                                                    view=_InventoryView(uid, locale=loc))
-            embed, img_file, view = _card_result_display(card, interaction.user, ess, already,
-                                                         locale=loc)
-            content = t("cards.inventory.craft_content", loc, count=_FRAGMENTS_PER_MYTHIC)
+            # refresh the inventory (fragments consumed) then post the card in a clean panel
+            inv_panel, frags, golden, epic = _inv_panel(interaction.user, locale=loc)
+            await interaction.response.edit_message(
+                view=_InventoryView(inv_panel, uid, frags, golden, epic, locale=loc))
+            view, img_file = _card_result_display(
+                card, interaction.user, ess, already, locale=loc,
+                lead_text=t("cards.inventory.craft_content", loc, count=_FRAGMENTS_PER_MYTHIC))
             if img_file:
-                await interaction.followup.send(content=content, embed=embed, file=img_file, view=view)
+                await interaction.followup.send(view=view, file=img_file)
             else:
-                await interaction.followup.send(content=content, embed=embed, view=view)
+                await interaction.followup.send(view=view)
+
+    class _InventoryView(discord.ui.LayoutView):
+        """Inventory panel + the action row (only when the viewer owns items)."""
+        def __init__(self, panel, owner_id, frags, golden, epic, locale=None,
+                     with_buttons=True):
+            super().__init__(timeout=180)
+            self.owner_id = owner_id
+            self.locale = locale
+            self.add_item(panel.container())
+            if not with_buttons:
+                return
+            r = _InventoryRow()
+            r.use_epic.label = t("cards.inventory.btn_epic", locale)
+            r.use_golden.label = t("cards.inventory.btn_golden", locale)
+            r.craft_mythic.label = t("cards.inventory.btn_craft", locale,
+                                     count=_FRAGMENTS_PER_MYTHIC)
+            ge = discord.utils.get(bot.emojis, name="goldenroll")
+            if ge:
+                r.use_golden.emoji = ge
+            ee = discord.utils.get(bot.emojis, name="epicroll")
+            if ee:
+                r.use_epic.emoji = ee
+            r.use_epic.disabled = epic <= 0
+            r.use_golden.disabled = golden <= 0
+            r.craft_mythic.disabled = frags < _FRAGMENTS_PER_MYTHIC
+            self.add_item(r)
 
     @bot.tree.command(name="cardinventory", description="Your items: rolls, mythic fragments, golden rolls, borders")
     @app_commands.describe(member="View someone else's inventory (default: you)")
@@ -1863,15 +1918,11 @@ def setup_cards_commands(bot, deps):
         loc = locale_of(interaction)
         target = member or interaction.user
         is_self = target.id == interaction.user.id
-        embed, frags, golden, epic = _inv_embed(target, locale=loc)
-        view = None
-        if is_self and (epic > 0 or golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC):
-            view = _InventoryView(interaction.user.id, locale=loc)
-            view.use_epic.disabled = epic <= 0
-            view.use_golden.disabled = golden <= 0
-            view.craft_mythic.disabled = frags < _FRAGMENTS_PER_MYTHIC
-        await interaction.response.send_message(
-            embed=embed, view=(view or discord.utils.MISSING), ephemeral=is_self)
+        panel, frags, golden, epic = _inv_panel(target, locale=loc)
+        with_buttons = is_self and (epic > 0 or golden > 0 or frags >= _FRAGMENTS_PER_MYTHIC)
+        view = _InventoryView(panel, interaction.user.id, frags, golden, epic,
+                              locale=loc, with_buttons=with_buttons)
+        await interaction.response.send_message(view=view, ephemeral=is_self)
 
 
     # Shared autocomplete: cards the user has DUPLICATES of (>1 copy)
@@ -2138,22 +2189,19 @@ def setup_cards_commands(bot, deps):
         def _tier_label(tr):
             return t(tr["label_key"], loc)
 
-        def _tier_embed():
+        def _tier_panel():
             lines = [t("cards.eventfight.tier_line", loc, emoji=tr["emoji"],
                        label=_tier_label(tr), hp=f"{tr['hp']:.1f}", coins=tr["coins"],
                        coin_emoji=ev["coin_emoji"])
                      for tr in _EFIGHT_TIERS.values()]
-            return discord.Embed(
-                title=t("cards.eventfight.title", loc, emoji=ev["emoji"], event=ev["name"]),
-                description=t("cards.eventfight.intro", loc,
-                              lines="\n".join(lines), left=left),
-                color=0x8e44ad)
+            return Panel(
+                t("cards.eventfight.title", loc, emoji=ev["emoji"], event=ev["name"]),
+                t("cards.eventfight.intro", loc, lines="\n".join(lines), left=left))
 
         async def _resolve(inter, tier_key, monster_elem, el):
             if event_fight_used(uid, ek) >= EVENT_FIGHT_MAX_PER_DAY and not _is_owner(uid):
                 await inter.response.edit_message(
-                    embed=discord.Embed(description=t("cards.eventfight.no_fight_left", loc),
-                                        color=0xff3d57), view=None)
+                    view=Panel(description=t("cards.eventfight.no_fight_left", loc)).view())
                 return
             tr = _EFIGHT_TIERS[tier_key]
             power, cname = best[el]
@@ -2167,7 +2215,6 @@ def setup_cards_commands(bot, deps):
                        else (t("cards.eventfight.disadvantage", loc) if m < 1
                              else t("cards.eventfight.neutral", loc)))
             head = t("cards.eventfight.win", loc) if win else t("cards.eventfight.lose", loc)
-            color = 0x4ade80 if win else 0xff3d57
             res = t("cards.eventfight.result", loc, head=head,
                     card_emoji=CARD_ELEMENT_EMOJI.get(el, ''), card=cname,
                     power=f"{power:.2f}", tier_emoji=tr["emoji"], tier=_tier_label(tr),
@@ -2177,18 +2224,16 @@ def setup_cards_commands(bot, deps):
                     damage=f"{dmg:.2f}", advantage=adv_tag, coins=coins,
                     coin=ev['coin'], coin_emoji=ev['coin_emoji'], balance=bal)
             await inter.response.edit_message(
-                embed=discord.Embed(
-                    title=t("cards.eventfight.result_title", loc, emoji=ev['emoji']),
-                    description=res, color=color),
-                view=None)
+                view=Panel(t("cards.eventfight.result_title", loc, emoji=ev['emoji']),
+                           res).view())
 
-        class _ElemView(discord.ui.View):
-            def __init__(self, tier_key, monster_elem):
+        class _ElemView(discord.ui.LayoutView):
+            def __init__(self, panel, tier_key, monster_elem):
                 super().__init__(timeout=120)
                 self.tier_key = tier_key
                 self.monster_elem = monster_elem
-                for el in CARD_ELEMENTS:
-                    self.add_item(self._mk(el))
+                self.add_item(panel.container())
+                self.add_item(row(*(self._mk(el) for el in CARD_ELEMENTS)))
 
             def _mk(self, el):
                 has = el in best
@@ -2205,11 +2250,11 @@ def setup_cards_commands(bot, deps):
                 btn.callback = _cb
                 return btn
 
-        class _TierView(discord.ui.View):
+        class _TierView(discord.ui.LayoutView):
             def __init__(self):
                 super().__init__(timeout=120)
-                for k, tr in _EFIGHT_TIERS.items():
-                    self.add_item(self._mk(k, tr))
+                self.add_item(_tier_panel().container())
+                self.add_item(row(*(self._mk(k, tr) for k, tr in _EFIGHT_TIERS.items())))
 
             def _mk(self, k, tr):
                 btn = discord.ui.Button(
@@ -2226,19 +2271,18 @@ def setup_cards_commands(bot, deps):
                     counters = [e for e in CARD_ELEMENTS if weak(e, monster_elem) > 1]
                     counter_txt = " ".join(
                         f"{CARD_ELEMENT_EMOJI.get(e,'')}{CARD_ELEMENT_LABELS.get(e)}" for e in counters) or "—"
-                    e = discord.Embed(
-                        title=t("cards.eventfight.monster_title", loc, emoji=ev['emoji'],
-                                tier_emoji=tr['emoji'], tier=_tier_label(tr)),
-                        description=t("cards.eventfight.monster_desc", loc,
-                                      monster_emoji=CARD_ELEMENT_EMOJI.get(monster_elem, ''),
-                                      monster_element=CARD_ELEMENT_LABELS.get(monster_elem),
-                                      hp=f"{tr['hp']:.1f}", counters=counter_txt),
-                        color=0x8e44ad)
-                    await inter.response.edit_message(embed=e, view=_ElemView(k, monster_elem))
+                    mp = Panel(
+                        t("cards.eventfight.monster_title", loc, emoji=ev['emoji'],
+                          tier_emoji=tr['emoji'], tier=_tier_label(tr)),
+                        t("cards.eventfight.monster_desc", loc,
+                          monster_emoji=CARD_ELEMENT_EMOJI.get(monster_elem, ''),
+                          monster_element=CARD_ELEMENT_LABELS.get(monster_elem),
+                          hp=f"{tr['hp']:.1f}", counters=counter_txt))
+                    await inter.response.edit_message(view=_ElemView(mp, k, monster_elem))
                 btn.callback = _cb
                 return btn
 
-        await interaction.response.send_message(embed=_tier_embed(), view=_TierView())
+        await interaction.response.send_message(view=_TierView())
 
 
     # === /eventshop: event shop (tokens) ===
@@ -2285,7 +2329,7 @@ def setup_cards_commands(bot, deps):
             print(f"[eventshop] opt image err: {_e}")
             _shop_img = None
 
-        def _embed():
+        def _panel():
             bal = event_coins_get(uid, ek)
             skins = event_shop_skins(uid, ek)
             buyable = [s for s in skins if not s["owned_skin"]]
@@ -2305,12 +2349,11 @@ def setup_cards_commands(bot, deps):
             if owned:
                 desc += t("cards.eventshop.owned_skins", loc,
                           list=", ".join(s["name"] for s in owned[:10]))
-            e = discord.Embed(title=t("cards.eventshop.title", loc, emoji=ev['emoji'],
-                                      event=ev['name']),
-                              description=desc, color=0xF2B33A)
+            p = Panel(t("cards.eventshop.title", loc, emoji=ev['emoji'], event=ev['name']),
+                      desc)
             if _shop_img:
-                e.set_image(url="attachment://shop.jpg")
-            return e
+                p.image("attachment://shop.jpg")
+            return p
 
         def _skin_select():
             skins = [s for s in event_shop_skins(uid, ek) if not s["owned_skin"]]
@@ -2322,7 +2365,7 @@ def setup_cards_commands(bot, deps):
                               cost=EVENT_SHOP_SKIN_COST, coin=ev['coin']),
                 emoji=RARITY_EMOJIS.get(s["rarity"], "⚪")) for s in skins[:25]]
             sel = discord.ui.Select(placeholder=t("cards.eventshop.skin_placeholder", loc),
-                                    options=opts, row=1)
+                                    options=opts)
             async def _on(inter):
                 if inter.user.id != uid:
                     await inter.response.send_message(
@@ -2333,30 +2376,13 @@ def setup_cards_commands(bot, deps):
                         t("cards.eventshop.not_enough", loc, coin=ev['coin']),
                         ephemeral=True); return
                 event_skin_grant(uid, cid)
-                v = _ShopView()
-                await inter.response.edit_message(embed=_embed(), view=v)
+                await inter.response.edit_message(view=_ShopView())
                 await inter.followup.send(
                     t("cards.eventshop.skin_unlocked", loc), ephemeral=True)
             sel.callback = _on
             return sel
 
-        class _ShopView(discord.ui.View):
-            def __init__(self):
-                super().__init__(timeout=180)
-                # support-server custom emojis on the roll / golden buttons
-                _re = discord.utils.get(bot.emojis, name="roll")
-                _ge = discord.utils.get(bot.emojis, name="goldenroll")
-                self.buy_roll.label = t("cards.eventshop.btn_roll", loc)
-                self.buy_golden.label = t("cards.eventshop.btn_golden", loc)
-                self.buy_ess.label = t("cards.eventshop.btn_essences", loc)
-                if _re:
-                    self.buy_roll.emoji = _re
-                if _ge:
-                    self.buy_golden.emoji = _ge
-                s = _skin_select()
-                if s:
-                    self.add_item(s)
-
+        class _ShopRow(discord.ui.ActionRow):
             async def _guard(self, inter):
                 if inter.user.id != uid:
                     await inter.response.send_message(
@@ -2364,7 +2390,7 @@ def setup_cards_commands(bot, deps):
                     return False
                 return True
 
-            @discord.ui.button(label="Buy a roll", emoji="🎲", style=discord.ButtonStyle.success, row=0)
+            @discord.ui.button(label="Buy a roll", emoji="🎲", style=discord.ButtonStyle.success)
             async def buy_roll(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_ROLL_COST):
@@ -2372,10 +2398,10 @@ def setup_cards_commands(bot, deps):
                         t("cards.eventshop.not_enough", loc, coin=ev['coin']),
                         ephemeral=True); return
                 roll_give_user(uid, 1)
-                await inter.response.edit_message(embed=_embed(), view=_ShopView())
+                await inter.response.edit_message(view=_ShopView())
                 await inter.followup.send(t("cards.eventshop.roll_bought", loc), ephemeral=True)
 
-            @discord.ui.button(label="Golden Roll", emoji="🌈", style=discord.ButtonStyle.success, row=0)
+            @discord.ui.button(label="Golden Roll", emoji="🌈", style=discord.ButtonStyle.success)
             async def buy_golden(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_GOLDEN_COST):
@@ -2383,11 +2409,11 @@ def setup_cards_commands(bot, deps):
                         t("cards.eventshop.not_enough", loc, coin=ev['coin']),
                         ephemeral=True); return
                 user_item_add(uid, "golden_roll", 1)
-                await inter.response.edit_message(embed=_embed(), view=_ShopView())
+                await inter.response.edit_message(view=_ShopView())
                 await inter.followup.send(
                     t("cards.eventshop.golden_bought", loc), ephemeral=True)
 
-            @discord.ui.button(label="+10% essences (1d)", emoji="✨", style=discord.ButtonStyle.primary, row=0)
+            @discord.ui.button(label="+10% essences (1d)", emoji="✨", style=discord.ButtonStyle.primary)
             async def buy_ess(self, inter, _b):
                 if not await self._guard(inter): return
                 if not event_coins_spend(uid, ek, EVENT_SHOP_ESS10_COST):
@@ -2395,17 +2421,37 @@ def setup_cards_commands(bot, deps):
                         t("cards.eventshop.not_enough", loc, coin=ev['coin']),
                         ephemeral=True); return
                 total = essence_bonus_add(uid, EVENT_SHOP_ESS10_PCT)
-                await inter.response.edit_message(embed=_embed(), view=_ShopView())
+                await inter.response.edit_message(view=_ShopView())
                 await inter.followup.send(
                     t("cards.eventshop.essences_bought", loc, total=total), ephemeral=True)
+
+        class _ShopView(discord.ui.LayoutView):
+            def __init__(self):
+                super().__init__(timeout=180)
+                self.add_item(_panel().container())
+                # support-server custom emojis on the roll / golden buttons
+                _re = discord.utils.get(bot.emojis, name="roll")
+                _ge = discord.utils.get(bot.emojis, name="goldenroll")
+                r = _ShopRow()
+                r.buy_roll.label = t("cards.eventshop.btn_roll", loc)
+                r.buy_golden.label = t("cards.eventshop.btn_golden", loc)
+                r.buy_ess.label = t("cards.eventshop.btn_essences", loc)
+                if _re:
+                    r.buy_roll.emoji = _re
+                if _ge:
+                    r.buy_golden.emoji = _ge
+                self.add_item(r)
+                s = _skin_select()
+                if s:
+                    self.add_item(row(s))
 
         try:
             if _shop_img:
                 await interaction.response.send_message(
-                    embed=_embed(), view=_ShopView(),
+                    view=_ShopView(),
                     file=discord.File(_shop_img, filename="shop.jpg"), ephemeral=True)
             else:
-                await interaction.response.send_message(embed=_embed(), view=_ShopView(), ephemeral=True)
+                await interaction.response.send_message(view=_ShopView(), ephemeral=True)
         except Exception as _e:
             import traceback as _tb
             print(f"[eventshop] {type(_e).__name__}: {_e}")
@@ -2454,23 +2500,21 @@ def setup_cards_commands(bot, deps):
             return
         user_card_add(uid, reward["id"])
         emoji = _get_rarity_title_emoji(bot, nxt)
-        color = RARITY_COLORS.get(nxt, 0x9aa0a6)
-        embed = discord.Embed(
-            title=t("cards.cardup.title", loc),
-            description=t("cards.cardup.desc", loc, removed=removed, rarity=src,
-                          emoji=emoji, name=reward['name'], new_rarity=nxt.upper(),
-                          origin=reward.get('subtitle') or '?'),
-            color=color,
+        p = Panel(
+            t("cards.cardup.title", loc),
+            t("cards.cardup.desc", loc, removed=removed, rarity=src,
+              emoji=emoji, name=reward['name'], new_rarity=nxt.upper(),
+              origin=reward.get('subtitle') or '?'),
         )
         img_url, img_file = _resolve_card_image(reward)
         if img_url:
-            embed.set_image(url=img_url)
+            p.image(img_url)
         elif img_file:
-            embed.set_image(url="attachment://card.png")
+            p.image("attachment://card.png")
         if img_file:
-            await interaction.followup.send(embed=embed, file=img_file)
+            await interaction.followup.send(view=p.view(), file=img_file)
         else:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=p.view())
 
 
     # === /cardprofile: view a profile OR set it up (optional params) ===
@@ -2499,8 +2543,7 @@ def setup_cards_commands(bot, deps):
                                member: discord.Member = None,
                                custom: bool = False):
         from database import (card_profile_get, user_card_count, user_card_rarity_breakdown,
-                               currency_get, user_card_fusion_map, user_borders_list,
-                               profile_color_hex)
+                               currency_get, user_card_fusion_map, user_borders_list)
         from services.card_profile import build_profile_image
         import os as _os
 
@@ -2554,17 +2597,13 @@ def setup_cards_commands(bot, deps):
                 _emblem = _gg["emblem"] + " "
         except Exception:
             pass
-        embed = discord.Embed(
-            title=t("cards.profile.title", loc, emblem=_emblem, name=target.display_name),
-            color=profile_color_hex((profile or {}).get("color")),
-        )
-        # Top: 3 columns (inline fields)
-        embed.add_field(name=t("cards.profile.field_collection", loc),
-                        value=t("cards.profile.field_collection_value", loc,
-                                total=_fmt(total), unique=_fmt(uniq)), inline=True)
-        embed.add_field(name=t("cards.profile.field_essences", loc),
-                        value=f"{_fmt(essences)}", inline=True)
-        embed.add_field(name=t("cards.profile.field_luck", loc), value=f"{luck}%", inline=True)
+        p = Panel(t("cards.profile.title", loc, emblem=_emblem, name=target.display_name))
+        # Top: 3 stats merged onto a single line (inline fields)
+        p.field(t("cards.profile.field_collection", loc),
+                t("cards.profile.field_collection_value", loc,
+                  total=_fmt(total), unique=_fmt(uniq)), inline=True)
+        p.field(t("cards.profile.field_essences", loc), f"{_fmt(essences)}", inline=True)
+        p.field(t("cards.profile.field_luck", loc), f"{luck}%", inline=True)
         # Rest: a single block. The 1st separator = field NAME (avoids the empty line).
         block = t("cards.profile.block", loc, bonus=bonus_inline, hp=_fmt(cs['hp']),
                   atk=_fmt(cs['atk']), power=power_emojis, div=DIV, fused=_fmt(fused),
@@ -2579,18 +2618,10 @@ def setup_cards_commands(bot, deps):
                           level=_g['level'], div=DIV) + block
         except Exception:
             pass
-        embed.add_field(name=DIV, value=block, inline=False)
+        p.field(DIV, block)
 
         if target.display_avatar:
-            embed.set_thumbnail(url=str(target.display_avatar.url))
-        try:
-            from database import roll_total_get
-            _rt = roll_total_get(uid)
-        except Exception:
-            _rt = 0
-        embed.set_footer(text=t("cards.profile.footer", loc, name=target.display_name,
-                                rolls=_fmt(_rt)),
-                          icon_url=str(target.display_avatar.url) if target.display_avatar else None)
+            p.thumbnail(str(target.display_avatar.url))
         file = None
         has_cards = bool(profile and profile.get("left_id") and profile.get("mid_id") and profile.get("right_id"))
         if has_cards:
@@ -2599,17 +2630,23 @@ def setup_cards_commands(bot, deps):
                 local_path = _os.path.join(_REPO_ROOT, rel.lstrip("/").replace("/", _os.sep))
                 if _os.path.exists(local_path):
                     file = discord.File(local_path, filename="profile.png")
-                    embed.set_image(url="attachment://profile.png")
+                    p.image("attachment://profile.png")
         if not has_cards:
             note = (t("cards.profile.no_featured_self", loc) if target == interaction.user
                     else t("cards.profile.no_featured_other", loc, name=target.display_name))
             if target == interaction.user:
                 note += t("cards.profile.no_featured_hint", loc)
-            embed.description = note
+            p.text(note)
+        try:
+            from database import roll_total_get
+            _rt = roll_total_get(uid)
+        except Exception:
+            _rt = 0
+        p.footer(t("cards.profile.footer", loc, name=target.display_name, rolls=_fmt(_rt)))
         if file:
-            await interaction.followup.send(embed=embed, file=file)
+            await interaction.followup.send(view=p.view(), file=file)
         else:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=p.view())
 
 
 
@@ -2668,39 +2705,40 @@ def setup_cards_commands(bot, deps):
         loc = locale_of(interaction)
         target = member or interaction.user
         is_self = (target.id == interaction.user.id)
-        items = wishlist_list(target.id)
 
-        def _build_wl_embed():
+        def _build_wl_panel():
             its = wishlist_list(target.id)
-            emb = discord.Embed(
-                title=t("cards.wishlist.title", loc, name=target.display_name,
-                        count=len(its), max=_wishlist_max(target.id)),
-                color=0xff5fa2)
+            body = ((t("cards.wishlist.empty", loc)
+                     + (t("cards.wishlist.empty_hint", loc) if is_self else ""))
+                    if not its else
+                    "\n".join(
+                        t("cards.wishlist.line", loc,
+                          emoji=RARITY_EMOJIS.get(i['rarity'], '⚪'), name=i['name'],
+                          universe=universe_label(i.get('universe'), loc) or '?')
+                        for i in its[:40]))
+            p = Panel(t("cards.wishlist.title", loc, name=target.display_name,
+                        count=len(its), max=_wishlist_max(target.id)), body)
             if target.display_avatar:
-                emb.set_thumbnail(url=str(target.display_avatar.url))
-            if not its:
-                emb.description = (t("cards.wishlist.empty", loc)
-                                   + (t("cards.wishlist.empty_hint", loc) if is_self else ""))
-            else:
-                emb.description = "\n".join(
-                    t("cards.wishlist.line", loc,
-                      emoji=RARITY_EMOJIS.get(i['rarity'], '⚪'), name=i['name'],
-                      universe=universe_label(i.get('universe'), loc) or '?')
-                    for i in its[:40])
-            return emb, its
-
-        embed, items = _build_wl_embed()
+                p.thumbnail(str(target.display_avatar.url))
+            return p, its
 
         # Delete buttons (only on your own wishlist)
-        class _WishlistView(discord.ui.View):
-            def __init__(self, wl_items):
+        class _WishlistView(discord.ui.LayoutView):
+            def __init__(self, panel, wl_items, with_buttons=True):
                 super().__init__(timeout=120)
+                self.add_item(panel.container())
+                if not with_buttons:
+                    return
+                # 25 buttons max = 5 ActionRows of 5 (V2 has no automatic wrapping)
+                buttons = []
                 for it in wl_items[:25]:
                     btn = discord.ui.Button(
                         label=t("cards.wishlist.remove_btn", loc, name=it['name'][:70])[:80],
                         style=discord.ButtonStyle.danger)
                     btn.callback = self._make_cb(it["card_id"])
-                    self.add_item(btn)
+                    buttons.append(btn)
+                for i in range(0, len(buttons), 5):
+                    self.add_item(row(*buttons[i:i + 5]))
 
             def _make_cb(self, card_id):
                 async def _cb(inter: discord.Interaction):
@@ -2709,13 +2747,15 @@ def setup_cards_commands(bot, deps):
                             ti(inter, "cards.wishlist.not_yours"), ephemeral=True)
                         return
                     wishlist_toggle(interaction.user.id, card_id)  # remove
-                    new_embed, new_items = _build_wl_embed()
-                    new_view = _WishlistView(new_items) if new_items else None
-                    await inter.response.edit_message(embed=new_embed, view=new_view)
+                    new_panel, new_items = _build_wl_panel()
+                    await inter.response.edit_message(
+                        view=_WishlistView(new_panel, new_items,
+                                           with_buttons=bool(new_items)))
                 return _cb
 
-        view = _WishlistView(items) if (is_self and items) else None
-        await interaction.response.send_message(embed=embed, view=(view or discord.utils.MISSING))
+        panel, items = _build_wl_panel()
+        await interaction.response.send_message(
+            view=_WishlistView(panel, items, with_buttons=bool(is_self and items)))
 
     # === /cardtop <category>: leaderboards ===
     @bot.tree.command(name="cardtop", description="Card leaderboards (collection, mythics, essences, fusions, luck)")
@@ -2787,9 +2827,9 @@ def setup_cards_commands(bot, deps):
             desc = "\n".join(t("cards.top.line", loc, medal=medals[i],
                                 name=_name(uid), value=val)
                              for i, (uid, val) in enumerate(rows))
-        embed = discord.Embed(title=title, description=desc, color=0xF1C40F)
-        embed.set_footer(text=t("cards.top.footer", loc))
-        await interaction.followup.send(embed=embed)
+        p = Panel(title, desc)
+        p.footer(t("cards.top.footer", loc))
+        await interaction.followup.send(view=p.view())
 
 
     # === /bossspawn: spawn a boss (owner, test) ===
@@ -2834,11 +2874,7 @@ def setup_cards_commands(bot, deps):
     @bot.tree.command(name="cardhelp", description="Full guide of the TookBot card system")
     async def cardhelp_cmd(interaction: discord.Interaction):
         loc = locale_of(interaction)
-        embed = discord.Embed(
-            title=t("cards.help.title", loc),
-            description=t("cards.help.intro", loc),
-            color=0xB9F23A,
-        )
+        p = Panel(t("cards.help.title", loc), t("cards.help.intro", loc))
         for _name_key, _val_key in (
             ("get_name", "get_value"),
             ("essences_name", "essences_value"),
@@ -2849,14 +2885,10 @@ def setup_cards_commands(bot, deps):
             ("trade_name", "trade_value"),
             ("guild_name", "guild_value"),
         ):
-            embed.add_field(
-                name=t("cards.help." + _name_key, loc),
-                value=t("cards.help." + _val_key, loc),
-                inline=False,
-            )
-        embed.set_footer(text=t("cards.help.footer", loc))
-        await interaction.response.send_message(embed=embed, view=_support_view(loc),
-                                                ephemeral=True)
+            p.field(t("cards.help." + _name_key, loc), t("cards.help." + _val_key, loc))
+        p.footer(t("cards.help.footer", loc))
+        await interaction.response.send_message(
+            view=p.view(row(_support_button(loc))), ephemeral=True)
 
 
     # === /cardshop: weekly shop (6 slots) ===
@@ -2932,9 +2964,11 @@ def setup_cards_commands(bot, deps):
                 super().__init__(timeout=300)
                 self.add_item(_QtySelect(slot_n))
 
-        class _ShopView(discord.ui.View):
-            def __init__(self):
+        class _ShopView(discord.ui.LayoutView):
+            def __init__(self, panel):
                 super().__init__(timeout=300)
+                self.add_item(panel.container())
+                row0, row1 = [], []
                 for s in slots:
                     n = int(s["slot"])
                     enabled = bool(s.get("enabled") and s.get("item_type") and s.get("item_ref"))
@@ -2945,11 +2979,13 @@ def setup_cards_commands(bot, deps):
                         label=f"{label} · {price} ✨" if enabled else _slot_lbl,
                         style=discord.ButtonStyle.success if enabled else discord.ButtonStyle.secondary,
                         disabled=not enabled,
-                        row=0 if n <= 3 else 1,
                         custom_id=f"shop_buy_{n}",
                     )
                     btn.callback = self._make_cb(n)
-                    self.add_item(btn)
+                    (row0 if n <= 3 else row1).append(btn)
+                for chunk in (row0, row1):
+                    if chunk:
+                        self.add_item(row(*chunk))
 
             def _make_cb(self, slot_n):
                 async def _cb(inter: discord.Interaction):
@@ -2963,7 +2999,7 @@ def setup_cards_commands(bot, deps):
                     if prev is not None:
                         try:
                             await prev.edit_original_response(content=content, view=view)
-                            await inter.response.defer()  # ack silencieux, aucun nouveau message
+                            await inter.response.defer()  # silent ack, no new message
                             return
                         except (discord.NotFound, discord.HTTPException):
                             _panels.pop(inter.user.id, None)
@@ -2971,27 +3007,23 @@ def setup_cards_commands(bot, deps):
                     _panels[inter.user.id] = inter
                 return _cb
 
-        embed = discord.Embed(
-            title=t("cards.shop.title", loc),
-            description=t("cards.shop.desc", loc, balance=bal),
-            color=0xB9F23A,
-        )
+        p = Panel(t("cards.shop.title", loc), t("cards.shop.desc", loc, balance=bal))
         file = None
         if rel:
             local_path = _os.path.join(
                 _REPO_ROOT, rel.lstrip("/").replace("/", _os.sep))
             if _os.path.exists(local_path):
                 file = discord.File(local_path, filename="cardshop.png")
-                embed.set_image(url="attachment://cardshop.png")
+                p.image("attachment://cardshop.png")
             else:
                 print(f"[cardshop] image generated but not found: {local_path}")
         else:
             print("[cardshop] build_shop_image returned None")
-        view = _ShopView()
+        view = _ShopView(p)
         if file:
-            await interaction.followup.send(embed=embed, file=file, view=view)
+            await interaction.followup.send(view=view, file=file)
         else:
-            await interaction.followup.send(embed=embed, view=view)
+            await interaction.followup.send(view=view)
 
 
     # === /cardtrade <user> ===
@@ -3043,9 +3075,9 @@ def setup_cards_commands(bot, deps):
                               owned=owned, qty=qty))
         return errs
 
-    def _build_trade_embed(trade_id: int, sender: discord.Member,
+    def _build_trade_panel(trade_id: int, sender: discord.Member,
                              receiver: discord.Member, status: str = "pending",
-                             locale=None) -> discord.Embed:
+                             locale=None, ping: str | None = None) -> Panel:
         offer = card_trade_items(trade_id, side="offer")
         request = card_trade_items(trade_id, side="request")
 
@@ -3059,13 +3091,6 @@ def setup_cards_commands(bot, deps):
                 lines.append(f"{em} **{it['name']}**{qty}")
             return "\n".join(lines)
 
-        status_color = {
-            "pending":   0xC8F050,
-            "accepted":  0x4ade80,
-            "refused":   0xff3d57,
-            "cancelled": 0x9aa0a6,
-            "countered": 0xfbbf24,
-        }.get(status, 0xC8F050)
         _status_key = {
             "pending":   "cards.trade.status_pending",
             "accepted":  "cards.trade.status_accepted",
@@ -3077,49 +3102,45 @@ def setup_cards_commands(bot, deps):
 
         # The title MUST keep the "Trade #<id>" marker: the persistent view
         # parses it back on every click.
-        embed = discord.Embed(
-            title=t("cards.trade.embed_title", locale, trade_id=trade_id, status=status_label),
-            color=status_color,
-        )
-        embed.add_field(name=t("cards.trade.field_offer", locale, name=sender.display_name),
-                         value=_fmt(offer)[:1024], inline=True)
-        embed.add_field(name=t("cards.trade.field_request", locale, name=receiver.display_name),
-                         value=_fmt(request)[:1024], inline=True)
-        embed.set_footer(text=f"{sender} ↔ {receiver}")
-        return embed
+        p = Panel(t("cards.trade.embed_title", locale, trade_id=trade_id, status=status_label))
+        # A V2 message has no `content=`: the receiver ping becomes a panel block.
+        if ping:
+            p.text(ping)
+        p.field(t("cards.trade.field_offer", locale, name=sender.display_name),
+                _fmt(offer)[:1024])
+        p.field(t("cards.trade.field_request", locale, name=receiver.display_name),
+                _fmt(request)[:1024])
+        p.footer(f"{sender} ↔ {receiver}")
+        return p
 
+    def _trade_ctx(interaction):
+        """(trade_id, trade, sender_id, receiver_id) or None if not found.
+        The trade id is re-read from the panel text (marker "Trade #N")."""
+        import re as _re_t
+        m = _re_t.search(r"Trade #(\d+)", _v2_message_text(interaction.message))
+        if not m:
+            return None
+        tid = int(m.group(1))
+        trade = card_trade_get(tid)
+        if not trade:
+            return None
+        return tid, trade, int(trade["sender_id"]), int(trade["receiver_id"])
 
+    def _trade_members(interaction, sender_id, receiver_id):
+        """Resolve both sides, falling back to the clicker when out of cache."""
+        g = interaction.guild
+        sender = (g.get_member(sender_id) if g else None) or interaction.user
+        receiver = (g.get_member(receiver_id) if g else None) or interaction.user
+        return sender, receiver
 
-    class TradeView(discord.ui.View):
-        """Persistent (timeout=None, fixed custom_ids). A single instance registered
-        at boot handles ALL trades. The state (trade_id) is re-read from the embed
-        title (Trade #N), sender/receiver from the DB -> survives restarts."""
-        def __init__(self, locale=None):
-            super().__init__(timeout=None)
-            self.accept_btn.label = t("cards.trade.btn_accept", locale)
-            self.refuse_btn.label = t("cards.trade.btn_refuse", locale)
-            self.counter_btn.label = t("cards.trade.btn_counter", locale)
-            self.view_cards_btn.label = t("cards.trade.btn_view_cards", locale)
-
-        def _ctx(self, interaction):
-            """(trade_id, trade, sender_id, receiver_id) or None if not found."""
-            import re as _re_t
-            emb = interaction.message.embeds[0] if interaction.message.embeds else None
-            title = (emb.title if emb else "") or ""
-            m = _re_t.search(r"Trade #(\d+)", title)
-            if not m:
-                return None
-            tid = int(m.group(1))
-            trade = card_trade_get(tid)
-            if not trade:
-                return None
-            return tid, trade, int(trade["sender_id"]), int(trade["receiver_id"])
+    class _TradeRow(discord.ui.ActionRow):
+        """Decision row. custom_ids kept identical to the pre-V2 version."""
 
         @discord.ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅",
                            custom_id="trade_accept")
         async def accept_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
             loc = locale_of(interaction)
-            ctx = self._ctx(interaction)
+            ctx = _trade_ctx(interaction)
             if not ctx:
                 await interaction.response.send_message(
                     t("cards.trade.gone", loc), ephemeral=True); return
@@ -3138,6 +3159,7 @@ def setup_cards_commands(bot, deps):
             recv_items = [(it["card_id"], it["qty"]) for it in request]
             err_s = _verify_ownership(sender_id, sender_items, locale=loc)
             err_r = _verify_ownership(receiver_id, recv_items, locale=loc)
+            sender, receiver = _trade_members(interaction, sender_id, receiver_id)
             if err_s or err_r:
                 msg = t("cards.trade.missing_cards", loc)
                 if err_s:
@@ -3147,7 +3169,12 @@ def setup_cards_commands(bot, deps):
                     msg += t("cards.trade.missing_line", loc, user_id=receiver_id,
                              list=", ".join(err_r))
                 card_trade_set_status(tid, "cancelled")
-                await interaction.response.edit_message(view=None)
+                # A V2 message cannot fall back to `content`: replace the panel.
+                # content/embeds cleared so a pre-V2 message can be edited too.
+                await interaction.response.edit_message(
+                    content=None, embeds=[],
+                    view=_build_trade_panel(tid, sender, receiver, "cancelled",
+                                            locale=loc).view(timeout=None))
                 await interaction.followup.send(msg,
                     allowed_mentions=discord.AllowedMentions.none())
                 return
@@ -3158,16 +3185,16 @@ def setup_cards_commands(bot, deps):
                 for _ in range(qty):
                     user_card_transfer_one(receiver_id, sender_id, cid)
             card_trade_set_status(tid, "accepted")
-            sender = (interaction.guild.get_member(sender_id) if interaction.guild else None) or interaction.user
-            receiver = (interaction.guild.get_member(receiver_id) if interaction.guild else None) or interaction.user
-            new_embed = _build_trade_embed(tid, sender, receiver, "accepted", locale=loc)
-            await interaction.response.edit_message(embed=new_embed, view=None)
+            await interaction.response.edit_message(
+                content=None, embeds=[],
+                view=_build_trade_panel(tid, sender, receiver, "accepted",
+                                        locale=loc).view(timeout=None))
 
         @discord.ui.button(label="Refuse", style=discord.ButtonStyle.danger, emoji="❌",
                            custom_id="trade_refuse")
         async def refuse_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
             loc = locale_of(interaction)
-            ctx = self._ctx(interaction)
+            ctx = _trade_ctx(interaction)
             if not ctx:
                 await interaction.response.send_message(
                     t("cards.trade.gone", loc), ephemeral=True); return
@@ -3182,16 +3209,17 @@ def setup_cards_commands(bot, deps):
                 return
             new_status = "cancelled" if interaction.user.id == sender_id else "refused"
             card_trade_set_status(tid, new_status)
-            sender = (interaction.guild.get_member(sender_id) if interaction.guild else None) or interaction.user
-            receiver = (interaction.guild.get_member(receiver_id) if interaction.guild else None) or interaction.user
-            new_embed = _build_trade_embed(tid, sender, receiver, new_status, locale=loc)
-            await interaction.response.edit_message(embed=new_embed, view=None)
+            sender, receiver = _trade_members(interaction, sender_id, receiver_id)
+            await interaction.response.edit_message(
+                content=None, embeds=[],
+                view=_build_trade_panel(tid, sender, receiver, new_status,
+                                        locale=loc).view(timeout=None))
 
         @discord.ui.button(label="Counter-offer", style=discord.ButtonStyle.secondary, emoji="🔄",
                            custom_id="trade_counter")
         async def counter_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
             loc = locale_of(interaction)
-            ctx = self._ctx(interaction)
+            ctx = _trade_ctx(interaction)
             if not ctx:
                 await interaction.response.send_message(
                     t("cards.trade.gone", loc), ephemeral=True); return
@@ -3209,11 +3237,15 @@ def setup_cards_commands(bot, deps):
                                  view_to_disable=None, locale=loc)
             await interaction.response.send_modal(modal)
 
+    class _TradeCardsRow(discord.ui.ActionRow):
+        """Second row: 'View cards' + the dashboard link.
+        custom_id kept identical to the pre-V2 version."""
+
         @discord.ui.button(label="View cards", style=discord.ButtonStyle.secondary, emoji="🃏",
-                           row=1, custom_id="trade_view_cards")
+                           custom_id="trade_view_cards")
         async def view_cards_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
             loc = locale_of(interaction)
-            ctx = self._ctx(interaction)
+            ctx = _trade_ctx(interaction)
             if not ctx:
                 await interaction.response.send_message(
                     t("cards.trade.gone", loc), ephemeral=True); return
@@ -3228,8 +3260,32 @@ def setup_cards_commands(bot, deps):
                     t("cards.trade.no_cards_to_show", loc), ephemeral=True)
                 return
             await interaction.response.send_message(
-                embed=_trade_card_embed(tid, 0, entries, locale=loc),
-                view=TradeCardsNavView(), ephemeral=True)
+                view=TradeCardsNavView(_trade_card_panel(tid, 0, entries, locale=loc)),
+                ephemeral=True)
+
+    _TRADE_DASHBOARD_URL = "https://dashboard.tookbot.click"
+
+    class TradeView(discord.ui.LayoutView):
+        """Persistent (timeout=None, fixed custom_ids). A single instance registered
+        at boot handles ALL trades. The state (trade_id) is re-read from the panel
+        title (Trade #N), sender/receiver from the DB -> survives restarts."""
+        def __init__(self, panel=None, locale=None, trade_id=None):
+            super().__init__(timeout=None)
+            self.add_item((panel or Panel()).container())
+            r1 = _TradeRow()
+            r1.accept_btn.label = t("cards.trade.btn_accept", locale)
+            r1.refuse_btn.label = t("cards.trade.btn_refuse", locale)
+            r1.counter_btn.label = t("cards.trade.btn_counter", locale)
+            self.add_item(r1)
+            r2 = _TradeCardsRow()
+            r2.view_cards_btn.label = t("cards.trade.btn_view_cards", locale)
+            if trade_id is not None:
+                # 'Open on the dashboard' link button (page /cards/trade/<id>)
+                r2.add_item(discord.ui.Button(
+                    label=t("cards.trade.btn_dashboard", locale),
+                    style=discord.ButtonStyle.link,
+                    url=f"{_TRADE_DASHBOARD_URL}/cards/trade/{trade_id}", emoji="🎛️"))
+            self.add_item(r2)
 
     # Register the persistent trade view (survives pm2 restarts)
     try:
@@ -3237,18 +3293,12 @@ def setup_cards_commands(bot, deps):
     except Exception as _e:
         print(f"[cards] add_view TradeView: {_e}")
 
-    _TRADE_DASHBOARD_URL = "https://dashboard.tookbot.click"
+    def _trade_view(panel, tid, locale=None):
+        """Trade panel + decision buttons + 'Open on the dashboard' link button."""
+        return TradeView(panel, locale=locale, trade_id=tid)
 
-    def _trade_view(tid, locale=None):
-        """TradeView + 'Open on the dashboard' link button (page /cards/trade/<id>)."""
-        v = TradeView(locale=locale)
-        v.add_item(discord.ui.Button(
-            label=t("cards.trade.btn_dashboard", locale), style=discord.ButtonStyle.link,
-            url=f"{_TRADE_DASHBOARD_URL}/cards/trade/{tid}", emoji="🎛️"))
-        return v
-
-    # web -> bot hook: the dashboard "Send" button posts the trade embed in the
-    # cards channel (same embed + same TradeView as /cardtrade).
+    # web -> bot hook: the dashboard "Send" button posts the trade panel in the
+    # cards channel (same panel + same TradeView as /cardtrade).
     async def _hook_post_trade(bot_, gid, payload):
         tid = int(payload.get("trade_id") or 0)
         trade = card_trade_get(tid)
@@ -3265,10 +3315,10 @@ def setup_cards_commands(bot, deps):
         sender = guild.get_member(int(trade["sender_id"])) or await bot_.fetch_user(int(trade["sender_id"]))
         receiver = guild.get_member(int(trade["receiver_id"])) or await bot_.fetch_user(int(trade["receiver_id"]))
         _loc = guild_locale(gid) or DEFAULT_LOCALE
-        embed = _build_trade_embed(tid, sender, receiver, "pending", locale=_loc)
+        panel = _build_trade_panel(tid, sender, receiver, "pending", locale=_loc,
+                                   ping=f"<@{trade['receiver_id']}>")
         msg = await channel.send(
-            content=f"<@{trade['receiver_id']}>",
-            embed=embed, view=_trade_view(tid, locale=_loc),
+            view=_trade_view(panel, tid, locale=_loc),
             allowed_mentions=discord.AllowedMentions(users=True))
         card_trade_set_status(tid, "pending", message_id=msg.id)
 
@@ -3362,12 +3412,24 @@ def setup_cards_commands(bot, deps):
                         ephemeral=True)
                     return
 
-                # Counter-offer: mark the old trade + strip the buttons off the original message
+                # Counter-offer: mark the old trade + strip the buttons off the
+                # original message. A V2 message cannot go back to `content`, so
+                # the whole view is replaced by the panel alone.
                 if self.is_counter and self.original_trade_id:
                     card_trade_set_status(self.original_trade_id, "countered")
                     try:
                         if interaction.message:
-                            await interaction.message.edit(view=None)
+                            _orig = card_trade_get(self.original_trade_id) or {}
+                            _os_id = int(_orig.get("sender_id") or 0)
+                            _or_id = int(_orig.get("receiver_id") or 0)
+                            _osender, _oreceiver = _trade_members(interaction, _os_id, _or_id)
+                            await interaction.message.edit(
+                                content=None, embeds=[],
+                                view=_build_trade_panel(
+                                    self.original_trade_id, _osender, _oreceiver,
+                                    "countered", locale=loc,
+                                    ping=f"<@{_or_id}>" if _or_id else None,
+                                ).view(timeout=None))
                     except Exception:
                         pass
 
@@ -3383,12 +3445,10 @@ def setup_cards_commands(bot, deps):
                     card_trade_set_status(tid, "cancelled")
                     return
 
-                embed = _build_trade_embed(tid, interaction.user, receiver_member, "pending",
-                                            locale=loc)
-                view = _trade_view(tid, locale=loc)
+                panel = _build_trade_panel(tid, interaction.user, receiver_member, "pending",
+                                           locale=loc, ping=receiver_member.mention)
                 await interaction.response.send_message(
-                    content=f"{receiver_member.mention}",
-                    embed=embed, view=view,
+                    view=_trade_view(panel, tid, locale=loc),
                     allowed_mentions=discord.AllowedMentions(users=True),
                 )
                 msg = await interaction.original_response()
@@ -3493,28 +3553,25 @@ def setup_cards_commands(bot, deps):
                 t("cards.suggest.save_failed", loc), ephemeral=True)
             return
 
-        # Embed forwarded to the support channel
+        # Panel forwarded to the support channel
         _rar_line = (t("cards.suggest.rarity_line", loc, rarity=rarity.value)
                      if rarity else "")
-        embed = discord.Embed(
-            title=t("cards.suggest.title", loc, id=sid),
-            description=t("cards.suggest.desc", loc, name=name_clean,
-                          universe=universe.value,
-                          origin=(" · " + origin) if origin else "",
-                          rarity_line=_rar_line),
-            color=0xB9F23A,
+        p = Panel(
+            t("cards.suggest.title", loc, id=sid),
+            t("cards.suggest.desc", loc, name=name_clean,
+              universe=universe.value,
+              origin=(" · " + origin) if origin else "",
+              rarity_line=_rar_line),
         )
-        embed.set_image(url=final_url)
-        avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
-        embed.set_footer(text=t("cards.suggest.footer", loc,
-                                name=interaction.user.display_name), icon_url=avatar_url)
+        p.image(final_url)
+        p.footer(t("cards.suggest.footer", loc, name=interaction.user.display_name))
 
         # Forward to the support channel
         support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
         forward_ok = False
         if support_channel:
             try:
-                fmsg = await support_channel.send(embed=embed)
+                fmsg = await support_channel.send(view=p.view(timeout=None))
                 from database import card_suggestion_set_forward
                 card_suggestion_set_forward(sid, fmsg.id)
                 await _add_vote_reactions(fmsg)
@@ -3624,36 +3681,33 @@ def setup_cards_commands(bot, deps):
             changes.append(t("cards.modify.change_origin", loc, value=new_origin))
         if final_url:
             changes.append(t("cards.modify.change_image", loc))
-        embed = discord.Embed(
-            title=t("cards.modify.title", loc, id=sid, name=data['name']),
-            description=t("cards.modify.desc", loc, card_id=data['id'],
-                          rarity=data.get('rarity', '?'),
-                          changes="\n".join(f"• {c}" for c in changes)),
-            color=0xF2B33A)
+        p = Panel(
+            t("cards.modify.title", loc, id=sid, name=data['name']),
+            t("cards.modify.desc", loc, card_id=data['id'],
+              rarity=data.get('rarity', '?'),
+              changes="\n".join(f"• {c}" for c in changes)))
         # Image: the new one if provided, otherwise the card's CURRENT image
-        img_for_embed = final_url
-        embed_file = None
-        if not img_for_embed:
+        img_for_panel = final_url
+        panel_file = None
+        if not img_for_panel:
             _u, _f = _resolve_card_image(data)
             if _u:
-                img_for_embed = _u
+                img_for_panel = _u
             elif _f:
-                embed_file = _f
-        if img_for_embed:
-            embed.set_image(url=img_for_embed)
-        elif embed_file:
-            embed.set_image(url="attachment://card.png")
-        avatar_url = str(interaction.user.display_avatar.url) if interaction.user.display_avatar else None
-        embed.set_footer(text=t("cards.modify.footer", loc,
-                                name=interaction.user.display_name), icon_url=avatar_url)
+                panel_file = _f
+        if img_for_panel:
+            p.image(img_for_panel)
+        elif panel_file:
+            p.image("attachment://card.png")
+        p.footer(t("cards.modify.footer", loc, name=interaction.user.display_name))
         support_channel = bot.get_channel(SUGGEST_CHANNEL_ID)
         forward_ok = False
         if support_channel:
             try:
-                if embed_file:
-                    fmsg = await support_channel.send(embed=embed, file=embed_file)
+                if panel_file:
+                    fmsg = await support_channel.send(view=p.view(timeout=None), file=panel_file)
                 else:
-                    fmsg = await support_channel.send(embed=embed)
+                    fmsg = await support_channel.send(view=p.view(timeout=None))
                 from database import card_suggestion_set_forward
                 card_suggestion_set_forward(sid, fmsg.id)
                 await _add_vote_reactions(fmsg)
