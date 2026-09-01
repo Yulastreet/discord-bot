@@ -14,6 +14,7 @@ from discord.ext import commands
 
 from database import guild_setting_get, guild_setting_set
 from services.i18n import locale_of, t, ti
+from services.ui_v2 import Panel
 
 
 class _PresentationModal(discord.ui.Modal):
@@ -44,29 +45,31 @@ class _PresentationModal(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction):
         user = interaction.user
-        embed = discord.Embed(
-            title=ti(interaction, "server.presentation.embed_title", name=self.name.value),
-            description=self.description.value,
-            color=0xC8F050,
+        p = Panel(
+            ti(interaction, "server.presentation.embed_title", name=self.name.value),
+            self.description.value,
         )
-        embed.set_author(name=str(user), icon_url=user.display_avatar.url if user.display_avatar else None)
+        # V2 has no embed author line: the username stays as a subtext byline.
+        p.text(f"-# {user}")
         if user.display_avatar:
-            embed.set_thumbnail(url=user.display_avatar.url)
+            p.thumbnail(user.display_avatar.url)
         if self.age.value.strip():
-            embed.add_field(name=ti(interaction, "server.presentation.embed_age"),
-                            value=self.age.value.strip(), inline=True)
-        embed.add_field(name=ti(interaction, "server.presentation.embed_member"),
-                        value=user.mention, inline=True)
+            p.field(ti(interaction, "server.presentation.embed_age"),
+                    self.age.value.strip(), inline=True)
+        p.field(ti(interaction, "server.presentation.embed_member"),
+                user.mention, inline=True)
         if self.hobbies.value.strip():
-            embed.add_field(name=ti(interaction, "server.presentation.embed_hobbies"),
-                            value=self.hobbies.value.strip(), inline=False)
+            p.field(ti(interaction, "server.presentation.embed_hobbies"),
+                    self.hobbies.value.strip(), inline=False)
         if self.games.value.strip():
-            embed.add_field(name=ti(interaction, "server.presentation.embed_games"),
-                            value=self.games.value.strip(), inline=False)
-        embed.set_footer(text=ti(interaction, "server.presentation.embed_footer"))
+            p.field(ti(interaction, "server.presentation.embed_games"),
+                    self.games.value.strip(), inline=False)
+        p.footer(ti(interaction, "server.presentation.embed_footer"))
 
         try:
-            await self.target_channel.send(embed=embed)
+            # The embed version never pinged: keep the author mention silent.
+            await self.target_channel.send(
+                view=p.view(), allowed_mentions=discord.AllowedMentions.none())
         except discord.Forbidden:
             await interaction.response.send_message(
                 ti(interaction, "server.presentation.post_forbidden"),

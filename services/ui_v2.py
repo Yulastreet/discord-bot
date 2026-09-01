@@ -43,10 +43,17 @@ class Panel:
 
     # ----- embed-like API -----
 
-    def text(self, content):
-        """Free-form block (also used for pings that used to live in `content`)."""
+    def text(self, content, *, first=False):
+        """Free-form block (also used for pings that used to live in `content`).
+
+        ``first=True`` puts the block at the very top, which is where a ping used
+        to sit when it was passed as the message ``content``.
+        """
         if content:
-            self._blocks.append(("text", str(content)))
+            if first:
+                self._blocks.insert(0, ("text", str(content)))
+            else:
+                self._blocks.append(("text", str(content)))
         return self
 
     def field(self, name, value, inline=False):

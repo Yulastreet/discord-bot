@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import locale_of, t, ti
+from services.ui_v2 import Panel
 
 def setup_pass_commands(bot, deps):
     globals().update(deps)
@@ -29,12 +30,11 @@ def setup_pass_commands(bot, deps):
         has_pass = user_has_active_pass(user.id, sku_pass_id=SKU_PASS) or (DISCORD_OWNER_ID and str(user.id) == str(DISCORD_OWNER_ID))
 
         if not has_pass:
-            embed = discord.Embed(
-                title=t("server.pass.no_pass_title", loc),
-                description=t("server.pass.no_pass_body", loc),
-                color=0x9CB94A,
+            p = Panel(
+                t("server.pass.no_pass_title", loc),
+                t("server.pass.no_pass_body", loc),
             )
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(view=p.view(), ephemeral=True)
             return
 
         season = get_or_create_current_season()
@@ -47,13 +47,12 @@ def setup_pass_commands(bot, deps):
         xp_needed = PASS_XP_PER_TIER if tier < PASS_TIERS else 0
 
         bar = _quest_progress_bar(min(xp_in_tier, xp_needed), max(1, xp_needed), width=20)
-        embed = discord.Embed(
-            title=t("server.pass.season_title", loc,
-                    season=season.get("name") or t("server.pass.default_season_name", loc)),
-            description=t("server.pass.season_body", loc,
-                          tier=tier, tiers=PASS_TIERS, bar=bar,
-                          xp_in_tier=xp_in_tier, xp_needed=xp_needed, xp_total=xp_total),
-            color=0x9CB94A,
+        p = Panel(
+            t("server.pass.season_title", loc,
+              season=season.get("name") or t("server.pass.default_season_name", loc)),
+            t("server.pass.season_body", loc,
+              tier=tier, tiers=PASS_TIERS, bar=bar,
+              xp_in_tier=xp_in_tier, xp_needed=xp_needed, xp_total=xp_total),
         )
 
         daily = [q for q in quests if q["period"] == "daily"]
@@ -66,7 +65,7 @@ def setup_pass_commands(bot, deps):
                 done = "✅" if q["progress"] >= q["target"] else "🔸"
                 bar_q = _quest_progress_bar(q["progress"], q["target"])
                 lines.append(f"{done} {lbl} : `{bar_q}` {q['progress']}/{q['target']} (+{q['xp_reward']} XP)")
-            embed.add_field(name=t("server.pass.daily_quests", loc), value="\n".join(lines), inline=False)
+            p.field(t("server.pass.daily_quests", loc), "\n".join(lines), inline=False)
 
         if weekly:
             lines = []
@@ -75,10 +74,10 @@ def setup_pass_commands(bot, deps):
                 done = "✅" if q["progress"] >= q["target"] else "🔸"
                 bar_q = _quest_progress_bar(q["progress"], q["target"])
                 lines.append(f"{done} {lbl} : `{bar_q}` {q['progress']}/{q['target']} (+{q['xp_reward']} XP)")
-            embed.add_field(name=t("server.pass.weekly_quests", loc), value="\n".join(lines), inline=False)
+            p.field(t("server.pass.weekly_quests", loc), "\n".join(lines), inline=False)
 
-        embed.set_footer(text=t("server.pass.season_footer", loc, date=season.get("ends_at", "?")[:10]))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        p.footer(t("server.pass.season_footer", loc, date=season.get("ends_at", "?")[:10]))
+        await interaction.response.send_message(view=p.view(), ephemeral=True)
 
 
     @bot.tree.command(name="redeem", description="Redeem a promo code (TookCoins, Pass XP, or a free Pass)")
@@ -148,11 +147,10 @@ def setup_pass_commands(bot, deps):
             return
 
         await interaction.response.send_message(
-            embed=discord.Embed(
-                title=t("server.redeem.success_title", loc),
-                description=t("server.redeem.success_body", loc, code=code, reward=applied_label),
-                color=0xB9F23A,
-            ),
+            view=Panel(
+                t("server.redeem.success_title", loc),
+                t("server.redeem.success_body", loc, code=code, reward=applied_label),
+            ).view(),
             ephemeral=True,
         )
 
@@ -177,12 +175,11 @@ def setup_pass_commands(bot, deps):
             hours, rem = divmod(int(delta.total_seconds()), 3600)
             minutes = rem // 60
             await interaction.response.send_message(
-                embed=discord.Embed(
-                    title=t("server.daily.already_title", loc, user=user.display_name),
-                    description=t("server.daily.already_body", loc,
-                                  hours=hours, minutes=minutes, streak=prev_streak),
-                    color=0xE67E22,
-                ),
+                view=Panel(
+                    t("server.daily.already_title", loc, user=user.display_name),
+                    t("server.daily.already_body", loc,
+                      hours=hours, minutes=minutes, streak=prev_streak),
+                ).view(),
             )
             return
 
@@ -264,9 +261,8 @@ def setup_pass_commands(bot, deps):
             lines.append(t("server.daily.pass_hint", loc))
 
         await interaction.response.send_message(
-            embed=discord.Embed(
-                title=t("server.daily.title", loc, user=user.display_name),
-                description="\n".join(lines),
-                color=0xB9F23A,
-            ),
+            view=Panel(
+                t("server.daily.title", loc, user=user.display_name),
+                "\n".join(lines),
+            ).view(),
         )

@@ -2,7 +2,7 @@
 
 Flow:
 - /giveaway create duration winners prize [channel]
-- the bot posts an embed in the target channel with a 🎉 Enter button
+- the bot posts a Components V2 panel in the target channel with a 🎉 Enter button
 - each click = 1 entry (toggle)
 - task loop (every minute) detects finished giveaways
   -> picks random winners, edits the message, pings the winners
@@ -29,6 +29,7 @@ from database import (
     giveaways_pending_finalize,
 )
 from services.i18n import DEFAULT_LOCALE, guild_locale, t, ti
+from services.ui_v2 import Panel
 
 
 _DURATION_RE = re.compile(r"^\s*(\d+)\s*(s|m|h|d|j)?\s*$", re.IGNORECASE)
@@ -69,9 +70,8 @@ def fmt_duration(sec: int) -> str:
     return " ".join(parts) or f"{sec}s"
 
 
-class GiveawayJoinView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
+class _GiveawayJoinRow(discord.ui.ActionRow):
+    """Enter button. custom_id 'gw:join' is stable and MUST NOT change."""
 
     @discord.ui.button(label=t("server.giveaway.btn_join"), style=discord.ButtonStyle.success,
                        custom_id="gw:join")
@@ -104,48 +104,50 @@ class GiveawayJoinView(discord.ui.View):
                     ti(interaction, "server.giveaway.entry_added", prize=gw["prize"]),
                     ephemeral=True)
             except Exception: pass
-        # Update count in original embed
+        # Update the entrant count: a V2 message has no embed to patch, the
+        # whole panel is rebuilt from the giveaway row.
         try:
             count = giveaway_entries_count(gid)
             msg = interaction.message
-            if msg and msg.embeds:
-                emb = msg.embeds[0]
-                field_label = t("server.giveaway.field_participants", _gw_locale(gw))
-                # Look for the "Participants" field or append it
-                new_fields = []
-                replaced = False
-                for f in emb.fields:
-                    if f.name.startswith("👥"):
-                        new_fields.append((field_label, str(count), True))
-                        replaced = True
-                    else:
-                        new_fields.append((f.name, f.value, f.inline))
-                if not replaced:
-                    new_fields.append((field_label, str(count), True))
-                emb.clear_fields()
-                for n, v, i in new_fields:
-                    emb.add_field(name=n, value=v, inline=i)
-                await msg.edit(embed=emb, view=self)
+            if msg:
+                await msg.edit(view=GiveawayJoinView(
+                    make_giveaway_panel(gw, participants_count=count)))
         except Exception as e:
             print(f"[giveaway/update count] {type(e).__name__}: {e}")
 
 
-def make_giveaway_embed(gw: dict, *, participants_count: int = 0,
-                       finished: bool = False,
-                       winners: Optional[list] = None) -> discord.Embed:
+class GiveawayJoinView(discord.ui.LayoutView):
+    """Persistent giveaway view.
+
+    ``panel`` is the Components V2 panel shown above the button; it is omitted
+    when the view is only registered for dispatch (``bot.add_view``).
+    ``disabled=True`` greys out the button of a finished/cancelled giveaway.
+    """
+
+    def __init__(self, panel: Optional[Panel] = None, *, disabled: bool = False):
+        super().__init__(timeout=None)
+        self.join_row = _GiveawayJoinRow()
+        if disabled:
+            for child in self.join_row.children:
+                child.disabled = True
+        if panel is not None:
+            self.add_item(panel.container())
+        self.add_item(self.join_row)
+
+
+def make_giveaway_panel(gw: dict, *, participants_count: int = 0,
+                        finished: bool = False,
+                        winners: Optional[list] = None,
+                        title: Optional[str] = None) -> Panel:
     loc = _gw_locale(gw)
-    now = _dt.datetime.now(_dt.timezone.utc)
     ends_at = _dt.datetime.fromisoformat(gw["ends_at"].replace("Z", "+00:00"))
-    remaining = max(0, int((ends_at - now).total_seconds()))
-    if finished or gw.get("ended"):
-        color = 0x95A5A6 if not (winners) else 0x2ECC71
-        title = t("server.giveaway.title_finished", loc, prize=gw["prize"])
-    else:
-        color = 0xF1C40F
-        title = t("server.giveaway.title_active", loc, prize=gw["prize"])
-    embed = discord.Embed(title=title, color=color, timestamp=now)
+    if title is None:
+        if finished or gw.get("ended"):
+            title = t("server.giveaway.title_finished", loc, prize=gw["prize"])
+        else:
+            title = t("server.giveaway.title_active", loc, prize=gw["prize"])
     if not finished and not gw.get("ended"):
-        embed.description = t(
+        description = t(
             "server.giveaway.desc_active", loc,
             prize=gw["prize"], winners=gw["winners_count"],
             ends_ts=int(ends_at.timestamp()),
@@ -153,16 +155,17 @@ def make_giveaway_embed(gw: dict, *, participants_count: int = 0,
     else:
         if winners:
             mentions = ", ".join(f"<@{w}>" for w in winners)
-            embed.description = t("server.giveaway.desc_winners", loc,
-                                  prize=gw["prize"], winners=mentions)
+            description = t("server.giveaway.desc_winners", loc,
+                            prize=gw["prize"], winners=mentions)
         else:
-            embed.description = t("server.giveaway.desc_no_winner", loc, prize=gw["prize"])
-    embed.add_field(name=t("server.giveaway.field_participants", loc),
-                    value=str(participants_count), inline=True)
+            description = t("server.giveaway.desc_no_winner", loc, prize=gw["prize"])
+    p = Panel(title, description)
+    p.field(t("server.giveaway.field_participants", loc),
+            str(participants_count), inline=True)
     if gw.get("created_by"):
-        embed.add_field(name=t("server.giveaway.field_host", loc),
-                        value=f"<@{gw['created_by']}>", inline=True)
-    return embed
+        p.field(t("server.giveaway.field_host", loc),
+                f"<@{gw['created_by']}>", inline=True)
+    return p
 
 
 async def _finalize_giveaway(bot: commands.Bot, gw: dict) -> Optional[list[str]]:
@@ -183,16 +186,13 @@ async def _finalize_giveaway(bot: commands.Bot, gw: dict) -> Optional[list[str]]
         ch = bot.get_channel(int(gw["channel_id"]))
         if ch and gw.get("message_id"):
             msg = await ch.fetch_message(int(gw["message_id"]))
-            embed = make_giveaway_embed(
+            panel = make_giveaway_panel(
                 {**gw, "ended": 1},
                 participants_count=len(entries),
                 finished=True,
                 winners=winners,
             )
-            view = GiveawayJoinView()
-            for child in view.children:
-                child.disabled = True
-            await msg.edit(embed=embed, view=view)
+            await msg.edit(view=GiveawayJoinView(panel, disabled=True))
             if winners:
                 mentions = " ".join(f"<@{w}>" for w in winners)
                 await ch.send(t("server.giveaway.announce_winners", loc,
@@ -296,10 +296,9 @@ def setup_giveaway_commands(bot: commands.Bot):
             ends_at.isoformat(), interaction.user.id,
         )
         gw = giveaway_get(gid)
-        embed = make_giveaway_embed(gw, participants_count=0)
-        view = GiveawayJoinView()
+        view = GiveawayJoinView(make_giveaway_panel(gw, participants_count=0))
         try:
-            msg = await target.send(embed=embed, view=view)
+            msg = await target.send(view=view)
         except discord.Forbidden:
             await interaction.followup.send(
                 ti(interaction, "server.giveaway.post_forbidden"), ephemeral=True)
@@ -331,9 +330,8 @@ def setup_giveaway_commands(bot: commands.Bot):
             lines.append(ti(interaction, "server.giveaway.list_line",
                             giveaway_id=g["id"], prize=g["prize"],
                             channel_id=g["channel_id"], entries=entries, ends_ts=ends_ts))
-        embed = discord.Embed(title=ti(interaction, "server.giveaway.list_title"),
-                              description="\n".join(lines), color=0xF1C40F)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        p = Panel(ti(interaction, "server.giveaway.list_title"), "\n".join(lines))
+        await interaction.response.send_message(view=p.view(), ephemeral=True)
 
     @gw_group.command(name="reroll", description="Draw new winners for a finished giveaway")
     @app_commands.describe(giveaway_id="Giveaway ID (shown in the message title)")
@@ -385,14 +383,15 @@ def setup_giveaway_commands(bot: commands.Bot):
             ch = bot.get_channel(int(gw["channel_id"]))
             if ch and gw.get("message_id"):
                 msg = await ch.fetch_message(int(gw["message_id"]))
-                embed = msg.embeds[0] if msg.embeds else discord.Embed()
-                embed.title = t("runtime.giveaway.cancelled_title", _gw_locale(gw),
-                                prize=gw["prize"])
-                embed.color = 0xE74C3C
-                view = GiveawayJoinView()
-                for child in view.children:
-                    child.disabled = True
-                await msg.edit(embed=embed, view=view)
+                # A V2 message carries no embed to patch: rebuild the panel with
+                # the cancelled title.
+                panel = make_giveaway_panel(
+                    gw,
+                    participants_count=giveaway_entries_count(giveaway_id),
+                    title=t("runtime.giveaway.cancelled_title", _gw_locale(gw),
+                            prize=gw["prize"]),
+                )
+                await msg.edit(view=GiveawayJoinView(panel, disabled=True))
         except Exception:
             pass
         await interaction.response.send_message(

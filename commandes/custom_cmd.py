@@ -29,6 +29,7 @@ from database import (
     has_premium_grant, user_has_active_entitlement,
 )
 from services.i18n import ti
+from services.ui_v2 import Panel
 
 
 _SKU_TOOKBOT_PLUS  = _os.getenv("SKU_TOOKBOT_PLUS", "").strip() or None
@@ -68,7 +69,11 @@ def _interpolate(s: str, *, user: discord.abc.User, guild: discord.Guild,
             .replace("{time}",         now.strftime("%H:%M")))
 
 
-def _build_embed_from_json(raw: str, *, user, guild, channel) -> Optional[discord.Embed]:
+def _build_embed_from_json(raw: str, *, user, guild, channel) -> Optional[Panel]:
+    """Build the Components V2 panel described by the dashboard JSON.
+
+    The stored JSON keys are untouched (`color` is simply ignored: V2 panels
+    carry no accent colour)."""
     try:
         data = _json.loads(raw or "{}")
     except Exception:
@@ -77,27 +82,22 @@ def _build_embed_from_json(raw: str, *, user, guild, channel) -> Optional[discor
         return None
     title = _interpolate(data.get("title") or "", user=user, guild=guild, channel=channel)
     desc  = _interpolate(data.get("description") or "", user=user, guild=guild, channel=channel)
-    color_raw = data.get("color")
-    try:
-        color_int = int(color_raw, 16) if isinstance(color_raw, str) else int(color_raw or 0x3498DB)
-    except Exception:
-        color_int = 0x3498DB
-    embed = discord.Embed(title=title or None, description=desc or None, color=color_int)
-    if data.get("image"):
-        embed.set_image(url=data["image"])
+    p = Panel(title or None, desc or None)
     if data.get("thumbnail"):
-        embed.set_thumbnail(url=data["thumbnail"])
+        p.thumbnail(data["thumbnail"])
+    if data.get("image"):
+        p.image(data["image"])
     if data.get("footer"):
-        embed.set_footer(text=_interpolate(data["footer"], user=user, guild=guild, channel=channel))
+        p.footer(_interpolate(data["footer"], user=user, guild=guild, channel=channel))
     for f in (data.get("fields") or []):
         if not isinstance(f, dict):
             continue
-        embed.add_field(
-            name=_interpolate(f.get("name") or "​", user=user, guild=guild, channel=channel)[:256],
-            value=_interpolate(f.get("value") or "​", user=user, guild=guild, channel=channel)[:1024],
+        p.field(
+            _interpolate(f.get("name") or "​", user=user, guild=guild, channel=channel)[:256],
+            _interpolate(f.get("value") or "​", user=user, guild=guild, channel=channel)[:1024],
             inline=bool(f.get("inline", False)),
         )
-    return embed
+    return p
 
 
 async def _execute_custom(interaction: discord.Interaction, name: str):
@@ -108,13 +108,12 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
         return
     # TookBot+ gate: custom commands are paid. The server owner must have TookBot+.
     if not _owner_has_tookbot_plus(interaction.guild):
-        embed = discord.Embed(
-            title=ti(interaction, "server.custom_cmd.plus_title"),
-            description=ti(interaction, "server.custom_cmd.plus_body", name=name),
-            color=0xffa726,
+        p = Panel(
+            ti(interaction, "server.custom_cmd.plus_title"),
+            ti(interaction, "server.custom_cmd.plus_body", name=name),
         )
-        embed.set_footer(text=ti(interaction, "server.custom_cmd.plus_footer"))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        p.footer(ti(interaction, "server.custom_cmd.plus_footer"))
+        await interaction.response.send_message(view=p.view(), ephemeral=True)
         return
     row = custom_cmd_get(interaction.guild.id, name)
     if not row or not row.get("enabled"):
@@ -124,14 +123,16 @@ async def _execute_custom(interaction: discord.Interaction, name: str):
         return
     try:
         if row.get("use_embed"):
-            embed = _build_embed_from_json(
+            panel = _build_embed_from_json(
                 row.get("response_embed") or "{}",
                 user=interaction.user, guild=interaction.guild,
                 channel=interaction.channel,
             )
-            if not embed:
+            if not panel:
                 raise ValueError("invalid embed")
-            await interaction.response.send_message(embed=embed)
+            # The embed version never pinged: keep the panel mentions silent.
+            await interaction.response.send_message(
+                view=panel.view(), allowed_mentions=discord.AllowedMentions.none())
         else:
             text = _interpolate(
                 row.get("response_text") or "",

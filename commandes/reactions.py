@@ -3,6 +3,7 @@ from discord import app_commands
 
 from database import remove_reaction, set_reaction
 from services.i18n import ti
+from services.ui_v2 import Panel
 
 
 def setup_reaction_commands(bot, user_reactions):
@@ -57,11 +58,10 @@ def setup_reaction_commands(bot, user_reactions):
                 ephemeral=True,
             )
             return
-        embed = discord.Embed(title=ti(interaction, "server.reactions.list_title"),
-                              color=discord.Color.orange())
+        p = Panel(ti(interaction, "server.reactions.list_title"))
         for user_id, emoji in guild_reactions.items():
             member = interaction.guild.get_member(user_id)
             name = member.name if member else ti(interaction, "server.reactions.unknown_member",
                                                  user_id=user_id)
-            embed.add_field(name=name, value=emoji, inline=True)
-        await interaction.response.send_message(embed=embed)
+            p.field(name, emoji, inline=True)
+        await interaction.response.send_message(view=p.view())

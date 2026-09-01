@@ -3,6 +3,7 @@ from discord import app_commands
 
 from database import get_welcome, set_welcome
 from services.i18n import locale_of, t
+from services.ui_v2 import Panel, row
 from services.welcome_utils import DEFAULT_WELCOME_MESSAGE
 
 
@@ -25,7 +26,7 @@ class _WelcomeMessageModal(discord.ui.Modal):
         await self.parent_view.refresh(interaction)
 
 
-class _WelcomeBuilderView(discord.ui.View):
+class _WelcomeBuilderView(discord.ui.LayoutView):
     def __init__(self, author_id: int, guild: discord.Guild, locale: str = "en"):
         super().__init__(timeout=900)
         self.author_id = author_id
@@ -43,35 +44,36 @@ class _WelcomeBuilderView(discord.ui.View):
             return False
         return True
 
-    def _summary_embed(self) -> discord.Embed:
+    def _summary_panel(self) -> Panel:
         preview = self.message or DEFAULT_WELCOME_MESSAGE
-        embed = discord.Embed(title=t("server.welcome.builder_title", self.locale),
-                              color=discord.Color.green())
-        embed.add_field(
-            name=t("server.welcome.field_config", self.locale),
-            value=t(
+        p = Panel(t("server.welcome.builder_title", self.locale))
+        p.field(
+            t("server.welcome.field_config", self.locale),
+            t(
                 "server.welcome.config_value", self.locale,
                 channel=self.channel.mention if self.channel else t("server.welcome.not_set", self.locale),
                 message=(preview[:400] + "...") if len(preview) > 400 else preview,
             ),
             inline=False,
         )
-        embed.add_field(
-            name=t("server.welcome.field_variables", self.locale),
-            value=t("server.welcome.variables_value", self.locale),
+        p.field(
+            t("server.welcome.field_variables", self.locale),
+            t("server.welcome.variables_value", self.locale),
             inline=False,
         )
-        embed.set_footer(text=t("server.welcome.builder_footer", self.locale))
-        return embed
+        p.footer(t("server.welcome.builder_footer", self.locale))
+        return p
 
     def _rebuild(self):
         self.clear_items()
+        # The summary is now the container of the V2 message, not a side embed.
+        self.add_item(self._summary_panel().container())
+
         chan_sel = discord.ui.ChannelSelect(
             placeholder=t("server.welcome.select_channel", self.locale),
             channel_types=[discord.ChannelType.text],
             min_values=1,
             max_values=1,
-            row=0,
         )
 
         async def _on_chan(interaction: discord.Interaction):
@@ -81,44 +83,41 @@ class _WelcomeBuilderView(discord.ui.View):
             await self.refresh(interaction)
 
         chan_sel.callback = _on_chan
-        self.add_item(chan_sel)
+        self.add_item(row(chan_sel))
 
         btn_message = discord.ui.Button(label=t("server.welcome.btn_edit_message", self.locale),
-                                        style=discord.ButtonStyle.secondary, row=1)
+                                        style=discord.ButtonStyle.secondary)
 
         async def _on_message(interaction: discord.Interaction):
             await interaction.response.send_modal(_WelcomeMessageModal(self))
 
         btn_message.callback = _on_message
-        self.add_item(btn_message)
 
         btn_save = discord.ui.Button(
             label=t("server.welcome.btn_save", self.locale),
             style=discord.ButtonStyle.success,
-            row=1,
             disabled=not self.channel,
         )
         btn_save.callback = self._on_save
-        self.add_item(btn_save)
 
         btn_cancel = discord.ui.Button(label=t("server.welcome.btn_cancel", self.locale),
-                                       style=discord.ButtonStyle.danger, row=1)
+                                       style=discord.ButtonStyle.danger)
 
         async def _on_cancel(interaction: discord.Interaction):
-            self.clear_items()
-            await interaction.response.edit_message(
-                content=t("server.welcome.cancelled", self.locale), embed=None, view=None)
+            # A V2 message has no `content`: replace the whole view.
+            closed = Panel(description=t("server.welcome.cancelled", self.locale)).view(timeout=None)
+            await interaction.response.edit_message(view=closed)
             self.stop()
 
         btn_cancel.callback = _on_cancel
-        self.add_item(btn_cancel)
+        self.add_item(row(btn_message, btn_save, btn_cancel))
 
     async def refresh(self, interaction: discord.Interaction):
         self._rebuild()
         if interaction.response.is_done():
-            await interaction.edit_original_response(embed=self._summary_embed(), view=self)
+            await interaction.edit_original_response(view=self)
         else:
-            await interaction.response.edit_message(embed=self._summary_embed(), view=self)
+            await interaction.response.edit_message(view=self)
 
     async def _on_save(self, interaction: discord.Interaction):
         if not self.channel:
@@ -126,12 +125,10 @@ class _WelcomeBuilderView(discord.ui.View):
                 t("server.welcome.pick_channel_first", self.locale), ephemeral=True)
             return
         set_welcome(interaction.guild.id, self.channel.id, self.message)
-        self.clear_items()
-        await interaction.response.edit_message(
-            content=t("server.welcome.saved", self.locale, channel=self.channel.mention),
-            embed=None,
-            view=None,
-        )
+        # A V2 message has no `content`: replace the whole view.
+        done = Panel(description=t("server.welcome.saved", self.locale,
+                                   channel=self.channel.mention)).view(timeout=None)
+        await interaction.response.edit_message(view=done)
         self.stop()
 
 
@@ -144,4 +141,4 @@ def setup_welcome_commands(bot):
         if channel:
             view.channel = channel
             view._rebuild()
-        await interaction.response.send_message(embed=view._summary_embed(), view=view, ephemeral=True)
+        await interaction.response.send_message(view=view, ephemeral=True)

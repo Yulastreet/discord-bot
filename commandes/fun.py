@@ -6,6 +6,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import ti
+from services.ui_v2 import Panel
 
 
 def setup_fun_commands(bot):
@@ -113,15 +114,12 @@ def setup_fun_commands(bot):
     @app_commands.describe(question="Your question")
     async def eight_ball(interaction: discord.Interaction, question: str):
         pick = random.randint(1, 10)
-        embed = discord.Embed(
-            title=ti(interaction, "utils.fun.eightball.title"),
-            color=discord.Color.purple(),
-        )
-        embed.add_field(name=ti(interaction, "utils.fun.eightball.field_question"),
-                        value=question, inline=False)
-        embed.add_field(name=ti(interaction, "utils.fun.eightball.field_answer"),
-                        value=ti(interaction, f"utils.fun.eightball.a{pick}"), inline=False)
-        await interaction.response.send_message(embed=embed)
+        p = Panel(ti(interaction, "utils.fun.eightball.title"))
+        p.field(ti(interaction, "utils.fun.eightball.field_question"),
+                question, inline=False)
+        p.field(ti(interaction, "utils.fun.eightball.field_answer"),
+                ti(interaction, f"utils.fun.eightball.a{pick}"), inline=False)
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="dice", description="Roll a die")
     @app_commands.describe(faces="Number of faces (default: 6)")
@@ -169,29 +167,28 @@ def setup_fun_commands(bot):
         n1, n2 = member1.display_name, member2.display_name
         fused = n1[:max(2, len(n1)//2)] + n2[max(1, len(n2)//2):]
         if pct >= 90:
-            verdict_key, col = "v_soulmates", discord.Color.from_rgb(220, 50, 80)
+            verdict_key = "v_soulmates"
         elif pct >= 70:
-            verdict_key, col = "v_chemistry", discord.Color.from_rgb(230, 100, 130)
+            verdict_key = "v_chemistry"
         elif pct >= 50:
-            verdict_key, col = "v_could_work", discord.Color.from_rgb(200, 140, 160)
+            verdict_key = "v_could_work"
         elif pct >= 25:
-            verdict_key, col = "v_meh", discord.Color.from_rgb(150, 150, 150)
+            verdict_key = "v_meh"
         else:
-            verdict_key, col = "v_disaster", discord.Color.from_rgb(120, 120, 120)
+            verdict_key = "v_disaster"
         bar_len = 20
         filled = int(pct / 100 * bar_len)
         bar = "#" * filled + "-" * (bar_len - filled)
-        embed = discord.Embed(
-            title=ti(interaction, "utils.fun.ship.title", a=n1, b=n2), color=col)
-        embed.add_field(
-            name=ti(interaction, "utils.fun.ship.field_compat"),
-            value=ti(interaction, "utils.fun.ship.compat_value", bar=bar, pct=pct),
+        p = Panel(ti(interaction, "utils.fun.ship.title", a=n1, b=n2))
+        p.field(
+            ti(interaction, "utils.fun.ship.field_compat"),
+            ti(interaction, "utils.fun.ship.compat_value", bar=bar, pct=pct),
             inline=False)
-        embed.add_field(name=ti(interaction, "utils.fun.ship.field_fused"),
-                        value=f"**{fused}**", inline=True)
-        embed.add_field(name=ti(interaction, "utils.fun.ship.field_verdict"),
-                        value=ti(interaction, f"utils.fun.ship.{verdict_key}"), inline=True)
-        await interaction.response.send_message(embed=embed)
+        p.field(ti(interaction, "utils.fun.ship.field_fused"),
+                f"**{fused}**", inline=True)
+        p.field(ti(interaction, "utils.fun.ship.field_verdict"),
+                ti(interaction, f"utils.fun.ship.{verdict_key}"), inline=True)
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="choice", description="The bot picks for you between several options")
     @app_commands.describe(options="Your options separated by |")
@@ -206,13 +203,12 @@ def setup_fun_commands(bot):
                 ti(interaction, "utils.fun.choice.too_many"), ephemeral=True)
             return
         pick = random.choice(items)
-        embed = discord.Embed(
-            title=ti(interaction, "utils.fun.choice.title"), color=discord.Color.teal())
-        embed.add_field(name=ti(interaction, "utils.fun.choice.field_options"),
-                        value=" / ".join(f"`{o}`" for o in items), inline=False)
-        embed.add_field(name=ti(interaction, "utils.fun.choice.field_pick"),
-                        value=f"**{pick}**", inline=False)
-        await interaction.response.send_message(embed=embed)
+        p = Panel(ti(interaction, "utils.fun.choice.title"))
+        p.field(ti(interaction, "utils.fun.choice.field_options"),
+                " / ".join(f"`{o}`" for o in items), inline=False)
+        p.field(ti(interaction, "utils.fun.choice.field_pick"),
+                f"**{pick}**", inline=False)
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="random", description="Draw a random number between two bounds")
     @app_commands.describe(min="Lower bound, included", max="Upper bound, included")
@@ -236,12 +232,14 @@ def setup_fun_commands(bot):
                 ti(interaction, "utils.fun.who.no_members"), ephemeral=True)
             return
         pick = random.choice(members)
-        embed = discord.Embed(color=discord.Color.gold())
-        embed.add_field(name=ti(interaction, "utils.fun.who.field_question"),
-                        value=question, inline=False)
-        embed.add_field(name=ti(interaction, "utils.fun.who.field_chosen"),
-                        value=pick.mention, inline=False)
-        await interaction.response.send_message(embed=embed)
+        p = Panel()
+        p.field(ti(interaction, "utils.fun.who.field_question"),
+                question, inline=False)
+        p.field(ti(interaction, "utils.fun.who.field_chosen"),
+                pick.mention, inline=False)
+        # The embed version never pinged: keep the mention silent in V2 too.
+        await interaction.response.send_message(
+            view=p.view(), allowed_mentions=discord.AllowedMentions.none())
 
     @bot.tree.command(name="clap", description="Put clap between every word")
     @app_commands.describe(text="The text to transform")
@@ -273,26 +271,22 @@ def setup_fun_commands(bot):
         else:
             verdict_key = "v_meh"
         bar = "*" * score + "." * (10 - score)
-        embed = discord.Embed(
-            title=ti(interaction, "utils.fun.rate.title", thing=thing[:80]),
-            color=discord.Color.blue())
-        embed.add_field(
-            name=ti(interaction, "utils.fun.rate.field_score"),
-            value=ti(interaction, "utils.fun.rate.score_value", bar=bar, score=score,
-                     verdict=ti(interaction, f"utils.fun.rate.{verdict_key}")),
+        p = Panel(ti(interaction, "utils.fun.rate.title", thing=thing[:80]))
+        p.field(
+            ti(interaction, "utils.fun.rate.field_score"),
+            ti(interaction, "utils.fun.rate.score_value", bar=bar, score=score,
+               verdict=ti(interaction, f"utils.fun.rate.{verdict_key}")),
             inline=False)
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="quote", description="Show a random quote")
     async def quote(interaction: discord.Interaction):
         n = random.randint(1, 6)
         text = ti(interaction, f"utils.fun.quote.q{n}_text")
         author = ti(interaction, f"utils.fun.quote.q{n}_author")
-        embed = discord.Embed(
-            description=ti(interaction, "utils.fun.quote.body", text=text),
-            color=discord.Color.dark_grey())
-        embed.set_footer(text=ti(interaction, "utils.fun.quote.footer", author=author))
-        await interaction.response.send_message(embed=embed)
+        p = Panel(description=ti(interaction, "utils.fun.quote.body", text=text))
+        p.footer(ti(interaction, "utils.fun.quote.footer", author=author))
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="pp", description="Measure your pp")
     async def pp(interaction: discord.Interaction):

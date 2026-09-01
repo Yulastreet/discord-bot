@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import ti
+from services.ui_v2 import Panel
 
 def setup_socialalert_commands(bot, deps):
     globals().update(deps)
@@ -91,14 +92,13 @@ def setup_socialalert_commands(bot, deps):
                 f"{state} `#{r['id']}` {emo} **{r['platform']}** · "
                 f"`{r['target_label'] or r['target_id']}` → <#{r['channel_id']}>"
             )
-        embed = discord.Embed(
-            title=ti(interaction, "server.socialalert.list_title"),
-            description="\n".join(parts),
-            color=0xC8F050,
+        p = Panel(
+            ti(interaction, "server.socialalert.list_title"),
+            "\n".join(parts),
         )
         if len(rows) > 25:
-            embed.set_footer(text=ti(interaction, "server.socialalert.list_more", count=len(rows) - 25))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+            p.footer(ti(interaction, "server.socialalert.list_more", count=len(rows) - 25))
+        await interaction.response.send_message(view=p.view(), ephemeral=True)
 
 
     @socialalert_group.command(name="remove", description="Delete a social alert")

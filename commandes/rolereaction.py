@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import locale_of, t
+from services.ui_v2 import Panel, row
 
 def setup_rolereaction_commands(bot, deps):
     globals().update(deps)
@@ -105,7 +106,7 @@ def setup_rolereaction_commands(bot, deps):
             await self.parent_view.refresh(interaction)
 
 
-    class _RoleReactionBuilder(discord.ui.View):
+    class _RoleReactionBuilder(discord.ui.LayoutView):
         """Interactive builder to create a multi-mapping reaction-role message."""
 
         def __init__(self, author_id: int, guild: discord.Guild, locale: str = "en"):
@@ -133,16 +134,13 @@ def setup_rolereaction_commands(bot, deps):
                 return False
             return True
 
-        def _summary_embed(self) -> discord.Embed:
+        def _summary_panel(self) -> Panel:
             loc = self.locale
-            embed = discord.Embed(
-                title=t("server.rolereaction.builder_title", loc),
-                color=0xC8F050,
-            )
+            p = Panel(t("server.rolereaction.builder_title", loc))
             none_txt = t("server.rolereaction.not_set", loc)
-            embed.add_field(
-                name=t("server.rolereaction.field_config", loc),
-                value=t(
+            p.field(
+                t("server.rolereaction.field_config", loc),
+                t(
                     "server.rolereaction.config_value", loc,
                     channel=self.channel.mention if self.channel else none_txt,
                     mode=self.mode,
@@ -158,41 +156,42 @@ def setup_rolereaction_commands(bot, deps):
             )
             if self.mappings:
                 lines = [f"{m['emoji_display']} → <@&{m['role_id']}>" for m in self.mappings]
-                embed.add_field(
-                    name=t("server.rolereaction.field_mappings_n", loc, count=len(self.mappings)),
-                    value="\n".join(lines),
+                p.field(
+                    t("server.rolereaction.field_mappings_n", loc, count=len(self.mappings)),
+                    "\n".join(lines),
                     inline=False,
                 )
             else:
-                embed.add_field(
-                    name=t("server.rolereaction.field_mappings", loc),
-                    value=t("server.rolereaction.no_mapping", loc),
+                p.field(
+                    t("server.rolereaction.field_mappings", loc),
+                    t("server.rolereaction.no_mapping", loc),
                     inline=False,
                 )
             if self.pending_emoji_display:
-                embed.add_field(
-                    name=t("server.rolereaction.field_pending", loc),
-                    value=t("server.rolereaction.pending_value", loc,
-                            emoji=self.pending_emoji_display),
+                p.field(
+                    t("server.rolereaction.field_pending", loc),
+                    t("server.rolereaction.pending_value", loc,
+                      emoji=self.pending_emoji_display),
                     inline=False,
                 )
-            embed.set_footer(text=t("server.rolereaction.builder_footer", loc))
-            return embed
+            p.footer(t("server.rolereaction.builder_footer", loc))
+            return p
 
         def _rebuild(self):
             loc = self.locale
             self.clear_items()
+            self.add_item(self._summary_panel().container())
             # Row 0: ChannelSelect
             chan_sel = discord.ui.ChannelSelect(
                 placeholder=t("server.rolereaction.select_channel", loc),
                 channel_types=[discord.ChannelType.text],
-                min_values=1, max_values=1, row=0,
+                min_values=1, max_values=1,
             )
             async def _on_chan(interaction: discord.Interaction):
                 self.channel = chan_sel.values[0].resolve() or self.guild.get_channel(chan_sel.values[0].id)
                 await self.refresh(interaction)
             chan_sel.callback = _on_chan
-            self.add_item(chan_sel)
+            self.add_item(row(chan_sel))
 
             # Row 1: mode select
             mode_sel = discord.ui.Select(
@@ -202,20 +201,19 @@ def setup_rolereaction_commands(bot, deps):
                     discord.SelectOption(label=t("server.rolereaction.mode_add_only", loc), value="add_only", default=self.mode == "add_only"),
                     discord.SelectOption(label=t("server.rolereaction.mode_unique", loc),   value="unique",   default=self.mode == "unique"),
                 ],
-                row=1,
             )
             async def _on_mode(interaction: discord.Interaction):
                 self.mode = mode_sel.values[0]
                 await self.refresh(interaction)
             mode_sel.callback = _on_mode
-            self.add_item(mode_sel)
+            self.add_item(row(mode_sel))
 
             # Row 2: RoleSelect (only visible when an emoji is pending)
             if self.pending_emoji_key:
                 role_sel = discord.ui.RoleSelect(
                     placeholder=t("server.rolereaction.select_role", loc,
                                   emoji=self.pending_emoji_display),
-                    min_values=1, max_values=1, row=2,
+                    min_values=1, max_values=1,
                 )
                 async def _on_role(interaction: discord.Interaction):
                     role: discord.Role = role_sel.values[0]
@@ -236,80 +234,78 @@ def setup_rolereaction_commands(bot, deps):
                     self.pending_emoji_display = None
                     await self.refresh(interaction)
                 role_sel.callback = _on_role
-                self.add_item(role_sel)
+                self.add_item(row(role_sel))
 
             # Row 3: config (title, delivery type, style)
             btn_embed = discord.ui.Button(label=t("server.rolereaction.btn_texts", loc),
-                                           style=discord.ButtonStyle.secondary, row=3)
+                                           style=discord.ButtonStyle.secondary)
             async def _on_embed(interaction: discord.Interaction):
                 await interaction.response.send_modal(_RREmbedModal(self))
             btn_embed.callback = _on_embed
-            self.add_item(btn_embed)
 
             btn_delivery = discord.ui.Button(
                 label=t("server.rolereaction.btn_delivery", loc,
                         delivery=t("server.rolereaction.delivery_buttons", loc) if self.delivery == "button"
                                  else t("server.rolereaction.delivery_reactions", loc)),
-                style=discord.ButtonStyle.secondary, row=3)
+                style=discord.ButtonStyle.secondary)
             async def _on_delivery(interaction: discord.Interaction):
                 self.delivery = "button" if self.delivery == "reaction" else "reaction"
                 await self.refresh(interaction)
             btn_delivery.callback = _on_delivery
-            self.add_item(btn_delivery)
 
             btn_style = discord.ui.Button(
                 label=t("server.rolereaction.btn_style", loc,
                         style=t("server.rolereaction.style_text", loc) if self.style == "text"
                               else t("server.rolereaction.style_embed", loc)),
-                style=discord.ButtonStyle.secondary, row=3)
+                style=discord.ButtonStyle.secondary)
             async def _on_style(interaction: discord.Interaction):
                 self.style = "text" if self.style == "embed" else "embed"
                 await self.refresh(interaction)
             btn_style.callback = _on_style
-            self.add_item(btn_style)
+
+            self.add_item(row(btn_embed, btn_delivery, btn_style))
 
             # Row 4: mapping + final actions
             btn_add = discord.ui.Button(label=t("server.rolereaction.btn_add_mapping", loc),
-                                         style=discord.ButtonStyle.primary, row=4,
+                                         style=discord.ButtonStyle.primary,
                                          disabled=bool(self.pending_emoji_key))
             async def _on_add(interaction: discord.Interaction):
                 await interaction.response.send_modal(_RREmojiModal(self))
             btn_add.callback = _on_add
-            self.add_item(btn_add)
 
             btn_remove = discord.ui.Button(label=t("server.rolereaction.btn_undo", loc),
-                                            style=discord.ButtonStyle.secondary, row=4,
+                                            style=discord.ButtonStyle.secondary,
                                             disabled=len(self.mappings) == 0)
             async def _on_remove(interaction: discord.Interaction):
                 if self.mappings:
                     self.mappings.pop()
                 await self.refresh(interaction)
             btn_remove.callback = _on_remove
-            self.add_item(btn_remove)
 
             btn_send = discord.ui.Button(label=t("server.rolereaction.btn_send", loc),
-                                          style=discord.ButtonStyle.success, row=4,
+                                          style=discord.ButtonStyle.success,
                                           disabled=not (self.channel and self.mappings))
             btn_send.callback = self._on_send
-            self.add_item(btn_send)
 
             btn_cancel = discord.ui.Button(label=t("server.rolereaction.btn_cancel", loc),
-                                            style=discord.ButtonStyle.danger, row=4)
+                                            style=discord.ButtonStyle.danger)
             async def _on_cancel(interaction: discord.Interaction):
                 self.clear_items()
+                # A V2 message cannot fall back to plain content: swap the view.
                 await interaction.response.edit_message(
-                    content=t("server.rolereaction.cancelled", loc), embed=None, view=None,
+                    view=Panel(description=t("server.rolereaction.cancelled", loc)).view(timeout=None),
                 )
                 self.stop()
             btn_cancel.callback = _on_cancel
-            self.add_item(btn_cancel)
+
+            self.add_item(row(btn_add, btn_remove, btn_send, btn_cancel))
 
         async def refresh(self, interaction: discord.Interaction):
             self._rebuild()
             if interaction.response.is_done():
-                await interaction.edit_original_response(embed=self._summary_embed(), view=self)
+                await interaction.edit_original_response(view=self)
             else:
-                await interaction.response.edit_message(embed=self._summary_embed(), view=self)
+                await interaction.response.edit_message(view=self)
 
         async def _on_send(self, interaction: discord.Interaction):
             if not self.channel or not self.mappings:
@@ -325,20 +321,19 @@ def setup_rolereaction_commands(bot, deps):
                             if use_buttons
                             else t("server.rolereaction.footer_reactions", loc)))
 
-            # ----- Build content / embed depending on the style -----
+            # ----- Build content / panel depending on the style -----
             content = None
-            embed = None
+            panel = None
             if self.style == "embed":
-                embed = discord.Embed(
-                    title=self.embed_title or t("server.rolereaction.default_title", loc),
-                    description=self.description or "",
-                    color=0xC8F050,
+                panel = Panel(
+                    self.embed_title or t("server.rolereaction.default_title", loc),
+                    self.description or "",
                 )
                 # In button mode there is no need to list the emojis (buttons speak)
                 if not use_buttons:
-                    embed.add_field(name=t("server.rolereaction.available_reactions", loc),
-                                    value="\n".join(mapping_lines), inline=False)
-                embed.set_footer(text=footer)
+                    panel.field(t("server.rolereaction.available_reactions", loc),
+                                "\n".join(mapping_lines), inline=False)
+                panel.footer(footer)
             else:
                 # Plain text message
                 parts = []
@@ -351,10 +346,10 @@ def setup_rolereaction_commands(bot, deps):
                 parts.append(f"_{footer}_")
                 content = "\n\n".join(p for p in parts if p)
 
-            # ----- Build the button View when needed -----
-            view = None
+            # ----- Build the role buttons when needed -----
+            # custom_id "rr:<role_id>" is stable: tasks/runtime.py dispatches on it.
+            buttons = []
             if use_buttons:
-                view = discord.ui.View(timeout=None)
                 for m in self.mappings:
                     ek = m["emoji_key"]
                     try:
@@ -362,15 +357,31 @@ def setup_rolereaction_commands(bot, deps):
                                      if ek.startswith("<") else ek)
                     except Exception:
                         emoji_obj = None
-                    view.add_item(discord.ui.Button(
+                    buttons.append(discord.ui.Button(
                         label=m["role_name"][:80],
                         emoji=emoji_obj,
                         style=discord.ButtonStyle.secondary,
                         custom_id=f"rr:{m['role_id']}",
                     ))
-
             try:
-                msg = await self.channel.send(content=content, embed=embed, view=view)
+                if panel is not None:
+                    # Components V2 message: no content, no embed.
+                    # 5 buttons max per ActionRow.
+                    button_rows = [row(*buttons[i:i + 5])
+                                   for i in range(0, len(buttons), 5)]
+                    msg = await self.channel.send(
+                        view=panel.view(*button_rows, timeout=None))
+                else:
+                    # Plain text style: no panel, so the message keeps its
+                    # `content` and the buttons stay in a classic View (a
+                    # LayoutView would turn the message into V2, which forbids
+                    # `content`).
+                    view = None
+                    if buttons:
+                        view = discord.ui.View(timeout=None)
+                        for b in buttons:
+                            view.add_item(b)
+                    msg = await self.channel.send(content=content, view=view)
             except discord.Forbidden:
                 await interaction.followup.send(
                     t("server.rolereaction.post_forbidden", loc),
@@ -430,7 +441,7 @@ def setup_rolereaction_commands(bot, deps):
                 confirm += "\n\n" + t("server.rolereaction.reactions_failed", loc,
                                       count=len(failed), details=details)
             await interaction.edit_original_response(
-                content=confirm, embed=None, view=None,
+                view=Panel(description=confirm).view(timeout=None),
             )
             self.stop()
 
@@ -442,9 +453,7 @@ def setup_rolereaction_commands(bot, deps):
     @app_commands.checks.has_permissions(manage_roles=True)
     async def rr_create(interaction: discord.Interaction):
         view = _RoleReactionBuilder(interaction.user.id, interaction.guild, locale_of(interaction))
-        await interaction.response.send_message(
-            embed=view._summary_embed(), view=view, ephemeral=True,
-        )
+        await interaction.response.send_message(view=view, ephemeral=True)
 
 
     bot.tree.add_command(rolereaction_group)

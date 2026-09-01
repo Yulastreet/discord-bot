@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import ti
+from services.ui_v2 import Panel
 
 # interaction.id dedup to hard-stop any double dispatch
 # (Discord re-delivery, double tree register, etc). 1024 entries LRU.
@@ -85,26 +86,23 @@ def setup_niveau_commands(bot, deps):
                 print(f"[/level premium send] {type(e).__name__}: {e}", flush=True)
             return  # NO fallback behind this: we already tried to send
 
-        # Fallback embed (non-premium, or render failure)
+        # Fallback panel (non-premium, or render failure)
         filled = percent // 5
         bar = "█" * filled + "░" * (20 - filled)
-        embed = discord.Embed(
-            title=ti(interaction, "utils.level.title", name=member.display_name),
-            color=discord.Color.blurple(),
-        )
-        embed.add_field(name=ti(interaction, "utils.level.field_level"),
-                        value=f"**{lvl}**", inline=True)
-        embed.add_field(name=ti(interaction, "utils.level.field_xp"),
-                        value=f"**{xp}**", inline=True)
-        embed.add_field(
-            name=ti(interaction, "utils.level.field_progress"),
-            value=ti(interaction, "utils.level.progress_value",
-                     bar=bar, percent=percent, current=in_lvl, needed=needed),
+        p = Panel(ti(interaction, "utils.level.title", name=member.display_name))
+        p.thumbnail(member.display_avatar.url)
+        p.field(ti(interaction, "utils.level.field_level"),
+                f"**{lvl}**", inline=True)
+        p.field(ti(interaction, "utils.level.field_xp"),
+                f"**{xp}**", inline=True)
+        p.field(
+            ti(interaction, "utils.level.field_progress"),
+            ti(interaction, "utils.level.progress_value",
+               bar=bar, percent=percent, current=in_lvl, needed=needed),
             inline=False,
         )
-        embed.set_thumbnail(url=member.display_avatar.url)
         try:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=p.view())
         except Exception as e:
             print(f"[/level fallback send] {type(e).__name__}: {e}", flush=True)
 
@@ -127,12 +125,11 @@ def setup_niveau_commands(bot, deps):
             uname = r.get("username") or "?"
             lines.append(ti(interaction, "utils.level.leaderboard.line",
                             prefix=prefix, name=uname, level=r["level"], xp=r["xp"]))
-        embed = discord.Embed(
-            title=ti(interaction, "utils.level.leaderboard.title", guild=interaction.guild.name),
-            description="\n".join(lines),
-            color=discord.Color.blurple(),
+        p = Panel(
+            ti(interaction, "utils.level.leaderboard.title", guild=interaction.guild.name),
+            "\n".join(lines),
         )
         try:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=p.view())
         except Exception as e:
             print(f"[/leaderboard followup] {type(e).__name__}: {e}")

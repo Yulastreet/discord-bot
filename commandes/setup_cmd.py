@@ -15,6 +15,7 @@ from discord.ext import commands
 
 from database import guild_setting_set, guild_setting_get
 from services.i18n import DEFAULT_LOCALE, guild_locale, locale_of, t, ti
+from services.ui_v2 import Panel
 
 
 # Setting keys of the 4 channels configured by /setup.
@@ -47,10 +48,54 @@ MOD_PERMS_REGISTRY = [
 ]
 
 
-class ModPermsView(discord.ui.View):
+class _ModPermsRoleRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.RoleSelect,
+        placeholder="Moderator role",
+        min_values=1, max_values=1,
+    )
+    async def role_select(self, interaction: discord.Interaction, select):
+        self.view.selected_role = select.values[0].id
+        await interaction.response.defer()
+
+
+class _ModPermsSlashRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.Select,
+        placeholder="Slash commands",
+        min_values=0,
+    )
+    async def slash_select(self, interaction: discord.Interaction, select):
+        self.view.selected_slash = set(select.values)
+        await interaction.response.defer()
+
+
+class _ModPermsDashRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.Select,
+        placeholder="Dashboard pages",
+        min_values=0,
+    )
+    async def dash_select(self, interaction: discord.Interaction, select):
+        self.view.selected_dash = set(select.values)
+        await interaction.response.defer()
+
+
+class _ModPermsButtonsRow(discord.ui.ActionRow):
+    @discord.ui.button(label="Save", emoji="✅", style=discord.ButtonStyle.success)
+    async def btn_save(self, interaction: discord.Interaction, button):
+        await self.view.on_save(interaction)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def btn_cancel(self, interaction: discord.Interaction, button):
+        await self.view.on_cancel(interaction)
+
+
+class ModPermsView(discord.ui.LayoutView):
     """View in the temp channel: RoleSelect + 2 perm multi-selects + Save/Close."""
 
-    def __init__(self, guild_id: int, owner_user_id: int, temp_channel_id: int):
+    def __init__(self, guild_id: int, owner_user_id: int, temp_channel_id: int,
+                 panel: Panel | None = None):
         super().__init__(timeout=3600)
         self.guild_id = int(guild_id)
         self.owner_user_id = int(owner_user_id)
@@ -61,6 +106,18 @@ class ModPermsView(discord.ui.View):
         # No interaction here: fall back to the guild locale override.
         self.locale = guild_locale(self.guild_id) or DEFAULT_LOCALE
         loc = self.locale
+
+        self.panel = panel if panel is not None else Panel()
+        self.role_row    = _ModPermsRoleRow()
+        self.slash_row   = _ModPermsSlashRow()
+        self.dash_row    = _ModPermsDashRow()
+        self.buttons_row = _ModPermsButtonsRow()
+        # Historical attribute names kept so the items stay reachable from the view.
+        self.role_select  = self.role_row.role_select
+        self.slash_select = self.slash_row.slash_select
+        self.dash_select  = self.dash_row.dash_select
+        self.btn_save     = self.buttons_row.btn_save
+        self.btn_cancel   = self.buttons_row.btn_cancel
 
         # Populate both multi-select option lists dynamically
         slash_perms = [p for p in MOD_PERMS_REGISTRY if p[1] == "slash"]
@@ -90,6 +147,24 @@ class ModPermsView(discord.ui.View):
             for key, _ in dash_perms
         ]
         self.dash_select.max_values = len(dash_perms)
+        self._rebuild()
+
+    # ----- V2 layout plumbing -----
+
+    def _rows(self):
+        return (self.role_row, self.slash_row, self.dash_row, self.buttons_row)
+
+    def _rebuild(self):
+        """Swap the container for the current panel and re-add the rows."""
+        self.clear_items()
+        self.add_item(self.panel.container())
+        for r in self._rows():
+            self.add_item(r)
+
+    def _disable_all(self):
+        for r in self._rows():
+            for c in r.children:
+                c.disabled = True
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         # Only the server owner may interact
@@ -101,36 +176,9 @@ class ModPermsView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.select(
-        cls=discord.ui.RoleSelect,
-        placeholder="Moderator role",
-        min_values=1, max_values=1, row=0,
-    )
-    async def role_select(self, interaction: discord.Interaction, select):
-        self.selected_role = select.values[0].id
-        await interaction.response.defer()
+    # ----- button handlers (called from _ModPermsButtonsRow) -----
 
-    @discord.ui.select(
-        cls=discord.ui.Select,
-        placeholder="Slash commands",
-        min_values=0, row=1,
-    )
-    async def slash_select(self, interaction: discord.Interaction, select):
-        self.selected_slash = set(select.values)
-        await interaction.response.defer()
-
-    @discord.ui.select(
-        cls=discord.ui.Select,
-        placeholder="Dashboard pages",
-        min_values=0, row=2,
-    )
-    async def dash_select(self, interaction: discord.Interaction, select):
-        self.selected_dash = set(select.values)
-        await interaction.response.defer()
-
-    @discord.ui.button(label="Save", emoji="✅",
-                       style=discord.ButtonStyle.success, row=3)
-    async def btn_save(self, interaction: discord.Interaction, button):
+    async def on_save(self, interaction: discord.Interaction):
         if not self.selected_role:
             await interaction.response.send_message(
                 ti(interaction, "utils.setup.modperms.no_role"), ephemeral=True,
@@ -147,12 +195,11 @@ class ModPermsView(discord.ui.View):
         guild_setting_set(self.guild_id, "mod_access_configured", "1")
 
         # Disable view
-        for c in self.children:
-            c.disabled = True
+        self._disable_all()
 
-        embed = discord.Embed(
-            title=ti(interaction, "utils.setup.modperms.saved_title"),
-            description=ti(
+        self.panel = Panel(
+            ti(interaction, "utils.setup.modperms.saved_title"),
+            ti(
                 interaction, "utils.setup.modperms.saved_description",
                 role_id=self.selected_role,
                 n_slash=len(self.selected_slash),
@@ -160,9 +207,9 @@ class ModPermsView(discord.ui.View):
                 n_dash=len(self.selected_dash),
                 t_dash=sum(1 for p in MOD_PERMS_REGISTRY if p[1] == "dashboard"),
             ),
-            color=0xB9F23A,
         )
-        await interaction.response.edit_message(embed=embed, view=self)
+        self._rebuild()
+        await interaction.response.edit_message(view=self)
 
         # Auto-delete temp channel after 30s
         import asyncio
@@ -174,14 +221,12 @@ class ModPermsView(discord.ui.View):
         except Exception as e:
             print(f"[setup] temp channel delete fail: {e}")
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, row=3)
-    async def btn_cancel(self, interaction: discord.Interaction, button):
-        for c in self.children:
-            c.disabled = True
-        await interaction.response.edit_message(
-            content=ti(interaction, "utils.setup.modperms.cancelled"),
-            embed=None, view=self,
-        )
+    async def on_cancel(self, interaction: discord.Interaction):
+        self._disable_all()
+        # A V2 message has no `content`: the cancel notice becomes the container.
+        self.panel = Panel(description=ti(interaction, "utils.setup.modperms.cancelled"))
+        self._rebuild()
+        await interaction.response.edit_message(view=self)
         import asyncio
         await asyncio.sleep(10)
         try:
@@ -212,28 +257,92 @@ async def _create_mod_perms_temp_channel(guild: discord.Guild, server_owner: dis
         print(f"[setup] create temp channel fail: {e}")
         return None
 
-    embed = discord.Embed(
-        title=t("utils.setup.modperms.intro_title", loc),
-        description=t("utils.setup.modperms.intro_description", loc,
-                      owner=server_owner.mention),
-        color=0xB9F23A,
+    panel = Panel(
+        t("utils.setup.modperms.intro_title", loc),
+        t("utils.setup.modperms.intro_description", loc,
+          owner=server_owner.mention),
     )
-    embed.set_footer(text=t("utils.setup.modperms.intro_footer", loc))
+    panel.footer(t("utils.setup.modperms.intro_footer", loc))
 
-    view = ModPermsView(guild.id, server_owner.id, channel.id)
+    # A V2 message cannot carry `content`: the owner ping now lives inside the
+    # panel body (intro_description already starts with the mention) and
+    # allowed_mentions keeps it a real ping.
+    view = ModPermsView(guild.id, server_owner.id, channel.id, panel=panel)
     try:
-        await channel.send(content=server_owner.mention, embed=embed, view=view)
+        await channel.send(
+            view=view,
+            allowed_mentions=discord.AllowedMentions(users=[server_owner]))
     except discord.HTTPException as e:
         print(f"[setup] send temp channel fail: {e}")
     return channel
 
 
-class SetupView(discord.ui.View):
+class _SetupWelcomeRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.ChannelSelect,
+        channel_types=[discord.ChannelType.text],
+        placeholder="Welcome channel",
+        min_values=1, max_values=1,
+    )
+    async def s_welcome(self, interaction, select):
+        self.view.selections["welcome"] = select.values[0].id
+        await interaction.response.defer()
+
+
+class _SetupLogsRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.ChannelSelect,
+        channel_types=[discord.ChannelType.text],
+        placeholder="Logs channel",
+        min_values=1, max_values=1,
+    )
+    async def s_logs(self, interaction, select):
+        self.view.selections["logs"] = select.values[0].id
+        await interaction.response.defer()
+
+
+class _SetupAlertsRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.ChannelSelect,
+        channel_types=[discord.ChannelType.text],
+        placeholder="Alerts channel",
+        min_values=1, max_values=1,
+    )
+    async def s_alerts(self, interaction, select):
+        self.view.selections["alerts"] = select.values[0].id
+        await interaction.response.defer()
+
+
+class _SetupAdminRow(discord.ui.ActionRow):
+    @discord.ui.select(
+        cls=discord.ui.ChannelSelect,
+        channel_types=[discord.ChannelType.text],
+        placeholder="Admin/mod channel",
+        min_values=1, max_values=1,
+    )
+    async def s_admin(self, interaction, select):
+        self.view.selections["admin"] = select.values[0].id
+        await interaction.response.defer()
+
+
+class _SetupButtonsRow(discord.ui.ActionRow):
+    @discord.ui.button(label="Save the configuration",
+                       style=discord.ButtonStyle.success, emoji="✅")
+    async def btn_save(self, interaction: discord.Interaction, button):
+        await self.view.on_save(interaction)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def btn_cancel(self, interaction: discord.Interaction, button):
+        await self.view.on_cancel(interaction)
+
+
+class SetupView(discord.ui.LayoutView):
     """Main /setup view: 4 ChannelSelect + Save/Cancel."""
 
     def __init__(self, guild_id: int, *, current: dict[str, str] | None = None,
                  server_owner: discord.Member | None = None,
-                 locale: str = DEFAULT_LOCALE):
+                 locale: str = DEFAULT_LOCALE,
+                 panel: Panel | None = None):
         super().__init__(timeout=900)
         self.guild_id = int(guild_id)
         self.server_owner = server_owner
@@ -246,56 +355,50 @@ class SetupView(discord.ui.View):
                         self.selections[k] = int(v)
                     except (TypeError, ValueError):
                         pass
+
+        self.panel       = panel if panel is not None else Panel()
+        self.welcome_row = _SetupWelcomeRow()
+        self.logs_row    = _SetupLogsRow()
+        self.alerts_row  = _SetupAlertsRow()
+        self.admin_row   = _SetupAdminRow()
+        self.buttons_row = _SetupButtonsRow()
+        # Historical attribute names kept so the items stay reachable from the view.
+        self.s_welcome  = self.welcome_row.s_welcome
+        self.s_logs     = self.logs_row.s_logs
+        self.s_alerts   = self.alerts_row.s_alerts
+        self.s_admin    = self.admin_row.s_admin
+        self.btn_save   = self.buttons_row.btn_save
+        self.btn_cancel = self.buttons_row.btn_cancel
+
         self.s_welcome.placeholder = t("utils.setup.view.ph_welcome", locale)
         self.s_logs.placeholder    = t("utils.setup.view.ph_logs", locale)
         self.s_alerts.placeholder  = t("utils.setup.view.ph_alerts", locale)
         self.s_admin.placeholder   = t("utils.setup.view.ph_admin", locale)
         self.btn_save.label        = t("utils.setup.view.btn_save", locale)
         self.btn_cancel.label      = t("utils.setup.view.btn_cancel", locale)
+        self._rebuild()
 
-    @discord.ui.select(
-        cls=discord.ui.ChannelSelect,
-        channel_types=[discord.ChannelType.text],
-        placeholder="Welcome channel",
-        min_values=1, max_values=1, row=0,
-    )
-    async def s_welcome(self, interaction, select):
-        self.selections["welcome"] = select.values[0].id
-        await interaction.response.defer()
+    # ----- V2 layout plumbing -----
 
-    @discord.ui.select(
-        cls=discord.ui.ChannelSelect,
-        channel_types=[discord.ChannelType.text],
-        placeholder="Logs channel",
-        min_values=1, max_values=1, row=1,
-    )
-    async def s_logs(self, interaction, select):
-        self.selections["logs"] = select.values[0].id
-        await interaction.response.defer()
+    def _rows(self):
+        return (self.welcome_row, self.logs_row, self.alerts_row,
+                self.admin_row, self.buttons_row)
 
-    @discord.ui.select(
-        cls=discord.ui.ChannelSelect,
-        channel_types=[discord.ChannelType.text],
-        placeholder="Alerts channel",
-        min_values=1, max_values=1, row=2,
-    )
-    async def s_alerts(self, interaction, select):
-        self.selections["alerts"] = select.values[0].id
-        await interaction.response.defer()
+    def _rebuild(self):
+        """Swap the container for the current panel and re-add the rows."""
+        self.clear_items()
+        self.add_item(self.panel.container())
+        for r in self._rows():
+            self.add_item(r)
 
-    @discord.ui.select(
-        cls=discord.ui.ChannelSelect,
-        channel_types=[discord.ChannelType.text],
-        placeholder="Admin/mod channel",
-        min_values=1, max_values=1, row=3,
-    )
-    async def s_admin(self, interaction, select):
-        self.selections["admin"] = select.values[0].id
-        await interaction.response.defer()
+    def _disable_all(self):
+        for r in self._rows():
+            for c in r.children:
+                c.disabled = True
 
-    @discord.ui.button(label="Save the configuration",
-                       style=discord.ButtonStyle.success, emoji="✅", row=4)
-    async def btn_save(self, interaction: discord.Interaction, button):
+    # ----- button handlers (called from _SetupButtonsRow) -----
+
+    async def on_save(self, interaction: discord.Interaction):
         if not self.selections:
             await interaction.response.send_message(
                 ti(interaction, "utils.setup.save.no_selection"),
@@ -306,21 +409,6 @@ class SetupView(discord.ui.View):
             guild_setting_set(self.guild_id, f"setup_{key}_channel_id", str(cid))
         guild_setting_set(self.guild_id, "setup_completed", "1")
 
-        embed = discord.Embed(
-            title=ti(interaction, "utils.setup.save.title"),
-            description=ti(interaction, "utils.setup.save.description"),
-            color=0xB9F23A,
-        )
-        for key in _SETUP_FIELDS:
-            label = ti(interaction, f"utils.setup.field.{key}_label")
-            cid = self.selections.get(key) or guild_setting_get(self.guild_id, f"setup_{key}_channel_id", "")
-            if cid:
-                embed.add_field(name=label, value=f"<#{cid}>", inline=False)
-            else:
-                embed.add_field(name=label,
-                                value=ti(interaction, "utils.setup.not_configured"),
-                                inline=False)
-
         # If the user IS the server owner and mod_access_configured=0 -> second step
         mod_configured = guild_setting_get(self.guild_id, "mod_access_configured", "0") == "1"
         is_owner_target = (interaction.guild.owner_id == interaction.user.id)
@@ -328,11 +416,24 @@ class SetupView(discord.ui.View):
             next_step_msg = ti(interaction, "utils.setup.save.next_owner")
         else:
             next_step_msg = ti(interaction, "utils.setup.save.next_again")
-        embed.description = embed.description + next_step_msg
 
-        for c in self.children:
-            c.disabled = True
-        await interaction.response.edit_message(embed=embed, view=self)
+        p = Panel(
+            ti(interaction, "utils.setup.save.title"),
+            ti(interaction, "utils.setup.save.description") + next_step_msg,
+        )
+        for key in _SETUP_FIELDS:
+            label = ti(interaction, f"utils.setup.field.{key}_label")
+            cid = self.selections.get(key) or guild_setting_get(self.guild_id, f"setup_{key}_channel_id", "")
+            if cid:
+                p.field(label, f"<#{cid}>", inline=False)
+            else:
+                p.field(label, ti(interaction, "utils.setup.not_configured"),
+                        inline=False)
+
+        self._disable_all()
+        self.panel = p
+        self._rebuild()
+        await interaction.response.edit_message(view=self)
 
         # Create the temp channel when owner + mod config never done
         if is_owner_target and not mod_configured and self.server_owner:
@@ -341,14 +442,12 @@ class SetupView(discord.ui.View):
             except Exception as e:
                 print(f"[setup] mod perms channel create err: {e}")
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, row=4)
-    async def btn_cancel(self, interaction: discord.Interaction, button):
-        for c in self.children:
-            c.disabled = True
-        await interaction.response.edit_message(
-            content=ti(interaction, "utils.setup.cancel.message"),
-            embed=None, view=self,
-        )
+    async def on_cancel(self, interaction: discord.Interaction):
+        self._disable_all()
+        # A V2 message has no `content`: the cancel notice becomes the container.
+        self.panel = Panel(description=ti(interaction, "utils.setup.cancel.message"))
+        self._rebuild()
+        await interaction.response.edit_message(view=self)
 
 
 def setup_setup_commands(bot: commands.Bot):
@@ -381,27 +480,26 @@ def setup_setup_commands(bot: commands.Bot):
             ))
         body = "\n\n".join(lines)
 
-        embed = discord.Embed(
-            title=ti(interaction, "utils.setup.main.title"),
-            description=ti(interaction, "utils.setup.main.description", body=body),
-            color=0xFF6B35,
+        panel = Panel(
+            ti(interaction, "utils.setup.main.title"),
+            ti(interaction, "utils.setup.main.description", body=body),
         )
 
         # Owner + mod config never done: warn that a 2nd step is coming
         is_owner_target = (interaction.guild.owner_id == interaction.user.id)
         mod_configured = guild_setting_get(interaction.guild.id, "mod_access_configured", "0") == "1"
         if is_owner_target and not mod_configured:
-            embed.add_field(
-                name=ti(interaction, "utils.setup.main.next_step_name"),
-                value=ti(interaction, "utils.setup.main.next_step_value"),
+            panel.field(
+                ti(interaction, "utils.setup.main.next_step_name"),
+                ti(interaction, "utils.setup.main.next_step_value"),
                 inline=False,
             )
 
-        embed.set_footer(text=ti(interaction, "utils.setup.main.footer"))
+        panel.footer(ti(interaction, "utils.setup.main.footer"))
 
         # Grab the owner Member for the temp channel overwrites
         owner_member = interaction.guild.owner
 
         view = SetupView(interaction.guild.id, current=current,
-                         server_owner=owner_member, locale=loc)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+                         server_owner=owner_member, locale=loc, panel=panel)
+        await interaction.response.send_message(view=view, ephemeral=True)

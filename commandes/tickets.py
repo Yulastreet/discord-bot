@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import DEFAULT_LOCALE, guild_locale, locale_of, t, ti
+from services.ui_v2 import Panel, row
 
 def setup_ticket_commands(bot, deps):
     globals().update(deps)
@@ -25,18 +26,25 @@ def setup_ticket_commands(bot, deps):
     }
 
 
-    class TicketOpenView(discord.ui.View):
-        """Persistent view of the ticket panel. Stable custom_id."""
+    class TicketOpenView(discord.ui.LayoutView):
+        """Persistent view of the ticket panel. Stable custom_id.
+
+        ``panel`` is the Components V2 panel shown above the button. It is
+        omitted when the view is only (re)registered for dispatch.
+        """
 
         def __init__(self, label: str = "Open a ticket", emoji: str = "🎫",
-                     style: discord.ButtonStyle = discord.ButtonStyle.primary):
+                     style: discord.ButtonStyle = discord.ButtonStyle.primary,
+                     panel: Panel | None = None):
             super().__init__(timeout=None)
             btn = discord.ui.Button(
                 label=label, emoji=emoji, style=style,
                 custom_id="ticket:open",
             )
             btn.callback = self._on_open
-            self.add_item(btn)
+            if panel is not None:
+                self.add_item(panel.container())
+            self.add_item(row(btn))
 
         async def _on_open(self, interaction: discord.Interaction):
             if not interaction.guild or not interaction.message:
@@ -129,24 +137,27 @@ def setup_ticket_commands(bot, deps):
 
             # Welcome message + ControlView
             glocale = guild_locale(interaction.guild.id) or DEFAULT_LOCALE
-            embed = discord.Embed(
-                title=t("server.ticket.channel_title", glocale, ticket_id=ticket_id),
-                description=panel.get("welcome_message") or
+            p = Panel(
+                t("server.ticket.channel_title", glocale, ticket_id=ticket_id),
+                panel.get("welcome_message") or
                     t("server.ticket.default_welcome", glocale),
-                color=0xC8F050,
             )
-            embed.add_field(name=t("server.ticket.opened_by", glocale),
-                            value=interaction.user.mention, inline=True)
+            p.field(t("server.ticket.opened_by", glocale),
+                    interaction.user.mention, inline=True)
             if support_role:
-                embed.add_field(name=t("server.ticket.support", glocale),
-                                value=support_role.mention, inline=True)
+                p.field(t("server.ticket.support", glocale),
+                        support_role.mention, inline=True)
 
             mention = interaction.user.mention
             if support_role:
                 mention += f" · {support_role.mention}"
+            # A V2 message cannot carry `content`: the ping becomes a text block
+            # of the panel and the send call keeps its allowed_mentions so the
+            # mentions really ping.
+            p.text(mention, first=True)
             try:
                 await ticket_channel.send(
-                    content=mention, embed=embed, view=TicketControlView(glocale),
+                    view=TicketControlView(glocale, panel=p),
                     allowed_mentions=discord.AllowedMentions(users=True, roles=True),
                 )
             except Exception as e:
@@ -158,17 +169,116 @@ def setup_ticket_commands(bot, deps):
             )
 
 
-    class TicketControlView(discord.ui.View):
-        """Persistent view inside each ticket: Claim / Close / Reopen / Delete."""
+    class _TicketControlRow(discord.ui.ActionRow):
+        """Claim / Close / Reopen / Delete. custom_ids kept identical."""
 
-        def __init__(self, locale: str = DEFAULT_LOCALE):
+        @discord.ui.button(label="Claim", emoji="🙋", style=discord.ButtonStyle.success,
+                            custom_id="ticket:claim")
+        async def claim(self, interaction: discord.Interaction, _button: discord.ui.Button):
+            v = self.view
+            ticket = await v._resolve_ticket(interaction)
+            if not ticket: return
+            if not v._is_support(interaction.user, ticket):
+                await interaction.response.send_message(
+                    ti(interaction, "server.ticket.support_only"), ephemeral=True,
+                ); return
+            ticket_set_claimed(ticket["id"], interaction.user.id)
+            await interaction.response.send_message(
+                t("server.ticket.claimed", guild_locale(interaction.guild.id) or DEFAULT_LOCALE,
+                  member=interaction.user.mention),
+            )
+
+        @discord.ui.button(label="Close", emoji="🔒", style=discord.ButtonStyle.secondary,
+                            custom_id="ticket:close")
+        async def close_btn(self, interaction: discord.Interaction, _button: discord.ui.Button):
+            v = self.view
+            ticket = await v._resolve_ticket(interaction)
+            if not ticket: return
+            # Opener or support
+            if str(interaction.user.id) != ticket["opener_id"] and not v._is_support(interaction.user, ticket):
+                await interaction.response.send_message(
+                    ti(interaction, "server.ticket.close_denied"), ephemeral=True,
+                ); return
+            ticket_set_status(ticket["id"], "closed", closed_by=interaction.user.id)
+            # Remove write perms for the opener
+            try:
+                opener = interaction.guild.get_member(int(ticket["opener_id"]))
+                if opener:
+                    ow = interaction.channel.overwrites_for(opener)
+                    ow.send_messages = False
+                    await interaction.channel.set_permissions(opener, overwrite=ow)
+            except Exception:
+                pass
+            glocale = guild_locale(interaction.guild.id) or DEFAULT_LOCALE
+            p = Panel(
+                t("server.ticket.closed_title", glocale),
+                t("server.ticket.closed_body", glocale, member=interaction.user.mention),
+            )
+            await interaction.response.send_message(view=p.view())
+
+        @discord.ui.button(label="Reopen", emoji="🔓", style=discord.ButtonStyle.secondary,
+                            custom_id="ticket:reopen")
+        async def reopen_btn(self, interaction: discord.Interaction, _button: discord.ui.Button):
+            v = self.view
+            ticket = await v._resolve_ticket(interaction)
+            if not ticket: return
+            if not v._is_support(interaction.user, ticket):
+                await interaction.response.send_message(
+                    ti(interaction, "server.ticket.support_only"), ephemeral=True,
+                ); return
+            ticket_set_status(ticket["id"], "open")
+            try:
+                opener = interaction.guild.get_member(int(ticket["opener_id"]))
+                if opener:
+                    ow = interaction.channel.overwrites_for(opener)
+                    ow.send_messages = True
+                    await interaction.channel.set_permissions(opener, overwrite=ow)
+            except Exception:
+                pass
+            await interaction.response.send_message(
+                t("server.ticket.reopened", guild_locale(interaction.guild.id) or DEFAULT_LOCALE,
+                  member=interaction.user.mention))
+
+        @discord.ui.button(label="Delete", emoji="🗑️", style=discord.ButtonStyle.danger,
+                            custom_id="ticket:delete")
+        async def delete_btn(self, interaction: discord.Interaction, _button: discord.ui.Button):
+            v = self.view
+            ticket = await v._resolve_ticket(interaction)
+            if not ticket: return
+            if not v._is_support(interaction.user, ticket):
+                await interaction.response.send_message(
+                    ti(interaction, "server.ticket.support_only"), ephemeral=True,
+                ); return
+            ticket_set_status(ticket["id"], "deleted", closed_by=interaction.user.id)
+            await interaction.response.send_message(
+                t("server.ticket.deleting", guild_locale(interaction.guild.id) or DEFAULT_LOCALE),
+            )
+            await asyncio.sleep(5)
+            try:
+                await interaction.channel.delete(reason=f"Ticket deleted by {interaction.user}")
+            except Exception as e:
+                print(f"[ticket] delete err: {e!r}")
+
+
+    class TicketControlView(discord.ui.LayoutView):
+        """Persistent view inside each ticket: Claim / Close / Reopen / Delete.
+
+        ``panel`` is the welcome panel; it is omitted when the view is only
+        (re)registered for dispatch.
+        """
+
+        def __init__(self, locale: str = DEFAULT_LOCALE, panel: Panel | None = None):
             super().__init__(timeout=None)
+            self.controls = _TicketControlRow()
             # Labels are localised per guild; the custom_ids stay untouched so
             # the buttons of already posted messages keep working.
-            for child in self.children:
+            for child in self.controls.children:
                 key = _CONTROL_LABEL_KEYS.get(getattr(child, "custom_id", None))
                 if key:
                     child.label = t(key, locale)
+            if panel is not None:
+                self.add_item(panel.container())
+            self.add_item(self.controls)
 
         async def _resolve_ticket(self, interaction: discord.Interaction) -> dict | None:
             ticket = ticket_get_by_channel(interaction.channel.id)
@@ -193,89 +303,6 @@ def setup_ticket_commands(bot, deps):
                         return True
             return False
 
-        @discord.ui.button(label="Claim", emoji="🙋", style=discord.ButtonStyle.success,
-                            custom_id="ticket:claim")
-        async def claim(self, interaction: discord.Interaction, _button: discord.ui.Button):
-            ticket = await self._resolve_ticket(interaction)
-            if not ticket: return
-            if not self._is_support(interaction.user, ticket):
-                await interaction.response.send_message(
-                    ti(interaction, "server.ticket.support_only"), ephemeral=True,
-                ); return
-            ticket_set_claimed(ticket["id"], interaction.user.id)
-            await interaction.response.send_message(
-                t("server.ticket.claimed", guild_locale(interaction.guild.id) or DEFAULT_LOCALE,
-                  member=interaction.user.mention),
-            )
-
-        @discord.ui.button(label="Close", emoji="🔒", style=discord.ButtonStyle.secondary,
-                            custom_id="ticket:close")
-        async def close_btn(self, interaction: discord.Interaction, _button: discord.ui.Button):
-            ticket = await self._resolve_ticket(interaction)
-            if not ticket: return
-            # Opener or support
-            if str(interaction.user.id) != ticket["opener_id"] and not self._is_support(interaction.user, ticket):
-                await interaction.response.send_message(
-                    ti(interaction, "server.ticket.close_denied"), ephemeral=True,
-                ); return
-            ticket_set_status(ticket["id"], "closed", closed_by=interaction.user.id)
-            # Remove write perms for the opener
-            try:
-                opener = interaction.guild.get_member(int(ticket["opener_id"]))
-                if opener:
-                    ow = interaction.channel.overwrites_for(opener)
-                    ow.send_messages = False
-                    await interaction.channel.set_permissions(opener, overwrite=ow)
-            except Exception:
-                pass
-            glocale = guild_locale(interaction.guild.id) or DEFAULT_LOCALE
-            embed = discord.Embed(
-                title=t("server.ticket.closed_title", glocale),
-                description=t("server.ticket.closed_body", glocale, member=interaction.user.mention),
-                color=0x808080,
-            )
-            await interaction.response.send_message(embed=embed)
-
-        @discord.ui.button(label="Reopen", emoji="🔓", style=discord.ButtonStyle.secondary,
-                            custom_id="ticket:reopen")
-        async def reopen_btn(self, interaction: discord.Interaction, _button: discord.ui.Button):
-            ticket = await self._resolve_ticket(interaction)
-            if not ticket: return
-            if not self._is_support(interaction.user, ticket):
-                await interaction.response.send_message(
-                    ti(interaction, "server.ticket.support_only"), ephemeral=True,
-                ); return
-            ticket_set_status(ticket["id"], "open")
-            try:
-                opener = interaction.guild.get_member(int(ticket["opener_id"]))
-                if opener:
-                    ow = interaction.channel.overwrites_for(opener)
-                    ow.send_messages = True
-                    await interaction.channel.set_permissions(opener, overwrite=ow)
-            except Exception:
-                pass
-            await interaction.response.send_message(
-                t("server.ticket.reopened", guild_locale(interaction.guild.id) or DEFAULT_LOCALE,
-                  member=interaction.user.mention))
-
-        @discord.ui.button(label="Delete", emoji="🗑️", style=discord.ButtonStyle.danger,
-                            custom_id="ticket:delete")
-        async def delete_btn(self, interaction: discord.Interaction, _button: discord.ui.Button):
-            ticket = await self._resolve_ticket(interaction)
-            if not ticket: return
-            if not self._is_support(interaction.user, ticket):
-                await interaction.response.send_message(
-                    ti(interaction, "server.ticket.support_only"), ephemeral=True,
-                ); return
-            ticket_set_status(ticket["id"], "deleted", closed_by=interaction.user.id)
-            await interaction.response.send_message(
-                t("server.ticket.deleting", guild_locale(interaction.guild.id) or DEFAULT_LOCALE),
-            )
-            await asyncio.sleep(5)
-            try:
-                await interaction.channel.delete(reason=f"Ticket deleted by {interaction.user}")
-            except Exception as e:
-                print(f"[ticket] delete err: {e!r}")
 
 
     # ----- Slash command /ticket -----
@@ -325,7 +352,7 @@ def setup_ticket_commands(bot, deps):
             await self.parent_view.refresh(interaction)
 
 
-    class _TicketBuilderView(discord.ui.View):
+    class _TicketBuilderView(discord.ui.LayoutView):
         """Interactive builder of a ticket panel."""
 
         def __init__(self, author_id: int, guild: discord.Guild, locale: str = DEFAULT_LOCALE):
@@ -350,44 +377,45 @@ def setup_ticket_commands(bot, deps):
                 return False
             return True
 
-        def _summary_embed(self) -> discord.Embed:
+        def _summary_panel(self) -> Panel:
             loc = self.locale
-            embed = discord.Embed(title=t("server.ticket.builder_title", loc), color=0xC8F050)
-            embed.add_field(
-                name=t("server.ticket.field_config", loc),
-                value=t("server.ticket.config_value", loc,
-                        channel=self.channel.mention if self.channel else t("server.ticket.not_set", loc),
-                        role=self.support_role.mention if self.support_role else t("server.ticket.no_role", loc),
-                        category=self.category.mention if self.category else t("server.ticket.no_category", loc)),
+            p = Panel(t("server.ticket.builder_title", loc))
+            p.field(
+                t("server.ticket.field_config", loc),
+                t("server.ticket.config_value", loc,
+                  channel=self.channel.mention if self.channel else t("server.ticket.not_set", loc),
+                  role=self.support_role.mention if self.support_role else t("server.ticket.no_role", loc),
+                  category=self.category.mention if self.category else t("server.ticket.no_category", loc)),
                 inline=False,
             )
-            embed.add_field(
-                name=t("server.ticket.field_embed", loc),
-                value=t("server.ticket.embed_value", loc,
-                        title=self.panel_title,
-                        description=(self.description[:100] + "…") if self.description and len(self.description) > 100
-                                    else (self.description or "_—_"),
-                        welcome=(self.welcome[:80] + "…") if self.welcome and len(self.welcome) > 80
-                                else (self.welcome or t("server.ticket.default_value", loc))),
+            p.field(
+                t("server.ticket.field_embed", loc),
+                t("server.ticket.embed_value", loc,
+                  title=self.panel_title,
+                  description=(self.description[:100] + "…") if self.description and len(self.description) > 100
+                              else (self.description or "_—_"),
+                  welcome=(self.welcome[:80] + "…") if self.welcome and len(self.welcome) > 80
+                          else (self.welcome or t("server.ticket.default_value", loc))),
                 inline=False,
             )
-            embed.add_field(
-                name=t("server.ticket.field_button", loc),
-                value=f"{self.button_emoji} **{self.button_label}**",
+            p.field(
+                t("server.ticket.field_button", loc),
+                f"{self.button_emoji} **{self.button_label}**",
                 inline=False,
             )
-            embed.set_footer(text=t("server.ticket.builder_footer", loc))
-            return embed
+            p.footer(t("server.ticket.builder_footer", loc))
+            return p
 
         def _rebuild(self):
             loc = self.locale
             self.clear_items()
+            self.add_item(self._summary_panel().container())
 
             # Row 0: channel
             chan_sel = discord.ui.ChannelSelect(
                 placeholder=t("server.ticket.select_channel", loc),
                 channel_types=[discord.ChannelType.text],
-                min_values=1, max_values=1, row=0,
+                min_values=1, max_values=1,
             )
             async def _on_chan(interaction: discord.Interaction):
                 ch = self.guild.get_channel(chan_sel.values[0].id)
@@ -395,13 +423,13 @@ def setup_ticket_commands(bot, deps):
                     self.channel = ch
                 await self.refresh(interaction)
             chan_sel.callback = _on_chan
-            self.add_item(chan_sel)
+            self.add_item(row(chan_sel))
 
             # Row 1: category
             cat_sel = discord.ui.ChannelSelect(
                 placeholder=t("server.ticket.select_category", loc),
                 channel_types=[discord.ChannelType.category],
-                min_values=0, max_values=1, row=1,
+                min_values=0, max_values=1,
             )
             async def _on_cat(interaction: discord.Interaction):
                 if cat_sel.values:
@@ -412,52 +440,52 @@ def setup_ticket_commands(bot, deps):
                     self.category = None
                 await self.refresh(interaction)
             cat_sel.callback = _on_cat
-            self.add_item(cat_sel)
+            self.add_item(row(cat_sel))
 
             # Row 2: support role
             role_sel = discord.ui.RoleSelect(
                 placeholder=t("server.ticket.select_role", loc),
-                min_values=0, max_values=1, row=2,
+                min_values=0, max_values=1,
             )
             async def _on_role(interaction: discord.Interaction):
                 self.support_role = role_sel.values[0] if role_sel.values else None
                 await self.refresh(interaction)
             role_sel.callback = _on_role
-            self.add_item(role_sel)
+            self.add_item(row(role_sel))
 
-            # Row 3: embed modal + actions
+            # Row 3: text modal + actions
             btn_embed = discord.ui.Button(
-                label=t("server.ticket.btn_texts", loc), style=discord.ButtonStyle.secondary, row=3,
+                label=t("server.ticket.btn_texts", loc), style=discord.ButtonStyle.secondary,
             )
             async def _on_embed(interaction: discord.Interaction):
                 await interaction.response.send_modal(_TicketEmbedModal(self))
             btn_embed.callback = _on_embed
-            self.add_item(btn_embed)
 
             btn_send = discord.ui.Button(
-                label=t("server.ticket.btn_publish", loc), style=discord.ButtonStyle.success, row=3,
+                label=t("server.ticket.btn_publish", loc), style=discord.ButtonStyle.success,
                 disabled=not self.channel,
             )
             btn_send.callback = self._on_send
-            self.add_item(btn_send)
 
             btn_cancel = discord.ui.Button(
-                label=t("server.ticket.btn_cancel", loc), style=discord.ButtonStyle.danger, row=3,
+                label=t("server.ticket.btn_cancel", loc), style=discord.ButtonStyle.danger,
             )
             async def _on_cancel(interaction: discord.Interaction):
                 self.clear_items()
-                await interaction.response.edit_message(content=t("server.ticket.cancelled", loc),
-                                                         embed=None, view=None)
+                # A V2 message cannot fall back to plain content: swap the view.
+                await interaction.response.edit_message(
+                    view=Panel(description=t("server.ticket.cancelled", loc)).view(timeout=None))
                 self.stop()
             btn_cancel.callback = _on_cancel
-            self.add_item(btn_cancel)
+
+            self.add_item(row(btn_embed, btn_send, btn_cancel))
 
         async def refresh(self, interaction: discord.Interaction):
             self._rebuild()
             if interaction.response.is_done():
-                await interaction.edit_original_response(embed=self._summary_embed(), view=self)
+                await interaction.edit_original_response(view=self)
             else:
-                await interaction.response.edit_message(embed=self._summary_embed(), view=self)
+                await interaction.response.edit_message(view=self)
 
         async def _on_send(self, interaction: discord.Interaction):
             if not self.channel:
@@ -474,9 +502,9 @@ def setup_ticket_commands(bot, deps):
             if not perms.embed_links:   missing.append(t("server.ticket.perm_embed_links", loc))
             if missing:
                 await interaction.edit_original_response(
-                    content=t("server.ticket.missing_perms", loc,
-                              channel=self.channel.mention, perms=", ".join(missing)),
-                    embed=None, view=None,
+                    view=Panel(description=t("server.ticket.missing_perms", loc,
+                                             channel=self.channel.mention,
+                                             perms=", ".join(missing))).view(timeout=None),
                 )
                 self.stop()
                 return
@@ -491,26 +519,25 @@ def setup_ticket_commands(bot, deps):
                 welcome_message=self.welcome or None,
                 created_by=self.author_id,
             )
-            embed = discord.Embed(title=self.panel_title, description=self.description, color=0xC8F050)
+            p = Panel(self.panel_title, self.description)
             if self.support_role:
-                embed.add_field(name=t("server.ticket.team", loc),
-                                value=self.support_role.mention, inline=True)
-            view = TicketOpenView(label=self.button_label, emoji=self.button_emoji)
+                p.field(t("server.ticket.team", loc), self.support_role.mention, inline=True)
+            view = TicketOpenView(label=self.button_label, emoji=self.button_emoji, panel=p)
             try:
-                msg = await self.channel.send(embed=embed, view=view)
+                msg = await self.channel.send(view=view)
             except discord.Forbidden:
                 ticket_panel_delete(pid, self.guild.id)
                 await interaction.edit_original_response(
-                    content=t("server.ticket.post_forbidden", loc, channel=self.channel.mention),
-                    embed=None, view=None,
+                    view=Panel(description=t("server.ticket.post_forbidden", loc,
+                                             channel=self.channel.mention)).view(timeout=None),
                 )
                 self.stop()
                 return
             ticket_panel_set_message(pid, msg.id)
             await interaction.edit_original_response(
-                content=t("server.ticket.panel_posted", loc,
-                          panel_id=pid, channel=self.channel.mention, message_id=msg.id),
-                embed=None, view=None,
+                view=Panel(description=t("server.ticket.panel_posted", loc,
+                                         panel_id=pid, channel=self.channel.mention,
+                                         message_id=msg.id)).view(timeout=None),
             )
             self.stop()
 
@@ -519,9 +546,7 @@ def setup_ticket_commands(bot, deps):
     @app_commands.checks.has_permissions(manage_channels=True)
     async def ticket_cmd(interaction: discord.Interaction):
         view = _TicketBuilderView(interaction.user.id, interaction.guild, locale_of(interaction))
-        await interaction.response.send_message(
-            embed=view._summary_embed(), view=view, ephemeral=True,
-        )
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     def _register_ticket_views():
         """(Re)registers the persistent views. Called at import time AND in
