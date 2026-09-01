@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import ti, t, locale_of
+from services.ui_v2 import Panel
 
 from .music_voice import connect_to_voice
 
@@ -323,19 +324,18 @@ def setup_music_commands(bot, deps):
         if position_str == "—" and duration:
             position_str = _fmt_duration(duration)
 
-        embed = discord.Embed(
-            title=("⏸️ " if is_paused else "🎵 ") + title[:240],
-            url=url if url.startswith("http") else None,
-            color=discord.Color.blurple() if not is_paused else discord.Color.orange(),
-        )
+        head = ("⏸️ " if is_paused else "🎵 ") + title[:240]
+        if url.startswith("http"):
+            head = f"[{head}]({url})"
+        p = Panel(head)
         if thumb:
-            embed.set_thumbnail(url=thumb)
-        embed.add_field(name=ti(interaction, "games.music.nowplaying.duration"),
-                        value=position_str, inline=True)
-        embed.add_field(name=ti(interaction, "games.music.nowplaying.voice_channel"),
-                        value=f"🔊 {voice_chan_name}", inline=True)
+            p.thumbnail(thumb)
+        p.field(ti(interaction, "games.music.nowplaying.duration"),
+                position_str, inline=True)
+        p.field(ti(interaction, "games.music.nowplaying.voice_channel"),
+                f"🔊 {voice_chan_name}", inline=True)
         if progress_bar:
-            embed.add_field(name="​", value=f"`{progress_bar}`", inline=False)
+            p.text(f"`{progress_bar}`")
 
         # Up next (first 3)
         try:
@@ -349,14 +349,13 @@ def setup_music_commands(bot, deps):
                 next_lines.append(f"`{i}.` {t_item['title'][:60]} · `{dur}`")
             more = (ti(interaction, "games.music.nowplaying.more", count=len(q) - 3)
                     if len(q) > 3 else "")
-            embed.add_field(
-                name=ti(interaction, "games.music.nowplaying.up_next", count=len(q)),
-                value="\n".join(next_lines) + more,
-                inline=False,
+            p.field(
+                ti(interaction, "games.music.nowplaying.up_next", count=len(q)),
+                "\n".join(next_lines) + more,
             )
 
-        embed.set_footer(text=ti(interaction, "games.music.nowplaying.footer"))
-        await interaction.response.send_message(embed=embed)
+        p.footer(ti(interaction, "games.music.nowplaying.footer"))
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="skip", description="Skip the current track (or jump to a queue position)")
     @app_commands.describe(position="Queue number to jump to (1 = the next one). Empty = just skip the current track.")
@@ -408,27 +407,44 @@ def setup_music_commands(bot, deps):
 
     PER_PAGE = 50
 
-    def _build_queue_embed(gid_str, page=1, locale=None):
+    def _build_queue_panel(gid_str, page=1, locale=None):
         q = music_queue_list(gid_str) or []
         total = len(q)
         total_pages = max(1, (total + PER_PAGE - 1) // PER_PAGE)
         page = max(1, min(int(page), total_pages))
         start = (page - 1) * PER_PAGE
         end = min(start + PER_PAGE, total)
-        embed = discord.Embed(
-            title=t("games.music.queue.title", locale, total=total),
-            color=discord.Color.blurple(),
-        )
         lines = []
         for i in range(start, end):
             track = q[i]
             lines.append(f"**{i+1}.** {track['title']}")
-        embed.description = "\n".join(lines) or t("games.music.queue.empty_line", locale)
-        embed.set_footer(text=t("games.music.queue.footer", locale,
-                                page=page, total_pages=total_pages))
-        return embed, page, total_pages, total
+        p = Panel(
+            t("games.music.queue.title", locale, total=total),
+            "\n".join(lines) or t("games.music.queue.empty_line", locale),
+        )
+        p.footer(t("games.music.queue.footer", locale,
+                   page=page, total_pages=total_pages))
+        return p, page, total_pages, total
 
-    class QueueView(discord.ui.View):
+    class _QueueRow(discord.ui.ActionRow):
+        @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
+        async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+            v = self.view
+            v.page = max(1, v.page - 1)
+            await v._update(interaction)
+
+        @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
+        async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+            v = self.view
+            v.page = min(v.total_pages, v.page + 1)
+            await v._update(interaction)
+
+        @discord.ui.button(label="↻", style=discord.ButtonStyle.primary)
+        async def refresh_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+            # Recompute the total (the queue may have changed)
+            await self.view._update(interaction)
+
+    class QueueView(discord.ui.LayoutView):
         def __init__(self, gid_str, page, total_pages, author_id, locale):
             super().__init__(timeout=180)
             self.gid_str = gid_str
@@ -436,34 +452,28 @@ def setup_music_commands(bot, deps):
             self.total_pages = total_pages
             self.author_id = author_id
             self.locale = locale
-            self.prev_btn.label = t("games.music.queue.previous_button", locale)
-            self.next_btn.label = t("games.music.queue.next_button", locale)
-            self._refresh_buttons()
+            self.pager = _QueueRow()
+            self.pager.prev_btn.label = t("games.music.queue.previous_button", locale)
+            self.pager.next_btn.label = t("games.music.queue.next_button", locale)
+            self.panel, self.page, self.total_pages, _ = _build_queue_panel(
+                gid_str, self.page, locale)
+            self._rebuild()
 
         def _refresh_buttons(self):
-            self.prev_btn.disabled = self.page <= 1
-            self.next_btn.disabled = self.page >= self.total_pages
+            self.pager.prev_btn.disabled = self.page <= 1
+            self.pager.next_btn.disabled = self.page >= self.total_pages
+
+        def _rebuild(self):
+            self.clear_items()
+            self.add_item(self.panel.container())
+            self._refresh_buttons()
+            self.add_item(self.pager)
 
         async def _update(self, interaction):
-            embed, self.page, self.total_pages, _ = _build_queue_embed(
+            self.panel, self.page, self.total_pages, _ = _build_queue_panel(
                 self.gid_str, self.page, self.locale)
-            self._refresh_buttons()
-            await interaction.response.edit_message(embed=embed, view=self)
-
-        @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
-        async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-            self.page = max(1, self.page - 1)
-            await self._update(interaction)
-
-        @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary)
-        async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-            self.page = min(self.total_pages, self.page + 1)
-            await self._update(interaction)
-
-        @discord.ui.button(label="↻", style=discord.ButtonStyle.primary)
-        async def refresh_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-            # Recompute the total (the queue may have changed)
-            await self._update(interaction)
+            self._rebuild()
+            await interaction.response.edit_message(view=self)
 
     @bot.tree.command(name="queue", description="Show the music queue")
     async def queue_cmd(interaction: discord.Interaction):
@@ -473,9 +483,9 @@ def setup_music_commands(bot, deps):
             await interaction.response.send_message(ti(interaction, "games.music.queue.empty"))
             return
         locale = locale_of(interaction)
-        embed, page, total_pages, _ = _build_queue_embed(gid, page=1, locale=locale)
+        _p, page, total_pages, _ = _build_queue_panel(gid, page=1, locale=locale)
         view = QueueView(gid, page, total_pages, interaction.user.id, locale)
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.response.send_message(view=view)
 
 
     @bot.tree.command(name="jump", description="Play a specific queue track without losing the others")
@@ -582,8 +592,9 @@ def setup_music_commands(bot, deps):
         )
 
     # ----- Platform button view for /search -----
-    class _PlatformPickerView(discord.ui.View):
-        def __init__(self, bot, query, owner_id, voice_channel, guild, text_channel, _ensure_opus):
+    class _PlatformPickerView(discord.ui.LayoutView):
+        def __init__(self, bot, query, owner_id, voice_channel, guild, text_channel,
+                     _ensure_opus, panel):
             super().__init__(timeout=60)
             self.bot = bot
             self.query = query
@@ -594,7 +605,19 @@ def setup_music_commands(bot, deps):
             self._ensure_opus = _ensure_opus
             self.chosen = False
             self._origin_interaction = None
+            self.panel = panel
+            self.buttons_row = discord.ui.ActionRow()
             self._build_buttons()
+            self._rebuild()
+
+        def _rebuild(self):
+            self.clear_items()
+            self.add_item(self.panel.container())
+            self.add_item(self.buttons_row)
+
+        def _disable_buttons(self):
+            for child in self.buttons_row.children:
+                child.disabled = True
 
         def _build_buttons(self):
             specs = [
@@ -613,7 +636,7 @@ def setup_music_commands(bot, deps):
                     emoji = None
                 btn = discord.ui.Button(label=f" {label}", style=style, custom_id=f"search:{plat}", emoji=emoji)
                 btn.callback = self._make_cb(plat)
-                self.add_item(btn)
+                self.buttons_row.add_item(btn)
 
         def _make_cb(self, platform):
             async def cb(inter: discord.Interaction):
@@ -623,8 +646,7 @@ def setup_music_commands(bot, deps):
                     return
                 self.chosen = True
                 # Disable the other buttons
-                for child in self.children:
-                    child.disabled = True
+                self._disable_buttons()
                 try:
                     await inter.message.edit(view=self)
                 except Exception:
@@ -690,11 +712,8 @@ def setup_music_commands(bot, deps):
                 options.append(discord.SelectOption(label=label, value=str(i), description=desc))
 
             outer = self
-            class ResultsView(discord.ui.View):
-                def __init__(self):
-                    super().__init__(timeout=60)
-                    self.picked = False
 
+            class _ResultsRow(discord.ui.ActionRow):
                 @discord.ui.select(
                     placeholder=t("games.music.search.select_placeholder", loc, platform=platform),
                     options=options,
@@ -704,7 +723,7 @@ def setup_music_commands(bot, deps):
                         await sel_inter.response.send_message(
                             ti(sel_inter, "games.music.search.menu_not_yours"), ephemeral=True)
                         return
-                    self.picked = True
+                    self.view.picked = True
                     idx = int(sel.values[0])
                     chosen = results[idx]
                     await sel_inter.response.defer()
@@ -739,31 +758,34 @@ def setup_music_commands(bot, deps):
                         print(f"[music /search pick {platform}] {type(e).__name__}: {e}")
                         await sel_inter.followup.send(
                             ti(sel_inter, "games.music.trouble"), ephemeral=True)
-                    self.stop()
+                    self.view.stop()
 
-            embed = discord.Embed(
-                title=t("games.music.search.results_title", loc,
-                        platform=platform, query=outer.query[:80]),
-                color=discord.Color.blurple(),
-            )
+            class ResultsView(discord.ui.LayoutView):
+                def __init__(self, panel):
+                    super().__init__(timeout=60)
+                    self.picked = False
+                    self.add_item(panel.container())
+                    self.add_item(_ResultsRow())
+
+            p = Panel(t("games.music.search.results_title", loc,
+                        platform=platform, query=outer.query[:80]))
             for i, r in enumerate(results, 1):
                 dur = _fmt_duration(r.get("duration")) if r.get("duration") else "?"
-                embed.add_field(
-                    name=f"`{i}.` {(r.get('title') or untitled)[:80]}",
-                    value=f"{(r.get('uploader') or unknown_uploader)[:40]} · `{dur}`",
-                    inline=False,
+                p.field(
+                    f"`{i}.` {(r.get('title') or untitled)[:80]}",
+                    f"{(r.get('uploader') or unknown_uploader)[:40]} · `{dur}`",
                 )
-            await inter.followup.send(embed=embed, view=ResultsView())
+            await inter.followup.send(view=ResultsView(p))
 
         async def on_timeout(self):
             if not self.chosen and self._origin_interaction:
                 try:
-                    for child in self.children:
-                        child.disabled = True
-                    await self._origin_interaction.edit_original_response(
-                        content=ti(self._origin_interaction, "games.music.search.timeout"),
-                        view=self,
-                    )
+                    self._disable_buttons()
+                    # A V2 message has no `content`: the notice goes into the panel.
+                    self.panel.text(
+                        ti(self._origin_interaction, "games.music.search.timeout"))
+                    self._rebuild()
+                    await self._origin_interaction.edit_original_response(view=self)
                 except Exception:
                     pass
 
@@ -785,31 +807,29 @@ def setup_music_commands(bot, deps):
         except Exception as e:
             print(f"[music /search preview] {e}")
 
-        embed = discord.Embed(
-            title=ti(interaction, "games.music.search.title", query=query[:120]),
-            description=ti(interaction, "games.music.search.description"),
-            color=discord.Color.blurple(),
+        p = Panel(
+            ti(interaction, "games.music.search.title", query=query[:120]),
+            ti(interaction, "games.music.search.description"),
         )
         if preview:
             unknown_uploader = ti(interaction, "games.music.search.unknown_uploader")
-            embed.add_field(
-                name=ti(interaction, "games.music.search.preview"),
-                value=f"**{(preview.get('title') or '?')[:120]}**\n"
-                      f"{(preview.get('uploader') or unknown_uploader)[:60]} · "
-                      f"`{_fmt_duration(preview.get('duration')) if preview.get('duration') else '?'}`",
-                inline=False,
+            p.field(
+                ti(interaction, "games.music.search.preview"),
+                f"**{(preview.get('title') or '?')[:120]}**\n"
+                f"{(preview.get('uploader') or unknown_uploader)[:60]} · "
+                f"`{_fmt_duration(preview.get('duration')) if preview.get('duration') else '?'}`",
             )
             if preview.get("thumbnail"):
-                embed.set_thumbnail(url=preview["thumbnail"])
-        embed.set_footer(text=ti(interaction, "games.music.search.footer"))
+                p.thumbnail(preview["thumbnail"])
+        p.footer(ti(interaction, "games.music.search.footer"))
 
         view = _PlatformPickerView(
             bot=bot, query=query, owner_id=interaction.user.id,
             voice_channel=interaction.user.voice.channel,
             guild=interaction.guild, text_channel=interaction.channel,
-            _ensure_opus=_ensure_opus,
+            _ensure_opus=_ensure_opus, panel=p,
         )
-        await interaction.followup.send(embed=embed, view=view)
+        await interaction.followup.send(view=view)
         view._origin_interaction = interaction
 
     @bot.tree.command(name="pause", description="Pause the music")
@@ -861,39 +881,35 @@ def setup_music_commands(bot, deps):
         total_s = int(summary.get("total_seconds") or 0)
         h = total_s // 3600
         m = (total_s % 3600) // 60
-        embed = discord.Embed(
-            title=ti(interaction, "games.music.stats.title", days=days),
-            color=discord.Color.blurple(),
-        )
-        embed.add_field(name=ti(interaction, "games.music.stats.plays"),
-                        value=str(summary["total_plays"]), inline=True)
-        embed.add_field(name=ti(interaction, "games.music.stats.unique_tracks"),
-                        value=str(summary["unique_tracks"]), inline=True)
-        embed.add_field(name=ti(interaction, "games.music.stats.listeners"),
-                        value=str(summary["unique_users"]), inline=True)
-        embed.add_field(name=ti(interaction, "games.music.stats.total_time"),
-                        value=f"{h}h{m:02d}m", inline=True)
+        p = Panel(ti(interaction, "games.music.stats.title", days=days))
+        p.field(ti(interaction, "games.music.stats.plays"),
+                str(summary["total_plays"]), inline=True)
+        p.field(ti(interaction, "games.music.stats.unique_tracks"),
+                str(summary["unique_tracks"]), inline=True)
+        p.field(ti(interaction, "games.music.stats.listeners"),
+                str(summary["unique_users"]), inline=True)
+        p.field(ti(interaction, "games.music.stats.total_time"),
+                f"{h}h{m:02d}m", inline=True)
         by_src = summary.get("by_source") or []
         if by_src:
-            embed.add_field(
-                name=ti(interaction, "games.music.stats.by_source"),
-                value="\n".join(f"`{s['source']}`: {s['plays']}" for s in by_src),
-                inline=True,
+            p.field(
+                ti(interaction, "games.music.stats.by_source"),
+                "\n".join(f"`{s['source']}`: {s['plays']}" for s in by_src),
             )
         if tops:
             top_lines = []
             for i, tr in enumerate(tops, 1):
                 title = (tr["track_title"] or "?")[:60]
                 top_lines.append(f"`{i}.` {title} · **{tr['plays']}**")
-            embed.add_field(name=ti(interaction, "games.music.stats.top_tracks"),
-                            value="\n".join(top_lines), inline=False)
+            p.field(ti(interaction, "games.music.stats.top_tracks"),
+                    "\n".join(top_lines))
         if users:
             user_lines = []
             for i, u in enumerate(users, 1):
                 user_lines.append(f"`{i}.` <@{u['user_id']}> · **{u['plays']}**")
-            embed.add_field(name=ti(interaction, "games.music.stats.top_listeners"),
-                            value="\n".join(user_lines), inline=False)
-        await interaction.response.send_message(embed=embed)
+            p.field(ti(interaction, "games.music.stats.top_listeners"),
+                    "\n".join(user_lines))
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="stop", description="Stop the music and clear the queue")
     async def stop(interaction: discord.Interaction):

@@ -29,6 +29,7 @@ from discord.ext import commands
 
 from services import cs2_api as csapi
 from services.i18n import ti
+from services.ui_v2 import Panel
 from database import (
     cs_profile_get, cs_profile_upsert, cs_profile_unlink,
     cs_rank_config_get, cs_rank_config_upsert,
@@ -144,19 +145,27 @@ def bar(pct: float, width: int = 14, filled="▰", empty="▱") -> str:
     return filled * fill + empty * (width - fill)
 
 
-def _err_embed(title: str, msg: str) -> discord.Embed:
-    return discord.Embed(title=f"❌ {title}", description=msg, color=0xE74C3C)
+def _err_panel(title: str, msg: str) -> Panel:
+    return Panel(f"❌ {title}", msg)
 
 
-def _info_embed(title: str, msg: str, color: int = 0x3498DB) -> discord.Embed:
-    return discord.Embed(title=title, description=msg, color=color)
+def _err_view(title: str, msg: str) -> discord.ui.LayoutView:
+    return _err_panel(title, msg).view()
+
+
+def _info_panel(title: str, msg: str) -> Panel:
+    return Panel(title, msg)
+
+
+def _info_view(title: str, msg: str) -> discord.ui.LayoutView:
+    return _info_panel(title, msg).view()
 
 
 async def _build_steam_link(interaction: discord.Interaction, raw: str) -> Optional[str]:
     steam_id = await csapi.steam_resolve(raw)
     if not steam_id:
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.steam_id_invalid_title"),
                 ti(interaction, "games.cs.err.steam_id_invalid_link")),
             ephemeral=True,
@@ -165,7 +174,7 @@ async def _build_steam_link(interaction: discord.Interaction, raw: str) -> Optio
     summary = await csapi.steam_player_summary(steam_id)
     if not summary:
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.steam_profile_not_found_title"),
                 ti(interaction, "games.cs.err.steam_profile_not_found_desc")),
             ephemeral=True,
@@ -174,11 +183,10 @@ async def _build_steam_link(interaction: discord.Interaction, raw: str) -> Optio
     cs_profile_upsert(interaction.user.id, steam_id=steam_id)
     persona = summary.get("personaname") or steam_id
     await interaction.followup.send(
-        embed=_info_embed(
+        view=_info_view(
             ti(interaction, "games.cs.link.steam_success_title"),
             ti(interaction, "games.cs.link.steam_success_desc",
-               persona=persona, steam_id=steam_id),
-            color=0x2ECC71),
+               persona=persona, steam_id=steam_id)),
         ephemeral=True,
     )
     return steam_id
@@ -187,7 +195,7 @@ async def _build_steam_link(interaction: discord.Interaction, raw: str) -> Optio
 async def _build_faceit_link(interaction: discord.Interaction, nickname: str) -> Optional[str]:
     if not (2 <= len(nickname) <= 30) or not all(ch.isalnum() or ch in "_-." for ch in nickname):
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.faceit_nick_invalid_title"),
                 ti(interaction, "games.cs.err.faceit_nick_invalid_desc")),
             ephemeral=True,
@@ -196,7 +204,7 @@ async def _build_faceit_link(interaction: discord.Interaction, nickname: str) ->
     fc = await csapi.faceit_player_by_nickname(nickname)
     if not fc or not fc.get("player_id"):
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.faceit_not_found_title"),
                 ti(interaction, "games.cs.err.faceit_not_found_desc", nickname=nickname)),
             ephemeral=True,
@@ -207,16 +215,15 @@ async def _build_faceit_link(interaction: discord.Interaction, nickname: str) ->
     cs_profile_upsert(interaction.user.id, faceit_id=pid, faceit_nick=nick)
     skill = (fc.get("games", {}) or {}).get("cs2", {}).get("skill_level") or "—"
     await interaction.followup.send(
-        embed=_info_embed(
+        view=_info_view(
             ti(interaction, "games.cs.link.faceit_success_title"),
-            ti(interaction, "games.cs.link.faceit_success_desc", nickname=nick, level=skill),
-            color=0x2ECC71),
+            ti(interaction, "games.cs.link.faceit_success_desc", nickname=nick, level=skill)),
         ephemeral=True,
     )
     return pid
 
 
-async def _build_steam_stats_embed(interaction: discord.Interaction, member, steam_id: str) -> discord.Embed:
+async def _build_steam_stats_view(interaction: discord.Interaction, member, steam_id: str) -> discord.ui.LayoutView:
     summary = await csapi.steam_player_summary(steam_id)
     stats   = await csapi.steam_cs2_stats(steam_id)
     owned   = await csapi.steam_owned_cs2(steam_id)
@@ -224,23 +231,21 @@ async def _build_steam_stats_embed(interaction: discord.Interaction, member, ste
     avatar  = (summary or {}).get("avatarfull")
 
     if stats and stats.get("_private"):
-        e = discord.Embed(
-            title=ti(interaction, "games.cs.stats.steam_title", persona=persona),
-            description=ti(interaction, "games.cs.stats.profile_private"),
-            color=0xE67E22,
+        e = Panel(
+            ti(interaction, "games.cs.stats.steam_title", persona=persona),
+            ti(interaction, "games.cs.stats.profile_private"),
         )
         if avatar:
-            e.set_thumbnail(url=avatar)
-        return e
+            e.thumbnail(avatar)
+        return e.view()
     if stats is None:
-        e = discord.Embed(
-            title=ti(interaction, "games.cs.stats.steam_title", persona=persona),
-            description=ti(interaction, "games.cs.stats.steam_unavailable"),
-            color=0xE67E22,
+        e = Panel(
+            ti(interaction, "games.cs.stats.steam_title", persona=persona),
+            ti(interaction, "games.cs.stats.steam_unavailable"),
         )
         if avatar:
-            e.set_thumbnail(url=avatar)
-        return e
+            e.thumbnail(avatar)
+        return e.view()
 
     kills    = stats.get("total_kills", 0) or 0
     deaths   = stats.get("total_deaths", 0) or 0
@@ -262,68 +267,58 @@ async def _build_steam_stats_embed(interaction: discord.Interaction, member, ste
     acc_pct = (hits / shots) if shots else 0
     wr_pct  = (matches_w / matches) if matches else 0
 
-    color = 0x1A9FFF
-    embed = discord.Embed(
-        title=ti(interaction, "games.cs.stats.steam_profile_title", persona=persona),
-        url=f"https://steamcommunity.com/profiles/{steam_id}",
-        color=color,
-    )
+    title = ti(interaction, "games.cs.stats.steam_profile_title", persona=persona)
+    p = Panel(f"[{title}](https://steamcommunity.com/profiles/{steam_id})")
     if avatar:
-        embed.set_thumbnail(url=avatar)
+        p.thumbnail(avatar)
 
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.performance"),
-        value=ti(interaction, "games.cs.stats.performance_value",
-                 kills=fmt_int(kills), deaths=fmt_int(deaths),
-                 kd=f"{kd:.2f}", mvps=fmt_int(mvps)),
-        inline=True,
+    p.field(
+        ti(interaction, "games.cs.stats.performance"),
+        ti(interaction, "games.cs.stats.performance_value",
+           kills=fmt_int(kills), deaths=fmt_int(deaths),
+           kd=f"{kd:.2f}", mvps=fmt_int(mvps)),
     )
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.accuracy"),
-        value=ti(interaction, "games.cs.stats.accuracy_value",
-                 hs=fmt_int(hs), hs_pct=f"{hs_pct*100:.1f}", hs_bar=bar(hs_pct),
-                 acc_pct=f"{acc_pct*100:.1f}", acc_bar=bar(acc_pct)),
-        inline=True,
+    p.field(
+        ti(interaction, "games.cs.stats.accuracy"),
+        ti(interaction, "games.cs.stats.accuracy_value",
+           hs=fmt_int(hs), hs_pct=f"{hs_pct*100:.1f}", hs_bar=bar(hs_pct),
+           acc_pct=f"{acc_pct*100:.1f}", acc_bar=bar(acc_pct)),
     )
-    embed.add_field(name="​", value="​", inline=False)
+    p.separator()
 
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.matches"),
-        value=ti(interaction, "games.cs.stats.matches_value",
-                 played=fmt_int(matches), won=fmt_int(matches_w),
-                 wr=f"{wr_pct*100:.1f}", wr_bar=bar(wr_pct)),
-        inline=True,
+    p.field(
+        ti(interaction, "games.cs.stats.matches"),
+        ti(interaction, "games.cs.stats.matches_value",
+           played=fmt_int(matches), won=fmt_int(matches_w),
+           wr=f"{wr_pct*100:.1f}", wr_bar=bar(wr_pct)),
     )
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.rounds"),
-        value=ti(interaction, "games.cs.stats.rounds_value",
-                 rounds=fmt_int(rounds), wins=fmt_int(wins),
-                 planted=fmt_int(bombs_p), defused=fmt_int(bombs_d)),
-        inline=True,
+    p.field(
+        ti(interaction, "games.cs.stats.rounds"),
+        ti(interaction, "games.cs.stats.rounds_value",
+           rounds=fmt_int(rounds), wins=fmt_int(wins),
+           planted=fmt_int(bombs_p), defused=fmt_int(bombs_d)),
     )
-    embed.add_field(name="​", value="​", inline=False)
+    p.separator()
 
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.economy"),
-        value=ti(interaction, "games.cs.stats.economy_value",
-                 money=fmt_int(money),
-                 hours_2w=(owned or {}).get("playtime_2weeks", 0) // 60,
-                 hours_total=hours),
-        inline=False,
+    p.field(
+        ti(interaction, "games.cs.stats.economy"),
+        ti(interaction, "games.cs.stats.economy_value",
+           money=fmt_int(money),
+           hours_2w=(owned or {}).get("playtime_2weeks", 0) // 60,
+           hours_total=hours),
     )
-    embed.set_footer(text=ti(interaction, "games.cs.stats.steam_footer", steam_id=steam_id))
-    return embed
+    p.footer(ti(interaction, "games.cs.stats.steam_footer", steam_id=steam_id))
+    return p.view()
 
 
-async def _build_faceit_stats_embed(interaction: discord.Interaction, member,
-                                    faceit_id: str, faceit_nick: str) -> discord.Embed:
+async def _build_faceit_stats_view(interaction: discord.Interaction, member,
+                                   faceit_id: str, faceit_nick: str) -> discord.ui.LayoutView:
     fc = await csapi.faceit_player_stats(faceit_id, "cs2")
     if not fc:
-        return discord.Embed(
-            title=ti(interaction, "games.cs.stats.faceit_title", nickname=faceit_nick),
-            description=ti(interaction, "games.cs.stats.faceit_unavailable"),
-            color=0xE67E22,
-        )
+        return Panel(
+            ti(interaction, "games.cs.stats.faceit_title", nickname=faceit_nick),
+            ti(interaction, "games.cs.stats.faceit_unavailable"),
+        ).view()
     lifetime = fc.get("lifetime", {}) or {}
     matches  = int(lifetime.get("Matches", 0) or 0)
     wins     = int(lifetime.get("Wins", 0) or 0)
@@ -333,24 +328,19 @@ async def _build_faceit_stats_embed(interaction: discord.Interaction, member,
     longest_streak = lifetime.get("Longest Win Streak", "?")
     cur_streak     = lifetime.get("Current Win Streak", "?")
 
-    embed = discord.Embed(
-        title=ti(interaction, "games.cs.stats.faceit_profile_title", nickname=faceit_nick),
-        url=f"https://www.faceit.com/en/players/{faceit_nick}",
-        color=0xFF5500,
+    fc_title = ti(interaction, "games.cs.stats.faceit_profile_title", nickname=faceit_nick)
+    p = Panel(f"[{fc_title}](https://www.faceit.com/en/players/{faceit_nick})")
+    p.field(
+        ti(interaction, "games.cs.stats.lifetime"),
+        ti(interaction, "games.cs.stats.lifetime_value",
+           matches=fmt_int(matches), wins=fmt_int(wins),
+           wr=f"{wr*100:.1f}", wr_bar=bar(wr)),
     )
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.lifetime"),
-        value=ti(interaction, "games.cs.stats.lifetime_value",
-                 matches=fmt_int(matches), wins=fmt_int(wins),
-                 wr=f"{wr*100:.1f}", wr_bar=bar(wr)),
-        inline=True,
-    )
-    embed.add_field(
-        name=ti(interaction, "games.cs.stats.combat"),
-        value=ti(interaction, "games.cs.stats.combat_value",
-                 kd=f"{kdr:.2f}", hs_pct=f"{hs_pct*100:.1f}", hs_bar=bar(hs_pct),
-                 best_streak=longest_streak, current_streak=cur_streak),
-        inline=True,
+    p.field(
+        ti(interaction, "games.cs.stats.combat"),
+        ti(interaction, "games.cs.stats.combat_value",
+           kd=f"{kdr:.2f}", hs_pct=f"{hs_pct*100:.1f}", hs_bar=bar(hs_pct),
+           best_streak=longest_streak, current_streak=cur_streak),
     )
     # Per-map stats (top 5 by matches played)
     segments = fc.get("segments") or []
@@ -370,11 +360,10 @@ async def _build_faceit_stats_embed(interaction: discord.Interaction, member,
         lines = []
         for r in maps_rows[:5]:
             lines.append(f"`{r['map']:<10}` · {r['matches']:>3}m · WR `{r['wr']:.0f}%` · K/D `{r['kd']:.2f}`")
-        embed.add_field(name=ti(interaction, "games.cs.stats.top_maps"),
-                        value="\n".join(lines), inline=False)
+        p.field(ti(interaction, "games.cs.stats.top_maps"), "\n".join(lines))
 
-    embed.set_footer(text=ti(interaction, "games.cs.stats.faceit_footer"))
-    return embed
+    p.footer(ti(interaction, "games.cs.stats.faceit_footer"))
+    return p.view()
 
 
 def quote_plus_safe(s: str) -> str:
@@ -382,8 +371,8 @@ def quote_plus_safe(s: str) -> str:
     return _qp(s)
 
 
-async def _build_price_embed(interaction: discord.Interaction, name: str) -> discord.Embed:
-    """Price embed for ONE exact market_hash_name. Shows Steam + Skinport + CSFloat."""
+async def _build_price_view(interaction: discord.Interaction, name: str) -> discord.ui.LayoutView:
+    """Price panel for ONE exact market_hash_name. Shows Steam + Skinport + CSFloat."""
     # Steam
     ck_steam = f"price:{name.lower()}"
     cached_steam = cs_cache_get(ck_steam, max_age_sec=600)
@@ -407,16 +396,12 @@ async def _build_price_embed(interaction: discord.Interaction, name: str) -> dis
 
     encoded = quote_plus_safe(name)
     if not steam_data and not sp_data and not cf_data:
-        return _err_embed(
+        return _err_view(
             ti(interaction, "games.cs.price.not_found_title"),
             ti(interaction, "games.cs.price.not_found_desc", name=name),
         )
 
-    embed = discord.Embed(
-        title=f"💸 {name}",
-        url=f"https://steamcommunity.com/market/listings/730/{encoded}",
-        color=0xF1C40F,
-    )
+    p = Panel(f"[💸 {name}](https://steamcommunity.com/market/listings/730/{encoded})")
     # Steam field
     if steam_data:
         steam_value = ti(interaction, "games.cs.price.steam_value",
@@ -425,8 +410,7 @@ async def _build_price_embed(interaction: discord.Interaction, name: str) -> dis
                          volume=steam_data.get("volume") or 0)
     else:
         steam_value = ti(interaction, "games.cs.price.no_listing")
-    embed.add_field(name=ti(interaction, "games.cs.price.steam_field"),
-                    value=steam_value, inline=True)
+    p.field(ti(interaction, "games.cs.price.steam_field"), steam_value)
 
     # Skinport field
     if sp_data:
@@ -444,8 +428,7 @@ async def _build_price_embed(interaction: discord.Interaction, name: str) -> dis
                       encoded=encoded)
     else:
         sp_value = ti(interaction, "games.cs.price.no_listing")
-    embed.add_field(name=ti(interaction, "games.cs.price.skinport_field"),
-                    value=sp_value, inline=True)
+    p.field(ti(interaction, "games.cs.price.skinport_field"), sp_value)
 
     # CSFloat field
     if cf_data:
@@ -458,15 +441,14 @@ async def _build_price_embed(interaction: discord.Interaction, name: str) -> dis
                       encoded=encoded)
     else:
         cf_value = ti(interaction, "games.cs.price.no_listing")
-    embed.add_field(name=ti(interaction, "games.cs.price.csfloat_field"),
-                    value=cf_value, inline=True)
+    p.field(ti(interaction, "games.cs.price.csfloat_field"), cf_value)
 
-    embed.set_footer(text=ti(interaction, "games.cs.price.footer"))
-    return embed
+    p.footer(ti(interaction, "games.cs.price.footer"))
+    return p.view()
 
 
-async def _build_price_embed_all_wears(interaction: discord.Interaction, weapon: str,
-                                       skin: str, stattrak: bool) -> discord.Embed:
+async def _build_price_view_all_wears(interaction: discord.Interaction, weapon: str,
+                                      skin: str, stattrak: bool) -> discord.ui.LayoutView:
     """Query Steam + Skinport + CSFloat for every wear level, aligned table."""
     rows = []  # (wear, steam, sp, cf)
     any_found = False
@@ -510,7 +492,7 @@ async def _build_price_embed_all_wears(interaction: discord.Interaction, weapon:
 
     base_name = _build_market_hash_name(weapon, skin, None, stattrak)
     if not any_found:
-        return _err_embed(
+        return _err_view(
             ti(interaction, "games.cs.price.not_found_title"),
             ti(interaction, "games.cs.price.not_found_all_desc", name=base_name),
         )
@@ -523,13 +505,12 @@ async def _build_price_embed_all_wears(interaction: discord.Interaction, weapon:
         # Wear names come from Steam, they stay untranslated.
         lines.append(f"{wear:<14} │ {s_str:<9} │ {sp_str:<9} │ {cf_str:<9}")
 
-    embed = discord.Embed(
-        title=f"💸 {base_name}",
-        description=ti(interaction, "games.cs.price.all_wears_desc", table="\n".join(lines)),
-        color=0xF1C40F,
+    p = Panel(
+        f"💸 {base_name}",
+        ti(interaction, "games.cs.price.all_wears_desc", table="\n".join(lines)),
     )
-    embed.set_footer(text=ti(interaction, "games.cs.price.all_wears_footer"))
-    return embed
+    p.footer(ti(interaction, "games.cs.price.all_wears_footer"))
+    return p.view()
 
 
 async def _weapon_autocomplete(interaction: discord.Interaction, current: str):
@@ -592,20 +573,19 @@ async def _skin_autocomplete(interaction: discord.Interaction, current: str):
 _IGNORE_TYPES = {"Conteneur de munitions", "Graffiti", "Pass-temps"}
 
 
-async def _build_inventory_embed(interaction: discord.Interaction,
-                                 member: discord.abc.User, steam_id: str) -> discord.Embed:
+async def _build_inventory_view(interaction: discord.Interaction,
+                                member: discord.abc.User, steam_id: str) -> discord.ui.LayoutView:
     items = await csapi.steam_inventory(steam_id)
     if items is None:
-        return _err_embed(
+        return _err_view(
             ti(interaction, "games.cs.inventory.unavailable_title"),
             ti(interaction, "games.cs.inventory.unavailable_desc",
                name=member.display_name, steam_id=steam_id),
         )
     if not items:
-        return _info_embed(
+        return _info_view(
             ti(interaction, "games.cs.inventory.title", name=member.display_name),
             ti(interaction, "games.cs.inventory.empty"),
-            color=0x95A5A6,
         )
 
     # Aggregation: count ALL CS2 items (including non-marketable cooldown ones)
@@ -624,10 +604,9 @@ async def _build_inventory_embed(interaction: discord.Interaction,
             nonmarket_counts[nm] = nonmarket_counts.get(nm, 0) + 1
 
     if not counts:
-        return _info_embed(
+        return _info_view(
             ti(interaction, "games.cs.inventory.title", name=member.display_name),
             ti(interaction, "games.cs.inventory.no_cs2_item"),
-            color=0x95A5A6,
         )
 
     total_eur = 0.0
@@ -705,9 +684,10 @@ async def _build_inventory_embed(interaction: discord.Interaction,
     total_market    = sum(marketable_counts.values())
     total_nonmarket = sum(nonmarket_counts.values())
 
-    embed = discord.Embed(
-        title=ti(interaction, "games.cs.inventory.title", name=member.display_name),
-        description=ti(
+    inv_title = ti(interaction, "games.cs.inventory.title", name=member.display_name)
+    p = Panel(
+        f"[{inv_title}](https://steamcommunity.com/profiles/{steam_id}/inventory/#730)",
+        ti(
             interaction, "games.cs.inventory.summary",
             total=total_items,
             unique=len(counts),
@@ -720,14 +700,11 @@ async def _build_inventory_embed(interaction: discord.Interaction,
             value=f"{total_eur:.2f}",
             note=extra_note,
         ),
-        url=f"https://steamcommunity.com/profiles/{steam_id}/inventory/#730",
-        color=0x9B59B6,
     )
     if top_lines:
-        embed.add_field(name=ti(interaction, "games.cs.inventory.top_items"),
-                        value="\n".join(top_lines), inline=False)
-    embed.set_footer(text=ti(interaction, "games.cs.inventory.footer"))
-    return embed
+        p.field(ti(interaction, "games.cs.inventory.top_items"), "\n".join(top_lines))
+    p.footer(ti(interaction, "games.cs.inventory.footer"))
+    return p.view()
 
 
 async def _create_queue_lobby(interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:
@@ -746,7 +723,7 @@ async def _create_queue_lobby(interaction: discord.Interaction) -> Optional[disc
         )
     except discord.Forbidden:
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.missing_permission_title"),
                 ti(interaction, "games.cs.err.missing_permission_desc")),
             ephemeral=True,
@@ -755,7 +732,7 @@ async def _create_queue_lobby(interaction: discord.Interaction) -> Optional[disc
     except Exception as e:
         print(f"[cs2/queue] create err: {type(e).__name__}")
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.generic_title"),
                 ti(interaction, "games.cs.err.voice_create_failed")),
             ephemeral=True,
@@ -821,7 +798,7 @@ async def queue_cleanup_sweep(bot):
             print(f"[cs2/queue/sweep] iter err: {type(e).__name__}")
 
 
-class MapBanView(discord.ui.View):
+class MapBanView(discord.ui.LayoutView):
     def __init__(self, origin: discord.Interaction, voters: list, maps: list[str], event: asyncio.Event):
         super().__init__(timeout=240)
         self.origin = origin
@@ -837,11 +814,15 @@ class MapBanView(discord.ui.View):
         return self.voters[self.idx % len(self.voters)]
 
     def _refresh_buttons(self):
+        """Rebuild the whole layout: panel container first, then the map rows.
+        V2 has no `row=` on a button, so the 4-per-row grouping becomes one
+        ActionRow per group of 4."""
         self.clear_items()
+        self.add_item(self._make_panel().container())
+        rows: list[discord.ui.ActionRow] = []
         for i, mp in enumerate(self.maps):
             btn = discord.ui.Button(label=f"🗺️ {mp}",
                                     style=discord.ButtonStyle.danger,
-                                    row=i // 4,
                                     custom_id=f"mapban_{mp}_{self.idx}")
             async def cb(interaction: discord.Interaction, picked=mp):
                 # Filter: only the current voter
@@ -868,31 +849,31 @@ class MapBanView(discord.ui.View):
                     return
                 self._refresh_buttons()
                 try:
-                    await interaction.response.edit_message(
-                        embed=self._make_embed(), view=self,
-                    )
+                    await interaction.response.edit_message(view=self)
                 except Exception:
                     pass
             btn.callback = cb
-            self.add_item(btn)
+            if i % 4 == 0:
+                rows.append(discord.ui.ActionRow())
+            rows[-1].add_item(btn)
+        for r in rows:
+            self.add_item(r)
 
-    def _make_embed(self) -> discord.Embed:
-        embed = discord.Embed(
-            title=ti(self.origin, "games.cs.map.title"),
-            description=ti(self.origin, "games.cs.map.description",
-                           mention=self.current_voter.mention,
-                           voters=", ".join(v.display_name for v in self.voters)),
-            color=0xE67E22,
+    def _make_panel(self) -> Panel:
+        p = Panel(
+            ti(self.origin, "games.cs.map.title"),
+            ti(self.origin, "games.cs.map.description",
+               mention=self.current_voter.mention,
+               voters=", ".join(v.display_name for v in self.voters)),
         )
         if self.bans:
             lines = [ti(self.origin, "games.cs.map.ban_line", map=m, name=v.display_name)
                      for v, m in self.bans]
-            embed.add_field(name=ti(self.origin, "games.cs.map.bans"),
-                            value="\n".join(lines), inline=False)
-        embed.add_field(name=ti(self.origin, "games.cs.map.remaining"),
-                        value=" · ".join(f"`{m}`" for m in self.maps), inline=False)
-        embed.set_footer(text=ti(self.origin, "games.cs.map.footer"))
-        return embed
+            p.field(ti(self.origin, "games.cs.map.bans"), "\n".join(lines))
+        p.field(ti(self.origin, "games.cs.map.remaining"),
+                " · ".join(f"`{m}`" for m in self.maps))
+        p.footer(ti(self.origin, "games.cs.map.footer"))
+        return p
 
 
 async def _run_map_ban(interaction: discord.Interaction):
@@ -900,7 +881,7 @@ async def _run_map_ban(interaction: discord.Interaction):
     vstate = user.voice if hasattr(user, "voice") else None
     if not vstate or not vstate.channel:
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.map.not_in_voice_title"),
                 ti(interaction, "games.cs.map.not_in_voice_desc")),
             ephemeral=True,
@@ -909,7 +890,7 @@ async def _run_map_ban(interaction: discord.Interaction):
     voters = [m for m in vstate.channel.members if not m.bot]
     if len(voters) < 2:
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.map.not_enough_voters_title"),
                 ti(interaction, "games.cs.map.not_enough_voters_desc")),
             ephemeral=True,
@@ -918,14 +899,15 @@ async def _run_map_ban(interaction: discord.Interaction):
 
     event = asyncio.Event()
     view  = MapBanView(interaction, voters, CS2_MAP_POOL, event)
-    msg   = await interaction.followup.send(embed=view._make_embed(), view=view)
+    msg   = await interaction.followup.send(view=view)
     try:
         await asyncio.wait_for(event.wait(), timeout=240)
     except asyncio.TimeoutError:
         try:
-            await msg.edit(embed=_err_embed(
+            # A V2 message keeps components: swap in a button-less LayoutView.
+            await msg.edit(view=_err_view(
                 ti(interaction, "games.cs.map.timeout_title"),
-                ti(interaction, "games.cs.map.timeout_desc")), view=None)
+                ti(interaction, "games.cs.map.timeout_desc")))
         except Exception:
             pass
         return
@@ -934,18 +916,17 @@ async def _run_map_ban(interaction: discord.Interaction):
         ti(interaction, "games.cs.map.final_ban_line", map=m, name=v.display_name)
         for v, m in view.bans
     )
-    embed = discord.Embed(
-        title=ti(interaction, "games.cs.map.final_title", map=final_map),
-        description=ti(interaction, "games.cs.map.final_desc", recap=recap),
-        color=0x2ECC71,
-    )
+    final_view = Panel(
+        ti(interaction, "games.cs.map.final_title", map=final_map),
+        ti(interaction, "games.cs.map.final_desc", recap=recap),
+    ).view()
     try:
-        await msg.edit(embed=embed, view=None)
+        await msg.edit(view=final_view)
     except Exception:
         pass
 
 
-def _build_loadout_embed(interaction: discord.Interaction) -> discord.Embed:
+def _build_loadout_view(interaction: discord.Interaction) -> discord.ui.LayoutView:
     loadout = {}
     for slot, weapons in WEAPON_POOL.items():
         weapon = random.choice(weapons)
@@ -955,17 +936,16 @@ def _build_loadout_embed(interaction: discord.Interaction) -> discord.Embed:
     knife = f"**★ {random.choice(KNIVES)}** | _{random.choice(KNIFE_FINISHES)}_ ({random.choice(WEAR_LEVELS)})"
     gloves = f"**★ {random.choice(GLOVES)}** | _{random.choice(GLOVES_FINISHES)}_"
 
-    embed = discord.Embed(
-        title=ti(interaction, "games.cs.loadout.title"),
-        description=ti(interaction, "games.cs.loadout.description"),
-        color=0x16A085,
+    p = Panel(
+        ti(interaction, "games.cs.loadout.title"),
+        ti(interaction, "games.cs.loadout.description"),
     )
     for slot, val in loadout.items():
-        embed.add_field(name=ti(interaction, _LOADOUT_SLOT_KEYS[slot]), value=val, inline=False)
-    embed.add_field(name=ti(interaction, "games.cs.loadout.knife"), value=knife, inline=False)
-    embed.add_field(name=ti(interaction, "games.cs.loadout.gloves"), value=gloves, inline=False)
-    embed.set_footer(text=ti(interaction, "games.cs.loadout.footer"))
-    return embed
+        p.field(ti(interaction, _LOADOUT_SLOT_KEYS[slot]), val)
+    p.field(ti(interaction, "games.cs.loadout.knife"), knife)
+    p.field(ti(interaction, "games.cs.loadout.gloves"), gloves)
+    p.footer(ti(interaction, "games.cs.loadout.footer"))
+    return p.view()
 
 
 _TIER_TO_ROLE_FIELD = {
@@ -1043,10 +1023,9 @@ def setup_cs2_commands(bot: commands.Bot):
         await interaction.response.defer(ephemeral=True)
         cs_profile_unlink(interaction.user.id, platform.value)
         await interaction.followup.send(
-            embed=_info_embed(
+            view=_info_view(
                 ti(interaction, "games.cs.unlink.success_title"),
-                ti(interaction, "games.cs.unlink.success_desc", platform=platform.name),
-                color=0x2ECC71),
+                ti(interaction, "games.cs.unlink.success_desc", platform=platform.name)),
             ephemeral=True,
         )
 
@@ -1062,7 +1041,7 @@ def setup_cs2_commands(bot: commands.Bot):
         await interaction.response.defer()
         if member and steamid:
             await interaction.followup.send(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.ambiguous_params_title"),
                     ti(interaction, "games.cs.err.ambiguous_params_desc")),
                 ephemeral=True,
@@ -1072,7 +1051,7 @@ def setup_cs2_commands(bot: commands.Bot):
             resolved = await csapi.steam_resolve(steamid)
             if not resolved:
                 await interaction.followup.send(
-                    embed=_err_embed(
+                    view=_err_view(
                         ti(interaction, "games.cs.err.steam_id_invalid_title"),
                         ti(interaction, "games.cs.err.steam_id_invalid_short")),
                     ephemeral=True,
@@ -1084,14 +1063,14 @@ def setup_cs2_commands(bot: commands.Bot):
                 pass
             stub = _Stub()
             stub.display_name = display_name
-            embed = await _build_steam_stats_embed(interaction, stub, resolved)
-            await interaction.followup.send(embed=embed)
+            stats_view = await _build_steam_stats_view(interaction, stub, resolved)
+            await interaction.followup.send(view=stats_view)
             return
         target = member or interaction.user
         prof = cs_profile_get(target.id)
         if not prof:
             await interaction.followup.send(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.no_account_title"),
                     ti(interaction, "games.cs.err.no_account_desc", name=target.display_name)),
                 ephemeral=True,
@@ -1101,26 +1080,26 @@ def setup_cs2_commands(bot: commands.Bot):
         has_steam  = bool(prof.get("steam_id"))
         has_faceit = bool(prof.get("faceit_id"))
         if has_steam and has_faceit:
-            view = _StatsProfileSelectView(target, prof)
-            await interaction.followup.send(
-                embed=_info_embed(
+            # The panel and the buttons now live in the same LayoutView.
+            view = _StatsProfileSelectView(
+                target, prof,
+                _info_panel(
                     ti(interaction, "games.cs.stats.choose_profile_title", name=target.display_name),
-                    ti(interaction, "games.cs.stats.choose_profile_desc"),
-                    color=0x3498DB),
-                view=view,
+                    ti(interaction, "games.cs.stats.choose_profile_desc")),
             )
+            await interaction.followup.send(view=view)
             return
         if has_steam:
-            embed = await _build_steam_stats_embed(interaction, target, prof["steam_id"])
-            await interaction.followup.send(embed=embed)
+            stats_view = await _build_steam_stats_view(interaction, target, prof["steam_id"])
+            await interaction.followup.send(view=stats_view)
             return
         if has_faceit:
-            embed = await _build_faceit_stats_embed(interaction, target, prof["faceit_id"],
-                                                    prof.get("faceit_nick") or "?")
-            await interaction.followup.send(embed=embed)
+            stats_view = await _build_faceit_stats_view(interaction, target, prof["faceit_id"],
+                                                        prof.get("faceit_nick") or "?")
+            await interaction.followup.send(view=stats_view)
             return
         await interaction.followup.send(
-            embed=_err_embed(
+            view=_err_view(
                 ti(interaction, "games.cs.err.no_usable_profile_title"),
                 ti(interaction, "games.cs.err.no_usable_profile_desc")),
             ephemeral=True,
@@ -1132,7 +1111,7 @@ def setup_cs2_commands(bot: commands.Bot):
     async def cs_setrank(interaction: discord.Interaction, elo: app_commands.Range[int, 0, 40000]):
         await interaction.response.defer(ephemeral=True)
         cs_profile_upsert(interaction.user.id, premier_elo=elo)
-        code, label, color = csapi.premier_tier(elo)
+        code, label, _color = csapi.premier_tier(elo)
         applied_label = None
         if isinstance(interaction.user, discord.Member):
             applied_label = await _apply_rank_role(interaction.user, elo)
@@ -1140,8 +1119,7 @@ def setup_cs2_commands(bot: commands.Bot):
         if applied_label:
             msg += ti(interaction, "games.cs.setrank.role_applied", role=applied_label)
         await interaction.followup.send(
-            embed=_info_embed(ti(interaction, "games.cs.setrank.saved_title"),
-                              msg, color=color or 0x3498DB),
+            view=_info_view(ti(interaction, "games.cs.setrank.saved_title"), msg),
             ephemeral=True,
         )
 
@@ -1156,7 +1134,7 @@ def setup_cs2_commands(bot: commands.Bot):
                           action: app_commands.Choice[str]):
         if not interaction.guild:
             await interaction.response.send_message(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.dm_not_supported_title"),
                     ti(interaction, "games.cs.err.dm_not_supported_desc")),
                 ephemeral=True,
@@ -1164,7 +1142,7 @@ def setup_cs2_commands(bot: commands.Bot):
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.permission_denied_title"),
                     ti(interaction, "games.cs.err.permission_denied_desc")),
                 ephemeral=True,
@@ -1176,10 +1154,9 @@ def setup_cs2_commands(bot: commands.Bot):
         state = ti(interaction, "games.cs.rankrole.state_on" if enabled
                    else "games.cs.rankrole.state_off")
         await interaction.followup.send(
-            embed=_info_embed(
+            view=_info_view(
                 ti(interaction, "games.cs.rankrole.title"),
                 ti(interaction, "games.cs.rankrole.desc", state=state),
-                color=0x2ECC71 if enabled else 0xE67E22,
             ),
             ephemeral=True,
         )
@@ -1208,7 +1185,7 @@ def setup_cs2_commands(bot: commands.Bot):
             weapon_match = next((w for w in PRICE_WEAPONS if w.lower() == weapon.lower()), None)
             if not weapon_match:
                 await interaction.response.send_message(
-                    embed=_err_embed(
+                    view=_err_view(
                         ti(interaction, "games.cs.err.unknown_weapon_title"),
                         ti(interaction, "games.cs.err.unknown_weapon_desc", weapon=weapon)),
                     ephemeral=True,
@@ -1218,7 +1195,7 @@ def setup_cs2_commands(bot: commands.Bot):
         skin = (skin or "").strip()
         if not (2 <= len(skin) <= 60) or any(c in skin for c in "<>"):
             await interaction.response.send_message(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.invalid_skin_title"),
                     ti(interaction, "games.cs.err.invalid_skin_desc")),
                 ephemeral=True,
@@ -1227,10 +1204,10 @@ def setup_cs2_commands(bot: commands.Bot):
         await interaction.response.defer()
         if wear:
             name = _build_market_hash_name(weapon, skin, wear.value, stattrak)
-            embed = await _build_price_embed(interaction, name)
+            price_view = await _build_price_view(interaction, name)
         else:
-            embed = await _build_price_embed_all_wears(interaction, weapon, skin, stattrak)
-        await interaction.followup.send(embed=embed)
+            price_view = await _build_price_view_all_wears(interaction, weapon, skin, stattrak)
+        await interaction.followup.send(view=price_view)
 
     # ---------- /cs inventory ----------
     @cs_group.command(name="inventory", description="CS2 inventory of a member or of a SteamID")
@@ -1244,7 +1221,7 @@ def setup_cs2_commands(bot: commands.Bot):
         await interaction.response.defer()
         if member and steamid:
             await interaction.followup.send(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.ambiguous_params_title"),
                     ti(interaction, "games.cs.err.ambiguous_params_desc")),
                 ephemeral=True,
@@ -1256,7 +1233,7 @@ def setup_cs2_commands(bot: commands.Bot):
             steam_id = await csapi.steam_resolve(steamid)
             if not steam_id:
                 await interaction.followup.send(
-                    embed=_err_embed(
+                    view=_err_view(
                         ti(interaction, "games.cs.err.steam_id_invalid_title"),
                         ti(interaction, "games.cs.err.steam_id_invalid_short")),
                     ephemeral=True,
@@ -1269,28 +1246,28 @@ def setup_cs2_commands(bot: commands.Bot):
                 pass
             stub = _Stub()
             stub.display_name = display_name
-            embed = await _build_inventory_embed(interaction, stub, steam_id)
-            await interaction.followup.send(embed=embed)
+            inv_view = await _build_inventory_view(interaction, stub, steam_id)
+            await interaction.followup.send(view=inv_view)
             return
         target = member or interaction.user
         prof   = cs_profile_get(target.id)
         if not prof or not prof.get("steam_id"):
             await interaction.followup.send(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.no_steam_linked_title"),
                     ti(interaction, "games.cs.err.no_steam_linked_desc", name=target.display_name)),
                 ephemeral=True,
             )
             return
-        embed = await _build_inventory_embed(interaction, target, prof["steam_id"])
-        await interaction.followup.send(embed=embed)
+        inv_view = await _build_inventory_view(interaction, target, prof["steam_id"])
+        await interaction.followup.send(view=inv_view)
 
     # ---------- /cs queue ----------
     @cs_group.command(name="queue", description="Create a temporary voice channel for Premier (5 slots)")
     async def cs_queue(interaction: discord.Interaction):
         if not interaction.guild:
             await interaction.response.send_message(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.dm_not_supported_title"),
                     ti(interaction, "games.cs.err.dm_not_supported_desc")),
                 ephemeral=True,
@@ -1301,10 +1278,9 @@ def setup_cs2_commands(bot: commands.Bot):
         if vc is None:
             return
         await interaction.followup.send(
-            embed=_info_embed(
+            view=_info_view(
                 ti(interaction, "games.cs.queue.created_title"),
                 ti(interaction, "games.cs.queue.created_desc", channel=vc.mention),
-                color=0x2ECC71,
             ),
             ephemeral=True,
         )
@@ -1314,7 +1290,7 @@ def setup_cs2_commands(bot: commands.Bot):
     async def cs_map(interaction: discord.Interaction):
         if not interaction.guild:
             await interaction.response.send_message(
-                embed=_err_embed(
+                view=_err_view(
                     ti(interaction, "games.cs.err.dm_not_supported_title"),
                     ti(interaction, "games.cs.err.dm_not_supported_desc")),
                 ephemeral=True,
@@ -1326,33 +1302,35 @@ def setup_cs2_commands(bot: commands.Bot):
     # ---------- /cs loadout ----------
     @cs_group.command(name="loadout", description="Generate a random CS2 loadout")
     async def cs_loadout(interaction: discord.Interaction):
-        await interaction.response.send_message(embed=_build_loadout_embed(interaction))
+        await interaction.response.send_message(view=_build_loadout_view(interaction))
 
     bot.tree.add_command(cs_group)
 
 
-class _StatsProfileSelectView(discord.ui.View):
-    def __init__(self, target: discord.abc.User, prof: dict):
+class _StatsProfileSelectView(discord.ui.LayoutView):
+    def __init__(self, target: discord.abc.User, prof: dict, panel: Panel):
         super().__init__(timeout=60)
         self.target = target
         self.prof   = prof
 
         async def cb_steam(interaction: discord.Interaction):
             await interaction.response.defer()
-            embed = await _build_steam_stats_embed(interaction, self.target, self.prof["steam_id"])
+            stats_view = await _build_steam_stats_view(interaction, self.target,
+                                                       self.prof["steam_id"])
             try:
-                await interaction.edit_original_response(embed=embed, view=None)
+                # A V2 message keeps components: swap in the stats LayoutView.
+                await interaction.edit_original_response(view=stats_view)
             except Exception:
                 pass
 
         async def cb_faceit(interaction: discord.Interaction):
             await interaction.response.defer()
-            embed = await _build_faceit_stats_embed(interaction,
-                                                    self.target,
-                                                    self.prof["faceit_id"],
-                                                    self.prof.get("faceit_nick") or "?")
+            stats_view = await _build_faceit_stats_view(interaction,
+                                                        self.target,
+                                                        self.prof["faceit_id"],
+                                                        self.prof.get("faceit_nick") or "?")
             try:
-                await interaction.edit_original_response(embed=embed, view=None)
+                await interaction.edit_original_response(view=stats_view)
             except Exception:
                 pass
 
@@ -1362,5 +1340,8 @@ class _StatsProfileSelectView(discord.ui.View):
         b2 = discord.ui.Button(label="Faceit", style=discord.ButtonStyle.danger,
                                emoji="🔥", custom_id="cs_stats_faceit")
         b2.callback = cb_faceit
-        self.add_item(b1)
-        self.add_item(b2)
+        buttons = discord.ui.ActionRow()
+        buttons.add_item(b1)
+        buttons.add_item(b2)
+        self.add_item(panel.container())
+        self.add_item(buttons)

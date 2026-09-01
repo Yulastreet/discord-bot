@@ -24,6 +24,7 @@ from discord import app_commands
 
 from services import riot_api as riot
 from services.i18n import t, ti, locale_of
+from services.ui_v2 import Panel
 from database import (
     lol_profile_get, lol_profile_upsert, lol_profile_unlink,
     lol_rank_config_get, lol_rank_config_upsert,
@@ -36,12 +37,20 @@ _RIOT_ID_RE = re.compile(r"^(.{3,16})#([A-Za-z0-9]{2,5})$")
 _VALID_PLATFORMS = list(riot.PLATFORM_TO_REGIONAL.keys())
 
 
-def _err_embed(title: str, msg: str) -> discord.Embed:
-    return discord.Embed(title=f"❌ {title}", description=msg, color=0xE74C3C)
+def _err_panel(title: str, msg: str) -> Panel:
+    return Panel(f"❌ {title}", msg)
 
 
-def _info_embed(title: str, msg: str, color: int = 0x3498DB) -> discord.Embed:
-    return discord.Embed(title=title, description=msg, color=color)
+def _err_view(title: str, msg: str) -> discord.ui.LayoutView:
+    return _err_panel(title, msg).view()
+
+
+def _info_panel(title: str, msg: str) -> Panel:
+    return Panel(title, msg)
+
+
+def _info_view(title: str, msg: str) -> discord.ui.LayoutView:
+    return _info_panel(title, msg).view()
 
 
 def _wl_ratio(wins: int, losses: int) -> str:
@@ -59,24 +68,24 @@ def _format_queue_label(qt: str) -> str:
     }.get(qt, qt.replace("_", " ").title())
 
 
-async def _attach_emblem(embed: discord.Embed, tier: str):
-    """Attach the local emblem file + set_thumbnail attachment when available.
-    Otherwise fall back to the remote URL."""
+async def _attach_emblem(panel: Panel, tier: str):
+    """Attach the local emblem file + set the panel thumbnail on the attachment
+    when available. Otherwise fall back to the remote URL."""
     if tier == "UNRANKED":
-        embed.set_thumbnail(url=riot.tier_emblem_url(tier))
+        panel.thumbnail(riot.tier_emblem_url(tier))
         return None
     path = await riot.tier_emblem_file_path(tier)
     if path:
         fname = f"emblem_{tier.lower()}.png"
-        embed.set_thumbnail(url=f"attachment://{fname}")
+        panel.thumbnail(f"attachment://{fname}")
         return discord.File(path, filename=fname)
     # Fallback: remote URL (Discord may pixelate it)
-    embed.set_thumbnail(url=riot.tier_emblem_url(tier))
+    panel.thumbnail(riot.tier_emblem_url(tier))
     return None
 
 
-async def _build_stats_embed(member: discord.abc.User, prof: dict,
-                             locale: str = "en") -> discord.Embed:
+async def _build_stats_view(member: discord.abc.User, prof: dict,
+                            locale: str = "en"):
     platform = prof.get("platform") or "euw1"
     puuid = prof["puuid"]
     summ_id = prof.get("summoner_id")
@@ -125,22 +134,18 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict,
     solo = next((e for e in entries if e.get("queueType") == "RANKED_SOLO_5x5"), None)
     flex = next((e for e in entries if e.get("queueType") == "RANKED_FLEX_SR"), None)
 
-    # Embed color from the best Solo rank, then Flex, then grey
-    color = 0x747F8D
+    # Primary tier from the best Solo rank, then Flex (drives the emblem)
     primary_tier = "UNRANKED"
     if solo:
         primary_tier = solo.get("tier", "UNRANKED")
-        color = riot.TIER_COLOR.get(primary_tier, color)
     elif flex:
         primary_tier = flex.get("tier", "UNRANKED")
-        color = riot.TIER_COLOR.get(primary_tier, color)
 
-    embed = discord.Embed(
-        title=f"🎮 {name}#{tag}",
-        description=t("games.lol.stats.subtitle", locale,
-                      region=riot.PLATFORM_LABEL.get(platform, platform.upper()),
-                      level=level or "?"),
-        color=color,
+    p = Panel(
+        f"🎮 {name}#{tag}",
+        t("games.lol.stats.subtitle", locale,
+          region=riot.PLATFORM_LABEL.get(platform, platform.upper()),
+          level=level or "?"),
     )
 
     def _fmt_entry(e):
@@ -155,8 +160,8 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict,
                  rank=riot.rank_label(tier, rank), lp=lp,
                  wins=wins, losses=losses, wr=_wl_ratio(wins, losses))
 
-    embed.add_field(name="🏆 Solo/Duo", value=_fmt_entry(solo), inline=True)
-    embed.add_field(name="⚔️ Flex 5v5", value=_fmt_entry(flex), inline=True)
+    p.field("🏆 Solo/Duo", _fmt_entry(solo))
+    p.field("⚔️ Flex 5v5", _fmt_entry(flex))
 
     # Top 3 masteries
     try:
@@ -171,12 +176,11 @@ async def _build_stats_embed(member: discord.abc.User, prof: dict,
             mlvl  = m.get("championLevel", 0)
             lines.append(t("games.lol.mastery_line", locale, champion=cname,
                            level=mlvl, points=f"{pts:,}".replace(",", " ")))
-        embed.add_field(name=t("games.lol.stats.top_masteries", locale),
-                        value="\n".join(lines), inline=False)
+        p.field(t("games.lol.stats.top_masteries", locale), "\n".join(lines))
 
-    embed.set_footer(text=t("games.lol.stats.footer", locale, riot_id=f"{name}#{tag}"))
-    file = await _attach_emblem(embed, primary_tier)
-    return embed, file
+    p.footer(t("games.lol.stats.footer", locale, riot_id=f"{name}#{tag}"))
+    file = await _attach_emblem(p, primary_tier)
+    return p.view(), file
 
 
 # ===== Rank role helpers =====
@@ -249,11 +253,10 @@ def _build_subtitle(build: dict, cname: str, role_label: str,
 async def _render_items_view(build: dict, cname: str, champion_id: int,
                               role_label: str, source: str, source_url: str,
                               locale: str = "en"):
-    """Items view: embed with items per phase + composite PNG (items + spells)."""
-    embed = discord.Embed(
-        title=t("games.lol.build.items_title", locale, build=build.get("name", "Build")),
-        description=_build_subtitle(build, cname, role_label, source, source_url, locale),
-        color=0xF1C40F,
+    """Items view: panel with items per phase + composite PNG (items + spells)."""
+    p = Panel(
+        t("games.lol.build.items_title", locale, build=build.get("name", "Build")),
+        _build_subtitle(build, cname, role_label, source, source_url, locale),
     )
     for phase in (build.get("items_by_phase") or [])[:6]:
         ptype = phase.get("type") or "?"
@@ -266,10 +269,9 @@ async def _render_items_view(build: dict, cname: str, champion_id: int,
                 names.append(await riot.item_name(int(iid)))
             except Exception:
                 names.append(f"#{iid}")
-        embed.add_field(
-            name=t("games.lol.build.items_phase", locale, phase=ptype),
-            value=" → ".join(f"`{n}`" for n in names) or "—",
-            inline=False,
+        p.field(
+            t("games.lol.build.items_phase", locale, phase=ptype),
+            " → ".join(f"`{n}`" for n in names) or "—",
         )
 
     # Composite image: items + spells
@@ -286,35 +288,34 @@ async def _render_items_view(build: dict, cname: str, champion_id: int,
     if img_bytes:
         from io import BytesIO
         file = discord.File(BytesIO(img_bytes), filename="build.png")
-        embed.set_image(url="attachment://build.png")
+        p.image("attachment://build.png")
     else:
         icon = await riot.champion_icon_url(champion_id)
         if icon:
-            embed.set_thumbnail(url=icon)
-    embed.set_footer(text=t("games.lol.build.items_footer", locale, source=source))
-    return embed, file
+            p.thumbnail(icon)
+    p.footer(t("games.lol.build.items_footer", locale, source=source))
+    return p, file
 
 
 async def _render_runes_view(build: dict, cname: str, champion_id: int,
                               role_label: str, source: str, source_url: str,
                               locale: str = "en"):
-    """Runes view: embed with the full rune page (keystone + primary 3 +
+    """Runes view: panel with the full rune page (keystone + primary 3 +
     secondary 2 + 3 stat shards)."""
-    embed = discord.Embed(
-        title=t("games.lol.build.runes_title", locale, build=build.get("name", "Build")),
-        description=_build_subtitle(build, cname, role_label, source, source_url, locale),
-        color=0xF1C40F,
+    p = Panel(
+        t("games.lol.build.runes_title", locale, build=build.get("name", "Build")),
+        _build_subtitle(build, cname, role_label, source, source_url, locale),
     )
     perk_ids = build.get("perk_ids") or []
     primary_tree_id = build.get("primary_style")
     sub_tree_id     = build.get("sub_style")
 
     if not perk_ids:
-        embed.add_field(name="—", value=t("games.lol.build.no_runes", locale), inline=False)
+        p.field("—", t("games.lol.build.no_runes", locale))
         icon = await riot.champion_icon_url(champion_id)
         if icon:
-            embed.set_thumbnail(url=icon)
-        return embed, None
+            p.thumbnail(icon)
+        return p, None
 
     # Typical layout: keystone + 3 primary + 2 secondary + 3 shards = 9 ids
     keystone     = perk_ids[0] if len(perk_ids) > 0 else None
@@ -332,20 +333,18 @@ async def _render_runes_view(build: dict, cname: str, champion_id: int,
     for rid in primary_3:
         primary_lines.append(t("games.lol.build.rune_line", locale,
                                rune=await riot.rune_name(rid)))
-    embed.add_field(
-        name=t("games.lol.build.primary_tree", locale, tree=tree_primary_name),
-        value="\n".join(primary_lines) or "—",
-        inline=True,
+    p.field(
+        t("games.lol.build.primary_tree", locale, tree=tree_primary_name),
+        "\n".join(primary_lines) or "—",
     )
 
     secondary_lines = []
     for rid in secondary_2:
         secondary_lines.append(t("games.lol.build.rune_line", locale,
                                  rune=await riot.rune_name(rid)))
-    embed.add_field(
-        name=t("games.lol.build.secondary_tree", locale, tree=tree_secondary_name),
-        value="\n".join(secondary_lines) or "—",
-        inline=True,
+    p.field(
+        t("games.lol.build.secondary_tree", locale, tree=tree_secondary_name),
+        "\n".join(secondary_lines) or "—",
     )
 
     shard_lines = []
@@ -357,29 +356,27 @@ async def _render_runes_view(build: dict, cname: str, champion_id: int,
             t("games.lol.build.shard_line", locale, slot=label, rune=rune_nm)
             if label else f"**{rune_nm}**"
         )
-    embed.add_field(
-        name=t("games.lol.build.stat_shards", locale),
-        value="\n".join(shard_lines) or "—",
-        inline=False,
+    p.field(
+        t("games.lol.build.stat_shards", locale),
+        "\n".join(shard_lines) or "—",
     )
 
     # Thumbnail = icon keystone
     if keystone:
         icon = await riot.rune_icon_url(keystone)
         if icon:
-            embed.set_thumbnail(url=icon)
-    embed.set_footer(text=t("games.lol.build.runes_footer", locale, source=source))
-    return embed, None
+            p.thumbnail(icon)
+    p.footer(t("games.lol.build.runes_footer", locale, source=source))
+    return p, None
 
 
 async def _render_skills_view(build: dict, cname: str, champion_id: int,
                               role_label: str, source: str, source_url: str,
                               locale: str = "en"):
     """Skills + summoners view: skill order + summoner spells."""
-    embed = discord.Embed(
-        title=t("games.lol.build.skills_title", locale, build=build.get("name", "Build")),
-        description=_build_subtitle(build, cname, role_label, source, source_url, locale),
-        color=0xF1C40F,
+    p = Panel(
+        t("games.lol.build.skills_title", locale, build=build.get("name", "Build")),
+        _build_subtitle(build, cname, role_label, source, source_url, locale),
     )
 
     # Skill order (1=Q, 2=W, 3=E, 4=R)
@@ -391,34 +388,31 @@ async def _render_skills_view(build: dict, cname: str, champion_id: int,
         for lvl, s in enumerate(so[:18], 1):
             line_letters.append(_SKILL_LETTER.get(int(s), "?"))
             line_levels.append(f"{lvl:2d}")
-        embed.add_field(
-            name=t("games.lol.build.skill_order", locale),
-            value=t("games.lol.build.skill_order_value", locale,
-                    levels=" ".join(line_levels),
-                    skills=" ".join(f"{l:>2}" for l in line_letters)),
-            inline=False,
+        p.field(
+            t("games.lol.build.skill_order", locale),
+            t("games.lol.build.skill_order_value", locale,
+              levels=" ".join(line_levels),
+              skills=" ".join(f"{l:>2}" for l in line_letters)),
         )
 
     # Max-out priority
     smo = build.get("skill_max_order") or []
     if smo:
         prio = " > ".join(_SKILL_LETTER.get(int(s), "?") for s in smo)
-        embed.add_field(name=t("games.lol.build.max_priority", locale),
-                        value=f"`{prio}`", inline=False)
+        p.field(t("games.lol.build.max_priority", locale), f"`{prio}`")
 
     # Summoner spells
     spells = build.get("summoner_spells") or []
     if spells:
         names = [riot.SUMMONER_SPELL_NAMES.get(int(s), f"Spell #{s}") for s in spells[:2]]
-        embed.add_field(name=t("games.lol.build.summoner_spells", locale),
-                        value=" + ".join(f"**{n}**" for n in names),
-                        inline=False)
+        p.field(t("games.lol.build.summoner_spells", locale),
+                " + ".join(f"**{n}**" for n in names))
 
     icon = await riot.champion_icon_url(champion_id)
     if icon:
-        embed.set_thumbnail(url=icon)
-    embed.set_footer(text=t("games.lol.build.skills_footer", locale, source=source))
-    return embed, None
+        p.thumbnail(icon)
+    p.footer(t("games.lol.build.skills_footer", locale, source=source))
+    return p, None
 
 
 async def _render_build(build: dict, view_kind: str, cname: str, champion_id: int,
@@ -436,21 +430,21 @@ async def _render_build(build: dict, view_kind: str, cname: str, champion_id: in
 
 
 # Backwards-compat (used elsewhere)
-async def _render_build_embed(build, cname, champion_id, role_label, source, source_url,
+async def _render_build_panel(build, cname, champion_id, role_label, source, source_url,
                               locale="en"):
     return await _render_items_view(build, cname, champion_id, role_label,
                                     source, source_url, locale)
 
 
-class LolBuildView(discord.ui.View):
-    """View with 2 rows of buttons:
+class LolBuildView(discord.ui.LayoutView):
+    """LayoutView holding the build panel + 2 ActionRows of buttons:
       - Row 0: build selection (1-5 buttons, Mobalytics types)
       - Row 1: view selection (Items / Runes / Skills+Spells)
     A click edits the same message."""
 
     def __init__(self, author_id: int, builds: list[dict], cname: str,
                  cslug: str, champion_id: int, role_label: str,
-                 source: str, source_url: str,
+                 source: str, source_url: str, panel: Panel,
                  selected_build: int = 0, selected_view: str = _VIEW_ITEMS,
                  locale: str = "en"):
         super().__init__(timeout=300)
@@ -463,6 +457,7 @@ class LolBuildView(discord.ui.View):
         self.role_label = role_label
         self.source = source
         self.source_url = source_url
+        self.panel = panel
         self.selected_build = selected_build
         self.selected_view = selected_view
         self._rebuild_buttons()
@@ -479,6 +474,9 @@ class LolBuildView(discord.ui.View):
 
     def _rebuild_buttons(self):
         self.clear_items()
+        self.add_item(self.panel.container())
+        builds_row = discord.ui.ActionRow()
+        views_row  = discord.ui.ActionRow()
         # Row 0: builds (max 5)
         for idx, b in enumerate(self.builds[:5]):
             label = b.get("name") or t("games.lol.build.default_name", self.locale, n=idx + 1)
@@ -489,10 +487,9 @@ class LolBuildView(discord.ui.View):
                 label=label[:80],
                 style=discord.ButtonStyle.primary if idx == self.selected_build else discord.ButtonStyle.secondary,
                 custom_id=f"lolbuild:{idx}",
-                row=0,
             )
             btn.callback = self._make_build_cb(idx)
-            self.add_item(btn)
+            builds_row.add_item(btn)
         # Row 1: views
         for kind, label, emoji in (
             (_VIEW_ITEMS,  t("games.lol.build.btn_items", self.locale),  "🧱"),
@@ -504,10 +501,12 @@ class LolBuildView(discord.ui.View):
                 emoji=emoji,
                 style=discord.ButtonStyle.success if kind == self.selected_view else discord.ButtonStyle.secondary,
                 custom_id=f"lolview:{kind}",
-                row=1,
             )
             btn.callback = self._make_view_cb(kind)
-            self.add_item(btn)
+            views_row.add_item(btn)
+        if builds_row.children:
+            self.add_item(builds_row)
+        self.add_item(views_row)
 
     def _make_build_cb(self, idx: int):
         async def cb(interaction: discord.Interaction):
@@ -523,17 +522,18 @@ class LolBuildView(discord.ui.View):
 
     async def _refresh(self, interaction: discord.Interaction):
         build = self.builds[self.selected_build]
-        embed, file = await _render_build(
+        panel, file = await _render_build(
             build, self.selected_view, self.cname, self.champion_id,
             self.role_label, self.source,
             build.get("source_url") or self.source_url,
             self.locale,
         )
+        self.panel = panel
         self._rebuild_buttons()
         if file:
-            await interaction.response.edit_message(embed=embed, attachments=[file], view=self)
+            await interaction.response.edit_message(attachments=[file], view=self)
         else:
-            await interaction.response.edit_message(embed=embed, attachments=[], view=self)
+            await interaction.response.edit_message(attachments=[], view=self)
 
 
 # Autocomplete helpers (shared by every sub-command below)
@@ -645,7 +645,7 @@ async def _resolve_target_or_riot(interaction: discord.Interaction,
         m = _RIOT_ID_RE.match((riot_id or "").strip())
         if not m:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.invalid_format_title"),
+                view=_err_view(ti(interaction, "games.lol.err.invalid_format_title"),
                     ti(interaction, "games.lol.err.invalid_format_desc")),
                 ephemeral=True,
             )
@@ -654,7 +654,7 @@ async def _resolve_target_or_riot(interaction: discord.Interaction,
         account = await riot.account_by_riot_id(platform, game_name, tag_line)
         if not account or not account.get("puuid"):
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.riot_id_not_found_title"),
+                view=_err_view(ti(interaction, "games.lol.err.riot_id_not_found_title"),
                     ti(interaction, "games.lol.err.riot_id_not_found_desc",
                        riot_id=f"{game_name}#{tag_line}",
                        region=riot.PLATFORM_LABEL.get(platform, platform))),
@@ -679,7 +679,7 @@ async def _resolve_target_or_riot(interaction: discord.Interaction,
     prof = lol_profile_get(target.id)
     if not prof:
         await interaction.followup.send(
-            embed=_err_embed(ti(interaction, "games.lol.err.no_account_title"),
+            view=_err_view(ti(interaction, "games.lol.err.no_account_title"),
                 ti(interaction, "games.lol.err.no_account_desc", name=target.display_name)),
             ephemeral=True,
         )
@@ -704,7 +704,7 @@ def setup_lol_commands(bot):
         m = _RIOT_ID_RE.match((riot_id or "").strip())
         if not m:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.invalid_format_title"),
+                view=_err_view(ti(interaction, "games.lol.err.invalid_format_title"),
                     ti(interaction, "games.lol.err.invalid_format_link_desc")),
                 ephemeral=True,
             )
@@ -714,7 +714,7 @@ def setup_lol_commands(bot):
         account = await riot.account_by_riot_id(platform, game_name, tag_line)
         if not account or not account.get("puuid"):
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.riot_id_not_found_title"),
+                view=_err_view(ti(interaction, "games.lol.err.riot_id_not_found_title"),
                     ti(interaction, "games.lol.err.riot_id_not_found_link_desc",
                        riot_id=f"{game_name}#{tag_line}",
                        region=riot.PLATFORM_LABEL.get(platform, platform))),
@@ -737,13 +737,12 @@ def setup_lol_commands(bot):
             summoner_level=summ_level,
         )
         await interaction.followup.send(
-            embed=_info_embed(
+            view=_info_view(
                 ti(interaction, "games.lol.link.success_title"),
                 ti(interaction, "games.lol.link.success_desc",
                    riot_id=f"{account.get('gameName') or game_name}#{account.get('tagLine') or tag_line}",
                    region=riot.PLATFORM_LABEL.get(platform, platform),
-                   level=summ_level or "?"),
-                color=0x2ECC71),
+                   level=summ_level or "?")),
             ephemeral=True,
         )
 
@@ -754,15 +753,14 @@ def setup_lol_commands(bot):
         n = lol_profile_unlink(interaction.user.id)
         if n == 0:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.unlink.none_title"),
+                view=_err_view(ti(interaction, "games.lol.unlink.none_title"),
                     ti(interaction, "games.lol.unlink.none_desc")),
                 ephemeral=True,
             )
             return
         await interaction.followup.send(
-            embed=_info_embed(ti(interaction, "games.lol.unlink.success_title"),
-                ti(interaction, "games.lol.unlink.success_desc"),
-                color=0x2ECC71),
+            view=_info_view(ti(interaction, "games.lol.unlink.success_title"),
+                ti(interaction, "games.lol.unlink.success_desc")),
             ephemeral=True,
         )
 
@@ -781,7 +779,7 @@ def setup_lol_commands(bot):
         await interaction.response.defer()
         if member and riot_id:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.ambiguous_params_title"),
+                view=_err_view(ti(interaction, "games.lol.err.ambiguous_params_title"),
                     ti(interaction, "games.lol.err.ambiguous_params_desc")),
                 ephemeral=True,
             )
@@ -790,11 +788,11 @@ def setup_lol_commands(bot):
         target, prof = await _resolve_target_or_riot(interaction, member, riot_id, region)
         if prof is None:
             return
-        embed, file = await _build_stats_embed(target, prof, locale_of(interaction))
+        stats_view, file = await _build_stats_view(target, prof, locale_of(interaction))
         if file:
-            await interaction.followup.send(embed=embed, file=file)
+            await interaction.followup.send(view=stats_view, file=file)
         else:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=stats_view)
 
     # ---------- /lol rank ----------
     @lol_group.command(name="rank", description="Show your Solo/Duo rank (Discord member or Riot ID)")
@@ -811,7 +809,7 @@ def setup_lol_commands(bot):
         await interaction.response.defer()
         if member and riot_id:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.ambiguous_params_title"),
+                view=_err_view(ti(interaction, "games.lol.err.ambiguous_params_title"),
                     ti(interaction, "games.lol.err.ambiguous_params_desc")),
                 ephemeral=True,
             )
@@ -857,39 +855,34 @@ def setup_lol_commands(bot):
         lp   = (solo or {}).get("leaguePoints", 0)
         wins = (solo or {}).get("wins", 0)
         losses = (solo or {}).get("losses", 0)
-        color = riot.TIER_COLOR.get(tier, 0x747F8D)
-
-        embed = discord.Embed(
-            title=ti(interaction, "games.lol.rank.title", name=target.display_name),
-            description=ti(interaction, "games.lol.rank.subtitle",
-                           riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
-                           region=riot.PLATFORM_LABEL.get(platform, platform.upper())),
-            color=color,
+        p = Panel(
+            ti(interaction, "games.lol.rank.title", name=target.display_name),
+            ti(interaction, "games.lol.rank.subtitle",
+               riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
+               region=riot.PLATFORM_LABEL.get(platform, platform.upper())),
         )
-        rank_file = await _attach_emblem(embed, tier)
+        rank_file = await _attach_emblem(p, tier)
         if solo:
-            embed.add_field(
-                name="Solo/Duo",
-                value=ti(interaction, "games.lol.rank_line",
-                         rank=riot.rank_label(tier, rank), lp=lp,
-                         wins=wins, losses=losses, wr=_wl_ratio(wins, losses)),
-                inline=False,
+            p.field(
+                "Solo/Duo",
+                ti(interaction, "games.lol.rank_line",
+                   rank=riot.rank_label(tier, rank), lp=lp,
+                   wins=wins, losses=losses, wr=_wl_ratio(wins, losses)),
             )
         else:
-            embed.add_field(name="Solo/Duo",
-                            value=ti(interaction, "games.lol.unranked"), inline=False)
+            p.field("Solo/Duo", ti(interaction, "games.lol.unranked"))
 
         # Auto rank role
         applied = None
         if isinstance(target, discord.Member):
             applied = await _apply_rank_role(target, tier)
         if applied:
-            embed.set_footer(text=ti(interaction, "games.lol.rank.role_footer", role=applied))
+            p.footer(ti(interaction, "games.lol.rank.role_footer", role=applied))
 
         if rank_file:
-            await interaction.followup.send(embed=embed, file=rank_file)
+            await interaction.followup.send(view=p.view(), file=rank_file)
         else:
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(view=p.view())
 
     # ---------- /lol rankrole ----------
     @lol_group.command(name="rankrole",
@@ -903,14 +896,14 @@ def setup_lol_commands(bot):
                            action: app_commands.Choice[str]):
         if not interaction.guild:
             await interaction.response.send_message(
-                embed=_err_embed(ti(interaction, "games.lol.err.dm_not_supported_title"),
+                view=_err_view(ti(interaction, "games.lol.err.dm_not_supported_title"),
                                  ti(interaction, "games.lol.err.dm_not_supported_desc")),
                 ephemeral=True,
             )
             return
         if not interaction.user.guild_permissions.manage_roles:
             await interaction.response.send_message(
-                embed=_err_embed(ti(interaction, "games.lol.err.permission_denied_title"),
+                view=_err_view(ti(interaction, "games.lol.err.permission_denied_title"),
                     ti(interaction, "games.lol.err.permission_denied_desc")),
                 ephemeral=True,
             )
@@ -930,11 +923,10 @@ def setup_lol_commands(bot):
         )
         state_key = "games.lol.rankrole.state_on" if action.value == "on" else "games.lol.rankrole.state_off"
         await interaction.followup.send(
-            embed=_info_embed(
+            view=_info_view(
                 ti(interaction, "games.lol.rankrole.title"),
                 ti(interaction, "games.lol.rankrole.desc",
                    state=ti(interaction, state_key)),
-                color=0x2ECC71 if action.value == "on" else 0xE67E22,
             ),
             ephemeral=True,
         )
@@ -953,7 +945,7 @@ def setup_lol_commands(bot):
         prof = lol_profile_get(target.id)
         if not prof:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.no_account_title"),
+                view=_err_view(ti(interaction, "games.lol.err.no_account_title"),
                     ti(interaction, "games.lol.err.no_account_link_first_desc",
                        name=target.display_name)),
                 ephemeral=True,
@@ -965,10 +957,9 @@ def setup_lol_commands(bot):
         ids = await riot.match_ids_by_puuid(platform, puuid, count=int(n or 5), queue=420)
         if not ids:
             await interaction.followup.send(
-                embed=_info_embed(ti(interaction, "games.lol.history.no_match_title"),
+                view=_info_view(ti(interaction, "games.lol.history.no_match_title"),
                     ti(interaction, "games.lol.history.no_match_desc",
-                       name=target.display_name),
-                    color=0x95A5A6),
+                       name=target.display_name)),
             )
             return
 
@@ -1001,24 +992,22 @@ def setup_lol_commands(bot):
 
         if not lines:
             await interaction.followup.send(
-                embed=_info_embed(ti(interaction, "games.lol.history.no_data_title"),
-                    ti(interaction, "games.lol.history.no_data_desc"),
-                    color=0xE67E22),
+                view=_info_view(ti(interaction, "games.lol.history.no_data_title"),
+                    ti(interaction, "games.lol.history.no_data_desc")),
             )
             return
 
         wr = (wins / len(lines)) * 100
-        embed = discord.Embed(
-            title=ti(interaction, "games.lol.history.title", name=target.display_name),
-            description=ti(interaction, "games.lol.history.summary",
-                           riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
-                           region=riot.PLATFORM_LABEL.get(platform, platform.upper()),
-                           wins=wins, losses=len(lines) - wins, wr=f"{wr:.1f}",
-                           lines="\n".join(lines)),
-            color=0x2ECC71 if wr >= 55 else (0xE67E22 if wr < 45 else 0x3498DB),
+        p = Panel(
+            ti(interaction, "games.lol.history.title", name=target.display_name),
+            ti(interaction, "games.lol.history.summary",
+               riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
+               region=riot.PLATFORM_LABEL.get(platform, platform.upper()),
+               wins=wins, losses=len(lines) - wins, wr=f"{wr:.1f}",
+               lines="\n".join(lines)),
         )
-        embed.set_footer(text=ti(interaction, "games.lol.history.footer"))
-        await interaction.followup.send(embed=embed)
+        p.footer(ti(interaction, "games.lol.history.footer"))
+        await interaction.followup.send(view=p.view())
 
     # ---------- /lol live ----------
     @lol_group.command(name="live", description="Show a member's ongoing game (if they are in one)")
@@ -1030,7 +1019,7 @@ def setup_lol_commands(bot):
         prof = lol_profile_get(target.id)
         if not prof:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.no_account_title"),
+                view=_err_view(ti(interaction, "games.lol.err.no_account_title"),
                     ti(interaction, "games.lol.err.no_account_simple_desc",
                        name=target.display_name)),
                 ephemeral=True,
@@ -1042,10 +1031,9 @@ def setup_lol_commands(bot):
         game = await riot.active_game_by_puuid(platform, puuid)
         if not game:
             await interaction.followup.send(
-                embed=_info_embed(ti(interaction, "games.lol.live.not_in_game_title"),
+                view=_info_view(ti(interaction, "games.lol.live.not_in_game_title"),
                     ti(interaction, "games.lol.live.not_in_game_desc",
-                       name=target.display_name),
-                    color=0x95A5A6),
+                       name=target.display_name)),
             )
             return
 
@@ -1070,24 +1058,23 @@ def setup_lol_commands(bot):
                 red.append(line)
 
         you_label = ti(interaction, "games.lol.live.you")
-        embed = discord.Embed(
-            title=ti(interaction, "games.lol.live.title", name=target.display_name),
-            description=ti(interaction, "games.lol.live.subtitle",
-                           riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
-                           region=riot.PLATFORM_LABEL.get(platform, platform.upper()),
-                           queue=q_label, map_id=map_id,
-                           time=f"{mins:02d}:{secs:02d}"),
-            color=0xE74C3C,
+        p = Panel(
+            ti(interaction, "games.lol.live.title", name=target.display_name),
+            ti(interaction, "games.lol.live.subtitle",
+               riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
+               region=riot.PLATFORM_LABEL.get(platform, platform.upper()),
+               queue=q_label, map_id=map_id,
+               time=f"{mins:02d}:{secs:02d}"),
         )
         if blue:
-            embed.add_field(name=ti(interaction, "games.lol.live.blue_team",
-                                    you=you_label if my_team == 100 else "").strip(),
-                            value="\n".join(blue), inline=True)
+            p.field(ti(interaction, "games.lol.live.blue_team",
+                       you=you_label if my_team == 100 else "").strip(),
+                    "\n".join(blue))
         if red:
-            embed.add_field(name=ti(interaction, "games.lol.live.red_team",
-                                    you=you_label if my_team == 200 else "").strip(),
-                            value="\n".join(red), inline=True)
-        await interaction.followup.send(embed=embed)
+            p.field(ti(interaction, "games.lol.live.red_team",
+                       you=you_label if my_team == 200 else "").strip(),
+                    "\n".join(red))
+        await interaction.followup.send(view=p.view())
 
     # ---------- /lol mastery ----------
     @lol_group.command(name="mastery", description="Top masteries, or the details of one champion")
@@ -1104,7 +1091,7 @@ def setup_lol_commands(bot):
         prof = lol_profile_get(target.id)
         if not prof:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.no_account_title"),
+                view=_err_view(ti(interaction, "games.lol.err.no_account_title"),
                     ti(interaction, "games.lol.err.no_account_simple_desc",
                        name=target.display_name)),
                 ephemeral=True,
@@ -1126,7 +1113,7 @@ def setup_lol_commands(bot):
                     break
             if not target_id:
                 await interaction.followup.send(
-                    embed=_err_embed(ti(interaction, "games.lol.err.champion_not_found_title"),
+                    view=_err_view(ti(interaction, "games.lol.err.champion_not_found_title"),
                         ti(interaction, "games.lol.err.champion_not_found_desc",
                            champion=champion)),
                     ephemeral=True,
@@ -1135,36 +1122,33 @@ def setup_lol_commands(bot):
             m = await riot.mastery_by_champion(platform, puuid, target_id)
             if not m:
                 await interaction.followup.send(
-                    embed=_info_embed(ti(interaction, "games.lol.mastery.none_title"),
+                    view=_info_view(ti(interaction, "games.lol.mastery.none_title"),
                         ti(interaction, "games.lol.mastery.none_champion_desc",
                            name=target.display_name,
-                           champion=champs[target_id]["name"]),
-                        color=0x95A5A6),
+                           champion=champs[target_id]["name"])),
                 )
                 return
-            embed = discord.Embed(
-                title=ti(interaction, "games.lol.mastery.champion_title",
-                         champion=champs[target_id]["name"]),
-                description=ti(interaction, "games.lol.mastery.champion_desc",
-                               name=target.display_name,
-                               riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
-                               level=m.get("championLevel", 0),
-                               points=f"{int(m.get('championPoints', 0)):,}".replace(",", " ")),
-                color=0x9B59B6,
+            p = Panel(
+                ti(interaction, "games.lol.mastery.champion_title",
+                   champion=champs[target_id]["name"]),
+                ti(interaction, "games.lol.mastery.champion_desc",
+                   name=target.display_name,
+                   riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
+                   level=m.get("championLevel", 0),
+                   points=f"{int(m.get('championPoints', 0)):,}".replace(",", " ")),
             )
             icon = await riot.champion_icon_url(target_id)
             if icon:
-                embed.set_thumbnail(url=icon)
-            await interaction.followup.send(embed=embed)
+                p.thumbnail(icon)
+            await interaction.followup.send(view=p.view())
             return
 
         # Top 10 by default
         all_m = await riot.mastery_all(platform, puuid)
         if not all_m:
             await interaction.followup.send(
-                embed=_info_embed(ti(interaction, "games.lol.mastery.none_title"),
-                    ti(interaction, "games.lol.mastery.none_desc"),
-                    color=0x95A5A6),
+                view=_info_view(ti(interaction, "games.lol.mastery.none_title"),
+                    ti(interaction, "games.lol.mastery.none_desc")),
             )
             return
         top = all_m[:10]
@@ -1176,19 +1160,18 @@ def setup_lol_commands(bot):
             lvl = m.get("championLevel", 0)
             lines.append(ti(interaction, "games.lol.mastery_line", champion=cname,
                             level=lvl, points=f"{pts:,}".replace(",", " ")))
-        embed = discord.Embed(
-            title=ti(interaction, "games.lol.mastery.top_title", name=target.display_name),
-            description=ti(interaction, "games.lol.mastery.top_desc",
-                           riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
-                           lines="\n".join(lines)),
-            color=0x9B59B6,
+        p = Panel(
+            ti(interaction, "games.lol.mastery.top_title", name=target.display_name),
+            ti(interaction, "games.lol.mastery.top_desc",
+               riot_id=f"{prof.get('game_name')}#{prof.get('tag_line')}",
+               lines="\n".join(lines)),
         )
         # Thumbnail = icon of the #1 champion
         if top:
             icon = await riot.champion_icon_url(top[0].get("championId", 0))
             if icon:
-                embed.set_thumbnail(url=icon)
-        await interaction.followup.send(embed=embed)
+                p.thumbnail(icon)
+        await interaction.followup.send(view=p.view())
 
     # ---------- /lol queue ----------
     @lol_group.command(name="queue",
@@ -1196,7 +1179,7 @@ def setup_lol_commands(bot):
     async def lol_queue(interaction: discord.Interaction):
         if not interaction.guild:
             await interaction.response.send_message(
-                embed=_err_embed(ti(interaction, "games.lol.err.dm_not_supported_title"),
+                view=_err_view(ti(interaction, "games.lol.err.dm_not_supported_title"),
                                  ti(interaction, "games.lol.err.dm_not_supported_desc")),
                 ephemeral=True,
             )
@@ -1216,7 +1199,7 @@ def setup_lol_commands(bot):
             )
         except discord.Forbidden:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.missing_permission_title"),
+                view=_err_view(ti(interaction, "games.lol.err.missing_permission_title"),
                     ti(interaction, "games.lol.err.missing_permission_desc")),
                 ephemeral=True,
             )
@@ -1224,7 +1207,7 @@ def setup_lol_commands(bot):
         except Exception as e:
             print(f"[lol/queue] create err: {type(e).__name__}")
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.generic_title"),
+                view=_err_view(ti(interaction, "games.lol.err.generic_title"),
                     ti(interaction, "games.lol.err.voice_create_failed")),
                 ephemeral=True,
             )
@@ -1233,10 +1216,9 @@ def setup_lol_commands(bot):
         # Reuse the cs_queue_lobbies table (same auto-cleanup mechanism)
         cs_queue_lobby_add(vc.id, guild.id, interaction.user.id)
         await interaction.followup.send(
-            embed=_info_embed(
+            view=_info_view(
                 ti(interaction, "games.lol.queue.created_title"),
-                ti(interaction, "games.lol.queue.created_desc", channel=vc.mention),
-                color=0x2ECC71),
+                ti(interaction, "games.lol.queue.created_desc", channel=vc.mention)),
             ephemeral=True,
         )
 
@@ -1261,7 +1243,7 @@ def setup_lol_commands(bot):
                 break
         if not target_id:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.champion_not_found_title"),
+                view=_err_view(ti(interaction, "games.lol.err.champion_not_found_title"),
                     ti(interaction, "games.lol.err.champion_not_found_skin",
                        champion=champion)),
                 ephemeral=True,
@@ -1277,9 +1259,8 @@ def setup_lol_commands(bot):
         if not skin:
             if not all_skins:
                 await interaction.followup.send(
-                    embed=_info_embed(ti(interaction, "games.lol.skin.no_data_title"),
-                        ti(interaction, "games.lol.skin.no_data_desc", champion=cname),
-                        color=0x95A5A6),
+                    view=_info_view(ti(interaction, "games.lol.skin.no_data_title"),
+                        ti(interaction, "games.lol.skin.no_data_desc", champion=cname)),
                 )
                 return
             lines = []
@@ -1290,17 +1271,16 @@ def setup_lol_commands(bot):
                     f"{cost} RP" if isinstance(cost, int) and cost > 0 else (str(cost) if cost else "—")
                 )
                 lines.append(ti(interaction, "games.lol.skin.list_line", name=nm, cost=cost_str))
-            embed = discord.Embed(
-                title=ti(interaction, "games.lol.skin.list_title", champion=cname),
-                description="\n".join(lines),
-                color=0x9B59B6,
+            p = Panel(
+                ti(interaction, "games.lol.skin.list_title", champion=cname),
+                "\n".join(lines),
             )
             icon = await riot.champion_icon_url(target_id)
             if icon:
-                embed.set_thumbnail(url=icon)
-            embed.set_footer(text=ti(interaction, "games.lol.skin.list_footer",
-                                     count=len(all_skins), champion=cname))
-            await interaction.followup.send(embed=embed)
+                p.thumbnail(icon)
+            p.footer(ti(interaction, "games.lol.skin.list_footer",
+                        count=len(all_skins), champion=cname))
+            await interaction.followup.send(view=p.view())
             return
 
         # "detail" mode: one specific skin
@@ -1308,7 +1288,7 @@ def setup_lol_commands(bot):
         found = next((sk for sk in all_skins if (sk.get("name") or "").lower() == wanted_skin), None)
         if not found:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.skin.not_found_title"),
+                view=_err_view(ti(interaction, "games.lol.skin.not_found_title"),
                     ti(interaction, "games.lol.skin.not_found_desc",
                        skin=skin, champion=cname)),
                 ephemeral=True,
@@ -1323,23 +1303,21 @@ def setup_lol_commands(bot):
         skin_num = found.get("id", 0) % 1000  # Meraki id = championId * 1000 + skinNum
         splash_url = f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{cslug}_{skin_num}.jpg"
 
-        embed = discord.Embed(
-            title=f"🎨 {nm}",
-            description=ti(interaction, "games.lol.skin.detail_desc",
-                           champion=cname, cost=cost_str),
-            color=0x9B59B6,
+        p = Panel(
+            f"🎨 {nm}",
+            ti(interaction, "games.lol.skin.detail_desc",
+               champion=cname, cost=cost_str),
         )
-        embed.set_image(url=splash_url)
         release = found.get("release") or {}
         if release.get("date"):
-            embed.add_field(name=ti(interaction, "games.lol.skin.release"),
-                            value=str(release["date"])[:10], inline=True)
+            p.field(ti(interaction, "games.lol.skin.release"),
+                    str(release["date"])[:10], inline=True)
         rarity = found.get("rarity")
         if rarity and rarity.lower() != "norarity":
-            embed.add_field(name=ti(interaction, "games.lol.skin.rarity"),
-                            value=rarity, inline=True)
-        embed.set_footer(text=ti(interaction, "games.lol.skin.footer"))
-        await interaction.followup.send(embed=embed)
+            p.field(ti(interaction, "games.lol.skin.rarity"), rarity, inline=True)
+        p.image(splash_url)
+        p.footer(ti(interaction, "games.lol.skin.footer"))
+        await interaction.followup.send(view=p.view())
 
     # ---------- /lol build ----------
     @lol_group.command(name="build",
@@ -1369,7 +1347,7 @@ def setup_lol_commands(bot):
                 break
         if not target_id:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.err.champion_not_found_title"),
+                view=_err_view(ti(interaction, "games.lol.err.champion_not_found_title"),
                     ti(interaction, "games.lol.err.champion_not_found_simple",
                        champion=champion)),
                 ephemeral=True,
@@ -1414,33 +1392,32 @@ def setup_lol_commands(bot):
 
         if not builds:
             # No source available: fall back to links
-            embed = discord.Embed(
-                title=ti(interaction, "games.lol.build.unavailable_title",
-                         champion=cname, role=role.name),
-                description=ti(interaction, "games.lol.build.unavailable_desc",
-                               opgg=opgg_url, ugg=ugg_url, dpm=dpm_url, moba=moba_url),
-                color=0xF1C40F,
+            p = Panel(
+                ti(interaction, "games.lol.build.unavailable_title",
+                   champion=cname, role=role.name),
+                ti(interaction, "games.lol.build.unavailable_desc",
+                   opgg=opgg_url, ugg=ugg_url, dpm=dpm_url, moba=moba_url),
             )
             icon_url = await riot.champion_icon_url(target_id)
             if icon_url:
-                embed.set_thumbnail(url=icon_url)
-            await interaction.followup.send(embed=embed)
+                p.thumbnail(icon_url)
+            await interaction.followup.send(view=p.view())
             return
 
         # One or more builds available: show a selector when there are several
         loc = locale_of(interaction)
+        panel, file = await _render_build_panel(builds[0], cname, target_id,
+                                                role.name, source,
+                                                builds[0].get("source_url") or source_url, loc)
         view = LolBuildView(
             interaction.user.id, builds, cname, cslug, target_id,
             role_label=role.name, source=source, source_url=source_url or builds[0]["source_url"],
-            locale=loc,
+            panel=panel, locale=loc,
         )
-        embed, file = await _render_build_embed(builds[0], cname, target_id,
-                                                role.name, source,
-                                                builds[0].get("source_url") or source_url, loc)
         if file:
-            await interaction.followup.send(embed=embed, view=view, file=file)
+            await interaction.followup.send(view=view, file=file)
         else:
-            await interaction.followup.send(embed=embed, view=view)
+            await interaction.followup.send(view=view)
 
     # ---------- /lol scout (sub-group, owner-only) ----------
     scout_group = app_commands.Group(
@@ -1461,7 +1438,7 @@ def setup_lol_commands(bot):
                            region: Optional[app_commands.Choice[str]] = None):
         if not _is_owner(interaction):
             await interaction.response.send_message(
-                embed=_err_embed(ti(interaction, "games.lol.err.owner_only_title"),
+                view=_err_view(ti(interaction, "games.lol.err.owner_only_title"),
                     ti(interaction, "games.lol.err.owner_only_desc")),
                 ephemeral=True,
             )
@@ -1477,7 +1454,7 @@ def setup_lol_commands(bot):
     async def scout_stop(interaction: discord.Interaction, slug: str):
         if not _is_owner(interaction):
             await interaction.response.send_message(
-                embed=_err_embed(ti(interaction, "games.lol.err.owner_only_title"),
+                view=_err_view(ti(interaction, "games.lol.err.owner_only_title"),
                                  ti(interaction, "games.lol.err.owner_only_short")),
                 ephemeral=True,
             )
@@ -1486,14 +1463,13 @@ def setup_lol_commands(bot):
         n = lol_scout_session_stop(slug.strip(), owner_id=interaction.user.id)
         if n:
             await interaction.followup.send(
-                embed=_info_embed(ti(interaction, "games.lol.scout.stopped_title"),
-                    ti(interaction, "games.lol.scout.stopped_desc", slug=slug),
-                    color=0xE67E22),
+                view=_info_view(ti(interaction, "games.lol.scout.stopped_title"),
+                    ti(interaction, "games.lol.scout.stopped_desc", slug=slug)),
                 ephemeral=True,
             )
         else:
             await interaction.followup.send(
-                embed=_err_embed(ti(interaction, "games.lol.scout.not_found_title"),
+                view=_err_view(ti(interaction, "games.lol.scout.not_found_title"),
                     ti(interaction, "games.lol.scout.not_found_desc")),
                 ephemeral=True,
             )
@@ -1503,7 +1479,7 @@ def setup_lol_commands(bot):
     async def scout_list(interaction: discord.Interaction):
         if not _is_owner(interaction):
             await interaction.response.send_message(
-                embed=_err_embed(ti(interaction, "games.lol.err.owner_only_title"),
+                view=_err_view(ti(interaction, "games.lol.err.owner_only_title"),
                                  ti(interaction, "games.lol.err.owner_only_short")),
                 ephemeral=True,
             )
@@ -1512,9 +1488,8 @@ def setup_lol_commands(bot):
         sessions = lol_scout_sessions_list(owner_id=interaction.user.id, limit=15)
         if not sessions:
             await interaction.followup.send(
-                embed=_info_embed(ti(interaction, "games.lol.scout.none_title"),
-                    ti(interaction, "games.lol.scout.none_desc"),
-                    color=0x95A5A6),
+                view=_info_view(ti(interaction, "games.lol.scout.none_title"),
+                    ti(interaction, "games.lol.scout.none_desc")),
                 ephemeral=True,
             )
             return
@@ -1530,9 +1505,11 @@ def setup_lol_commands(bot):
             else:
                 lines.append(ti(interaction, "games.lol.scout.list_stopped",
                                 slug=s["slug"], platform=s["platform"].upper(), ts=ts))
-        embed = _info_embed(ti(interaction, "games.lol.scout.list_title"),
-                            "\n".join(lines), color=0x3498DB)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(
+            view=_info_view(ti(interaction, "games.lol.scout.list_title"),
+                            "\n".join(lines)),
+            ephemeral=True,
+        )
 
     bot.tree.add_command(lol_group)
 
@@ -1632,14 +1609,13 @@ class ClashScoutModal(discord.ui.Modal, title="🔍 Clash scout: enter 5 Riot ID
                     or "https://dashboard.tookbot.click").rstrip("/")
         link = f"{base_url}/scout/{slug}"
 
-        embed = discord.Embed(
-            title=ti(interaction, "games.lol.scout.created_title"),
-            description=ti(interaction, "games.lol.scout.created_desc",
-                           region=riot.PLATFORM_LABEL.get(self.platform, self.platform.upper()),
-                           slug=slug, url=link),
-            color=0x2ECC71,
+        p = Panel(
+            ti(interaction, "games.lol.scout.created_title"),
+            ti(interaction, "games.lol.scout.created_desc",
+               region=riot.PLATFORM_LABEL.get(self.platform, self.platform.upper()),
+               slug=slug, url=link),
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(view=p.view(), ephemeral=True)
 
 
 async def _recent_champs_stats(platform: str, puuid: str, count: int = 20):
@@ -1803,7 +1779,7 @@ async def _scout_player_data(platform: str, raw_riot_id: str) -> dict:
 
 async def _scout_player(platform: str, raw_riot_id: str) -> str:
     """Fetch the scout profile of one player from a Riot ID. Returns a string
-    formatted for embed.add_field."""
+    formatted for a panel field."""
     import unicodedata as _u
     # NFC normalisation + strip of Unicode formatting chars (Cf):
     # a Discord Modal wraps the text in U+2066 (LRI) and U+2069 (PDI),
