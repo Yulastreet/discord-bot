@@ -1,18 +1,30 @@
 import unittest
 
-from duel.commands import _build_duel_info_embeds
+from duel.commands import _build_duel_info_panels
+
+
+def _texts(component):
+    """Collect every text block of a rendered Components V2 payload."""
+    out = []
+    if isinstance(component, dict):
+        if component.get("type") == 10:          # TextDisplay
+            out.append(component.get("content", ""))
+        for value in component.values():
+            out.extend(_texts(value))
+    elif isinstance(component, list):
+        for value in component:
+            out.extend(_texts(value))
+    return out
 
 
 class DuelInfoTests(unittest.TestCase):
     def test_duel_info_explains_core_systems(self):
-        embeds = _build_duel_info_embeds()
+        panels = _build_duel_info_panels()
 
-        self.assertGreaterEqual(len(embeds), 2)
+        self.assertGreaterEqual(len(panels), 2)
         chunks = []
-        for embed in embeds:
-            chunks.append(embed.title or "")
-            chunks.append(embed.description or "")
-            chunks.extend(field.name + "\n" + field.value for field in embed.fields)
+        for panel in panels:
+            chunks.extend(_texts(panel.container().to_component_dict()))
         joined = "\n".join(chunks)
 
         self.assertIn("JRPG", joined)

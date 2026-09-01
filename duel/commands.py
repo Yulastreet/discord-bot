@@ -6,6 +6,7 @@ import asyncio
 import random
 from database import get_historique, get_combat_xp_progress, get_xp_pour_prochain_niveau, get_user_cosmetic
 from services.i18n import DEFAULT_LOCALE, locale_of, t, ti
+from services.ui_v2 import Panel, row
 from duel.sabres import (get_sabre, get_tous_les_sabres, rarete_label, rarete_emoji,
                          sabre_nom, sabre_description, sabre_speciale_nom,
                          sabre_speciale_description)
@@ -34,21 +35,26 @@ def zone_label(code, locale=DEFAULT_LOCALE):
     return t(f"duel.zones.{ZONE_KEYS.get(code, 'left_arm')}", locale)
 
 
-class ZoneSelectView(discord.ui.View):
-    """View attached to the main duel message to pick a zone."""
-    def __init__(self, joueur_id: int, event: asyncio.Event, choix_ref: dict, mode: str = "defense",
-                 locale: str = DEFAULT_LOCALE):
+class ZoneSelectView(discord.ui.LayoutView):
+    """Components V2 view attached to the main duel message to pick a zone."""
+    def __init__(self, panel: Panel, joueur_id: int, event: asyncio.Event, choix_ref: dict,
+                 mode: str = "defense", locale: str = DEFAULT_LOCALE):
         super().__init__(timeout=30)
         self.joueur_id = joueur_id
         self.event     = event
         self.choix_ref = choix_ref
         self.locale    = locale
+        self.add_item(panel.container())
+
+        # Two ActionRows: arms on the first line, legs on the second (was row=0/1).
+        rows     = [discord.ui.ActionRow(), discord.ui.ActionRow()]
+        self._buttons = []
 
         for code in ZONE_KEYS:
-            row = 0 if code.startswith("bras") else 1
+            line = 0 if code.startswith("bras") else 1
             style = (discord.ButtonStyle.primary if mode == "defense"
                      else discord.ButtonStyle.danger)
-            btn = discord.ui.Button(label=zone_label(code, locale), style=style, row=row,
+            btn = discord.ui.Button(label=zone_label(code, locale), style=style,
                                     custom_id=f"zone_{mode}_{joueur_id}_{code}")
 
             async def cb(interaction: discord.Interaction, c=code):
@@ -82,29 +88,30 @@ class ZoneSelectView(discord.ui.View):
                 self.event.set()
 
             btn.callback = cb
-            self.add_item(btn)
+            rows[line].add_item(btn)
+            self._buttons.append(btn)
+
+        for r in rows:
+            self.add_item(r)
 
 
-def make_zone_embed(mode: str, joueur, locale=DEFAULT_LOCALE) -> discord.Embed:
-    """Zone menu embed, image referenced through attachment://."""
+def make_zone_panel(mode: str, joueur, locale=DEFAULT_LOCALE, with_image: bool = True) -> Panel:
+    """Zone menu panel, image referenced through attachment://."""
     if mode == "defense":
         title  = t("duel.zones.defense_title", locale)
         prompt = t("duel.zones.defense_prompt", locale, player=joueur.display_name)
         img    = DEFENDER_IMAGE_NAME
-        color  = 0x4FB3FF
     else:
         title  = t("duel.zones.attack_title", locale)
         prompt = t("duel.zones.attack_prompt", locale, player=joueur.display_name)
         img    = ATTACKER_IMAGE_NAME
-        color  = 0xFF4444
 
-    embed = discord.Embed(
-        title=title,
-        description=prompt + "\n\n" + t("duel.zones.timeout_note", locale),
-        color=color,
-    )
-    embed.set_image(url=f"attachment://{img}")
-    return embed
+    p = Panel(title, prompt + "\n\n" + t("duel.zones.timeout_note", locale))
+    if with_image:
+        # A V2 media gallery can point at an uploaded attachment the same way an
+        # embed image did; skipped when the file is missing so nothing dangles.
+        p.image(f"attachment://{img}")
+    return p
 
 
 def _zone_attachment(mode: str) -> "discord.File | None":
@@ -124,14 +131,15 @@ async def _resolve_defense_zone_on_msg(msg, joueur, stats, locale=DEFAULT_LOCALE
     stats["pending_def_zone"] = False
     zone_event = asyncio.Event()
     zone_ref   = {}
-    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="defense", locale=locale)
-    embed = make_zone_embed("defense", joueur, locale)
-    file_ = _zone_attachment("defense")
+    file_      = _zone_attachment("defense")
+    panel      = make_zone_panel("defense", joueur, locale, with_image=bool(file_))
+    zone_view  = ZoneSelectView(panel, joueur.id, zone_event, zone_ref, mode="defense",
+                                locale=locale)
     try:
         if file_:
-            await msg.edit(embed=embed, view=zone_view, attachments=[file_])
+            await msg.edit(view=zone_view, attachments=[file_])
         else:
-            await msg.edit(embed=embed, view=zone_view, attachments=[])
+            await msg.edit(view=zone_view, attachments=[])
     except Exception:
         # Edit failed -> fall back on the standard defense
         stats["defense_active"] = True
@@ -144,13 +152,12 @@ async def _resolve_defense_zone_on_msg(msg, joueur, stats, locale=DEFAULT_LOCALE
     stats["defense_speciale_active"]   = True
     stats["defense_speciale_cooldown"] = 4
     # Update msg with a neutral "locked" visual while waiting for the rest
-    locked_embed = discord.Embed(
-        title=t("duel.zones.defense_locked_title", locale),
-        description=t("duel.zones.defense_locked_desc", locale, player=joueur.display_name),
-        color=0x4FB3FF,
-    )
+    locked_view = Panel(
+        t("duel.zones.defense_locked_title", locale),
+        t("duel.zones.defense_locked_desc", locale, player=joueur.display_name),
+    ).view()
     try:
-        await msg.edit(embed=locked_embed, view=None, attachments=[])
+        await msg.edit(view=locked_view, attachments=[])
     except Exception:
         pass
     await asyncio.sleep(1)
@@ -161,14 +168,15 @@ async def _resolve_attack_zone_on_msg(msg, joueur, stats, locale=DEFAULT_LOCALE)
     Set attaque_zone."""
     zone_event = asyncio.Event()
     zone_ref   = {}
-    zone_view  = ZoneSelectView(joueur.id, zone_event, zone_ref, mode="attaque", locale=locale)
-    embed = make_zone_embed("attaque", joueur, locale)
-    file_ = _zone_attachment("attaque")
+    file_      = _zone_attachment("attaque")
+    panel      = make_zone_panel("attaque", joueur, locale, with_image=bool(file_))
+    zone_view  = ZoneSelectView(panel, joueur.id, zone_event, zone_ref, mode="attaque",
+                                locale=locale)
     try:
         if file_:
-            await msg.edit(embed=embed, view=zone_view, attachments=[file_])
+            await msg.edit(view=zone_view, attachments=[file_])
         else:
-            await msg.edit(embed=embed, view=zone_view, attachments=[])
+            await msg.edit(view=zone_view, attachments=[])
     except Exception:
         stats["attaque_zone"] = "bras_g"
         return
@@ -178,19 +186,18 @@ async def _resolve_attack_zone_on_msg(msg, joueur, stats, locale=DEFAULT_LOCALE)
         zone_ref["zone"] = "bras_g"
     stats["attaque_zone"] = zone_ref["zone"]
     # Neutral interstitial message
-    locked_embed = discord.Embed(
-        title=t("duel.zones.attack_locked_title", locale),
-        description=t("duel.zones.attack_locked_desc", locale, player=joueur.display_name),
-        color=0xFF4444,
-    )
+    locked_view = Panel(
+        t("duel.zones.attack_locked_title", locale),
+        t("duel.zones.attack_locked_desc", locale, player=joueur.display_name),
+    ).view()
     try:
-        await msg.edit(embed=locked_embed, view=None, attachments=[])
+        await msg.edit(view=locked_view, attachments=[])
     except Exception:
         pass
     await asyncio.sleep(1)
 
 
-def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
+def make_tour_panel(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
                     phase_actif=None, phase_attente=None, locale=DEFAULT_LOCALE):
     """phase_actif / phase_attente tune the footer depending on who plays first
     this turn (the initiative changes with the dice roll)."""
@@ -208,11 +215,7 @@ def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
         desc   = t("duel.turn.resolving", locale)
         footer = None
 
-    embed = discord.Embed(
-        title=t("duel.turn.title", locale, turn=tour),
-        description=desc,
-        color=0xFFD700,
-    )
+    p = Panel(t("duel.turn.title", locale, turn=tour), desc)
 
     # Player 1
     parade1 = (t("duel.turn.parry_ready", locale) if s1["parade_cooldown"] == 0
@@ -221,9 +224,9 @@ def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
                  special=sabre_speciale_nom(sb1, locale),
                  description=sabre_speciale_description(sb1, locale))
                if s1["speciale_dispo"] else t("duel.turn.special_spent", locale))
-    embed.add_field(
-        name=f"❤️ {j1.display_name}",
-        value=f"{barre_hp(s1['hp'], s1['hp_max'])}\n{parade1}\n{spec1}",
+    p.field(
+        f"❤️ {j1.display_name}",
+        f"{barre_hp(s1['hp'], s1['hp_max'])}\n{parade1}\n{spec1}",
         inline=False,
     )
 
@@ -234,18 +237,18 @@ def make_tour_embed(tour, j1, s1, sb1, j2, s2, sb2, phase=1,
                  special=sabre_speciale_nom(sb2, locale),
                  description=sabre_speciale_description(sb2, locale))
                if s2["speciale_dispo"] else t("duel.turn.special_spent", locale))
-    embed.add_field(
-        name=f"❤️ {j2.display_name}",
-        value=f"{barre_hp(s2['hp'], s2['hp_max'])}\n{parade2}\n{spec2}",
+    p.field(
+        f"❤️ {j2.display_name}",
+        f"{barre_hp(s2['hp'], s2['hp_max'])}\n{parade2}\n{spec2}",
         inline=False,
     )
 
     if footer:
-        embed.set_footer(text=footer)
-    return embed
+        p.footer(footer)
+    return p
 
 
-class TourView(discord.ui.View):
+class TourView(discord.ui.LayoutView):
     # (action id, button style, row). The action id feeds the custom_id and the
     # combat logic, the label comes from duel.actions.<action id>.
     ACTIONS = [
@@ -256,7 +259,7 @@ class TourView(discord.ui.View):
         ("speciale", discord.ButtonStyle.success,   1),
     ]
 
-    def __init__(self, joueur_actif, stats_actif, event_choix, choix_state, tour,
+    def __init__(self, panel, joueur_actif, stats_actif, event_choix, choix_state, tour,
                  choix_interactions=None, locale=DEFAULT_LOCALE):
         super().__init__(timeout=35)
         self.joueur_actif        = joueur_actif
@@ -265,8 +268,12 @@ class TourView(discord.ui.View):
         self.choix_state         = choix_state
         self.choix_interactions  = choix_interactions if choix_interactions is not None else {}
         self.locale              = locale
+        self.add_item(panel.container())
 
-        for action, style, row in self.ACTIONS:
+        rows          = [discord.ui.ActionRow(), discord.ui.ActionRow()]
+        self._buttons = []
+
+        for action, style, line in self.ACTIONS:
             disabled = False
             display  = t(f"duel.actions.{action}", locale)
             if action == "parade" and stats_actif["parade_cooldown"] > 0:
@@ -289,7 +296,6 @@ class TourView(discord.ui.View):
                 style=style if not disabled else discord.ButtonStyle.secondary,
                 disabled=disabled,
                 custom_id=f"act_{joueur_actif.id}_{tour}_{action}",
-                row=row,
             )
 
             async def callback(interaction: discord.Interaction, a=action):
@@ -306,7 +312,7 @@ class TourView(discord.ui.View):
                     self.stats_actif["pending_def_zone"]      = True
                     self.choix_state[self.joueur_actif.id]    = "defense"
                     self.choix_interactions[self.joueur_actif.id] = interaction
-                    for child in self.children:
+                    for child in self._buttons:
                         child.disabled = True
                     try:
                         await interaction.response.defer()
@@ -319,25 +325,30 @@ class TourView(discord.ui.View):
                 # Keep the interaction ref around so we can followup-ephemeral later
                 # (attack zone when the opponent went for a special defense).
                 self.choix_interactions[self.joueur_actif.id] = interaction
-                for child in self.children:
+                for child in self._buttons:
                     child.disabled = True
                 await interaction.response.defer()
                 self.event_choix.set()
 
             btn.callback = callback
-            self.add_item(btn)
+            rows[line].add_item(btn)
+            self._buttons.append(btn)
+
+        for r in rows:
+            self.add_item(r)
 
 
-class NextTurnView(discord.ui.View):
+class NextTurnView(discord.ui.LayoutView):
     """'Next turn' button between two turns, clickable by both duelists."""
 
-    def __init__(self, joueur1, joueur2, event_next, tour, label=None,
+    def __init__(self, panel, joueur1, joueur2, event_next, tour, label=None,
                  locale=DEFAULT_LOCALE):
         super().__init__(timeout=120)
         self.joueur1   = joueur1
         self.joueur2   = joueur2
         self.event     = event_next
         self.locale    = locale
+        self.add_item(panel.container())
 
         btn = discord.ui.Button(
             label=label or t("duel.turn.next_button", locale),
@@ -352,7 +363,7 @@ class NextTurnView(discord.ui.View):
                 except Exception:
                     pass
                 return
-            for child in self.children:
+            for child in self._buttons:
                 child.disabled = True
                 child.label    = t("duel.turn.next_clicked", self.locale,
                                    player=interaction.user.display_name)
@@ -362,16 +373,18 @@ class NextTurnView(discord.ui.View):
                 pass
             self.event.set()
         btn.callback = cb
-        self.add_item(btn)
+        self._buttons = [btn]
+        self.add_item(row(btn))
 
 
-class HistoriqueView(discord.ui.View):
+class HistoriqueView(discord.ui.LayoutView):
     """'Fight log' button shown once the duel is over."""
 
-    def __init__(self, historique: list, locale=DEFAULT_LOCALE):
+    def __init__(self, panel, historique: list, locale=DEFAULT_LOCALE):
         super().__init__(timeout=120)
         self.historique = historique
         self.locale     = locale
+        self.add_item(panel.container())
 
         btn = discord.ui.Button(label=t("duel.log.button", locale),
                                 style=discord.ButtonStyle.secondary)
@@ -383,32 +396,34 @@ class HistoriqueView(discord.ui.View):
                 return
             pages = []
             chunk = ""
+            # V2 caps a whole message at 4000 displayed chars: keep room for the
+            # title and the footer on top of the log body.
             for ligne in self.historique:
-                if len(chunk) + len(ligne) + 1 > 4000:
+                if len(chunk) + len(ligne) + 1 > 3800:
                     pages.append(chunk)
                     chunk = ligne + "\n"
                 else:
                     chunk += ligne + "\n"
             if chunk:
                 pages.append(chunk)
-            embed = discord.Embed(title=ti(interaction, "duel.log.title"),
-                                  description=pages[0], color=0x888888)
+            p = Panel(ti(interaction, "duel.log.title"), pages[0])
             if len(pages) > 1:
-                embed.set_footer(text=ti(interaction, "duel.log.page_footer", total=len(pages)))
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+                p.footer(ti(interaction, "duel.log.page_footer", total=len(pages)))
+            await interaction.response.send_message(view=p.view(), ephemeral=True)
 
         btn.callback = cb
-        self.add_item(btn)
+        self.add_item(row(btn))
 
 
-class DuelInviteView(discord.ui.View):
-    def __init__(self, challenger_id, challenged_id, locale=DEFAULT_LOCALE):
+class DuelInviteView(discord.ui.LayoutView):
+    def __init__(self, panel, challenger_id, challenged_id, locale=DEFAULT_LOCALE):
         super().__init__(timeout=30)
         self.challenger_id     = challenger_id
         self.challenged_id     = challenged_id
         self.accepted          = None
         self.accept_interaction = None
         self.locale            = locale
+        self.add_item(panel.container())
 
         accept = discord.ui.Button(label=t("duel.invite.accept", locale),
                                    style=discord.ButtonStyle.success)
@@ -418,7 +433,6 @@ class DuelInviteView(discord.ui.View):
             self.stop()
             await interaction.response.defer(ephemeral=True)
         accept.callback = on_accept
-        self.add_item(accept)
 
         decline = discord.ui.Button(label=t("duel.invite.decline", locale),
                                     style=discord.ButtonStyle.danger)
@@ -427,7 +441,8 @@ class DuelInviteView(discord.ui.View):
             self.stop()
             await interaction.response.defer()
         decline.callback = on_decline
-        self.add_item(decline)
+
+        self.add_item(row(accept, decline))
 
     async def interaction_check(self, interaction):
         if interaction.user.id != self.challenged_id:
@@ -532,15 +547,14 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
 
     nerf_label = t("duel.fight.nerf_tag", locale) if nerf else ""
 
-    dice_embed = discord.Embed(
-        title=t("duel.fight.dice_title", locale),
-        description=t("duel.fight.dice_desc", locale,
-                      player1=joueur1.display_name, emoji1=sabre1["emoji"],
-                      player2=joueur2.display_name, emoji2=sabre2["emoji"]),
-        color=0xFFD700,
+    dice_panel = Panel(
+        t("duel.fight.dice_title", locale),
+        t("duel.fight.dice_desc", locale,
+          player1=joueur1.display_name, emoji1=sabre1["emoji"],
+          player2=joueur2.display_name, emoji2=sabre2["emoji"]),
     )
     # One single main message, edited on every phase (dice -> start -> turns)
-    msg = await channel.send(embed=dice_embed)
+    msg = await channel.send(view=dice_panel.view())
     await asyncio.sleep(1.5)
 
     while True:
@@ -554,31 +568,30 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         ordre   = [(joueur2, stats2, sabre2), (joueur1, stats1, sabre1)]
         premier_obj = joueur2
 
-    dice_result = discord.Embed(
-        title=t("duel.fight.initiative_title", locale),
-        description=t("duel.fight.initiative_desc", locale,
-                      player1=joueur1.display_name, dice1=de1,
-                      player2=joueur2.display_name, dice2=de2,
-                      first=premier_obj.display_name),
-        color=0x00FF88,
+    dice_result = Panel(
+        t("duel.fight.initiative_title", locale),
+        t("duel.fight.initiative_desc", locale,
+          player1=joueur1.display_name, dice1=de1,
+          player2=joueur2.display_name, dice2=de2,
+          first=premier_obj.display_name),
     )
-    await msg.edit(embed=dice_result)
+    await msg.edit(view=dice_result.view())
     await asyncio.sleep(2.5)
 
-    embed_debut = discord.Embed(
-        title=t("duel.fight.start_title", locale, nerf=nerf_label),
-        description=(
+    panel_debut = Panel(
+        t("duel.fight.start_title", locale, nerf=nerf_label),
+        (
             t("duel.fight.start_desc", locale,
               mention1=joueur1.mention, emoji1=sabre1["emoji"], saber1=sabre_nom(sabre1, locale),
               mention2=joueur2.mention, emoji2=sabre2["emoji"], saber2=sabre_nom(sabre2, locale),
               first=premier_obj.display_name)
             + (t("duel.fight.start_nerf_note", locale) if nerf else "")
         ),
-        color=0x00AAFF if nerf else 0xFF0000,
     )
-    embed_debut.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
-    embed_debut.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-    await msg.edit(embed=embed_debut)
+    panel_debut.field(f"❤️ {joueur1.display_name}", barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+    panel_debut.field(f"❤️ {joueur2.display_name}", barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+    # V2 text really pings; the embed description did not, so keep it silent.
+    await msg.edit(view=panel_debut.view(), allowed_mentions=discord.AllowedMentions.none())
     await asyncio.sleep(2)
 
     tour         = 1
@@ -604,18 +617,14 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             if stats1["hp"] <= 0 or stats2["hp"] <= 0:
                 break
 
-            resume = discord.Embed(
-                title=t("duel.fight.resume_title", locale),
-                description=mini_desc,
-                color=0xFF4444,
-            )
-            resume.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
-            resume.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-            resume.set_footer(text=t("duel.fight.resume_footer", locale))
+            resume = Panel(t("duel.fight.resume_title", locale), mini_desc)
+            resume.field(f"❤️ {joueur1.display_name}", barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+            resume.field(f"❤️ {joueur2.display_name}", barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+            resume.footer(t("duel.fight.resume_footer", locale))
 
             event_next = asyncio.Event()
-            view_next  = NextTurnView(joueur1, joueur2, event_next, tour, locale=locale)
-            await msg.edit(embed=resume, view=view_next)
+            view_next  = NextTurnView(resume, joueur1, joueur2, event_next, tour, locale=locale)
+            await msg.edit(view=view_next, attachments=[])
             try:
                 await asyncio.wait_for(event_next.wait(), timeout=120)
             except asyncio.TimeoutError:
@@ -631,30 +640,26 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
         choix_state        = {}
         choix_interactions = {}
         event_p1    = asyncio.Event()
-        view_p1     = TourView(joueur_p1, stats_p1, event_p1, choix_state, tour,
-                               choix_interactions=choix_interactions, locale=locale)
-        await msg.edit(
-            embed=make_tour_embed(
-                tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2,
-                phase=1, phase_actif=joueur_p1, phase_attente=joueur_p2, locale=locale,
-            ),
-            view=view_p1,
+        panel_p1    = make_tour_panel(
+            tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2,
+            phase=1, phase_actif=joueur_p1, phase_attente=joueur_p2, locale=locale,
         )
+        view_p1     = TourView(panel_p1, joueur_p1, stats_p1, event_p1, choix_state, tour,
+                               choix_interactions=choix_interactions, locale=locale)
+        await msg.edit(view=view_p1, attachments=[])
         try:
             await asyncio.wait_for(event_p1.wait(), timeout=30)
         except asyncio.TimeoutError:
             choix_state[joueur_p1.id] = "attaque"
 
         event_p2 = asyncio.Event()
-        view_p2  = TourView(joueur_p2, stats_p2, event_p2, choix_state, tour,
-                            choix_interactions=choix_interactions, locale=locale)
-        await msg.edit(
-            embed=make_tour_embed(
-                tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2,
-                phase=2, phase_actif=joueur_p2, phase_attente=joueur_p1, locale=locale,
-            ),
-            view=view_p2,
+        panel_p2 = make_tour_panel(
+            tour, joueur1, stats1, sabre1, joueur2, stats2, sabre2,
+            phase=2, phase_actif=joueur_p2, phase_attente=joueur_p1, locale=locale,
         )
+        view_p2  = TourView(panel_p2, joueur_p2, stats_p2, event_p2, choix_state, tour,
+                            choix_interactions=choix_interactions, locale=locale)
+        await msg.edit(view=view_p2, attachments=[])
         try:
             await asyncio.wait_for(event_p2.wait(), timeout=30)
         except asyncio.TimeoutError:
@@ -753,13 +758,9 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             if stats.get("malus_attaque_tours", 0) > 0:
                 stats["malus_attaque_tours"] -= 1
 
-        embed_result = discord.Embed(
-            title=t("duel.turn.result_title", locale, turn=tour),
-            description=desc_result,
-            color=0xFF4444,
-        )
-        embed_result.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
-        embed_result.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+        panel_result = Panel(t("duel.turn.result_title", locale, turn=tour), desc_result)
+        panel_result.field(f"❤️ {joueur1.display_name}", barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+        panel_result.field(f"❤️ {joueur2.display_name}", barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
 
         historique.append(
             t("duel.fight.log_entry", locale, turn=tour, recap=desc_result,
@@ -769,16 +770,16 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
 
         # If the fight is over we skip the button and let the loop exit
         if stats1["hp"] <= 0 or stats2["hp"] <= 0 or tour >= MAX_TOURS:
-            await msg.edit(embed=embed_result, view=None)
+            await msg.edit(view=panel_result.view(), attachments=[])
             await asyncio.sleep(1)
             tour += 1
             continue
 
         # "Next turn" button - either duelist can click to move on
-        embed_result.set_footer(text=t("duel.turn.result_footer", locale))
+        panel_result.footer(t("duel.turn.result_footer", locale))
         event_next = asyncio.Event()
-        view_next  = NextTurnView(joueur1, joueur2, event_next, tour, locale=locale)
-        await msg.edit(embed=embed_result, view=view_next)
+        view_next  = NextTurnView(panel_result, joueur1, joueur2, event_next, tour, locale=locale)
+        await msg.edit(view=view_next, attachments=[])
         try:
             await asyncio.wait_for(event_next.wait(), timeout=120)
         except asyncio.TimeoutError:
@@ -830,84 +831,89 @@ async def lancer_combat(challenger_interaction, accept_interaction, joueur1, jou
             desc_fin += t("duel.fight.level_up", locale,
                           player=perdant.display_name, level=new_lvl_p)
 
-    embed_fin = discord.Embed(title=t("duel.fight.end_title", locale),
-                              description=desc_fin, color=0xFFD700)
-    embed_fin.add_field(name=f"❤️ {joueur1.display_name}", value=barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
-    embed_fin.add_field(name=f"❤️ {joueur2.display_name}", value=barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
-    await msg.edit(embed=embed_fin, view=HistoriqueView(historique, locale))
+    panel_fin = Panel(t("duel.fight.end_title", locale), desc_fin)
+    panel_fin.field(f"❤️ {joueur1.display_name}", barre_hp(stats1["hp"], stats1["hp_max"]), inline=False)
+    panel_fin.field(f"❤️ {joueur2.display_name}", barre_hp(stats2["hp"], stats2["hp_max"]), inline=False)
+    await msg.edit(view=HistoriqueView(panel_fin, historique, locale), attachments=[])
 
 
-def _build_duel_info_embeds(locale=DEFAULT_LOCALE):
-    overview = discord.Embed(
-        title=t("duel.info.overview_title", locale),
-        description=t("duel.info.overview_desc", locale),
-        color=0xFFD700,
+def _build_duel_info_panels(locale=DEFAULT_LOCALE):
+    overview = Panel(
+        t("duel.info.overview_title", locale),
+        t("duel.info.overview_desc", locale),
     )
-    overview.add_field(
-        name=t("duel.info.philosophy_title", locale),
-        value=t("duel.info.philosophy_value", locale),
+    overview.field(
+        t("duel.info.philosophy_title", locale),
+        t("duel.info.philosophy_value", locale),
         inline=False,
     )
-    overview.add_field(
-        name=t("duel.info.progression_title", locale),
-        value=t("duel.info.progression_value", locale),
+    overview.field(
+        t("duel.info.progression_title", locale),
+        t("duel.info.progression_value", locale),
         inline=False,
     )
 
-    actions = discord.Embed(
-        title=t("duel.info.actions_title", locale),
-        description=t("duel.info.actions_desc", locale),
-        color=0x00AAFF,
+    actions = Panel(
+        t("duel.info.actions_title", locale),
+        t("duel.info.actions_desc", locale),
     )
-    actions.add_field(
-        name=t("duel.info.attack_title", locale),
-        value=t("duel.info.attack_value", locale),
+    actions.field(
+        t("duel.info.attack_title", locale),
+        t("duel.info.attack_value", locale),
         inline=False,
     )
-    actions.add_field(
-        name=t("duel.info.parry_title", locale),
-        value=t("duel.info.parry_value", locale),
+    actions.field(
+        t("duel.info.parry_title", locale),
+        t("duel.info.parry_value", locale),
         inline=False,
     )
-    actions.add_field(
-        name=t("duel.info.defense_title", locale),
-        value=t("duel.info.defense_value", locale),
+    actions.field(
+        t("duel.info.defense_title", locale),
+        t("duel.info.defense_value", locale),
         inline=False,
     )
-    actions.add_field(
-        name=t("duel.info.special_defense_title", locale),
-        value=t("duel.info.special_defense_value", locale),
+    actions.field(
+        t("duel.info.special_defense_title", locale),
+        t("duel.info.special_defense_value", locale),
         inline=False,
     )
-    actions.add_field(
-        name=t("duel.info.low_blow_title", locale),
-        value=t("duel.info.low_blow_value", locale),
+    actions.field(
+        t("duel.info.low_blow_title", locale),
+        t("duel.info.low_blow_value", locale),
         inline=False,
     )
-    actions.add_field(
-        name=t("duel.info.special_title", locale),
-        value=t("duel.info.special_value", locale),
+    actions.field(
+        t("duel.info.special_title", locale),
+        t("duel.info.special_value", locale),
         inline=False,
     )
 
-    bonuses = discord.Embed(
-        title=t("duel.info.bonuses_title", locale),
-        description=t("duel.info.bonuses_desc", locale),
-        color=0x9B59B6,
+    bonuses = Panel(
+        t("duel.info.bonuses_title", locale),
+        t("duel.info.bonuses_desc", locale),
     )
-    bonuses.add_field(
-        name=t("duel.info.rewards_title", locale),
-        value=t("duel.info.rewards_value", locale),
+    bonuses.field(
+        t("duel.info.rewards_title", locale),
+        t("duel.info.rewards_value", locale),
         inline=False,
     )
-    bonuses.add_field(
-        name=t("duel.info.why_luck_title", locale),
-        value=t("duel.info.why_luck_value", locale),
+    bonuses.field(
+        t("duel.info.why_luck_title", locale),
+        t("duel.info.why_luck_value", locale),
         inline=False,
     )
-    bonuses.set_footer(text=t("duel.info.footer", locale))
+    bonuses.footer(t("duel.info.footer", locale))
 
     return [overview, actions, bonuses]
+
+
+def _build_duel_info_view(locale=DEFAULT_LOCALE) -> discord.ui.LayoutView:
+    """The 3 guide sections used to be 3 embeds in one DM; V2 stacks them as
+    3 containers inside a single LayoutView."""
+    v = discord.ui.LayoutView(timeout=None)
+    for p in _build_duel_info_panels(locale):
+        v.add_item(p.container())
+    return v
 
 
 def setup_duel_commands(bot, db):
@@ -935,10 +941,9 @@ def setup_duel_commands(bot, db):
         sabre1    = get_sabre(sabre1_id)
         sabre2    = get_sabre(sabre2_id)
 
-        view  = DuelInviteView(interaction.user.id, opponent.id, locale)
-        embed = discord.Embed(
-            title=t("duel.invite.title", locale) + (t("duel.fight.nerf_tag", locale) if nerf else ""),
-            description=(
+        panel = Panel(
+            t("duel.invite.title", locale) + (t("duel.fight.nerf_tag", locale) if nerf else ""),
+            (
                 t("duel.invite.desc", locale,
                   challenger=interaction.user.mention, opponent=opponent.mention,
                   challenger_name=interaction.user.display_name,
@@ -951,10 +956,12 @@ def setup_duel_commands(bot, db):
                   rarity2=rarete_label(sabre2["rarete"], locale))
                 + (t("duel.invite.nerf_note", locale) if nerf else "")
             ),
-            color=0x00AAFF if nerf else 0xFF0000,
         )
-        embed.set_footer(text=t("duel.invite.footer", locale, player=opponent.display_name))
-        await interaction.response.send_message(embed=embed, view=view)
+        panel.footer(t("duel.invite.footer", locale, player=opponent.display_name))
+        view = DuelInviteView(panel, interaction.user.id, opponent.id, locale)
+        # V2 text really pings; the embed description did not, so keep it silent.
+        await interaction.response.send_message(
+            view=view, allowed_mentions=discord.AllowedMentions.none())
         await view.wait()
 
         if view.accepted is None:
@@ -977,7 +984,7 @@ def setup_duel_commands(bot, db):
     async def duel_info(interaction: discord.Interaction):
         locale = locale_of(interaction)
         try:
-            await interaction.user.send(embeds=_build_duel_info_embeds(locale))
+            await interaction.user.send(view=_build_duel_info_view(locale))
         except discord.Forbidden:
             await interaction.response.send_message(
                 t("duel.info.dm_forbidden", locale), ephemeral=True)
@@ -1012,32 +1019,31 @@ def setup_duel_commands(bot, db):
         pass_title   = cosmetic.get("title")
         display_name = f"{emoji_prefix} {member.display_name}".strip()
 
-        embed = discord.Embed(title=t("duel.profile.title", locale, name=display_name),
-                              color=discord.Color.red())
-        embed.set_thumbnail(url=member.display_avatar.url)
+        p = Panel(t("duel.profile.title", locale, name=display_name))
+        p.thumbnail(member.display_avatar.url)
         if pass_title:
-            embed.description = t("duel.profile.pass_title", locale, title=pass_title)
+            p.text(t("duel.profile.pass_title", locale, title=pass_title))
 
         # Base stats
-        embed.add_field(name=t("duel.profile.tookcoins", locale),
-                        value=f"**{profil_data['tookcoins']}** 🪙", inline=True)
-        embed.add_field(name=t("duel.profile.wins", locale),
-                        value=f"**{profil_data['victoires']}**", inline=True)
-        embed.add_field(name=t("duel.profile.losses", locale),
-                        value=f"**{profil_data['defaites']}**", inline=True)
-        embed.add_field(name=t("duel.profile.ratio", locale), value=ratio, inline=True)
-        embed.add_field(
-            name=t("duel.profile.equipped_saber", locale),
-            value=t("duel.profile.equipped_value", locale,
-                    emoji=sabre["emoji"], name=sabre_nom(sabre, locale),
-                    rarity_emoji=rarete_emoji(sabre["rarete"]),
-                    rarity=rarete_label(sabre["rarete"], locale)),
+        p.field(t("duel.profile.tookcoins", locale),
+                f"**{profil_data['tookcoins']}** 🪙", inline=True)
+        p.field(t("duel.profile.wins", locale),
+                f"**{profil_data['victoires']}**", inline=True)
+        p.field(t("duel.profile.losses", locale),
+                f"**{profil_data['defaites']}**", inline=True)
+        p.field(t("duel.profile.ratio", locale), ratio, inline=True)
+        p.field(
+            t("duel.profile.equipped_saber", locale),
+            t("duel.profile.equipped_value", locale,
+              emoji=sabre["emoji"], name=sabre_nom(sabre, locale),
+              rarity_emoji=rarete_emoji(sabre["rarete"]),
+              rarity=rarete_label(sabre["rarete"], locale)),
             inline=True,
         )
-        embed.add_field(name=t("duel.profile.collection", locale),
-                        value=t("duel.profile.collection_value", locale,
-                                count=len(profil_data["sabres"])),
-                        inline=True)
+        p.field(t("duel.profile.collection", locale),
+                t("duel.profile.collection_value", locale,
+                  count=len(profil_data["sabres"])),
+                inline=True)
 
         # Combat level
         if xp_needed > 0:
@@ -1050,9 +1056,9 @@ def setup_duel_commands(bot, db):
 
         pts_txt = (t("duel.profile.points_to_spend", locale, points=stat_points)
                    if stat_points > 0 else "")
-        embed.add_field(
-            name=t("duel.profile.combat_level", locale, level=clvl, points=pts_txt),
-            value=xp_txt,
+        p.field(
+            t("duel.profile.combat_level", locale, level=clvl, points=pts_txt),
+            xp_txt,
             inline=False,
         )
 
@@ -1068,9 +1074,9 @@ def setup_duel_commands(bot, db):
                       defense=sd, def_bonus=sd * 3,
                       endurance=se, hp=se * 25,
                       luck=sc, crit=sc * 5)
-        embed.add_field(name=t("duel.profile.stats_title", locale), value=stats_txt, inline=False)
+        p.field(t("duel.profile.stats_title", locale), stats_txt, inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="statpoint", description="Spend a stat point earned by gaining combat levels")
     @app_commands.describe(stat="The stat to upgrade")
@@ -1109,14 +1115,13 @@ def setup_duel_commands(bot, db):
             "endurance": t("duel.statpoint.effect_endurance", locale),
             "chance":    t("duel.statpoint.effect_chance", locale),
         }
-        embed = discord.Embed(
-            title=t("duel.statpoint.title", locale),
-            description=t("duel.statpoint.desc", locale,
-                          stat=stat_labels[stat], effect=stat_effects[stat],
-                          remaining=points - 1),
-            color=0x00FF88,
+        p = Panel(
+            t("duel.statpoint.title", locale),
+            t("duel.statpoint.desc", locale,
+              stat=stat_labels[stat], effect=stat_effects[stat],
+              remaining=points - 1),
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="collection", description="View your saber collection")
     @app_commands.describe(member="The member whose collection you want to see")
@@ -1127,8 +1132,6 @@ def setup_duel_commands(bot, db):
         sabres      = profil_data.get("sabres", ["bleu"])
         sabre_equipe = profil_data.get("sabre_equipe", "bleu")
 
-        embed = discord.Embed(title=t("duel.collection.title", locale, name=member.display_name),
-                              color=discord.Color.blue())
         description = ""
         for sabre_id in sabres:
             sabre = get_sabre(sabre_id)
@@ -1141,8 +1144,9 @@ def setup_duel_commands(bot, db):
                              rarity_emoji=rarete_emoji(sabre["rarete"]),
                              rarity=rarete_label(sabre["rarete"], locale),
                              equipped=equipe) + "\n"
-        embed.description = description or t("duel.collection.empty", locale)
-        await interaction.response.send_message(embed=embed)
+        p = Panel(t("duel.collection.title", locale, name=member.display_name),
+                  description or t("duel.collection.empty", locale))
+        await interaction.response.send_message(view=p.view())
 
     @bot.tree.command(name="history", description="View your latest duels")
     @app_commands.describe(member="The member whose history you want to see")
@@ -1154,8 +1158,6 @@ def setup_duel_commands(bot, db):
             await interaction.response.send_message(
                 t("duel.history.empty", locale, member=member.display_name), ephemeral=True)
             return
-        embed = discord.Embed(title=t("duel.history.title", locale, name=member.display_name),
-                              color=discord.Color.blurple())
         description = ""
         for duel in duels:
             gagne       = str(duel["gagnant_id"]) == str(member.id)
@@ -1170,8 +1172,8 @@ def setup_duel_commands(bot, db):
             coins       = duel["tookcoins_gagnant"] if gagne else duel["tookcoins_perdant"]
             description += t("duel.history.line", locale, result=result,
                              opponent=adversaire_nom, coins=coins, date=duel["date"][:10])
-        embed.description = description
-        await interaction.response.send_message(embed=embed)
+        p = Panel(t("duel.history.title", locale, name=member.display_name), description)
+        await interaction.response.send_message(view=p.view())
 
     RARETE_ORDER = ["C", "UC", "R", "SR", "SSR"]
     SEPARATOR    = "─" * 30
@@ -1196,35 +1198,33 @@ def setup_duel_commands(bot, db):
         return False, t("duel.saber.seasonal_locked", locale,
                         rarity=rarete_label(rarete, locale))
 
-    def _build_equipped_embed(profil_data, locale=DEFAULT_LOCALE):
+    def _build_equipped_panel(profil_data, locale=DEFAULT_LOCALE):
         sabre_id   = profil_data.get("sabre_equipe", "bleu")
         sabre      = get_sabre(sabre_id)
         inventaire = profil_data.get("sabres", ["bleu"])
         coins      = profil_data.get("tookcoins", 0)
-        embed = discord.Embed(
-            title=f"{sabre['emoji']} {sabre_nom(sabre, locale)}",
-            description=sabre_description(sabre, locale),
-            color=0x00BFFF,
+        p = Panel(
+            f"{sabre['emoji']} {sabre_nom(sabre, locale)}",
+            sabre_description(sabre, locale),
         )
-        embed.add_field(name=t("duel.saber.rarity_field", locale),
-                        value=f"{rarete_emoji(sabre['rarete'])} {rarete_label(sabre['rarete'], locale)}",
-                        inline=True)
-        embed.add_field(name=t("duel.saber.tookcoins_field", locale),
-                        value=f"🪙 {coins}", inline=True)
-        embed.add_field(name=t("duel.saber.owned_field", locale),
-                        value=t("duel.saber.owned_value", locale, count=len(inventaire)),
-                        inline=True)
-        embed.add_field(
-            name=t("duel.saber.special_field", locale),
-            value=t("duel.saber.special_value", locale,
-                    name=sabre_speciale_nom(sabre, locale),
-                    description=sabre_speciale_description(sabre, locale)),
+        p.field(t("duel.saber.rarity_field", locale),
+                f"{rarete_emoji(sabre['rarete'])} {rarete_label(sabre['rarete'], locale)}",
+                inline=True)
+        p.field(t("duel.saber.tookcoins_field", locale), f"🪙 {coins}", inline=True)
+        p.field(t("duel.saber.owned_field", locale),
+                t("duel.saber.owned_value", locale, count=len(inventaire)),
+                inline=True)
+        p.field(
+            t("duel.saber.special_field", locale),
+            t("duel.saber.special_value", locale,
+              name=sabre_speciale_nom(sabre, locale),
+              description=sabre_speciale_description(sabre, locale)),
             inline=False,
         )
-        embed.set_footer(text=t("duel.saber.equipped_footer", locale))
-        return embed
+        p.footer(t("duel.saber.equipped_footer", locale))
+        return p
 
-    def _build_collection_embed(profil_data, member_name, locale=DEFAULT_LOCALE):
+    def _build_collection_panel(profil_data, member_name, locale=DEFAULT_LOCALE):
         sabres_ids   = profil_data.get("sabres", ["bleu"])
         sabre_equipe = profil_data.get("sabre_equipe", "bleu")
 
@@ -1292,19 +1292,20 @@ def setup_duel_commands(bot, db):
             parts.append("")
             parts.append(t("duel.saber.collection_empty", locale))
 
+        # V2 budgets a whole message at 4000 displayed chars, shared with the
+        # title, the footer and the "just equipped" notice line.
         description = "\n".join(parts)
-        if len(description) > 4000:
-            description = description[:3990] + "\n…"
+        if len(description) > 3500:
+            description = description[:3490] + "\n…"
 
-        embed = discord.Embed(
-            title=t("duel.saber.collection_title", locale, name=member_name),
-            description=description,
-            color=0x9B59B6,
+        p = Panel(
+            t("duel.saber.collection_title", locale, name=member_name),
+            description,
         )
-        embed.set_footer(text=t("duel.saber.collection_footer", locale))
-        return embed
+        p.footer(t("duel.saber.collection_footer", locale))
+        return p
 
-    def _build_shop_embed(profil_data, locale=DEFAULT_LOCALE):
+    def _build_shop_panel(profil_data, locale=DEFAULT_LOCALE):
         sabres      = get_tous_les_sabres()
         inventaire  = profil_data.get("sabres", ["bleu"])
         coins       = profil_data.get("tookcoins", 0)
@@ -1353,20 +1354,20 @@ def setup_duel_commands(bot, db):
                                emoji=spec_emoji, special=spec_nom, description=spec_desc))
                 parts.append("")  # blank line between sabers
 
-        # 4096 char limit (discord description)
+        # V2 budgets a whole message at 4000 displayed chars, shared with the
+        # title, the footer and the "just bought" notice line.
         description = "\n".join(parts)
-        if len(description) > 4000:
-            description = description[:3990] + "\n…"
+        if len(description) > 3500:
+            description = description[:3490] + "\n…"
 
-        embed = discord.Embed(
-            title=t("duel.saber.shop_title", locale),
-            description=description,
-            color=0x00BFFF,
+        p = Panel(
+            t("duel.saber.shop_title", locale),
+            description,
         )
-        embed.set_footer(text=t("duel.saber.shop_footer", locale))
-        return embed
+        p.footer(t("duel.saber.shop_footer", locale))
+        return p
 
-    class SabreMenuView(discord.ui.View):
+    class SabreMenuView(discord.ui.LayoutView):
         """Unified interactive view: one message, 3 modes (equipped / collection / shop)."""
 
         def __init__(self, user_id, user_name, mode="equipped", locale=DEFAULT_LOCALE):
@@ -1384,43 +1385,52 @@ def setup_duel_commands(bot, db):
                 return False
             return True
 
-        def _rebuild(self):
+        def _rebuild(self, notice=None):
+            """Rebuild the whole LayoutView: panel container + nav row + select."""
             self.clear_items()
-            # Navigation buttons (row 0)
-            if self.mode != "equipped":
-                self.add_item(self._make_nav_btn(t("duel.saber.nav_equipped", self.locale),
-                                                 "equipped", discord.ButtonStyle.primary))
-            if self.mode != "collection":
-                self.add_item(self._make_nav_btn(t("duel.saber.nav_collection", self.locale),
-                                                 "collection", discord.ButtonStyle.secondary))
-            if self.mode != "shop":
-                self.add_item(self._make_nav_btn(t("duel.saber.nav_shop", self.locale),
-                                                 "shop", discord.ButtonStyle.success))
-
-            # Contextual selects (row 1+)
             profil_data = db.ensure_profil(self.user_id, self.user_name)
+
+            # What used to be `content=` above the embed sits on top of the container.
+            if notice:
+                self.add_item(discord.ui.TextDisplay(notice))
+
+            if self.mode == "equipped":
+                panel = _build_equipped_panel(profil_data, self.locale)
+            elif self.mode == "collection":
+                panel = _build_collection_panel(profil_data, self.user_name, self.locale)
+            else:
+                panel = _build_shop_panel(profil_data, self.locale)
+            self.add_item(panel.container())
+
+            # Navigation buttons (first row)
+            nav = discord.ui.ActionRow()
+            if self.mode != "equipped":
+                nav.add_item(self._make_nav_btn(t("duel.saber.nav_equipped", self.locale),
+                                                "equipped", discord.ButtonStyle.primary))
+            if self.mode != "collection":
+                nav.add_item(self._make_nav_btn(t("duel.saber.nav_collection", self.locale),
+                                                "collection", discord.ButtonStyle.secondary))
+            if self.mode != "shop":
+                nav.add_item(self._make_nav_btn(t("duel.saber.nav_shop", self.locale),
+                                                "shop", discord.ButtonStyle.success))
+            self.add_item(nav)
+
+            # Contextual selects (own row)
             if self.mode == "collection":
                 sel = self._make_equip_select(profil_data)
                 if sel:
-                    self.add_item(sel)
+                    self.add_item(row(sel))
             elif self.mode == "shop":
                 sel = self._make_buy_select(profil_data)
                 if sel:
-                    self.add_item(sel)
+                    self.add_item(row(sel))
 
         def _make_nav_btn(self, label, mode, style):
-            btn = discord.ui.Button(label=label, style=style, row=0)
+            btn = discord.ui.Button(label=label, style=style)
             async def cb(interaction: discord.Interaction):
                 self.mode = mode
                 self._rebuild()
-                profil_data = db.ensure_profil(self.user_id, self.user_name)
-                if mode == "equipped":
-                    embed = _build_equipped_embed(profil_data, self.locale)
-                elif mode == "collection":
-                    embed = _build_collection_embed(profil_data, self.user_name, self.locale)
-                else:
-                    embed = _build_shop_embed(profil_data, self.locale)
-                await interaction.response.edit_message(embed=embed, view=self)
+                await interaction.response.edit_message(view=self)
             btn.callback = cb
             return btn
 
@@ -1452,7 +1462,6 @@ def setup_duel_commands(bot, db):
             sel = discord.ui.Select(
                 placeholder=t("duel.saber.equip_placeholder", self.locale),
                 options=options[:25],
-                row=1,
             )
             async def cb(interaction: discord.Interaction):
                 sid = sel.values[0]
@@ -1464,14 +1473,10 @@ def setup_duel_commands(bot, db):
                     await interaction.response.send_message(err, ephemeral=True)
                     return
                 db.update_profil(self.user_id, {"sabre_equipe": sid})
-                self._rebuild()
-                profil_data = db.ensure_profil(self.user_id, self.user_name)
-                embed = _build_collection_embed(profil_data, self.user_name, self.locale)
-                await interaction.response.edit_message(
-                    content=t("duel.saber.equipped_confirm", self.locale,
-                              emoji=sabre["emoji"], name=sabre_nom(sabre, self.locale)),
-                    embed=embed, view=self,
-                )
+                self._rebuild(notice=t("duel.saber.equipped_confirm", self.locale,
+                                       emoji=sabre["emoji"],
+                                       name=sabre_nom(sabre, self.locale)))
+                await interaction.response.edit_message(view=self)
             sel.callback = cb
             return sel
 
@@ -1502,7 +1507,6 @@ def setup_duel_commands(bot, db):
             sel = discord.ui.Select(
                 placeholder=t("duel.saber.buy_placeholder", self.locale),
                 options=options[:25],
-                row=1,
             )
             async def cb(interaction: discord.Interaction):
                 sid = sel.values[0]
@@ -1528,24 +1532,18 @@ def setup_duel_commands(bot, db):
                 db.add_tookcoins(self.user_id, -sabre["prix"])
                 db.update_profil(self.user_id, {"sabres": inventaire + [sid]})
                 # Refresh shop view
-                self._rebuild()
-                profil_data = db.ensure_profil(self.user_id, self.user_name)
-                embed = _build_shop_embed(profil_data, self.locale)
-                await interaction.response.edit_message(
-                    content=t("duel.saber.bought", self.locale,
-                              name=sabre_nom(sabre, self.locale), emoji=sabre["emoji"],
-                              special=sabre_speciale_nom(sabre, self.locale),
-                              description=sabre_speciale_description(sabre, self.locale)),
-                    embed=embed, view=self,
-                )
+                self._rebuild(notice=t("duel.saber.bought", self.locale,
+                                       name=sabre_nom(sabre, self.locale),
+                                       emoji=sabre["emoji"],
+                                       special=sabre_speciale_nom(sabre, self.locale),
+                                       description=sabre_speciale_description(sabre, self.locale)))
+                await interaction.response.edit_message(view=self)
             sel.callback = cb
             return sel
 
     @bot.tree.command(name="saber", description="Open the saber menu (equipped, collection, shop)")
     async def saber_menu(interaction: discord.Interaction):
-        locale      = locale_of(interaction)
-        profil_data = db.ensure_profil(interaction.user.id, interaction.user.name)
-        embed = _build_equipped_embed(profil_data, locale)
-        view  = SabreMenuView(interaction.user.id, interaction.user.name,
-                              mode="equipped", locale=locale)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        locale = locale_of(interaction)
+        view   = SabreMenuView(interaction.user.id, interaction.user.name,
+                               mode="equipped", locale=locale)
+        await interaction.response.send_message(view=view, ephemeral=True)

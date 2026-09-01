@@ -3,6 +3,7 @@ import discord
 import asyncio
 import random
 from services.i18n import DEFAULT_LOCALE, t
+from services.ui_v2 import Panel, row
 from duel.combat import barre_hp
 
 
@@ -45,8 +46,11 @@ def _pfc_label(nom, locale=DEFAULT_LOCALE):
     return t(f"duel.minigames.rps.{nom}", locale)
 
 
-def _make_pfc_view(joueur_actif, event, choix_dict, locale=DEFAULT_LOCALE):
-    view = discord.ui.View(timeout=20)
+def _make_pfc_view(panel, joueur_actif, event, choix_dict, locale=DEFAULT_LOCALE):
+    view = discord.ui.LayoutView(timeout=20)
+    view.add_item(panel.container())
+    ar      = discord.ui.ActionRow()
+    buttons = []
     for nom in PFC_EMOJIS:
         emoji = PFC_EMOJIS[nom]
         btn = discord.ui.Button(
@@ -62,30 +66,34 @@ def _make_pfc_view(joueur_actif, event, choix_dict, locale=DEFAULT_LOCALE):
                 await interaction.response.defer()
                 return
             choix_dict[joueur_actif.id] = n
-            for child in view.children:
+            for child in buttons:
                 child.disabled = True
             await interaction.response.defer()
             event.set()
         btn.callback = cb
-        view.add_item(btn)
+        ar.add_item(btn)
+        buttons.append(btn)
+    view.add_item(ar)
     return view
 
 async def pfc(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     choix_dict = {}
 
-    base_embed = discord.Embed(
-        title=t("duel.minigames.rps.title", locale),
-        description=t("duel.minigames.rps.desc", locale),
-        color=0x00FF88,
-    )
-    base_embed.add_field(name=f"❤️ {j1.display_name}", value=barre_hp(s1["hp"], s1["hp_max"]), inline=True)
-    base_embed.add_field(name=f"❤️ {j2.display_name}", value=barre_hp(s2["hp"], s2["hp_max"]), inline=True)
+    def _base_panel():
+        """Fresh copy of the shared header (was a re-hydrated embed dict)."""
+        p = Panel(
+            t("duel.minigames.rps.title", locale),
+            t("duel.minigames.rps.desc", locale),
+        )
+        p.field(f"❤️ {j1.display_name}", barre_hp(s1["hp"], s1["hp_max"]), inline=True)
+        p.field(f"❤️ {j2.display_name}", barre_hp(s2["hp"], s2["hp_max"]), inline=True)
+        return p
 
     # Player 1 picks
     ev1 = asyncio.Event()
-    e1  = discord.Embed.from_dict({**base_embed.to_dict()})
-    e1.set_footer(text=t("duel.minigames.waiting_first", locale, player=j1.display_name))
-    await msg.edit(embed=e1, view=_make_pfc_view(j1, ev1, choix_dict, locale))
+    p1  = _base_panel()
+    p1.footer(t("duel.minigames.waiting_first", locale, player=j1.display_name))
+    await msg.edit(view=_make_pfc_view(p1, j1, ev1, choix_dict, locale))
     try:
         await asyncio.wait_for(ev1.wait(), timeout=20)
     except asyncio.TimeoutError:
@@ -93,10 +101,10 @@ async def pfc(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
 
     # Player 2 picks
     ev2 = asyncio.Event()
-    e2  = discord.Embed.from_dict({**base_embed.to_dict()})
-    e2.set_footer(text=t("duel.minigames.waiting_second", locale,
-                         player1=j1.display_name, player2=j2.display_name))
-    await msg.edit(embed=e2, view=_make_pfc_view(j2, ev2, choix_dict, locale))
+    p2  = _base_panel()
+    p2.footer(t("duel.minigames.waiting_second", locale,
+                player1=j1.display_name, player2=j2.display_name))
+    await msg.edit(view=_make_pfc_view(p2, j2, ev2, choix_dict, locale))
     try:
         await asyncio.wait_for(ev2.wait(), timeout=20)
     except asyncio.TimeoutError:
@@ -115,14 +123,13 @@ async def pfc(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
         reward     = appliquer_recompense(s2, "hp_80", locale)
         result_txt = t("duel.minigames.winner", locale, player=j2.display_name, reward=reward)
 
-    result_embed = discord.Embed(
-        title=t("duel.minigames.rps.result_title", locale,
-                player1=j1.display_name, choice1=e1_label,
-                player2=j2.display_name, choice2=e2_label),
-        description=result_txt,
-        color=0x00FF88,
+    result_panel = Panel(
+        t("duel.minigames.rps.result_title", locale,
+          player1=j1.display_name, choice1=e1_label,
+          player2=j2.display_name, choice2=e2_label),
+        result_txt,
     )
-    await msg.edit(embed=result_embed, view=None)
+    await msg.edit(view=result_panel.view())
     await asyncio.sleep(3)
     return result_txt
 
@@ -131,12 +138,11 @@ async def reflexe(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     """Countdown, then the first click wins."""
     # Countdown
     for i in range(3, 0, -1):
-        embed = discord.Embed(
-            title=t("duel.minigames.reflex.title", locale),
-            description=t("duel.minigames.reflex.desc", locale, count=i),
-            color=0xFFFF00,
+        countdown = Panel(
+            t("duel.minigames.reflex.title", locale),
+            t("duel.minigames.reflex.desc", locale, count=i),
         )
-        await msg.edit(embed=embed, view=None)
+        await msg.edit(view=countdown.view())
         await asyncio.sleep(1)
 
     # Unpredictable random delay
@@ -145,7 +151,6 @@ async def reflexe(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     first = {"uid": None}
     ev    = asyncio.Event()
 
-    view = discord.ui.View(timeout=5)
     btn  = discord.ui.Button(label=t("duel.minigames.reflex.button", locale),
                              style=discord.ButtonStyle.success, custom_id="reflexe_frappe")
 
@@ -155,22 +160,20 @@ async def reflexe(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
             return
         if first["uid"] is None:
             first["uid"] = interaction.user.id
-            for child in view.children:
-                child.disabled = True
+            btn.disabled = True
             await interaction.response.defer()
             ev.set()
         else:
             await interaction.response.defer()
 
     btn.callback = cb
-    view.add_item(btn)
 
-    go_embed = discord.Embed(
-        title=t("duel.minigames.reflex.go_title", locale),
-        description=t("duel.minigames.reflex.go_desc", locale),
-        color=0x00FF00,
+    go_panel = Panel(
+        t("duel.minigames.reflex.go_title", locale),
+        t("duel.minigames.reflex.go_desc", locale),
     )
-    await msg.edit(embed=go_embed, view=view)
+    view = go_panel.view(row(btn), timeout=5)
+    await msg.edit(view=view)
 
     try:
         await asyncio.wait_for(ev.wait(), timeout=5)
@@ -185,21 +188,23 @@ async def reflexe(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     else:
         result_txt = t("duel.minigames.reflex.nobody", locale)
 
-    result_embed = discord.Embed(title=t("duel.minigames.reflex.result_title", locale),
-                                 description=result_txt, color=0x00FF00)
-    await msg.edit(embed=result_embed, view=None)
+    result_panel = Panel(t("duel.minigames.reflex.result_title", locale), result_txt)
+    await msg.edit(view=result_panel.view())
     await asyncio.sleep(3)
     return result_txt
 
 
-def _make_devinette_view(joueur_actif, event, choix_dict):
-    view = discord.ui.View(timeout=20)
+def _make_devinette_view(panel, joueur_actif, event, choix_dict):
+    view = discord.ui.LayoutView(timeout=20)
+    view.add_item(panel.container())
+    # 1-5 on the first ActionRow, 6-10 on the second (was row=0/1).
+    rows    = [discord.ui.ActionRow(), discord.ui.ActionRow()]
+    buttons = []
     for n in range(1, 11):
         btn = discord.ui.Button(
             label=str(n),
             style=discord.ButtonStyle.secondary,
             custom_id=f"dev_{joueur_actif.id}_{n}",
-            row=0 if n <= 5 else 1,
         )
         async def cb(interaction, num=n):
             if interaction.user.id != joueur_actif.id:
@@ -209,12 +214,15 @@ def _make_devinette_view(joueur_actif, event, choix_dict):
                 await interaction.response.defer()
                 return
             choix_dict[joueur_actif.id] = num
-            for child in view.children:
+            for child in buttons:
                 child.disabled = True
             await interaction.response.defer()
             event.set()
         btn.callback = cb
-        view.add_item(btn)
+        rows[0 if n <= 5 else 1].add_item(btn)
+        buttons.append(btn)
+    for r in rows:
+        view.add_item(r)
     return view
 
 async def devinette(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
@@ -225,21 +233,19 @@ async def devinette(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     base_desc = t("duel.minigames.guess.desc", locale)
 
     ev1    = asyncio.Event()
-    embed1 = discord.Embed(title=t("duel.minigames.guess.title", locale),
-                           description=base_desc, color=0x9B59B6)
-    embed1.set_footer(text=t("duel.minigames.waiting_first", locale, player=j1.display_name))
-    await msg.edit(embed=embed1, view=_make_devinette_view(j1, ev1, choix_dict))
+    panel1 = Panel(t("duel.minigames.guess.title", locale), base_desc)
+    panel1.footer(t("duel.minigames.waiting_first", locale, player=j1.display_name))
+    await msg.edit(view=_make_devinette_view(panel1, j1, ev1, choix_dict))
     try:
         await asyncio.wait_for(ev1.wait(), timeout=20)
     except asyncio.TimeoutError:
         choix_dict[j1.id] = random.randint(1, 10)
 
     ev2    = asyncio.Event()
-    embed2 = discord.Embed(title=t("duel.minigames.guess.title", locale),
-                           description=base_desc, color=0x9B59B6)
-    embed2.set_footer(text=t("duel.minigames.waiting_second", locale,
-                             player1=j1.display_name, player2=j2.display_name))
-    await msg.edit(embed=embed2, view=_make_devinette_view(j2, ev2, choix_dict))
+    panel2 = Panel(t("duel.minigames.guess.title", locale), base_desc)
+    panel2.footer(t("duel.minigames.waiting_second", locale,
+                    player1=j1.display_name, player2=j2.display_name))
+    await msg.edit(view=_make_devinette_view(panel2, j2, ev2, choix_dict))
     try:
         await asyncio.wait_for(ev2.wait(), timeout=20)
     except asyncio.TimeoutError:
@@ -261,9 +267,8 @@ async def devinette(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     else:
         result    += t("duel.minigames.guess.perfect_draw", locale)
 
-    result_embed = discord.Embed(title=t("duel.minigames.guess.result_title", locale),
-                                 description=result, color=0x9B59B6)
-    await msg.edit(embed=result_embed, view=None)
+    result_panel = Panel(t("duel.minigames.guess.result_title", locale), result)
+    await msg.edit(view=result_panel.view())
     await asyncio.sleep(3)
     return result
 
@@ -274,14 +279,11 @@ async def duel_des(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     ev1    = asyncio.Event()
     ev2    = asyncio.Event()
 
-    # View with two independent buttons (simultaneous)
-    view = discord.ui.View(timeout=25)
-
+    # Two independent buttons (simultaneous), one ActionRow each (was row=0/1)
     btn1 = discord.ui.Button(
         label=t("duel.minigames.dice.button", locale, player=j1.display_name),
         style=discord.ButtonStyle.primary,
         custom_id=f"des_{j1.id}",
-        row=0,
     )
     async def roll1(interaction):
         if interaction.user.id != j1.id or rolled["j1"] is not None:
@@ -294,13 +296,11 @@ async def duel_des(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
         await interaction.response.edit_message(view=view)
         ev1.set()
     btn1.callback = roll1
-    view.add_item(btn1)
 
     btn2 = discord.ui.Button(
         label=t("duel.minigames.dice.button", locale, player=j2.display_name),
         style=discord.ButtonStyle.danger,
         custom_id=f"des_{j2.id}",
-        row=1,
     )
     async def roll2(interaction):
         if interaction.user.id != j2.id or rolled["j2"] is not None:
@@ -313,16 +313,15 @@ async def duel_des(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
         await interaction.response.edit_message(view=view)
         ev2.set()
     btn2.callback = roll2
-    view.add_item(btn2)
 
-    embed = discord.Embed(
-        title=t("duel.minigames.dice.title", locale),
-        description=t("duel.minigames.dice.desc", locale),
-        color=0xE67E22,
+    panel = Panel(
+        t("duel.minigames.dice.title", locale),
+        t("duel.minigames.dice.desc", locale),
     )
-    embed.add_field(name=f"❤️ {j1.display_name}", value=barre_hp(s1["hp"], s1["hp_max"]), inline=True)
-    embed.add_field(name=f"❤️ {j2.display_name}", value=barre_hp(s2["hp"], s2["hp_max"]), inline=True)
-    await msg.edit(embed=embed, view=view)
+    panel.field(f"❤️ {j1.display_name}", barre_hp(s1["hp"], s1["hp_max"]), inline=True)
+    panel.field(f"❤️ {j2.display_name}", barre_hp(s2["hp"], s2["hp_max"]), inline=True)
+    view = panel.view(row(btn1), row(btn2), timeout=25)
+    await msg.edit(view=view)
 
     try:
         await asyncio.wait_for(asyncio.gather(ev1.wait(), ev2.wait()), timeout=25)
@@ -348,9 +347,8 @@ async def duel_des(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     else:
         result += t("duel.minigames.draw", locale)
 
-    result_embed = discord.Embed(title=t("duel.minigames.dice.result_title", locale),
-                                 description=result, color=0xE67E22)
-    await msg.edit(embed=result_embed, view=None)
+    result_panel = Panel(t("duel.minigames.dice.result_title", locale), result)
+    await msg.edit(view=result_panel.view())
     await asyncio.sleep(3)
     return result
 
@@ -378,13 +376,14 @@ async def calcul_rapide(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     first   = {"uid": None}
     ev      = asyncio.Event()
 
-    view = discord.ui.View(timeout=15)
+    # 2 answers per ActionRow (was row=0/1)
+    rows    = [discord.ui.ActionRow(), discord.ui.ActionRow()]
+    buttons = []
     for i, choice in enumerate(choices):
         btn = discord.ui.Button(
             label=str(choice),
             style=discord.ButtonStyle.primary,
             custom_id=f"calc_{choice}_{i}",
-            row=0 if i < 2 else 1,
         )
         async def cb(interaction, c=choice):
             if interaction.user.id not in (j1.id, j2.id):
@@ -392,23 +391,24 @@ async def calcul_rapide(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
                 return
             if c == question["r"] and first["uid"] is None:
                 first["uid"] = interaction.user.id
-                for child in view.children:
+                for child in buttons:
                     child.disabled = True
                 await interaction.response.defer()
                 ev.set()
             else:
                 await interaction.response.defer()
         btn.callback = cb
-        view.add_item(btn)
+        rows[0 if i < 2 else 1].add_item(btn)
+        buttons.append(btn)
 
-    embed = discord.Embed(
-        title=t("duel.minigames.quickmath.title", locale),
-        description=t("duel.minigames.quickmath.desc", locale,
-                      question=t("duel.minigames.quickmath.question", locale, expr=question["expr"])),
-        color=0x3498DB,
+    panel = Panel(
+        t("duel.minigames.quickmath.title", locale),
+        t("duel.minigames.quickmath.desc", locale,
+          question=t("duel.minigames.quickmath.question", locale, expr=question["expr"])),
     )
-    embed.set_footer(text=t("duel.minigames.quickmath.footer", locale))
-    await msg.edit(embed=embed, view=view)
+    panel.footer(t("duel.minigames.quickmath.footer", locale))
+    view = panel.view(*rows, timeout=15)
+    await msg.edit(view=view)
 
     try:
         await asyncio.wait_for(ev.wait(), timeout=15)
@@ -424,9 +424,8 @@ async def calcul_rapide(msg, j1, s1, j2, s2, locale=DEFAULT_LOCALE):
     else:
         result_txt = t("duel.minigames.quickmath.timeout", locale, answer=question["r"])
 
-    result_embed = discord.Embed(title=t("duel.minigames.quickmath.result_title", locale),
-                                 description=result_txt, color=0x3498DB)
-    await msg.edit(embed=result_embed, view=None)
+    result_panel = Panel(t("duel.minigames.quickmath.result_title", locale), result_txt)
+    await msg.edit(view=result_panel.view())
     await asyncio.sleep(3)
     return result_txt
 
@@ -445,14 +444,15 @@ async def run_minigame(msg, j1, s1, j2, s2, tour, locale=DEFAULT_LOCALE):
     jeu = random.choice(list(NOM_JEUX.keys()))
     jeu_nom = t(f"duel.minigames.names.{NOM_JEUX[jeu]}", locale)
 
-    annonce = discord.Embed(
-        title=t("duel.minigames.announce_title", locale, turn=tour),
-        description=t("duel.minigames.announce_desc", locale, game=jeu_nom),
-        color=0x00FF88,
+    annonce = Panel(
+        t("duel.minigames.announce_title", locale, turn=tour),
+        t("duel.minigames.announce_desc", locale, game=jeu_nom),
     )
-    annonce.add_field(name=f"❤️ {j1.display_name}", value=barre_hp(s1["hp"], s1["hp_max"]), inline=True)
-    annonce.add_field(name=f"❤️ {j2.display_name}", value=barre_hp(s2["hp"], s2["hp_max"]), inline=True)
-    await msg.edit(embed=annonce, view=None)
+    annonce.field(f"❤️ {j1.display_name}", barre_hp(s1["hp"], s1["hp_max"]), inline=True)
+    annonce.field(f"❤️ {j2.display_name}", barre_hp(s2["hp"], s2["hp_max"]), inline=True)
+    # The mini-game runs on the main duel message, which may still carry the zone
+    # image: clear the attachment so nothing dangles on a V2 message.
+    await msg.edit(view=annonce.view(), attachments=[])
     await asyncio.sleep(2)
 
     return await jeu(msg, j1, s1, j2, s2, locale)
