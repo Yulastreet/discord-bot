@@ -44,8 +44,9 @@ for f in files():
         if RE_EMBED_CTOR.search(line):
             errors.append(f"{f}:{i} discord.Embed( subsiste")
         elif RE_EMBED_KW.search(line) and "embed" not in f:
-            # embed=None est tolere (nettoyage d'un vieux message)
-            if not re.search(r'embeds?\s*=\s*None', line):
+            # embed=None / embeds=[] sont toleres : c'est le motif qui vide
+            # l'embed d'un ancien message V1 remplace par un panel V2.
+            if not re.search(r'embeds?\s*=\s*(None|\[\s*\])', line):
                 errors.append(f"{f}:{i} argument embed= subsiste -> {st[:70]}")
 
 # ---- 2. couleur d'accentuation ----
