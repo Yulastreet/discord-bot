@@ -10,6 +10,7 @@ from discord import app_commands
 from discord.ext import tasks
 
 from services.i18n import guild_locale, t, ti
+from services.ui_v2 import Panel, row
 
 
 # XP anti-spam cooldown: (guild_id, user_id) -> ts of the last gain
@@ -258,48 +259,35 @@ def setup_runtime(bot, deps):
         lang = guild_locale(guild.id) or "en"
         dash_label = DASHBOARD_URL.replace("https://", "")
 
-        def _build_invite_view():
-            v = discord.ui.View(timeout=None)
-            v.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_dashboard", lang), style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
-            v.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_commands", lang), style=discord.ButtonStyle.link, url=f"{LANDING_URL}/commandes.html", emoji="📚"))
-            v.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_support", lang), style=discord.ButtonStyle.link, url=SUPPORT_URL, emoji="💬"))
-            return v
+        def _invite_row():
+            return row(
+                discord.ui.Button(label=t("runtime.onboarding.btn_dashboard", lang), style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"),
+                discord.ui.Button(label=t("runtime.onboarding.btn_commands", lang), style=discord.ButtonStyle.link, url=f"{LANDING_URL}/commandes.html", emoji="📚"),
+                discord.ui.Button(label=t("runtime.onboarding.btn_support", lang), style=discord.ButtonStyle.link, url=SUPPORT_URL, emoji="💬"),
+            )
 
         if inviter is not None and not inviter.bot:
-            embed = discord.Embed(
-                title=t("runtime.onboarding.inviter_title", lang, guild=guild.name),
-                description=t("runtime.onboarding.inviter_desc", lang,
-                              user=inviter.display_name),
-                color=0xB9F23A,
+            p = Panel(
+                t("runtime.onboarding.inviter_title", lang, guild=guild.name),
+                t("runtime.onboarding.inviter_desc", lang,
+                  user=inviter.display_name),
             )
-            embed.add_field(
-                name=t("runtime.onboarding.step1_name", lang),
-                value=t("runtime.onboarding.step1_value", lang),
-                inline=False,
-            )
-            embed.add_field(
-                name=t("runtime.onboarding.step2_name", lang),
-                value=t("runtime.onboarding.step2_value", lang,
-                        dashboard_label=dash_label, dashboard_url=DASHBOARD_URL),
-                inline=False,
-            )
-            embed.add_field(
-                name=t("runtime.onboarding.step3_name", lang),
-                value=t("runtime.onboarding.step3_value", lang),
-                inline=False,
-            )
-            embed.add_field(
-                name=t("runtime.onboarding.tip_name", lang),
-                value=t("runtime.onboarding.tip_value", lang),
-                inline=False,
-            )
-            embed.set_footer(text=t("runtime.onboarding.inviter_footer", lang,
-                                    guild=guild.name, members=guild.member_count or 0))
+            p.field(t("runtime.onboarding.step1_name", lang),
+                    t("runtime.onboarding.step1_value", lang))
+            p.field(t("runtime.onboarding.step2_name", lang),
+                    t("runtime.onboarding.step2_value", lang,
+                      dashboard_label=dash_label, dashboard_url=DASHBOARD_URL))
+            p.field(t("runtime.onboarding.step3_name", lang),
+                    t("runtime.onboarding.step3_value", lang))
+            p.field(t("runtime.onboarding.tip_name", lang),
+                    t("runtime.onboarding.tip_value", lang))
+            p.footer(t("runtime.onboarding.inviter_footer", lang,
+                       guild=guild.name, members=guild.member_count or 0))
             if guild.icon:
-                embed.set_thumbnail(url=str(guild.icon.url))
+                p.thumbnail(str(guild.icon.url))
 
             try:
-                await inviter.send(embed=embed, view=_build_invite_view())
+                await inviter.send(view=p.view(_invite_row(), timeout=None))
             except (discord.Forbidden, discord.HTTPException):
                 # Fallback: post in system_channel or the first writable channel
                 try:
@@ -312,7 +300,7 @@ def setup_runtime(bot, deps):
                                 target = ch
                                 break
                     if target:
-                        await target.send(embed=embed, view=_build_invite_view())
+                        await target.send(view=p.view(_invite_row(), timeout=None))
                 except Exception:
                     pass
 
@@ -321,30 +309,22 @@ def setup_runtime(bot, deps):
         if server_owner and not server_owner.bot and (
             inviter is None or server_owner.id != inviter.id
         ):
-            embed_owner = discord.Embed(
-                title=t("runtime.onboarding.owner_title", lang),
-                description=t("runtime.onboarding.owner_desc", lang,
-                              user=server_owner.display_name, guild=guild.name),
-                color=0xB9F23A,
+            po = Panel(
+                t("runtime.onboarding.owner_title", lang),
+                t("runtime.onboarding.owner_desc", lang,
+                  user=server_owner.display_name, guild=guild.name),
             )
-            embed_owner.add_field(
-                name=t("runtime.onboarding.owner_warn_name", lang),
-                value=t("runtime.onboarding.owner_warn_value", lang),
-                inline=False,
-            )
-            embed_owner.add_field(
-                name=t("runtime.onboarding.owner_how_name", lang),
-                value=t("runtime.onboarding.owner_how_value", lang,
-                        dashboard_label=dash_label, dashboard_url=DASHBOARD_URL),
-                inline=False,
-            )
-            embed_owner.set_footer(text=t("runtime.onboarding.owner_footer", lang))
+            po.field(t("runtime.onboarding.owner_warn_name", lang),
+                     t("runtime.onboarding.owner_warn_value", lang))
+            po.field(t("runtime.onboarding.owner_how_name", lang),
+                     t("runtime.onboarding.owner_how_value", lang,
+                       dashboard_label=dash_label, dashboard_url=DASHBOARD_URL))
+            po.footer(t("runtime.onboarding.owner_footer", lang))
 
-            owner_view = discord.ui.View(timeout=None)
-            owner_view.add_item(discord.ui.Button(label=t("runtime.onboarding.btn_configure_dashboard", lang), style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
+            owner_row = row(discord.ui.Button(label=t("runtime.onboarding.btn_configure_dashboard", lang), style=discord.ButtonStyle.link, url=DASHBOARD_URL, emoji="🎛️"))
 
             try:
-                await server_owner.send(embed=embed_owner, view=owner_view)
+                await server_owner.send(view=po.view(owner_row, timeout=None))
             except (discord.Forbidden, discord.HTTPException):
                 pass
 
@@ -589,11 +569,6 @@ def setup_runtime(bot, deps):
         "twitch":  "🔴 **{target}** is LIVE - *{title}*\n🎮 {game} · 👀 {viewers} viewers\n{url}",
     }
 
-    _PLATFORM_COLOR = {
-        "twitch":  0x9146FF,
-        "youtube": 0xFF0000,
-        "reddit":  0xFF4500,
-    }
     _PLATFORM_ICON = {
         "twitch":  "https://cdn.discordapp.com/emojis/892812477145309244.png",
         "youtube": "https://www.youtube.com/s/desktop/12d6b690/img/favicon_144x144.png",
@@ -601,11 +576,12 @@ def setup_runtime(bot, deps):
     }
 
 
-    def _build_social_embed(platform: str, target_label: str, item: dict,
-                            custom_template: str | None,
-                            lang: str = "en") -> tuple[str | None, discord.Embed]:
-        """Build (content, embed) per platform. If the user set a custom message,
-        it is used as the content above the embed (ping-friendly)."""
+    def _build_social_view(platform: str, target_label: str, item: dict,
+                           custom_template: str | None,
+                           lang: str = "en") -> discord.ui.LayoutView:
+        """Build the Components V2 view per platform. A V2 message carries no
+        `content`: the user custom message becomes the first text block of the
+        panel (it stays ping-friendly, the send keeps the default mentions)."""
         title = (item.get("title") or "").strip()
         url   = item.get("url") or ""
         author = item.get("author") or target_label
@@ -620,51 +596,54 @@ def setup_runtime(bot, deps):
             except (KeyError, IndexError):
                 content = custom_template
 
-        color = _PLATFORM_COLOR.get(platform, 0x2B2D31)
-        embed = discord.Embed(color=color, url=url or None)
+        p = Panel()
+        if content:
+            p.text(content)
+        # V2 has no author slot: the platform line becomes a subtext link and the
+        # platform icon becomes the thumbnail. Titles are not clickable either, so
+        # the embed url is folded into a markdown link.
+        def _head(name: str, link: str, icon: str, head_title: str):
+            p.text(f"-# [{name}]({link})" if link else f"-# {name}")
+            p.text(f"## [{head_title}]({url})" if url else f"## {head_title}")
+            p.thumbnail(icon)
 
         if platform == "twitch":
-            embed.title = title or t("runtime.social.twitch_title", lang, target=target_label)
-            embed.url = url
-            embed.description = t("runtime.social.twitch_desc", lang, target=target_label)
+            _head(f"{target_label} · Twitch", f"https://twitch.tv/{target_label}",
+                  _PLATFORM_ICON["twitch"],
+                  title or t("runtime.social.twitch_title", lang, target=target_label))
+            p.text(t("runtime.social.twitch_desc", lang, target=target_label))
             if item.get("game"):
-                embed.add_field(name=t("runtime.social.twitch_game", lang),
-                                value=str(item["game"]), inline=True)
+                p.field(t("runtime.social.twitch_game", lang),
+                        str(item["game"]), inline=True)
             if item.get("viewers") is not None:
-                embed.add_field(name=t("runtime.social.twitch_viewers", lang),
-                                value=f"{item['viewers']:,}".replace(",", " "), inline=True)
+                p.field(t("runtime.social.twitch_viewers", lang),
+                        f"{item['viewers']:,}".replace(",", " "), inline=True)
             thumb = item.get("thumb")
             if thumb:
-                embed.set_image(url=thumb)
-            embed.set_author(name=f"{target_label} · Twitch",
-                             url=f"https://twitch.tv/{target_label}",
-                             icon_url=_PLATFORM_ICON["twitch"])
+                p.image(thumb)
 
         elif platform == "youtube":
-            embed.title = title or t("runtime.social.youtube_title", lang)
-            embed.url = url
-            embed.description = t("runtime.social.youtube_desc", lang, author=author)
+            _head(f"{author} · YouTube", url, _PLATFORM_ICON["youtube"],
+                  title or t("runtime.social.youtube_title", lang))
+            p.text(t("runtime.social.youtube_desc", lang, author=author))
             # YouTube thumbnail from the videoId
             vid = item.get("id")
             if vid:
-                embed.set_image(url=f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg")
-            embed.set_author(name=f"{author} · YouTube",
-                             url=url, icon_url=_PLATFORM_ICON["youtube"])
+                p.image(f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg")
 
         elif platform == "reddit":
-            embed.title = title or t("runtime.social.reddit_title", lang)
-            embed.url = url
-            embed.description = t("runtime.social.reddit_desc", lang, target=target_label)
-            embed.set_author(name=f"{target_label} · Reddit",
-                             url=url, icon_url=_PLATFORM_ICON["reddit"])
+            _head(f"{target_label} · Reddit", url, _PLATFORM_ICON["reddit"],
+                  title or t("runtime.social.reddit_title", lang))
+            p.text(t("runtime.social.reddit_desc", lang, target=target_label))
 
         else:
-            embed.title = title or t("runtime.social.generic_title", lang)
-            embed.url = url
-            embed.description = t("runtime.social.generic_desc", lang, target=target_label)
+            gtitle = title or t("runtime.social.generic_title", lang)
+            p.text(f"## [{gtitle}]({url})" if url else f"## {gtitle}")
+            p.text(t("runtime.social.generic_desc", lang, target=target_label))
 
-        embed.timestamp = _dt.datetime.now(_dt.timezone.utc)
-        return content, embed
+        # V2 has no embed timestamp: it becomes a Discord timestamp in the footer.
+        p.footer(discord.utils.format_dt(_dt.datetime.now(_dt.timezone.utc), "f"))
+        return p.view()
 
 
     @tasks.loop(minutes=5)
@@ -727,12 +706,17 @@ def setup_runtime(bot, deps):
                         social_alert_update_seen(alert["id"], item["id"])
                         continue
 
-                    content, embed = _build_social_embed(
+                    view = _build_social_view(
                         alert["platform"], target_label, item, template, alert_lang,
                     )
                     sent_ok = False
                     try:
-                        await channel.send(content=content, embed=embed)
+                        # everyone=False: feed titles now live in a text block
+                        # (an embed title never pinged). User/role pings from the
+                        # admin custom template keep working.
+                        await channel.send(
+                            view=view,
+                            allowed_mentions=discord.AllowedMentions(everyone=False))
                         sent_ok = True
                     except discord.Forbidden:
                         print(f"[social] forbidden post #{alert['channel_id']} alert={alert['id']} - will retry on next poll")
@@ -1642,14 +1626,19 @@ def setup_runtime(bot, deps):
                         reminder_mark_fired(r["id"])
                         continue
                     rem_lang = guild_locale(getattr(getattr(ch, "guild", None), "id", None)) or "en"
-                    embed = discord.Embed(
-                        title=t("runtime.reminder.title", rem_lang),
-                        description=r["text"],
-                        color=0xB9F23A,
-                    )
-                    embed.set_footer(text=t("runtime.reminder.footer", rem_lang,
-                                            id=r["id"], created_at=r["created_at"]))
-                    await ch.send(content=f"<@{r['user_id']}>", embed=embed)
+                    # V2: no `content` any more, the ping becomes a text block.
+                    # Mentions are restricted to the reminder owner (an embed
+                    # description never pinged, a TextDisplay does).
+                    p = Panel()
+                    p.text(f"<@{r['user_id']}>")
+                    p.text("## " + t("runtime.reminder.title", rem_lang))
+                    p.text(r["text"])
+                    p.footer(t("runtime.reminder.footer", rem_lang,
+                               id=r["id"], created_at=r["created_at"]))
+                    await ch.send(
+                        view=p.view(),
+                        allowed_mentions=discord.AllowedMentions(
+                            users=[discord.Object(id=int(r["user_id"]))]))
                     reminder_mark_fired(r["id"])
                 except Exception as e:
                     print(f"[reminders] fire err id={r.get('id')}: {type(e).__name__}: {e}")
@@ -2286,7 +2275,10 @@ def setup_runtime(bot, deps):
                             ad = _mod_get(aid) or {}
                             from commandes.moderation_pro import _build_action_embed as _bea
                             try:
-                                await ch.send(embed=_bea(ad, member=member))
+                                # _bea now returns a Components V2 Panel.
+                                await ch.send(
+                                    view=_bea(ad, member=member).view(),
+                                    allowed_mentions=discord.AllowedMentions.none())
                             except Exception:
                                 pass
                 except Exception as _e:
@@ -2295,7 +2287,7 @@ def setup_runtime(bot, deps):
 
         elif name == "giveaway_post":
             from database import giveaway_get as _gw_get, giveaway_set_message_id as _gw_setmsg
-            from commandes.giveaway import make_giveaway_embed, GiveawayJoinView
+            from commandes.giveaway import make_giveaway_panel, GiveawayJoinView
             gid_ = int(payload.get("giveaway_id") or 0)
             gw = _gw_get(gid_)
             if not gw:
@@ -2303,14 +2295,14 @@ def setup_runtime(bot, deps):
             ch = guild.get_channel(int(gw["channel_id"]))
             if not ch:
                 raise RuntimeError("giveaway channel not found")
-            embed = make_giveaway_embed(gw, participants_count=0)
-            msg = await ch.send(embed=embed, view=GiveawayJoinView())
+            panel = make_giveaway_panel(gw, participants_count=0)
+            msg = await ch.send(view=GiveawayJoinView(panel))
             _gw_setmsg(gid_, msg.id)
             return
 
         elif name == "giveaway_cancel_post":
             from database import giveaway_get as _gw_get
-            from commandes.giveaway import GiveawayJoinView
+            from commandes.giveaway import GiveawayJoinView, make_giveaway_panel
             gid_ = int(payload.get("giveaway_id") or 0)
             gw = _gw_get(gid_)
             if not gw or not gw.get("message_id"):
@@ -2320,14 +2312,17 @@ def setup_runtime(bot, deps):
                 return
             try:
                 msg = await ch.fetch_message(int(gw["message_id"]))
-                emb = msg.embeds[0] if msg.embeds else discord.Embed()
-                emb.title = t("runtime.giveaway.cancelled_title",
+                cancelled = t("runtime.giveaway.cancelled_title",
                               guild_locale(guild.id) or "en", prize=gw["prize"])
-                emb.color = 0xE74C3C
-                view = GiveawayJoinView()
-                for child in view.children:
-                    child.disabled = True
-                await msg.edit(embed=emb, view=view)
+                # Rebuild the whole panel with the join button greyed out.
+                panel = make_giveaway_panel(gw, participants_count=0, title=cancelled)
+                await msg.edit(view=GiveawayJoinView(panel, disabled=True))
+            except discord.HTTPException as e:
+                # A message posted before the Components V2 switch cannot be
+                # converted (Discord refuses to add the V2 flag afterwards).
+                # The giveaway is cancelled in DB either way, only the message
+                # display stays stale.
+                print(f"[giveaway/cancel-post] legacy message not updatable: {e}")
             except Exception as e:
                 print(f"[giveaway/cancel-post] {type(e).__name__}: {e}")
             return
@@ -2361,29 +2356,30 @@ def setup_runtime(bot, deps):
             # Modlog embed
             try:
                 from commandes.moderation_pro import _build_action_embed as _bea
-                embed = _bea(ad, member=member)
+                panel = _bea(ad, member=member)  # Components V2 Panel
                 cfg = _mod_cfg(guild.id)
                 ch_id = cfg.get("modlog_channel_id")
                 if ch_id:
                     ch = guild.get_channel(int(ch_id))
                     if ch:
-                        embed.set_footer(text=t("runtime.modwarn.modlog_footer",
-                                                warn_lang, count=active))
-                        try: await ch.send(embed=embed)
+                        panel.footer(t("runtime.modwarn.modlog_footer",
+                                       warn_lang, count=active))
+                        try:
+                            await ch.send(view=panel.view(),
+                                          allowed_mentions=discord.AllowedMentions.none())
                         except Exception: pass
             except Exception as _e:
                 print(f"[mod/dashboard-warn] modlog err: {type(_e).__name__}")
             # DM the user
             if member:
                 try:
-                    dm = discord.Embed(
-                        title=t("runtime.modwarn.dm_title", warn_lang, guild=guild.name),
-                        description=t("runtime.modwarn.dm_desc", warn_lang,
-                                      reason=reason or t("runtime.modwarn.no_reason", warn_lang),
-                                      count=active),
-                        color=0xF1C40F,
+                    dm = Panel(
+                        t("runtime.modwarn.dm_title", warn_lang, guild=guild.name),
+                        t("runtime.modwarn.dm_desc", warn_lang,
+                          reason=reason or t("runtime.modwarn.no_reason", warn_lang),
+                          count=active),
                     )
-                    await member.send(embed=dm)
+                    await member.send(view=dm.view())
                 except Exception:
                     pass
                 # Auto-timeout
@@ -2444,49 +2440,49 @@ def setup_runtime(bot, deps):
             if len(content) > 2000:
                 content = content[:1997] + "..."
 
-            embed_obj = None
+            # V2: no accent colour any more, and the message cannot carry a
+            # `content` next to the panel -> it becomes the first text block.
+            view = None
             if embed_data and isinstance(embed_data, dict):
-                try:
-                    color_hex = (embed_data.get("color") or "").lstrip("#")
-                    color_int = int(color_hex, 16) if color_hex else None
-                except ValueError:
-                    color_int = None
-                embed_obj = discord.Embed(
-                    title=(embed_data.get("title") or None),
-                    description=(embed_data.get("description") or None),
-                    url=(embed_data.get("url") or None),
-                    color=color_int,
-                )
+                p = Panel()
+                if content:
+                    p.text(content)
                 author_name = embed_data.get("author_name")
                 if author_name:
-                    embed_obj.set_author(
-                        name=author_name,
-                        url=embed_data.get("author_url") or None,
-                        icon_url=embed_data.get("author_icon") or None,
-                    )
-                footer_text = embed_data.get("footer_text")
-                if footer_text:
-                    embed_obj.set_footer(
-                        text=footer_text,
-                        icon_url=embed_data.get("footer_icon") or None,
-                    )
-                if embed_data.get("image"):
-                    embed_obj.set_image(url=embed_data["image"])
-                if embed_data.get("thumbnail"):
-                    embed_obj.set_thumbnail(url=embed_data["thumbnail"])
+                    author_url = embed_data.get("author_url") or ""
+                    p.text(f"-# [{author_name}]({author_url})" if author_url
+                           else f"-# {author_name}")
+                e_title = (embed_data.get("title") or "").strip()
+                e_url   = (embed_data.get("url") or "").strip()
+                if e_title:
+                    # A V2 title is not clickable: the url becomes a markdown link.
+                    p.text(f"## [{e_title}]({e_url})" if e_url else f"## {e_title}")
+                elif e_url:
+                    p.text(e_url)
+                if embed_data.get("description"):
+                    p.text(embed_data["description"])
                 for f in (embed_data.get("fields") or [])[:25]:
                     fname  = (f.get("name")  or "").strip()
                     fvalue = (f.get("value") or "").strip()
                     if fname and fvalue:
-                        embed_obj.add_field(
-                            name=fname[:256],
-                            value=fvalue[:1024],
-                            inline=bool(f.get("inline")),
-                        )
+                        p.field(fname[:256], fvalue[:1024],
+                                inline=bool(f.get("inline")))
+                if embed_data.get("thumbnail"):
+                    p.thumbnail(embed_data["thumbnail"])
+                if embed_data.get("image"):
+                    p.image(embed_data["image"])
+                footer_text = embed_data.get("footer_text")
                 if embed_data.get("timestamp"):
-                    embed_obj.timestamp = discord.utils.utcnow()
+                    footer_text = ((footer_text + " · ") if footer_text else "") \
+                        + discord.utils.format_dt(discord.utils.utcnow(), "f")
+                if footer_text:
+                    p.footer(footer_text)
+                view = p.view()
 
-            await channel.send(content=content or None, embed=embed_obj)
+            if view is not None:
+                await channel.send(view=view)
+            else:
+                await channel.send(content=content)
 
         elif name == "rolereaction_post":
             # payload: {channel_id, titre, description, mode, delivery, style, mappings:[{emoji_key, role_id, label}]}
@@ -2539,15 +2535,6 @@ def setup_runtime(bot, deps):
                     f"ABOVE those roles."
                 )
 
-            color_int = 0xC8F050
-            color_raw = payload.get("color")
-            if color_raw:
-                try:
-                    color_int = (int(color_raw.replace("#", ""), 16)
-                                 if isinstance(color_raw, str) else int(color_raw))
-                except Exception:
-                    pass
-
             footer = (t("runtime.rolereaction.footer_unique", rr_lang)
                       if mode == "unique"
                       else (t("runtime.rolereaction.footer_button", rr_lang)
@@ -2562,15 +2549,15 @@ def setup_runtime(bot, deps):
                     return f"{ek} **{label}** — {role_ref}".strip()
                 return f"{ek} → {role_ref}".strip(" →") if not ek else f"{ek} → {role_ref}"
 
-            # ----- content / embed -----
+            # ----- content / panel -----
             content = None
-            embed = None
+            panel = None
             if style == "embed":
-                embed = discord.Embed(title=titre, description=descp, color=color_int)
+                panel = Panel(titre, descp)
                 if not use_buttons:
-                    embed.add_field(name=t("runtime.rolereaction.field_reactions", rr_lang),
-                                    value="\n".join(_line(m) for m in mapps), inline=False)
-                embed.set_footer(text=footer)
+                    panel.field(t("runtime.rolereaction.field_reactions", rr_lang),
+                                "\n".join(_line(m) for m in mapps))
+                panel.footer(footer)
             else:
                 parts = []
                 if titre:
@@ -2582,10 +2569,9 @@ def setup_runtime(bot, deps):
                 parts.append(f"_{footer}_")
                 content = "\n\n".join(p for p in parts if p)
 
-            # ----- Button view -----
-            view = None
+            # ----- Buttons ----- (custom_id "rr:<role_id>" must never change)
+            buttons = []
             if use_buttons:
-                view = discord.ui.View(timeout=None)
                 for m in mapps:
                     ek = m.get("emoji_key") or ""
                     try:
@@ -2596,13 +2582,28 @@ def setup_runtime(bot, deps):
                     r = guild.get_role(int(m["role_id"]))
                     lbl = (m.get("label") or (r.name if r else
                            t("runtime.rolereaction.default_role_label", rr_lang)))[:80]
-                    view.add_item(discord.ui.Button(
+                    buttons.append(discord.ui.Button(
                         label=lbl, emoji=emoji_obj,
                         style=discord.ButtonStyle.secondary,
                         custom_id=f"rr:{m['role_id']}",
                     ))
 
-            msg = await channel.send(content=content, embed=embed, view=view)
+            if panel is not None:
+                # An ActionRow holds 5 items max (a classic View spread them itself).
+                brows = [row(*buttons[i:i + 5]) for i in range(0, len(buttons), 5)]
+                # The panel lists <@&role>: in V2 a text block really pings, the
+                # embed did not -> mentions are cut off.
+                msg = await channel.send(
+                    view=panel.view(*brows, timeout=None),
+                    allowed_mentions=discord.AllowedMentions.none())
+            else:
+                # "text" style: plain message, so a classic View is still required.
+                view = None
+                if buttons:
+                    view = discord.ui.View(timeout=None)
+                    for b in buttons:
+                        view.add_item(b)
+                msg = await channel.send(content=content, view=view)
 
             failed_dispatch = []
             if not use_buttons:
@@ -2669,14 +2670,14 @@ def setup_runtime(bot, deps):
             uid = payload.get("user_id")
             mention = (f"<@{uid}>" if uid
                        else t("runtime.guildboost.member_fallback", gb_lang))
-            embed = discord.Embed(
-                title=t("runtime.guildboost.title", gb_lang),
-                description=t("runtime.guildboost.description", gb_lang, mention=mention),
-                color=0xB9F23A,
+            p = Panel(
+                t("runtime.guildboost.title", gb_lang),
+                t("runtime.guildboost.description", gb_lang, mention=mention),
             )
-            embed.set_footer(text=t("runtime.guildboost.footer", gb_lang))
+            p.footer(t("runtime.guildboost.footer", gb_lang))
             try:
-                await channel.send(embed=embed)
+                await channel.send(view=p.view(),
+                                   allowed_mentions=discord.AllowedMentions.none())
             except Exception as e:
                 print(f"[gb-notify] send failed {gid}: {e}")
 
@@ -2706,10 +2707,12 @@ def setup_runtime(bot, deps):
                          amount=f"{amount:.2f}", currency=currency)
                 if don_msg:
                     desc += f"\n\n> {don_msg[:500]}"
-                emb = discord.Embed(title=t("runtime.kofi.title", kofi_lang),
-                                    description=desc, color=0xB9F23A)
+                emb = Panel(t("runtime.kofi.title", kofi_lang), desc)
                 try:
-                    await owner_chan.send(embed=emb)
+                    # The donor message is external input: no ping from it.
+                    await owner_chan.send(
+                        view=emb.view(),
+                        allowed_mentions=discord.AllowedMentions.none())
                 except Exception as e:
                     print(f"[kofi] owner notif failed: {e}")
             else:
@@ -2810,8 +2813,18 @@ def setup_runtime(bot, deps):
                         txt = t("runtime.suggestion.rejected_one", sug_lang)
                         if reason:
                             txt += t("runtime.suggestion.reason_line", sug_lang, reason=reason)
-                        embeds = msg.embeds[:1] if (msg and msg.embeds) else []
-                        await user.send(content=txt, embeds=embeds)
+                        # The suggestion message is a Components V2 panel now, so
+                        # it carries no embed: quote its rendered text instead so
+                        # the requester still sees which card was rejected.
+                        from services.ui_v2 import message_text as _v2_text
+                        quoted = _v2_text(msg) if msg else ""
+                        if quoted:
+                            snippet = "\n".join(
+                                f"> {ln}" for ln in quoted.splitlines() if ln.strip()
+                            )[:1500]
+                            txt = f"{txt}\n\n{snippet}"
+                        await user.send(content=txt,
+                                        allowed_mentions=discord.AllowedMentions.none())
                 except Exception as e:
                     print(f"[suggestion_resolved] DM err: {e}")
             return
@@ -2856,7 +2869,7 @@ def setup_runtime(bot, deps):
         elif name == "simulate_roll":
             # Fake test roll: posts the /roll layout + pings the wishers, WITHOUT
             # adding the card to a collection (pure wishlist notification test).
-            from commandes.cards import build_roll_embed
+            from commandes.cards import build_roll_view
             from database import card_get, wishlist_users_for_card
             channel_id = payload.get("channel_id")
             card_id = payload.get("card_id")
@@ -2869,12 +2882,12 @@ def setup_runtime(bot, deps):
             if not channel:
                 raise RuntimeError("channel not found")
             sim_lang = guild_locale(guild.id) or "en"
-            embed, img_file, view = build_roll_embed(
+            view, img_file = build_roll_view(
                 bot, card, t("runtime.simulate_roll.label", sim_lang))
             if img_file:
-                await channel.send(embed=embed, file=img_file, view=view)
+                await channel.send(view=view, file=img_file)
             else:
-                await channel.send(embed=embed, view=view)
+                await channel.send(view=view)
             try:
                 wishers = wishlist_users_for_card(int(card_id)) or []
                 mentions = [m.mention for m in

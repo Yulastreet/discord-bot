@@ -14,6 +14,7 @@ from typing import Optional
 import discord
 
 from services.i18n import t, guild_locale
+from services.ui_v2 import Panel
 from PIL import Image, ImageDraw, ImageFont
 
 from database import (
@@ -27,14 +28,6 @@ from database import (
 )
 
 
-RARITY_COLORS = {
-    "common":    0x9aa0a6,
-    "rare":      0x4cb5f9,
-    "epic":      0xa86dff,
-    "legendary": 0xffa726,
-    "mythic":    0xff3d57,
-    "secret":    0x1c1c1e,
-}
 RARITY_EMOJIS = {
     "common": "⚪", "rare": "🔵", "epic": "🟣",
     "legendary": "🟠", "mythic": "🔴", "secret": "🌈",
@@ -208,6 +201,39 @@ def _resolve_drop_channel(guild):
     return None
 
 
+def _drop_panel(bot, card, event_id, *, image_url=None, loc="en",
+                ping=None, extra=None):
+    """Components V2 panel of a drop (replaces the former embed).
+
+    `ping` = raw role mention, rendered above the title (a V2 message has no
+    `content`). `extra` = line appended afterwards (winner / troll).
+    """
+    rarity = card.get("rarity", "common")
+    emoji = RARITY_EMOJIS.get(rarity, "⚪")
+    header = "🎁 **Drop Event !**"
+    p = Panel()
+    p.text(f"{ping} {header}" if ping else header)
+    p.text(f"## {emoji} {card.get('name', '?')}")
+    p.text(t("services.card_event.drop_description", loc,
+             rarity=str(rarity).upper(),
+             origin=card.get('subtitle') or '?',
+             universe=card.get('universe') or '?'))
+    if extra:
+        p.text(extra)
+    # Animated rarity badge as thumbnail (custom emoji from the support server)
+    try:
+        from commandes.cards import _get_rarity_custom_emoji_url
+        badge_url = _get_rarity_custom_emoji_url(bot, rarity)
+        if badge_url:
+            p.thumbnail(badge_url)
+    except Exception:
+        pass
+    if image_url:
+        p.image(image_url)
+    p.footer(f"Event #{event_id}")
+    return p
+
+
 async def trigger_event_drop(bot, guild_id: int, channel_id: int,
                                 min_rarity: str = "rare",
                                 exact_rarity: bool = False,
@@ -241,48 +267,32 @@ async def trigger_event_drop(bot, guild_id: int, channel_id: int,
     code = _gen_code()
     event_id = card_event_log_create(guild_id, channel_id, card["id"],
                                        triggered_by=triggered_by, claim_code=code)
-    rarity = card.get("rarity", "common")
-    color = RARITY_COLORS.get(rarity, 0x9aa0a6)
-    emoji = RARITY_EMOJIS.get(rarity, "⚪")
-    embed = discord.Embed(
-        title=f"{emoji} {card['name']}",
-        description=t("services.card_event.drop_description", _loc,
-                      rarity=rarity.upper(),
-                      origin=card.get('subtitle') or '?',
-                      universe=card.get('universe') or '?'),
-        color=color,
-    )
     # Image = card + captcha code (not copyable). Fallback: raw card image.
     drop_img_path = _render_drop_image(bot, card, code, event_id)
     drop_file = None
+    img_url = None
     if drop_img_path:
         drop_file = discord.File(drop_img_path, filename="drop.png")
-        embed.set_image(url="attachment://drop.png")
+        img_url = "attachment://drop.png"
     elif card.get("image_url"):
-        embed.set_image(url=card["image_url"])
-    # Animated rarity badge as thumbnail (custom emoji from the support server)
-    try:
-        from commandes.cards import _get_rarity_custom_emoji_url
-        badge_url = _get_rarity_custom_emoji_url(bot, rarity)
-        if badge_url:
-            embed.set_thumbnail(url=badge_url)
-    except Exception:
-        pass
-    embed.set_footer(text=f"Event #{event_id}")
+        img_url = card["image_url"]
     # Ping du role "fans de cartes" si configure (/cardsetup role)
     from database import guild_card_config_get
     _cfg = guild_card_config_get(guild.id) or {}
     _role_id = _cfg.get("ping_role_id")
-    content = "🎁 **Drop Event !**"
-    allowed = discord.AllowedMentions.none()
-    if _role_id:
-        content = f"<@&{_role_id}> {content}"
-        allowed = discord.AllowedMentions(roles=True)
+    # V2: the message carries no `content` any more, the ping becomes a text
+    # block of the panel. The send keeps its allowed_mentions so the role is
+    # really pinged.
+    ping = f"<@&{_role_id}>" if _role_id else None
+    allowed = (discord.AllowedMentions(roles=True) if _role_id
+               else discord.AllowedMentions.none())
+    view = _drop_panel(bot, card, event_id, image_url=img_url,
+                       loc=_loc, ping=ping).view()
     try:
         if drop_file:
-            msg = await channel.send(content=content, embed=embed, file=drop_file, allowed_mentions=allowed)
+            msg = await channel.send(view=view, file=drop_file, allowed_mentions=allowed)
         else:
-            msg = await channel.send(content=content, embed=embed, allowed_mentions=allowed)
+            msg = await channel.send(view=view, allowed_mentions=allowed)
     except Exception as e:
         # Envoi rate : on retire le ghost (sinon event sans message). Le retry du
         # dispatch repartira proprement.
@@ -334,12 +344,16 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
             msg_id = matched.get("message_id")
             if msg_id:
                 event_msg = await message.channel.fetch_message(int(msg_id))
-                if event_msg and event_msg.embeds:
-                    emb = event_msg.embeds[0]
-                    emb.description = (emb.description or "") + \
-                        f"\n\n🤡 **{message.author.mention} s'est fait troll !**"
-                    emb.color = 0xff3d57
-                    await event_msg.edit(embed=emb)
+                if event_msg:
+                    tcard = card_get(matched["card_id"]) or {}
+                    timg = ("attachment://drop.png" if event_msg.attachments
+                            else (tcard.get("image_url") or None))
+                    tp = _drop_panel(bot, tcard, matched["id"], image_url=timg,
+                                     loc=_loc,
+                                     extra=f"🤡 **{message.author.mention} s'est fait troll !**")
+                    # V2: a panel text block really pings -> mentions cut off.
+                    await event_msg.edit(view=tp.view(),
+                                         allowed_mentions=discord.AllowedMentions.none())
         except Exception as e:
             print(f"[fake drop] edit err: {e}")
         troll = random.choice([
@@ -365,23 +379,21 @@ async def handle_message_claim(bot, message: discord.Message) -> bool:
         msg_id = matched.get("message_id")
         if msg_id:
             event_msg = await message.channel.fetch_message(int(msg_id))
-            if event_msg and event_msg.embeds:
-                emb = event_msg.embeds[0]
-                emb.description = (emb.description or "") + "\n\n" + t("services.card_event.won_by", _loc, user=message.author.mention)
-                emb.color = 0x4ade80
+            if event_msg:
                 # Clean image = local render (webp/png) or public domain, WITHOUT the
                 # captcha strip. attachments=[] / [file] drops the old image (the code).
                 from database import card_get
                 from commandes.cards import _resolve_card_image
-                url, clean_file = _resolve_card_image(card_get(matched["card_id"]) or {})
-                if url:
-                    emb.set_image(url=url)
-                    await event_msg.edit(embed=emb, attachments=[])
-                elif clean_file:
-                    emb.set_image(url="attachment://card.png")
-                    await event_msg.edit(embed=emb, attachments=[clean_file])
-                else:
-                    await event_msg.edit(embed=emb, attachments=[])
+                wcard = card_get(matched["card_id"]) or {}
+                url, clean_file = _resolve_card_image(wcard)
+                won = t("services.card_event.won_by", _loc, user=message.author.mention)
+                atts = [clean_file] if (not url and clean_file) else []
+                wimg = url or ("attachment://card.png" if clean_file else None)
+                wp = _drop_panel(bot, wcard, matched["id"], image_url=wimg,
+                                 loc=_loc, extra=won)
+                # V2: a panel text block really pings -> mentions cut off.
+                await event_msg.edit(view=wp.view(), attachments=atts,
+                                     allowed_mentions=discord.AllowedMentions.none())
     except Exception as e:
         print(f"[card_event claim update] err: {e}")
     try:

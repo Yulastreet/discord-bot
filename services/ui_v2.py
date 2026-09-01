@@ -168,3 +168,46 @@ def row(*items) -> ui.ActionRow:
         if it is not None:
             ar.add_item(it)
     return ar
+
+
+def message_text(message) -> str:
+    """Flatten every text block of a Components V2 message.
+
+    Replaces the old ``message.embeds[0]`` reads: the persistent views recover
+    their state (trade id, page counter) from the rendered panel text, which
+    still carries the "Trade #<id>" marker and the "<index>/<total>" counter.
+
+    Messages posted BEFORE the V2 migration still carry a classic embed, so the
+    embed text is folded in too: their buttons keep working after the deploy.
+    """
+    parts: list[str] = []
+
+    def _walk(items):
+        for it in items or ():
+            content = getattr(it, "content", None)
+            if isinstance(content, str):
+                parts.append(content)
+            for attr in ("children", "items"):
+                sub = getattr(it, attr, None)
+                if sub:
+                    _walk(sub)
+            accessory = getattr(it, "accessory", None)
+            if accessory is not None:
+                _walk((accessory,))
+
+    try:
+        _walk(getattr(message, "components", None))
+    except Exception as e:
+        print(f"[ui_v2] text walk: {type(e).__name__}: {e}")
+    # Legacy fallback: pre-V2 messages (embed title / fields / footer).
+    try:
+        for emb in (getattr(message, "embeds", None) or ()):
+            parts.append(emb.title or "")
+            parts.append(emb.description or "")
+            for f in (emb.fields or ()):
+                parts.append(f"{f.name or ''}\n{f.value or ''}")
+            if emb.footer:
+                parts.append(emb.footer.text or "")
+    except Exception as e:
+        print(f"[cards] legacy embed walk: {type(e).__name__}: {e}")
+    return "\n".join(p for p in parts if p)

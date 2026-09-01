@@ -29,6 +29,7 @@ import os as _os
 import time as _t
 
 from services.i18n import t, ti, guild_locale, locale_of
+from services.ui_v2 import Panel
 
 
 def _bloc(boss):
@@ -405,28 +406,36 @@ def _default_element(user_id):
     return r["element"] if r else "eclat"
 
 
-def build_boss_embed(bot, boss, phase_text="", log=None, battle=False, locale=None):
+def build_boss_panel(bot, boss, phase_text="", log=None, battle=False, locale=None,
+                     header=None):
+    """Components V2 panel of the boss message (replaces the former embed).
+
+    `header` = what used to be the message `content` (a V2 message has none):
+    rendered as the first text block, above the title. V2 has no accent colour
+    and no inline columns: inline fields are merged on one line by ``Panel``,
+    the 3 roster columns become 3 stacked blocks.
+    """
     boss = card_boss_get(boss["id"])
     loc = locale or _bloc(boss)
     parts = boss_participants_list(boss["id"])
-    color = {"defeated": 0x4ade80, "wiped": 0xff3d57}.get(boss["status"], 0x8e44ad)
-    embed = discord.Embed(
-        title=t("guilds.boss.title", loc,
-                tier=BOSS_TIERS.get(boss['tier'], {}).get('label', ''), name=boss['name']),
-        color=color)
-    embed.add_field(name=t("guilds.boss.f_element", loc),
-                    value=f"{_elem(bot, boss['element'])} {CARD_ELEMENT_LABELS.get(boss['element'],'?')}",
-                    inline=True)
+    pan = Panel()
+    if header:
+        pan.text(header)
+    pan.text("## " + t("guilds.boss.title", loc,
+                       tier=BOSS_TIERS.get(boss['tier'], {}).get('label', ''),
+                       name=boss['name']))
+    pan.field(t("guilds.boss.f_element", loc),
+              f"{_elem(bot, boss['element'])} {CARD_ELEMENT_LABELS.get(boss['element'],'?')}",
+              inline=True)
     weak = element_weaknesses(boss["element"])
     weak_txt = " ".join(f"{_elem(bot, w)} {CARD_ELEMENT_LABELS.get(w,'?')}" for w in weak) or "—"
-    embed.add_field(name=t("guilds.boss.f_weak", loc), value=weak_txt, inline=True)
-    embed.add_field(name=t("guilds.boss.f_atk", loc), value=f"🗡️ {_fmt(boss['atk'])}", inline=True)
+    pan.field(t("guilds.boss.f_weak", loc), weak_txt, inline=True)
+    pan.field(t("guilds.boss.f_atk", loc), f"🗡️ {_fmt(boss['atk'])}", inline=True)
     _enraged = boss["status"] == "fighting" and boss["hp"] < boss["max_hp"] * 0.5
     boss_pw = _power_digits(bot, combat_power(boss['max_hp'], boss['atk']), suffix="boss")
-    embed.add_field(name=t("guilds.boss.f_hp", loc, hp=_fmt(boss['hp']), max=_fmt(boss['max_hp'])),
-                    value=_bar(bot, boss['hp'], boss['max_hp'], enraged=_enraged)
-                          + "\n" + t("guilds.boss.power_line", loc, power=boss_pw),
-                    inline=False)
+    pan.field(t("guilds.boss.f_hp", loc, hp=_fmt(boss['hp']), max=_fmt(boss['max_hp'])),
+              _bar(bot, boss['hp'], boss['max_hp'], enraged=_enraged)
+              + "\n" + t("guilds.boss.power_line", loc, power=boss_pw))
     # Info (recruiting / result) RIGHT UNDER the HP bar
     info = ""
     if phase_text:
@@ -442,7 +451,7 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False, locale=No
     elif boss["status"] == "wiped":
         info = t("guilds.boss.wiped", loc)
     if info:
-        embed.add_field(name="​", value=info, inline=False)
+        pan.text(info)
     if parts:
         plist = parts[:12]
         in_battle = bool(battle) or boss["status"] == "fighting"
@@ -457,27 +466,27 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False, locale=No
                     f"{_elem(bot, p['element'])} **{p['name']}**{_apt_badge(p.get('aptitude'))}{ko} "
                     f"🗡️ {_fmt(p['atk'])}\n"
                     f"HP ❤️ {bar} **{_fmt(max(0, p['hp']))}**")
-            embed.add_field(name=t("guilds.boss.f_team", loc, count=len(parts)),
-                            value="​", inline=False)
+            pan.field(t("guilds.boss.f_team", loc, count=len(parts)), "​")
             if len(blocks) <= 8:
-                # 1 field per player -> uniform spacing
+                # 1 block per player -> uniform spacing
                 for b in blocks:
-                    embed.add_field(name="​", value=b, inline=False)
+                    pan.text(b)
             else:
-                # too many players: group them to stay under 25 fields / 6000 chars
+                # too many players: group them to keep the panel compact
                 cur = ""
                 for b in blocks:
                     add = ("\n" if cur else "") + b
                     if cur and len(cur) + len(add) > 950:
-                        embed.add_field(name="​", value=cur, inline=False); cur = b
+                        pan.text(cur); cur = b
                     else:
                         cur += add
                 if cur:
-                    embed.add_field(name="​", value=cur, inline=False)
+                    pan.text(cur)
         else:
-            # PREP: 3 inline columns aligned by Discord, power under the nickname.
-            # Graceful degradation vs the 1024 limit: emojis -> text -> nothing (power
-            # always visible even with 5 players or 7 digit power values).
+            # PREP: 3 stacked blocks (V2 has no Discord aligned inline columns),
+            # power under the nickname. Graceful degradation vs the block budget:
+            # emojis -> text -> nothing (power always visible even with 5 players
+            # or 7 digit power values).
             def _name_cells(power_mode):  # 'emoji' | 'plain' | None
                 cells = []
                 for p in plist:
@@ -501,25 +510,24 @@ def build_boss_embed(bot, boss, phase_text="", log=None, battle=False, locale=No
             pad = "\n​" if mode else ""
             hp_cells = [f"{_fmt(max(0, p['hp']))}{pad}" for p in plist]
             atk_cells = [f"{_fmt(p['atk'])}{pad}" for p in plist]
-            embed.add_field(name=t("guilds.boss.f_team", loc, count=len(parts)),
-                            value="​\n" + "\n".join(name_cells), inline=True)
-            embed.add_field(name=t("guilds.boss.f_hp_col", loc),
-                            value="​\n" + "\n".join(hp_cells), inline=True)
-            embed.add_field(name=t("guilds.boss.f_atk_col", loc),
-                            value="​\n" + "\n".join(atk_cells), inline=True)
+            pan.field(t("guilds.boss.f_team", loc, count=len(parts)),
+                      "​\n" + "\n".join(name_cells))
+            pan.field(t("guilds.boss.f_hp_col", loc),
+                      "​\n" + "\n".join(hp_cells))
+            pan.field(t("guilds.boss.f_atk_col", loc),
+                      "​\n" + "\n".join(atk_cells))
         total_pw = sum(combat_power(p.get('max_hp') or p['hp'], p['atk']) for p in parts)
-        embed.add_field(name=t("guilds.boss.f_party_power", loc),
-                        value=_power_digits(bot, total_pw), inline=False)
+        pan.field(t("guilds.boss.f_party_power", loc), _power_digits(bot, total_pw))
     if log:
-        embed.add_field(name=t("guilds.boss.f_log", loc), value="\n".join(log[-4:]), inline=False)
+        pan.field(t("guilds.boss.f_log", loc), "\n".join(log[-4:]))
     # Image: battlefield during the fight, boss card while recruiting
     if battle:
-        embed.set_image(url="attachment://battle.png")
+        pan.image("attachment://battle.png")
     elif boss["status"] == "recruiting":
         burl = _boss_image_url(boss)
         if burl:
-            embed.set_image(url=burl)
-    return embed
+            pan.image(burl)
+    return pan
 
 
 def _boss_live_url(boss_id):
@@ -527,35 +535,25 @@ def _boss_live_url(boss_id):
     return f"{base}/cards/boss/{int(boss_id)}" if base else None
 
 
-class JoinView(discord.ui.View):
-    def __init__(self, boss_id, locale="en"):
-        super().__init__(timeout=None)
-        self.boss_id = boss_id
-        self.locale = locale or "en"
-        # custom_id of the buttons must never change: already posted messages rely on it
-        self.join.label = t("guilds.boss.btn_join", self.locale)
-        self.card_btn.label = t("guilds.boss.btn_card", self.locale)
-        self.apt_btn.label = t("guilds.boss.btn_ability", self.locale)
-        # Link button -> live fight on the dashboard (real time animations)
-        url = _boss_live_url(boss_id)
-        if url:
-            self.add_item(discord.ui.Button(label=t("guilds.boss.btn_live", self.locale),
-                                            style=discord.ButtonStyle.link, url=url))
+class _JoinRow(discord.ui.ActionRow):
+    """Boss buttons. The custom_id must never change: messages already posted
+    (and resumed after a restart) are bound to them."""
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, emoji="🛡️",
                        custom_id="boss_join")
     async def join(self, interaction, btn):
-        boss = card_boss_get(self.boss_id)
+        v = self.view
+        boss = card_boss_get(v.boss_id)
         if not boss or boss["status"] != "recruiting":
             await interaction.response.send_message(
                 ti(interaction, "guilds.boss.recruit_over"), ephemeral=True)
             return
         uid = interaction.user.id
-        if boss_participant_get(self.boss_id, uid):
+        if boss_participant_get(v.boss_id, uid):
             await interaction.response.send_message(
                 ti(interaction, "guilds.boss.already_in"), ephemeral=True)
             return
-        if len(boss_participants_list(self.boss_id)) >= _MAX_PLAYERS:
+        if len(boss_participants_list(v.boss_id)) >= _MAX_PLAYERS:
             await interaction.response.send_message(
                 ti(interaction, "guilds.boss.team_full", max=_MAX_PLAYERS), ephemeral=True)
             return
@@ -564,27 +562,29 @@ class JoinView(discord.ui.View):
         dcid = dcard["id"] if dcard else None
         stats = engaged_combat_stats(uid, dcid) if dcid else compute_player_combat_stats(uid)
         d_atk = int(stats["atk"] * (_event_boss_dmg_mult(dcard, boss.get("guild_id")) if dcard else 1.0))
-        boss_participant_add(self.boss_id, uid, interaction.user.display_name,
+        boss_participant_add(v.boss_id, uid, interaction.user.display_name,
                              delem, stats["hp"], d_atk, card_id=dcid)
         # 1st player -> starts the 2 min timer
         if not boss.get("start_at"):
-            card_boss_set_start(self.boss_id, _t.time() + _RECRUIT_SECONDS)
+            card_boss_set_start(v.boss_id, _t.time() + _RECRUIT_SECONDS)
         # Live scaling: the boss grows with the current team (preview while recruiting)
-        _scale_boss_to_team(self.boss_id)
+        _scale_boss_to_team(v.boss_id)
         await interaction.response.send_message(
             ti(interaction, "guilds.boss.joined"), ephemeral=True)
         try:
-            await interaction.message.edit(
-                embed=build_boss_embed(interaction.client, card_boss_get(self.boss_id),
-                                       locale=self.locale), view=self)
+            v.set_panel(build_boss_panel(interaction.client, card_boss_get(v.boss_id),
+                                         locale=v.locale,
+                                         header=t("guilds.boss.appeared", v.locale)))
+            await interaction.message.edit(view=v)
         except Exception:
             pass
 
     def _check(self, interaction):
-        boss = card_boss_get(self.boss_id)
+        v = self.view
+        boss = card_boss_get(v.boss_id)
         if not boss or boss["status"] != "recruiting":
             return ti(interaction, "guilds.boss.recruit_over")
-        if not boss_participant_get(self.boss_id, interaction.user.id):
+        if not boss_participant_get(v.boss_id, interaction.user.id):
             return ti(interaction, "guilds.boss.join_first")
         return None
 
@@ -598,9 +598,10 @@ class JoinView(discord.ui.View):
         # "Interaction failed"). The ephemeral is then sent as a followup.
         await interaction.response.defer(ephemeral=True, thinking=True)
         loc = locale_of(interaction)
-        view = _CardPickerView(self.boss_id, interaction.user.id, interaction.client, locale=loc)
-        await interaction.followup.send(content=t("guilds.boss.picker_content", loc),
-                                        embed=view.build_embed(), view=view, ephemeral=True)
+        picker = _CardPickerView(self.view.boss_id, interaction.user.id,
+                                 interaction.client, locale=loc)
+        # V2: no `content` next to the panel, the intro line lives in the panel.
+        await interaction.followup.send(view=picker, ephemeral=True)
 
     @discord.ui.button(label="Ability", style=discord.ButtonStyle.secondary, emoji="🩸",
                        custom_id="boss_apt")
@@ -608,11 +609,49 @@ class JoinView(discord.ui.View):
         err = self._check(interaction)
         if err:
             await interaction.response.send_message(err, ephemeral=True); return
-        p = boss_participant_get(self.boss_id, interaction.user.id)
+        p = boss_participant_get(self.view.boss_id, interaction.user.id)
         loc = locale_of(interaction)
         await interaction.response.send_message(
             _aptitude_text(loc, _apt_label(p.get("aptitude"), loc)),
-            view=_AptitudeView(self.boss_id, loc), ephemeral=True)
+            view=_AptitudeView(self.view.boss_id, loc), ephemeral=True)
+
+
+class JoinView(discord.ui.LayoutView):
+    """LayoutView = panel container + the boss action row."""
+
+    def __init__(self, boss_id, locale="en", panel=None):
+        super().__init__(timeout=None)
+        self.boss_id = boss_id
+        self.locale = locale or "en"
+        self.btn_row = _JoinRow()
+        self.btn_row.join.label = t("guilds.boss.btn_join", self.locale)
+        self.btn_row.card_btn.label = t("guilds.boss.btn_card", self.locale)
+        self.btn_row.apt_btn.label = t("guilds.boss.btn_ability", self.locale)
+        # Link button -> live fight on the dashboard (real time animations)
+        url = _boss_live_url(boss_id)
+        if url:
+            self.btn_row.add_item(discord.ui.Button(label=t("guilds.boss.btn_live", self.locale),
+                                                    style=discord.ButtonStyle.link, url=url))
+        self.set_panel(panel)
+
+    def set_panel(self, panel):
+        """Swap the container for `panel` (V2 refresh: clear_items + re-add)."""
+        self.clear_items()
+        if panel is not None:
+            self.add_item(panel.container())
+        self.add_item(self.btn_row)
+        return self
+
+    @property
+    def buttons(self):
+        """The real interactive items (LayoutView.children = top level only)."""
+        return list(self.btn_row.children)
+
+    def disable_all(self, keep_links=False):
+        for it in self.btn_row.children:
+            if keep_links and getattr(it, "style", None) == discord.ButtonStyle.link:
+                continue
+            it.disabled = True
 
 
 def _aptitude_text(locale, cur_apt_label=None):
@@ -623,7 +662,7 @@ def _aptitude_text(locale, cur_apt_label=None):
 
 
 async def _refresh_boss_msg(client, boss_id):
-    """Refresh the embed of the boss main message (called from the ephemeral)."""
+    """Refresh the panel of the boss main message (called from the ephemerals)."""
     boss = card_boss_get(boss_id)
     if not boss or not boss.get("message_id"):
         return
@@ -632,7 +671,13 @@ async def _refresh_boss_msg(client, boss_id):
         return
     try:
         m = await ch.fetch_message(int(boss["message_id"]))
-        await m.edit(embed=build_boss_embed(client, boss, locale=_bloc(boss)))
+        loc = _bloc(boss)
+        # V2: an edit carries the whole view, otherwise the buttons would be
+        # dropped. Only reached while recruiting, so they stay enabled.
+        await m.edit(view=JoinView(boss_id, loc, build_boss_panel(
+            client, boss, locale=loc,
+            header=(t("guilds.boss.appeared", loc)
+                    if boss["status"] == "recruiting" else None))))
     except Exception:
         pass
 
@@ -687,7 +732,7 @@ class _ElementFilterSelect(discord.ui.Select):
             opts.append(discord.SelectOption(label=CARD_ELEMENT_LABELS.get(e, e),
                                              value=e, default=(current == e)))
         super().__init__(placeholder=t("guilds.boss.elem_placeholder", locale),
-                         min_values=1, max_values=1, options=opts, row=0)
+                         min_values=1, max_values=1, options=opts)
 
     async def callback(self, interaction):
         view = self.view
@@ -696,7 +741,7 @@ class _ElementFilterSelect(discord.ui.Select):
         view.page = 1
         view._load()
         view._sync_dynamic()
-        await interaction.response.edit_message(embed=view.build_embed(), view=view)
+        await interaction.response.edit_message(view=view)
 
 
 class _PageCardSelect(discord.ui.Select):
@@ -715,7 +760,7 @@ class _PageCardSelect(discord.ui.Select):
             opts = [discord.SelectOption(label=t("guilds.boss.no_card_option", locale),
                                          value="none")]
         super().__init__(placeholder=t("guilds.boss.page_placeholder", locale),
-                         min_values=1, max_values=1, options=opts, row=1)
+                         min_values=1, max_values=1, options=opts)
 
     async def callback(self, interaction):
         if self.values[0] == "none":
@@ -728,7 +773,54 @@ class _PageCardSelect(discord.ui.Select):
         await _apply_card_choice(interaction, self.view.boss_id, card)
 
 
-class _CardPickerView(discord.ui.View):
+class _PickerNavRow(discord.ui.ActionRow):
+    """Pagination + sort of the card picker (ephemeral, no custom_id needed)."""
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction, btn):
+        v = self.view
+        if v.page > 1:
+            v.page -= 1; v._sync_dynamic()
+            await interaction.response.edit_message(view=v)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True)
+    async def counter(self, interaction, btn):
+        pass
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction, btn):
+        v = self.view
+        if v.page < v.total_pages:
+            v.page += 1; v._sync_dynamic()
+            await interaction.response.edit_message(view=v)
+        else:
+            await interaction.response.defer()
+
+    @discord.ui.button(label="🔃 Sort", style=discord.ButtonStyle.secondary)
+    async def sort_btn(self, interaction, btn):
+        v = self.view
+        idx = _SORT_CYCLE.index(v.sort_mode)
+        v.sort_mode = _SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)]
+        v._load()
+        v.page = 1
+        v._sync_dynamic()
+        await interaction.response.edit_message(view=v)
+
+
+class _PickerConfirmRow(discord.ui.ActionRow):
+    @discord.ui.button(label="Pick by name", style=discord.ButtonStyle.success, emoji="🎴")
+    async def confirm(self, interaction, btn):
+        v = self.view
+        boss = card_boss_get(v.boss_id)
+        if not boss or boss["status"] != "recruiting":
+            await interaction.response.send_message(
+                ti(interaction, "guilds.boss.recruit_over"), ephemeral=True); return
+        await interaction.response.send_modal(_ChooseCardModal(v.boss_id, v.locale))
+
+
+class _CardPickerView(discord.ui.LayoutView):
     def __init__(self, boss_id, user_id, bot, element=None, sort_mode=None, locale="en"):
         super().__init__(timeout=300)
         self.boss_id = boss_id
@@ -737,7 +829,11 @@ class _CardPickerView(discord.ui.View):
         self.element = element
         self.sort_mode = sort_mode
         self.locale = locale or "en"
-        self.confirm.label = t("guilds.boss.btn_by_name", self.locale)
+        self.filter_row = discord.ui.ActionRow()
+        self.cards_row = discord.ui.ActionRow()
+        self.nav_row = _PickerNavRow()
+        self.confirm_row = _PickerConfirmRow()
+        self.confirm_row.confirm.label = t("guilds.boss.btn_by_name", self.locale)
         self.page = 1
         self._load()
         self._sync_dynamic()
@@ -766,22 +862,28 @@ class _CardPickerView(discord.ui.View):
 
     def _sync_dynamic(self):
         # rebuild the 2 selects (element filter + cards of the current page)
-        for it in list(self.children):
-            if isinstance(it, (_ElementFilterSelect, _PageCardSelect)):
-                self.remove_item(it)
-        self.add_item(_ElementFilterSelect(self.element, self.locale))
+        self.filter_row.clear_items()
+        self.filter_row.add_item(_ElementFilterSelect(self.element, self.locale))
         page_rows = self.rows[(self.page - 1) * 25: self.page * 25]
-        self.add_item(_PageCardSelect(page_rows, self.locale))
+        self.cards_row.clear_items()
+        self.cards_row.add_item(_PageCardSelect(page_rows, self.locale))
         self._refresh()
 
     def _refresh(self):
-        self.prev_btn.disabled = self.page <= 1
-        self.next_btn.disabled = self.page >= self.total_pages
-        self.counter.label = f"{self.page} / {self.total_pages}"
-        self.sort_btn.label = (f"{_SORT_EMOJI[self.sort_mode]} "
-                               f"{t(_SORT_KEY[self.sort_mode], self.locale)}")
+        self.nav_row.prev_btn.disabled = self.page <= 1
+        self.nav_row.next_btn.disabled = self.page >= self.total_pages
+        self.nav_row.counter.label = f"{self.page} / {self.total_pages}"
+        self.nav_row.sort_btn.label = (f"{_SORT_EMOJI[self.sort_mode]} "
+                                       f"{t(_SORT_KEY[self.sort_mode], self.locale)}")
+        # V2 refresh: clear_items + re-add the container and every row
+        self.clear_items()
+        self.add_item(self.build_panel().container())
+        self.add_item(self.filter_row)
+        self.add_item(self.cards_row)
+        self.add_item(self.nav_row)
+        self.add_item(self.confirm_row)
 
-    def build_embed(self):
+    def build_panel(self):
         from commandes.cards import RARITY_EMOJIS
         page_rows = self.rows[(self.page - 1) * 25: self.page * 25]
         opt_mode = self.sort_mode == "optimal" and self.boss_element
@@ -818,51 +920,16 @@ class _CardPickerView(discord.ui.View):
                  element=elem_lbl, sort=sort_lbl)
         if opt_mode:
             head += t("guilds.boss.picker_note", loc)
-        embed = discord.Embed(
-            title=t("guilds.boss.picker_title", loc), color=0x8e44ad,
-            description=head + "\n\n" + ("\n".join(lines) if lines
-                                         else t("guilds.boss.picker_empty", loc)))
+        pan = Panel()
+        # used to be the message `content` above the embed
+        pan.text(t("guilds.boss.picker_content", loc))
+        pan.text("## " + t("guilds.boss.picker_title", loc))
+        pan.text(head + "\n\n" + ("\n".join(lines) if lines
+                                  else t("guilds.boss.picker_empty", loc)))
         footer_extra = t("guilds.boss.picker_footer_extra", loc) if opt_mode else ""
-        embed.set_footer(text=t("guilds.boss.picker_footer", loc, page=self.page,
-                                total=self.total_pages, extra=footer_extra))
-        return embed
-
-    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary, row=2)
-    async def prev_btn(self, interaction, btn):
-        if self.page > 1:
-            self.page -= 1; self._sync_dynamic()
-            await interaction.response.edit_message(embed=self.build_embed(), view=self)
-        else:
-            await interaction.response.defer()
-
-    @discord.ui.button(label="1 / 1", style=discord.ButtonStyle.primary, disabled=True, row=2)
-    async def counter(self, interaction, btn):
-        pass
-
-    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary, row=2)
-    async def next_btn(self, interaction, btn):
-        if self.page < self.total_pages:
-            self.page += 1; self._sync_dynamic()
-            await interaction.response.edit_message(embed=self.build_embed(), view=self)
-        else:
-            await interaction.response.defer()
-
-    @discord.ui.button(label="🔃 Sort", style=discord.ButtonStyle.secondary, row=2)
-    async def sort_btn(self, interaction, btn):
-        idx = _SORT_CYCLE.index(self.sort_mode)
-        self.sort_mode = _SORT_CYCLE[(idx + 1) % len(_SORT_CYCLE)]
-        self._load()
-        self.page = 1
-        self._sync_dynamic()
-        await interaction.response.edit_message(embed=self.build_embed(), view=self)
-
-    @discord.ui.button(label="Pick by name", style=discord.ButtonStyle.success, emoji="🎴", row=3)
-    async def confirm(self, interaction, btn):
-        boss = card_boss_get(self.boss_id)
-        if not boss or boss["status"] != "recruiting":
-            await interaction.response.send_message(
-                ti(interaction, "guilds.boss.recruit_over"), ephemeral=True); return
-        await interaction.response.send_modal(_ChooseCardModal(self.boss_id, self.locale))
+        pan.footer(t("guilds.boss.picker_footer", loc, page=self.page,
+                     total=self.total_pages, extra=footer_extra))
+        return pan
 
 
 class _ChooseCardModal(discord.ui.Modal):
@@ -1004,17 +1071,19 @@ async def spawn_boss(bot, guild_id, channel_id, tier=1, element=None, rarity=Non
                            image_url=img, start_at=None, card_id=avatar_cid)
     card_boss_set_status(bid, "recruiting")
     boss = card_boss_get(bid)
-    embed = build_boss_embed(bot, boss, locale=loc)
-    view = JoinView(bid, loc)
     # Ping the "card fans" role when configured (/cardsetup role)
     from database import guild_card_config_get
     _role_id = (guild_card_config_get(guild_id) or {}).get("ping_role_id")
-    content = t("guilds.boss.appeared", loc)
+    # V2: the message has no `content` any more, the ping becomes the first text
+    # block of the panel. The send keeps its allowed_mentions so the role is
+    # really pinged.
+    header = t("guilds.boss.appeared", loc)
     allowed = discord.AllowedMentions.none()
     if _role_id:
-        content = f"<@&{_role_id}> {content}"
+        header = f"<@&{_role_id}> {header}"
         allowed = discord.AllowedMentions(roles=True)
-    msg = await channel.send(content=content, embed=embed, view=view, allowed_mentions=allowed)
+    view = JoinView(bid, loc, build_boss_panel(bot, boss, locale=loc, header=header))
+    msg = await channel.send(view=view, allowed_mentions=allowed)
     card_boss_set_message(bid, msg.id)
     asyncio.create_task(_run_boss(bot, bid, msg, view))
     return bid
@@ -1037,7 +1106,10 @@ async def resume_active_bosses(bot):
         except Exception:
             card_boss_set_status(bid, "expired")  # message deleted
             continue
-        view = JoinView(bid, _bloc(boss))
+        view = JoinView(bid, _bloc(boss), build_boss_panel(
+            bot, boss, locale=_bloc(boss),
+            header=(t("guilds.boss.appeared", _bloc(boss))
+                    if boss["status"] == "recruiting" else None)))
         try:
             bot.add_view(view, message_id=int(mid))
         except Exception:
@@ -1134,6 +1206,10 @@ async def _run_boss(bot, bid, msg, view):
         if not _b0:
             return
         loc = _bloc(_b0)
+        # What used to be the message `content` (Discord kept it across edits):
+        # a V2 message has none, so the line is kept in `hdr` and re-rendered on
+        # every panel rebuild. The role ping fires on the initial send only.
+        hdr = t("guilds.boss.appeared", loc) if _b0["status"] == "recruiting" else None
         # ── Recruiting phase ── (skipped when resuming a fight already started)
         if _b0["status"] == "recruiting":
             # The timer (start_at) is only set by the 1st player. With no player we
@@ -1153,8 +1229,9 @@ async def _run_boss(bot, bid, msg, view):
                         p.get("element"), p.get("atk"), p.get("max_hp")) for p in parts]
                 if last_sig is not None and sig != last_sig:
                     try:
-                        await msg.edit(embed=build_boss_embed(bot, card_boss_get(bid), locale=loc),
-                                       view=view)
+                        view.set_panel(build_boss_panel(bot, card_boss_get(bid),
+                                                        locale=loc, header=hdr))
+                        await msg.edit(view=view)
                     except Exception:
                         pass
                 last_sig = sig
@@ -1172,9 +1249,10 @@ async def _run_boss(bot, bid, msg, view):
                 card_boss_set_start(bid, qstart)
                 boss = card_boss_get(bid)
                 try:
-                    await msg.edit(embed=build_boss_embed(bot, boss, locale=loc,
+                    view.set_panel(build_boss_panel(bot, boss, locale=loc, header=hdr,
                         phase_text=t("guilds.boss.quick_start", loc,
                                      players=_QUICK_START_AT, ts=int(qstart))))
+                    await msg.edit(view=view)
                 except Exception:
                     pass
                 await asyncio.sleep(_QUICK_SECONDS)
@@ -1182,13 +1260,13 @@ async def _run_boss(bot, bid, msg, view):
             parts = boss_participants_list(bid)
             if not parts:
                 card_boss_set_status(bid, "expired")
-                for ch in view.children:
-                    ch.disabled = True
+                view.disable_all()
+                hdr = t("guilds.boss.nobody", loc)
                 try:
-                    await msg.edit(content=t("guilds.boss.nobody", loc),
-                                   embed=build_boss_embed(bot, card_boss_get(bid), locale=loc,
-                                                          phase_text=t("guilds.boss.nobody_phase", loc)),
-                                   view=view)
+                    view.set_panel(build_boss_panel(bot, card_boss_get(bid), locale=loc,
+                                                    header=hdr,
+                                                    phase_text=t("guilds.boss.nobody_phase", loc)))
+                    await msg.edit(view=view)
                 except Exception:
                     pass
                 return
@@ -1198,27 +1276,24 @@ async def _run_boss(bot, bid, msg, view):
 
         # ── Automatic fight ──
         card_boss_set_status(bid, "fighting")
-        for ch in view.children:
-            # keep the "watch the fight live" link button clickable during the fight
-            if getattr(ch, "style", None) == discord.ButtonStyle.link:
-                continue
-            ch.disabled = True
+        # keep the "watch the fight live" link button clickable during the fight
+        view.disable_all(keep_links=True)
         log = [t("guilds.boss.fight_start", loc)]
         boss_event_add(bid, "start", {})
         # Build the battlefield (player cards vs boss), attached once
         bf_path = _build_battlefield(bid)
+        hdr = t("guilds.boss.in_progress", loc)
         try:
             if bf_path:
                 import os as _os
-                await msg.edit(content=t("guilds.boss.in_progress", loc),
-                               attachments=[discord.File(bf_path, filename="battle.png")],
-                               embed=build_boss_embed(bot, card_boss_get(bid), log=log,
-                                                      battle=True, locale=loc),
+                view.set_panel(build_boss_panel(bot, card_boss_get(bid), log=log,
+                                                battle=True, locale=loc, header=hdr))
+                await msg.edit(attachments=[discord.File(bf_path, filename="battle.png")],
                                view=view)
             else:
-                await msg.edit(content=t("guilds.boss.in_progress", loc),
-                               embed=build_boss_embed(bot, card_boss_get(bid), log=log, locale=loc),
-                               view=view)
+                view.set_panel(build_boss_panel(bot, card_boss_get(bid), log=log,
+                                                locale=loc, header=hdr))
+                await msg.edit(view=view)
         except Exception:
             pass
 
@@ -1375,9 +1450,10 @@ async def _run_boss(bot, bid, msg, view):
                     break
                 actor = "party"
             try:
-                await msg.edit(embed=build_boss_embed(bot, card_boss_get(bid), log=log,
-                                                      battle=bool(bf_path), locale=loc),
-                               view=view)
+                view.set_panel(build_boss_panel(bot, card_boss_get(bid), log=log,
+                                                battle=bool(bf_path), locale=loc,
+                                                header=hdr))
+                await msg.edit(view=view)
             except Exception:
                 pass
 
@@ -1403,10 +1479,9 @@ async def _run_boss(bot, bid, msg, view):
                     _ch = bot.get_channel(int(_bx["channel_id"])) or await bot.fetch_channel(int(_bx["channel_id"]))
                     if _ch:
                         _loc = _bloc(_bx)
-                        await _ch.send(embed=discord.Embed(
-                            title=t("guilds.boss.crashed_title", _loc, boss=_bx['name']),
-                            description=t("guilds.boss.crashed_desc", _loc),
-                            color=0xff3d57))
+                        await _ch.send(view=Panel(
+                            t("guilds.boss.crashed_title", _loc, boss=_bx['name']),
+                            t("guilds.boss.crashed_desc", _loc)).view())
                 except Exception:
                     pass
         except Exception:
@@ -1422,10 +1497,11 @@ async def _finish(bot, bid, msg, view, log, victory):
     # Show the result on the fight embed first, then leave time to read it
     log.append(t("guilds.boss.log_victory" if victory else "guilds.boss.log_defeat", loc))
     try:
-        await msg.edit(content=t("guilds.boss.victory_content" if victory
-                                 else "guilds.boss.defeat_content", loc),
-                       embed=build_boss_embed(bot, boss, log=log, battle=True, locale=loc),
-                       view=view)
+        view.set_panel(build_boss_panel(
+            bot, boss, log=log, battle=True, locale=loc,
+            header=t("guilds.boss.victory_content" if victory
+                     else "guilds.boss.defeat_content", loc)))
+        await msg.edit(view=view)
     except Exception:
         pass
     await asyncio.sleep(6)
@@ -1441,8 +1517,7 @@ async def _finish(bot, bid, msg, view, log, victory):
         # No channel to post the result: KEEP the fight embed (already edited with the
         # result) instead of deleting it and leaving a ghost behind.
         try:
-            for c in view.children:
-                c.disabled = True
+            view.disable_all()
             await msg.edit(view=view)
         except Exception:
             pass
@@ -1453,8 +1528,7 @@ async def _finish(bot, bid, msg, view, log, victory):
         await msg.delete()
     except Exception:
         try:
-            for c in view.children:
-                c.disabled = True
+            view.disable_all()
             await msg.edit(view=view)
         except Exception:
             pass
@@ -1570,20 +1644,20 @@ async def _finish(bot, bid, msg, view, log, victory):
                             hint=RARITY_HINT.get(avatar_rar, '')))
         boss_event_add(bid, "rewards", {"header": web_hdr, "boss": boss["name"],
                                         "tier": tier, "players": web_rewards})
-        embed = discord.Embed(
-            title=t("guilds.boss.victory_title", loc, boss=boss['name'], tier=tier),
-            description=t("guilds.boss.victory_desc", loc, mentions=mentions,
-                          header=reward_hdr, lines=("\n".join(loot_lines) or "—")),
-            color=0x4ade80)
-        await ch.send(content=mentions, embed=embed,
+        # V2: no `content`. The mentions already live inside the description,
+        # and a V2 text block really pings -> allowed_mentions is kept.
+        pan = Panel(
+            t("guilds.boss.victory_title", loc, boss=boss['name'], tier=tier),
+            t("guilds.boss.victory_desc", loc, mentions=mentions,
+              header=reward_hdr, lines=("\n".join(loot_lines) or "—")))
+        await ch.send(view=pan.view(),
                        allowed_mentions=discord.AllowedMentions(users=True))
     else:
         boss_event_add(bid, "defeat", {"boss": boss["name"], "tier": boss["tier"]})
-        embed = discord.Embed(
-            title=t("guilds.boss.defeat_title", loc, boss=boss['name']),
-            description=t("guilds.boss.defeat_desc", loc, mentions=mentions),
-            color=0xff3d57)
-        await ch.send(content=mentions, embed=embed,
+        pan = Panel(
+            t("guilds.boss.defeat_title", loc, boss=boss['name']),
+            t("guilds.boss.defeat_desc", loc, mentions=mentions))
+        await ch.send(view=pan.view(),
                        allowed_mentions=discord.AllowedMentions(users=True))
 
 

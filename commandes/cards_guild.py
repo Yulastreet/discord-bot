@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 
 from services.i18n import t, ti, locale_of
+from services.ui_v2 import Panel
 
 from database import (
     get_guild_config, guild_create, guild_get, guild_get_by_name, guild_of_user,
@@ -170,20 +171,19 @@ def setup_guild_commands(bot, deps):
         perks = _perk_lines(rew, loc)
         unlocks = [k for k in ("bank", "raids", "shop") if rew.get(k)]
         title = f"🛡️ {g['name']}" + (f" [{g['tag']}]" if g.get("tag") else "")
-        emb = discord.Embed(title=title, color=0x8e44ad)
-        emb.add_field(name=t("guilds.guild.f_progress", loc),
-                      value=_progress_line(g, cfg, loc), inline=False)
-        emb.add_field(name=t("guilds.guild.f_members", loc, count=len(members),
-                             max=cfg.get('max_members', 30)),
-                      value="\n".join(f"{'👑' if m['role']=='master' else ('🔧' if m['role']=='officer' else '▫️')} "
-                                      f"<@{m['user_id']}> · {m['xp_contributed']:,} XP"
-                                      for m in members[:30]) or "—", inline=False)
-        emb.add_field(name=t("guilds.guild.f_bank", loc), value=f"{g['bank']:,} ✨", inline=True)
+        emb = Panel(title)
+        emb.field(t("guilds.guild.f_progress", loc), _progress_line(g, cfg, loc))
+        emb.field(t("guilds.guild.f_members", loc, count=len(members),
+                    max=cfg.get('max_members', 30)),
+                  "\n".join(f"{'👑' if m['role']=='master' else ('🔧' if m['role']=='officer' else '▫️')} "
+                            f"<@{m['user_id']}> · {m['xp_contributed']:,} XP"
+                            for m in members[:30]) or "—")
+        emb.field(t("guilds.guild.f_bank", loc), f"{g['bank']:,} ✨", inline=True)
         if perks:
-            emb.add_field(name=t("guilds.guild.f_perks", loc), value=" · ".join(perks), inline=False)
+            emb.field(t("guilds.guild.f_perks", loc), " · ".join(perks))
         if unlocks:
-            emb.add_field(name=t("guilds.guild.f_unlocked", loc), value=" · ".join(unlocks), inline=False)
-        await interaction.response.send_message(embed=emb,
+            emb.field(t("guilds.guild.f_unlocked", loc), " · ".join(unlocks))
+        await interaction.response.send_message(view=emb.view(),
                                                 allowed_mentions=discord.AllowedMentions.none())
 
     # ---- invite ----
@@ -524,9 +524,8 @@ def setup_guild_commands(bot, deps):
             tag = f" [{g['tag']}]" if g.get("tag") else ""
             lines.append(t("guilds.guild.top_line", loc, medal=medal, name=g['name'],
                            tag=tag, level=g['level'], members=g['members']))
-        emb = discord.Embed(title=t("guilds.guild.top_title", loc), description="\n".join(lines),
-                            color=0xF2B33A)
-        await interaction.response.send_message(embed=emb)
+        emb = Panel(t("guilds.guild.top_title", loc), "\n".join(lines))
+        await interaction.response.send_message(view=emb.view())
 
     @g_accept.autocomplete("name")
     @g_info.autocomplete("name")
@@ -562,7 +561,9 @@ def setup_guild_commands(bot, deps):
             rows.append({"user_id": m["user_id"], "role": m["role"], "power": pw, "cards": cards})
         return rows
 
-    def _guildprofile_embed(g, rows, sort, locale="en"):
+    def _guildprofile_panel(g, rows, sort, locale="en"):
+        """Components V2 panel of the guild profile (replaces the former embed).
+        No accent colour any more: the profile colour is dropped."""
         cfg = get_guild_config()
         if sort == "role":
             rows = sorted(rows, key=lambda r: (_ROLE_RANK.get(r["role"], 9), -r["power"]))
@@ -579,21 +580,20 @@ def setup_guild_commands(bot, deps):
         pct = 100 if lvl >= maxlv else int(100 * into / span)
         tag = f" [{g['tag']}]" if g.get("tag") else ""
         emblem = g.get("emblem") or "🛡️"
-        emb = discord.Embed(title=f"{emblem} {g['name']}{tag}", color=profile_color_hex(g.get("color"), 0x8e44ad))
-        emb.add_field(
-            name=t("guilds.guild.profile_level_max" if lvl >= maxlv else "guilds.guild.profile_level",
-                   locale, level=lvl),
-            value=(f"{bar}  **{pct}%**\n" + (f"_{_fmt_n(into)} / {_fmt_n(span)} XP_" if lvl < maxlv else f"_{_fmt_n(g['xp'])} XP_")),
-            inline=False)
+        pan = Panel(f"{emblem} {g['name']}{tag}")
+        pan.field(
+            t("guilds.guild.profile_level_max" if lvl >= maxlv else "guilds.guild.profile_level",
+              locale, level=lvl),
+            (f"{bar}  **{pct}%**\n" + (f"_{_fmt_n(into)} / {_fmt_n(span)} XP_" if lvl < maxlv else f"_{_fmt_n(g['xp'])} XP_")))
         # Total power in custom digit emojis (members stay plain text)
         try:
             from services.card_boss import _power_digits
             pw_str = _power_digits(bot, total_power)
         except Exception:
             pw_str = f"**{_fmt_n(total_power)}**"
-        emb.add_field(name=t("guilds.guild.profile_power", locale), value=pw_str + "\n​", inline=False)
-        emb.add_field(name=t("guilds.guild.profile_bank", locale),
-                      value=f"{_fmt_n(g['bank'])} ✨\n​", inline=False)
+        pan.field(t("guilds.guild.profile_power", locale), pw_str + "\n​")
+        pan.field(t("guilds.guild.profile_bank", locale),
+                  f"{_fmt_n(g['bank'])} ✨\n​")
         # Next tier (level + what it brings that is NEW)
         cur_rew = guild_rewards_for_level(lvl, cfg)
         nxt = next((p for p in sorted(cfg.get("rewards", []), key=lambda x: x.get("level", 0))
@@ -608,28 +608,45 @@ def setup_guild_commands(bot, deps):
                     bits.append(t("guilds.guild.profile_unlocks", locale, feature=t(lbl_key, locale)))
             up_txt = t("guilds.guild.profile_next_line", locale, level=nxt['level'],
                        perks=(" · ".join(bits) or "—"))
-        emb.add_field(name=t("guilds.guild.profile_next", locale), value=up_txt, inline=False)
+        pan.field(t("guilds.guild.profile_next", locale), up_txt)
         lines = []
         for r in rows[:30]:
             lines.append(f"{_ROLE_ICON.get(r['role'],'▫️')} <@{r['user_id']}> — "
                          + t("guilds.guild.profile_member_line", locale,
                              power=_fmt_n(r['power']), cards=r['cards']))
-        emb.add_field(name="───────────────────────",
-                      value=t("guilds.guild.profile_members_header", locale,
-                              count=len(rows), sort=sort) + "\n" + ("\n".join(lines) or "—"),
-                      inline=False)
-        return emb
+        pan.field("───────────────────────",
+                  t("guilds.guild.profile_members_header", locale,
+                    count=len(rows), sort=sort) + "\n" + ("\n".join(lines) or "—"))
+        return pan
 
-    class ShopBuyView(discord.ui.View):
-        def __init__(self, gid, locale="en"):
+    class ShopBuyView(discord.ui.LayoutView):
+        """Panel + shop buttons (5 per ActionRow, a classic View spread them itself)."""
+
+        def __init__(self, gid, locale="en", panel=None):
             super().__init__(timeout=120)
             self.gid = gid
             self.locale = locale
+            self._rows = []
+            cur = discord.ui.ActionRow()
             for it in (get_guild_config().get("shop") or [])[:20]:
+                if len(cur.children) >= 5:
+                    self._rows.append(cur)
+                    cur = discord.ui.ActionRow()
                 b = discord.ui.Button(label=f"{it['name']} — {it['cost']} ✨",
                                       style=discord.ButtonStyle.primary)
                 b.callback = self._mk(it)
-                self.add_item(b)
+                cur.add_item(b)
+            if cur.children:
+                self._rows.append(cur)
+            self.set_panel(panel)
+
+        def set_panel(self, panel):
+            self.clear_items()
+            if panel is not None:
+                self.add_item(panel.container())
+            for r in self._rows:
+                self.add_item(r)
+            return self
 
         def _mk(self, it):
             async def cb(inter: discord.Interaction):
@@ -670,17 +687,87 @@ def setup_guild_commands(bot, deps):
                 return p.get("level")
         return None
 
-    class GuildProfileView(discord.ui.View):
+    def _gone_view(interaction):
+        """A V2 message cannot fall back to plain content: replace the whole view."""
+        return Panel(description=ti(interaction, "guilds.guild.gone")).view()
+
+    class _ProfileRowTop(discord.ui.ActionRow):
+        @discord.ui.button(label="Sort: power", emoji="⚡", style=discord.ButtonStyle.secondary)
+        async def s_rotate(self, interaction, btn):
+            v = self.view
+            v.sort = v._SORT_ROT.get(v.sort, "power")
+            btn.label = ti(interaction, v._SORT_KEY[v.sort])
+            btn.emoji = v._SORT_EMO[v.sort]
+            await v._refresh(interaction)
+
+        @discord.ui.button(label="Quests", emoji="📜", style=discord.ButtonStyle.primary)
+        async def b_quests(self, interaction, btn):
+            v = self.view
+            g = guild_get(v.gid)
+            if not g:
+                await interaction.response.edit_message(view=_gone_view(interaction)); return
+            loc = locale_of(interaction)
+            qv = QuestView(v.gid, v.rows, v.invoker_role, interaction.user.id, loc)
+            qv.set_panel(_quests_daily_panel(interaction.client, g, interaction.user.id, loc))
+            await interaction.response.edit_message(
+                view=qv, allowed_mentions=discord.AllowedMentions.none())
+
+    class _ProfileRowBottom(discord.ui.ActionRow):
+        @discord.ui.button(label="Bank", emoji="💰", style=discord.ButtonStyle.success)
+        async def b_bank(self, interaction, btn):
+            v = self.view
+            if not v._bank_ok:
+                lv = v._bank_lv or "?"
+                await interaction.response.send_message(
+                    ti(interaction, "guilds.guild.bank_locked_lv", level=lv), ephemeral=True); return
+            g = guild_get(v.gid)
+            await interaction.response.send_message(
+                ti(interaction, "guilds.guild.bank_info", name=g['name'], bank=_fmt_n(g['bank'])),
+                ephemeral=True)
+
+        @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.primary)
+        async def b_shop(self, interaction, btn):
+            v = self.view
+            loc = locale_of(interaction)
+            if not v._shop_ok:
+                lv = v._shop_lv or "?"
+                await interaction.response.send_message(
+                    t("guilds.guild.shop_locked_lv", loc, level=lv), ephemeral=True); return
+            items = get_guild_config().get("shop") or []
+            if not items:
+                await interaction.response.send_message(
+                    t("guilds.guild.shop_empty", loc), ephemeral=True); return
+            desc = "\n".join(f"**{it['name']}** — {_fmt_n(it['cost'])} ✨\n_{it.get('desc','')}_"
+                             for it in items)
+            emb = Panel(t("guilds.guild.shop_title", loc), desc)
+            emb.footer(t("guilds.guild.shop_footer", loc))
+            await interaction.response.send_message(
+                view=ShopBuyView(v.gid, loc, emb), ephemeral=True)
+
+        @discord.ui.button(label="Guild customization", emoji="🎨", style=discord.ButtonStyle.secondary)
+        async def b_custom(self, interaction, btn):
+            v = self.view
+            if not _can_master(v.gid, interaction.user.id):
+                await interaction.response.send_message(
+                    ti(interaction, "guilds.guild.master_only"), ephemeral=True); return
+            loc = locale_of(interaction)
+            await interaction.response.send_message(
+                t("guilds.guild.custom_intro", loc),
+                view=GuildCustomizeView(v.gid, loc), ephemeral=True)
+
+    class GuildProfileView(discord.ui.LayoutView):
         def __init__(self, gid, rows, invoker_role=None, locale="en"):
             super().__init__(timeout=180)
             self.gid = gid; self.rows = rows; self.sort = "power"
             self.invoker_role = invoker_role
             self.locale = locale
-            self.s_rotate.label = t("guilds.guild.sort_power", locale)
-            self.b_quests.label = t("guilds.guild.btn_quests", locale)
-            self.b_bank.label = t("guilds.guild.btn_bank", locale)
-            self.b_shop.label = t("guilds.guild.btn_shop", locale)
-            self.b_custom.label = t("guilds.guild.btn_custom", locale)
+            self.row_top = _ProfileRowTop()
+            self.row_bottom = _ProfileRowBottom()
+            self.row_top.s_rotate.label = t("guilds.guild.sort_power", locale)
+            self.row_top.b_quests.label = t("guilds.guild.btn_quests", locale)
+            self.row_bottom.b_bank.label = t("guilds.guild.btn_bank", locale)
+            self.row_bottom.b_shop.label = t("guilds.guild.btn_shop", locale)
+            self.row_bottom.b_custom.label = t("guilds.guild.btn_custom", locale)
             cfg = get_guild_config()
             g = guild_get(gid)
             rew = guild_rewards_for_level(g["level"], cfg) if g else {}
@@ -690,86 +777,40 @@ def setup_guild_commands(bot, deps):
             self._shop_lv = _unlock_level(cfg, "shop")
             # Shop: only visible to Master / Officer
             if invoker_role not in ("master", "officer"):
-                self.remove_item(self.b_shop)
+                self.row_bottom.remove_item(self.row_bottom.b_shop)
             elif not self._shop_ok:
-                self.b_shop.style = discord.ButtonStyle.secondary; self.b_shop.emoji = "🔒"
+                self.row_bottom.b_shop.style = discord.ButtonStyle.secondary
+                self.row_bottom.b_shop.emoji = "🔒"
             # Customization: Master only
             if invoker_role != "master":
-                self.remove_item(self.b_custom)
+                self.row_bottom.remove_item(self.row_bottom.b_custom)
             # Visual lock on the bank (greyed out, padlock) if not unlocked, still clickable
             if not self._bank_ok:
-                self.b_bank.style = discord.ButtonStyle.secondary; self.b_bank.emoji = "🔒"
+                self.row_bottom.b_bank.style = discord.ButtonStyle.secondary
+                self.row_bottom.b_bank.emoji = "🔒"
+            self.set_panel(_guildprofile_panel(g, rows, self.sort, locale) if g else None)
+
+        def set_panel(self, panel):
+            """V2 refresh: clear_items + re-add the container and the rows."""
+            self.clear_items()
+            if panel is not None:
+                self.add_item(panel.container())
+            self.add_item(self.row_top)
+            self.add_item(self.row_bottom)
+            return self
 
         async def _refresh(self, interaction):
             g = guild_get(self.gid)
             if not g:
-                await interaction.response.edit_message(
-                    content=ti(interaction, "guilds.guild.gone"), embed=None, view=None); return
+                await interaction.response.edit_message(view=_gone_view(interaction)); return
+            self.set_panel(_guildprofile_panel(g, self.rows, self.sort, self.locale))
             await interaction.response.edit_message(
-                embed=_guildprofile_embed(g, self.rows, self.sort, self.locale), view=self)
+                view=self, allowed_mentions=discord.AllowedMentions.none())
 
         _SORT_ROT = {"power": "role", "role": "cards", "cards": "power"}
         _SORT_KEY = {"power": "guilds.guild.sort_power", "role": "guilds.guild.sort_role",
                      "cards": "guilds.guild.sort_cards"}
         _SORT_EMO = {"power": "⚡", "role": "👑", "cards": "🎴"}
-
-        @discord.ui.button(label="Sort: power", emoji="⚡", style=discord.ButtonStyle.secondary)
-        async def s_rotate(self, interaction, btn):
-            self.sort = self._SORT_ROT.get(self.sort, "power")
-            btn.label = ti(interaction, self._SORT_KEY[self.sort])
-            btn.emoji = self._SORT_EMO[self.sort]
-            await self._refresh(interaction)
-
-        @discord.ui.button(label="Quests", emoji="📜", style=discord.ButtonStyle.primary)
-        async def b_quests(self, interaction, btn):
-            g = guild_get(self.gid)
-            if not g:
-                await interaction.response.edit_message(
-                    content=ti(interaction, "guilds.guild.gone"), embed=None, view=None); return
-            loc = locale_of(interaction)
-            qv = QuestView(self.gid, self.rows, self.invoker_role, interaction.user.id, loc)
-            await interaction.response.edit_message(
-                embed=_quests_daily_embed(interaction.client, g, interaction.user.id, loc), view=qv)
-
-        @discord.ui.button(label="Bank", emoji="💰", style=discord.ButtonStyle.success, row=1)
-        async def b_bank(self, interaction, btn):
-            if not self._bank_ok:
-                lv = self._bank_lv or "?"
-                await interaction.response.send_message(
-                    ti(interaction, "guilds.guild.bank_locked_lv", level=lv), ephemeral=True); return
-            g = guild_get(self.gid)
-            await interaction.response.send_message(
-                ti(interaction, "guilds.guild.bank_info", name=g['name'], bank=_fmt_n(g['bank'])),
-                ephemeral=True)
-
-        @discord.ui.button(label="Shop", emoji="🛒", style=discord.ButtonStyle.primary, row=1)
-        async def b_shop(self, interaction, btn):
-            loc = locale_of(interaction)
-            if not self._shop_ok:
-                lv = self._shop_lv or "?"
-                await interaction.response.send_message(
-                    t("guilds.guild.shop_locked_lv", loc, level=lv), ephemeral=True); return
-            items = get_guild_config().get("shop") or []
-            if not items:
-                await interaction.response.send_message(
-                    t("guilds.guild.shop_empty", loc), ephemeral=True); return
-            desc = "\n".join(f"**{it['name']}** — {_fmt_n(it['cost'])} ✨\n_{it.get('desc','')}_"
-                             for it in items)
-            emb = discord.Embed(title=t("guilds.guild.shop_title", loc), description=desc,
-                                color=0x4ade80)
-            emb.set_footer(text=t("guilds.guild.shop_footer", loc))
-            await interaction.response.send_message(
-                embed=emb, view=ShopBuyView(self.gid, loc), ephemeral=True)
-
-        @discord.ui.button(label="Guild customization", emoji="🎨", style=discord.ButtonStyle.secondary, row=1)
-        async def b_custom(self, interaction, btn):
-            if not _can_master(self.gid, interaction.user.id):
-                await interaction.response.send_message(
-                    ti(interaction, "guilds.guild.master_only"), ephemeral=True); return
-            loc = locale_of(interaction)
-            await interaction.response.send_message(
-                t("guilds.guild.custom_intro", loc),
-                view=GuildCustomizeView(self.gid, loc), ephemeral=True)
 
     class GuildCustomizeView(discord.ui.View):
         def __init__(self, gid, locale="en"):
@@ -975,24 +1016,21 @@ def setup_guild_commands(bot, deps):
         empty = str(discord.utils.get(bot.emojis, name="lifebarempty") or "⬛")
         return full * filled + empty * (seg - filled)
 
-    def _quests_daily_embed(bot, g, user_id, locale="en"):
-        col = profile_color_hex(g.get("color"), 0x8e44ad)
-        emb = discord.Embed(title=t("guilds.guild.quests_daily_title", locale, name=g['name']),
-                            description=t("guilds.guild.quests_daily_desc", locale), color=col)
+    def _quests_daily_panel(bot, g, user_id, locale="en"):
+        pan = Panel(t("guilds.guild.quests_daily_title", locale, name=g['name']),
+                    t("guilds.guild.quests_daily_desc", locale))
         for q in guild_quests_daily_get(user_id, g["id"]):
             prog = min(q["progress"], q["target"])
             check = "✅" if q["done"] else "⬜"
-            emb.add_field(
-                name=f"{check} {q['label']}",
-                value=f"{_quest_bar(prog, q['target'])}  **{prog}/{q['target']}**  ·  +{q['xp']} XP",
-                inline=False)
-        emb.set_footer(text=t("guilds.guild.quests_daily_footer", locale))
-        return emb
+            pan.field(
+                f"{check} {q['label']}",
+                f"{_quest_bar(prog, q['target'])}  **{prog}/{q['target']}**  ·  +{q['xp']} XP")
+        pan.footer(t("guilds.guild.quests_daily_footer", locale))
+        return pan
 
-    def _quests_weekly_embed(bot, g, locale="en"):
-        col = profile_color_hex(g.get("color"), 0x8e44ad)
-        emb = discord.Embed(title=t("guilds.guild.quests_weekly_title", locale, name=g['name']),
-                            description=t("guilds.guild.quests_weekly_desc", locale), color=col)
+    def _quests_weekly_panel(bot, g, locale="en"):
+        pan = Panel(t("guilds.guild.quests_weekly_title", locale, name=g['name']),
+                    t("guilds.guild.quests_weekly_desc", locale))
         for q in guild_quests_weekly_get(g["id"]):
             prog = min(q["progress"], q["target"])
             check = "✅" if q["done"] else "⬜"
@@ -1003,45 +1041,56 @@ def setup_guild_commands(bot, deps):
             contrib_txt = ""
             if top:
                 contrib_txt = "\n" + " · ".join(f"<@{c['user_id']}> ({_fmt_n(c['contrib'])})" for c in top)
-            emb.add_field(
-                name=f"{check} {q['label']}",
-                value=f"{_quest_bar(prog, q['target'])}  **{_fmt_n(prog)}/{_fmt_n(q['target'])}**  ·  {reward}"
-                      + contrib_txt,
-                inline=False)
-        emb.set_footer(text=t("guilds.guild.quests_weekly_footer", locale))
-        return emb
+            pan.field(
+                f"{check} {q['label']}",
+                f"{_quest_bar(prog, q['target'])}  **{_fmt_n(prog)}/{_fmt_n(q['target'])}**  ·  {reward}"
+                + contrib_txt)
+        pan.footer(t("guilds.guild.quests_weekly_footer", locale))
+        return pan
 
-    class QuestView(discord.ui.View):
+    class _QuestRow(discord.ui.ActionRow):
+        @discord.ui.button(label="Daily / Weekly", emoji="🔁", style=discord.ButtonStyle.primary)
+        async def toggle(self, interaction, btn):
+            v = self.view
+            g = guild_get(v.gid)
+            if not g:
+                await interaction.response.edit_message(view=_gone_view(interaction)); return
+            v.page = "weekly" if v.page == "daily" else "daily"
+            pan = (_quests_weekly_panel(interaction.client, g, v.locale) if v.page == "weekly"
+                   else _quests_daily_panel(interaction.client, g, v.invoker_id, v.locale))
+            v.set_panel(pan)
+            await interaction.response.edit_message(
+                view=v, allowed_mentions=discord.AllowedMentions.none())
+
+        @discord.ui.button(label="Back", emoji="◀️", style=discord.ButtonStyle.secondary)
+        async def back(self, interaction, btn):
+            v = self.view
+            g = guild_get(v.gid)
+            if not g:
+                await interaction.response.edit_message(view=_gone_view(interaction)); return
+            view = GuildProfileView(v.gid, v.rows, invoker_role=v.invoker_role,
+                                    locale=v.locale)
+            await interaction.response.edit_message(
+                view=view, allowed_mentions=discord.AllowedMentions.none())
+
+    class QuestView(discord.ui.LayoutView):
         def __init__(self, gid, rows, invoker_role, invoker_id, locale="en"):
             super().__init__(timeout=180)
             self.gid = gid; self.rows = rows
             self.invoker_role = invoker_role; self.invoker_id = invoker_id
             self.locale = locale
             self.page = "daily"
-            self.toggle.label = t("guilds.guild.btn_quest_toggle", locale)
-            self.back.label = t("guilds.guild.btn_back", locale)
+            self.quest_row = _QuestRow()
+            self.quest_row.toggle.label = t("guilds.guild.btn_quest_toggle", locale)
+            self.quest_row.back.label = t("guilds.guild.btn_back", locale)
+            self.set_panel(None)
 
-        @discord.ui.button(label="Daily / Weekly", emoji="🔁", style=discord.ButtonStyle.primary)
-        async def toggle(self, interaction, btn):
-            g = guild_get(self.gid)
-            if not g:
-                await interaction.response.edit_message(
-                    content=ti(interaction, "guilds.guild.gone"), embed=None, view=None); return
-            self.page = "weekly" if self.page == "daily" else "daily"
-            emb = (_quests_weekly_embed(interaction.client, g, self.locale) if self.page == "weekly"
-                   else _quests_daily_embed(interaction.client, g, self.invoker_id, self.locale))
-            await interaction.response.edit_message(embed=emb, view=self)
-
-        @discord.ui.button(label="Back", emoji="◀️", style=discord.ButtonStyle.secondary)
-        async def back(self, interaction, btn):
-            g = guild_get(self.gid)
-            if not g:
-                await interaction.response.edit_message(
-                    content=ti(interaction, "guilds.guild.gone"), embed=None, view=None); return
-            view = GuildProfileView(self.gid, self.rows, invoker_role=self.invoker_role,
-                                    locale=self.locale)
-            await interaction.response.edit_message(
-                embed=_guildprofile_embed(g, self.rows, "power", self.locale), view=view)
+        def set_panel(self, panel):
+            self.clear_items()
+            if panel is not None:
+                self.add_item(panel.container())
+            self.add_item(self.quest_row)
+            return self
 
     @bot.tree.command(name="guildprofile",
                        description="A guild's profile (yours by default)")
@@ -1058,7 +1107,8 @@ def setup_guild_commands(bot, deps):
         rows = _build_member_rows(g)
         inv_role = "master" if _is_owner(interaction.user.id) else guild_member_role(g["id"], interaction.user.id)
         view = GuildProfileView(g["id"], rows, invoker_role=inv_role, locale=loc)
-        await interaction.followup.send(embed=_guildprofile_embed(g, rows, "power", loc), view=view)
+        await interaction.followup.send(
+            view=view, allowed_mentions=discord.AllowedMentions.none())
 
     @guildprofile.autocomplete("name")
     async def _gp_ac(interaction: discord.Interaction, current: str):

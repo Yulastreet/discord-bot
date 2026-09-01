@@ -20,6 +20,7 @@ import time
 import discord
 
 from database import automod_config_get
+from services.ui_v2 import Panel
 
 
 # Cache des configs (TTL 30s) pour eviter de hit la DB sur chaque message
@@ -76,20 +77,21 @@ def _word_match(content: str, words_csv: str) -> str | None:
 
 
 async def _log_action(bot, guild, log_ch_id, title: str, description: str,
-                       color=discord.Color.red(), fields=None):
+                       fields=None):
+    # Components V2: no accent colour any more, and the old embed timestamp
+    # becomes a Discord timestamp in the footer.
     if not log_ch_id:
         return
     try:
         ch = guild.get_channel(int(log_ch_id))
         if ch is None or not isinstance(ch, (discord.TextChannel, discord.Thread)):
             return
-        em = discord.Embed(title=title, description=description, color=color,
-                            timestamp=discord.utils.utcnow())
-        if fields:
-            for n, v in fields:
-                em.add_field(name=n, value=v, inline=False)
-        em.set_footer(text="TookBot Automod")
-        await ch.send(embed=em)
+        p = Panel(title, description)
+        for n, v in (fields or []):
+            p.field(n, v)
+        p.footer("TookBot Automod · "
+                 + discord.utils.format_dt(discord.utils.utcnow(), "f"))
+        await ch.send(view=p.view())
     except Exception as e:
         print(f"[automod log] err: {type(e).__name__}: {e}")
 
@@ -186,7 +188,6 @@ async def automod_on_member_join(member: discord.Member, bot):
             f"**{len(w)}** joins en moins de {_JOIN_WINDOW_SEC}s "
             f"(seuil : {threshold}/min).\n"
             f"Dernier joiner : {member.mention} ({member.id})",
-            color=discord.Color.orange(),
             fields=[("Recommandation",
                      "Active le verrouillage du serveur ou augmente le seuil "
                      "de verification Discord si confirme.")],
